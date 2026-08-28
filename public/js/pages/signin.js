@@ -12,7 +12,7 @@ window.pages.signin = async function() {
         <!-- Brand Header -->
         <div class="text-center mb-xl">
             <a href="#/" class="text-display font-display text-primary flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
-                <img src="/logo.png" alt="LPUQuick" class="w-12 h-12 rounded-2xl shadow-md object-cover">
+                <img src="/logo.svg" alt="LPUQuick" class="w-14 h-14 rounded-2xl shadow-md">
                 <span class="text-2xl sm:text-3xl font-bold tracking-tight">LPUQuick</span>
             </a>
             <p class="text-body-lg font-body-lg text-on-surface-variant mt-sm text-xs sm:text-sm">Calm Campus Commerce · 3 Mins Express</p>

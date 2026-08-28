@@ -59,7 +59,7 @@ window.pages.home = async function() {
     <header class="hidden md:flex justify-between items-center px-margin-desktop py-sm w-full z-50 fixed top-0 bg-surface/80 backdrop-blur-3xl border-b border-glass-border">
         <div class="flex items-center gap-md">
             <a href="#/" class="font-display text-display text-primary tracking-tighter text-2xl font-bold flex items-center gap-2">
-                <img src="/logo.png" alt="LPUQuick" class="w-8 h-8 rounded-xl shadow-sm object-cover">
+                <img src="/logo.svg" alt="LPUQuick" class="w-8 h-8 rounded-xl shadow-sm">
                 <span>LPUQuick</span>
             </a>
             <!-- Address Selector Trigger -->
