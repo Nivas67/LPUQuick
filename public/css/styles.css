@@ -1,15 +1,100 @@
 /* ============================================================
-   LPUQuick — Global Styles & Ultra-Glassy Dark Theme
+   LPUQuick — Global Ultra-Glass Frosted Glassmorphism
    ============================================================ */
 
 :root {
-    --bg-primary: #f8f9fa;
-    --text-primary: #191c1b;
-    --text-secondary: #3f4944;
-    --card-bg: rgba(255, 255, 255, 0.78);
-    --card-border: rgba(255, 255, 255, 0.6);
-    --surface-high: #e6e8e4;
-    --header-bg: rgba(248, 249, 250, 0.85);
+    --bg-primary: #f6f8f7;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --card-bg: rgba(255, 255, 255, 0.68);
+    --card-border: rgba(255, 255, 255, 0.85);
+    --surface-high: rgba(240, 244, 241, 0.6);
+    --header-bg: rgba(255, 255, 255, 0.75);
+}
+
+/* ============================================================
+   LIGHT MODE — FROSTED GLASS & AMBIENT MESH GRADIENTS
+   ============================================================ */
+
+body {
+    background-color: #f6f8f7 !important;
+    background-image: 
+        radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.14) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.09) 0px, transparent 50%),
+        radial-gradient(at 50% 100%, rgba(14, 165, 233, 0.08) 0px, transparent 50%),
+        radial-gradient(at 10% 80%, rgba(16, 185, 129, 0.08) 0px, transparent 40%) !important;
+    background-attachment: fixed !important;
+    color: #0f172a !important;
+}
+
+.bg-background {
+    background-color: transparent !important;
+}
+
+/* Light Mode Glass Cards & Surfaces */
+.glass-card,
+.glass-panel,
+.glass-overlay,
+.bg-surface {
+    background: rgba(255, 255, 255, 0.68) !important;
+    backdrop-filter: blur(28px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.85) !important;
+    box-shadow: 0 10px 32px 0 rgba(0, 0, 0, 0.04), inset 0 1px 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+.bg-surface-container-high {
+    background: rgba(240, 245, 242, 0.6) !important;
+    border: 1px solid rgba(255, 255, 255, 0.7) !important;
+}
+
+.bg-surface-container-lowest {
+    background: rgba(255, 255, 255, 0.8) !important;
+}
+
+.border-glass-border,
+.border-surface-variant {
+    border-color: rgba(255, 255, 255, 0.75) !important;
+}
+
+/* Glassy Top Navigation Header in Light Mode */
+header {
+    background: rgba(255, 255, 255, 0.72) !important;
+    backdrop-filter: blur(32px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(200%) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.85) !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.03) !important;
+}
+
+/* Glassy Floating Bottom Navigation Bar in Light Mode */
+nav {
+    background: rgba(255, 255, 255, 0.78) !important;
+    backdrop-filter: blur(36px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(36px) saturate(200%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.9) !important;
+    box-shadow: 0 14px 44px rgba(0, 0, 0, 0.08), inset 0 1px 2px rgba(255, 255, 255, 1) !important;
+}
+
+/* Product Cards in Light Mode */
+.product-detail-trigger {
+    background: rgba(255, 255, 255, 0.7) !important;
+    backdrop-filter: blur(24px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.85) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04), inset 0 1px 1px rgba(255, 255, 255, 0.9) !important;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s, box-shadow 0.2s;
+}
+.product-detail-trigger:hover {
+    border-color: rgba(16, 185, 129, 0.5) !important;
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.08), 0 0 20px rgba(16, 185, 129, 0.15) !important;
+    transform: translateY(-3px);
+}
+
+/* Search inputs in Light Mode */
+input {
+    background: rgba(255, 255, 255, 0.75) !important;
+    border-color: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(16px) !important;
 }
 
 /* ============================================================
@@ -29,9 +114,10 @@ html.dark, body.dark {
 body.dark {
     background-color: #0a110d !important;
     background-image: 
-        radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.15) 0px, transparent 50%),
-        radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.12) 0px, transparent 50%),
-        radial-gradient(at 50% 100%, rgba(5, 150, 105, 0.12) 0px, transparent 50%) !important;
+        radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.16) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.13) 0px, transparent 50%),
+        radial-gradient(at 50% 100%, rgba(5, 150, 105, 0.13) 0px, transparent 50%),
+        radial-gradient(at 10% 80%, rgba(16, 185, 129, 0.1) 0px, transparent 40%) !important;
     background-attachment: fixed !important;
     color: #f1f5f9 !important;
 }
@@ -40,15 +126,14 @@ body.dark .bg-background {
     background-color: transparent !important;
 }
 
-/* Glassy Top Navigation Header in Dark Mode */
 body.dark header {
     background: rgba(10, 17, 13, 0.7) !important;
     backdrop-filter: blur(28px) saturate(180%) !important;
     -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4) !important;
 }
 
-/* Glassy Floating Bottom Navigation Bar in Dark Mode */
 body.dark nav {
     background: rgba(14, 24, 19, 0.75) !important;
     backdrop-filter: blur(32px) saturate(190%) !important;
@@ -57,7 +142,6 @@ body.dark nav {
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.15) !important;
 }
 
-/* Glass Cards & Containers in Dark Mode */
 body.dark .glass-card,
 body.dark .glass-panel,
 body.dark .glass-overlay,
@@ -96,7 +180,6 @@ body.dark .border-surface-variant {
     border-color: rgba(255, 255, 255, 0.08) !important;
 }
 
-/* Search Dropdowns & Inputs in Dark Mode */
 body.dark input {
     background: rgba(16, 28, 22, 0.7) !important;
     border-color: rgba(255, 255, 255, 0.1) !important;
@@ -104,12 +187,6 @@ body.dark input {
     backdrop-filter: blur(16px) !important;
 }
 
-body.dark input:focus {
-    border-color: #10B981 !important;
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25) !important;
-}
-
-/* Modals & Bottom Sheets in Dark Mode */
 body.dark .modal-content {
     background: rgba(14, 24, 19, 0.92) !important;
     backdrop-filter: blur(36px) saturate(200%) !important;
@@ -119,54 +196,29 @@ body.dark .modal-content {
     color: #f1f5f9 !important;
 }
 
-/* Product Cards in Dark Mode */
 body.dark .product-detail-trigger {
     background: rgba(18, 30, 24, 0.65) !important;
     backdrop-filter: blur(20px) !important;
     border: 1px solid rgba(255, 255, 255, 0.08) !important;
-    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 body.dark .product-detail-trigger:hover {
     border-color: rgba(16, 185, 129, 0.4) !important;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(16, 185, 129, 0.15) !important;
-    transform: translateY(-2px);
 }
 
-/* Ensure product images are NEVER inverted or washed out in dark mode */
+/* Ensure product images are NEVER inverted or washed out */
 img, video, svg, canvas {
     filter: none !important;
 }
 
 /* ============================================================
-   LIGHT MODE GLASSMORPHISM
+   INTERACTIVE COMPONENTS & EFFECTS
    ============================================================ */
-
-.glass-card {
-    background: rgba(255, 255, 255, 0.78);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.04);
-}
-
-.glass-panel {
-    background: rgba(255, 255, 255, 0.78);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255, 255, 255, 0.5);
-}
-
-.glass-overlay {
-    background: rgba(255, 255, 255, 0.78);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255, 255, 255, 0.5);
-}
 
 /* Input Glow */
 .input-glow:focus {
-    border-color: #10B981;
-    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15);
+    border-color: #10B981 !important;
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15) !important;
 }
 
 /* Scrollbar Hide */
@@ -195,7 +247,7 @@ img, video, svg, canvas {
 
 /* Flow Assist animated background */
 .animated-bg {
-    background: linear-gradient(45deg, #f8f9fa, #e1e3e4, #f0dbff, #f8f9fa);
+    background: linear-gradient(45deg, #f0f7f3, #e8f0fe, #f5e8ff, #f0f7f3);
     background-size: 400% 400%;
     animation: gradientBG 15s ease infinite;
 }
@@ -212,7 +264,7 @@ body.dark .animated-bg {
 
 /* Orders map pattern */
 .map-pattern {
-    background-image: radial-gradient(#bbcabf 1px, transparent 1px);
+    background-image: radial-gradient(#bbcabf 1.5px, transparent 1.5px);
     background-size: 20px 20px;
     background-position: -10px -10px;
 }
@@ -229,14 +281,14 @@ body.dark .map-pattern {
     position: relative;
     width: 100%;
     height: 60px;
-    background: rgba(255, 255, 255, 0.8);
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    backdrop-filter: blur(24px);
+    background: rgba(255, 255, 255, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(28px);
     border-radius: 9999px;
     display: flex;
     align-items: center;
     overflow: hidden;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05), inset 0 1px 1px rgba(255, 255, 255, 0.9);
 }
 body.dark .slider-track {
     background: rgba(18, 30, 24, 0.75) !important;
@@ -323,9 +375,9 @@ body.dark .slider-text {
 .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     z-index: 9999;
     display: flex;
     align-items: flex-end;
@@ -344,8 +396,11 @@ body.dark .slider-text {
     max-height: 90vh;
     overflow-y: auto;
     border-radius: 1.75rem 1.75rem 0 0;
-    background: #ffffff;
-    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.2);
+    background: rgba(255, 255, 255, 0.88) !important;
+    backdrop-filter: blur(36px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(36px) saturate(200%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.95) !important;
+    box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.12), inset 0 1px 2px rgba(255, 255, 255, 1) !important;
     animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @media (min-width: 640px) {
