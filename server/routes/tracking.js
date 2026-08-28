@@ -5,7 +5,8 @@ function setupTracking(server, db) {
     const wss = new WebSocket.Server({ noServer: true });
 
     server.on('upgrade', (request, socket, head) => {
-        const pathname = url.parse(request.url).pathname;
+        const parsedUrl = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
+        const pathname = parsedUrl.pathname;
 
         if (pathname.startsWith('/ws/track')) {
             wss.handleUpgrade(request, socket, head, (ws) => {
@@ -17,8 +18,9 @@ function setupTracking(server, db) {
     });
 
     wss.on('connection', (ws, request) => {
-        const pathname = url.parse(request.url).pathname;
-        const orderId = pathname.split('/').pop();
+        const parsedUrl = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
+        const pathname = parsedUrl.pathname;
+        const orderId = pathname.split('/').pop() || 'order_active01';
 
         console.log(`[WS] Tracking started for order: ${orderId}`);
 

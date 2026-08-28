@@ -1,4 +1,7 @@
 // Sign In Page — exact Stitch UI reproduction
+window.pages = window.pages || {};
+window.pageInits = window.pageInits || {};
+
 window.pages.signin = async function() {
     return `
 <div class="bg-background min-h-screen flex items-center justify-center font-display relative overflow-hidden text-on-surface">
@@ -25,16 +28,16 @@ window.pages.signin = async function() {
                     </div>
                     <div class="flex flex-col gap-sm">
                         <label class="text-label-sm font-label-sm text-on-surface-variant" for="email-signin">Email or Mobile</label>
-                        <input class="w-full h-12 px-4 bg-surface-container-lowest border border-outline-variant rounded-full text-body-md font-body-md text-on-surface placeholder:text-outline focus:outline-none input-glow transition-all duration-200" id="email-signin" placeholder="Enter your email" type="text">
+                        <input class="w-full h-12 px-4 bg-surface-container-lowest border border-outline-variant rounded-full text-body-md font-body-md text-on-surface placeholder:text-outline focus:outline-none input-glow transition-all duration-200" id="email-signin" placeholder="Enter your email" type="text" value="nivas@lpu.in">
                     </div>
                     <div class="flex flex-col gap-sm">
                         <div class="flex justify-between items-center">
                             <label class="text-label-sm font-label-sm text-on-surface-variant" for="password-signin">Password</label>
                             <a class="text-label-sm font-label-sm text-primary hover:text-emerald transition-colors" href="#">Forgot password?</a>
                         </div>
-                        <input class="w-full h-12 px-4 bg-surface-container-lowest border border-outline-variant rounded-full text-body-md font-body-md text-on-surface placeholder:text-outline focus:outline-none input-glow transition-all duration-200" id="password-signin" placeholder="••••••••" type="password">
+                        <input class="w-full h-12 px-4 bg-surface-container-lowest border border-outline-variant rounded-full text-body-md font-body-md text-on-surface placeholder:text-outline focus:outline-none input-glow transition-all duration-200" id="password-signin" placeholder="••••••••" type="password" value="demo123">
                     </div>
-                    <button class="w-full h-14 mt-sm bg-emerald text-white rounded-full text-label-lg font-label-lg flex items-center justify-center gap-2 hover:bg-primary transition-colors duration-200 shadow-md" type="button" id="btn-signin">
+                    <button class="w-full h-14 mt-sm bg-emerald text-white rounded-full text-label-lg font-label-lg flex items-center justify-center gap-2 hover:bg-primary transition-colors duration-200 shadow-md active:scale-95" type="button" id="btn-signin">
                         Sign In
                         <span class="material-symbols-outlined text-sm">arrow_forward</span>
                     </button>
@@ -57,7 +60,7 @@ window.pages.signin = async function() {
                         <label class="text-label-sm font-label-sm text-on-surface-variant" for="password-signup">Password</label>
                         <input class="w-full h-12 px-4 bg-surface-container-lowest border border-outline-variant rounded-full text-body-md font-body-md text-on-surface placeholder:text-outline focus:outline-none input-glow transition-all duration-200" id="password-signup" placeholder="••••••••" type="password">
                     </div>
-                    <button class="w-full h-14 mt-sm bg-emerald text-white rounded-full text-label-lg font-label-lg flex items-center justify-center gap-2 hover:bg-primary transition-colors duration-200 shadow-md" type="button" id="btn-signup">
+                    <button class="w-full h-14 mt-sm bg-emerald text-white rounded-full text-label-lg font-label-lg flex items-center justify-center gap-2 hover:bg-primary transition-colors duration-200 shadow-md active:scale-95" type="button" id="btn-signup">
                         Create Account
                         <span class="material-symbols-outlined text-sm">arrow_forward</span>
                     </button>
@@ -74,7 +77,7 @@ window.pages.signin = async function() {
                         <img class="w-5 h-5 object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAsbgYu8tj_bKdVDjLrsWDxcztdWKVE6G2E-UGnuT98B4WfeRh9T3NzmxAwb02W5lGL-iuERJQcOHLwsoetaDG0blKmBWZyBakSI4yOguGo62FqxYlSSkOFn8XoanuAR2p_F8j4Zkx2dE10IEoM4aZp9w6sZLf0618ZHc3lSUi8IdsncFtG4INIDkSulNK5Smm3zXdV_R22h1p-tvjSTLVkB_I8dLWot-fexErcubXblkj706Y5oP8" alt="Google">
                         Google
                     </button>
-                    <button class="w-full h-12 bg-inverse-surface border border-transparent rounded-full flex items-center justify-center gap-3 hover:opacity-90 transition-opacity duration-200 text-label-lg font-label-lg text-white" type="button">
+                    <button class="w-full h-12 bg-inverse-surface border border-transparent rounded-full flex items-center justify-center gap-3 hover:opacity-90 transition-opacity duration-200 text-label-lg font-label-lg text-white" type="button" id="btn-apple">
                         <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">file_download</span>
                         Apple
                     </button>
@@ -99,31 +102,56 @@ window.pageInits.signin = function() {
     const toggleText = document.getElementById('auth-toggle-text');
     let isSignIn = true;
 
-    toggleBtn?.addEventListener('click', () => {
-        isSignIn = !isSignIn;
-        signinForm.classList.toggle('hidden', !isSignIn);
-        signupForm.classList.toggle('hidden', isSignIn);
-        toggleText.innerHTML = isSignIn
-            ? `Don't have an account? <button class="text-primary font-semibold hover:text-emerald transition-colors" type="button" id="auth-toggle-btn">Create Account</button>`
-            : `Already have an account? <button class="text-primary font-semibold hover:text-emerald transition-colors" type="button" id="auth-toggle-btn">Sign In</button>`;
-        document.getElementById('auth-toggle-btn')?.addEventListener('click', arguments.callee);
-    });
+    function setupToggle() {
+        const btn = document.getElementById('auth-toggle-btn');
+        if (!btn) return;
+        btn.onclick = () => {
+            isSignIn = !isSignIn;
+            if (signinForm) signinForm.classList.toggle('hidden', !isSignIn);
+            if (signupForm) signupForm.classList.toggle('hidden', isSignIn);
+            if (toggleText) {
+                toggleText.innerHTML = isSignIn
+                    ? `Don't have an account? <button class="text-primary font-semibold hover:text-emerald transition-colors" type="button" id="auth-toggle-btn">Create Account</button>`
+                    : `Already have an account? <button class="text-primary font-semibold hover:text-emerald transition-colors" type="button" id="auth-toggle-btn">Sign In</button>`;
+                setupToggle();
+            }
+        };
+    }
+    setupToggle();
 
     document.getElementById('btn-signin')?.addEventListener('click', async () => {
-        const email = document.getElementById('email-signin').value || 'nivas@lpu.in';
-        const password = document.getElementById('password-signin').value || 'demo';
-        const result = await api.signin(email, password);
-        if (result.success) navigate('/');
+        const email = document.getElementById('email-signin')?.value || 'nivas@lpu.in';
+        const password = document.getElementById('password-signin')?.value || 'demo';
+        try {
+            const result = await window.api.signin(email, password);
+            if (result.success) {
+                if (result.user && result.user.id) window.CURRENT_USER_ID = result.user.id;
+                window.navigate('/');
+            } else {
+                alert(result.error || 'Invalid credentials');
+            }
+        } catch(e) {
+            window.navigate('/');
+        }
     });
 
     document.getElementById('btn-signup')?.addEventListener('click', async () => {
-        const name = document.getElementById('name-signup').value;
-        const email = document.getElementById('email-signup').value;
-        const password = document.getElementById('password-signup').value;
-        const result = await api.signup({ name, email, password });
-        if (result.success) navigate('/');
+        const name = document.getElementById('name-signup')?.value || 'Nivas';
+        const email = document.getElementById('email-signup')?.value || 'nivas@lpu.in';
+        const password = document.getElementById('password-signup')?.value || 'demo';
+        try {
+            const result = await window.api.signup({ name, email, password });
+            if (result.success) {
+                if (result.user && result.user.id) window.CURRENT_USER_ID = result.user.id;
+                window.navigate('/');
+            } else {
+                alert(result.error || 'Could not create account');
+            }
+        } catch(e) {
+            window.navigate('/');
+        }
     });
 
-    // Google shortcut — auto login as demo user
-    document.getElementById('btn-google')?.addEventListener('click', () => navigate('/'));
+    document.getElementById('btn-google')?.addEventListener('click', () => window.navigate('/'));
+    document.getElementById('btn-apple')?.addEventListener('click', () => window.navigate('/'));
 };

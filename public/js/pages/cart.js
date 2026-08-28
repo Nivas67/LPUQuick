@@ -1,39 +1,45 @@
 // Cart Page — exact Stitch UI reproduction with transparent pricing breakdown
+window.pages = window.pages || {};
+window.pageInits = window.pageInits || {};
+
 window.pages.cart = async function() {
     let cartData;
-    try { cartData = await api.getCart(CURRENT_USER_ID); } catch(e) { cartData = { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 5, tax: 0, total: 0, free_delivery_remaining: 199 } }; }
+    const userId = window.CURRENT_USER_ID || 'user_001';
+    try { cartData = await window.api.getCart(userId); } catch(e) { cartData = { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 5, tax: 0, total: 0, free_delivery_remaining: 199 } }; }
 
     const items = cartData.items || [];
     const p = cartData.pricing || { subtotal: 0, delivery_fee: 0, platform_fee: 5, tax: 0, total: 0, free_delivery_remaining: 199 };
     const freeDeliveryPct = Math.min(100, Math.round((p.subtotal / 199) * 100));
 
     const itemCards = items.length === 0 ? `
-        <div class="glass-card rounded-3xl p-12 text-center my-8">
-            <span class="material-symbols-outlined text-6xl text-on-surface-variant mb-4">remove_shopping_cart</span>
-            <h3 class="font-headline-md text-xl font-bold text-on-surface">Your cart is empty</h3>
-            <p class="text-on-surface-variant mt-2 mb-6">Looks like you haven't added anything to your cart yet.</p>
-            <a href="#/" class="inline-flex items-center gap-2 bg-emerald text-white px-6 py-3 rounded-full font-semibold shadow-md hover:bg-primary transition-colors">
-                Start Shopping <span class="material-symbols-outlined text-sm">arrow_forward</span>
+        <div class="glass-card rounded-3xl p-10 sm:p-12 text-center my-6 border border-glass-border">
+            <div class="w-16 h-16 rounded-full bg-surface-container-high mx-auto flex items-center justify-center mb-4">
+                <span class="material-symbols-outlined text-3xl text-on-surface-variant">shopping_bag</span>
+            </div>
+            <h3 class="font-headline-md text-lg sm:text-xl font-bold text-on-surface">Your cart is empty</h3>
+            <p class="text-xs sm:text-sm text-on-surface-variant mt-1.5 mb-6 max-w-sm mx-auto">Explore fresh snacks, noodles, dairy and drinks to start your order.</p>
+            <a href="#/" class="inline-flex items-center gap-2 bg-emerald text-white px-6 py-3 rounded-full text-xs sm:text-sm font-semibold shadow-md hover:bg-primary transition-all active:scale-95">
+                Browse Campus Store <span class="material-symbols-outlined text-sm">arrow_forward</span>
             </a>
         </div>
     ` : items.map(item => `
-        <div class="glass-card rounded-2xl p-4 flex items-center justify-between gap-4 border border-glass-border shadow-sm mb-3 cart-row" data-cart-id="${item.cart_id}">
-            <div class="flex items-center gap-4 min-w-0">
-                <div class="w-16 h-16 rounded-xl bg-surface-container-high overflow-hidden flex-shrink-0">
-                    <img class="w-full h-full object-cover" src="${item.image_url}" alt="${item.name}">
+        <div class="glass-card rounded-2xl p-4 flex items-center justify-between gap-3 border border-glass-border shadow-sm mb-3 cart-row" data-cart-id="${item.cart_id}">
+            <div class="flex items-center gap-3.5 min-w-0">
+                <div class="w-16 h-16 rounded-xl bg-surface-container-high overflow-hidden flex-shrink-0 flex items-center justify-center">
+                    <img class="w-full h-full object-cover" src="${item.image_url}" alt="${item.name}" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200'">
                 </div>
                 <div class="min-w-0">
-                    <h4 class="font-label-lg font-semibold text-on-surface truncate">${item.name}</h4>
+                    <h4 class="font-label-lg font-semibold text-sm text-on-surface truncate">${item.name}</h4>
                     <p class="text-xs text-on-surface-variant mt-0.5">${item.size || item.unit}</p>
-                    <p class="font-semibold text-sm text-on-surface mt-1">₹${item.price}</p>
+                    <p class="font-bold text-sm text-on-surface mt-1">₹${item.price}</p>
                 </div>
             </div>
-            <div class="flex items-center gap-3 bg-surface-container-high/80 rounded-full px-3 py-1.5 border border-outline-variant/30 flex-shrink-0">
-                <button class="w-7 h-7 rounded-full flex items-center justify-center hover:bg-white/80 active:scale-95 transition-all text-on-surface qty-dec-btn" data-id="${item.cart_id}" data-qty="${item.quantity}">
+            <div class="flex items-center gap-2.5 bg-surface-container-high/80 rounded-full px-2.5 py-1 border border-outline-variant/30 flex-shrink-0">
+                <button class="w-7 h-7 rounded-full flex items-center justify-center hover:bg-white active:scale-90 transition-all text-on-surface qty-dec-btn" data-id="${item.cart_id}" data-qty="${item.quantity}">
                     <span class="material-symbols-outlined text-base">remove</span>
                 </button>
-                <span class="font-semibold text-sm w-4 text-center">${item.quantity}</span>
-                <button class="w-7 h-7 rounded-full flex items-center justify-center hover:bg-white/80 active:scale-95 transition-all text-on-surface qty-inc-btn" data-id="${item.cart_id}" data-qty="${item.quantity}">
+                <span class="font-bold text-xs w-4 text-center">${item.quantity}</span>
+                <button class="w-7 h-7 rounded-full flex items-center justify-center hover:bg-white active:scale-90 transition-all text-on-surface qty-inc-btn" data-id="${item.cart_id}" data-qty="${item.quantity}">
                     <span class="material-symbols-outlined text-base">add</span>
                 </button>
             </div>
@@ -49,20 +55,22 @@ window.pages.cart = async function() {
                 <span class="material-symbols-outlined text-on-surface">arrow_back</span>
             </a>
             <div>
-                <h1 class="font-headline-md text-headline-md text-on-surface">My Cart</h1>
-                <p class="text-xs text-on-surface-variant">${cartData.item_count || 0} items · Delivering to BH2</p>
+                <h1 class="font-headline-md text-lg font-bold text-on-surface">My Cart</h1>
+                <p class="text-xs text-on-surface-variant">${cartData.item_count || 0} items · Delivering to BH2 (7 mins)</p>
             </div>
         </div>
-        <button class="text-xs font-semibold text-error hover:opacity-80 p-2" id="clear-cart-btn">Clear</button>
+        ${items.length > 0 ? `
+        <button class="text-xs font-semibold text-error hover:opacity-80 p-2" id="clear-cart-btn">Clear All</button>
+        ` : ''}
     </header>
 
-    <main class="px-margin-mobile md:px-margin-desktop max-w-5xl mx-auto pt-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <main class="px-margin-mobile md:px-margin-desktop max-w-5xl mx-auto pt-6 grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
         <!-- Left: Cart Items -->
         <div class="lg:col-span-2 space-y-4">
             <!-- Free Delivery Progress Bar -->
             <div class="glass-card rounded-2xl p-4 border border-emerald/20 bg-emerald/5">
                 <div class="flex justify-between items-center text-xs font-semibold mb-2">
-                    <span class="text-emerald flex items-center gap-1">
+                    <span class="text-emerald flex items-center gap-1.5">
                         <span class="material-symbols-outlined text-base">local_shipping</span>
                         ${p.free_delivery_remaining > 0 ? `Add ₹${p.free_delivery_remaining} more for FREE delivery` : `Unlocked FREE Delivery! 🎉`}
                     </span>
@@ -82,44 +90,47 @@ window.pages.cart = async function() {
         <!-- Right: Order Summary Panel -->
         <div class="lg:col-span-1">
             <div class="glass-card rounded-3xl p-6 border border-glass-border sticky top-24 shadow-sm space-y-5">
-                <h3 class="font-headline-md text-lg font-bold text-on-surface">Bill Details</h3>
+                <h3 class="font-headline-md text-base font-bold text-on-surface flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">receipt</span>
+                    Bill Details
+                </h3>
                 
-                <div class="space-y-3 text-sm">
+                <div class="space-y-3 text-xs sm:text-sm">
                     <div class="flex justify-between text-on-surface-variant">
-                        <span>Items Total</span>
-                        <span class="font-medium text-on-surface">₹${p.subtotal}</span>
+                        <span>Item Total</span>
+                        <span class="font-semibold text-on-surface">₹${p.subtotal}</span>
                     </div>
                     <div class="flex justify-between text-on-surface-variant">
-                        <span class="flex items-center gap-1">Delivery Fee <span class="material-symbols-outlined text-xs text-on-surface-variant" title="Free above ₹199">info</span></span>
-                        <span class="font-medium ${p.delivery_fee === 0 ? 'text-emerald font-semibold' : 'text-on-surface'}">${p.delivery_fee === 0 ? 'FREE' : `₹${p.delivery_fee}`}</span>
+                        <span class="flex items-center gap-1">Delivery Fee <span class="material-symbols-outlined text-xs" title="Free above ₹199">info</span></span>
+                        <span class="font-semibold ${p.delivery_fee === 0 ? 'text-emerald' : 'text-on-surface'}">${p.delivery_fee === 0 ? 'FREE' : `₹${p.delivery_fee}`}</span>
                     </div>
                     <div class="flex justify-between text-on-surface-variant">
-                        <span class="flex items-center gap-1">Handling / Platform Fee</span>
-                        <span class="font-medium text-on-surface">₹${p.platform_fee}</span>
+                        <span>Handling / Platform Fee</span>
+                        <span class="font-semibold text-on-surface">₹${p.platform_fee}</span>
                     </div>
                     <div class="flex justify-between text-on-surface-variant">
-                        <span class="flex items-center gap-1">Taxes & GST (5%)</span>
-                        <span class="font-medium text-on-surface">₹${p.tax}</span>
+                        <span>Applicable GST (5%)</span>
+                        <span class="font-semibold text-on-surface">₹${p.tax}</span>
                     </div>
                     
-                    <div class="border-t border-outline-variant/40 pt-3 flex justify-between items-center text-base font-bold text-on-surface">
+                    <div class="border-t border-outline-variant/40 pt-3 flex justify-between items-center text-sm sm:text-base font-bold text-on-surface">
                         <span>To Pay</span>
-                        <span class="text-xl text-primary font-display">₹${p.total}</span>
+                        <span class="text-xl text-primary font-display font-bold">₹${p.total}</span>
                     </div>
                 </div>
 
-                <div class="p-3 bg-surface-container-high/60 rounded-xl flex items-center gap-3 text-xs text-on-surface-variant">
-                    <span class="material-symbols-outlined text-emerald text-lg">verified_user</span>
-                    <span>No hidden charges. Exact honest billing.</span>
+                <div class="p-3 bg-surface-container-high/60 rounded-xl flex items-center gap-2.5 text-xs text-on-surface-variant">
+                    <span class="material-symbols-outlined text-emerald text-base">verified_user</span>
+                    <span>No hidden charges. Transparent pricing.</span>
                 </div>
 
                 ${items.length > 0 ? `
-                <a href="#/checkout" class="w-full bg-emerald text-white rounded-full py-4 font-semibold text-center flex items-center justify-center gap-2 hover:bg-primary transition-all shadow-md active:scale-95">
+                <a href="#/checkout" class="w-full bg-emerald text-white rounded-full py-3.5 sm:py-4 font-semibold text-xs sm:text-sm text-center flex items-center justify-center gap-2 hover:bg-primary transition-all shadow-md active:scale-95">
                     Proceed to Checkout
-                    <span class="material-symbols-outlined text-base">arrow_forward</span>
+                    <span class="material-symbols-outlined text-sm">arrow_forward</span>
                 </a>
                 ` : `
-                <button disabled class="w-full bg-surface-variant text-on-surface-variant rounded-full py-4 font-semibold text-center cursor-not-allowed">
+                <button disabled class="w-full bg-surface-variant text-on-surface-variant rounded-full py-3.5 font-semibold text-xs sm:text-sm text-center cursor-not-allowed">
                     Cart is Empty
                 </button>
                 `}
@@ -129,22 +140,22 @@ window.pages.cart = async function() {
 
     <!-- BottomNavBar -->
     <div class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-50">
-        <nav class="flex justify-around items-center p-2 mx-auto bg-white/70 backdrop-blur-2xl shadow-xl border border-glass-border rounded-full">
+        <nav class="flex justify-around items-center p-2 mx-auto bg-white/80 backdrop-blur-2xl shadow-xl border border-glass-border rounded-full">
             <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-95 duration-200" href="#/">
                 <span class="material-symbols-outlined">home</span>
-                <span class="font-label-sm text-label-sm mt-1 hidden sm:block">Home</span>
+                <span class="font-label-sm text-[11px] mt-0.5 hidden sm:block">Home</span>
             </a>
             <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-95 duration-200" href="#/categories">
                 <span class="material-symbols-outlined">category</span>
-                <span class="font-label-sm text-label-sm mt-1 hidden sm:block">Categories</span>
+                <span class="font-label-sm text-[11px] mt-0.5 hidden sm:block">Categories</span>
             </a>
             <a class="flex flex-col items-center justify-center bg-emerald text-on-primary rounded-full px-6 py-2 active:scale-95 duration-200 shadow-md" href="#/cart">
                 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">shopping_cart</span>
-                <span class="font-label-sm text-label-sm mt-1">Cart</span>
+                <span class="font-label-sm text-[11px] mt-0.5">Cart</span>
             </a>
             <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-95 duration-200" href="#/orders">
                 <span class="material-symbols-outlined">receipt_long</span>
-                <span class="font-label-sm text-label-sm mt-1 hidden sm:block">Orders</span>
+                <span class="font-label-sm text-[11px] mt-0.5 hidden sm:block">Orders</span>
             </a>
         </nav>
     </div>
@@ -152,33 +163,46 @@ window.pages.cart = async function() {
 };
 
 window.pageInits.cart = function() {
-    document.querySelectorAll('.qty-inc-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const id = btn.dataset.id;
-            const currentQty = parseInt(btn.dataset.qty);
-            await api.updateCartItem(id, currentQty + 1, CURRENT_USER_ID);
+    const userId = window.CURRENT_USER_ID || 'user_001';
+
+    async function reRenderCart() {
+        if (window.router) {
+            await window.router();
+        } else {
             window.location.reload();
-        });
+        }
+    }
+
+    document.querySelectorAll('.qty-inc-btn').forEach(btn => {
+        btn.onclick = async () => {
+            const id = btn.dataset.id;
+            const currentQty = parseInt(btn.dataset.qty) || 1;
+            await window.api.updateCartItem(id, currentQty + 1, userId);
+            await reRenderCart();
+        };
     });
 
     document.querySelectorAll('.qty-dec-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
+        btn.onclick = async () => {
             const id = btn.dataset.id;
-            const currentQty = parseInt(btn.dataset.qty);
+            const currentQty = parseInt(btn.dataset.qty) || 1;
             if (currentQty <= 1) {
-                await api.removeCartItem(id);
+                await window.api.removeCartItem(id);
             } else {
-                await api.updateCartItem(id, currentQty - 1, CURRENT_USER_ID);
+                await window.api.updateCartItem(id, currentQty - 1, userId);
             }
-            window.location.reload();
-        });
+            await reRenderCart();
+        };
     });
 
-    document.getElementById('clear-cart-btn')?.addEventListener('click', async () => {
-        const rows = document.querySelectorAll('.cart-row');
-        for (const row of rows) {
-            await api.removeCartItem(row.dataset.cartId);
-        }
-        window.location.reload();
-    });
+    const clearBtn = document.getElementById('clear-cart-btn');
+    if (clearBtn) {
+        clearBtn.onclick = async () => {
+            const rows = document.querySelectorAll('.cart-row');
+            for (const row of rows) {
+                if (row.dataset.cartId) await window.api.removeCartItem(row.dataset.cartId);
+            }
+            await reRenderCart();
+        };
+    }
 };
