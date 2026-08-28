@@ -12,26 +12,71 @@ window.pages.home = async function() {
     const address = window.currentAddress || 'BH13';
 
     const productCards = products.slice(0, 4).map((p) => {
-        const badge = p.bestseller
-            ? `<div class="absolute top-3 left-3 bg-vibrant-yellow text-on-surface font-label-sm px-2.5 py-0.5 rounded-md shadow-sm font-bold text-[10px]">Bestseller</div>`
-            : p.is_new
-            ? `<div class="absolute top-3 left-3 bg-royal-purple/20 text-royal-purple font-label-sm px-2.5 py-0.5 rounded-md font-bold text-[10px] backdrop-blur-sm">New</div>`
-            : '';
+        const discountPercent = p.mrp && p.mrp > p.price ? Math.round(((p.mrp - p.price) / p.mrp) * 100) : 0;
+        const ratingVal = p.rating || 4.8;
+        const reviewCount = p.review_count || '1.2 lac';
+        const stockLeft = p.stock_left || 0;
+
         return `
-        <div class="bg-surface rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group relative border border-surface-variant/30 flex flex-col justify-between product-detail-trigger cursor-pointer" data-product-id="${p.id}">
-            <div class="h-36 sm:h-40 bg-surface-container-high relative overflow-hidden flex items-center justify-center p-2">
-                <img class="object-contain w-full h-full group-hover:scale-105 transition-transform duration-300" src="${p.image_url}" alt="${p.name}" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300'">
-                ${badge}
-            </div>
-            <div class="p-3 sm:p-3.5">
-                <p class="font-label-lg font-semibold text-xs sm:text-sm truncate mb-0.5 text-on-surface">${p.name}</p>
-                <p class="text-[10px] sm:text-xs text-on-surface-variant mb-2">${p.size || p.unit}</p>
-                <div class="flex justify-between items-center">
-                    <p class="font-bold text-xs sm:text-sm text-on-surface">₹${p.price}</p>
-                    <div class="product-action-slot" data-id="${p.id}">
-                        <button type="button" class="bg-emerald text-white rounded-full px-3.5 py-1 text-xs font-semibold shadow-sm hover:opacity-90 active:scale-95 transition-all add-to-cart-btn" data-id="${p.id}">Add</button>
+        <div class="bg-surface rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group relative border border-surface-variant/30 p-2.5 flex flex-col justify-between product-detail-trigger cursor-pointer" data-product-id="${p.id}">
+            <div>
+                <div class="h-36 bg-surface-container-high rounded-xl relative overflow-hidden flex items-center justify-center p-2">
+                    <!-- Wishlist Heart -->
+                    <button type="button" class="absolute top-2 right-2 w-6 h-6 rounded-full bg-surface/70 backdrop-blur-md flex items-center justify-center text-on-surface-variant hover:text-rose-500 z-10">
+                        <span class="material-symbols-outlined text-sm">favorite_border</span>
+                    </button>
+
+                    <!-- Veg icon -->
+                    <div class="absolute bottom-2 right-2 z-10 bg-surface/80 backdrop-blur-md p-0.5 rounded shadow-sm">
+                        <span class="w-3.5 h-3.5 border ${p.is_veg !== 0 ? 'border-emerald-600' : 'border-red-600'} rounded-sm flex items-center justify-center p-[1px]">
+                            <span class="w-2 h-2 rounded-full ${p.is_veg !== 0 ? 'bg-emerald-600' : 'bg-red-600'}"></span>
+                        </span>
+                    </div>
+
+                    <img class="object-contain w-full h-full group-hover:scale-105 transition-transform duration-300" src="${p.image_url}" alt="${p.name}" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300'">
+
+                    <!-- Image Carousel Dots -->
+                    <div class="absolute bottom-2 left-3 flex items-center gap-1 opacity-70">
+                        <span class="w-1.5 h-1.5 rounded-full bg-on-surface"></span>
+                        <span class="w-1 h-1 rounded-full bg-on-surface-variant"></span>
                     </div>
                 </div>
+
+                <!-- Pack Size & ADD Button -->
+                <div class="flex justify-between items-center mt-2">
+                    <span class="text-xs font-bold text-on-surface">${p.size || p.unit}</span>
+                    <div class="product-action-slot" data-id="${p.id}">
+                        <button type="button" class="bg-emerald text-white text-xs px-3.5 py-1 rounded-xl font-bold hover:bg-primary active:scale-95 shadow-sm transition-all add-to-cart-btn" data-id="${p.id}">ADD</button>
+                    </div>
+                </div>
+
+                <!-- Price & Discount -->
+                <div class="mt-1">
+                    <div class="flex items-baseline gap-1.5">
+                        <span class="text-sm font-extrabold text-on-surface">₹${p.price}</span>
+                        ${p.mrp && p.mrp > p.price ? `<span class="text-[11px] text-on-surface-variant line-through">₹${p.mrp}</span>` : ''}
+                    </div>
+                    ${discountPercent > 0 ? `
+                        <p class="text-[10px] font-bold text-sky-600 dark:text-sky-400 leading-tight">
+                            ${discountPercent}% OFF on MRP
+                        </p>
+                    ` : ''}
+                </div>
+
+                <!-- Title -->
+                <h3 class="font-bold text-xs text-on-surface mt-1 line-clamp-2 leading-snug">${p.name}</h3>
+            </div>
+
+            <!-- Bottom Rating & 3 mins ETA -->
+            <div class="mt-2 pt-1.5 border-t border-surface-variant/30 flex items-center justify-between text-[10px] text-on-surface-variant">
+                <div class="flex items-center gap-0.5 font-medium">
+                    <span class="material-symbols-outlined text-xs text-amber-500" style="font-variation-settings: 'FILL' 1;">star</span>
+                    <span class="font-bold text-on-surface">${ratingVal}</span>
+                    <span>(${reviewCount})</span>
+                </div>
+                <span class="text-emerald font-semibold flex items-center gap-0.5">
+                    <span class="material-symbols-outlined text-[11px]">bolt</span> 3m
+                </span>
             </div>
         </div>`;
     }).join('');
