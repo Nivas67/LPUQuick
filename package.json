@@ -1,0 +1,22 @@
+{
+  "name": "lpuquick",
+  "version": "1.0.0",
+  "description": "LPUQuick - Calm Commerce quick-delivery app",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js",
+    "test": "node server/tests/pricing.test.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "uuid": "^10.0.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {},
+  "keywords": ["quick-commerce", "delivery", "lpuquick"],
+  "author": "LPUQuick Team",
+  "license": "MIT"
+}
