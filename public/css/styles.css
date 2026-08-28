@@ -27,6 +27,16 @@ body {
     color: #0f172a !important;
 }
 
+/* Explicit High Contrast Brand Text Rules */
+.brand-title {
+    color: #044e3b !important;
+    font-weight: 800;
+}
+
+.text-primary {
+    color: #044e3b !important;
+}
+
 .bg-background {
     background-color: transparent !important;
 }
@@ -174,6 +184,10 @@ body.dark .text-on-surface-variant {
 
 body.dark .text-primary {
     color: #34d399 !important;
+}
+
+body.dark .brand-title {
+    color: #ffffff !important;
 }
 
 body.dark .border-glass-border {
