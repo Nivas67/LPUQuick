@@ -58,9 +58,9 @@ window.pages.home = async function() {
     <!-- TopAppBar (Web) -->
     <header class="hidden md:flex justify-between items-center px-margin-desktop py-sm w-full z-50 fixed top-0 bg-surface/80 backdrop-blur-3xl border-b border-glass-border">
         <div class="flex items-center gap-md">
-            <a href="#/" class="font-display text-display text-primary tracking-tighter text-2xl font-bold flex items-center gap-1.5">
-                <span class="material-symbols-outlined text-emerald text-3xl" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
-                LPUQuick
+            <a href="#/" class="font-display text-display text-primary tracking-tighter text-2xl font-bold flex items-center gap-2">
+                <img src="/logo.svg" alt="LPUQuick" class="w-8 h-8 rounded-xl shadow-sm">
+                <span>LPUQuick</span>
             </a>
             <!-- Address Selector Trigger -->
             <button type="button" class="address-selector-trigger flex items-center bg-surface-container-high hover:bg-emerald/10 border border-surface-variant/40 rounded-full px-4 py-1.5 text-on-surface font-label-sm text-xs transition-all cursor-pointer">

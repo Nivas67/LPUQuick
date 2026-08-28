@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="lpuGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10B981"/>
+      <stop offset="60%" stop-color="#059669"/>
+      <stop offset="100%" stop-color="#047857"/>
+    </linearGradient>
+    <linearGradient id="boltGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#FCD34D"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="url(#lpuGrad)"/>
+  <g transform="translate(106, 86)">
+    <path d="M 90 140 C 90 70, 210 70, 210 140" fill="none" stroke="white" stroke-width="26" stroke-linecap="round" opacity="0.9"/>
+    <path d="M 40 140 L 260 140 L 240 330 C 238 346, 226 358, 210 358 L 90 358 C 74 358, 62 346, 60 330 Z" fill="white" opacity="0.22"/>
+    <path d="M 40 140 L 260 140 L 240 330 C 238 346, 226 358, 210 358 L 90 358 C 74 358, 62 346, 60 330 Z" fill="none" stroke="white" stroke-width="20" stroke-linejoin="round"/>
+    <polygon points="175,130 110,240 160,240 125,340 215,220 165,220" fill="url(#boltGrad)"/>
+  </g>
+</svg>

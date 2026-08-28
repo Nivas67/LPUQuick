@@ -12,10 +12,10 @@ window.pages.signin = async function() {
         <!-- Brand Header -->
         <div class="text-center mb-xl">
             <a href="#/" class="text-display font-display text-primary flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
-                <span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
-                LPUQuick
+                <img src="/logo.svg" alt="LPUQuick" class="w-10 h-10 rounded-2xl shadow-md">
+                <span class="text-2xl sm:text-3xl font-bold tracking-tight">LPUQuick</span>
             </a>
-            <p class="text-body-lg font-body-lg text-on-surface-variant mt-sm">Calm Commerce</p>
+            <p class="text-body-lg font-body-lg text-on-surface-variant mt-sm text-xs sm:text-sm">Calm Campus Commerce · 7 Mins Express</p>
         </div>
         <!-- Glassmorphic Card -->
         <div class="glass-card rounded-xl p-lg shadow-[0_4px_20px_rgba(0,0,0,0.05)] w-full">
