@@ -1,15 +1,11 @@
-const Database = require('better-sqlite3');
+const { DatabaseSync } = require('node:sqlite');
 const path = require('path');
 const fs = require('fs');
 
 const DB_PATH = path.join(__dirname, 'lpuquick.db');
 
 function initDB() {
-    const db = new Database(DB_PATH);
-    
-    // Enable WAL mode for better concurrent read performance
-    db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
+    const db = new DatabaseSync(DB_PATH);
 
     // Run schema
     const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf-8');
@@ -17,7 +13,7 @@ function initDB() {
 
     // Check if data already seeded
     const count = db.prepare('SELECT COUNT(*) as c FROM products').get();
-    if (count.c === 0) {
+    if (!count || count.c === 0) {
         const seed = fs.readFileSync(path.join(__dirname, 'seed.sql'), 'utf-8');
         db.exec(seed);
         console.log('[DB] Database seeded with initial data.');

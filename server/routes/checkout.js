@@ -50,12 +50,9 @@ router.post('/', (req, res) => {
 
     // Insert order items
     const insertItem = db.prepare('INSERT INTO order_items (id, order_id, product_id, quantity, unit_price) VALUES (?, ?, ?, ?, ?)');
-    const insertMany = db.transaction((items) => {
-        for (const item of items) {
-            insertItem.run(`oi_${uuidv4().slice(0, 8)}`, orderId, item.product_id, item.quantity, item.price);
-        }
-    });
-    insertMany(cartItems);
+    for (const item of cartItems) {
+        insertItem.run(`oi_${uuidv4().slice(0, 8)}`, orderId, item.product_id, item.quantity, item.price);
+    }
 
     // Clear cart
     db.prepare('DELETE FROM cart_items WHERE user_id = ?').run(userId);

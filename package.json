@@ -9,14 +9,17 @@
     "test": "node server/tests/pricing.test.js"
   },
   "dependencies": {
-    "better-sqlite3": "^11.7.0",
     "cors": "^2.8.5",
     "express": "^4.21.0",
     "uuid": "^10.0.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {},
-  "keywords": ["quick-commerce", "delivery", "lpuquick"],
+  "keywords": [
+    "quick-commerce",
+    "delivery",
+    "lpuquick"
+  ],
   "author": "LPUQuick Team",
   "license": "MIT"
 }
