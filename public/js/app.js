@@ -57,9 +57,9 @@ async function router() {
 }
 
 // Global page registries
-window.pages = {};
-window.pageInits = {};
-window.CURRENT_USER_ID = CURRENT_USER_ID;
+window.pages = window.pages || {};
+window.pageInits = window.pageInits || {};
+window.CURRENT_USER_ID = window.CURRENT_USER_ID || CURRENT_USER_ID;
 window.navigate = navigate;
 
 // Listen for hash changes
