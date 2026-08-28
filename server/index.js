@@ -29,6 +29,7 @@ app.use('/api/cart', require('./routes/cart'));
 app.use('/api/checkout', require('./routes/checkout'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/categories', require('./routes/categories'));
+app.use('/api/products', require('./routes/products'));
 
 // WebSocket setup for order tracking
 const { setupTracking } = require('./routes/tracking');

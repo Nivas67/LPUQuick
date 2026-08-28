@@ -28,27 +28,36 @@ router.get('/', (req, res) => {
     // Batch fetch ALL products in one query (prevents N+1)
     const allProducts = db.prepare('SELECT * FROM products').all();
 
-    // Score each product based on name match + tags + typo tolerance
+    // Score each product based on name + category + subcategory + tags + typo tolerance
     const scored = allProducts.map(p => {
-        const name = p.name.toLowerCase();
+        const name = (p.name || '').toLowerCase();
+        const category = (p.category || '').toLowerCase();
+        const subcategory = (p.subcategory || '').toLowerCase();
         const tags = (p.tags || '').toLowerCase();
-        const words = query.split(/\s+/);
+        const words = query.split(/\s+/).filter(Boolean);
 
         let score = 0;
 
-        // Exact substring match (highest priority)
+        // Exact category or subcategory match
+        if (category === query || subcategory === query) score += 120;
+        if (category.includes(query) || subcategory.includes(query)) score += 80;
+
+        // Exact name substring match
         if (name.includes(query)) score += 100;
+        if (tags.includes(query)) score += 60;
 
         // Word-level matching
         for (const word of words) {
-            if (name.includes(word)) score += 50;
+            if (name.includes(word)) score += 40;
+            if (category.includes(word)) score += 30;
+            if (subcategory.includes(word)) score += 25;
             if (tags.includes(word)) score += 20;
 
-            // Typo tolerance: check Levenshtein distance for each name word
-            const nameWords = name.split(/\s+/);
+            // Typo tolerance: check Levenshtein distance for name & category
+            const nameWords = [...name.split(/\s+/), ...category.split(/\s+/)];
             for (const nw of nameWords) {
                 const dist = levenshtein(word, nw);
-                if (dist <= 2 && word.length > 2) score += Math.max(0, 30 - dist * 10);
+                if (dist <= 2 && word.length > 2) score += Math.max(0, 25 - dist * 8);
             }
         }
 
@@ -59,19 +68,18 @@ router.get('/', (req, res) => {
     const results = scored
         .filter(p => p._score > 0)
         .sort((a, b) => b._score - a._score)
-        .slice(0, 20)
+        .slice(0, 30)
         .map(({ _score, ...p }) => p);
 
     // For out-of-stock results, find smart substitutions
     const resultsWithSubs = results.map(p => {
         if (!p.in_stock) {
-            // Find top 2 alternatives: same category, similar price range, in stock
             const alternatives = allProducts
                 .filter(alt =>
                     alt.in_stock &&
                     alt.id !== p.id &&
                     alt.category === p.category &&
-                    Math.abs(alt.price - p.price) <= p.price * 0.5
+                    Math.abs(alt.price - p.price) <= p.price * 0.6
                 )
                 .sort((a, b) => Math.abs(a.price - p.price) - Math.abs(b.price - p.price))
                 .slice(0, 2);

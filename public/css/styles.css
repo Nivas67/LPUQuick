@@ -1,33 +1,105 @@
 /* ============================================================
-   LPUQuick — Global Styles (extracted from Stitch screens)
+   LPUQuick — Global Styles & Native Dark Mode
    ============================================================ */
+
+:root {
+    --bg-primary: #f8f9fa;
+    --text-primary: #191c1b;
+    --text-secondary: #3f4944;
+    --card-bg: rgba(255, 255, 255, 0.75);
+    --card-border: rgba(255, 255, 255, 0.5);
+    --surface-high: #e6e8e4;
+    --header-bg: rgba(248, 249, 250, 0.85);
+}
+
+html.dark, body.dark {
+    --bg-primary: #0f1713;
+    --text-primary: #f3f4f6;
+    --text-secondary: #9ca3af;
+    --card-bg: rgba(20, 30, 24, 0.85);
+    --card-border: rgba(255, 255, 255, 0.1);
+    --surface-high: #1c2720;
+    --header-bg: rgba(15, 23, 19, 0.9);
+}
+
+body.dark {
+    background-color: #0f1713 !important;
+    color: #f3f4f6 !important;
+}
+
+body.dark .bg-background {
+    background-color: #0f1713 !important;
+}
+
+body.dark .bg-surface {
+    background-color: #16221c !important;
+    color: #f3f4f6 !important;
+}
+
+body.dark .bg-surface-container-high {
+    background-color: #1e2c24 !important;
+}
+
+body.dark .bg-surface-container-lowest {
+    background-color: #16221c !important;
+    color: #f3f4f6 !important;
+}
+
+body.dark .text-on-surface {
+    color: #f3f4f6 !important;
+}
+
+body.dark .text-on-surface-variant {
+    color: #9ca3af !important;
+}
+
+body.dark .border-glass-border {
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+body.dark .border-surface-variant {
+    border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+body.dark .glass-card,
+body.dark .glass-panel,
+body.dark .glass-overlay {
+    background: rgba(22, 34, 28, 0.85) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    color: #f3f4f6 !important;
+}
+
+/* Ensure product images are NEVER inverted or washed out in dark mode */
+img, video, svg, canvas {
+    filter: none !important;
+}
 
 /* Glassmorphism Cards */
 .glass-card {
-    background: rgba(255, 255, 255, 0.7);
+    background: rgba(255, 255, 255, 0.75);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.5);
 }
 
 .glass-panel {
-    background: rgba(255, 255, 255, 0.7);
+    background: rgba(255, 255, 255, 0.75);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.5);
 }
 
 .glass-overlay {
-    background: rgba(255, 255, 255, 0.7);
+    background: rgba(255, 255, 255, 0.75);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.5);
 }
 
-/* Input Glow (Sign In) */
+/* Input Glow */
 .input-glow:focus {
     border-color: #10B981;
-    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15);
 }
 
 /* Scrollbar Hide */
@@ -60,6 +132,10 @@
     background-size: 400% 400%;
     animation: gradientBG 15s ease infinite;
 }
+body.dark .animated-bg {
+    background: linear-gradient(45deg, #0f1713, #16221c, #2a1638, #0f1713) !important;
+}
+
 @keyframes gradientBG {
     0% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
@@ -72,8 +148,10 @@
     background-size: 20px 20px;
     background-position: -10px -10px;
 }
+body.dark .map-pattern {
+    background-image: radial-gradient(#2d4235 1px, transparent 1px) !important;
+}
 
-/* Animated dash for tracking path */
 @keyframes dash {
     to { stroke-dashoffset: -10; }
 }
@@ -82,9 +160,9 @@
 .slider-track {
     position: relative;
     width: 100%;
-    height: 64px;
-    background: rgba(255, 255, 255, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.4);
+    height: 60px;
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.5);
     backdrop-filter: blur(20px);
     border-radius: 9999px;
     display: flex;
@@ -92,9 +170,14 @@
     overflow: hidden;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
 }
+body.dark .slider-track {
+    background: rgba(26, 38, 30, 0.85) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
 .slider-thumb {
     position: absolute;
-    left: 8px;
+    left: 6px;
     width: 48px;
     height: 48px;
     background: #10B981;
@@ -103,7 +186,7 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
     transition: transform 0.1s;
     z-index: 2;
 }
@@ -113,56 +196,114 @@
     width: 100%;
     text-align: center;
     font-family: 'Inter', sans-serif;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 600;
-    color: #3c4a42;
+    color: #1e293b;
     z-index: 1;
     pointer-events: none;
     transition: opacity 0.3s;
 }
+body.dark .slider-text {
+    color: #f3f4f6 !important;
+}
+
 .slider-progress {
     position: absolute;
     left: 0;
     top: 0;
     height: 100%;
-    background: rgba(16, 185, 129, 0.1);
+    background: rgba(16, 185, 129, 0.2);
     width: 0;
     border-radius: 9999px;
     z-index: 0;
 }
 
-/* Checkout quantity button */
-.quantity-btn {
-    width: 32px;
-    height: 32px;
+/* Card Quantity Stepper [- qty +] */
+.card-qty-stepper {
+    display: inline-flex;
+    align-items: center;
+    background: #10B981;
+    color: #ffffff;
+    border-radius: 9999px;
+    padding: 2px 4px;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+.card-qty-btn {
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255, 255, 255, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: white;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background 0.15s;
 }
-.quantity-btn:hover {
-    background: rgba(16, 185, 129, 0.1);
-    border-color: #10B981;
+.card-qty-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
 }
-.quantity-btn .material-symbols-outlined { font-size: 18px; color: #3c4a42; }
-.quantity-btn:hover .material-symbols-outlined { color: #10B981; }
+.card-qty-val {
+    font-size: 12px;
+    font-weight: 700;
+    min-width: 18px;
+    text-align: center;
+    padding: 0 2px;
+}
 
-/* Settings toggle */
-.toggle-checkbox:checked { right: 0; border-color: #10B981; }
-.toggle-checkbox:checked + .toggle-label { background-color: #10B981; }
+/* Modal and Bottom Sheet Animations */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(6px);
+    z-index: 9999;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    animation: fadeIn 0.2s ease-out;
+}
+@media (min-width: 640px) {
+    .modal-overlay {
+        align-items: center;
+    }
+}
 
-/* Settings glass card */
-.settings-glass-card {
+.modal-content {
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+    border-radius: 1.75rem 1.75rem 0 0;
     background: #ffffff;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-    border-radius: 1rem;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.2);
+    animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (min-width: 640px) {
+    .modal-content {
+        border-radius: 1.75rem;
+        animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+}
+body.dark .modal-content {
+    background: #15221b !important;
+    color: #f3f4f6 !important;
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Payment shake animation (200ms) */
+@keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+@keyframes scaleIn {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Shake Animation */
 @keyframes shake {
     0%, 100% { transform: translateX(0); }
     20% { transform: translateX(-8px); }
@@ -170,21 +311,8 @@
     60% { transform: translateX(-4px); }
     80% { transform: translateX(4px); }
 }
-.shake {
-    animation: shake 0.2s ease-in-out;
-}
+.shake { animation: shake 0.2s ease-in-out; }
 
-/* Page transition */
 .page-enter {
     animation: fadeIn 0.2s ease-out;
-}
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* Active nav item pulse */
-@keyframes subtlePulse {
-    0%, 100% { box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2); }
-    50% { box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4); }
 }

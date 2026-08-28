@@ -31,6 +31,12 @@ const api = {
         return res.json();
     },
 
+    // Single Product Details
+    async getProduct(id) {
+        const res = await fetch(`${API_BASE}/products/${id}`);
+        return res.json();
+    },
+
     // Flow Assist
     async flowAssist(query) {
         const res = await fetch(`${API_BASE}/flow-assist`, {
@@ -43,25 +49,43 @@ const api = {
     // Cart
     async getCart(userId) {
         const res = await fetch(`${API_BASE}/cart/${userId}`);
-        return res.json();
+        const data = await res.json();
+        // Update global cart state for instant card steppers
+        window.cartState = {};
+        if (data && data.items) {
+            data.items.forEach(i => {
+                window.cartState[i.product_id] = {
+                    cart_id: i.cart_id,
+                    quantity: i.quantity
+                };
+            });
+        }
+        return data;
     },
     async addToCart(userId, productId, quantity = 1) {
         const res = await fetch(`${API_BASE}/cart`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, productId, quantity })
         });
-        return res.json();
+        const result = await res.json();
+        await this.getCart(userId); // Refresh cart state
+        return result;
     },
     async updateCartItem(cartId, quantity, userId) {
         const res = await fetch(`${API_BASE}/cart/${cartId}`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ quantity, userId })
         });
-        return res.json();
+        const result = await res.json();
+        await this.getCart(userId); // Refresh cart state
+        return result;
     },
     async removeCartItem(cartId) {
         const res = await fetch(`${API_BASE}/cart/${cartId}`, { method: 'DELETE' });
-        return res.json();
+        const result = await res.json();
+        const userId = window.CURRENT_USER_ID || 'user_001';
+        await this.getCart(userId); // Refresh cart state
+        return result;
     },
 
     // Checkout
@@ -101,4 +125,5 @@ const api = {
     }
 };
 
+window.cartState = window.cartState || {};
 window.api = api;

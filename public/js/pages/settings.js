@@ -153,14 +153,19 @@ window.pages.settings = async function() {
 window.pageInits.settings = function() {
     const darkToggle = document.getElementById('toggle-darkmode');
     if (darkToggle) {
-        darkToggle.checked = document.documentElement.classList.contains('dark');
+        const isDark = document.documentElement.classList.contains('dark') || localStorage.getItem('lpuquick_theme') === 'dark';
+        darkToggle.checked = isDark;
         darkToggle.onchange = () => {
             if (darkToggle.checked) {
                 document.documentElement.classList.add('dark');
-                document.body.style.filter = 'invert(0.9) hue-rotate(180deg)';
+                document.body.classList.add('dark');
+                document.body.style.filter = 'none';
+                localStorage.setItem('lpuquick_theme', 'dark');
             } else {
                 document.documentElement.classList.remove('dark');
+                document.body.classList.remove('dark');
                 document.body.style.filter = 'none';
+                localStorage.setItem('lpuquick_theme', 'light');
             }
         };
     }
