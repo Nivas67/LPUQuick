@@ -9,7 +9,7 @@ window.pages.home = async function() {
     const sectionTitle = data?.section_title || 'Evening Snacks';
     const products = data?.products || [];
     const buyAgain = data?.buy_again || [];
-    const address = window.currentAddress || 'BH2';
+    const address = window.currentAddress || 'BH13';
 
     const productCards = products.slice(0, 4).map((p) => {
         const badge = p.bestseller

@@ -4,9 +4,11 @@ window.pageInits = window.pageInits || {};
 window.CURRENT_USER_ID = window.CURRENT_USER_ID || 'user_001';
 window.cartState = window.cartState || {};
 
-// Address state
-window.currentAddress = localStorage.getItem('lpuquick_address') || 'BH2';
-window.currentAddressDetail = localStorage.getItem('lpuquick_address_detail') || 'Room 304, 3rd Floor, Boys Hostel 2';
+// Address state (Defaulting to BH13 Exclusive Launch)
+window.currentAddress = localStorage.getItem('lpuquick_address') || 'BH13';
+window.currentBlock = localStorage.getItem('lpuquick_block') || 'Block A';
+window.currentRoom = localStorage.getItem('lpuquick_room') || '304';
+window.currentAddressDetail = localStorage.getItem('lpuquick_address_detail') || 'Room 304, Block A, Boys Hostel 13';
 
 // Theme state
 if (localStorage.getItem('lpuquick_theme') === 'dark') {
@@ -38,24 +40,49 @@ function getPageName(path) {
     return routes[path] || 'home';
 }
 
-// Global Address Selection Modal
+// Global Address Selection Modal (BH13 Express Live, BH1-BH12 Coming Soon, Block A/B, Room No)
 window.openAddressModal = function() {
     const existing = document.getElementById('address-modal');
     if (existing) existing.remove();
 
-    const hostels = ['BH1', 'BH2', 'BH3', 'BH4', 'BH5', 'BH6', 'GH1', 'GH2', 'GH3', 'GH4', 'UniMall', 'Main Gate'];
+    // Hostels 1 to 13 + GHs + UniMall + Main Gate
+    const allLocations = [
+        { name: 'BH13', active: true, tag: 'Live 7m' },
+        { name: 'BH1', active: false, tag: 'Coming Soon' },
+        { name: 'BH2', active: false, tag: 'Coming Soon' },
+        { name: 'BH3', active: false, tag: 'Coming Soon' },
+        { name: 'BH4', active: false, tag: 'Coming Soon' },
+        { name: 'BH5', active: false, tag: 'Coming Soon' },
+        { name: 'BH6', active: false, tag: 'Coming Soon' },
+        { name: 'BH7', active: false, tag: 'Coming Soon' },
+        { name: 'BH8', active: false, tag: 'Coming Soon' },
+        { name: 'BH9', active: false, tag: 'Coming Soon' },
+        { name: 'BH10', active: false, tag: 'Coming Soon' },
+        { name: 'BH11', active: false, tag: 'Coming Soon' },
+        { name: 'BH12', active: false, tag: 'Coming Soon' },
+        { name: 'GH1', active: false, tag: 'Coming Soon' },
+        { name: 'GH2', active: false, tag: 'Coming Soon' },
+        { name: 'GH3', active: false, tag: 'Coming Soon' },
+        { name: 'GH4', active: false, tag: 'Coming Soon' },
+        { name: 'UniMall', active: false, tag: 'Coming Soon' },
+        { name: 'Main Gate', active: false, tag: 'Coming Soon' }
+    ];
+
+    let selectedHostel = 'BH13';
+    let selectedBlock = window.currentBlock || 'Block A';
 
     const modal = document.createElement('div');
     modal.id = 'address-modal';
     modal.className = 'modal-overlay';
     modal.innerHTML = `
-        <div class="modal-content p-6 space-y-5" onclick="event.stopPropagation()">
+        <div class="modal-content p-5 sm:p-6 space-y-4 max-h-[85vh] overflow-y-auto" onclick="event.stopPropagation()">
+            <!-- Header -->
             <div class="flex justify-between items-center pb-3 border-b border-surface-variant/40">
                 <div class="flex items-center gap-2">
                     <span class="material-symbols-outlined text-emerald text-2xl">location_on</span>
                     <div>
-                        <h3 class="font-bold text-base text-on-surface">Select Delivery Location</h3>
-                        <p class="text-xs text-on-surface-variant">LPU Campus Express Delivery (7 mins)</p>
+                        <h3 class="font-bold text-sm sm:text-base text-on-surface">Select Delivery Location</h3>
+                        <p class="text-[11px] text-on-surface-variant">LPU Campus Express Delivery (7 mins)</p>
                     </div>
                 </div>
                 <button type="button" class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface" onclick="document.getElementById('address-modal').remove()">
@@ -63,24 +90,76 @@ window.openAddressModal = function() {
                 </button>
             </div>
 
-            <div class="space-y-3">
-                <label class="block text-xs font-semibold text-on-surface-variant">Choose Hostel / Building</label>
-                <div class="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                    ${hostels.map(h => `
-                        <button type="button" class="py-2 px-2.5 rounded-xl border text-xs font-bold transition-all hostel-btn ${h === window.currentAddress ? 'border-emerald bg-emerald/10 text-emerald' : 'border-surface-variant/60 bg-surface hover:border-emerald'}" data-hostel="${h}">
-                            ${h}
-                        </button>
-                    `).join('')}
+            <!-- Notice Banner -->
+            <div class="p-3 bg-emerald/10 border border-emerald/20 rounded-2xl flex items-center gap-2.5 text-xs text-emerald font-medium">
+                <span class="material-symbols-outlined text-base">bolt</span>
+                <span>Express 7-min delivery is exclusively live at <strong>BH13</strong>! Other hostels opening next week.</span>
+            </div>
+
+            <!-- Hostel Selector Grid -->
+            <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                    <label class="block text-xs font-semibold text-on-surface-variant">Choose Hostel / Building</label>
+                    <span class="text-[10px] text-on-surface-variant">13 Hostels</span>
+                </div>
+                <div class="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-44 overflow-y-auto p-1 no-scrollbar" id="hostels-container">
+                    ${allLocations.map(h => {
+                        const isSelected = h.name === selectedHostel;
+                        if (h.active) {
+                            return `
+                            <button type="button" class="p-2 rounded-2xl border text-xs font-bold transition-all relative flex flex-col items-center justify-center gap-0.5 hostel-pick-btn ${isSelected ? 'border-2 border-emerald bg-emerald/10 text-emerald shadow-sm' : 'border-surface-variant bg-surface hover:border-emerald text-on-surface'}" data-hostel="${h.name}">
+                                <span>${h.name}</span>
+                                <span class="bg-emerald text-white text-[9px] px-1.5 py-0.2 rounded-full font-bold">Live ⚡</span>
+                            </button>
+                            `;
+                        } else {
+                            return `
+                            <button type="button" class="p-2 rounded-2xl border border-surface-variant/40 bg-surface/50 text-on-surface-variant/70 text-xs font-medium transition-all relative flex flex-col items-center justify-center gap-0.5 hostel-disabled-btn cursor-not-allowed opacity-60" data-hostel="${h.name}">
+                                <span>${h.name}</span>
+                                <span class="text-[8px] bg-surface-container-high px-1 py-0.2 rounded text-on-surface-variant font-medium">Soon</span>
+                            </button>
+                            `;
+                        }
+                    }).join('')}
                 </div>
             </div>
 
+            <!-- Block Selector (Block A or Block B) -->
             <div class="space-y-2">
-                <label class="block text-xs font-semibold text-on-surface-variant">Room / Flat / Landmark</label>
-                <input type="text" id="address-room-input" class="w-full px-4 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface focus:outline-none focus:border-emerald" placeholder="e.g. Room 304, 3rd Floor" value="${window.currentAddressDetail}">
+                <label class="block text-xs font-semibold text-on-surface-variant">Select Block</label>
+                <div class="grid grid-cols-2 gap-2.5" id="block-selector">
+                    <button type="button" class="py-2.5 px-4 rounded-xl border text-xs font-bold transition-all block-btn flex items-center justify-center gap-1.5 ${selectedBlock === 'Block A' ? 'border-2 border-emerald bg-emerald/10 text-emerald shadow-sm' : 'border-surface-variant bg-surface text-on-surface'}" data-block="Block A">
+                        <span class="material-symbols-outlined text-sm">apartment</span>
+                        Block A
+                    </button>
+                    <button type="button" class="py-2.5 px-4 rounded-xl border text-xs font-bold transition-all block-btn flex items-center justify-center gap-1.5 ${selectedBlock === 'Block B' ? 'border-2 border-emerald bg-emerald/10 text-emerald shadow-sm' : 'border-surface-variant bg-surface text-on-surface'}" data-block="Block B">
+                        <span class="material-symbols-outlined text-sm">apartment</span>
+                        Block B
+                    </button>
+                </div>
             </div>
 
-            <button type="button" id="save-address-btn" class="w-full bg-emerald text-white rounded-full py-3 text-xs font-semibold shadow-md hover:bg-primary transition-all">
-                Deliver Here
+            <!-- Room & Floor Input -->
+            <div class="grid grid-cols-2 gap-2.5">
+                <div class="space-y-1">
+                    <label class="block text-xs font-semibold text-on-surface-variant" for="room-input">Room Number</label>
+                    <input type="text" id="room-input" class="w-full px-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface font-semibold focus:outline-none focus:border-emerald" placeholder="e.g. 304" value="${window.currentRoom || '304'}">
+                </div>
+                <div class="space-y-1">
+                    <label class="block text-xs font-semibold text-on-surface-variant" for="floor-input">Floor</label>
+                    <input type="text" id="floor-input" class="w-full px-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface focus:outline-none focus:border-emerald" placeholder="e.g. 3rd Floor" value="3rd Floor">
+                </div>
+            </div>
+
+            <!-- Inline Alert for Blocked Hostels (Initially hidden) -->
+            <div id="blocked-hostel-alert" class="hidden p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-600 text-xs flex items-center gap-2">
+                <span class="material-symbols-outlined text-sm">info</span>
+                <span id="blocked-hostel-msg">This hostel is opening soon. Delivering to BH13 right now.</span>
+            </div>
+
+            <!-- Save Button -->
+            <button type="button" id="save-address-btn" class="w-full bg-emerald text-white rounded-full py-3.5 text-xs sm:text-sm font-semibold shadow-md hover:bg-primary transition-all active:scale-95 cursor-pointer">
+                Deliver to BH13 (<span id="btn-block-label">${selectedBlock}</span>)
             </button>
         </div>
     `;
@@ -88,27 +167,51 @@ window.openAddressModal = function() {
     modal.onclick = () => modal.remove();
     document.body.appendChild(modal);
 
-    let selectedHostel = window.currentAddress;
-    modal.querySelectorAll('.hostel-btn').forEach(btn => {
+    // Block selection handler
+    modal.querySelectorAll('.block-btn').forEach(btn => {
         btn.onclick = () => {
-            modal.querySelectorAll('.hostel-btn').forEach(b => {
-                b.classList.remove('border-emerald', 'bg-emerald/10', 'text-emerald');
-                b.classList.add('border-surface-variant/60', 'bg-surface');
+            modal.querySelectorAll('.block-btn').forEach(b => {
+                b.classList.remove('border-2', 'border-emerald', 'bg-emerald/10', 'text-emerald', 'shadow-sm');
+                b.classList.add('border-surface-variant', 'bg-surface', 'text-on-surface');
             });
-            btn.classList.remove('border-surface-variant/60', 'bg-surface');
-            btn.classList.add('border-emerald', 'bg-emerald/10', 'text-emerald');
-            selectedHostel = btn.dataset.hostel;
+            btn.classList.remove('border-surface-variant', 'bg-surface', 'text-on-surface');
+            btn.classList.add('border-2', 'border-emerald', 'bg-emerald/10', 'text-emerald', 'shadow-sm');
+            selectedBlock = btn.dataset.block;
+            const label = document.getElementById('btn-block-label');
+            if (label) label.textContent = selectedBlock;
         };
     });
 
+    // Disabled hostels click handler (displays coming soon message)
+    modal.querySelectorAll('.hostel-disabled-btn').forEach(btn => {
+        btn.onclick = () => {
+            const hName = btn.dataset.hostel;
+            const alertBox = document.getElementById('blocked-hostel-alert');
+            const alertMsg = document.getElementById('blocked-hostel-msg');
+            if (alertBox && alertMsg) {
+                alertBox.classList.remove('hidden');
+                alertMsg.textContent = `${hName} is opening next week! Delivering to BH13 for now.`;
+            }
+        };
+    });
+
+    // Save Address
     document.getElementById('save-address-btn').onclick = () => {
-        const room = document.getElementById('address-room-input').value.trim() || 'Room 304';
-        window.currentAddress = selectedHostel;
-        window.currentAddressDetail = `${room}, ${selectedHostel}`;
+        const room = document.getElementById('room-input')?.value?.trim() || '304';
+        const floor = document.getElementById('floor-input')?.value?.trim() || '3rd Floor';
+
+        window.currentAddress = 'BH13';
+        window.currentBlock = selectedBlock;
+        window.currentRoom = room;
+        window.currentAddressDetail = `Room ${room}, ${floor}, ${selectedBlock}, Boys Hostel 13`;
+
         localStorage.setItem('lpuquick_address', window.currentAddress);
+        localStorage.setItem('lpuquick_block', window.currentBlock);
+        localStorage.setItem('lpuquick_room', window.currentRoom);
         localStorage.setItem('lpuquick_address_detail', window.currentAddressDetail);
+
         modal.remove();
-        router(); // Refresh header
+        router(); // Refresh header everywhere
     };
 };
 
@@ -175,7 +278,7 @@ window.openProductModal = async function(productId) {
                         </div>
                         <div class="bg-surface p-2 rounded-xl border border-surface-variant/40">
                             <span class="text-on-surface-variant block text-[10px]">Campus Delivery</span>
-                            <span class="font-semibold text-emerald">${p.delivery_eta}</span>
+                            <span class="font-semibold text-emerald">7 mins to BH13</span>
                         </div>
                     </div>
                 </div>
@@ -183,18 +286,18 @@ window.openProductModal = async function(productId) {
                 <!-- Action Button inside Modal -->
                 <div class="pt-2" id="modal-action-container">
                     ${qty === 0 ? `
-                    <button type="button" class="w-full bg-emerald text-white rounded-full py-3 text-xs font-semibold shadow-md hover:bg-primary transition-all flex items-center justify-center gap-1.5" id="modal-add-btn">
+                    <button type="button" class="w-full bg-emerald text-white rounded-full py-3 text-xs font-semibold shadow-md hover:bg-primary transition-all flex items-center justify-center gap-1.5 cursor-pointer" id="modal-add-btn">
                         <span class="material-symbols-outlined text-sm">add_shopping_cart</span> Add to Cart · ₹${p.price}
                     </button>
                     ` : `
                     <div class="flex items-center justify-between bg-surface-container-high rounded-full p-1.5 px-4 border border-outline-variant/30">
                         <span class="text-xs font-semibold text-on-surface">Quantity in Cart:</span>
                         <div class="flex items-center gap-3">
-                            <button type="button" class="w-7 h-7 rounded-full bg-white dark:bg-surface flex items-center justify-center text-on-surface shadow-sm" id="modal-dec-btn">
+                            <button type="button" class="w-7 h-7 rounded-full bg-white dark:bg-surface flex items-center justify-center text-on-surface shadow-sm cursor-pointer" id="modal-dec-btn">
                                 <span class="material-symbols-outlined text-sm">remove</span>
                             </button>
                             <span class="font-bold text-xs w-4 text-center">${qty}</span>
-                            <button type="button" class="w-7 h-7 rounded-full bg-emerald text-white flex items-center justify-center shadow-sm" id="modal-inc-btn">
+                            <button type="button" class="w-7 h-7 rounded-full bg-emerald text-white flex items-center justify-center shadow-sm cursor-pointer" id="modal-inc-btn">
                                 <span class="material-symbols-outlined text-sm">add</span>
                             </button>
                         </div>

@@ -49,15 +49,16 @@ window.pages.checkout = async function() {
                     </div>
                     <div>
                         <div class="flex items-center gap-2">
-                            <h3 class="font-bold text-on-surface text-sm sm:text-base">Boys Hostel 2 (BH2)</h3>
-                            <span class="text-[10px] bg-surface-container-high px-2 py-0.5 rounded font-bold text-on-surface-variant">Default</span>
+                            <h3 class="font-bold text-on-surface text-sm sm:text-base">Boys Hostel 13 (BH13)</h3>
+                            <span class="text-[10px] bg-emerald/20 text-emerald px-2 py-0.5 rounded font-bold">Express Live</span>
                         </div>
-                        <p class="text-xs text-on-surface-variant mt-0.5">Room 304, 3rd Floor, LPU Campus, Phagwara</p>
+                        <p class="text-xs text-on-surface-variant mt-0.5" id="checkout-address-text">${window.currentAddressDetail || 'Room 304, 3rd Floor, Block A, BH13'}</p>
                         <p class="text-[11px] text-emerald font-semibold mt-1 flex items-center gap-1">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald"></span> Priority Campus Express Dispatch
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald"></span> Priority Campus Express Dispatch (7 Mins)
                         </p>
                     </div>
                 </div>
+                <button type="button" class="text-xs font-semibold text-emerald hover:underline address-selector-trigger" onclick="window.openAddressModal()">Change</button>
             </div>
         </div>
 
