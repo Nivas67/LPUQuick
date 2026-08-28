@@ -11,10 +11,10 @@
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.21.0",
+    "pngjs": "^7.0.0",
     "uuid": "^10.0.0",
     "ws": "^8.18.0"
   },
-  "devDependencies": {},
   "keywords": [
     "quick-commerce",
     "delivery",
