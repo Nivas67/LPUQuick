@@ -20,7 +20,7 @@ router.get('/:id', (req, res) => {
         shelf_life: getShelfLife(product),
         highlights: getHighlights(product),
         storage: 'Store in a cool, dry place away from direct sunlight.',
-        delivery_eta: '7 mins to LPU Hostels'
+        delivery_eta: '3 mins to BH13 (LPU Hostels)'
     };
 
     res.json(details);
@@ -53,7 +53,7 @@ function getShelfLife(p) {
 function getHighlights(p) {
     return [
         '100% Genuine & Sealed Packaging',
-        'Direct Campus Delivery in 7 Minutes',
+        'Direct Campus Delivery in 3 Minutes',
         'Available in Tamper-Proof Discreet Bags',
         'Easy Returns & Instant Replacement'
     ];

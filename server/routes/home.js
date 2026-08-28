@@ -78,8 +78,8 @@ router.get('/', (req, res) => {
         greeting: section.greeting,
         section_title: section.title,
         section_icon: section.icon,
-        delivery_time: '7 mins',
-        delivery_location: 'BH2',
+        delivery_time: '3 mins',
+        delivery_location: 'BH13',
         products,
         buy_again: buyAgain,
         promos

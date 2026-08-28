@@ -37,7 +37,7 @@ window.pages.categories = async function() {
                     <h2 class="font-headline-md text-base sm:text-lg font-bold text-on-surface flex items-center gap-2" id="explorer-title">
                         Category Products
                     </h2>
-                    <p class="text-xs text-on-surface-variant" id="explorer-subtitle">All products delivered in 7 mins to your hostel</p>
+                    <p class="text-xs text-on-surface-variant" id="explorer-subtitle">All products delivered in 3 mins to your hostel</p>
                 </div>
                 <button type="button" class="text-xs text-emerald font-bold px-3 py-1.5 rounded-full bg-emerald/10 hover:bg-emerald/20 transition-all cursor-pointer" id="back-to-all-categories-btn">
                     ← All Categories
@@ -59,7 +59,7 @@ window.pages.categories = async function() {
                     <div class="flex justify-between items-start">
                         <div>
                             <span class="inline-flex items-center gap-1.5 px-3 py-0.5 bg-emerald/20 text-emerald rounded-full font-label-sm font-semibold text-[11px] mb-2">
-                                <span class="material-symbols-outlined text-xs">local_mall</span> 7 Mins Express
+                                <span class="material-symbols-outlined text-xs">local_mall</span> 3 Mins Express
                             </span>
                             <h2 class="font-headline-md text-xl sm:text-2xl text-on-surface font-bold">Grocery & Daily Dairy</h2>
                             <p class="text-on-surface-variant mt-1.5 max-w-md text-xs sm:text-sm">Fresh milk, whole wheat bread, farm eggs, juices & staples for your room.</p>
@@ -193,7 +193,7 @@ window.pageInits.categories = async function() {
         explorerView.classList.remove('hidden');
 
         explorerTitle.textContent = `${categoryName}`;
-        explorerSubtitle.textContent = `All items in ${categoryName} · Delivered in 7 mins`;
+        explorerSubtitle.textContent = `All items in ${categoryName} · Delivered in 3 mins`;
 
         try {
             const res = await window.api.getCategoryProducts(categoryName);

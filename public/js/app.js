@@ -47,7 +47,7 @@ window.openAddressModal = function() {
 
     // Hostels 1 to 13 + GHs + UniMall + Main Gate
     const allLocations = [
-        { name: 'BH13', active: true, tag: 'Live 7m' },
+        { name: 'BH13', active: true, tag: 'Live 3m' },
         { name: 'BH1', active: false, tag: 'Coming Soon' },
         { name: 'BH2', active: false, tag: 'Coming Soon' },
         { name: 'BH3', active: false, tag: 'Coming Soon' },
@@ -82,7 +82,7 @@ window.openAddressModal = function() {
                     <span class="material-symbols-outlined text-emerald text-2xl">location_on</span>
                     <div>
                         <h3 class="font-bold text-sm sm:text-base text-on-surface">Select Delivery Location</h3>
-                        <p class="text-[11px] text-on-surface-variant">LPU Campus Express Delivery (7 mins)</p>
+                        <p class="text-[11px] text-on-surface-variant">LPU Campus Express Delivery (3 mins)</p>
                     </div>
                 </div>
                 <button type="button" class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface" onclick="document.getElementById('address-modal').remove()">
@@ -93,7 +93,7 @@ window.openAddressModal = function() {
             <!-- Notice Banner -->
             <div class="p-3 bg-emerald/10 border border-emerald/20 rounded-2xl flex items-center gap-2.5 text-xs text-emerald font-medium">
                 <span class="material-symbols-outlined text-base">bolt</span>
-                <span>Express 7-min delivery is exclusively live at <strong>BH13</strong>! Other hostels opening next week.</span>
+                <span>Express 3-min delivery is exclusively live at <strong>BH13</strong>! Other hostels opening next week.</span>
             </div>
 
             <!-- Hostel Selector Grid -->
@@ -278,7 +278,7 @@ window.openProductModal = async function(productId) {
                         </div>
                         <div class="bg-surface p-2 rounded-xl border border-surface-variant/40">
                             <span class="text-on-surface-variant block text-[10px]">Campus Delivery</span>
-                            <span class="font-semibold text-emerald">7 mins to BH13</span>
+                            <span class="font-semibold text-emerald">3 mins to BH13</span>
                         </div>
                     </div>
                 </div>

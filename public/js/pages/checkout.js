@@ -35,7 +35,7 @@ window.pages.checkout = async function() {
         </div>
         <div class="flex items-center gap-1 text-xs bg-emerald/10 text-emerald px-3 py-1.5 rounded-full font-semibold">
             <span class="material-symbols-outlined text-sm">bolt</span>
-            <span>7 mins ETA</span>
+            <span>3 mins ETA</span>
         </div>
     </header>
 
@@ -54,7 +54,7 @@ window.pages.checkout = async function() {
                         </div>
                         <p class="text-xs text-on-surface-variant mt-0.5" id="checkout-address-text">${window.currentAddressDetail || 'Room 304, 3rd Floor, Block A, BH13'}</p>
                         <p class="text-[11px] text-emerald font-semibold mt-1 flex items-center gap-1">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald"></span> Priority Campus Express Dispatch (7 Mins)
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald"></span> Priority Campus Express Dispatch (3 Mins)
                         </p>
                     </div>
                 </div>

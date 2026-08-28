@@ -55,8 +55,8 @@ window.pages.cart = async function() {
                 <span class="material-symbols-outlined text-on-surface">arrow_back</span>
             </a>
             <div>
-                <h1 class="font-headline-md text-lg font-bold text-on-surface">My Cart</h1>
-                <p class="text-xs text-on-surface-variant">${cartData.item_count || 0} items · Delivering to BH2 (7 mins)</p>
+                <h1 class="font-headline-md text-xl sm:text-2xl font-bold text-on-surface">Your Cart</h1>
+                <p class="text-xs text-on-surface-variant">${cartData.item_count || 0} items · Delivering to ${window.currentAddress || 'BH13'} (3 mins)</p>
             </div>
         </div>
         ${items.length > 0 ? `

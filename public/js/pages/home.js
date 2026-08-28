@@ -66,7 +66,7 @@ window.pages.home = async function() {
             <button type="button" class="address-selector-trigger flex items-center bg-surface-container-high hover:bg-emerald/10 border border-surface-variant/40 rounded-full px-4 py-1.5 text-on-surface font-label-sm text-xs transition-all cursor-pointer">
                 <span class="material-symbols-outlined text-emerald text-sm mr-1.5" style="font-variation-settings: 'FILL' 1;">location_on</span>
                 <span class="font-bold">Delivery to ${address}</span>
-                <span class="text-on-surface-variant ml-1">· 7 mins</span>
+                <span class="text-on-surface-variant ml-1">· 3 mins</span>
                 <span class="material-symbols-outlined text-xs ml-1 text-emerald">expand_more</span>
             </button>
         </div>
@@ -93,7 +93,7 @@ window.pages.home = async function() {
                 <span>Delivery to ${address}</span>
                 <span class="material-symbols-outlined ml-0.5 text-xs text-emerald">expand_more</span>
             </div>
-            <span class="text-on-surface-variant text-[10px]">7 mins ETA · Click to Change</span>
+            <span class="text-on-surface-variant text-[10px]">3 mins ETA · Click to Change</span>
         </button>
         <div class="flex items-center gap-1.5">
             <a href="#/cart" class="p-2 text-on-surface-variant hover:text-emerald transition-colors relative">
@@ -156,7 +156,7 @@ window.pages.home = async function() {
                 <div class="z-10 w-full">
                     <div class="flex justify-between items-start mb-2">
                         <div>
-                            <span class="inline-flex items-center gap-1 text-[10px] font-bold text-emerald bg-white/70 px-2.5 py-0.5 rounded-full mb-1.5">7-MIN DELIVERY</span>
+                            <span class="inline-flex items-center gap-1 text-[10px] font-bold text-emerald bg-white/70 px-2.5 py-0.5 rounded-full mb-1.5">3-MIN DELIVERY</span>
                             <h3 class="font-headline-md text-lg sm:text-xl font-bold text-emerald">Campus Night Cravings</h3>
                         </div>
                         <span class="material-symbols-outlined text-emerald bg-emerald/20 p-2 rounded-2xl text-lg" style="font-variation-settings: 'FILL' 1;">local_pizza</span>
