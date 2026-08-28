@@ -11,9 +11,9 @@ window.pages.signin = async function() {
     <div class="relative z-10 w-full max-w-md px-margin-mobile md:px-0">
         <!-- Brand Header -->
         <div class="text-center mb-xl">
-            <a href="#/" class="text-display font-display text-primary flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
-                <img src="/logo.png" alt="LPUQuick" class="w-16 h-16 rounded-3xl shadow-lg object-cover">
-                <span class="text-2xl sm:text-3xl font-bold tracking-tight">LPUQuick</span>
+            <a href="#/" class="text-display font-display text-emerald dark:text-white flex items-center justify-center gap-3 hover:opacity-90 transition-opacity">
+                <img src="/logo.png" alt="LPUQuick" class="w-16 h-16 rounded-3xl shadow-lg border border-white/20 object-cover bg-surface-container-high">
+                <span class="text-2xl sm:text-3xl font-extrabold tracking-tight text-emerald dark:text-white">LPUQuick</span>
             </a>
             <p class="text-body-lg font-body-lg text-on-surface-variant mt-sm text-xs sm:text-sm">Your Campus, One Tap Away · 3 Mins Express</p>
         </div>

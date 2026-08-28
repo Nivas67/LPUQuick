@@ -172,6 +172,10 @@ body.dark .text-on-surface-variant {
     color: #94a3b8 !important;
 }
 
+body.dark .text-primary {
+    color: #34d399 !important;
+}
+
 body.dark .border-glass-border {
     border-color: rgba(255, 255, 255, 0.08) !important;
 }

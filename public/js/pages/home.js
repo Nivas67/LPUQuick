@@ -58,9 +58,9 @@ window.pages.home = async function() {
     <!-- TopAppBar (Web) -->
     <header class="hidden md:flex justify-between items-center px-margin-desktop py-sm w-full z-50 fixed top-0 bg-surface/80 backdrop-blur-3xl border-b border-glass-border">
         <div class="flex items-center gap-md">
-            <a href="#/" class="font-display text-display text-primary tracking-tighter text-2xl font-bold flex items-center gap-2">
-                <img src="/logo.png" alt="LPUQuick" class="w-9 h-9 rounded-2xl shadow-sm object-cover">
-                <span>LPUQuick</span>
+            <a href="#/" class="font-display text-display text-emerald dark:text-white tracking-tighter text-2xl font-bold flex items-center gap-2.5 hover:opacity-90 transition-opacity">
+                <img src="/logo.png" alt="LPUQuick" class="w-8 h-8 rounded-xl shadow-md border border-white/20 shrink-0 object-cover bg-surface-container-high">
+                <span class="text-emerald dark:text-white font-extrabold tracking-tight">LPUQuick</span>
             </a>
             <!-- Address Selector Trigger -->
             <button type="button" class="address-selector-trigger flex items-center bg-surface-container-high hover:bg-emerald/10 border border-surface-variant/40 rounded-full px-4 py-1.5 text-on-surface font-label-sm text-xs transition-all cursor-pointer">
@@ -87,14 +87,19 @@ window.pages.home = async function() {
 
     <!-- TopAppBar (Mobile) -->
     <header class="md:hidden flex justify-between items-center px-margin-mobile py-2.5 w-full z-50 fixed top-0 bg-surface/80 backdrop-blur-3xl border-b border-glass-border">
-        <!-- Address Selector Trigger Mobile -->
-        <button type="button" class="address-selector-trigger flex flex-col text-left cursor-pointer">
-            <div class="flex items-center text-primary font-bold text-sm">
-                <span>Delivery to ${address}</span>
-                <span class="material-symbols-outlined ml-0.5 text-xs text-emerald">expand_more</span>
-            </div>
-            <span class="text-on-surface-variant text-[10px]">3 mins ETA · Click to Change</span>
-        </button>
+        <div class="flex items-center gap-2.5">
+            <a href="#/" class="shrink-0">
+                <img src="/logo.png" alt="LPUQuick" class="w-8 h-8 rounded-xl shadow-md border border-white/20 shrink-0 object-cover bg-surface-container-high">
+            </a>
+            <!-- Address Selector Trigger Mobile -->
+            <button type="button" class="address-selector-trigger flex flex-col text-left cursor-pointer">
+                <div class="flex items-center text-emerald dark:text-white font-bold text-sm">
+                    <span>Delivery to ${address}</span>
+                    <span class="material-symbols-outlined ml-0.5 text-xs text-emerald">expand_more</span>
+                </div>
+                <span class="text-on-surface-variant text-[10px]">3 mins ETA · Click to Change</span>
+            </button>
+        </div>
         <div class="flex items-center gap-1.5">
             <a href="#/cart" class="p-2 text-on-surface-variant hover:text-emerald transition-colors relative">
                 <span class="material-symbols-outlined text-xl">shopping_cart</span>
