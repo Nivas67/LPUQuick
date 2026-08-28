@@ -1,72 +1,135 @@
 /* ============================================================
-   LPUQuick — Global Styles & Native Dark Mode
+   LPUQuick — Global Styles & Ultra-Glassy Dark Theme
    ============================================================ */
 
 :root {
     --bg-primary: #f8f9fa;
     --text-primary: #191c1b;
     --text-secondary: #3f4944;
-    --card-bg: rgba(255, 255, 255, 0.75);
-    --card-border: rgba(255, 255, 255, 0.5);
+    --card-bg: rgba(255, 255, 255, 0.78);
+    --card-border: rgba(255, 255, 255, 0.6);
     --surface-high: #e6e8e4;
     --header-bg: rgba(248, 249, 250, 0.85);
 }
 
+/* ============================================================
+   DARK MODE — ULTRA-GLASS FROSTED GLASSMORPHISM
+   ============================================================ */
+
 html.dark, body.dark {
-    --bg-primary: #0f1713;
-    --text-primary: #f3f4f6;
-    --text-secondary: #9ca3af;
-    --card-bg: rgba(20, 30, 24, 0.85);
-    --card-border: rgba(255, 255, 255, 0.1);
-    --surface-high: #1c2720;
-    --header-bg: rgba(15, 23, 19, 0.9);
+    --bg-primary: #0a110d;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --card-bg: rgba(18, 30, 24, 0.65);
+    --card-border: rgba(255, 255, 255, 0.09);
+    --surface-high: rgba(26, 42, 33, 0.7);
+    --header-bg: rgba(10, 17, 13, 0.75);
 }
 
 body.dark {
-    background-color: #0f1713 !important;
-    color: #f3f4f6 !important;
+    background-color: #0a110d !important;
+    background-image: 
+        radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.12) 0px, transparent 50%),
+        radial-gradient(at 50% 100%, rgba(5, 150, 105, 0.12) 0px, transparent 50%) !important;
+    background-attachment: fixed !important;
+    color: #f1f5f9 !important;
 }
 
 body.dark .bg-background {
-    background-color: #0f1713 !important;
+    background-color: transparent !important;
 }
 
+/* Glassy Top Navigation Header in Dark Mode */
+body.dark header {
+    background: rgba(10, 17, 13, 0.7) !important;
+    backdrop-filter: blur(28px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Glassy Floating Bottom Navigation Bar in Dark Mode */
+body.dark nav {
+    background: rgba(14, 24, 19, 0.75) !important;
+    backdrop-filter: blur(32px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(190%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Glass Cards & Containers in Dark Mode */
+body.dark .glass-card,
+body.dark .glass-panel,
+body.dark .glass-overlay,
 body.dark .bg-surface {
-    background-color: #16221c !important;
-    color: #f3f4f6 !important;
+    background: rgba(18, 30, 24, 0.65) !important;
+    backdrop-filter: blur(24px) saturate(160%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(160%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35), inset 0 1px 1px 0 rgba(255, 255, 255, 0.08) !important;
+    color: #f1f5f9 !important;
 }
 
 body.dark .bg-surface-container-high {
-    background-color: #1e2c24 !important;
+    background: rgba(26, 42, 33, 0.65) !important;
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
 }
 
 body.dark .bg-surface-container-lowest {
-    background-color: #16221c !important;
-    color: #f3f4f6 !important;
+    background: rgba(14, 24, 19, 0.75) !important;
+    color: #f1f5f9 !important;
 }
 
 body.dark .text-on-surface {
-    color: #f3f4f6 !important;
+    color: #f1f5f9 !important;
 }
 
 body.dark .text-on-surface-variant {
-    color: #9ca3af !important;
+    color: #94a3b8 !important;
 }
 
 body.dark .border-glass-border {
-    border-color: rgba(255, 255, 255, 0.1) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
 }
 
 body.dark .border-surface-variant {
-    border-color: rgba(255, 255, 255, 0.12) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
 }
 
-body.dark .glass-card,
-body.dark .glass-panel,
-body.dark .glass-overlay {
-    background: rgba(22, 34, 28, 0.85) !important;
+/* Search Dropdowns & Inputs in Dark Mode */
+body.dark input {
+    background: rgba(16, 28, 22, 0.7) !important;
     border-color: rgba(255, 255, 255, 0.1) !important;
-    color: #f3f4f6 !important;
+    color: #f1f5f9 !important;
+    backdrop-filter: blur(16px) !important;
+}
+
+body.dark input:focus {
+    border-color: #10B981 !important;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25) !important;
+}
+
+/* Modals & Bottom Sheets in Dark Mode */
+body.dark .modal-content {
+    background: rgba(14, 24, 19, 0.92) !important;
+    backdrop-filter: blur(36px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(36px) saturate(200%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.12) !important;
+    color: #f1f5f9 !important;
+}
+
+/* Product Cards in Dark Mode */
+body.dark .product-detail-trigger {
+    background: rgba(18, 30, 24, 0.65) !important;
+    backdrop-filter: blur(20px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+body.dark .product-detail-trigger:hover {
+    border-color: rgba(16, 185, 129, 0.4) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(16, 185, 129, 0.15) !important;
+    transform: translateY(-2px);
 }
 
 /* Ensure product images are NEVER inverted or washed out in dark mode */
@@ -74,25 +137,29 @@ img, video, svg, canvas {
     filter: none !important;
 }
 
-/* Glassmorphism Cards */
+/* ============================================================
+   LIGHT MODE GLASSMORPHISM
+   ============================================================ */
+
 .glass-card {
-    background: rgba(255, 255, 255, 0.75);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    background: rgba(255, 255, 255, 0.78);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
     border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.04);
 }
 
 .glass-panel {
-    background: rgba(255, 255, 255, 0.75);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    background: rgba(255, 255, 255, 0.78);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
     border: 1px solid rgba(255, 255, 255, 0.5);
 }
 
 .glass-overlay {
-    background: rgba(255, 255, 255, 0.75);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    background: rgba(255, 255, 255, 0.78);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
     border: 1px solid rgba(255, 255, 255, 0.5);
 }
 
@@ -115,7 +182,7 @@ img, video, svg, canvas {
 
 /* Flow Assist AI Glow */
 .ai-glow {
-    box-shadow: 0 0 20px rgba(16, 185, 129, 0.3), inset 0 0 10px rgba(16, 185, 129, 0.1);
+    box-shadow: 0 0 24px rgba(16, 185, 129, 0.35), inset 0 0 12px rgba(16, 185, 129, 0.15);
 }
 
 .ai-gradient-text {
@@ -133,7 +200,8 @@ img, video, svg, canvas {
     animation: gradientBG 15s ease infinite;
 }
 body.dark .animated-bg {
-    background: linear-gradient(45deg, #0f1713, #16221c, #2a1638, #0f1713) !important;
+    background: linear-gradient(45deg, #0a110d, #14221a, #231230, #0a110d) !important;
+    background-size: 400% 400% !important;
 }
 
 @keyframes gradientBG {
@@ -149,7 +217,7 @@ body.dark .animated-bg {
     background-position: -10px -10px;
 }
 body.dark .map-pattern {
-    background-image: radial-gradient(#2d4235 1px, transparent 1px) !important;
+    background-image: radial-gradient(#2d4235 1.5px, transparent 1.5px) !important;
 }
 
 @keyframes dash {
@@ -163,7 +231,7 @@ body.dark .map-pattern {
     height: 60px;
     background: rgba(255, 255, 255, 0.8);
     border: 1px solid rgba(255, 255, 255, 0.5);
-    backdrop-filter: blur(20px);
+    backdrop-filter: blur(24px);
     border-radius: 9999px;
     display: flex;
     align-items: center;
@@ -171,8 +239,9 @@ body.dark .map-pattern {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
 }
 body.dark .slider-track {
-    background: rgba(26, 38, 30, 0.85) !important;
+    background: rgba(18, 30, 24, 0.75) !important;
     border-color: rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.1) !important;
 }
 
 .slider-thumb {
@@ -186,7 +255,7 @@ body.dark .slider-track {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.5);
     transition: transform 0.1s;
     z-index: 2;
 }
@@ -204,7 +273,7 @@ body.dark .slider-track {
     transition: opacity 0.3s;
 }
 body.dark .slider-text {
-    color: #f3f4f6 !important;
+    color: #f1f5f9 !important;
 }
 
 .slider-progress {
@@ -212,7 +281,7 @@ body.dark .slider-text {
     left: 0;
     top: 0;
     height: 100%;
-    background: rgba(16, 185, 129, 0.2);
+    background: rgba(16, 185, 129, 0.25);
     width: 0;
     border-radius: 9999px;
     z-index: 0;
@@ -226,7 +295,7 @@ body.dark .slider-text {
     color: #ffffff;
     border-radius: 9999px;
     padding: 2px 4px;
-    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+    box-shadow: 0 3px 10px rgba(16, 185, 129, 0.4);
 }
 .card-qty-btn {
     width: 22px;
@@ -240,7 +309,7 @@ body.dark .slider-text {
     transition: background 0.15s;
 }
 .card-qty-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.25);
 }
 .card-qty-val {
     font-size: 12px;
@@ -254,8 +323,9 @@ body.dark .slider-text {
 .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(6px);
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     z-index: 9999;
     display: flex;
     align-items: flex-end;
@@ -283,11 +353,6 @@ body.dark .slider-text {
         border-radius: 1.75rem;
         animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
-}
-body.dark .modal-content {
-    background: #15221b !important;
-    color: #f3f4f6 !important;
-    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 @keyframes slideUp {
