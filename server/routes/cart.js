@@ -2,19 +2,20 @@ const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 
-// Pricing calculator - Zero GST, Free Delivery Offer (-₹25), Handling Fee Discount (-₹5), Only ₹5 Net Handling Fee
+// Pricing calculator - Zero GST, 100% Free Delivery Offer (-₹25), 100% Free Handling Offer (-₹5)
+// Total to Pay is EXACTLY the Item Subtotal with zero extra charges!
 function calculatePricing(items) {
     const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const original_delivery_fee = subtotal > 0 ? 25 : 0;
     const delivery_discount = subtotal > 0 ? 25 : 0;
-    const delivery_fee = 0; // Net Delivery Fee = ₹0
+    const delivery_fee = 0; // Net Delivery Fee = ₹0 (FREE)
 
-    const original_platform_fee = subtotal > 0 ? 10 : 0;
-    const platform_discount = subtotal > 0 ? 5 : 0; // ₹5 discount offer on handling
-    const platform_fee = subtotal > 0 ? 5 : 0; // Net Handling Fee = ₹5 only
+    const original_platform_fee = subtotal > 0 ? 5 : 0;
+    const platform_discount = subtotal > 0 ? 5 : 0; // 100% Handling fee waiver offer
+    const platform_fee = 0; // Net Handling Fee = ₹0 (FREE)
 
-    const tax = 0; // 0% GST (no taxes charged)
-    const total = subtotal > 0 ? Math.round((subtotal + platform_fee) * 100) / 100 : 0;
+    const tax = 0; // 0% GST (no taxes)
+    const total = subtotal; // Exact Item Subtotal!
     const total_savings = delivery_discount + platform_discount; // Total saved: ₹30
 
     return { 

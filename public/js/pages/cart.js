@@ -8,11 +8,10 @@ window.pages.cart = async function() {
     try { cartData = await window.api.getCart(userId); } catch(e) { cartData = { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 5, tax: 0, total: 0, free_delivery_remaining: 199 } }; }
 
     const items = cartData.items || [];
-    const p = cartData.pricing || { subtotal: 0, delivery_fee: 0, platform_fee: 5, tax: 0, total: 0 };
+    const p = cartData.pricing || { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 };
     const subtotal = p.subtotal || 0;
-    const netHandling = subtotal > 0 ? 5 : 0;
-    const exactTotal = subtotal > 0 ? Math.round((subtotal + netHandling) * 100) / 100 : 0;
-    const totalSavings = subtotal > 0 ? 30 : 0; // ₹25 delivery + ₹5 handling discount
+    const exactTotal = subtotal; // Total to Pay is exactly the item subtotal!
+    const totalSavings = subtotal > 0 ? 30 : 0; // ₹25 delivery + ₹5 handling savings
 
     const itemCards = items.length === 0 ? `
         <div class="glass-card rounded-3xl p-10 sm:p-12 text-center my-6 border border-glass-border">
@@ -105,16 +104,16 @@ window.pages.cart = async function() {
                         <span>Delivery Fee</span>
                         <div class="flex items-center gap-1.5">
                             <span class="line-through text-on-surface-variant/60 text-xs">₹25</span>
-                            <span class="font-bold text-emerald">FREE</span>
+                            <span class="font-bold text-emerald">FREE (Offer Applied)</span>
                         </div>
                     </div>
 
-                    <!-- 3. Handling Fee -->
+                    <!-- 3. Handling Fee (Minused with Offer) -->
                     <div class="flex justify-between text-on-surface-variant">
                         <span>Handling Fee</span>
                         <div class="flex items-center gap-1.5">
-                            <span class="line-through text-on-surface-variant/60 text-xs">₹10</span>
-                            <span class="font-semibold text-on-surface">₹5</span>
+                            <span class="line-through text-on-surface-variant/60 text-xs">₹5</span>
+                            <span class="font-bold text-emerald">FREE (Offer Applied)</span>
                         </div>
                     </div>
                     
@@ -122,7 +121,7 @@ window.pages.cart = async function() {
                     <div class="border-t border-outline-variant/40 pt-3 flex justify-between items-center text-base sm:text-lg font-bold text-on-surface">
                         <div>
                             <span>To Pay</span>
-                            <p class="text-[10px] text-on-surface-variant font-normal">₹${subtotal} items + ₹5 handling</p>
+                            <p class="text-[10px] text-emerald font-semibold">100% Free Campus Delivery & Handling</p>
                         </div>
                         <span class="text-2xl text-emerald font-display font-black">₹${exactTotal}</span>
                     </div>

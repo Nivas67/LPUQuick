@@ -31,12 +31,12 @@ router.post('/', (req, res) => {
         });
     }
 
-    // Calculate pricing: 0 GST, FREE delivery (-₹25 offer), ₹5 net handling fee
+    // Calculate pricing: 0 GST, FREE delivery (-₹25 offer), FREE handling (-₹5 offer)
     const subtotal = cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
     const delivery_fee = 0;
-    const platform_fee = 5;
+    const platform_fee = 0;
     const tax = 0;
-    const total = Math.round((subtotal + platform_fee) * 100) / 100;
+    const total = subtotal;
 
     // Create order — direct synchronous path, no cross-selling microservice dependency
     const orderId = `order_${uuidv4().slice(0, 8)}`;
