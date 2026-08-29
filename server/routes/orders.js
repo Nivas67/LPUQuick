@@ -54,21 +54,28 @@ router.get('/admin/analytics', requireAdmin, async (req, res) => {
         const orders = await supabaseDb.orders.getAllOrders();
         const products = await supabaseDb.products.getAll({ includeInactive: true });
         
-        const totalRevenue = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-        const pendingOrders = orders.filter(o => ACTIVE_STATUSES.includes(o.status));
         const deliveredOrders = orders.filter(o => ['Delivered', 'delivered'].includes(o.status));
+        const deliveredOrderIds = new Set(deliveredOrders.map(o => o.id));
+        const pendingOrders = orders.filter(o => ACTIVE_STATUSES.includes(o.status));
+        
+        // Revenue is calculated strictly from Delivered orders only
+        const totalRevenue = deliveredOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+        const avgOrderValue = deliveredOrders.length > 0 ? Math.round(totalRevenue / deliveredOrders.length) : 0;
         
         const totalStock = products.reduce((sum, p) => sum + (p.stock_left || 0), 0);
         const lowStockProducts = products.filter(p => p.stock_left > 0 && p.stock_left <= 10);
         const outOfStockProducts = products.filter(p => !p.in_stock || p.stock_left === 0);
         
-        // Top selling products from order_items
+        // Top selling products calculated strictly from Delivered orders
         const { data: topItems } = await supabase
             .from('order_items')
-            .select('product_id, quantity, unit_price, products(id, name, category, image_url)');
+            .select('order_id, product_id, quantity, unit_price, products(id, name, category, image_url)');
         
         const productSales = {};
         (topItems || []).forEach(item => {
+            // Only count items from successfully delivered orders
+            if (!deliveredOrderIds.has(item.order_id)) return;
+
             const pid = item.product_id;
             if (!productSales[pid]) {
                 productSales[pid] = {
@@ -97,7 +104,7 @@ router.get('/admin/analytics', requireAdmin, async (req, res) => {
                 pendingOrdersCount: pendingOrders.length,
                 deliveredOrdersCount: deliveredOrders.length,
                 totalRevenue: Math.round(totalRevenue),
-                avgOrderValue: orders.length > 0 ? Math.round(totalRevenue / orders.length) : 0
+                avgOrderValue: avgOrderValue
             },
             lowStockItems: lowStockProducts.slice(0, 10),
             topProducts
@@ -208,15 +215,15 @@ router.get('/admin/live', requireAdmin, async (req, res) => {
 router.get('/admin/metrics', requireAdmin, async (req, res) => {
     try {
         const orders = await supabaseDb.orders.getAllOrders();
-        const totalRevenue = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+        const deliveredOrders = orders.filter(o => ['Delivered', 'delivered'].includes(o.status));
+        const totalRevenue = deliveredOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
         const activeOrders = orders.filter(o => ACTIVE_STATUSES.includes(o.status)).length;
-        const deliveredOrders = orders.filter(o => o.status === 'Delivered').length;
 
         res.json({
             metrics: {
                 total_orders: orders.length,
                 active_orders: activeOrders,
-                delivered_orders: deliveredOrders,
+                delivered_orders: deliveredOrders.length,
                 total_revenue: totalRevenue,
                 avg_delivery_time_mins: 3.2
             }

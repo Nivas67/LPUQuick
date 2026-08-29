@@ -1061,7 +1061,7 @@ function handleRealtimeNewOrder(order) {
             badgeEl.classList.remove('hidden');
         }
     }
-    if (totalRevEl && totalRevEl.textContent !== '--') {
+    if (totalRevEl && totalRevEl.textContent !== '--' && ['Delivered', 'delivered'].includes(order.status)) {
         const currentRev = parseFloat(totalRevEl.textContent.replace('₹', '')) || 0;
         totalRevEl.textContent = `₹${currentRev + Number(order.total || 0)}`;
     }
