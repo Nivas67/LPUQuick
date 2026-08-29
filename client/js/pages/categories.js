@@ -49,83 +49,83 @@ window.pages.categories = async function() {
     <!-- Main Dual-Pane Layout: Left Categories Column Rail + Right Products/Coming Soon Content -->
     <div class="flex flex-1 max-w-7xl mx-auto w-full overflow-hidden">
         <!-- Left Vertical Category Column Rail (Full list of all categories in a column) -->
-        <aside class="w-[88px] sm:w-32 shrink-0 bg-surface/70 border-r border-glass-border overflow-y-auto max-h-[calc(100vh-120px)] sticky top-[95px] py-2 no-scrollbar" id="left-categories-rail">
-            <div class="flex flex-col gap-1.5 items-center px-1" id="category-sidebar-list">
+        <aside class="w-[96px] sm:w-36 shrink-0 bg-surface/95 dark:bg-slate-900/95 backdrop-blur-2xl border-r border-surface-variant/40 shadow-sm overflow-y-auto max-h-[calc(100vh-120px)] sticky top-[70px] py-3 no-scrollbar z-20" id="left-categories-rail">
+            <div class="flex flex-col gap-2 items-center px-1.5" id="category-sidebar-list">
                 
                 <!-- 1. Snacks & Drinks (LIVE & ACTIVE) -->
-                <button type="button" class="w-full flex flex-col items-center py-2 px-1 relative transition-all group cursor-pointer cat-sidebar-btn active-cat" data-category-id="snacks" data-status="live">
-                    <div class="absolute left-0 top-1 bottom-1 w-1 bg-emerald rounded-r-full indicator-bar"></div>
-                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border-2 border-emerald shadow-md bg-emerald/10 relative">
+                <button type="button" class="w-full flex flex-col items-center py-2.5 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn active-cat bg-emerald/10 dark:bg-emerald-950/40 border border-emerald/30 shadow-sm" data-category-id="snacks" data-status="live">
+                    <div class="absolute left-0 top-2 bottom-2 w-1.5 bg-emerald rounded-r-full indicator-bar"></div>
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border-2 border-emerald shadow-md bg-emerald/10 relative shrink-0">
                         <img src="https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=120" alt="Snacks & Drinks" class="w-full h-full object-cover rounded-xl">
                         <span class="absolute bottom-0 inset-x-0 bg-emerald text-white text-[8px] font-black text-center py-[1px] tracking-wider uppercase">Live ⚡</span>
                     </div>
-                    <span class="text-[10px] sm:text-[11px] font-bold text-center mt-1.5 leading-tight text-emerald">
+                    <span class="cat-label text-[11px] font-extrabold text-center mt-1.5 leading-snug text-emerald dark:text-emerald-400 break-words w-full px-1">
                         Snacks & Drinks
                     </span>
                 </button>
 
                 <!-- 2. Bakery & Biscuits (COMING SOON) -->
-                <button type="button" class="w-full flex flex-col items-center py-2 px-1 relative transition-all group cursor-pointer cat-sidebar-btn opacity-60 hover:opacity-100" data-category-id="bakery" data-status="blocked" data-name="Bakery & Biscuits">
-                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant bg-surface-container-high relative">
+                <button type="button" class="w-full flex flex-col items-center py-2.5 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn hover:bg-surface-variant/30 border border-transparent" data-category-id="bakery" data-status="blocked" data-name="Bakery & Biscuits">
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant bg-surface-container-high relative shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
                         <img src="https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=120" alt="Bakery & Biscuits" class="w-full h-full object-cover rounded-xl filter grayscale contrast-125">
-                        <span class="absolute bottom-0 inset-x-0 bg-neutral-800/90 text-neutral-300 text-[8px] font-bold text-center py-[1px]">Soon 🔒</span>
+                        <span class="absolute bottom-0 inset-x-0 bg-neutral-800/90 text-neutral-200 text-[8px] font-bold text-center py-[1px]">Soon 🔒</span>
                     </div>
-                    <span class="text-[10px] sm:text-[11px] font-medium text-center mt-1.5 leading-tight text-on-surface-variant">
+                    <span class="cat-label text-[11px] font-bold text-center mt-1.5 leading-snug text-on-surface dark:text-slate-100 break-words w-full px-1">
                         Bakery & Biscuits
                     </span>
                 </button>
 
                 <!-- 3. Grocery & Kitchen (COMING SOON) -->
-                <button type="button" class="w-full flex flex-col items-center py-2 px-1 relative transition-all group cursor-pointer cat-sidebar-btn opacity-60 hover:opacity-100" data-category-id="grocery" data-status="blocked" data-name="Grocery & Kitchen">
-                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant bg-surface-container-high relative">
+                <button type="button" class="w-full flex flex-col items-center py-2.5 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn hover:bg-surface-variant/30 border border-transparent" data-category-id="grocery" data-status="blocked" data-name="Grocery & Kitchen">
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant bg-surface-container-high relative shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
                         <img src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=120" alt="Grocery & Kitchen" class="w-full h-full object-cover rounded-xl filter grayscale contrast-125">
-                        <span class="absolute bottom-0 inset-x-0 bg-neutral-800/90 text-neutral-300 text-[8px] font-bold text-center py-[1px]">Soon 🔒</span>
+                        <span class="absolute bottom-0 inset-x-0 bg-neutral-800/90 text-neutral-200 text-[8px] font-bold text-center py-[1px]">Soon 🔒</span>
                     </div>
-                    <span class="text-[10px] sm:text-[11px] font-medium text-center mt-1.5 leading-tight text-on-surface-variant">
+                    <span class="cat-label text-[11px] font-bold text-center mt-1.5 leading-snug text-on-surface dark:text-slate-100 break-words w-full px-1">
                         Grocery & Kitchen
                     </span>
                 </button>
 
                 <!-- 4. Beauty & Personal Care (COMING SOON) -->
-                <button type="button" class="w-full flex flex-col items-center py-2 px-1 relative transition-all group cursor-pointer cat-sidebar-btn opacity-60 hover:opacity-100" data-category-id="beauty" data-status="blocked" data-name="Beauty & Personal Care">
-                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant bg-surface-container-high relative">
+                <button type="button" class="w-full flex flex-col items-center py-2.5 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn hover:bg-surface-variant/30 border border-transparent" data-category-id="beauty" data-status="blocked" data-name="Beauty & Personal Care">
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant bg-surface-container-high relative shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
                         <img src="https://images.unsplash.com/photo-1556228720-195a672e8a03?w=120" alt="Beauty & Personal Care" class="w-full h-full object-cover rounded-xl filter grayscale contrast-125">
-                        <span class="absolute bottom-0 inset-x-0 bg-neutral-800/90 text-neutral-300 text-[8px] font-bold text-center py-[1px]">Soon 🔒</span>
+                        <span class="absolute bottom-0 inset-x-0 bg-neutral-800/90 text-neutral-200 text-[8px] font-bold text-center py-[1px]">Soon 🔒</span>
                     </div>
-                    <span class="text-[10px] sm:text-[11px] font-medium text-center mt-1.5 leading-tight text-on-surface-variant">
+                    <span class="cat-label text-[11px] font-bold text-center mt-1.5 leading-snug text-on-surface dark:text-slate-100 break-words w-full px-1">
                         Beauty & Care
                     </span>
                 </button>
 
                 <!-- 5. Stationery & Notes (COMING SOON) -->
-                <button type="button" class="w-full flex flex-col items-center py-2 px-1 relative transition-all group cursor-pointer cat-sidebar-btn opacity-60 hover:opacity-100" data-category-id="stationery" data-status="blocked" data-name="Stationery & Notebooks">
-                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant bg-surface-container-high relative">
+                <button type="button" class="w-full flex flex-col items-center py-2.5 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn hover:bg-surface-variant/30 border border-transparent" data-category-id="stationery" data-status="blocked" data-name="Stationery & Notebooks">
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant bg-surface-container-high relative shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
                         <img src="https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=120" alt="Stationery" class="w-full h-full object-cover rounded-xl filter grayscale contrast-125">
-                        <span class="absolute bottom-0 inset-x-0 bg-neutral-800/90 text-neutral-300 text-[8px] font-bold text-center py-[1px]">Soon 🔒</span>
+                        <span class="absolute bottom-0 inset-x-0 bg-neutral-800/90 text-neutral-200 text-[8px] font-bold text-center py-[1px]">Soon 🔒</span>
                     </div>
-                    <span class="text-[10px] sm:text-[11px] font-medium text-center mt-1.5 leading-tight text-on-surface-variant">
+                    <span class="cat-label text-[11px] font-bold text-center mt-1.5 leading-snug text-on-surface dark:text-slate-100 break-words w-full px-1">
                         Stationery
                     </span>
                 </button>
 
                 <!-- 6. Electronics & Tech (COMING SOON) -->
-                <button type="button" class="w-full flex flex-col items-center py-2 px-1 relative transition-all group cursor-pointer cat-sidebar-btn opacity-60 hover:opacity-100" data-category-id="electronics" data-status="blocked" data-name="Electronics & Accessories">
-                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant bg-surface-container-high relative">
+                <button type="button" class="w-full flex flex-col items-center py-2.5 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn hover:bg-surface-variant/30 border border-transparent" data-category-id="electronics" data-status="blocked" data-name="Electronics & Accessories">
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant bg-surface-container-high relative shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
                         <img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=120" alt="Electronics" class="w-full h-full object-cover rounded-xl filter grayscale contrast-125">
-                        <span class="absolute bottom-0 inset-x-0 bg-neutral-800/90 text-neutral-300 text-[8px] font-bold text-center py-[1px]">Soon 🔒</span>
+                        <span class="absolute bottom-0 inset-x-0 bg-neutral-800/90 text-neutral-200 text-[8px] font-bold text-center py-[1px]">Soon 🔒</span>
                     </div>
-                    <span class="text-[10px] sm:text-[11px] font-medium text-center mt-1.5 leading-tight text-on-surface-variant">
+                    <span class="cat-label text-[11px] font-bold text-center mt-1.5 leading-snug text-on-surface dark:text-slate-100 break-words w-full px-1">
                         Electronics
                     </span>
                 </button>
 
                 <!-- 7. Pharmacy & First Aid (COMING SOON) -->
-                <button type="button" class="w-full flex flex-col items-center py-2 px-1 relative transition-all group cursor-pointer cat-sidebar-btn opacity-60 hover:opacity-100" data-category-id="pharmacy" data-status="blocked" data-name="Pharmacy & First Aid">
-                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant bg-surface-container-high relative">
+                <button type="button" class="w-full flex flex-col items-center py-2.5 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn hover:bg-surface-variant/30 border border-transparent" data-category-id="pharmacy" data-status="blocked" data-name="Pharmacy & First Aid">
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant bg-surface-container-high relative shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
                         <img src="https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=120" alt="Pharmacy" class="w-full h-full object-cover rounded-xl filter grayscale contrast-125">
-                        <span class="absolute bottom-0 inset-x-0 bg-neutral-800/90 text-neutral-300 text-[8px] font-bold text-center py-[1px]">Soon 🔒</span>
+                        <span class="absolute bottom-0 inset-x-0 bg-neutral-800/90 text-neutral-200 text-[8px] font-bold text-center py-[1px]">Soon 🔒</span>
                     </div>
-                    <span class="text-[10px] sm:text-[11px] font-medium text-center mt-1.5 leading-tight text-on-surface-variant">
+                    <span class="cat-label text-[11px] font-bold text-center mt-1.5 leading-snug text-on-surface dark:text-slate-100 break-words w-full px-1">
                         Pharmacy
                     </span>
                 </button>
@@ -305,24 +305,30 @@ window.pageInits.categories = async function() {
             const catName = btn.dataset.name || 'Category';
 
             sidebarBtns.forEach(b => {
-                b.classList.remove('active-cat', 'opacity-100');
-                b.classList.add('opacity-60');
+                b.classList.remove('active-cat', 'bg-emerald/10', 'dark:bg-emerald-950/40', 'border-emerald/30', 'shadow-sm');
+                b.classList.add('border-transparent');
                 const bar = b.querySelector('.indicator-bar');
                 if (bar) bar.remove();
-                const label = b.querySelector('span');
-                if (label) label.classList.remove('text-emerald', 'font-bold');
+                const label = b.querySelector('.cat-label');
+                if (label) {
+                    label.classList.remove('text-emerald', 'dark:text-emerald-400', 'font-extrabold');
+                    label.classList.add('text-on-surface', 'dark:text-slate-100', 'font-bold');
+                }
             });
 
-            btn.classList.add('active-cat', 'opacity-100');
-            btn.classList.remove('opacity-60');
+            btn.classList.add('active-cat', 'bg-emerald/10', 'dark:bg-emerald-950/40', 'border-emerald/30', 'shadow-sm');
+            btn.classList.remove('border-transparent');
             
             // Add left indicator
             const bar = document.createElement('div');
-            bar.className = 'absolute left-0 top-1 bottom-1 w-1 bg-emerald rounded-r-full indicator-bar';
+            bar.className = 'absolute left-0 top-2 bottom-2 w-1.5 bg-emerald rounded-r-full indicator-bar';
             btn.prepend(bar);
 
-            const label = btn.querySelector('span');
-            if (label) label.classList.add('text-emerald', 'font-bold');
+            const label = btn.querySelector('.cat-label');
+            if (label) {
+                label.classList.add('text-emerald', 'dark:text-emerald-400', 'font-extrabold');
+                label.classList.remove('text-on-surface', 'dark:text-slate-100');
+            }
 
             if (status === 'blocked') {
                 // Show Blocked Splash
