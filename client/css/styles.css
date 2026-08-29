@@ -1110,5 +1110,119 @@ button:active,
         transform: none !important;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04) !important;
     }
+/* ============================================================
+   BH13 LIVE CORRIDOR GPS MAP — FUTURISTIC HUD ANIMATIONS
+   ============================================================ */
+
+/* 1. Laser Highway Flow Animation */
+.path-dash-animated {
+    stroke-dasharray: 10, 14;
+    animation: laserFlow 1.2s linear infinite;
+    filter: drop-shadow(0 0 6px #10B981) drop-shadow(0 0 12px rgba(16, 185, 129, 0.6));
+}
+
+@keyframes laserFlow {
+    from {
+        stroke-dashoffset: 48;
+    }
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+/* 2. Concentric Radar Sonar Waves */
+.radar-wave-1 {
+    animation: radarSonar 2.4s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+.radar-wave-2 {
+    animation: radarSonar 2.4s cubic-bezier(0.215, 0.61, 0.355, 1) infinite 0.8s;
+}
+
+.radar-wave-3 {
+    animation: radarSonar 2.4s cubic-bezier(0.215, 0.61, 0.355, 1) infinite 1.6s;
+}
+
+@keyframes radarSonar {
+    0% {
+        transform: scale(0.6);
+        opacity: 0.85;
+    }
+    50% {
+        opacity: 0.45;
+    }
+    100% {
+        transform: scale(2.4);
+        opacity: 0;
+    }
+}
+
+/* 3. Smooth Runner Bobbing & Stride Animation */
+.walker-bob {
+    animation: walkerStride 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes walkerStride {
+    0% {
+        transform: translateY(0) scale(1);
+        box-shadow: 0 0 25px rgba(16, 185, 129, 0.8), 0 8px 16px rgba(0, 0, 0, 0.5);
+    }
+    100% {
+        transform: translateY(-5px) scale(1.04);
+        box-shadow: 0 0 35px rgba(52, 211, 153, 0.95), 0 14px 24px rgba(0, 0, 0, 0.4);
+    }
+}
+
+/* 4. Ambient HUD Coordinate Grid */
+.map-grid-animated {
+    animation: gridShift 25s linear infinite;
+}
+
+@keyframes gridShift {
+    0% {
+        background-position: 0px 0px;
+    }
+    100% {
+        background-position: 48px 48px;
+    }
+}
+
+/* 5. Smooth Glide Transition for Live GPS Pin */
+#rider-pin {
+    transition: left 1.2s cubic-bezier(0.25, 1, 0.5, 1), top 1.2s cubic-bezier(0.25, 1, 0.5, 1), transform 0.3s ease;
+    will-change: left, top, transform;
+}
+
+/* 6. Waypoint Halos */
+.waypoint-halo {
+    animation: waypointPulse 2s ease-in-out infinite alternate;
+}
+
+@keyframes waypointPulse {
+    0% {
+        transform: scale(0.9);
+        opacity: 0.6;
+    }
+    100% {
+        transform: scale(1.4);
+        opacity: 1;
+        filter: drop-shadow(0 0 8px #10B981);
+    }
+}
+
+/* 7. Celebration Burst Ring on Delivery */
+.delivery-celebration-ring {
+    animation: celebrationPulse 1.8s ease-out infinite;
+}
+
+@keyframes celebrationPulse {
+    0% {
+        transform: scale(0.8);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(2.8);
+        opacity: 0;
+    }
 }
 

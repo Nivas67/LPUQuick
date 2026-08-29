@@ -665,11 +665,35 @@ async function applyDrawerStatusUpdate() {
         });
         const data = await res.json();
         if (data.success) {
+            const shortId = currentDrawerOrderId.replace('order_', '').toUpperCase();
+            showToast(`✓ Order #${shortId} status updated to: ${newStatus}`, 'success');
             closeOrderDrawer();
             refreshCurrentView();
         }
     } catch (err) {
-        alert('Status update failed: ' + err.message);
+        showToast('Status update failed: ' + err.message, 'error');
+    }
+}
+
+async function quickSetOrderStatus(orderId, newStatus, e) {
+    if (e) e.stopPropagation();
+    try {
+        const res = await fetch('/api/orders/admin/status', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ orderId, status: newStatus })
+        });
+        const data = await res.json();
+        if (data.success) {
+            const shortId = orderId.replace('order_', '').toUpperCase();
+            showToast(`✓ Order #${shortId} set to "${newStatus}"`, 'success');
+            const o = ordersCache.find(x => x.id === orderId);
+            if (o) o.status = newStatus;
+            if (activeView === 'orders') filterOrders();
+            else if (activeView === 'dashboard') loadDashboard();
+        }
+    } catch (err) {
+        showToast('Status update failed: ' + err.message, 'error');
     }
 }
 
