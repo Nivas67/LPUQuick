@@ -110,9 +110,11 @@ function notifyAdminNewOrder(orderData) {
         timestamp: new Date().toISOString()
     });
 
-    for (const ws of adminSockets) {
+    for (const ws of Array.from(adminSockets)) {
         if (ws.readyState === WebSocket.OPEN) {
             ws.send(payload);
+        } else {
+            adminSockets.delete(ws);
         }
     }
 }

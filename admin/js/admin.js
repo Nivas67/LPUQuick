@@ -817,7 +817,25 @@ async function loadAnalytics() {
 }
 
 // ================= 9. REAL-TIME WEBSOCKET & TOAST NOTIFICATIONS =================
+let wsReconnectTimer = null;
+const processedOrderNotificationIds = new Set();
+
 function initRealtimeWebSocket() {
+    // If a connection is already open or in progress, do not open a duplicate!
+    if (realtimeWs && (realtimeWs.readyState === WebSocket.OPEN || realtimeWs.readyState === WebSocket.CONNECTING)) {
+        return;
+    }
+
+    if (wsReconnectTimer) {
+        clearTimeout(wsReconnectTimer);
+        wsReconnectTimer = null;
+    }
+
+    if (realtimeWs) {
+        try { realtimeWs.close(); } catch(e){}
+        realtimeWs = null;
+    }
+
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${location.host}/ws/admin`;
 
@@ -845,23 +863,39 @@ function initRealtimeWebSocket() {
         };
 
         realtimeWs.onclose = () => {
-            console.warn('[Admin WS] Disconnected. Reconnecting in 3s...');
-            setTimeout(initRealtimeWebSocket, 3000);
+            realtimeWs = null;
+            if (adminToken && !wsReconnectTimer) {
+                wsReconnectTimer = setTimeout(initRealtimeWebSocket, 3000);
+            }
         };
 
         realtimeWs.onerror = (err) => {
             console.error('[Admin WS Error]:', err);
-            realtimeWs.close();
+            try { realtimeWs.close(); } catch(e){}
         };
     } catch (e) {
         console.error('[Admin WS Init Error]:', e);
-        setTimeout(initRealtimeWebSocket, 5000);
+        if (!wsReconnectTimer) {
+            wsReconnectTimer = setTimeout(initRealtimeWebSocket, 5000);
+        }
     }
 }
 
-// Handle Incoming Order in Real-Time
+// Handle Incoming Order in Real-Time (Strict Single Alert Deduplication)
 function handleRealtimeNewOrder(order) {
-    // 1. Play Synthesized Crystal Chime Audio
+    if (!order || !order.id) return;
+
+    // 🛡️ DEDUPLICATION GUARD: Prevent duplicate toasts/sounds for the same order
+    if (processedOrderNotificationIds.has(order.id)) {
+        console.log(`[Admin WS] Skipping duplicate notification for order: ${order.id}`);
+        return;
+    }
+    processedOrderNotificationIds.add(order.id);
+    setTimeout(() => {
+        processedOrderNotificationIds.delete(order.id);
+    }, 30000);
+
+    // 1. Play Synthesized Chime Audio (Single Trigger)
     playCampusChime();
 
     // 2. Show Animated Toast Notification
@@ -939,12 +973,16 @@ function handleRealtimeStatusUpdate(data) {
     }
 }
 
-// Show Real-Time Toast
+// Show Real-Time Toast (Single Toast per Order)
 function showOrderToast(order) {
     const container = document.getElementById('toast-container');
     if (!container) return;
 
-    const toastId = `toast-${order.id}-${Date.now()}`;
+    const toastId = `toast-order-${order.id}`;
+    if (document.getElementById(toastId)) {
+        return; // Toast for this order is already active
+    }
+
     const orderNumber = (order.id || '').replace('order_', '').toUpperCase();
 
     const toastHtml = `
