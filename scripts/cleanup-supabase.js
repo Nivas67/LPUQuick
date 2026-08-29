@@ -47,7 +47,19 @@ async function cleanSupabase() {
         console.warn('[cart_items catch]:', e.message);
     }
 
-    // 4. Delete products / items
+    // 4. Delete non-admin test users
+    try {
+        const { error: uErr, count: uCount } = await supabase
+            .from('users')
+            .delete({ count: 'exact' })
+            .neq('id', 'admin_001');
+        if (uErr) console.warn('[users]:', uErr.message);
+        else console.log(`Deleted non-admin test users in Supabase: ${uCount ?? 'done'}`);
+    } catch (e) {
+        console.warn('[users catch]:', e.message);
+    }
+
+    // 5. Delete products / items
     try {
         const { error: pErr, count: pCount } = await supabase
             .from('products')
