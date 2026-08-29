@@ -2,14 +2,14 @@ const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 
-// Pricing calculator - all fees calculated server-side, no hidden charges
+// Pricing calculator - Zero GST, Free Delivery every time, only ₹5 Handling Fee
 function calculatePricing(items) {
     const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const delivery_fee = subtotal >= 199 ? 0 : 30;
-    const platform_fee = 5;
-    const tax = Math.round(subtotal * 0.05 * 100) / 100; // 5% GST, rounded to 2 decimals
-    const total = Math.round((subtotal + delivery_fee + platform_fee + tax) * 100) / 100;
-    const free_delivery_remaining = Math.max(0, Math.ceil(199 - subtotal)); // Integer for progress bar
+    const delivery_fee = 0; // FREE Campus Express Delivery every time
+    const platform_fee = subtotal > 0 ? 5 : 0; // Handling fee only ₹5
+    const tax = 0; // 0% GST (no taxes charged)
+    const total = subtotal > 0 ? Math.round((subtotal + platform_fee) * 100) / 100 : 0;
+    const free_delivery_remaining = 0; // Always Free Delivery
 
     return { subtotal, delivery_fee, platform_fee, tax, total, free_delivery_remaining };
 }

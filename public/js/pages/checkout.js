@@ -80,7 +80,7 @@ window.pages.checkout = async function() {
                     <span class="material-symbols-outlined text-emerald text-xl">receipt</span>
                     Honest Breakdown
                 </h3>
-                <span class="text-xs text-on-surface-variant">No surprises</span>
+                <span class="text-xs text-on-surface-variant">No hidden charges</span>
             </div>
 
             <div class="space-y-2.5 text-xs sm:text-sm">
@@ -89,21 +89,33 @@ window.pages.checkout = async function() {
                     <span class="font-semibold text-on-surface">₹${p.subtotal}</span>
                 </div>
                 <div class="flex justify-between text-on-surface-variant">
-                    <span class="flex items-center gap-1">Delivery Partner Fee</span>
-                    <span class="font-semibold ${p.delivery_fee === 0 ? 'text-emerald' : 'text-on-surface'}">${p.delivery_fee === 0 ? 'FREE (Campus Promo)' : `₹${p.delivery_fee}`}</span>
+                    <span>Delivery Partner Fee</span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="line-through text-on-surface-variant/60 text-xs">₹25</span>
+                        <span class="font-bold text-emerald">FREE</span>
+                    </div>
+                </div>
+                <div class="flex justify-between text-emerald font-semibold">
+                    <span class="flex items-center gap-1">
+                        <span class="material-symbols-outlined text-xs">local_offer</span> Campus Free Delivery Offer
+                    </span>
+                    <span class="font-bold">-₹25</span>
                 </div>
                 <div class="flex justify-between text-on-surface-variant">
-                    <span>Handling & Campus Logistics</span>
-                    <span class="font-semibold text-on-surface">₹${p.platform_fee}</span>
+                    <span>Handling Fee</span>
+                    <span class="font-semibold text-on-surface">₹${p.platform_fee || 5}</span>
                 </div>
-                <div class="flex justify-between text-on-surface-variant">
-                    <span>Applicable GST (5%)</span>
-                    <span class="font-semibold text-on-surface">₹${p.tax}</span>
-                </div>
+                
                 <div class="border-t border-outline-variant/40 pt-3 flex justify-between items-center text-base sm:text-lg font-bold text-on-surface">
                     <span>Total to Pay</span>
-                    <span class="text-2xl text-emerald font-display">₹${p.total}</span>
+                    <span class="text-2xl text-emerald font-display font-black">₹${p.total}</span>
                 </div>
+            </div>
+
+            <!-- Savings Badge -->
+            <div class="p-3 bg-emerald/10 border border-emerald/20 rounded-xl flex items-center gap-2 text-xs text-emerald font-semibold">
+                <span class="material-symbols-outlined text-base">savings</span>
+                <span>You saved ₹25 delivery charges on this order!</span>
             </div>
         </div>
 

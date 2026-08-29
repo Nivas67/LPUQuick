@@ -67,18 +67,13 @@ window.pages.cart = async function() {
     <main class="px-margin-mobile md:px-margin-desktop max-w-5xl mx-auto pt-6 grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
         <!-- Left: Cart Items -->
         <div class="lg:col-span-2 space-y-4">
-            <!-- Free Delivery Progress Bar -->
-            <div class="glass-card rounded-2xl p-4 border border-emerald/20 bg-emerald/5">
-                <div class="flex justify-between items-center text-xs font-semibold mb-2">
-                    <span class="text-emerald flex items-center gap-1.5">
-                        <span class="material-symbols-outlined text-base">local_shipping</span>
-                        ${p.free_delivery_remaining > 0 ? `Add ₹${p.free_delivery_remaining} more for FREE delivery` : `Unlocked FREE Delivery! 🎉`}
-                    </span>
-                    <span class="text-on-surface-variant font-normal">₹199 Goal</span>
+            <!-- Free Delivery Promo Banner -->
+            <div class="glass-card rounded-2xl p-3.5 border border-emerald/30 bg-emerald/10 flex items-center justify-between">
+                <div class="flex items-center gap-2 text-xs font-bold text-emerald">
+                    <span class="material-symbols-outlined text-base">local_shipping</span>
+                    <span>Free 3-Min Campus Delivery Applied!</span>
                 </div>
-                <div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden">
-                    <div class="bg-emerald h-full rounded-full transition-all duration-500" style="width: ${freeDeliveryPct}%;"></div>
-                </div>
+                <span class="text-[11px] font-extrabold text-emerald bg-emerald/20 px-2 py-0.5 rounded-full">Saved ₹25</span>
             </div>
 
             <!-- Items List -->
@@ -89,39 +84,45 @@ window.pages.cart = async function() {
 
         <!-- Right: Order Summary Panel -->
         <div class="lg:col-span-1">
-            <div class="glass-card rounded-3xl p-6 border border-glass-border sticky top-24 shadow-sm space-y-5">
+            <div class="glass-card rounded-3xl p-6 border border-glass-border sticky top-24 shadow-sm space-y-4">
                 <h3 class="font-headline-md text-base font-bold text-on-surface flex items-center gap-2">
                     <span class="material-symbols-outlined text-primary">receipt</span>
                     Bill Details
                 </h3>
                 
-                <div class="space-y-3 text-xs sm:text-sm">
+                <div class="space-y-2.5 text-xs sm:text-sm">
                     <div class="flex justify-between text-on-surface-variant">
                         <span>Item Total</span>
                         <span class="font-semibold text-on-surface">₹${p.subtotal}</span>
                     </div>
                     <div class="flex justify-between text-on-surface-variant">
-                        <span class="flex items-center gap-1">Delivery Fee <span class="material-symbols-outlined text-xs" title="Free above ₹199">info</span></span>
-                        <span class="font-semibold ${p.delivery_fee === 0 ? 'text-emerald' : 'text-on-surface'}">${p.delivery_fee === 0 ? 'FREE' : `₹${p.delivery_fee}`}</span>
+                        <span>Delivery Fee</span>
+                        <div class="flex items-center gap-1.5">
+                            <span class="line-through text-on-surface-variant/60 text-[11px]">₹25</span>
+                            <span class="font-bold text-emerald">FREE</span>
+                        </div>
+                    </div>
+                    <div class="flex justify-between text-emerald font-semibold">
+                        <span class="flex items-center gap-1">
+                            <span class="material-symbols-outlined text-xs">local_offer</span> Campus Free Delivery Offer
+                        </span>
+                        <span class="font-bold">-₹25</span>
                     </div>
                     <div class="flex justify-between text-on-surface-variant">
-                        <span>Handling / Platform Fee</span>
-                        <span class="font-semibold text-on-surface">₹${p.platform_fee}</span>
-                    </div>
-                    <div class="flex justify-between text-on-surface-variant">
-                        <span>Applicable GST (5%)</span>
-                        <span class="font-semibold text-on-surface">₹${p.tax}</span>
+                        <span>Handling Fee</span>
+                        <span class="font-semibold text-on-surface">₹${p.platform_fee || 5}</span>
                     </div>
                     
-                    <div class="border-t border-outline-variant/40 pt-3 flex justify-between items-center text-sm sm:text-base font-bold text-on-surface">
+                    <div class="border-t border-outline-variant/40 pt-3 flex justify-between items-center text-base sm:text-lg font-bold text-on-surface">
                         <span>To Pay</span>
-                        <span class="text-xl text-primary font-display font-bold">₹${p.total}</span>
+                        <span class="text-2xl text-emerald font-display font-black">₹${p.total}</span>
                     </div>
                 </div>
 
-                <div class="p-3 bg-surface-container-high/60 rounded-xl flex items-center gap-2.5 text-xs text-on-surface-variant">
-                    <span class="material-symbols-outlined text-emerald text-base">verified_user</span>
-                    <span>No hidden charges. Transparent pricing.</span>
+                <!-- Savings Banner -->
+                <div class="p-3 bg-emerald/10 border border-emerald/20 rounded-xl flex items-center gap-2 text-xs text-emerald font-semibold">
+                    <span class="material-symbols-outlined text-base">savings</span>
+                    <span>Yay! You saved ₹25 on this order</span>
                 </div>
 
                 ${items.length > 0 ? `
