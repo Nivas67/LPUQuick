@@ -35,7 +35,7 @@ window.pages.signin = async function() {
         </div>
 
         <!-- Glassmorphic Card (Real-Time Google Only Authentication) -->
-        <div class="glass-card bg-white/85 dark:bg-slate-900/85 backdrop-blur-2xl rounded-3xl p-7 sm:p-9 shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/60 dark:border-slate-800 w-full transition-all duration-300 text-center space-y-6">
+        <div class="glass-card bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl rounded-3xl p-7 sm:p-9 shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/60 dark:border-slate-800 w-full transition-all duration-300 text-center space-y-6">
             
             <div class="space-y-2">
                 <h2 class="text-2xl sm:text-3xl font-black text-on-surface">Welcome to LPUQuick</h2>
@@ -67,11 +67,14 @@ window.pages.signin = async function() {
             </div>
 
             <!-- Cancellation / Status Banner (Hidden by default) -->
-            <div id="auth-status-msg" class="hidden p-3 rounded-2xl text-xs font-medium border transition-all"></div>
+            <div id="auth-status-msg" class="hidden p-3 rounded-2xl text-xs font-medium border transition-all text-left"></div>
 
-            <!-- Prominent Google Sign-In CTA -->
-            <div class="space-y-3 pt-1">
-                <button class="w-full h-14 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/90 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald/60 rounded-2xl flex items-center justify-center gap-3.5 shadow-md hover:shadow-xl transition-all duration-200 text-sm sm:text-base font-bold text-slate-800 dark:text-slate-100 active:scale-98 cursor-pointer group" type="button" id="btn-google">
+            <!-- Native Google GSI Render Container -->
+            <div id="gsi-button-wrapper" class="flex justify-center w-full min-h-[44px]"></div>
+
+            <!-- Prominent Fallback Google Sign-In Button -->
+            <div class="space-y-3 pt-1" id="custom-google-btn-wrapper">
+                <button class="w-full h-14 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 text-white rounded-2xl flex items-center justify-center gap-3.5 shadow-md hover:shadow-xl transition-all duration-200 text-sm sm:text-base font-bold active:scale-98 cursor-pointer group" type="button" id="btn-google">
                     <!-- Official Multi-Color Google G SVG -->
                     <svg class="w-6 h-6 group-hover:scale-110 transition-transform" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -134,7 +137,7 @@ window.pageInits.signin = function() {
     }
 
     async function handleAuthenticatedUser(userData) {
-        if (!userData || (!userData.credential && !userData.email)) {
+        if (!userData || (!userData.credential && !userData.email && !userData.access_token)) {
             resetGoogleButton();
             return;
         }
@@ -161,31 +164,58 @@ window.pageInits.signin = function() {
                 }
             } else {
                 resetGoogleButton();
-                showStatusMessage('Could not verify Google account. Please try again.', true);
+                showStatusMessage((res && res.error) ? res.error : 'Could not verify Google account. Please try again.', true);
             }
         } catch (err) {
             console.error('[Google Auth Error]:', err);
             resetGoogleButton();
-            showStatusMessage('Sign-in failed. Please check your network connection.', true);
+            showStatusMessage('Sign-in error: ' + (err.message || 'Please check your connection.'), true);
         }
     }
 
-    // Initialize Google One Tap without auto-login fallbacks
-    if (window.google && window.google.accounts && window.google.accounts.id) {
-        try {
-            window.google.accounts.id.initialize({
-                client_id: clientId,
-                callback: (response) => {
-                    if (response && response.credential) {
-                        handleAuthenticatedUser({ credential: response.credential });
-                    } else {
-                        resetGoogleButton();
-                    }
-                },
-                auto_select: false,
-                cancel_on_tap_outside: true
-            });
-        } catch (e) {}
+    function initGoogleServices() {
+        if (window.google && window.google.accounts && window.google.accounts.id) {
+            try {
+                window.google.accounts.id.initialize({
+                    client_id: clientId,
+                    callback: (response) => {
+                        if (response && response.credential) {
+                            handleAuthenticatedUser({ credential: response.credential });
+                        } else {
+                            resetGoogleButton();
+                        }
+                    },
+                    auto_select: false,
+                    cancel_on_tap_outside: true
+                });
+
+                // Render official native Google button
+                const wrapper = document.getElementById('gsi-button-wrapper');
+                if (wrapper) {
+                    window.google.accounts.id.renderButton(wrapper, {
+                        theme: 'filled_black',
+                        size: 'large',
+                        shape: 'pill',
+                        width: 320,
+                        text: 'continue_with'
+                    });
+                }
+            } catch (e) {
+                console.warn('[GSI Init Error]:', e);
+            }
+        }
+    }
+
+    // Try initializing immediately or wait for script load
+    initGoogleServices();
+    if (!window.google) {
+        const checkInterval = setInterval(() => {
+            if (window.google && window.google.accounts) {
+                clearInterval(checkInterval);
+                initGoogleServices();
+            }
+        }, 200);
+        setTimeout(() => clearInterval(checkInterval), 5000);
     }
 
     // Google Sign-In Button Click Handler (Strict Real-Time Authentication Only)
@@ -205,31 +235,43 @@ window.pageInits.signin = function() {
                     callback: async (tokenResponse) => {
                         if (tokenResponse && tokenResponse.access_token) {
                             try {
-                                const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                                    headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
-                                });
-                                const profile = await userInfoRes.json();
+                                let profile = null;
+                                try {
+                                    const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                                        headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+                                    });
+                                    if (userInfoRes.ok) {
+                                        profile = await userInfoRes.json();
+                                    }
+                                } catch (fetchErr) {
+                                    console.warn('[Userinfo Fetch Fallback to Server]:', fetchErr);
+                                }
+
                                 if (profile && profile.email) {
                                     await handleAuthenticatedUser({
                                         email: profile.email,
                                         name: profile.name,
                                         picture: profile.picture
                                     });
-                                    return;
+                                } else {
+                                    await handleAuthenticatedUser({
+                                        access_token: tokenResponse.access_token
+                                    });
                                 }
-                            } catch (fetchErr) {
-                                console.error('[Userinfo Fetch Error]:', fetchErr);
-                                showStatusMessage('Failed to fetch Google profile details.', true);
+                                return;
+                            } catch (procErr) {
+                                console.error('[Token Processing Error]:', procErr);
+                                showStatusMessage('Failed to authenticate with Google.', true);
                             }
                         } else if (tokenResponse && tokenResponse.error) {
-                            showStatusMessage('Google Sign-In was cancelled.');
+                            showStatusMessage('Google Sign-In was cancelled or denied: ' + tokenResponse.error);
                         }
                         resetGoogleButton();
                     },
                     error_callback: (err) => {
-                        console.warn('[Google OAuth Closed/Cancelled]:', err);
+                        console.warn('[Google OAuth Error Callback]:', err);
                         resetGoogleButton();
-                        showStatusMessage('Sign-in popup was closed. Click Continue with Google to try again.');
+                        showStatusMessage('Google popup closed or blocked. Please ensure popups are allowed.');
                     }
                 });
 
@@ -247,7 +289,7 @@ window.pageInits.signin = function() {
                 window.google.accounts.id.prompt((notification) => {
                     if (notification.isNotDisplayed() || notification.isSkippedMoment() || notification.isDismissedMoment()) {
                         resetGoogleButton();
-                        showStatusMessage('Google Sign-In was dismissed.');
+                        showStatusMessage('Google Sign-In prompt dismissed.');
                     }
                 });
                 return;
@@ -257,6 +299,6 @@ window.pageInits.signin = function() {
         }
 
         resetGoogleButton();
-        showStatusMessage('Please ensure popups are enabled for Google Sign-In.', true);
+        showStatusMessage('Please tap the Google Sign In button or ensure popups are enabled.', true);
     });
 };
