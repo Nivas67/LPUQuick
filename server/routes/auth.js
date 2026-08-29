@@ -53,6 +53,72 @@ router.post('/signin', async (req, res) => {
     }
 });
 
+// Helper function to decode JWT without external dependencies
+function decodeGoogleJwt(token) {
+    try {
+        const parts = token.split('.');
+        if (parts.length !== 3) return null;
+        const payload = Buffer.from(parts[1], 'base64').toString('utf8');
+        return JSON.parse(payload);
+    } catch (e) {
+        return null;
+    }
+}
+
+// POST /api/auth/google
+router.post('/google', async (req, res) => {
+    try {
+        let email = req.body.email;
+        let name = req.body.name;
+        let picture = req.body.picture;
+
+        if (req.body.credential) {
+            const decoded = decodeGoogleJwt(req.body.credential);
+            if (decoded && decoded.email) {
+                email = decoded.email;
+                name = decoded.name || decoded.given_name || name;
+                picture = decoded.picture || picture;
+            }
+        }
+
+        if (!email) {
+            return res.status(400).json({ error: 'Valid email required from Google Authentication' });
+        }
+
+        const trimmedEmail = email.trim().toLowerCase();
+        let user = await supabaseDb.users.getByIdentifier(trimmedEmail);
+
+        if (!user) {
+            // Auto-register new verified student via Google OAuth
+            const id = `user_${uuidv4().slice(0, 8)}`;
+            const rawName = name || trimmedEmail.split('@')[0].replace(/[._]/g, ' ');
+            const displayName = rawName.charAt(0).toUpperCase() + rawName.slice(1) || 'LPU Student';
+
+            user = await supabaseDb.users.createUser({
+                id,
+                name: displayName,
+                email: trimmedEmail,
+                phone: '',
+                password_hash: 'google_oauth'
+            });
+        }
+
+        res.json({
+            success: true,
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                phone: user.phone || '',
+                picture: picture || ''
+            }
+        });
+    } catch (err) {
+        console.error('[Google Auth Backend Error]:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // POST /api/auth/update-address (Save campus delivery hostel & room address)
 router.post('/update-address', async (req, res) => {
     const { userId, hostel, block, room, phone } = req.body;
