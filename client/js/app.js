@@ -220,12 +220,23 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
                 </div>
             </div>
 
-            <!-- Student Mobile Number for Delivery Rider Contact -->
-            <div class="space-y-1">
-                <label class="block text-xs font-semibold text-on-surface-variant" for="phone-input">Contact Phone Number (For delivery runner) *</label>
-                <div class="relative">
-                    <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant">+91</span>
-                    <input type="tel" id="phone-input" maxlength="10" required class="w-full pl-12 pr-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface font-semibold focus:outline-none focus:border-emerald" placeholder="XXXXXXXXXX" value="${savedPhone}">
+            <!-- Student Mobile Number for Delivery Rider Contact with OTP Verification -->
+            <div class="space-y-1.5">
+                <div class="flex justify-between items-center">
+                    <label class="block text-xs font-semibold text-on-surface-variant" for="phone-input">Contact Phone Number (For delivery runner) *</label>
+                    <span id="phone-verify-status-badge" class="${localStorage.getItem('lpuquick_phone_verified_' + savedPhone) === 'true' ? 'text-emerald font-bold text-[11px] flex items-center gap-1' : 'hidden'}">
+                        <span class="material-symbols-outlined text-[13px]">verified</span> Verified
+                    </span>
+                </div>
+                <div class="relative flex items-center gap-2">
+                    <div class="relative flex-1">
+                        <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant">+91</span>
+                        <input type="tel" id="phone-input" maxlength="10" required class="w-full pl-12 pr-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface font-semibold focus:outline-none focus:border-emerald" placeholder="XXXXXXXXXX" value="${savedPhone}">
+                    </div>
+                    <button type="button" id="btn-trigger-otp" class="py-2.5 px-3.5 bg-emerald/15 hover:bg-emerald/25 text-emerald border border-emerald/30 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1 cursor-pointer">
+                        <span class="material-symbols-outlined text-sm">sms</span>
+                        <span id="btn-trigger-otp-text">${localStorage.getItem('lpuquick_phone_verified_' + savedPhone) === 'true' ? 'Verified' : 'Verify'}</span>
+                    </button>
                 </div>
             </div>
 
@@ -246,12 +257,210 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
                 Confirm Address & Deliver to BH13 (<span id="btn-block-label">${selectedBlock}</span>)
             </button>
         </div>
+
+        <!-- Step 2: Interactive OTP Verification Screen (Hidden initially) -->
+        <div id="otp-verification-screen" class="hidden modal-content p-5 sm:p-6 space-y-4" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between pb-3 border-b border-surface-variant/40">
+                <div class="flex items-center gap-2.5">
+                    <button type="button" id="back-to-form-btn" class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface hover:bg-surface-variant transition-all cursor-pointer">
+                        <span class="material-symbols-outlined text-sm">arrow_back</span>
+                    </button>
+                    <div>
+                        <h3 class="font-bold text-sm sm:text-base text-on-surface">Verify Mobile Number</h3>
+                        <p class="text-[11px] text-on-surface-variant">Code sent to <strong>+91 <span id="otp-phone-display"></span></strong></p>
+                    </div>
+                </div>
+                <span class="text-[10px] bg-emerald/15 text-emerald px-2 py-0.5 rounded-full font-bold">Step 2: OTP</span>
+            </div>
+
+            <!-- Demo / Realistic SMS OTP Banner -->
+            <div id="otp-hint-banner" class="p-3 bg-emerald/10 border border-emerald/30 rounded-2xl flex items-center justify-between text-xs">
+                <div class="flex items-center gap-2 text-emerald font-bold">
+                    <span class="material-symbols-outlined text-base">sms</span>
+                    <span>Your OTP Code: <strong id="demo-otp-val" class="tracking-widest text-sm bg-emerald text-white px-2 py-0.5 rounded-md font-mono"></strong></span>
+                </div>
+                <button type="button" id="autofill-otp-btn" class="text-[11px] font-extrabold text-emerald underline hover:opacity-80 cursor-pointer">Auto Fill</button>
+            </div>
+
+            <!-- 6 Digit Input Matrix -->
+            <div class="space-y-2 text-center pt-1">
+                <label class="block text-xs font-semibold text-on-surface-variant">Enter 6-Digit OTP</label>
+                <div class="flex justify-center gap-2" id="otp-boxes-wrapper">
+                    <input type="tel" maxlength="1" class="otp-box w-10 sm:w-11 h-12 text-center text-lg font-black rounded-xl border border-surface-variant bg-surface text-on-surface focus:border-emerald focus:ring-2 focus:ring-emerald/20 focus:outline-none" data-idx="0" autofocus>
+                    <input type="tel" maxlength="1" class="otp-box w-10 sm:w-11 h-12 text-center text-lg font-black rounded-xl border border-surface-variant bg-surface text-on-surface focus:border-emerald focus:ring-2 focus:ring-emerald/20 focus:outline-none" data-idx="1">
+                    <input type="tel" maxlength="1" class="otp-box w-10 sm:w-11 h-12 text-center text-lg font-black rounded-xl border border-surface-variant bg-surface text-on-surface focus:border-emerald focus:ring-2 focus:ring-emerald/20 focus:outline-none" data-idx="2">
+                    <input type="tel" maxlength="1" class="otp-box w-10 sm:w-11 h-12 text-center text-lg font-black rounded-xl border border-surface-variant bg-surface text-on-surface focus:border-emerald focus:ring-2 focus:ring-emerald/20 focus:outline-none" data-idx="3">
+                    <input type="tel" maxlength="1" class="otp-box w-10 sm:w-11 h-12 text-center text-lg font-black rounded-xl border border-surface-variant bg-surface text-on-surface focus:border-emerald focus:ring-2 focus:ring-emerald/20 focus:outline-none" data-idx="4">
+                    <input type="tel" maxlength="1" class="otp-box w-10 sm:w-11 h-12 text-center text-lg font-black rounded-xl border border-surface-variant bg-surface text-on-surface focus:border-emerald focus:ring-2 focus:ring-emerald/20 focus:outline-none" data-idx="5">
+                </div>
+            </div>
+
+            <!-- OTP Error Alert -->
+            <div id="otp-error-box" class="hidden p-2.5 bg-red-500/10 border border-red-500/30 rounded-xl text-red-600 text-xs flex items-center justify-center gap-1.5 font-medium">
+                <span class="material-symbols-outlined text-sm">error</span>
+                <span id="otp-error-text">Invalid or expired OTP code.</span>
+            </div>
+
+            <!-- Verify & Continue Button -->
+            <button type="button" id="submit-otp-verify-btn" class="w-full bg-emerald text-white rounded-full py-3.5 text-xs sm:text-sm font-semibold shadow-md hover:bg-primary transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer">
+                <span class="material-symbols-outlined text-sm">check_circle</span>
+                <span>Verify OTP & Save Address</span>
+            </button>
+
+            <!-- Resend Timer -->
+            <div class="text-center pt-1">
+                <p class="text-xs text-on-surface-variant">
+                    Didn't receive SMS? <button type="button" id="resend-otp-link" class="text-emerald font-bold underline cursor-pointer disabled:opacity-50" disabled>Resend Code (<span id="resend-timer-sec">30</span>s)</button>
+                </p>
+            </div>
+        </div>
     `;
 
     if (!isMandatorySetup) {
         modal.onclick = () => modal.remove();
     }
     document.body.appendChild(modal);
+
+    const addressFormScreen = modal.querySelector('#address-form-screen') || modal.children[0];
+    const otpScreen = document.getElementById('otp-verification-screen');
+    let generatedDemoOtp = '';
+    let resendInterval = null;
+
+    // Start 30s resend timer
+    function startResendTimer() {
+        if (resendInterval) clearInterval(resendInterval);
+        const resendBtn = document.getElementById('resend-otp-link');
+        const timerSec = document.getElementById('resend-timer-sec');
+        if (!resendBtn || !timerSec) return;
+
+        let left = 30;
+        resendBtn.disabled = true;
+        timerSec.textContent = left;
+
+        resendInterval = setInterval(() => {
+            left -= 1;
+            timerSec.textContent = left;
+            if (left <= 0) {
+                clearInterval(resendInterval);
+                resendBtn.disabled = false;
+                resendBtn.innerHTML = 'Resend Code Now';
+            }
+        }, 1000);
+    }
+
+    // Function to launch OTP verification screen
+    async function launchOtpFlow(phoneToVerify) {
+        const userId = window.getEffectiveUserId();
+        try {
+            const sendRes = await window.api.sendOtp(phoneToVerify, userId);
+            generatedDemoOtp = sendRes.demo_otp || '123456';
+            
+            // Switch screen
+            if (addressFormScreen) addressFormScreen.classList.add('hidden');
+            if (otpScreen) otpScreen.classList.remove('hidden');
+
+            const phoneDisp = document.getElementById('otp-phone-display');
+            if (phoneDisp) phoneDisp.textContent = phoneToVerify;
+
+            const demoVal = document.getElementById('demo-otp-val');
+            if (demoVal) demoVal.textContent = generatedDemoOtp;
+
+            // Clear previous inputs
+            const boxes = document.querySelectorAll('.otp-box');
+            boxes.forEach(b => b.value = '');
+            if (boxes[0]) boxes[0].focus();
+
+            startResendTimer();
+            if (typeof window.showClientToast === 'function') {
+                window.showClientToast(`📲 SMS Sent! OTP: ${generatedDemoOtp}`, 'success', 'sms');
+            }
+        } catch (err) {
+            alert('Could not send OTP: ' + (err.message || err));
+        }
+    }
+
+    // OTP Boxes Keyboard Navigation & Auto Advance
+    const otpBoxes = document.querySelectorAll('.otp-box');
+    otpBoxes.forEach((box, idx) => {
+        box.oninput = (e) => {
+            const val = box.value.replace(/\D/g, '');
+            box.value = val ? val[0] : '';
+            if (val && idx < otpBoxes.length - 1) {
+                otpBoxes[idx + 1].focus();
+            }
+        };
+
+        box.onkeydown = (e) => {
+            if (e.key === 'Backspace' && !box.value && idx > 0) {
+                otpBoxes[idx - 1].focus();
+            }
+        };
+
+        box.onpaste = (e) => {
+            e.preventDefault();
+            const pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 6);
+            if (pasted) {
+                pasted.split('').forEach((char, i) => {
+                    if (otpBoxes[i]) otpBoxes[i].value = char;
+                });
+                if (otpBoxes[Math.min(pasted.length, 5)]) {
+                    otpBoxes[Math.min(pasted.length, 5)].focus();
+                }
+            }
+        };
+    });
+
+    // Auto-fill OTP button
+    const autofillBtn = document.getElementById('autofill-otp-btn');
+    if (autofillBtn) {
+        autofillBtn.onclick = () => {
+            if (generatedDemoOtp) {
+                generatedDemoOtp.split('').forEach((ch, i) => {
+                    if (otpBoxes[i]) otpBoxes[i].value = ch;
+                });
+            }
+        };
+    }
+
+    // Back to address form button
+    const backBtn = document.getElementById('back-to-form-btn');
+    if (backBtn) {
+        backBtn.onclick = () => {
+            if (otpScreen) otpScreen.classList.add('hidden');
+            if (addressFormScreen) addressFormScreen.classList.remove('hidden');
+            if (resendInterval) clearInterval(resendInterval);
+        };
+    }
+
+    // Resend OTP Link
+    const resendBtn = document.getElementById('resend-otp-link');
+    if (resendBtn) {
+        resendBtn.onclick = async () => {
+            const phone = document.getElementById('phone-input')?.value?.trim();
+            if (phone) await launchOtpFlow(phone);
+        };
+    }
+
+    // Trigger OTP button from form
+    const triggerOtpBtn = document.getElementById('btn-trigger-otp');
+    if (triggerOtpBtn) {
+        triggerOtpBtn.onclick = () => {
+            const phone = document.getElementById('phone-input')?.value?.trim();
+            const alertBox = document.getElementById('address-validation-alert');
+            const alertMsg = document.getElementById('address-validation-msg');
+
+            if (!phone || phone.length < 10) {
+                if (alertBox && alertMsg) {
+                    alertBox.classList.remove('hidden');
+                    alertMsg.textContent = 'Please enter a valid 10-digit mobile number first.';
+                }
+                document.getElementById('phone-input')?.focus();
+                return;
+            }
+            if (alertBox) alertBox.classList.add('hidden');
+            launchOtpFlow(phone);
+        };
+    }
 
     // Block selection handler
     modal.querySelectorAll('.block-btn').forEach(btn => {
@@ -281,7 +490,85 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
         };
     });
 
-    // Save Address
+    // Helper to finalize address saving
+    function finalizeAddressSave(room, floor, phone) {
+        window.currentAddress = 'BH13';
+        window.currentBlock = selectedBlock;
+        window.currentRoom = room;
+        window.currentAddressDetail = `BH13 (${selectedBlock}), Room ${room}`;
+
+        localStorage.setItem('lpuquick_address', window.currentAddress);
+        localStorage.setItem('lpuquick_block', window.currentBlock);
+        localStorage.setItem('lpuquick_room', window.currentRoom);
+        localStorage.setItem('lpuquick_floor', floor);
+        if (phone) {
+            localStorage.setItem('lpuquick_phone', phone);
+            localStorage.setItem('lpuquick_phone_verified_' + phone, 'true');
+        }
+        localStorage.setItem('lpuquick_address_configured', 'true');
+        localStorage.setItem('lpuquick_address_detail', window.currentAddressDetail);
+
+        // Sync with backend profile
+        if (window.isUserLoggedIn() && window.api?.updateAddress) {
+            window.api.updateAddress(window.CURRENT_USER_ID, 'BH13', selectedBlock, room, phone);
+        }
+
+        if (resendInterval) clearInterval(resendInterval);
+        modal.remove();
+
+        if (typeof window.showClientToast === 'function') {
+            window.showClientToast('✓ Address & phone verified for BH13 delivery!', 'success', 'verified');
+        }
+
+        if (typeof onComplete === 'function') {
+            onComplete();
+        } else {
+            router();
+        }
+    }
+
+    // Submit OTP Verification Button
+    const submitOtpBtn = document.getElementById('submit-otp-verify-btn');
+    if (submitOtpBtn) {
+        submitOtpBtn.onclick = async () => {
+            const enteredOtp = Array.from(otpBoxes).map(b => b.value).join('');
+            const phone = document.getElementById('phone-input')?.value?.trim();
+            const room = document.getElementById('room-input')?.value?.trim() || '304';
+            const floor = document.getElementById('floor-input')?.value?.trim() || '3rd Floor';
+            const errBox = document.getElementById('otp-error-box');
+            const errText = document.getElementById('otp-error-text');
+
+            if (enteredOtp.length < 6) {
+                if (errBox && errText) {
+                    errBox.classList.remove('hidden');
+                    errText.textContent = 'Please enter all 6 digits of the OTP code.';
+                }
+                return;
+            }
+
+            submitOtpBtn.disabled = true;
+            submitOtpBtn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">sync</span><span>Verifying...</span>';
+
+            try {
+                const uid = window.getEffectiveUserId();
+                const verifyRes = await window.api.verifyOtp(phone, enteredOtp, uid);
+                if (verifyRes && verifyRes.success) {
+                    finalizeAddressSave(room, floor, phone);
+                } else {
+                    throw new Error(verifyRes.error || 'Invalid OTP code.');
+                }
+            } catch (err) {
+                submitOtpBtn.disabled = false;
+                submitOtpBtn.innerHTML = '<span class="material-symbols-outlined text-sm">check_circle</span><span>Verify OTP & Save Address</span>';
+                if (errBox && errText) {
+                    errBox.classList.remove('hidden');
+                    errText.textContent = err.message || 'Invalid or expired OTP code. Please try again.';
+                }
+            }
+        };
+    }
+
+    // Save Address button on Main Form
     document.getElementById('save-address-btn').onclick = async () => {
         const room = document.getElementById('room-input')?.value?.trim();
         const floor = document.getElementById('floor-input')?.value?.trim() || '3rd Floor';
@@ -298,7 +585,7 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
             return;
         }
 
-        if (phone && phone.length < 10) {
+        if (!phone || phone.length < 10) {
             if (alertBox && alertMsg) {
                 alertBox.classList.remove('hidden');
                 alertMsg.textContent = 'Please enter a valid 10-digit mobile number.';
@@ -307,31 +594,16 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
             return;
         }
 
-        window.currentAddress = 'BH13';
-        window.currentBlock = selectedBlock;
-        window.currentRoom = room;
-        window.currentAddressDetail = `BH13 (${selectedBlock}), Room ${room}`;
-
-        localStorage.setItem('lpuquick_address', window.currentAddress);
-        localStorage.setItem('lpuquick_block', window.currentBlock);
-        localStorage.setItem('lpuquick_room', window.currentRoom);
-        localStorage.setItem('lpuquick_floor', floor);
-        if (phone) localStorage.setItem('lpuquick_phone', phone);
-        localStorage.setItem('lpuquick_address_configured', 'true');
-        localStorage.setItem('lpuquick_address_detail', window.currentAddressDetail);
-
-        // Sync with backend profile
-        if (window.isUserLoggedIn() && window.api?.updateAddress) {
-            window.api.updateAddress(window.CURRENT_USER_ID, 'BH13', selectedBlock, room, phone);
+        // Check if phone number is verified
+        const isVerified = localStorage.getItem('lpuquick_phone_verified_' + phone) === 'true';
+        if (!isVerified) {
+            if (alertBox) alertBox.classList.add('hidden');
+            await launchOtpFlow(phone);
+            return;
         }
 
-        modal.remove();
-
-        if (typeof onComplete === 'function') {
-            onComplete();
-        } else {
-            router();
-        }
+        // Already verified! Finalize directly
+        finalizeAddressSave(room, floor, phone);
     };
 };
 

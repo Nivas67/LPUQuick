@@ -407,6 +407,21 @@ const supabaseDb = {
             const { data, error } = await supabase.from('users').insert([payload]).select().single();
             if (error) throw error;
             return data;
+        },
+
+        async updatePhone(userId, phone) {
+            const supabase = getSupabaseClient();
+            if (!userId) return null;
+            const { data, error } = await supabase
+                .from('users')
+                .update({ phone: phone ? phone.trim() : null })
+                .eq('id', userId)
+                .select()
+                .single();
+            if (error) {
+                console.warn('[Supabase updatePhone Warning]:', error.message);
+            }
+            return data;
         }
     }
 };

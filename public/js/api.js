@@ -24,6 +24,20 @@ const api = {
         });
         return res.json();
     },
+    async sendOtp(phone, userId = null) {
+        const res = await fetch(`${API_BASE}/auth/send-otp`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone, userId })
+        });
+        return res.json();
+    },
+    async verifyOtp(phone, otp, userId = null) {
+        const res = await fetch(`${API_BASE}/auth/verify-otp`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone, otp, userId })
+        });
+        return res.json();
+    },
 
     // Home
     async fetchHome() {
