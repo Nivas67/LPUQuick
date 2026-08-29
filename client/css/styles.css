@@ -544,7 +544,7 @@ body.dark .slider-text {
 }
 
 /* ============================================================
-   AMBIENT ANIMATED DYNAMIC AURORA BACKGROUND
+   AMBIENT ANIMATED DYNAMIC CAMPUS ATMOSPHERE BACKGROUND
    ============================================================ */
 
 #ambient-canvas {
@@ -561,134 +561,277 @@ body.dark .slider-text {
     background: transparent;
 }
 
+/* Layer 1: Soft Base Gradient Mesh */
+.ambient-base-gradient {
+    position: absolute;
+    inset: 0;
+    background: 
+        radial-gradient(ellipse at 15% 15%, rgba(16, 185, 129, 0.12) 0%, transparent 60%),
+        radial-gradient(ellipse at 85% 20%, rgba(6, 182, 212, 0.09) 0%, transparent 55%),
+        radial-gradient(ellipse at 80% 80%, rgba(244, 114, 182, 0.07) 0%, transparent 50%),
+        radial-gradient(ellipse at 20% 85%, rgba(16, 185, 129, 0.10) 0%, transparent 55%),
+        radial-gradient(ellipse at 50% 50%, rgba(251, 191, 36, 0.05) 0%, transparent 60%);
+    opacity: 0.9;
+}
+
+/* Layer 2: Floating Light Orbs */
 .ambient-orb {
     position: absolute;
     border-radius: 9999px;
     filter: blur(85px);
-    opacity: 0.55;
     will-change: transform, opacity;
     pointer-events: none;
 }
 
-.dark .ambient-orb {
-    opacity: 0.42;
-    filter: blur(105px);
-}
-
-/* 1. Emerald Primary Orb (Drifting North-West) */
-.orb-1 {
-    width: min(550px, 90vw);
-    height: min(550px, 90vw);
-    background: radial-gradient(circle, rgba(16, 185, 129, 0.55) 0%, rgba(5, 150, 105, 0.2) 65%, transparent 100%);
-    top: -80px;
-    left: -80px;
-    animation: floatOrb1 16s ease-in-out infinite alternate;
-}
-
-/* 2. Royal Purple Orb (Drifting East) */
-.orb-2 {
-    width: min(580px, 95vw);
-    height: min(580px, 95vw);
-    background: radial-gradient(circle, rgba(168, 85, 247, 0.42) 0%, rgba(139, 92, 246, 0.16) 65%, transparent 100%);
-    top: 25%;
-    right: -120px;
-    animation: floatOrb2 20s ease-in-out infinite alternate;
-}
-
-/* 3. Cyan Light Orb (Drifting South) */
-.orb-3 {
-    width: min(520px, 85vw);
-    height: min(520px, 85vw);
-    background: radial-gradient(circle, rgba(6, 182, 212, 0.42) 0%, rgba(14, 165, 233, 0.15) 65%, transparent 100%);
-    bottom: -90px;
-    left: 25%;
-    animation: floatOrb3 18s ease-in-out infinite alternate;
-}
-
-/* 4. Golden Sunset Orb (Drifting Center-West) */
-.orb-4 {
-    width: min(460px, 80vw);
-    height: min(460px, 80vw);
-    background: radial-gradient(circle, rgba(245, 158, 11, 0.32) 0%, rgba(217, 119, 6, 0.1) 65%, transparent 100%);
-    top: 55%;
+/* Top-Left: Soft Mint / Fresh Green Glow */
+.orb-top-left {
+    width: min(540px, 85vw);
+    height: min(540px, 85vw);
+    background: radial-gradient(circle, rgba(16, 185, 129, 0.38) 0%, rgba(5, 150, 105, 0.14) 65%, transparent 100%);
+    top: -100px;
     left: -100px;
-    animation: floatOrb4 22s ease-in-out infinite alternate;
+    animation: floatOrbTopLeft 22s ease-in-out infinite alternate;
 }
 
-/* Breathing Dot Grid Matrix */
+/* Top-Right: Very Subtle Cyan / Light Blue Glow */
+.orb-top-right {
+    width: min(500px, 80vw);
+    height: min(500px, 80vw);
+    background: radial-gradient(circle, rgba(6, 182, 212, 0.28) 0%, rgba(14, 165, 233, 0.10) 65%, transparent 100%);
+    top: -60px;
+    right: -80px;
+    animation: floatOrbTopRight 26s ease-in-out infinite alternate;
+}
+
+/* Middle-Right: Soft Warm Pastel Yellow / Peach Glow */
+.orb-mid-right {
+    width: min(480px, 78vw);
+    height: min(480px, 78vw);
+    background: radial-gradient(circle, rgba(251, 191, 36, 0.24) 0%, rgba(245, 158, 11, 0.08) 65%, transparent 100%);
+    top: 40%;
+    right: -120px;
+    animation: floatOrbMidRight 24s ease-in-out infinite alternate;
+}
+
+/* Bottom-Left: Soft Emerald Green Glow */
+.orb-bot-left {
+    width: min(520px, 82vw);
+    height: min(520px, 82vw);
+    background: radial-gradient(circle, rgba(16, 185, 129, 0.32) 0%, rgba(52, 211, 153, 0.12) 65%, transparent 100%);
+    bottom: -110px;
+    left: -80px;
+    animation: floatOrbBotLeft 28s ease-in-out infinite alternate;
+}
+
+/* Bottom-Right: Very Subtle Soft Warm / Pink Glow */
+.orb-bot-right {
+    width: min(460px, 75vw);
+    height: min(460px, 75vw);
+    background: radial-gradient(circle, rgba(244, 114, 182, 0.20) 0%, rgba(251, 146, 60, 0.07) 65%, transparent 100%);
+    bottom: -90px;
+    right: -90px;
+    animation: floatOrbBotRight 25s ease-in-out infinite alternate;
+}
+
+/* Layer 3: Curved Delivery Light Trails */
+.ambient-delivery-trails {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.75;
+    pointer-events: none;
+}
+
+.trail-path {
+    will-change: stroke-dashoffset;
+}
+
+.trail-path-1 {
+    animation: trailDashFlow1 18s linear infinite;
+}
+
+.trail-path-2 {
+    animation: trailDashFlow2 22s linear infinite reverse;
+}
+
+@keyframes trailDashFlow1 {
+    0% { stroke-dashoffset: 200; }
+    100% { stroke-dashoffset: 0; }
+}
+
+@keyframes trailDashFlow2 {
+    0% { stroke-dashoffset: 180; }
+    100% { stroke-dashoffset: 0; }
+}
+
+/* Layer 4: Floating Micro-Particles */
+.ambient-particle {
+    position: absolute;
+    border-radius: 9999px;
+    background: #10B981;
+    pointer-events: none;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.6);
+    will-change: transform, opacity;
+}
+
+.particle-1 { width: 5px; height: 5px; top: 18%; left: 22%; opacity: 0.45; animation: particleFloat 14s ease-in-out infinite alternate; }
+.particle-2 { width: 4px; height: 4px; top: 28%; left: 78%; opacity: 0.35; background: #06B6D4; box-shadow: 0 0 8px rgba(6, 182, 212, 0.5); animation: particleFloat 18s ease-in-out infinite alternate 2s; }
+.particle-3 { width: 6px; height: 6px; top: 62%; left: 14%; opacity: 0.40; animation: particleFloat 16s ease-in-out infinite alternate 4s; }
+.particle-4 { width: 4px; height: 4px; top: 72%; left: 84%; opacity: 0.38; background: #F59E0B; box-shadow: 0 0 8px rgba(245, 158, 11, 0.5); animation: particleFloat 20s ease-in-out infinite alternate 1s; }
+.particle-5 { width: 3px; height: 3px; top: 45%; left: 48%; opacity: 0.30; animation: particleFloat 12s ease-in-out infinite alternate 3s; }
+.particle-6 { width: 5px; height: 5px; top: 88%; left: 40%; opacity: 0.35; animation: particleFloat 17s ease-in-out infinite alternate 5s; }
+.particle-7 { width: 4px; height: 4px; top: 12%; left: 60%; opacity: 0.32; background: #06B6D4; animation: particleFloat 15s ease-in-out infinite alternate 2.5s; }
+.particle-8 { width: 4px; height: 4px; top: 52%; left: 92%; opacity: 0.28; animation: particleFloat 19s ease-in-out infinite alternate 6s; }
+
+@keyframes particleFloat {
+    0% { transform: translate3d(0, 0, 0) scale(0.9); opacity: 0.25; }
+    50% { transform: translate3d(24px, -35px, 0) scale(1.15); opacity: 0.55; }
+    100% { transform: translate3d(-18px, -65px, 0) scale(0.85); opacity: 0.2; }
+}
+
+/* Layer 5: Occasional 4-Point Star Sparkles */
+.ambient-sparkle {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    color: #10B981;
+    pointer-events: none;
+    opacity: 0;
+    will-change: transform, opacity;
+}
+
+.sparkle-1 { top: 22%; left: 35%; animation: sparkleGlow 8s ease-in-out infinite; }
+.sparkle-2 { top: 38%; left: 88%; color: #06B6D4; animation: sparkleGlow 9s ease-in-out infinite 2.5s; }
+.sparkle-3 { top: 68%; left: 28%; animation: sparkleGlow 10s ease-in-out infinite 5s; }
+.sparkle-4 { top: 80%; left: 72%; color: #F59E0B; animation: sparkleGlow 8.5s ease-in-out infinite 1.2s; }
+
+@keyframes sparkleGlow {
+    0%, 100% { opacity: 0; transform: translate3d(0, 0, 0) scale(0.5) rotate(0deg); }
+    35% { opacity: 0; transform: translate3d(0, 0, 0) scale(0.6) rotate(15deg); }
+    50% { opacity: 0.65; transform: translate3d(0, -6px, 0) scale(1.15) rotate(45deg); }
+    65% { opacity: 0; transform: translate3d(0, -12px, 0) scale(0.5) rotate(90deg); }
+}
+
+/* Layer 6: Subtle Floating Fresh Leaves */
+.ambient-leaf {
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    color: #10B981;
+    pointer-events: none;
+    opacity: 0.22;
+    will-change: transform;
+}
+
+.leaf-1 {
+    top: 15%;
+    left: 8%;
+    animation: leafSway1 24s ease-in-out infinite alternate;
+}
+
+.leaf-2 {
+    top: 55%;
+    right: 6%;
+    animation: leafSway2 28s ease-in-out infinite alternate 3s;
+}
+
+.leaf-3 {
+    top: 78%;
+    left: 18%;
+    animation: leafSway3 26s ease-in-out infinite alternate 6s;
+}
+
+@keyframes leafSway1 {
+    0% { transform: translate3d(0, 0, 0) rotate(15deg); }
+    50% { transform: translate3d(35px, 50px, 0) rotate(40deg); }
+    100% { transform: translate3d(-20px, 95px, 0) rotate(20deg); }
+}
+
+@keyframes leafSway2 {
+    0% { transform: translate3d(0, 0, 0) rotate(-25deg); }
+    50% { transform: translate3d(-40px, 45px, 0) rotate(-5deg); }
+    100% { transform: translate3d(15px, 90px, 0) rotate(-35deg); }
+}
+
+@keyframes leafSway3 {
+    0% { transform: translate3d(0, 0, 0) rotate(5deg); }
+    50% { transform: translate3d(30px, -40px, 0) rotate(-20deg); }
+    100% { transform: translate3d(-25px, -80px, 0) rotate(15deg); }
+}
+
+/* Layer 7: Breathing Matrix Grid */
 .ambient-grid-overlay {
     position: absolute;
     inset: 0;
-    opacity: 0.07;
-    background-image: radial-gradient(#10B981 1.3px, transparent 1.3px);
-    background-size: 26px 26px;
-    animation: gridBreathe 9s ease-in-out infinite alternate;
+    opacity: 0.05;
+    background-image: radial-gradient(#10B981 1.2px, transparent 1.2px);
+    background-size: 28px 28px;
+    animation: gridBreathe 10s ease-in-out infinite alternate;
 }
 
-.dark .ambient-grid-overlay {
-    opacity: 0.09;
-    background-image: radial-gradient(#34D399 1.4px, transparent 1.4px);
+/* Keyframe Animations for Floating Orbs */
+@keyframes floatOrbTopLeft {
+    0% { transform: translate3d(0, 0, 0) scale(1); }
+    50% { transform: translate3d(90px, 110px, 0) scale(1.12); }
+    100% { transform: translate3d(35px, 55px, 0) scale(0.95); }
 }
 
-@keyframes floatOrb1 {
-    0% {
-        transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
-    }
-    50% {
-        transform: translate3d(130px, 140px, 0) scale(1.16) rotate(45deg);
-    }
-    100% {
-        transform: translate3d(50px, 70px, 0) scale(0.92) rotate(90deg);
-    }
+@keyframes floatOrbTopRight {
+    0% { transform: translate3d(0, 0, 0) scale(1); }
+    50% { transform: translate3d(-100px, 80px, 0) scale(1.10); }
+    100% { transform: translate3d(-45px, -50px, 0) scale(0.92); }
 }
 
-@keyframes floatOrb2 {
-    0% {
-        transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
-    }
-    50% {
-        transform: translate3d(-140px, 110px, 0) scale(1.14) rotate(-40deg);
-    }
-    100% {
-        transform: translate3d(-70px, -80px, 0) scale(0.9) rotate(-80deg);
-    }
+@keyframes floatOrbMidRight {
+    0% { transform: translate3d(0, 0, 0) scale(0.96); }
+    50% { transform: translate3d(-80px, -90px, 0) scale(1.12); }
+    100% { transform: translate3d(40px, 60px, 0) scale(1.02); }
 }
 
-@keyframes floatOrb3 {
-    0% {
-        transform: translate3d(0, 0, 0) scale(1);
-    }
-    50% {
-        transform: translate3d(110px, -130px, 0) scale(1.2);
-    }
-    100% {
-        transform: translate3d(-90px, -50px, 0) scale(0.94);
-    }
+@keyframes floatOrbBotLeft {
+    0% { transform: translate3d(0, 0, 0) scale(1); }
+    50% { transform: translate3d(80px, -90px, 0) scale(1.14); }
+    100% { transform: translate3d(-50px, -40px, 0) scale(0.96); }
 }
 
-@keyframes floatOrb4 {
-    0% {
-        transform: translate3d(0, 0, 0) scale(0.95);
-    }
-    50% {
-        transform: translate3d(160px, -90px, 0) scale(1.15);
-    }
-    100% {
-        transform: translate3d(30px, 110px, 0) scale(1.02);
-    }
+@keyframes floatOrbBotRight {
+    0% { transform: translate3d(0, 0, 0) scale(0.95); }
+    50% { transform: translate3d(-70px, -80px, 0) scale(1.10); }
+    100% { transform: translate3d(30px, 60px, 0) scale(1.0); }
 }
 
 @keyframes gridBreathe {
-    0% {
-        opacity: 0.05;
-        transform: scale(1);
-    }
-    50% {
-        opacity: 0.1;
-        transform: scale(1.015);
-    }
-    100% {
-        opacity: 0.05;
-        transform: scale(1);
+    0% { opacity: 0.04; transform: scale(1); }
+    50% { opacity: 0.08; transform: scale(1.01); }
+    100% { opacity: 0.04; transform: scale(1); }
+}
+
+/* ============================================================
+   ACCESSIBILITY & MOBILE OPTIMIZATIONS
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    .ambient-orb,
+    .ambient-particle,
+    .ambient-sparkle,
+    .ambient-leaf,
+    .trail-path,
+    .ambient-grid-overlay {
+        animation: none !important;
+        transform: none !important;
     }
 }
+
+@media (max-width: 768px) {
+    .ambient-orb {
+        filter: blur(65px);
+        opacity: 0.32;
+    }
+    .particle-5, .particle-6, .particle-7, .particle-8,
+    .sparkle-3, .sparkle-4,
+    .leaf-3 {
+        display: none !important;
+    }
+}
+
