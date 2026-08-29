@@ -160,7 +160,7 @@ window.pages.settings = async function() {
                     </span>
                     <div>
                         <h3 class="font-bold text-sm sm:text-base text-on-surface">Campus Help & Support</h3>
-                        <p class="text-[11px] text-on-surface-variant">BH13 Express Dispatch & Walker Ops</p>
+                        <p class="text-[11px] text-on-surface-variant">BH13 Store Managers & 24/7 Support</p>
                     </div>
                 </div>
                 <button type="button" onclick="window.closeCampusHelpModal()" class="w-8 h-8 rounded-full bg-surface-container-high text-on-surface-variant hover:text-on-surface flex items-center justify-center cursor-pointer">
@@ -169,13 +169,13 @@ window.pages.settings = async function() {
             </div>
 
             <div class="space-y-3">
-                <!-- Helpline 1: Primary Dispatch -->
+                <!-- Helpline 1: Store Manager 1 -->
                 <div class="p-4 rounded-2xl bg-surface-container-high border border-outline-variant/30 space-y-2.5">
                     <div class="flex items-center justify-between">
                         <div>
-                            <span class="text-[10px] font-bold uppercase tracking-wider text-emerald bg-emerald/10 px-2 py-0.5 rounded-full">Helpline 1</span>
-                            <h4 class="font-bold text-sm text-on-surface mt-1">BH13 Express Dispatch</h4>
-                            <p class="text-[11px] text-on-surface-variant">Instant order tracking & room delivery help</p>
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-emerald bg-emerald/10 px-2 py-0.5 rounded-full">Store Manager</span>
+                            <h4 class="font-bold text-sm text-on-surface mt-1">BH13 Store Manager</h4>
+                            <p class="text-[11px] text-on-surface-variant">Instant order tracking & room delivery assistance</p>
                         </div>
                     </div>
                     <div class="flex items-center gap-2 pt-1">
@@ -183,20 +183,20 @@ window.pages.settings = async function() {
                             <span class="material-symbols-outlined text-sm">call</span>
                             <span>Call 7671836211</span>
                         </a>
-                        <a href="https://wa.me/917671836211?text=Hi%20LPUQuick%2C%20I%20need%20help%20with%20my%20delivery" target="_blank" class="bg-[#25D366] hover:bg-[#1EBE5D] text-white text-xs font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1 shadow-md transition-all active:scale-95">
+                        <a href="https://wa.me/917671836211?text=Hi%20Store%20Manager%2C%20I%20need%20help%20with%20my%20LPUQuick%20order" target="_blank" class="bg-[#25D366] hover:bg-[#1EBE5D] text-white text-xs font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1 shadow-md transition-all active:scale-95">
                             <span class="material-symbols-outlined text-sm">chat</span>
                             <span>WhatsApp</span>
                         </a>
                     </div>
                 </div>
 
-                <!-- Helpline 2: Dark Store Ops -->
+                <!-- Helpline 2: Store Manager 2 -->
                 <div class="p-4 rounded-2xl bg-surface-container-high border border-outline-variant/30 space-y-2.5">
                     <div class="flex items-center justify-between">
                         <div>
-                            <span class="text-[10px] font-bold uppercase tracking-wider text-teal-600 bg-teal-500/10 px-2 py-0.5 rounded-full">Helpline 2</span>
-                            <h4 class="font-bold text-sm text-on-surface mt-1">BH13 Dark Store Manager</h4>
-                            <p class="text-[11px] text-on-surface-variant">Stock, item replacements & runner coordination</p>
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-teal-600 bg-teal-500/10 px-2 py-0.5 rounded-full">Store Manager</span>
+                            <h4 class="font-bold text-sm text-on-surface mt-1">BH13 Store Manager</h4>
+                            <p class="text-[11px] text-on-surface-variant">Stock, item replacements & walker dispatch</p>
                         </div>
                     </div>
                     <div class="flex items-center gap-2 pt-1">
@@ -204,7 +204,7 @@ window.pages.settings = async function() {
                             <span class="material-symbols-outlined text-sm">call</span>
                             <span>Call 9877982857</span>
                         </a>
-                        <a href="https://wa.me/919877982857?text=Hi%20LPUQuick%20BH13%20Dark%20Store%2C%20I%20have%20an%20order%20query" target="_blank" class="bg-[#25D366] hover:bg-[#1EBE5D] text-white text-xs font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1 shadow-md transition-all active:scale-95">
+                        <a href="https://wa.me/919877982857?text=Hi%20Store%20Manager%2C%20I%20have%20an%20order%20query" target="_blank" class="bg-[#25D366] hover:bg-[#1EBE5D] text-white text-xs font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1 shadow-md transition-all active:scale-95">
                             <span class="material-symbols-outlined text-sm">chat</span>
                             <span>WhatsApp</span>
                         </a>
