@@ -116,7 +116,7 @@ window.pages.home = async function() {
     <header class="hidden md:flex justify-between items-center px-margin-desktop py-sm w-full z-50 fixed top-0 bg-surface/80 backdrop-blur-3xl border-b border-glass-border">
         <div class="flex items-center gap-md">
             <a href="#/" class="font-display text-display tracking-tighter text-2xl font-bold flex items-center gap-2.5 hover:opacity-90 transition-opacity">
-                <img src="/logo.png" alt="LPUQuick" class="w-8 h-8 rounded-xl shadow-md border border-white/20 shrink-0 object-cover bg-surface-container-high">
+                <img src="/logo.png" alt="LPUQuick" class="w-8 h-8 rounded-full shadow-sm shrink-0 object-contain bg-transparent">
                 <span class="brand-title text-2xl tracking-tight">LPUQuick</span>
             </a>
             <!-- Address Selector Trigger -->
@@ -146,7 +146,7 @@ window.pages.home = async function() {
     <header class="md:hidden flex justify-between items-center px-margin-mobile py-2.5 w-full z-50 fixed top-0 bg-surface/80 backdrop-blur-3xl border-b border-glass-border">
         <div class="flex items-center gap-2.5">
             <a href="#/" class="shrink-0">
-                <img src="/logo.png" alt="LPUQuick" class="w-8 h-8 rounded-xl shadow-md border border-white/20 shrink-0 object-cover bg-surface-container-high">
+                <img src="/logo.png" alt="LPUQuick" class="w-8 h-8 rounded-full shadow-sm shrink-0 object-contain bg-transparent">
             </a>
             <!-- Address Selector Trigger Mobile -->
             <button type="button" class="address-selector-trigger flex flex-col text-left cursor-pointer">

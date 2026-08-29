@@ -20,8 +20,8 @@ window.pages.signin = async function() {
         <div class="text-center mb-6 space-y-2">
             <a href="#/" class="inline-flex items-center justify-center gap-3 hover:scale-105 transition-transform duration-200 group">
                 <div class="relative">
-                    <div class="absolute -inset-1 rounded-2xl bg-emerald/40 blur-sm group-hover:bg-emerald/60 transition-all"></div>
-                    <img src="/logo.png" alt="LPUQuick" class="relative w-14 h-14 rounded-2xl shadow-xl border-2 border-white/80 dark:border-slate-700 object-cover bg-surface-container-high">
+                    <div class="absolute -inset-1 rounded-full bg-emerald/30 blur-sm group-hover:bg-emerald/50 transition-all"></div>
+                    <img src="/logo.png" alt="LPUQuick" class="relative w-14 h-14 rounded-full shadow-md object-contain bg-transparent">
                 </div>
                 <div class="text-left">
                     <span class="text-2xl sm:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">LPUQuick</span>
