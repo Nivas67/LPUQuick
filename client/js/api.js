@@ -117,6 +117,16 @@ const api = {
         const res = await fetch(`${API_BASE}/orders/detail/${orderId}`);
         return res.json();
     },
+    async reorder(orderId, userId = window.CURRENT_USER_ID || 'user_001') {
+        const res = await fetch(`${API_BASE}/orders/${orderId}/reorder`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId })
+        });
+        const result = await res.json();
+        await this.getCart(userId);
+        return result;
+    },
 
     // Categories
     async getCategories() {

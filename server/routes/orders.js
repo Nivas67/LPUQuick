@@ -83,6 +83,41 @@ router.get('/detail/:orderId', (req, res) => {
     res.json({ success: true, order: { ...order, items } });
 });
 
+// POST /api/orders/:orderId/reorder (Adds the exact items from this order into the cart)
+router.post('/:orderId/reorder', (req, res) => {
+    const db = req.app.locals.db;
+    const { orderId } = req.params;
+    const { userId } = req.body;
+
+    if (!orderId || !userId) {
+        return res.status(400).json({ error: 'orderId and userId are required' });
+    }
+
+    const items = db.prepare(`
+        SELECT oi.product_id, oi.quantity, p.name
+        FROM order_items oi
+        JOIN products p ON oi.product_id = p.id
+        WHERE oi.order_id = ?
+    `).all(orderId);
+
+    if (!items || items.length === 0) {
+        return res.status(404).json({ error: 'No items found for this order to reorder.' });
+    }
+
+    const { v4: uuidv4 } = require('uuid');
+    for (const item of items) {
+        const existing = db.prepare('SELECT id, quantity FROM cart_items WHERE user_id = ? AND product_id = ?').get(userId, item.product_id);
+        if (existing) {
+            db.prepare('UPDATE cart_items SET quantity = quantity + ? WHERE id = ?').run(item.quantity, existing.id);
+        } else {
+            const id = `cart_${uuidv4().slice(0, 8)}`;
+            db.prepare('INSERT INTO cart_items (id, user_id, product_id, quantity) VALUES (?, ?, ?, ?)').run(id, userId, item.product_id, item.quantity);
+        }
+    }
+
+    res.json({ success: true, message: 'Order items added to cart', count: items.length });
+});
+
 const requireAdmin = require('../middleware/adminAuth');
 
 // GET /api/orders/admin/all (Fetch all orders for Admin Dashboard)

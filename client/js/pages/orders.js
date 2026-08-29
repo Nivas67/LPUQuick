@@ -32,7 +32,7 @@ window.pages.orders = async function() {
             </div>
             <div class="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-surface-variant/30">
                 <span class="font-bold text-sm text-on-surface">₹${o.total}</span>
-                <button class="bg-surface-container-high hover:bg-emerald/10 hover:border-emerald border border-outline-variant/40 text-on-surface text-xs font-semibold px-3 py-1 rounded-full transition-all reorder-btn active:scale-95 cursor-pointer">
+                <button data-order-id="${o.id}" class="bg-surface-container-high hover:bg-emerald/10 hover:border-emerald border border-outline-variant/40 text-on-surface text-xs font-semibold px-3 py-1 rounded-full transition-all reorder-btn active:scale-95 cursor-pointer">
                     Reorder
                 </button>
             </div>
@@ -215,14 +215,26 @@ window.pageInits.orders = function() {
     const hostelAddress = window.currentAddressDetail?.label || 'BH13 (Block A), Room 304';
     const activeOrderId = window.CURRENT_ACTIVE_ORDER_ID;
 
-    // Reorder button click
+    // Reorder button click (Genuine items from order)
     document.querySelectorAll('.reorder-btn').forEach(btn => {
         btn.onclick = async (e) => {
             e.preventDefault();
+            const orderId = btn.dataset.orderId;
+            if (!orderId) return;
+
+            btn.disabled = true;
             btn.textContent = 'Adding...';
-            await window.api.addToCart(userId, 'prod_s01', 2);
-            await window.api.addToCart(userId, 'prod_b01', 1);
-            window.location.hash = '#/cart';
+            try {
+                await window.api.reorder(orderId, userId);
+                btn.textContent = 'Added ✓';
+                setTimeout(() => {
+                    window.location.hash = '#/cart';
+                }, 300);
+            } catch (err) {
+                btn.textContent = 'Reorder';
+                btn.disabled = false;
+                console.error('[Reorder Error]:', err);
+            }
         };
     });
 
