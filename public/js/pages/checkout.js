@@ -133,31 +133,49 @@ window.pages.checkout = async function() {
             </div>
         </div>
 
-        <!-- Payment Method Selection -->
+        <!-- Payment Method Selection (Online Transactions Blocked / Coming Soon, COD Active) -->
         <div class="glass-card rounded-3xl p-5 border border-glass-border shadow-sm space-y-3">
-            <h3 class="font-bold text-sm text-on-surface">Select Payment Method</h3>
+            <div class="flex items-center justify-between">
+                <h3 class="font-bold text-sm text-on-surface">Select Payment Method</h3>
+                <span class="text-[10px] text-emerald font-semibold bg-emerald/10 px-2 py-0.5 rounded-full">COD Active</span>
+            </div>
+            
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5" id="payment-options">
-                <label class="flex items-center gap-2.5 p-3 rounded-2xl border-2 border-emerald bg-emerald/5 cursor-pointer payment-option-label" data-method="upi">
-                    <input type="radio" name="paymentMethod" value="upi" checked class="text-emerald focus:ring-emerald">
+                <!-- 1. Cash on Delivery (ACTIVE & DEFAULT) -->
+                <label class="flex items-center gap-2.5 p-3 rounded-2xl border-2 border-emerald bg-emerald/5 cursor-pointer payment-option-label relative" data-method="cod">
+                    <input type="radio" name="paymentMethod" value="cod" checked class="text-emerald focus:ring-emerald">
                     <div>
-                        <p class="font-semibold text-xs text-on-surface">UPI / GPay / QR</p>
-                        <p class="text-[10px] text-on-surface-variant">Instant 1-Tap Pay</p>
+                        <div class="flex items-center gap-1.5">
+                            <p class="font-bold text-xs text-on-surface">Cash on Delivery</p>
+                            <span class="text-[9px] bg-emerald text-white font-extrabold px-1.5 py-0.2 rounded-full">Active</span>
+                        </div>
+                        <p class="text-[10px] text-on-surface-variant mt-0.5">Pay at BH13 room/gate</p>
                     </div>
                 </label>
-                <label class="flex items-center gap-2.5 p-3 rounded-2xl border border-surface-variant/60 hover:bg-surface-container-high/40 cursor-pointer payment-option-label" data-method="cod">
-                    <input type="radio" name="paymentMethod" value="cod" class="text-emerald focus:ring-emerald">
-                    <div>
-                        <p class="font-semibold text-xs text-on-surface">Cash on Delivery</p>
-                        <p class="text-[10px] text-on-surface-variant">Pay at Hostel Gate</p>
+
+                <!-- 2. UPI / GPay / QR (BLOCKED - COMING SOON) -->
+                <div class="flex items-center gap-2.5 p-3 rounded-2xl border border-surface-variant/40 bg-surface-container-high/40 opacity-60 cursor-pointer payment-blocked-trigger relative group hover:opacity-80 transition-opacity" data-title="Online UPI Payments">
+                    <input type="radio" name="paymentMethod" value="upi" disabled class="text-neutral-400">
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-1.5">
+                            <p class="font-semibold text-xs text-on-surface-variant truncate">UPI / GPay / QR</p>
+                            <span class="text-[8px] bg-amber-500 text-white font-extrabold px-1.5 py-0.2 rounded-full">Soon 🔒</span>
+                        </div>
+                        <p class="text-[10px] text-on-surface-variant">Merchant KYC in progress</p>
                     </div>
-                </label>
-                <label class="flex items-center gap-2.5 p-3 rounded-2xl border border-surface-variant/60 hover:bg-surface-container-high/40 cursor-pointer payment-option-label" data-method="card">
-                    <input type="radio" name="paymentMethod" value="card" class="text-emerald focus:ring-emerald">
-                    <div>
-                        <p class="font-semibold text-xs text-on-surface">Card / NetBanking</p>
+                </div>
+
+                <!-- 3. Cards / NetBanking (BLOCKED - COMING SOON) -->
+                <div class="flex items-center gap-2.5 p-3 rounded-2xl border border-surface-variant/40 bg-surface-container-high/40 opacity-60 cursor-pointer payment-blocked-trigger relative group hover:opacity-80 transition-opacity" data-title="Card & NetBanking">
+                    <input type="radio" name="paymentMethod" value="card" disabled class="text-neutral-400">
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-1.5">
+                            <p class="font-semibold text-xs text-on-surface-variant truncate">Cards / NetBanking</p>
+                            <span class="text-[8px] bg-amber-500 text-white font-extrabold px-1.5 py-0.2 rounded-full">Soon 🔒</span>
+                        </div>
                         <p class="text-[10px] text-on-surface-variant">Visa, Master, Rupay</p>
                     </div>
-                </label>
+                </div>
             </div>
         </div>
 
@@ -169,20 +187,26 @@ window.pages.checkout = async function() {
                     <span class="material-symbols-outlined">arrow_forward</span>
                 </div>
                 <div class="slider-text text-sm sm:text-base" id="pay-slider-text">
-                    Slide to Pay ₹${exactTotal}
+                    Slide to Confirm Order ₹${exactTotal}
                 </div>
             </div>
             
             <div class="flex items-center justify-between mt-3 text-xs text-on-surface-variant">
                 <button type="button" class="text-primary font-semibold hover:underline cursor-pointer" id="tap-to-pay-btn">
-                    Or Click Here to Place Order (₹${exactTotal})
+                    Or Click Here to Place COD Order (₹${exactTotal})
                 </button>
                 <span class="flex items-center gap-1 text-emerald font-medium">
-                    <span class="material-symbols-outlined text-sm">lock</span> 100% Secure Gateway
+                    <span class="material-symbols-outlined text-sm">verified</span> Verified Campus Dispatch
                 </span>
             </div>
         </div>
     </main>
+
+    <!-- Payment Blocked Toast Alert -->
+    <div id="payment-toast" class="fixed top-20 left-1/2 -translate-x-1/2 bg-surface-container-lowest/95 backdrop-blur-xl border border-amber-500/40 text-on-surface px-4 py-2.5 rounded-full shadow-2xl z-50 text-xs font-semibold flex items-center gap-2 transition-all duration-300 opacity-0 pointer-events-none -translate-y-4">
+        <span class="material-symbols-outlined text-amber-500 text-sm">lock</span>
+        <span id="payment-toast-text">Online payment is launching soon! Delivering with Cash on Delivery right now.</span>
+    </div>
 
     <!-- REAL-TIME PAYMENT GATEWAY MODAL -->
     <div id="payment-gateway-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-300">
@@ -290,10 +314,29 @@ window.pageInits.checkout = function() {
     const upiGatewayView = document.getElementById('upi-gateway-view');
     const paymentSuccessView = document.getElementById('payment-success-view');
 
-    let currentOrder = null;
-    let timerInterval = null;
+    const paymentToast = document.getElementById('payment-toast');
+    const paymentToastText = document.getElementById('payment-toast-text');
 
-    // Payment Option Selectors
+    function showPaymentToast(msg) {
+        if (!paymentToast || !paymentToastText) return;
+        paymentToastText.textContent = msg;
+        paymentToast.classList.remove('opacity-0', 'pointer-events-none', '-translate-y-4');
+        paymentToast.classList.add('opacity-100', 'translate-y-0');
+        setTimeout(() => {
+            paymentToast.classList.remove('opacity-100', 'translate-y-0');
+            paymentToast.classList.add('opacity-0', 'pointer-events-none', '-translate-y-4');
+        }, 3200);
+    }
+
+    // Blocked Payment Triggers Handler (UPI & Cards)
+    document.querySelectorAll('.payment-blocked-trigger').forEach(trigger => {
+        trigger.onclick = () => {
+            const title = trigger.dataset.title || 'Online Payment';
+            showPaymentToast(`${title} is coming soon! All orders currently deliver via Cash on Delivery.`);
+        };
+    });
+
+    // Payment Option Selectors (COD)
     document.querySelectorAll('.payment-option-label').forEach(label => {
         label.onclick = () => {
             document.querySelectorAll('.payment-option-label').forEach(l => {
