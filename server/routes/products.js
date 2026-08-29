@@ -1,9 +1,54 @@
 const express = require('express');
 const router = express.Router();
+const fs = require('fs');
+const path = require('path');
 const requireAdmin = require('../middleware/adminAuth');
 const supabaseDb = require('../db/supabaseDb');
 const cache = require('../cache');
 const { broadcastInventoryUpdate } = require('../realtime');
+
+// POST /api/products/admin/upload-image (Save uploaded photo locally and return URL)
+router.post('/admin/upload-image', requireAdmin, async (req, res) => {
+    try {
+        const { image_data, filename } = req.body;
+        if (!image_data) {
+            return res.status(400).json({ error: 'Image data is required' });
+        }
+
+        // Handle Base64 Data URL
+        const matches = image_data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (matches && matches.length === 3) {
+            const mimeType = matches[1];
+            const buffer = Buffer.from(matches[2], 'base64');
+            let ext = 'jpg';
+            if (mimeType.includes('png')) ext = 'png';
+            else if (mimeType.includes('webp')) ext = 'webp';
+            else if (mimeType.includes('gif')) ext = 'gif';
+            else if (mimeType.includes('svg')) ext = 'svg';
+
+            const cleanFileName = `prod_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
+            
+            const publicUploads = path.join(__dirname, '..', '..', 'public', 'uploads');
+            const clientUploads = path.join(__dirname, '..', '..', 'client', 'uploads');
+
+            if (!fs.existsSync(publicUploads)) fs.mkdirSync(publicUploads, { recursive: true });
+            if (!fs.existsSync(clientUploads)) fs.mkdirSync(clientUploads, { recursive: true });
+
+            fs.writeFileSync(path.join(publicUploads, cleanFileName), buffer);
+            fs.writeFileSync(path.join(clientUploads, cleanFileName), buffer);
+
+            const publicUrl = `/uploads/${cleanFileName}`;
+            console.log(`[Product Photo Upload] ✅ Saved photo to: ${publicUrl}`);
+            return res.json({ success: true, image_url: publicUrl });
+        }
+
+        // Already a valid URL
+        return res.json({ success: true, image_url: image_data });
+    } catch (err) {
+        console.error('[Upload Image Error]:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // GET /api/products/:id
 router.get('/:id', async (req, res) => {

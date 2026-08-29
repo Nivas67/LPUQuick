@@ -697,10 +697,49 @@ async function quickSetOrderStatus(orderId, newStatus, e) {
     }
 }
 
-// ================= 6. PRODUCT MODAL (ADD / EDIT) =================
+// ================= 6. PRODUCT MODAL (ADD / EDIT & PHOTO UPLOAD) =================
+function handleProductFileSelect(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        alert('Please select an image file (PNG, JPG, WEBP).');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const preview = document.getElementById('product-img-preview');
+        const urlInput = document.getElementById('form-product-image');
+        if (preview) preview.src = e.target.result;
+        if (urlInput) urlInput.value = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+function handleImageUrlInput(url) {
+    const preview = document.getElementById('product-img-preview');
+    if (preview) {
+        preview.src = url.trim() || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200';
+    }
+}
+
+function clearProductImage() {
+    const preview = document.getElementById('product-img-preview');
+    const urlInput = document.getElementById('form-product-image');
+    const fileInput = document.getElementById('form-product-file');
+    if (preview) preview.src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200';
+    if (urlInput) urlInput.value = '';
+    if (fileInput) fileInput.value = '';
+}
+
 function openProductModal(product = null) {
     document.getElementById('product-modal').classList.remove('hidden');
     const deleteBtn = document.getElementById('btn-modal-delete-product');
+    const preview = document.getElementById('product-img-preview');
+    const fileInput = document.getElementById('form-product-file');
+    if (fileInput) fileInput.value = '';
+
     if (product) {
         document.getElementById('modal-product-title').textContent = 'Edit Product';
         document.getElementById('form-product-id').value = product.id;
@@ -711,6 +750,7 @@ function openProductModal(product = null) {
         document.getElementById('form-product-mrp').value = product.mrp || product.price;
         document.getElementById('form-product-stock').value = product.stock_left !== undefined ? product.stock_left : 10;
         document.getElementById('form-product-image').value = product.image_url || '';
+        if (preview) preview.src = product.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200';
         document.getElementById('form-product-desc').value = product.description || '';
         if (deleteBtn) {
             deleteBtn.classList.remove('hidden');
@@ -722,6 +762,7 @@ function openProductModal(product = null) {
         document.getElementById('product-form').reset();
         document.getElementById('form-product-id').value = '';
         document.getElementById('form-product-stock').value = '10';
+        clearProductImage();
         if (deleteBtn) {
             deleteBtn.classList.add('hidden');
             deleteBtn.dataset.productId = '';
@@ -750,24 +791,49 @@ async function editProduct(id) {
 
 async function handleProductSubmit(e) {
     e.preventDefault();
-    const id = document.getElementById('form-product-id').value;
-    const stockVal = Number(document.getElementById('form-product-stock').value) || 0;
-    const payload = {
-        name: document.getElementById('form-product-name').value.trim(),
-        category: document.getElementById('form-product-category').value,
-        subcategory: document.getElementById('form-product-subcategory').value.trim(),
-        price: Number(document.getElementById('form-product-price').value),
-        mrp: Number(document.getElementById('form-product-mrp').value) || Number(document.getElementById('form-product-price').value),
-        stock_left: stockVal,
-        in_stock: stockVal > 0,
-        image_url: document.getElementById('form-product-image').value.trim(),
-        description: document.getElementById('form-product-desc').value.trim()
-    };
-
-    const url = id ? `/api/products/admin/update/${id}` : '/api/products/admin/create';
-    const method = id ? 'PUT' : 'POST';
+    const saveBtn = document.getElementById('btn-save-product');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">sync</span> Saving...';
+    }
 
     try {
+        const id = document.getElementById('form-product-id').value;
+        const stockVal = Number(document.getElementById('form-product-stock').value) || 0;
+        let imageUrl = document.getElementById('form-product-image').value.trim();
+
+        // If a photo was selected as a local file (base64 Data URL), upload it to server
+        if (imageUrl.startsWith('data:image/')) {
+            try {
+                const uploadRes = await fetch('/api/products/admin/upload-image', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ image_data: imageUrl })
+                });
+                const uploadData = await uploadRes.json();
+                if (uploadData.success && uploadData.image_url) {
+                    imageUrl = uploadData.image_url;
+                }
+            } catch (upErr) {
+                console.warn('[Image Upload Notice]:', upErr);
+            }
+        }
+
+        const payload = {
+            name: document.getElementById('form-product-name').value.trim(),
+            category: document.getElementById('form-product-category').value,
+            subcategory: document.getElementById('form-product-subcategory').value.trim(),
+            price: Number(document.getElementById('form-product-price').value),
+            mrp: Number(document.getElementById('form-product-mrp').value) || Number(document.getElementById('form-product-price').value),
+            stock_left: stockVal,
+            in_stock: stockVal > 0,
+            image_url: imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400',
+            description: document.getElementById('form-product-desc').value.trim()
+        };
+
+        const url = id ? `/api/products/admin/update/${id}` : '/api/products/admin/create';
+        const method = id ? 'PUT' : 'POST';
+
         const res = await fetch(url, {
             method,
             headers: getAuthHeaders(),
@@ -780,13 +846,18 @@ async function handleProductSubmit(e) {
             await loadInventory();
             await loadDashboard();
             if (typeof showToast === 'function') {
-                showToast(`Product "${payload.name}" saved with ${stockVal} items in stock!`, 'success');
+                showToast(`Product "${payload.name}" saved successfully!`, 'success');
             }
         } else {
             alert('Error saving product: ' + (data.error || 'Unknown error'));
         }
     } catch (err) {
         alert('Save failed: ' + err.message);
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<span>Save Product</span>';
+        }
     }
 }
 

@@ -558,9 +558,33 @@
                     </div>
                 </div>
 
-                <div>
-                    <label class="font-semibold text-[#262a2d] block mb-1">Image URL</label>
-                    <input id="form-product-image" placeholder="https://..." class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
+                <!-- Product Photo Upload & Instant Preview -->
+                <div class="space-y-1.5">
+                    <label class="font-semibold text-[#262a2d] block text-xs sm:text-sm">Product Photo</label>
+                    <div class="flex flex-col sm:flex-row gap-3 items-start">
+                        <!-- Live Thumbnail Preview -->
+                        <div id="product-img-preview-box" class="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border-2 border-[#DADCE0] bg-[#f8f9fa] flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm group">
+                            <img id="product-img-preview" src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200" alt="Product Preview" class="w-full h-full object-cover">
+                            <button type="button" id="btn-remove-photo" onclick="clearProductImage()" title="Remove image" class="absolute top-1 right-1 w-6 h-6 bg-black/60 hover:bg-black/80 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <span class="material-symbols-outlined text-[14px]">close</span>
+                            </button>
+                        </div>
+
+                        <!-- Upload Zone & File Picker -->
+                        <div class="flex-1 w-full space-y-2">
+                            <div id="product-dropzone" onclick="document.getElementById('form-product-file').click()" class="border-2 border-dashed border-[#DADCE0] hover:border-[#10B981] hover:bg-[#10B981]/5 rounded-2xl p-3 sm:p-4 flex flex-col items-center justify-center gap-1 cursor-pointer bg-[#fafbfc] transition-all text-center">
+                                <span class="material-symbols-outlined text-2xl text-[#10B981]">add_photo_alternate</span>
+                                <p class="text-xs font-bold text-[#181c1f]">Click to upload photo <span class="text-[11px] font-normal text-[#5c5f60]">or drag & drop</span></p>
+                                <p class="text-[10px] text-[#74777a]">PNG, JPG, WEBP from your phone or PC</p>
+                            </div>
+                            <input type="file" id="form-product-file" accept="image/*" class="hidden" onchange="handleProductFileSelect(event)">
+                            
+                            <!-- Fallback URL input (collapsible/secondary) -->
+                            <div class="flex items-center gap-2">
+                                <input id="form-product-image" placeholder="Or paste image URL (optional)" class="w-full border border-[#DADCE0] rounded-xl px-3 py-1.5 text-xs text-[#5c5f60] focus:border-[#3c4043] outline-none" oninput="handleImageUrlInput(this.value)">
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div>
