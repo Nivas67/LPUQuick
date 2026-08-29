@@ -1,4 +1,4 @@
-// Checkout Page — Exact Transparent Pricing + Real-Time Interactive Payment Sheet
+// Checkout Page — Exact Transparent Pricing + Swipe Animation + Celebratory 3-Min Order Placed Overlay
 window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
@@ -8,7 +8,7 @@ window.pages.checkout = async function() {
     try { 
         cartData = await window.api.getCart(userId); 
     } catch(e) { 
-        cartData = { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 5, tax: 0, total: 0 } }; 
+        cartData = { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 } }; 
     }
 
     const items = cartData.items || [];
@@ -62,7 +62,7 @@ window.pages.checkout = async function() {
                         </div>
                         <p class="text-xs text-on-surface-variant mt-0.5" id="checkout-address-text">${address}</p>
                         <p class="text-[11px] text-emerald font-semibold mt-1 flex items-center gap-1">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald"></span> Priority Campus Express Dispatch
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald"></span> Priority Campus Express Dispatch (3 Mins)
                         </p>
                     </div>
                 </div>
@@ -208,91 +208,59 @@ window.pages.checkout = async function() {
         <span id="payment-toast-text">Online payment is launching soon! Delivering with Cash on Delivery right now.</span>
     </div>
 
-    <!-- REAL-TIME PAYMENT GATEWAY MODAL -->
-    <div id="payment-gateway-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-300">
-        <div class="bg-surface rounded-3xl border border-glass-border shadow-2xl max-w-md w-full p-6 text-center space-y-5 transform scale-95 transition-transform duration-300 relative overflow-hidden" id="payment-modal-card">
+    <!-- CELEBRATORY ORDER PLACED (3-MIN COUNTDOWN) OVERLAY -->
+    <div id="order-placed-overlay" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-xl flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-surface rounded-3xl border border-emerald/40 shadow-2xl max-w-sm w-full p-6 text-center space-y-5 transform scale-90 transition-transform duration-300 relative overflow-hidden" id="order-placed-card">
             
-            <!-- Modal Header -->
-            <div class="flex items-center justify-between pb-3 border-b border-surface-variant/40">
-                <div class="flex items-center gap-2 text-left">
-                    <div class="w-8 h-8 rounded-xl bg-emerald text-white flex items-center justify-center font-bold">
-                        ⚡
-                    </div>
-                    <div>
-                        <h4 class="font-bold text-sm text-on-surface">LPUQuick FastPay</h4>
-                        <p class="text-[10px] text-on-surface-variant" id="pay-modal-order-id">Order #pending</p>
-                    </div>
-                </div>
-                <span class="text-lg font-black text-emerald font-display" id="pay-modal-amount">₹${exactTotal}</span>
-            </div>
-
-            <!-- UPI Payment View -->
-            <div id="upi-gateway-view" class="space-y-4">
-                <p class="text-xs text-on-surface-variant">Scan QR with any UPI app (GPay, PhonePe, Paytm, Cred)</p>
-                
-                <!-- Dynamic QR Code Container -->
-                <div class="w-48 h-48 mx-auto p-2 bg-white rounded-2xl shadow-inner border border-surface-variant/60 flex items-center justify-center relative group">
-                    <img id="upi-qr-image" src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=upi%3A%2F%2Fpay%3Fpa%3Dlpuquick%40okaxis%26pn%3DLPUQuick%26am%3D${exactTotal}%26cu%3DINR" alt="UPI QR Code" class="w-full h-full object-contain">
-                    <div class="absolute inset-0 bg-black/40 rounded-2xl flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity p-2 text-center">
-                        <span class="material-symbols-outlined text-2xl">qr_code_scanner</span>
-                        <span class="text-[11px] font-bold mt-1">Scan & Pay ₹${exactTotal}</span>
-                    </div>
-                </div>
-
-                <!-- 1-Tap UPI Apps Grid -->
-                <div>
-                    <p class="text-[11px] font-semibold text-on-surface-variant mb-2">Or Pay via Installed UPI App:</p>
-                    <div class="grid grid-cols-4 gap-2">
-                        <button type="button" class="upi-app-btn flex flex-col items-center p-2 rounded-xl bg-surface-container-high hover:bg-emerald/10 border border-surface-variant/40 hover:border-emerald transition-all cursor-pointer" data-app="GPay">
-                            <span class="text-xl">🟢</span>
-                            <span class="text-[10px] font-bold text-on-surface mt-1">GPay</span>
-                        </button>
-                        <button type="button" class="upi-app-btn flex flex-col items-center p-2 rounded-xl bg-surface-container-high hover:bg-emerald/10 border border-surface-variant/40 hover:border-emerald transition-all cursor-pointer" data-app="PhonePe">
-                            <span class="text-xl">🟣</span>
-                            <span class="text-[10px] font-bold text-on-surface mt-1">PhonePe</span>
-                        </button>
-                        <button type="button" class="upi-app-btn flex flex-col items-center p-2 rounded-xl bg-surface-container-high hover:bg-emerald/10 border border-surface-variant/40 hover:border-emerald transition-all cursor-pointer" data-app="Paytm">
-                            <span class="text-xl">🔵</span>
-                            <span class="text-[10px] font-bold text-on-surface mt-1">Paytm</span>
-                        </button>
-                        <button type="button" class="upi-app-btn flex flex-col items-center p-2 rounded-xl bg-surface-container-high hover:bg-emerald/10 border border-surface-variant/40 hover:border-emerald transition-all cursor-pointer" data-app="Cred">
-                            <span class="text-xl">⚡</span>
-                            <span class="text-[10px] font-bold text-on-surface mt-1">Cred</span>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Live Status & Timer -->
-                <div class="p-3 bg-surface-container-high/70 rounded-2xl border border-surface-variant/30 flex items-center justify-between text-xs">
-                    <div class="flex items-center gap-2 text-on-surface font-medium">
-                        <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping"></span>
-                        <span id="gateway-status-text">Awaiting payment verification...</span>
-                    </div>
-                    <span class="font-bold text-on-surface-variant font-mono" id="gateway-timer">02:59</span>
-                </div>
-
-                <!-- Instant Payment Simulation Trigger for Demo -->
-                <button type="button" id="confirm-payment-btn" class="w-full bg-emerald text-white font-bold text-xs sm:text-sm py-3 rounded-full shadow-md hover:bg-primary active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2">
-                    <span class="material-symbols-outlined text-base">verified</span>
-                    Simulate Successful Payment (₹${exactTotal})
-                </button>
-            </div>
-
-            <!-- Payment Success State (Hidden by default) -->
-            <div id="payment-success-view" class="hidden py-6 space-y-4 text-center">
-                <div class="w-16 h-16 rounded-full bg-emerald text-white mx-auto flex items-center justify-center shadow-lg animate-bounce">
+            <!-- Confetti & Celebration Ring -->
+            <div class="relative w-24 h-24 mx-auto flex items-center justify-center">
+                <div class="absolute inset-0 rounded-full bg-emerald/20 animate-ping"></div>
+                <div class="w-20 h-20 rounded-full bg-emerald text-white flex items-center justify-center shadow-lg shadow-emerald/40 relative z-10 animate-bounce">
                     <span class="material-symbols-outlined text-4xl">check_circle</span>
                 </div>
-                <div>
-                    <h3 class="font-headline-md text-lg font-black text-on-surface">Payment Successful!</h3>
-                    <p class="text-xs text-on-surface-variant mt-1">₹${exactTotal} paid · Order confirmed and dispatched to BH13</p>
+            </div>
+
+            <div class="space-y-1">
+                <span class="text-[11px] font-black uppercase tracking-widest text-emerald bg-emerald/10 px-3 py-1 rounded-full inline-block">
+                    Order Placed Successfully! 🎉
+                </span>
+                <h3 class="font-headline-md text-xl sm:text-2xl font-black text-on-surface mt-2">
+                    Arriving in 3 Minutes!
+                </h3>
+                <p class="text-xs text-on-surface-variant" id="placed-dest-text">
+                    Delivering to ${address}
+                </p>
+            </div>
+
+            <!-- 3-Min Express Timer Live Badge -->
+            <div class="p-3.5 bg-surface-container-high rounded-2xl border border-surface-variant/40 flex items-center justify-between">
+                <div class="flex items-center gap-2 text-left">
+                    <span class="w-3 h-3 rounded-full bg-emerald animate-pulse"></span>
+                    <div>
+                        <p class="font-bold text-xs text-on-surface" id="placed-order-num">Order #confirmed</p>
+                        <p class="text-[10px] text-on-surface-variant">Rider Alex is packing your snacks</p>
+                    </div>
                 </div>
-                <div class="p-2.5 bg-emerald/10 text-emerald font-bold text-xs rounded-xl flex items-center justify-center gap-1.5">
-                    <span class="material-symbols-outlined text-sm">electric_bolt</span>
-                    <span>3-Minute Express Timer Started!</span>
+                <div class="text-right">
+                    <span class="text-xs font-black text-emerald font-mono bg-emerald/15 px-2 py-0.5 rounded-lg inline-block">
+                        ⚡ 3:00
+                    </span>
                 </div>
             </div>
 
+            <!-- Auto-redirect Progress Bar -->
+            <div class="space-y-1.5 pt-1">
+                <div class="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden">
+                    <div class="bg-emerald h-full rounded-full transition-all duration-[2200ms]" id="placed-auto-progress" style="width: 0%;"></div>
+                </div>
+                <p class="text-[10px] text-on-surface-variant">Opening Live GPS Tracking Map...</p>
+            </div>
+
+            <!-- 1-Tap Jump to Live Tracking -->
+            <button type="button" id="jump-to-tracking-btn" class="w-full bg-emerald text-white font-bold text-xs sm:text-sm py-3 rounded-full shadow-md hover:bg-primary active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5">
+                <span class="material-symbols-outlined text-sm">location_on</span>
+                Track Delivery on Live Map
+            </button>
         </div>
     </div>
 </div>`;
@@ -305,17 +273,13 @@ window.pageInits.checkout = function() {
     const progress = document.getElementById('pay-slider-progress');
     const text = document.getElementById('pay-slider-text');
     const tapToPayBtn = document.getElementById('tap-to-pay-btn');
-    const gatewayModal = document.getElementById('payment-gateway-modal');
-    const modalOrderId = document.getElementById('pay-modal-order-id');
-    const upiQrImage = document.getElementById('upi-qr-image');
-    const gatewayStatusText = document.getElementById('gateway-status-text');
-    const gatewayTimer = document.getElementById('gateway-timer');
-    const confirmPaymentBtn = document.getElementById('confirm-payment-btn');
-    const upiGatewayView = document.getElementById('upi-gateway-view');
-    const paymentSuccessView = document.getElementById('payment-success-view');
-
     const paymentToast = document.getElementById('payment-toast');
     const paymentToastText = document.getElementById('payment-toast-text');
+    const orderOverlay = document.getElementById('order-placed-overlay');
+    const orderCard = document.getElementById('order-placed-card');
+    const placedOrderNum = document.getElementById('placed-order-num');
+    const placedAutoProgress = document.getElementById('placed-auto-progress');
+    const jumpToTrackingBtn = document.getElementById('jump-to-tracking-btn');
 
     function showPaymentToast(msg) {
         if (!paymentToast || !paymentToastText) return;
@@ -348,7 +312,7 @@ window.pageInits.checkout = function() {
         };
     });
 
-    // Slider Logic
+    // Slider Drag Logic
     if (track && thumb) {
         let isDragging = false;
         let startX = 0;
@@ -375,7 +339,7 @@ window.pageInits.checkout = function() {
 
             if (delta >= maxSlide * 0.85) {
                 isDragging = false;
-                startCheckoutFlow();
+                triggerOrderPlacement();
             }
         }
 
@@ -398,91 +362,64 @@ window.pageInits.checkout = function() {
         window.addEventListener('mouseup', onEnd);
     }
 
-    tapToPayBtn?.addEventListener('click', () => startCheckoutFlow());
+    tapToPayBtn?.addEventListener('click', () => triggerOrderPlacement());
 
-    async function startCheckoutFlow() {
-        const selectedMethod = document.querySelector('input[name="paymentMethod"]:checked')?.value || 'upi';
+    async function triggerOrderPlacement() {
+        if (text) {
+            text.textContent = 'Verifying Order... ⚡';
+            text.style.opacity = '1';
+        }
+        if (thumb && track) {
+            thumb.style.transform = `translateX(${track.offsetWidth - thumb.offsetWidth - 16}px)`;
+            progress.style.width = '100%';
+        }
 
         try {
-            const res = await window.api.checkout(userId, selectedMethod);
+            const res = await window.api.checkout(userId, 'cod');
             if (res.success && res.order) {
-                currentOrder = res.order;
-
-                if (selectedMethod === 'cod') {
-                    // Direct Instant Confirmation for Cash on Delivery
-                    await window.api.paymentCallback(currentOrder.id, 'success');
-                    window.location.hash = '#/orders';
-                } else {
-                    // Open Real-Time Payment Modal for UPI / Card
-                    openPaymentModal(currentOrder);
-                }
+                // Confirm payment callback
+                await window.api.paymentCallback(res.order.id, 'success');
+                
+                // Show Animated Celebratory Order Placed Overlay
+                showOrderPlacedOverlay(res.order);
             }
         } catch (err) {
             console.error('Checkout error:', err);
-            alert('Could not start checkout: ' + (err.message || 'Server error'));
+            alert('Could not place order: ' + (err.message || 'Server error'));
         }
     }
 
-    function openPaymentModal(order) {
-        if (!gatewayModal) return;
-        if (modalOrderId) modalOrderId.textContent = `Order #${order.id.replace('order_', '')}`;
-        if (upiQrImage) {
-            upiQrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=upi%3A%2F%2Fpay%3Fpa%3Dlpuquick%40okaxis%26pn%3DLPUQuick%26am%3D${order.total}%26cu%3DINR%26tn%3DOrder_${order.id}`;
-        }
-
-        gatewayModal.classList.remove('hidden');
-        setTimeout(() => {
-            gatewayModal.classList.remove('opacity-0');
-        }, 10);
-
-        // Start Countdown Timer
-        let secondsLeft = 179;
-        clearInterval(timerInterval);
-        timerInterval = setInterval(() => {
-            secondsLeft--;
-            const mins = Math.floor(secondsLeft / 60).toString().padStart(2, '0');
-            const secs = (secondsLeft % 60).toString().padStart(2, '0');
-            if (gatewayTimer) gatewayTimer.textContent = `${mins}:${secs}`;
-            if (secondsLeft <= 0) {
-                clearInterval(timerInterval);
-            }
-        }, 1000);
-    }
-
-    // 1-Tap UPI Apps Handler
-    document.querySelectorAll('.upi-app-btn').forEach(btn => {
-        btn.onclick = () => {
-            const app = btn.dataset.app;
-            if (gatewayStatusText) gatewayStatusText.textContent = `Authorizing with ${app}...`;
-            setTimeout(() => {
-                completePaymentSuccess();
-            }, 1200);
-        };
-    });
-
-    // Simulate / Confirm Payment Button
-    confirmPaymentBtn?.addEventListener('click', () => {
-        completePaymentSuccess();
-    });
-
-    async function completePaymentSuccess() {
-        if (!currentOrder) return;
-        if (gatewayStatusText) gatewayStatusText.textContent = 'Verifying with bank...';
-
-        try {
-            await window.api.paymentCallback(currentOrder.id, 'success');
-        } catch (e) {
-            console.error('Callback error:', e);
-        }
-
-        // Show Success Animation
-        if (upiGatewayView) upiGatewayView.classList.add('hidden');
-        if (paymentSuccessView) paymentSuccessView.classList.remove('hidden');
-        clearInterval(timerInterval);
-
-        // Transition to Live Orders Tracking after 1.2s
-        setTimeout(() => {
+    function showOrderPlacedOverlay(order) {
+        if (!orderOverlay) {
             window.location.hash = '#/orders';
-        }, 1200);
+            return;
+        }
+
+        if (placedOrderNum) {
+            placedOrderNum.textContent = `Order #${order.id.replace('order_', '')}`;
+        }
+
+        orderOverlay.classList.remove('hidden');
+        setTimeout(() => {
+            orderOverlay.classList.remove('opacity-0');
+            if (orderCard) {
+                orderCard.classList.remove('scale-90');
+                orderCard.classList.add('scale-100');
+            }
+            if (placedAutoProgress) {
+                placedAutoProgress.style.width = '100%';
+            }
+        }, 15);
+
+        // Auto transition after 2.3s
+        const navTimer = setTimeout(() => {
+            window.location.hash = '#/orders';
+        }, 2400);
+
+        // 1-Tap Manual Jump
+        jumpToTrackingBtn?.addEventListener('click', () => {
+            clearTimeout(navTimer);
+            window.location.hash = '#/orders';
+        });
     }
 };
