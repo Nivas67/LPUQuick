@@ -4,7 +4,7 @@ window.pageInits = window.pageInits || {};
 
 window.pages.checkout = async function() {
     let cartData;
-    const userId = window.CURRENT_USER_ID || 'user_001';
+    const userId = window.getEffectiveUserId();
     try { 
         cartData = await window.api.getCart(userId); 
     } catch(e) { 
@@ -14,10 +14,16 @@ window.pages.checkout = async function() {
     const items = cartData.items || [];
     const p = cartData.pricing || { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 };
     const subtotal = p.subtotal || 0;
-    const exactTotal = subtotal; // Total to Pay is exactly the item subtotal!
+    
+    // 5% Offer for orders above ₹350
+    const hasDiscount = subtotal >= 350;
+    const discount5 = hasDiscount ? Math.round(subtotal * 0.05) : 0;
+    const exactTotal = Math.max(0, subtotal - discount5);
     window.cartTotalCache = exactTotal;
-    const totalSavings = subtotal > 0 ? 30 : 0; // ₹25 delivery + ₹5 handling savings
-    const address = window.currentAddressDetail?.label || 'BH13 (Block A), Room 304';
+    const totalSavings = (subtotal > 0 ? 30 : 0) + discount5; // ₹25 delivery + ₹5 handling + 5% discount
+    const savedRoom = localStorage.getItem('lpuquick_room') || window.currentRoom;
+    const savedBlock = localStorage.getItem('lpuquick_block') || window.currentBlock || 'Block A';
+    const address = savedRoom ? `BH13 (${savedBlock}), Room ${savedRoom}` : 'Please set your hostel room number';
 
     const itemRows = items.map(item => `
         <div class="flex items-center justify-between py-3 border-b border-surface-variant/30 text-xs sm:text-sm">
@@ -74,6 +80,42 @@ window.pages.checkout = async function() {
         <!-- Pre-Order Section (Visible Before Order Placement) -->
         <div id="checkout-form-section" class="space-y-5 transition-all duration-300">
             
+            ${!window.isUserLoggedIn() ? `
+            <!-- Sign In Required Banner -->
+            <div class="glass-card rounded-3xl p-4 border border-amber-500/40 bg-amber-500/10 flex items-center justify-between shadow-sm">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-500 flex items-center justify-center flex-shrink-0">
+                        <span class="material-symbols-outlined text-xl">account_circle</span>
+                    </div>
+                    <div>
+                        <p class="font-bold text-xs sm:text-sm text-on-surface">Sign In Required to Order</p>
+                        <p class="text-[11px] text-on-surface-variant">Sign in to confirm delivery to your room.</p>
+                    </div>
+                </div>
+                <a href="#/signin" onclick="localStorage.setItem('lpuquick_redirect', '#/checkout')" class="bg-emerald text-white px-4 py-2 rounded-full text-xs font-bold shadow-md hover:bg-primary transition-all active:scale-95 flex items-center gap-1">
+                    <span>Sign In</span>
+                    <span class="material-symbols-outlined text-xs">arrow_forward</span>
+                </a>
+            </div>
+            ` : !window.hasUserConfiguredAddress() ? `
+            <!-- Room Address Required Banner -->
+            <div class="glass-card rounded-3xl p-4 border border-emerald/40 bg-emerald/10 flex items-center justify-between shadow-sm">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-emerald/20 text-emerald flex items-center justify-center flex-shrink-0">
+                        <span class="material-symbols-outlined text-xl">home_pin</span>
+                    </div>
+                    <div>
+                        <p class="font-bold text-xs sm:text-sm text-on-surface">Room Address Required</p>
+                        <p class="text-[11px] text-on-surface-variant">Add your hostel room number to order.</p>
+                    </div>
+                </div>
+                <button type="button" onclick="window.openAddressModal(true, () => window.router())" class="bg-emerald text-white px-4 py-2 rounded-full text-xs font-bold shadow-md hover:bg-primary transition-all active:scale-95 flex items-center gap-1 cursor-pointer">
+                    <span>Add Address</span>
+                    <span class="material-symbols-outlined text-xs">arrow_forward</span>
+                </button>
+            </div>
+            ` : ''}
+
             <!-- Delivery Address Card -->
             <div class="glass-card rounded-3xl p-5 border border-glass-border shadow-sm">
                 <div class="flex justify-between items-start">
@@ -124,6 +166,17 @@ window.pages.checkout = async function() {
                         <span class="font-semibold text-on-surface" id="checkout-subtotal-val">₹${subtotal}</span>
                     </div>
 
+                    ${hasDiscount ? `
+                    <!-- 5% Discount Line -->
+                    <div class="flex justify-between text-emerald font-bold">
+                        <span class="flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">local_offer</span>
+                            5% Offer (Above ₹350)
+                        </span>
+                        <span>-₹${discount5}</span>
+                    </div>
+                    ` : ''}
+
                     <!-- 2. Delivery Partner Fee -->
                     <div class="flex justify-between text-on-surface-variant">
                         <span>Delivery Fee</span>
@@ -146,7 +199,7 @@ window.pages.checkout = async function() {
                     <div class="border-t border-outline-variant/40 pt-3 flex justify-between items-center text-base sm:text-lg font-bold text-on-surface">
                         <div>
                             <span>Total to Pay</span>
-                            <p class="text-[10px] text-emerald font-semibold">100% Free Campus Delivery & Handling</p>
+                            <p class="text-[10px] text-emerald font-semibold">Free Delivery${hasDiscount ? ' + 5% OFF' : ''}</p>
                         </div>
                         <span class="text-2xl text-emerald font-display font-black" id="checkout-total-val">₹${exactTotal}</span>
                     </div>
@@ -155,7 +208,7 @@ window.pages.checkout = async function() {
                 <!-- Savings Banner -->
                 <div class="p-3 bg-emerald/10 border border-emerald/20 rounded-xl flex items-center gap-2 text-xs text-emerald font-semibold">
                     <span class="material-symbols-outlined text-base">savings</span>
-                    <span>🎉 Campus Offer Applied: You saved ₹${totalSavings} on delivery & handling!</span>
+                    <span>🎉 Total Savings: ₹${totalSavings} applied!</span>
                 </div>
             </div>
 
@@ -348,14 +401,14 @@ window.pages.checkout = async function() {
                     <!-- Step 4: Ready for Pickup / Out for Delivery -->
                     <div class="flex items-start gap-3.5 relative group opacity-50 transition-opacity" id="timeline-step-4">
                         <div class="w-7 h-7 rounded-full bg-surface-container-high border-2 border-outline-variant text-on-surface-variant flex items-center justify-center flex-shrink-0 z-10 timeline-dot">
-                            <span class="material-symbols-outlined text-sm">radio_button_unchecked</span>
+                            <span class="material-symbols-outlined text-sm">directions_walk</span>
                         </div>
                         <div class="flex-1 pt-0.5">
                             <div class="flex justify-between items-center">
                                 <h4 class="font-semibold text-xs sm:text-sm text-on-surface" id="timeline-title-4">Out for Delivery</h4>
                                 <span class="text-[10px] text-on-surface-variant font-mono" id="timeline-time-4">--</span>
                             </div>
-                            <p class="text-[11px] text-on-surface-variant" id="timeline-desc-4">Campus rider dispatched on electric scooter</p>
+                            <p class="text-[11px] text-on-surface-variant" id="timeline-desc-4">Campus runner walking from BH13 Hub to your room</p>
                         </div>
                     </div>
 
@@ -397,7 +450,7 @@ window.pages.checkout = async function() {
 };
 
 window.pageInits.checkout = function() {
-    const userId = window.CURRENT_USER_ID || 'user_001';
+    const userId = window.CURRENT_USER_ID;
     const formSection = document.getElementById('checkout-form-section');
     const successSection = document.getElementById('order-success-section');
     const headerTitle = document.getElementById('checkout-header-title');
@@ -604,6 +657,25 @@ window.pageInits.checkout = function() {
 
     // 2. REAL ORDER PLACEMENT TO BACKEND
     async function handleOrderPlacement() {
+        if (!window.isUserLoggedIn()) {
+            resetSlider();
+            localStorage.setItem('lpuquick_redirect', '#/checkout');
+            showPaymentToast('🔐 Sign In Required: Please sign in to confirm your room delivery order.');
+            setTimeout(() => {
+                window.location.hash = '#/signin';
+            }, 800);
+            return;
+        }
+
+        if (!window.hasUserConfiguredAddress()) {
+            resetSlider();
+            showPaymentToast('📍 Room Address Required: Please confirm your hostel room number.');
+            window.openAddressModal(true, () => {
+                if (window.router) window.router();
+            });
+            return;
+        }
+
         if (isSubmitting) return;
         isSubmitting = true;
 
@@ -628,7 +700,9 @@ window.pageInits.checkout = function() {
             thumbIcon.classList.add('animate-spin');
         }
 
-        const deliveryAddress = window.currentAddressDetail?.label || 'BH13 (Block A), Room 304';
+        const savedRoom = localStorage.getItem('lpuquick_room') || window.currentRoom || '304';
+        const savedBlock = localStorage.getItem('lpuquick_block') || window.currentBlock || 'Block A';
+        const deliveryAddress = `BH13 (${savedBlock}), Room ${savedRoom}`;
         const selectedPaymentMethod = 'Cash on Delivery';
 
         try {
@@ -716,7 +790,7 @@ window.pageInits.checkout = function() {
 
         if (stepNumber >= 4 && riderName) {
             const desc4 = document.getElementById('timeline-desc-4');
-            if (desc4) desc4.textContent = `Rider ${riderName} is on the way to your hostel`;
+            if (desc4) desc4.textContent = `Campus runner ${riderName} is walking from BH13 Hub to your room`;
         }
     }
 
@@ -730,9 +804,10 @@ window.pageInits.checkout = function() {
             wsConnection.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    if (data && data.step) {
-                        updateTimelineStep(data.step, data.timestamp, data.rider_name);
-                    }
+                    const stepMap = { 'Order Placed': 1, 'Order Confirmed': 2, 'Preparing': 3, 'Out for Delivery': 4, 'Delivered': 5 };
+                    const step = data.step || stepMap[data.status] || 1;
+                    const timestamp = data.timestamp || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+                    updateTimelineStep(step, timestamp, data.rider_name || data.riderName);
                 } catch (e) {
                     console.error('Error parsing WS message:', e);
                 }

@@ -4,14 +4,18 @@ window.pageInits = window.pageInits || {};
 
 window.pages.cart = async function() {
     let cartData;
-    const userId = window.CURRENT_USER_ID || 'user_001';
+    const userId = window.getEffectiveUserId();
     try { cartData = await window.api.getCart(userId); } catch(e) { cartData = { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 5, tax: 0, total: 0, free_delivery_remaining: 199 } }; }
 
     const items = cartData.items || [];
     const p = cartData.pricing || { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 };
     const subtotal = p.subtotal || 0;
-    const exactTotal = subtotal; // Total to Pay is exactly the item subtotal!
-    const totalSavings = subtotal > 0 ? 30 : 0; // ₹25 delivery + ₹5 handling savings
+    
+    // 5% Offer for orders above ₹350
+    const hasDiscount = subtotal >= 350;
+    const discount5 = hasDiscount ? Math.round(subtotal * 0.05) : 0;
+    const exactTotal = Math.max(0, subtotal - discount5);
+    const totalSavings = (subtotal > 0 ? 30 : 0) + discount5; // ₹25 delivery + ₹5 handling + 5% discount
 
     const itemCards = items.length === 0 ? `
         <div class="glass-card rounded-3xl p-10 sm:p-12 text-center my-6 border border-glass-border">
@@ -36,12 +40,12 @@ window.pages.cart = async function() {
                     <p class="font-bold text-sm text-on-surface mt-1">₹${item.price}</p>
                 </div>
             </div>
-            <div class="flex items-center gap-2.5 bg-surface-container-high/80 rounded-full px-2.5 py-1 border border-outline-variant/30 flex-shrink-0">
-                <button class="w-7 h-7 rounded-full flex items-center justify-center hover:bg-white active:scale-90 transition-all text-on-surface qty-dec-btn" data-id="${item.cart_id}" data-qty="${item.quantity}">
+            <div class="cart-qty-stepper flex items-center gap-2.5 rounded-full px-2.5 py-1 flex-shrink-0">
+                <button class="w-7 h-7 rounded-full flex items-center justify-center active:scale-90 transition-all qty-dec-btn" data-id="${item.cart_id}" data-qty="${item.quantity}">
                     <span class="material-symbols-outlined text-base">remove</span>
                 </button>
-                <span class="font-bold text-xs w-4 text-center">${item.quantity}</span>
-                <button class="w-7 h-7 rounded-full flex items-center justify-center hover:bg-white active:scale-90 transition-all text-on-surface qty-inc-btn" data-id="${item.cart_id}" data-qty="${item.quantity}">
+                <span class="font-bold text-xs w-4 text-center qty-num">${item.quantity}</span>
+                <button class="w-7 h-7 rounded-full flex items-center justify-center active:scale-90 transition-all qty-inc-btn" data-id="${item.cart_id}" data-qty="${item.quantity}">
                     <span class="material-symbols-outlined text-base">add</span>
                 </button>
             </div>
@@ -69,6 +73,25 @@ window.pages.cart = async function() {
     <main class="px-margin-mobile md:px-margin-desktop max-w-5xl mx-auto pt-6 grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
         <!-- Left: Cart Items -->
         <div class="lg:col-span-2 space-y-4">
+            <!-- 5% Offer Status Banner -->
+            ${hasDiscount ? `
+            <div class="glass-card rounded-2xl p-3.5 border border-emerald/40 bg-emerald/15 flex items-center justify-between shadow-sm">
+                <div class="flex items-center gap-2 text-xs font-bold text-emerald">
+                    <span class="material-symbols-outlined text-base">celebration</span>
+                    <span>5% Campus Bulk Offer Applied (Above ₹350)!</span>
+                </div>
+                <span class="text-[11px] font-extrabold text-emerald bg-emerald/25 px-2.5 py-0.5 rounded-full">Extra ₹${discount5} OFF</span>
+            </div>
+            ` : subtotal > 0 ? `
+            <div class="glass-card rounded-2xl p-3.5 border border-amber-500/30 bg-amber-500/10 flex items-center justify-between shadow-sm">
+                <div class="flex items-center gap-2 text-xs font-bold text-amber-500">
+                    <span class="material-symbols-outlined text-base">local_offer</span>
+                    <span>Add ₹${350 - subtotal} more to get 5% FLAT OFF on your order!</span>
+                </div>
+                <a href="#/" class="text-[11px] font-extrabold text-amber-500 underline">Add Items</a>
+            </div>
+            ` : ''}
+
             <!-- Free Delivery Promo Banner -->
             <div class="glass-card rounded-2xl p-3.5 border border-emerald/30 bg-emerald/10 flex items-center justify-between">
                 <div class="flex items-center gap-2 text-xs font-bold text-emerald">
@@ -99,6 +122,17 @@ window.pages.cart = async function() {
                         <span class="font-semibold text-on-surface">₹${subtotal}</span>
                     </div>
 
+                    ${hasDiscount ? `
+                    <!-- 5% Discount Line -->
+                    <div class="flex justify-between text-emerald font-bold">
+                        <span class="flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">local_offer</span>
+                            5% Offer (Above ₹350)
+                        </span>
+                        <span>-₹${discount5}</span>
+                    </div>
+                    ` : ''}
+
                     <!-- 2. Delivery Partner Fee -->
                     <div class="flex justify-between text-on-surface-variant">
                         <span>Delivery Fee</span>
@@ -121,7 +155,7 @@ window.pages.cart = async function() {
                     <div class="border-t border-outline-variant/40 pt-3 flex justify-between items-center text-base sm:text-lg font-bold text-on-surface">
                         <div>
                             <span>To Pay</span>
-                            <p class="text-[10px] text-emerald font-semibold">100% Free Campus Delivery & Handling</p>
+                            <p class="text-[10px] text-emerald font-semibold">Free Delivery${hasDiscount ? ' + 5% OFF' : ''}</p>
                         </div>
                         <span class="text-2xl text-emerald font-display font-black">₹${exactTotal}</span>
                     </div>
@@ -130,11 +164,11 @@ window.pages.cart = async function() {
                 <!-- Savings Banner -->
                 <div class="p-3 bg-emerald/10 border border-emerald/20 rounded-xl flex items-center gap-2 text-xs text-emerald font-semibold">
                     <span class="material-symbols-outlined text-base">savings</span>
-                    <span>🎉 Campus Offer Applied: You saved ₹${totalSavings} on delivery & handling!</span>
+                    <span>🎉 Total Savings: ₹${totalSavings} applied!</span>
                 </div>
 
                 ${items.length > 0 ? `
-                <a href="#/checkout" class="w-full bg-emerald text-white rounded-full py-3.5 sm:py-4 font-semibold text-xs sm:text-sm text-center flex items-center justify-center gap-2 hover:bg-primary transition-all shadow-md active:scale-95">
+                <a href="#/checkout" id="proceed-to-checkout-btn" class="w-full bg-emerald text-white rounded-full py-3.5 sm:py-4 font-semibold text-xs sm:text-sm text-center flex items-center justify-center gap-2 hover:bg-primary transition-all shadow-md active:scale-95">
                     Proceed to Checkout (₹${exactTotal})
                     <span class="material-symbols-outlined text-sm">arrow_forward</span>
                 </a>
@@ -172,7 +206,7 @@ window.pages.cart = async function() {
 };
 
 window.pageInits.cart = function() {
-    const userId = window.CURRENT_USER_ID || 'user_001';
+    const userId = window.getEffectiveUserId();
 
     async function reRenderCart() {
         if (window.router) {
@@ -180,6 +214,17 @@ window.pageInits.cart = function() {
         } else {
             window.location.reload();
         }
+    }
+
+    const proceedBtn = document.getElementById('proceed-to-checkout-btn');
+    if (proceedBtn) {
+        proceedBtn.onclick = (e) => {
+            if (!window.isUserLoggedIn()) {
+                e.preventDefault();
+                localStorage.setItem('lpuquick_redirect', '#/checkout');
+                window.location.hash = '#/signin';
+            }
+        };
     }
 
     document.querySelectorAll('.qty-inc-btn').forEach(btn => {

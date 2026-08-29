@@ -1,14 +1,68 @@
 // LPUQuick SPA Router & Global Controller
 window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
-window.CURRENT_USER_ID = window.CURRENT_USER_ID || 'user_001';
+
+// Version-controlled session cache buster (Ensures new visits or deployments start completely clean)
+const LPUQUICK_BUILD_VERSION = 'v2026.08.29.rel6';
+if (localStorage.getItem('lpuquick_build_v') !== LPUQUICK_BUILD_VERSION) {
+    localStorage.removeItem('lpuquick_user');
+    localStorage.removeItem('lpuquick_address_configured');
+    localStorage.removeItem('lpuquick_room');
+    localStorage.removeItem('lpuquick_block');
+    localStorage.removeItem('lpuquick_phone');
+    localStorage.removeItem('lpuquick_address_detail');
+    localStorage.removeItem('lpuquick_guest_cart_id');
+    localStorage.setItem('lpuquick_build_v', LPUQUICK_BUILD_VERSION);
+    window.CURRENT_USER_ID = null;
+    window.CURRENT_USER_NAME = null;
+    window.CURRENT_USER_EMAIL = null;
+    window.CURRENT_USER_PICTURE = null;
+}
+
+// Auth User state (Strict real user session - no hardcoded fake fallback)
+try {
+    const savedUser = JSON.parse(localStorage.getItem('lpuquick_user') || 'null');
+    if (savedUser && savedUser.id && savedUser.id !== 'user_001' && savedUser.id !== 'user_default' && savedUser.email) {
+        window.CURRENT_USER_ID = savedUser.id;
+        window.CURRENT_USER_NAME = savedUser.name;
+        window.CURRENT_USER_EMAIL = savedUser.email;
+        window.CURRENT_USER_PICTURE = savedUser.picture || '';
+    } else {
+        localStorage.removeItem('lpuquick_user');
+        window.CURRENT_USER_ID = null;
+        window.CURRENT_USER_NAME = null;
+        window.CURRENT_USER_EMAIL = null;
+        window.CURRENT_USER_PICTURE = null;
+    }
+} catch(e) {
+    localStorage.removeItem('lpuquick_user');
+    window.CURRENT_USER_ID = null;
+    window.CURRENT_USER_NAME = null;
+    window.CURRENT_USER_EMAIL = null;
+    window.CURRENT_USER_PICTURE = null;
+}
+
+window.isUserLoggedIn = function() {
+    return Boolean(window.CURRENT_USER_ID && window.CURRENT_USER_EMAIL);
+};
+
+window.getEffectiveUserId = function() {
+    if (window.isUserLoggedIn()) return window.CURRENT_USER_ID;
+    let guestId = localStorage.getItem('lpuquick_guest_cart_id');
+    if (!guestId) {
+        guestId = 'guest_' + Math.random().toString(36).substring(2, 10);
+        localStorage.setItem('lpuquick_guest_cart_id', guestId);
+    }
+    return guestId;
+};
+
 window.cartState = window.cartState || {};
 
-// Address state (Defaulting to BH13 Exclusive Launch)
+// Address state (Unconfigured until user signs in and sets room)
 window.currentAddress = localStorage.getItem('lpuquick_address') || 'BH13';
 window.currentBlock = localStorage.getItem('lpuquick_block') || 'Block A';
-window.currentRoom = localStorage.getItem('lpuquick_room') || '304';
-window.currentAddressDetail = localStorage.getItem('lpuquick_address_detail') || 'Room 304, Block A, Boys Hostel 13';
+window.currentRoom = localStorage.getItem('lpuquick_room') || '';
+window.currentAddressDetail = localStorage.getItem('lpuquick_address_detail') || '';
 
 // Theme state
 if (localStorage.getItem('lpuquick_theme') === 'dark') {
@@ -40,8 +94,13 @@ function getPageName(path) {
     return routes[path] || 'home';
 }
 
-// Global Address Selection Modal (BH13 Express Live, BH1-BH12 Coming Soon, Block A/B, Room No)
-window.openAddressModal = function() {
+// Address Configuration State Helper
+window.hasUserConfiguredAddress = function() {
+    return localStorage.getItem('lpuquick_address_configured') === 'true' && Boolean(localStorage.getItem('lpuquick_room'));
+};
+
+// Global Address Selection Modal (BH13 Express Live, BH1-BH12 Coming Soon, Block A/B, Room No, Phone)
+window.openAddressModal = function(isMandatorySetup = false, onComplete = null) {
     const existing = document.getElementById('address-modal');
     if (existing) existing.remove();
 
@@ -69,40 +128,49 @@ window.openAddressModal = function() {
     ];
 
     let selectedHostel = 'BH13';
-    let selectedBlock = window.currentBlock || 'Block A';
+    let selectedBlock = window.currentBlock || localStorage.getItem('lpuquick_block') || 'Block A';
+    const savedRoom = window.currentRoom || localStorage.getItem('lpuquick_room') || '';
+    let savedPhone = localStorage.getItem('lpuquick_phone') || '';
+    if (savedPhone === '7671836211' || savedPhone === '9877982857') savedPhone = '';
 
     const modal = document.createElement('div');
     modal.id = 'address-modal';
     modal.className = 'modal-overlay';
     modal.innerHTML = `
-        <div class="modal-content p-5 sm:p-6 space-y-4 max-h-[85vh] overflow-y-auto" onclick="event.stopPropagation()">
+        <div class="modal-content p-5 sm:p-6 space-y-4 max-h-[88vh] overflow-y-auto" onclick="event.stopPropagation()">
             <!-- Header -->
             <div class="flex justify-between items-center pb-3 border-b border-surface-variant/40">
                 <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined text-emerald text-2xl">location_on</span>
+                    <div class="w-9 h-9 rounded-2xl bg-emerald/10 text-emerald flex items-center justify-center">
+                        <span class="material-symbols-outlined text-xl">location_on</span>
+                    </div>
                     <div>
-                        <h3 class="font-bold text-sm sm:text-base text-on-surface">Select Delivery Location</h3>
+                        <h3 class="font-bold text-sm sm:text-base text-on-surface">${isMandatorySetup ? 'Delivery Address Required' : 'Select Delivery Location'}</h3>
                         <p class="text-[11px] text-on-surface-variant">LPU Campus Express Delivery (3 mins)</p>
                     </div>
                 </div>
+                ${isMandatorySetup ? `
+                <span class="text-[10px] bg-emerald/10 text-emerald px-2 py-0.5 rounded-full font-bold">Step 2: Room Info</span>
+                ` : `
                 <button type="button" class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface" onclick="document.getElementById('address-modal').remove()">
                     <span class="material-symbols-outlined text-base">close</span>
                 </button>
+                `}
             </div>
 
             <!-- Notice Banner -->
             <div class="p-3 bg-emerald/10 border border-emerald/20 rounded-2xl flex items-center gap-2.5 text-xs text-emerald font-medium">
                 <span class="material-symbols-outlined text-base">bolt</span>
-                <span>Express 3-min delivery is exclusively live at <strong>BH13</strong>! Other hostels opening next week.</span>
+                <span>Express 3-min delivery is exclusively live at <strong>BH13</strong>! Food delivered straight to your room.</span>
             </div>
 
             <!-- Hostel Selector Grid -->
             <div class="space-y-2">
                 <div class="flex justify-between items-center">
                     <label class="block text-xs font-semibold text-on-surface-variant">Choose Hostel / Building</label>
-                    <span class="text-[10px] text-on-surface-variant">13 Hostels</span>
+                    <span class="text-[10px] text-emerald font-bold">BH13 Active</span>
                 </div>
-                <div class="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-44 overflow-y-auto p-1 no-scrollbar" id="hostels-container">
+                <div class="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-36 overflow-y-auto p-1 no-scrollbar" id="hostels-container">
                     ${allLocations.map(h => {
                         const isSelected = h.name === selectedHostel;
                         if (h.active) {
@@ -142,13 +210,28 @@ window.openAddressModal = function() {
             <!-- Room & Floor Input -->
             <div class="grid grid-cols-2 gap-2.5">
                 <div class="space-y-1">
-                    <label class="block text-xs font-semibold text-on-surface-variant" for="room-input">Room Number</label>
-                    <input type="text" id="room-input" class="w-full px-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface font-semibold focus:outline-none focus:border-emerald" placeholder="e.g. 304" value="${window.currentRoom || '304'}">
+                    <label class="block text-xs font-semibold text-on-surface-variant" for="room-input">Room Number *</label>
+                    <input type="text" id="room-input" required class="w-full px-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface font-semibold focus:outline-none focus:border-emerald" placeholder="e.g. 304" value="${savedRoom}">
                 </div>
                 <div class="space-y-1">
                     <label class="block text-xs font-semibold text-on-surface-variant" for="floor-input">Floor</label>
-                    <input type="text" id="floor-input" class="w-full px-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface focus:outline-none focus:border-emerald" placeholder="e.g. 3rd Floor" value="3rd Floor">
+                    <input type="text" id="floor-input" class="w-full px-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface focus:outline-none focus:border-emerald" placeholder="e.g. 3rd Floor" value="${savedFloor}">
                 </div>
+            </div>
+
+            <!-- Student Mobile Number for Delivery Rider Contact -->
+            <div class="space-y-1">
+                <label class="block text-xs font-semibold text-on-surface-variant" for="phone-input">Contact Phone Number (For delivery runner) *</label>
+                <div class="relative">
+                    <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant">+91</span>
+                    <input type="tel" id="phone-input" maxlength="10" required class="w-full pl-12 pr-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface font-semibold focus:outline-none focus:border-emerald" placeholder="XXXXXXXXXX" value="${savedPhone}">
+                </div>
+            </div>
+
+            <!-- Inline Validation Alert -->
+            <div id="address-validation-alert" class="hidden p-2.5 bg-red-500/10 border border-red-500/30 rounded-xl text-red-600 text-xs flex items-center gap-2">
+                <span class="material-symbols-outlined text-sm">error</span>
+                <span id="address-validation-msg">Please enter your room number.</span>
             </div>
 
             <!-- Inline Alert for Blocked Hostels (Initially hidden) -->
@@ -159,12 +242,14 @@ window.openAddressModal = function() {
 
             <!-- Save Button -->
             <button type="button" id="save-address-btn" class="w-full bg-emerald text-white rounded-full py-3.5 text-xs sm:text-sm font-semibold shadow-md hover:bg-primary transition-all active:scale-95 cursor-pointer">
-                Deliver to BH13 (<span id="btn-block-label">${selectedBlock}</span>)
+                Confirm Address & Deliver to BH13 (<span id="btn-block-label">${selectedBlock}</span>)
             </button>
         </div>
     `;
 
-    modal.onclick = () => modal.remove();
+    if (!isMandatorySetup) {
+        modal.onclick = () => modal.remove();
+    }
     document.body.appendChild(modal);
 
     // Block selection handler
@@ -182,7 +267,7 @@ window.openAddressModal = function() {
         };
     });
 
-    // Disabled hostels click handler (displays coming soon message)
+    // Disabled hostels click handler
     modal.querySelectorAll('.hostel-disabled-btn').forEach(btn => {
         btn.onclick = () => {
             const hName = btn.dataset.hostel;
@@ -196,22 +281,56 @@ window.openAddressModal = function() {
     });
 
     // Save Address
-    document.getElementById('save-address-btn').onclick = () => {
-        const room = document.getElementById('room-input')?.value?.trim() || '304';
+    document.getElementById('save-address-btn').onclick = async () => {
+        const room = document.getElementById('room-input')?.value?.trim();
         const floor = document.getElementById('floor-input')?.value?.trim() || '3rd Floor';
+        const phone = document.getElementById('phone-input')?.value?.trim();
+        const alertBox = document.getElementById('address-validation-alert');
+        const alertMsg = document.getElementById('address-validation-msg');
+
+        if (!room) {
+            if (alertBox && alertMsg) {
+                alertBox.classList.remove('hidden');
+                alertMsg.textContent = 'Please enter your Room Number (e.g. 304).';
+            }
+            document.getElementById('room-input')?.focus();
+            return;
+        }
+
+        if (phone && phone.length < 10) {
+            if (alertBox && alertMsg) {
+                alertBox.classList.remove('hidden');
+                alertMsg.textContent = 'Please enter a valid 10-digit mobile number.';
+            }
+            document.getElementById('phone-input')?.focus();
+            return;
+        }
 
         window.currentAddress = 'BH13';
         window.currentBlock = selectedBlock;
         window.currentRoom = room;
-        window.currentAddressDetail = `Room ${room}, ${floor}, ${selectedBlock}, Boys Hostel 13`;
+        window.currentAddressDetail = `BH13 (${selectedBlock}), Room ${room}`;
 
         localStorage.setItem('lpuquick_address', window.currentAddress);
         localStorage.setItem('lpuquick_block', window.currentBlock);
         localStorage.setItem('lpuquick_room', window.currentRoom);
+        localStorage.setItem('lpuquick_floor', floor);
+        if (phone) localStorage.setItem('lpuquick_phone', phone);
+        localStorage.setItem('lpuquick_address_configured', 'true');
         localStorage.setItem('lpuquick_address_detail', window.currentAddressDetail);
 
+        // Sync with backend profile
+        if (window.isUserLoggedIn() && window.api?.updateAddress) {
+            window.api.updateAddress(window.CURRENT_USER_ID, 'BH13', selectedBlock, room, phone);
+        }
+
         modal.remove();
-        router(); // Refresh header everywhere
+
+        if (typeof onComplete === 'function') {
+            onComplete();
+        } else {
+            router();
+        }
     };
 };
 
@@ -311,7 +430,8 @@ window.openProductModal = async function(productId) {
         const modalAddBtn = document.getElementById('modal-add-btn');
         if (modalAddBtn) {
             modalAddBtn.onclick = async () => {
-                await window.api.addToCart(window.CURRENT_USER_ID, p.id, 1);
+                const uid = window.getEffectiveUserId();
+                await window.api.addToCart(uid, p.id, 1);
                 window.openProductModal(p.id);
                 window.syncCardSteppers();
             };
@@ -319,8 +439,9 @@ window.openProductModal = async function(productId) {
         const modalIncBtn = document.getElementById('modal-inc-btn');
         if (modalIncBtn) {
             modalIncBtn.onclick = async () => {
+                const uid = window.getEffectiveUserId();
                 const item = window.cartState[p.id];
-                if (item) await window.api.updateCartItem(item.cart_id, item.quantity + 1, window.CURRENT_USER_ID);
+                if (item) await window.api.updateCartItem(item.cart_id, item.quantity + 1, uid);
                 window.openProductModal(p.id);
                 window.syncCardSteppers();
             };
@@ -328,10 +449,11 @@ window.openProductModal = async function(productId) {
         const modalDecBtn = document.getElementById('modal-dec-btn');
         if (modalDecBtn) {
             modalDecBtn.onclick = async () => {
+                const uid = window.getEffectiveUserId();
                 const item = window.cartState[p.id];
                 if (item) {
                     if (item.quantity <= 1) await window.api.removeCartItem(item.cart_id);
-                    else await window.api.updateCartItem(item.cart_id, item.quantity - 1, window.CURRENT_USER_ID);
+                    else await window.api.updateCartItem(item.cart_id, item.quantity - 1, uid);
                 }
                 window.openProductModal(p.id);
                 window.syncCardSteppers();
@@ -378,7 +500,8 @@ window.syncCardSteppers = function() {
         btn.onclick = async (e) => {
             e.stopPropagation();
             const id = btn.dataset.id;
-            await window.api.addToCart(window.CURRENT_USER_ID, id, 1);
+            const uid = window.getEffectiveUserId();
+            await window.api.addToCart(uid, id, 1);
             window.syncCardSteppers();
         };
     });
@@ -387,9 +510,10 @@ window.syncCardSteppers = function() {
         btn.onclick = async (e) => {
             e.stopPropagation();
             const id = btn.dataset.id;
+            const uid = window.getEffectiveUserId();
             const item = window.cartState[id];
             if (item) {
-                await window.api.updateCartItem(item.cart_id, item.quantity + 1, window.CURRENT_USER_ID);
+                await window.api.updateCartItem(item.cart_id, item.quantity + 1, uid);
                 window.syncCardSteppers();
             }
         };
@@ -399,12 +523,13 @@ window.syncCardSteppers = function() {
         btn.onclick = async (e) => {
             e.stopPropagation();
             const id = btn.dataset.id;
+            const uid = window.getEffectiveUserId();
             const item = window.cartState[id];
             if (item) {
                 if (item.quantity <= 1) {
                     await window.api.removeCartItem(item.cart_id);
                 } else {
-                    await window.api.updateCartItem(item.cart_id, item.quantity - 1, window.CURRENT_USER_ID);
+                    await window.api.updateCartItem(item.cart_id, item.quantity - 1, uid);
                 }
                 window.syncCardSteppers();
             }
@@ -424,6 +549,16 @@ window.syncCardSteppers = function() {
 // Router Main Function
 async function router() {
     const path = getCurrentRoute();
+    
+    // Mandatory unauthenticated check: Require sign in before entering store
+    if (!window.isUserLoggedIn() && path !== '/signin') {
+        if (path !== '/') {
+            localStorage.setItem('lpuquick_redirect', '#' + path);
+        }
+        window.location.hash = '#/signin';
+        return;
+    }
+
     const pageName = getPageName(path);
     const appRoot = document.getElementById('app');
     
@@ -431,7 +566,8 @@ async function router() {
 
     try {
         // Pre-fetch cart so steppers have exact state immediately
-        await window.api.getCart(window.CURRENT_USER_ID);
+        const effectiveUid = window.getEffectiveUserId();
+        await window.api.getCart(effectiveUid);
 
         const renderFn = window.pages[pageName];
         if (renderFn) {
@@ -456,6 +592,9 @@ async function router() {
             });
 
             window.scrollTo(0, 0);
+
+            // Check active order delivery bar
+            checkAndConnectGlobalOrderTracking();
         } else {
             appRoot.innerHTML = `
                 <div class="text-center pt-32 px-4">
@@ -469,12 +608,190 @@ async function router() {
     }
 }
 
+// ================= GLOBAL REAL-TIME CLIENT SYNC =================
+let globalTrackingWs = null;
+let currentTrackedOrderId = null;
+
+async function checkAndConnectGlobalOrderTracking() {
+    try {
+        const bar = document.getElementById('global-live-delivery-bar');
+        if (!window.isUserLoggedIn()) {
+            if (bar) bar.classList.add('hidden');
+            return;
+        }
+        const userId = window.CURRENT_USER_ID;
+        const activeRes = await window.api.getActiveOrder(userId);
+        const active = activeRes?.active;
+
+        if (!active || ['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(active.status)) {
+            if (bar) bar.classList.add('hidden');
+            return;
+        }
+
+        currentTrackedOrderId = active.id;
+        updateGlobalDeliveryBar(active.status, active.rider_name || 'Alex');
+
+        // Only show floating bar when not already on the dedicated /orders or /checkout tracking page
+        const currentPath = getCurrentRoute();
+        if (bar) {
+            if (currentPath === '/orders' || currentPath === '/checkout') {
+                bar.classList.add('hidden');
+            } else {
+                bar.classList.remove('hidden');
+            }
+        }
+
+        // Connect global WebSocket for instant broadcasts
+        connectGlobalTrackingSocket(active.id);
+
+    } catch (e) {
+        console.warn('[Global Tracking Sync]:', e);
+    }
+}
+
+function updateGlobalDeliveryBar(status, riderName) {
+    const bar = document.getElementById('global-live-delivery-bar');
+    const statusEl = document.getElementById('global-delivery-status');
+    const etaEl = document.getElementById('global-delivery-eta');
+    const subEl = document.getElementById('global-delivery-subtitle');
+    const hostelShort = window.currentAddress || 'BH13';
+
+    if (!bar || !statusEl || !etaEl || !subEl) return;
+
+    statusEl.textContent = status;
+
+    if (status === 'Order Placed') {
+        etaEl.textContent = '3 mins';
+        subEl.textContent = `BH13 Dark Store is verifying your snacks`;
+    } else if (status === 'Order Confirmed') {
+        etaEl.textContent = '3 mins';
+        subEl.textContent = `Confirmed by BH13 Hub · Packing shortly`;
+    } else if (status === 'Preparing') {
+        etaEl.textContent = '2 mins';
+        subEl.textContent = `Staff is packing your bag at BH13 Hub`;
+    } else if (status === 'Out for Delivery') {
+        etaEl.textContent = '1 min';
+        subEl.textContent = `🚶‍♂️ ${riderName} is walking to ${hostelShort} (Block A)`;
+    } else if (status === 'Delivered') {
+        etaEl.textContent = 'Arrived ✓';
+        subEl.textContent = `🎉 Delivered to ${hostelShort}! Enjoy your snacks!`;
+        setTimeout(() => {
+            bar.classList.add('hidden');
+        }, 8000);
+    } else if (status === 'Cancelled' || status === 'cancelled') {
+        etaEl.textContent = 'Cancelled ✕';
+        subEl.textContent = '❌ Order was cancelled by Admin';
+        setTimeout(() => {
+            bar.classList.add('hidden');
+        }, 4000);
+    }
+}
+
+function connectGlobalTrackingSocket(orderId) {
+    if (globalTrackingWs && (globalTrackingWs.readyState === WebSocket.OPEN || globalTrackingWs.readyState === WebSocket.CONNECTING)) {
+        return;
+    }
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${location.host}/ws/track/${orderId}`;
+
+    try {
+        globalTrackingWs = new WebSocket(wsUrl);
+
+        globalTrackingWs.onmessage = (evt) => {
+            try {
+                const data = JSON.parse(evt.data);
+                if (data && data.status) {
+                    updateGlobalDeliveryBar(data.status, data.rider_name || 'Alex');
+                }
+            } catch (err) {}
+        };
+
+        globalTrackingWs.onclose = () => {
+            globalTrackingWs = null;
+        };
+    } catch (e) {}
+}
+
 window.router = router;
 window.navigate = navigate;
 
 window.addEventListener('hashchange', router);
-window.addEventListener('DOMContentLoaded', router);
+window.addEventListener('DOMContentLoaded', () => {
+    router();
+    checkAndConnectGlobalOrderTracking();
+});
 
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
     router();
+    checkAndConnectGlobalOrderTracking();
 }
+
+// Background sync interval (every 8 seconds)
+setInterval(checkAndConnectGlobalOrderTracking, 8000);
+
+// ============================================================
+// Interactive Magnetic Cursor Torch & Dynamic Ambient Parallax
+// ============================================================
+(function initInteractiveAtmosphere() {
+    let mouseX = window.innerWidth / 2;
+    let mouseY = window.innerHeight / 2;
+    let currentX = mouseX;
+    let currentY = mouseY;
+    let isTicking = false;
+    let lastScrollY = window.scrollY || 0;
+
+    window.addEventListener('mousemove', (e) => {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+        if (!isTicking) {
+            isTicking = true;
+            requestAnimationFrame(renderFrame);
+        }
+    }, { passive: true });
+
+    window.addEventListener('scroll', () => {
+        lastScrollY = window.scrollY || 0;
+        if (!isTicking) {
+            isTicking = true;
+            requestAnimationFrame(renderFrame);
+        }
+    }, { passive: true });
+
+    function renderFrame() {
+        // Smooth lerp (dampening)
+        currentX += (mouseX - currentX) * 0.08;
+        currentY += (mouseY - currentY) * 0.08;
+
+        const torch = document.getElementById('ambient-cursor-torch');
+        if (torch) {
+            torch.style.transform = `translate3d(${currentX - 240}px, ${currentY - 240}px, 0)`;
+        }
+
+        // Parallax reaction on floating leaves and lineart
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
+        const deltaX = (mouseX - centerX) / centerX;
+        const deltaY = (mouseY - centerY) / centerY;
+        const scrollOffset = lastScrollY * 0.05;
+
+        const leaves = document.querySelectorAll('.ambient-leaf');
+        leaves.forEach((leaf, idx) => {
+            const factor = (idx + 1) * 2.2;
+            leaf.style.transform = `translate3d(${deltaX * factor}px, ${deltaY * factor - scrollOffset * (idx % 2 === 0 ? 1 : 0.6)}px, 0)`;
+        });
+
+        const lineart = document.querySelectorAll('.ambient-lineart');
+        lineart.forEach((art, idx) => {
+            const factor = (idx + 1) * 3;
+            art.style.transform = `translate3d(${deltaX * factor}px, ${deltaY * factor - scrollOffset * 0.8}px, 0)`;
+        });
+
+        if (Math.abs(mouseX - currentX) > 0.3 || Math.abs(mouseY - currentY) > 0.3) {
+            requestAnimationFrame(renderFrame);
+        } else {
+            isTicking = false;
+        }
+    }
+})();
+
+

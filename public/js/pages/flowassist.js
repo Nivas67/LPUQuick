@@ -125,7 +125,7 @@ window.pages.flowassist = async function() {
 };
 
 window.pageInits.flowassist = function() {
-    const userId = window.CURRENT_USER_ID || 'user_001';
+    const userId = window.getEffectiveUserId();
     const chatMessages = document.getElementById('chat-messages');
     const chatForm = document.getElementById('chat-form');
     const chatInput = document.getElementById('chat-input');

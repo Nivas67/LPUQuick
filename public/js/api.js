@@ -17,6 +17,13 @@ const api = {
         });
         return res.json();
     },
+    async googleAuth(payload = {}) {
+        const res = await fetch(`${API_BASE}/auth/google`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        return res.json();
+    },
 
     // Home
     async fetchHome() {
@@ -83,7 +90,7 @@ const api = {
     async removeCartItem(cartId) {
         const res = await fetch(`${API_BASE}/cart/${cartId}`, { method: 'DELETE' });
         const result = await res.json();
-        const userId = window.CURRENT_USER_ID || 'user_001';
+        const userId = window.getEffectiveUserId();
         await this.getCart(userId); // Refresh cart state
         return result;
     },
@@ -117,6 +124,33 @@ const api = {
         const res = await fetch(`${API_BASE}/orders/detail/${orderId}`);
         return res.json();
     },
+    async reorder(orderId, userId = (window.isUserLoggedIn() ? window.CURRENT_USER_ID : window.getEffectiveUserId())) {
+        const res = await fetch(`${API_BASE}/orders/${orderId}/reorder`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId })
+        });
+        const result = await res.json();
+        await this.getCart(userId);
+        return result;
+    },
+
+    async cancelOrder(orderId, reason = '') {
+        const res = await fetch(`${API_BASE}/orders/${orderId}/cancel`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason })
+        });
+        return res.json();
+    },
+    async changeOrderAddress(orderId, newAddress) {
+        const res = await fetch(`${API_BASE}/orders/${orderId}/change-address`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ newAddress })
+        });
+        return res.json();
+    },
 
     // Categories
     async getCategories() {
@@ -126,6 +160,21 @@ const api = {
     async getCategoryProducts(name) {
         const res = await fetch(`${API_BASE}/categories/${encodeURIComponent(name)}`);
         return res.json();
+    },
+
+    // User Address
+    async updateAddress(userId, hostel, block, room, phone) {
+        try {
+            const res = await fetch(`${API_BASE}/auth/update-address`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, hostel, block, room, phone })
+            });
+            return await res.json();
+        } catch (e) {
+            console.warn('[Address Update Warning]:', e.message);
+            return { success: false };
+        }
     }
 };
 
