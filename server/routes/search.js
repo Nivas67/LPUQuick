@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const supabaseDb = require('../db/supabaseDb');
+const cache = require('../cache');
 
 // Levenshtein distance for typo tolerance
 function levenshtein(a, b) {
@@ -26,7 +27,9 @@ router.get('/', async (req, res) => {
     }
 
     try {
-        const allProducts = await supabaseDb.products.getAll({ includeInactive: true });
+        const allProducts = await cache.wrap('search:all_products', async () => {
+            return await supabaseDb.products.getAll({ includeInactive: true });
+        }, 60000);
 
         // Score each product based on name + category + subcategory + tags + typo tolerance
         const scored = allProducts.map(p => {

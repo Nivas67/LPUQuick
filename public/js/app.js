@@ -496,14 +496,31 @@ window.syncCardSteppers = function() {
         }
     });
 
-    // Rebind newly created buttons
+    // Rebind newly created buttons with Instant Optimistic UI
     document.querySelectorAll('.add-to-cart-btn').forEach(btn => {
         btn.onclick = async (e) => {
             e.stopPropagation();
             const id = btn.dataset.id;
             const uid = window.getEffectiveUserId();
-            await window.api.addToCart(uid, id, 1);
+
+            // Optimistic instant state update
+            window.cartState = window.cartState || {};
+            window.cartState[id] = { quantity: 1, cart_id: window.cartState[id]?.cart_id || `temp_${id}` };
             window.syncCardSteppers();
+
+            try {
+                const res = await window.api.addToCart(uid, id, 1);
+                if (res && res.cart_id) {
+                    window.cartState[id].cart_id = res.cart_id;
+                }
+            } catch(err) {
+                // Revert on error
+                delete window.cartState[id];
+                window.syncCardSteppers();
+                if (typeof window.showClientToast === 'function') {
+                    window.showClientToast('Could not update cart', 'error');
+                }
+            }
         };
     });
 
@@ -514,8 +531,16 @@ window.syncCardSteppers = function() {
             const uid = window.getEffectiveUserId();
             const item = window.cartState[id];
             if (item) {
-                await window.api.updateCartItem(item.cart_id, item.quantity + 1, uid);
+                const prevQty = item.quantity;
+                item.quantity += 1;
                 window.syncCardSteppers();
+
+                try {
+                    await window.api.updateCartItem(item.cart_id, item.quantity, uid);
+                } catch(err) {
+                    item.quantity = prevQty;
+                    window.syncCardSteppers();
+                }
             }
         };
     });
@@ -527,12 +552,26 @@ window.syncCardSteppers = function() {
             const uid = window.getEffectiveUserId();
             const item = window.cartState[id];
             if (item) {
+                const prevQty = item.quantity;
                 if (item.quantity <= 1) {
-                    await window.api.removeCartItem(item.cart_id);
+                    delete window.cartState[id];
+                    window.syncCardSteppers();
+                    try {
+                        await window.api.removeCartItem(item.cart_id);
+                    } catch(err) {
+                        window.cartState[id] = { quantity: prevQty, cart_id: item.cart_id };
+                        window.syncCardSteppers();
+                    }
                 } else {
-                    await window.api.updateCartItem(item.cart_id, item.quantity - 1, uid);
+                    item.quantity -= 1;
+                    window.syncCardSteppers();
+                    try {
+                        await window.api.updateCartItem(item.cart_id, item.quantity, uid);
+                    } catch(err) {
+                        item.quantity = prevQty;
+                        window.syncCardSteppers();
+                    }
                 }
-                window.syncCardSteppers();
             }
         };
     });

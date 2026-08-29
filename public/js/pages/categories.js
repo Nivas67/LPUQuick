@@ -354,32 +354,24 @@ window.pageInits.categories = async function() {
     // Load Live Snacks & Drinks Products
     async function loadSnacksData() {
         try {
-            // Fetch all products across snack/drink categories
-            const [resSnacks, resBisc, resDrinks, resInst, resIce, resSweets] = await Promise.all([
-                fetch(`/api/categories/${encodeURIComponent('Chips & Namkeen')}`).then(r => r.json()).catch(() => ({ products: [] })),
-                fetch(`/api/categories/${encodeURIComponent('Bakery & Biscuits')}`).then(r => r.json()).catch(() => ({ products: [] })),
-                fetch(`/api/categories/${encodeURIComponent('Drinks & Juices')}`).then(r => r.json()).catch(() => ({ products: [] })),
-                fetch(`/api/categories/${encodeURIComponent('Instant Food')}`).then(r => r.json()).catch(() => ({ products: [] })),
-                fetch(`/api/categories/${encodeURIComponent('Ice Creams & More')}`).then(r => r.json()).catch(() => ({ products: [] })),
-                fetch(`/api/categories/${encodeURIComponent('Sweets & Chocolates')}`).then(r => r.json()).catch(() => ({ products: [] }))
-            ]);
+            // Single consolidated cached fetch for all active campus products
+            const res = await window.api.fetchProducts();
+            const all = res?.products || [];
 
-            const combined = [
-                ...(resSnacks.products || []),
-                ...(resDrinks.products || []),
-                ...(resInst.products || []),
-                ...(resSweets.products || []),
-                ...(resIce.products || []),
-                ...(resBisc.products || [])
-            ];
-
-            // Remove duplicate IDs
-            const seen = new Set();
-            allSnackProducts = combined.filter(p => {
-                if (seen.has(p.id)) return false;
-                seen.add(p.id);
-                return true;
+            // Filter for snacks & drinks categories/tags
+            allSnackProducts = all.filter(p => {
+                const cat = (p.category || '').toLowerCase();
+                const tags = (p.tags || '').toLowerCase();
+                return cat.includes('snack') || cat.includes('beverage') || cat.includes('drink') || 
+                       cat.includes('biscuit') || cat.includes('instant') || cat.includes('sweet') ||
+                       tags.includes('snack') || tags.includes('chip') || tags.includes('drink') ||
+                       tags.includes('noodle') || tags.includes('chocolate') || tags.includes('biscuit');
             });
+
+            // Fallback if empty
+            if (allSnackProducts.length === 0) {
+                allSnackProducts = all;
+            }
 
             renderSubcatChips();
             filterAndRenderProducts();
@@ -451,7 +443,7 @@ window.pageInits.categories = async function() {
         }
 
         // Render Cards matching screenshot
-        productsGrid.innerHTML = filtered.map(p => {
+        productsGrid.innerHTML = filtered.map((p, idx) => {
             const discountPercent = p.mrp && p.mrp > p.price ? Math.round(((p.mrp - p.price) / p.mrp) * 100) : 0;
             const ratingVal = p.rating || 4.8;
             const reviewCount = p.review_count || '1.2 lac';
@@ -474,7 +466,14 @@ window.pageInits.categories = async function() {
                             </div>
 
                             <!-- Product Image -->
-                            <img class="object-contain w-full h-full group-hover:scale-105 transition-transform duration-200" src="${p.image_url}" alt="${p.name}" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300'">
+                            <img class="object-contain w-full h-full group-hover:scale-105 transition-transform duration-200" 
+                                 src="${p.image_url}" 
+                                 alt="${p.name}" 
+                                 width="160" 
+                                 height="160" 
+                                 ${idx === 0 ? 'fetchpriority="high"' : 'loading="lazy"'} 
+                                 decoding="async" 
+                                 onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300&auto=format&q=75'">
 
                             <!-- Image Carousel Dots -->
                             <div class="absolute bottom-2 left-3 flex items-center gap-1 opacity-70">

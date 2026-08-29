@@ -27,8 +27,8 @@ router.get('/:userId', async (req, res) => {
     }
 });
 
-// POST /api/cart (Add item to cart)
-router.post('/', async (req, res) => {
+// POST /api/cart and POST /api/cart/add (Add item to cart)
+async function handleAddToCart(req, res) {
     const userId = req.body.userId || req.body.user_id;
     const productId = req.body.productId || req.body.product_id;
     const quantity = req.body.quantity !== undefined ? Number(req.body.quantity) : 1;
@@ -43,7 +43,10 @@ router.post('/', async (req, res) => {
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
-});
+}
+
+router.post('/', handleAddToCart);
+router.post('/add', handleAddToCart);
 
 // PUT /api/cart/:id (Update quantity)
 router.put('/:id', async (req, res) => {

@@ -11,12 +11,37 @@ const supabase = getSupabaseClient();
 console.log('[Database] 100% Supabase Cloud PostgreSQL Active (Single Database Mode)');
 
 // Middleware
+const compression = require('compression');
+app.use(compression({
+    level: 6,
+    threshold: 1024, // only compress responses above 1KB
+    filter: (req, res) => {
+        if (req.headers['x-no-compression']) return false;
+        return compression.filter(req, res);
+    }
+}));
 app.use(cors());
 app.use(express.json());
 
-// Static files (Client and Admin portals)
-app.use('/admin', express.static(path.join(__dirname, '..', 'admin')));
-app.use(express.static(path.join(__dirname, '..', 'client')));
+// Static files (Client and Admin portals) with ETag and Cache-Control headers
+const staticOptions = {
+    maxAge: '1d',
+    etag: true,
+    lastModified: true,
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+            // HTML files should revalidate quickly for SPA route updates
+            res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+        } else if (filePath.match(/\.(css|js|png|jpg|jpeg|svg|webp|woff2?)$/)) {
+            // Static assets cached with stale revalidation
+            res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+        }
+    }
+};
+
+app.use('/admin', express.static(path.join(__dirname, '..', 'admin'), staticOptions));
+app.use(express.static(path.join(__dirname, '..', 'client'), staticOptions));
+app.use(express.static(path.join(__dirname, '..', 'public'), staticOptions));
 
 // API Routes (All backed 100% by Supabase Cloud)
 app.use('/api/auth', require('./routes/auth'));

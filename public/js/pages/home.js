@@ -2,12 +2,12 @@
 window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
-function buildProductCardsHTML(items) {
+function buildProductCardsHTML(items, isAboveFold = false) {
     if (!items || items.length === 0) return '';
-    return items.map((p) => {
+    return items.map((p, idx) => {
         const discountPercent = p.mrp && p.mrp > p.price ? Math.round(((p.mrp - p.price) / p.mrp) * 100) : 0;
         const ratingVal = p.rating || 4.8;
-        const reviewCount = p.review_count || '1.2 lac';
+        const isLcpCandidate = isAboveFold && idx === 0;
 
         return `
         <div class="bg-surface rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group relative border border-surface-variant/30 p-2.5 flex flex-col justify-between product-detail-trigger cursor-pointer" data-product-id="${p.id}">
@@ -25,7 +25,14 @@ function buildProductCardsHTML(items) {
                         </span>
                     </div>
 
-                    <img class="object-contain w-full h-full group-hover:scale-105 transition-transform duration-300" src="${p.image_url}" alt="${p.name}" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300'">
+                    <img class="object-contain w-full h-full group-hover:scale-105 transition-transform duration-300" 
+                         src="${p.image_url}" 
+                         alt="${p.name}" 
+                         width="160" 
+                         height="160"
+                         ${isLcpCandidate ? 'fetchpriority="high"' : 'loading="lazy"'} 
+                         decoding="async"
+                         onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300&auto=format&q=75'">
 
                     <!-- Image Carousel Dots -->
                     <div class="absolute bottom-2 left-3 flex items-center gap-1 opacity-70">
@@ -85,7 +92,7 @@ window.pages.home = async function() {
     const instantFood = data?.instant_food || [];
     const address = window.currentAddress || 'BH13';
 
-    const mainProductCards = buildProductCardsHTML(products);
+    const mainProductCards = buildProductCardsHTML(products, true);
     const trendingSnackCards = buildProductCardsHTML(trendingSnacks);
     const drinkCards = buildProductCardsHTML(drinks);
     const instantFoodCards = buildProductCardsHTML(instantFood);
@@ -94,7 +101,14 @@ window.pages.home = async function() {
         <div class="flex-none w-36 sm:w-44 snap-start bg-surface rounded-[2rem] p-3 sm:p-4 shadow-sm border border-surface-variant/30 hover:border-emerald transition-all product-detail-trigger cursor-pointer flex flex-col justify-between" data-product-id="${p.id}">
             <div>
                 <div class="h-24 sm:h-28 bg-surface-container-high rounded-[1.5rem] mb-2.5 relative overflow-hidden flex items-center justify-center p-2">
-                    <img class="object-contain w-full h-full" src="${p.image_url}" alt="${p.name}" onerror="this.src='https://images.unsplash.com/photo-1568651316335-714a806283db?w=300'">
+                    <img class="object-contain w-full h-full" 
+                         src="${p.image_url}" 
+                         alt="${p.name}" 
+                         width="120" 
+                         height="120" 
+                         loading="lazy" 
+                         decoding="async" 
+                         onerror="this.src='https://images.unsplash.com/photo-1568651316335-714a806283db?w=300&auto=format&q=75'">
                 </div>
                 <p class="font-label-lg font-semibold text-xs truncate text-on-surface">${p.name}</p>
                 <p class="text-[10px] text-on-surface-variant">${p.size || p.unit}</p>
