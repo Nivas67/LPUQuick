@@ -40,12 +40,12 @@ window.pages.cart = async function() {
                     <p class="font-bold text-sm text-on-surface mt-1">₹${item.price}</p>
                 </div>
             </div>
-            <div class="flex items-center gap-2.5 bg-surface-container-high/80 rounded-full px-2.5 py-1 border border-outline-variant/30 flex-shrink-0">
-                <button class="w-7 h-7 rounded-full flex items-center justify-center hover:bg-white active:scale-90 transition-all text-on-surface qty-dec-btn" data-id="${item.cart_id}" data-qty="${item.quantity}">
+            <div class="cart-qty-stepper flex items-center gap-2.5 rounded-full px-2.5 py-1 flex-shrink-0">
+                <button class="w-7 h-7 rounded-full flex items-center justify-center active:scale-90 transition-all qty-dec-btn" data-id="${item.cart_id}" data-qty="${item.quantity}">
                     <span class="material-symbols-outlined text-base">remove</span>
                 </button>
-                <span class="font-bold text-xs w-4 text-center">${item.quantity}</span>
-                <button class="w-7 h-7 rounded-full flex items-center justify-center hover:bg-white active:scale-90 transition-all text-on-surface qty-inc-btn" data-id="${item.cart_id}" data-qty="${item.quantity}">
+                <span class="font-bold text-xs w-4 text-center qty-num">${item.quantity}</span>
+                <button class="w-7 h-7 rounded-full flex items-center justify-center active:scale-90 transition-all qty-inc-btn" data-id="${item.cart_id}" data-qty="${item.quantity}">
                     <span class="material-symbols-outlined text-base">add</span>
                 </button>
             </div>
