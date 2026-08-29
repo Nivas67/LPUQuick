@@ -730,9 +730,10 @@ window.pageInits.checkout = function() {
             wsConnection.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    if (data && data.step) {
-                        updateTimelineStep(data.step, data.timestamp, data.rider_name);
-                    }
+                    const stepMap = { 'Order Placed': 1, 'Order Confirmed': 2, 'Preparing': 3, 'Out for Delivery': 4, 'Delivered': 5 };
+                    const step = data.step || stepMap[data.status] || 1;
+                    const timestamp = data.timestamp || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+                    updateTimelineStep(step, timestamp, data.rider_name || data.riderName);
                 } catch (e) {
                     console.error('Error parsing WS message:', e);
                 }

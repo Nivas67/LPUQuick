@@ -76,10 +76,13 @@ function setupRealtime(server, db) {
 
             // Send initial order state
             const now = new Date();
+            const initialStatus = order.status || 'Order Placed';
             ws.send(JSON.stringify({
                 type: 'INITIAL_STATE',
                 order_id: targetOrderId,
-                status: order.status || 'Order Placed',
+                status: initialStatus,
+                step: getStepNumber(initialStatus),
+                message: getStatusMessage(initialStatus, order.rider_name || 'Alex'),
                 rider_name: order.rider_name || 'Alex',
                 total: order.total,
                 delivery_address: order.delivery_address || 'BH13 (Block A), Room 304',
@@ -138,9 +141,10 @@ function notifyOrderStatusUpdate(orderId, statusData) {
             type: 'STATUS_UPDATE',
             order_id: orderId,
             status: statusData.status,
+            step: getStepNumber(statusData.status),
             rider_name: statusData.riderName || 'Alex',
             timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-            message: getStatusMessage(statusData.status)
+            message: getStatusMessage(statusData.status, statusData.riderName || 'Alex')
         });
 
         for (const ws of studentGroup) {
@@ -151,11 +155,20 @@ function notifyOrderStatusUpdate(orderId, statusData) {
     }
 }
 
-function getStatusMessage(status) {
+function getStepNumber(status) {
+    if (status === 'Order Confirmed') return 2;
+    if (status === 'Preparing') return 3;
+    if (status === 'Out for Delivery') return 4;
+    if (status === 'Delivered') return 5;
+    if (status === 'Cancelled') return -1;
+    return 1; // Order Placed
+}
+
+function getStatusMessage(status, rider = 'Alex') {
     if (status === 'Order Confirmed') return 'Dark Store confirmed your items are in stock.';
-    if (status === 'Preparing') return 'Dark Store staff is packing your items in an express bag.';
-    if (status === 'Out for Delivery') return 'Rider Alex is on the way to your hostel room.';
-    if (status === 'Delivered') return 'Order delivered to your hostel gate/room!';
+    if (status === 'Preparing') return 'Staff is packing your items in an express bag.';
+    if (status === 'Out for Delivery') return `Rider ${rider} is on the way to your hostel room.`;
+    if (status === 'Delivered') return '🎉 Order delivered to your hostel gate/room!';
     if (status === 'Cancelled') return 'Order has been cancelled.';
     return 'Your order has been placed and received.';
 }

@@ -34,6 +34,8 @@ window.pages.orders = async function() {
         </div>
     `).join('');
 
+    window.CURRENT_ACTIVE_ORDER_ID = activeOrder ? activeOrder.id : null;
+
     return `
 <div class="bg-background text-on-background font-body-md min-h-screen pb-32">
     <!-- TopAppBar -->
@@ -46,14 +48,14 @@ window.pages.orders = async function() {
         </div>
         <div class="flex items-center gap-1 text-xs bg-emerald/10 text-emerald px-3 py-1 rounded-full font-bold">
             <span class="material-symbols-outlined text-sm animate-spin">sync</span>
-            <span>Live GPS</span>
+            <span id="orders-live-indicator">Live Connected</span>
         </div>
     </header>
 
     <main class="px-margin-mobile md:px-margin-desktop max-w-4xl mx-auto pt-6 space-y-6">
         <!-- Active Order Live Tracking Section -->
         ${activeOrder ? `
-        <section class="space-y-3">
+        <section class="space-y-3" id="active-order-tracking-card" data-order-id="${activeOrder.id}">
             <div class="flex justify-between items-center">
                 <h2 class="font-headline-md text-base sm:text-lg font-bold text-on-surface flex items-center gap-2">
                     <span class="w-2.5 h-2.5 rounded-full bg-emerald animate-pulse"></span>
@@ -61,7 +63,7 @@ window.pages.orders = async function() {
                 </h2>
                 <span class="text-xs bg-emerald/15 text-emerald font-extrabold px-3 py-1 rounded-full flex items-center gap-1" id="tracking-eta">
                     <span class="material-symbols-outlined text-xs">bolt</span>
-                    <span id="tracking-eta-time">Arriving in 3 mins (02:58)</span>
+                    <span id="tracking-eta-time">Status: ${activeOrder.status}</span>
                 </span>
             </div>
 
@@ -74,7 +76,7 @@ window.pages.orders = async function() {
                     </svg>
 
                     <!-- Rider Pin -->
-                    <div class="absolute transform -translate-x-1/2 -translate-y-1/2 transition-all duration-1000 z-10" id="rider-pin" style="left: 35%; top: 40%;">
+                    <div class="absolute transform -translate-x-1/2 -translate-y-1/2 transition-all duration-700 z-10" id="rider-pin" style="left: 35%; top: 40%;">
                         <div class="relative">
                             <div class="w-10 h-10 rounded-full bg-emerald text-white flex items-center justify-center shadow-lg border-2 border-white animate-bounce">
                                 <span class="material-symbols-outlined text-xl">two_wheeler</span>
@@ -98,17 +100,17 @@ window.pages.orders = async function() {
                 <div class="p-5 sm:p-6 space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
                         <div>
-                            <p class="text-xs text-on-surface-variant" id="tracking-status-msg">
+                            <p class="text-xs text-on-surface-variant font-medium" id="tracking-status-msg">
                                 🏍️ ${activeOrder.rider_name || 'Alex'} picked up your snacks and is riding to ${hostelAddress}.
                             </p>
-                            <h3 class="font-bold text-sm sm:text-base text-on-surface mt-0.5">Order #${activeOrder.id.replace('order_', '')} · Total ₹${activeOrder.total} (Cash on Delivery)</h3>
+                            <h3 class="font-bold text-sm sm:text-base text-on-surface mt-0.5">Order #${activeOrder.id.replace('order_', '')} · Total ₹${activeOrder.total} (${activeOrder.payment_method || 'Cash on Delivery'})</h3>
                         </div>
                         <div class="flex items-center gap-3 bg-surface-container-high rounded-2xl p-2 px-3.5 border border-surface-variant/40">
-                            <div class="w-8 h-8 rounded-full bg-emerald text-white flex items-center justify-center font-bold text-xs">
+                            <div class="w-8 h-8 rounded-full bg-emerald text-white flex items-center justify-center font-bold text-xs" id="rider-avatar">
                                 ${(activeOrder.rider_name || 'A')[0]}
                             </div>
                             <div>
-                                <p class="font-semibold text-xs text-on-surface">${activeOrder.rider_name || 'Alex'}</p>
+                                <p class="font-semibold text-xs text-on-surface" id="rider-name-display">${activeOrder.rider_name || 'Alex'}</p>
                                 <p class="text-[10px] text-emerald font-semibold">Priority 3-Min Rider</p>
                             </div>
                             <a href="tel:7671836211" class="ml-2 w-7 h-7 rounded-full bg-emerald text-white flex items-center justify-center hover:opacity-90 shadow-sm">
@@ -123,9 +125,9 @@ window.pages.orders = async function() {
                             <div class="bg-emerald h-full rounded-full transition-all duration-700 shadow-sm" id="order-progress-bar" style="width: 55%;"></div>
                         </div>
                         <div class="flex justify-between text-[10px] sm:text-xs font-semibold text-on-surface-variant">
-                            <span class="text-emerald">Accepted</span>
-                            <span class="text-emerald">Packed</span>
-                            <span class="text-emerald" id="step-enroute">On the way</span>
+                            <span class="text-emerald" id="step-placed">Accepted</span>
+                            <span id="step-packed">Packed</span>
+                            <span id="step-enroute">On the way</span>
                             <span id="step-delivered">Delivered</span>
                         </div>
                     </div>
@@ -179,6 +181,8 @@ window.pages.orders = async function() {
 window.pageInits.orders = function() {
     const userId = window.CURRENT_USER_ID || 'user_001';
     const hostelShort = window.currentAddress || 'BH13';
+    const hostelAddress = window.currentAddressDetail?.label || 'BH13 (Block A), Room 304';
+    const activeOrderId = window.CURRENT_ACTIVE_ORDER_ID;
 
     // Reorder button click
     document.querySelectorAll('.reorder-btn').forEach(btn => {
@@ -191,50 +195,122 @@ window.pageInits.orders = function() {
         };
     });
 
-    // Tracking simulation animation & Live 3-Min Countdown
     const pin = document.getElementById('rider-pin');
     const etaTimeEl = document.getElementById('tracking-eta-time');
     const msgEl = document.getElementById('tracking-status-msg');
     const progressBar = document.getElementById('order-progress-bar');
+    const stepPlaced = document.getElementById('step-placed');
+    const stepPacked = document.getElementById('step-packed');
+    const stepEnroute = document.getElementById('step-enroute');
     const stepDelivered = document.getElementById('step-delivered');
+    const liveIndicator = document.getElementById('orders-live-indicator');
+    const riderNameDisplay = document.getElementById('rider-name-display');
+    const riderAvatar = document.getElementById('rider-avatar');
+    const riderBadge = document.getElementById('rider-badge');
 
-    let secondsRemaining = 179; // 2 mins 59 secs
-    let currentProgress = 50;
+    // Live status UI updater
+    function applyOrderStatusUI(status, riderName) {
+        const rider = riderName || 'Alex';
+        if (riderNameDisplay) riderNameDisplay.textContent = rider;
+        if (riderAvatar) riderAvatar.textContent = rider[0];
+        if (riderBadge) riderBadge.textContent = `${rider} · Speeding to ${hostelShort}`;
 
-    const timerInterval = setInterval(() => {
-        if (!etaTimeEl) {
-            clearInterval(timerInterval);
-            return;
-        }
-
-        secondsRemaining--;
-        if (secondsRemaining <= 0) {
-            secondsRemaining = 0;
-            etaTimeEl.textContent = `Arrived at ${hostelShort}!`;
-            if (msgEl) msgEl.textContent = `🎉 Order arrived at ${hostelShort} hostel gate! Please collect your snacks.`;
-            if (stepDelivered) stepDelivered.classList.add('text-emerald', 'font-bold');
+        if (status === 'Order Placed') {
+            if (progressBar) progressBar.style.width = '20%';
+            if (etaTimeEl) etaTimeEl.textContent = 'Order Placed (Verifying Stock)';
+            if (msgEl) msgEl.textContent = '📦 Dark Store received your order and is verifying items.';
+            if (pin) { pin.style.left = '15%'; pin.style.top = '45%'; }
+            if (stepPlaced) stepPlaced.classList.add('text-emerald', 'font-bold');
+            if (stepPacked) stepPacked.classList.remove('text-emerald', 'font-bold');
+            if (stepEnroute) stepEnroute.classList.remove('text-emerald', 'font-bold');
+            if (stepDelivered) stepDelivered.classList.remove('text-emerald', 'font-bold');
+        } else if (status === 'Order Confirmed') {
+            if (progressBar) progressBar.style.width = '40%';
+            if (etaTimeEl) etaTimeEl.textContent = 'Confirmed · Est. 3 mins';
+            if (msgEl) msgEl.textContent = '✅ Dark Store confirmed all items are in stock.';
+            if (pin) { pin.style.left = '25%'; pin.style.top = '40%'; }
+            if (stepPlaced) stepPlaced.classList.add('text-emerald', 'font-bold');
+            if (stepPacked) stepPacked.classList.add('text-emerald', 'font-bold');
+            if (stepEnroute) stepEnroute.classList.remove('text-emerald', 'font-bold');
+            if (stepDelivered) stepDelivered.classList.remove('text-emerald', 'font-bold');
+        } else if (status === 'Preparing') {
+            if (progressBar) progressBar.style.width = '60%';
+            if (etaTimeEl) etaTimeEl.textContent = 'Packing (Est. 2 mins)';
+            if (msgEl) msgEl.textContent = '🛍️ Staff is packing your items in an express bag.';
+            if (pin) { pin.style.left = '45%'; pin.style.top = '35%'; }
+            if (stepPlaced) stepPlaced.classList.add('text-emerald', 'font-bold');
+            if (stepPacked) stepPacked.classList.add('text-emerald', 'font-bold');
+            if (stepEnroute) stepEnroute.classList.remove('text-emerald', 'font-bold');
+            if (stepDelivered) stepDelivered.classList.remove('text-emerald', 'font-bold');
+        } else if (status === 'Out for Delivery') {
+            if (progressBar) progressBar.style.width = '85%';
+            if (etaTimeEl) etaTimeEl.textContent = 'Out for Delivery · 1 min (00:59)';
+            if (msgEl) msgEl.textContent = `🏍️ Rider ${rider} picked up your snacks and is speeding to ${hostelAddress}.`;
+            if (pin) { pin.style.left = '70%'; pin.style.top = '30%'; }
+            if (stepPlaced) stepPlaced.classList.add('text-emerald', 'font-bold');
+            if (stepPacked) stepPacked.classList.add('text-emerald', 'font-bold');
+            if (stepEnroute) stepEnroute.classList.add('text-emerald', 'font-bold');
+            if (stepDelivered) stepDelivered.classList.remove('text-emerald', 'font-bold');
+        } else if (status === 'Delivered') {
             if (progressBar) progressBar.style.width = '100%';
-            if (pin) {
-                pin.style.left = '85%';
-                pin.style.top = '25%';
+            if (etaTimeEl) etaTimeEl.textContent = 'Delivered ✓';
+            if (msgEl) msgEl.textContent = `🎉 Order arrived at ${hostelShort} hostel gate! Please collect your items.`;
+            if (pin) { pin.style.left = '85%'; pin.style.top = '25%'; }
+            if (stepPlaced) stepPlaced.classList.add('text-emerald', 'font-bold');
+            if (stepPacked) stepPacked.classList.add('text-emerald', 'font-bold');
+            if (stepEnroute) stepEnroute.classList.add('text-emerald', 'font-bold');
+            if (stepDelivered) stepDelivered.classList.add('text-emerald', 'font-bold');
+        }
+    }
+
+    if (!activeOrderId) return;
+
+    // Connect Live Tracking WebSocket
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/track/${activeOrderId}`;
+    let ws = null;
+    let ordersPoll = null;
+
+    try {
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+            if (liveIndicator) liveIndicator.textContent = 'Live GPS Sync';
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data && data.status) {
+                    applyOrderStatusUI(data.status, data.rider_name || data.riderName);
+                }
+            } catch (e) {
+                console.error('[Orders WS parse error]:', e);
             }
-            clearInterval(timerInterval);
-            return;
-        }
+        };
 
-        const mins = Math.floor(secondsRemaining / 60);
-        const secs = (secondsRemaining % 60).toString().padStart(2, '0');
-        etaTimeEl.textContent = `Arriving in ${mins + 1} mins (${mins.toString().padStart(2, '0')}:${secs})`;
+        ws.onerror = () => {
+            if (liveIndicator) liveIndicator.textContent = 'Syncing (Fallback)';
+            startPollingStatus();
+        };
 
-        // Smooth rider movement
-        currentProgress = Math.min(95, 50 + Math.floor(((179 - secondsRemaining) / 179) * 45));
-        if (progressBar) progressBar.style.width = `${currentProgress}%`;
+        ws.onclose = () => {
+            startPollingStatus();
+        };
+    } catch (e) {
+        startPollingStatus();
+    }
 
-        if (pin) {
-            const leftPct = 35 + ((179 - secondsRemaining) / 179) * 48;
-            const topPct = 40 - Math.sin(((179 - secondsRemaining) / 179) * Math.PI) * 15;
-            pin.style.left = `${leftPct}%`;
-            pin.style.top = `${topPct}%`;
-        }
-    }, 1000);
+    function startPollingStatus() {
+        if (ordersPoll) clearInterval(ordersPoll);
+        ordersPoll = setInterval(async () => {
+            try {
+                const res = await window.api.getOrderDetail(activeOrderId);
+                if (res && res.order && res.order.status) {
+                    applyOrderStatusUI(res.order.status, res.order.rider_name);
+                    if (res.order.status === 'Delivered') clearInterval(ordersPoll);
+                }
+            } catch (err) {}
+        }, 3000);
+    }
 };
