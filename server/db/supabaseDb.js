@@ -207,18 +207,34 @@ const supabaseDb = {
         },
 
         calculatePricing(items) {
-            const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+            const totalMrp = items.reduce((sum, item) => sum + ((Number(item.mrp) || Number(item.price) || 0) * item.quantity), 0);
+            const subtotal = items.reduce((sum, item) => sum + (Number(item.price || 0) * item.quantity), 0);
+            const mrpSavings = Math.max(0, totalMrp - subtotal);
+
+            // 5% Extra Flat Offer for orders >= 350
+            const has5PercentOffer = subtotal >= 350;
+            const extraDiscount = has5PercentOffer ? Math.round(subtotal * 0.05) : 0;
+            const finalToPay = Math.max(0, subtotal - extraDiscount);
+
+            const deliverySavings = subtotal > 0 ? 25 : 0;
+            const handlingSavings = subtotal > 0 ? 5 : 0;
+            const totalSavings = mrpSavings + extraDiscount + deliverySavings + handlingSavings;
+
             return {
+                total_mrp: totalMrp,
+                mrp_savings: mrpSavings,
                 subtotal,
+                has_5_percent_offer: has5PercentOffer,
+                extra_discount: extraDiscount,
                 original_delivery_fee: subtotal > 0 ? 25 : 0,
-                delivery_discount: subtotal > 0 ? 25 : 0,
+                delivery_discount: deliverySavings,
                 delivery_fee: 0,
                 original_platform_fee: subtotal > 0 ? 5 : 0,
-                platform_discount: subtotal > 0 ? 5 : 0,
+                platform_discount: handlingSavings,
                 platform_fee: 0,
                 tax: 0,
-                total: subtotal,
-                total_savings: subtotal > 0 ? 30 : 0,
+                total: finalToPay,
+                total_savings: totalSavings,
                 free_delivery_remaining: 0
             };
         },

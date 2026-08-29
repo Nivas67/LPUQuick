@@ -9,13 +9,21 @@ window.pages.cart = async function() {
 
     const items = cartData.items || [];
     const p = cartData.pricing || { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 };
-    const subtotal = p.subtotal || 0;
     
-    // 5% Offer for orders above ₹350
+    // Accurate MRP & Subtotal calculations
+    const totalMrp = items.reduce((sum, item) => sum + ((Number(item.mrp) || Number(item.price) || 0) * item.quantity), 0);
+    const subtotal = items.reduce((sum, item) => sum + (Number(item.price || 0) * item.quantity), 0);
+    const mrpDiscount = Math.max(0, totalMrp - subtotal);
+    
+    // 5% Campus Bulk Offer for orders above ₹350
     const hasDiscount = subtotal >= 350;
     const discount5 = hasDiscount ? Math.round(subtotal * 0.05) : 0;
     const exactTotal = Math.max(0, subtotal - discount5);
-    const totalSavings = (subtotal > 0 ? 30 : 0) + discount5; // ₹25 delivery + ₹5 handling + 5% discount
+    
+    // Total Real Savings: MRP discount + 5% offer + ₹25 delivery + ₹5 handling
+    const deliverySavings = subtotal > 0 ? 25 : 0;
+    const handlingSavings = subtotal > 0 ? 5 : 0;
+    const totalSavings = mrpDiscount + discount5 + deliverySavings + handlingSavings;
 
     const itemCards = items.length === 0 ? `
         <div class="glass-card rounded-3xl p-10 sm:p-12 text-center my-6 border border-glass-border">
@@ -28,7 +36,13 @@ window.pages.cart = async function() {
                 Browse Campus Store <span class="material-symbols-outlined text-sm">arrow_forward</span>
             </a>
         </div>
-    ` : items.map(item => `
+    ` : items.map(item => {
+        const itemMrp = Number(item.mrp) || Number(item.price) || 0;
+        const itemPrice = Number(item.price) || 0;
+        const hasItemDiscount = itemMrp > itemPrice;
+        const discPercent = hasItemDiscount ? Math.round(((itemMrp - itemPrice) / itemMrp) * 100) : 0;
+
+        return `
         <div class="glass-card rounded-2xl p-4 flex items-center justify-between gap-3 border border-glass-border shadow-sm mb-3 cart-row" data-cart-id="${item.cart_id}">
             <div class="flex items-center gap-3.5 min-w-0">
                 <div class="w-16 h-16 rounded-xl bg-surface-container-high overflow-hidden flex-shrink-0 flex items-center justify-center">
@@ -36,8 +50,14 @@ window.pages.cart = async function() {
                 </div>
                 <div class="min-w-0">
                     <h4 class="font-label-lg font-semibold text-sm text-on-surface truncate">${item.name}</h4>
-                    <p class="text-xs text-on-surface-variant mt-0.5">${item.size || item.unit}</p>
-                    <p class="font-bold text-sm text-on-surface mt-1">₹${item.price}</p>
+                    <p class="text-xs text-on-surface-variant mt-0.5">${item.size || item.unit || ''}</p>
+                    <div class="flex items-center gap-1.5 mt-1">
+                        <span class="font-bold text-sm text-on-surface">₹${itemPrice}</span>
+                        ${hasItemDiscount ? `
+                        <span class="line-through text-on-surface-variant/60 text-xs">₹${itemMrp}</span>
+                        <span class="text-[10px] text-emerald font-bold bg-emerald/15 px-1.5 py-0.2 rounded">${discPercent}% OFF</span>
+                        ` : ''}
+                    </div>
                 </div>
             </div>
             <div class="cart-qty-stepper flex items-center gap-2.5 rounded-full px-2.5 py-1 flex-shrink-0">
@@ -50,7 +70,7 @@ window.pages.cart = async function() {
                 </button>
             </div>
         </div>
-    `).join('');
+    `}).join('');
 
     return `
 <div class="bg-background text-on-background font-body-md min-h-screen pb-32">
@@ -116,9 +136,26 @@ window.pages.cart = async function() {
                 </h3>
                 
                 <div class="space-y-3 text-xs sm:text-sm">
+                    ${mrpDiscount > 0 ? `
+                    <!-- 0. Total MRP -->
+                    <div class="flex justify-between text-on-surface-variant">
+                        <span>Total MRP Value</span>
+                        <span class="line-through text-on-surface-variant/70">₹${totalMrp}</span>
+                    </div>
+
+                    <!-- Product MRP Discount -->
+                    <div class="flex justify-between text-emerald font-semibold">
+                        <span class="flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">discount</span>
+                            Product MRP Discount
+                        </span>
+                        <span>-₹${mrpDiscount}</span>
+                    </div>
+                    ` : ''}
+
                     <!-- 1. Item Total -->
                     <div class="flex justify-between text-on-surface-variant">
-                        <span>Item Total</span>
+                        <span>Item Total (Discounted)</span>
                         <span class="font-semibold text-on-surface">₹${subtotal}</span>
                     </div>
 
@@ -127,7 +164,7 @@ window.pages.cart = async function() {
                     <div class="flex justify-between text-emerald font-bold">
                         <span class="flex items-center gap-1">
                             <span class="material-symbols-outlined text-sm">local_offer</span>
-                            5% Offer (Above ₹350)
+                            5% Bulk Offer (Above ₹350)
                         </span>
                         <span>-₹${discount5}</span>
                     </div>

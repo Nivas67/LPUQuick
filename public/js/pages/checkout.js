@@ -13,30 +13,48 @@ window.pages.checkout = async function() {
 
     const items = cartData.items || [];
     const p = cartData.pricing || { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 };
-    const subtotal = p.subtotal || 0;
     
-    // 5% Offer for orders above ₹350
+    // Accurate MRP & Subtotal calculations
+    const totalMrp = items.reduce((sum, item) => sum + ((Number(item.mrp) || Number(item.price) || 0) * item.quantity), 0);
+    const subtotal = items.reduce((sum, item) => sum + (Number(item.price || 0) * item.quantity), 0);
+    const mrpDiscount = Math.max(0, totalMrp - subtotal);
+    
+    // 5% Campus Bulk Offer for orders above ₹350
     const hasDiscount = subtotal >= 350;
     const discount5 = hasDiscount ? Math.round(subtotal * 0.05) : 0;
     const exactTotal = Math.max(0, subtotal - discount5);
     window.cartTotalCache = exactTotal;
-    const totalSavings = (subtotal > 0 ? 30 : 0) + discount5; // ₹25 delivery + ₹5 handling + 5% discount
+
+    // Total Real Savings: MRP discount + 5% offer + ₹25 delivery + ₹5 handling
+    const deliverySavings = subtotal > 0 ? 25 : 0;
+    const handlingSavings = subtotal > 0 ? 5 : 0;
+    const totalSavings = mrpDiscount + discount5 + deliverySavings + handlingSavings;
+
     const savedRoom = localStorage.getItem('lpuquick_room') || window.currentRoom;
     const savedBlock = localStorage.getItem('lpuquick_block') || window.currentBlock || 'Block A';
     const address = savedRoom ? `BH13 (${savedBlock}), Room ${savedRoom}` : 'Please set your hostel room number';
 
-    const itemRows = items.map(item => `
+    const itemRows = items.map(item => {
+        const itemMrp = Number(item.mrp) || Number(item.price) || 0;
+        const itemPrice = Number(item.price) || 0;
+        const hasItemDiscount = itemMrp > itemPrice;
+        const discPercent = hasItemDiscount ? Math.round(((itemMrp - itemPrice) / itemMrp) * 100) : 0;
+
+        return `
         <div class="flex items-center justify-between py-3 border-b border-surface-variant/30 text-xs sm:text-sm">
             <div class="flex items-center gap-3">
                 <img class="w-10 h-10 rounded-xl object-cover bg-surface-container-high" src="${item.image_url}" alt="${item.name}" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=100'">
                 <div>
                     <p class="font-semibold text-on-surface truncate max-w-[160px] sm:max-w-xs">${item.name}</p>
-                    <p class="text-[11px] text-on-surface-variant">${item.quantity} × ₹${item.price}</p>
+                    <div class="flex items-center gap-1.5 mt-0.5">
+                        <span class="text-[11px] text-on-surface-variant">${item.quantity} × ₹${itemPrice}</span>
+                        ${hasItemDiscount ? `<span class="line-through text-[10px] text-on-surface-variant/60">₹${itemMrp}</span> <span class="text-[10px] text-emerald font-bold">${discPercent}% OFF</span>` : ''}
+                    </div>
                 </div>
             </div>
-            <span class="font-bold text-on-surface">₹${item.quantity * item.price}</span>
+            <span class="font-bold text-on-surface">₹${item.quantity * itemPrice}</span>
         </div>
-    `).join('');
+    `}).join('');
 
     return `
 <style>
@@ -160,9 +178,26 @@ window.pages.checkout = async function() {
                 </div>
 
                 <div class="space-y-3 text-xs sm:text-sm">
+                    ${mrpDiscount > 0 ? `
+                    <!-- 0. Total MRP Value -->
+                    <div class="flex justify-between text-on-surface-variant">
+                        <span>Total MRP Value</span>
+                        <span class="line-through text-on-surface-variant/70">₹${totalMrp}</span>
+                    </div>
+
+                    <!-- Product MRP Discount -->
+                    <div class="flex justify-between text-emerald font-semibold">
+                        <span class="flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">discount</span>
+                            Product MRP Discount
+                        </span>
+                        <span>-₹${mrpDiscount}</span>
+                    </div>
+                    ` : ''}
+
                     <!-- 1. Item Subtotal -->
                     <div class="flex justify-between text-on-surface-variant">
-                        <span>Item Subtotal</span>
+                        <span>Item Subtotal (Discounted)</span>
                         <span class="font-semibold text-on-surface" id="checkout-subtotal-val">₹${subtotal}</span>
                     </div>
 
@@ -171,7 +206,7 @@ window.pages.checkout = async function() {
                     <div class="flex justify-between text-emerald font-bold">
                         <span class="flex items-center gap-1">
                             <span class="material-symbols-outlined text-sm">local_offer</span>
-                            5% Offer (Above ₹350)
+                            5% Bulk Offer (Above ₹350)
                         </span>
                         <span>-₹${discount5}</span>
                     </div>
