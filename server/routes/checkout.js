@@ -57,15 +57,30 @@ async function handlePlaceOrder(req, res) {
 
         // Broadcast to live Admin and Tracking WebSockets
         try {
+            // Lookup real customer info
+            const { getSupabaseClient } = require('../supabase');
+            const supabase = getSupabaseClient();
+            let customerName = 'Campus Student';
+            let customerPhone = '';
+            let customerEmail = '';
+            try {
+                const { data: user } = await supabase.from('users').select('name, phone, email').eq('id', userId).single();
+                if (user) {
+                    customerName = user.name || customerName;
+                    customerPhone = user.phone || customerPhone;
+                    customerEmail = user.email || customerEmail;
+                }
+            } catch (e) {}
+
             broadcastOrderPlaced({
                 id: orderId,
                 user_id: userId,
-                customer_name: 'Campus Resident',
-                customer_phone: '7671836211',
-                customer_email: 'student@lpu.in',
+                customer_name: customerName,
+                customer_phone: customerPhone,
+                customer_email: customerEmail,
                 status: initialStatus,
                 total,
-                items_summary: cart.items.map(i => `${i.name} (x${i.quantity})`).join(', '),
+                item_summary: cart.items.map(i => `${i.name} (x${i.quantity})`).join(', '),
                 delivery_address: address,
                 payment_method: method,
                 created_at: new Date().toISOString()

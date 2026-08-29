@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const requireAdmin = require('../middleware/adminAuth');
 const supabaseDb = require('../db/supabaseDb');
+const { broadcastInventoryUpdate } = require('../realtime');
 
 // GET /api/products/:id
 router.get('/:id', async (req, res) => {
@@ -85,6 +86,9 @@ router.put('/admin/update/:id', requireAdmin, async (req, res) => {
     const { id } = req.params;
     try {
         const updated = await supabaseDb.products.update(id, req.body);
+        if (typeof broadcastInventoryUpdate === 'function') {
+            broadcastInventoryUpdate(updated.id, updated.stock_left, updated.in_stock);
+        }
         res.json({ success: true, message: 'Product updated in Supabase Cloud', product: updated });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -96,6 +100,9 @@ router.delete('/admin/deactivate/:id', requireAdmin, async (req, res) => {
     const { id } = req.params;
     try {
         const updated = await supabaseDb.products.update(id, { in_stock: false, stock_left: 0 });
+        if (typeof broadcastInventoryUpdate === 'function') {
+            broadcastInventoryUpdate(updated.id, 0, false);
+        }
         res.json({ success: true, message: `Product deactivated successfully`, product: updated });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -122,6 +129,9 @@ router.post('/admin/toggle-stock', requireAdmin, async (req, res) => {
 
     try {
         const updated = await supabaseDb.products.update(productId, { in_stock: Boolean(inStock) });
+        if (typeof broadcastInventoryUpdate === 'function') {
+            broadcastInventoryUpdate(productId, updated.stock_left, updated.in_stock);
+        }
         res.json({ success: true, message: 'Stock updated in Supabase Cloud', in_stock: updated.in_stock });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -150,6 +160,10 @@ router.post('/admin/adjust-stock', requireAdmin, async (req, res) => {
             stock_left: newStock,
             in_stock: newStock > 0
         });
+
+        if (typeof broadcastInventoryUpdate === 'function') {
+            broadcastInventoryUpdate(productId, updated.stock_left, updated.in_stock);
+        }
 
         res.json({
             success: true,

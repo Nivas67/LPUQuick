@@ -1,5 +1,6 @@
 const WebSocket = require('ws');
 const supabaseDb = require('./db/supabaseDb');
+const { getSupabaseClient } = require('./supabase');
 
 // Central Realtime Hub for LPUQuick (Powered by Supabase Cloud)
 const adminSockets = new Set();
@@ -30,11 +31,25 @@ function setupRealtime(server) {
             adminSockets.add(ws);
             console.log(`[WS] Admin connected. Total active admin sockets: ${adminSockets.size}`);
 
+            ws.isAlive = true;
+            ws.on('pong', () => { ws.isAlive = true; });
+
             ws.send(JSON.stringify({
                 type: 'CONNECTED',
                 message: 'Admin real-time operations channel connected (Supabase Cloud)',
+                adminCount: adminSockets.size,
                 timestamp: new Date().toISOString()
             }));
+
+            // Handle incoming admin messages (for future: manual status changes via WS)
+            ws.on('message', (raw) => {
+                try {
+                    const msg = JSON.parse(raw);
+                    if (msg.type === 'PING') {
+                        ws.send(JSON.stringify({ type: 'PONG', timestamp: new Date().toISOString() }));
+                    }
+                } catch (e) {}
+            });
 
             ws.on('close', () => {
                 adminSockets.delete(ws);
@@ -106,13 +121,55 @@ function setupRealtime(server) {
             });
         }
     });
+
+    // Heartbeat: keep admin connections alive & prune dead sockets every 25s
+    setInterval(() => {
+        adminSockets.forEach(ws => {
+            if (ws.isAlive === false) {
+                adminSockets.delete(ws);
+                return ws.terminate();
+            }
+            ws.isAlive = false;
+            ws.ping();
+        });
+    }, 25000);
 }
 
-function notifyAdminNewOrder(orderData) {
+// Broadcast new order to ALL admin sockets
+async function notifyAdminNewOrder(orderData) {
     console.log(`[WS] Broadcasting NEW_ORDER to ${adminSockets.size} admin clients:`, orderData.id);
+
+    // Enrich with customer info from Supabase
+    let customerName = orderData.customer_name || 'Campus Student';
+    let customerPhone = orderData.customer_phone || '';
+    let customerEmail = orderData.customer_email || '';
+
+    if (orderData.user_id && customerName === 'Campus Resident') {
+        try {
+            const supabase = getSupabaseClient();
+            const { data: user } = await supabase
+                .from('users')
+                .select('name, phone, email')
+                .eq('id', orderData.user_id)
+                .single();
+            if (user) {
+                customerName = user.name || customerName;
+                customerPhone = user.phone || customerPhone;
+                customerEmail = user.email || customerEmail;
+            }
+        } catch (e) {}
+    }
+
     const payload = JSON.stringify({
         type: 'NEW_ORDER',
-        order: orderData,
+        order: {
+            ...orderData,
+            customer_name: customerName,
+            customer_phone: customerPhone,
+            customer_email: customerEmail,
+            // Normalize field names for the admin JS
+            item_summary: orderData.item_summary || orderData.items_summary || 'Campus items'
+        },
         timestamp: new Date().toISOString()
     });
 
@@ -123,11 +180,14 @@ function notifyAdminNewOrder(orderData) {
     });
 }
 
+// Broadcast status update to tracking clients AND admin sockets
 function broadcastStatusUpdate(orderId, newStatus) {
     console.log(`[WS] Broadcasting ORDER_STATUS_UPDATE for ${orderId} -> ${newStatus}`);
 
     const now = new Date();
-    const payload = JSON.stringify({
+
+    // Send to student tracking clients
+    const trackingPayload = JSON.stringify({
         type: 'STATUS_UPDATE',
         order_id: orderId,
         status: newStatus,
@@ -139,9 +199,34 @@ function broadcastStatusUpdate(orderId, newStatus) {
     const trackingClients = orderTrackingSockets.get(orderId);
     if (trackingClients) {
         trackingClients.forEach(ws => {
-            if (ws.readyState === WebSocket.OPEN) ws.send(payload);
+            if (ws.readyState === WebSocket.OPEN) ws.send(trackingPayload);
         });
     }
+
+    // Send to admin dashboard clients (uses ORDER_STATUS_UPDATE type that admin JS expects)
+    const adminPayload = JSON.stringify({
+        type: 'ORDER_STATUS_UPDATE',
+        orderId: orderId,
+        status: newStatus,
+        step: getStepNumber(newStatus),
+        message: getStatusMessage(newStatus, 'Alex'),
+        timestamp: now.toISOString()
+    });
+
+    adminSockets.forEach(ws => {
+        if (ws.readyState === WebSocket.OPEN) ws.send(adminPayload);
+    });
+}
+
+// Broadcast product/inventory update to all admin sockets
+function broadcastInventoryUpdate(productId, stockLeft, inStock) {
+    const payload = JSON.stringify({
+        type: 'INVENTORY_UPDATE',
+        productId,
+        stock_left: stockLeft,
+        in_stock: inStock,
+        timestamp: new Date().toISOString()
+    });
 
     adminSockets.forEach(ws => {
         if (ws.readyState === WebSocket.OPEN) ws.send(payload);
@@ -174,5 +259,6 @@ function getStatusMessage(status, riderName) {
 module.exports = {
     setupRealtime,
     broadcastOrderPlaced: notifyAdminNewOrder,
-    broadcastStatusUpdate
+    broadcastStatusUpdate,
+    broadcastInventoryUpdate
 };

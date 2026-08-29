@@ -384,7 +384,7 @@ function filterProducts() {
     let filtered = productsCache.filter(p => p.name.toLowerCase().includes(query) || p.category.toLowerCase().includes(query));
 
     if (currentProductFilter === 'active') {
-        filtered = filtered.filter(p => p.in_stock && (p.is_active === 1 || p.is_active === null));
+        filtered = filtered.filter(p => p.in_stock && p.stock_left > 0);
     } else if (currentProductFilter === 'low') {
         filtered = filtered.filter(p => p.stock_left > 0 && p.stock_left <= 10);
     } else if (currentProductFilter === 'out') {
@@ -442,7 +442,7 @@ function filterProducts() {
 // ================= 3. INVENTORY LOAD =================
 async function loadInventory() {
     try {
-        const res = await fetch('/api/products', { headers: getAuthHeaders() });
+        const res = await fetch('/api/products?includeInactive=true', { headers: getAuthHeaders() });
         const data = await res.json();
         productsCache = data.products || [];
         filterInventory();
@@ -527,7 +527,7 @@ async function promptCustomStock(productId, current) {
         const res = await fetch('/api/products/admin/adjust-stock', {
             method: 'POST',
             headers: getAuthHeaders(),
-            body: JSON.stringify({ productId, setStock: parsed })
+            body: JSON.stringify({ productId, stock: parsed })
         });
         const data = await res.json();
         if (data.success) {
@@ -878,7 +878,21 @@ async function loadAnalytics() {
 
 // ================= 9. REAL-TIME WEBSOCKET & TOAST NOTIFICATIONS =================
 let wsReconnectTimer = null;
+let wsReconnectAttempts = 0;
+let wsPingInterval = null;
 const processedOrderNotificationIds = new Set();
+
+function updateConnectionStatus(connected) {
+    const indicator = document.getElementById('ws-status-indicator');
+    const text = document.getElementById('ws-status-text');
+    if (indicator) {
+        indicator.className = `w-2 h-2 rounded-full ${connected ? 'bg-[#10B981] animate-pulse' : 'bg-[#ba1a1a]'}`;
+    }
+    if (text) {
+        text.textContent = connected ? 'Live' : 'Offline';
+        text.className = `text-[10px] font-bold ${connected ? 'text-[#10B981]' : 'text-[#ba1a1a]'}`;
+    }
+}
 
 function initRealtimeWebSocket() {
     // If a connection is already open or in progress, do not open a duplicate!
@@ -889,6 +903,11 @@ function initRealtimeWebSocket() {
     if (wsReconnectTimer) {
         clearTimeout(wsReconnectTimer);
         wsReconnectTimer = null;
+    }
+
+    if (wsPingInterval) {
+        clearInterval(wsPingInterval);
+        wsPingInterval = null;
     }
 
     if (realtimeWs) {
@@ -904,19 +923,32 @@ function initRealtimeWebSocket() {
         realtimeWs = new WebSocket(wsUrl);
 
         realtimeWs.onopen = () => {
-            console.log('[Admin WS] Connected to live orders stream.');
+            console.log('[Admin WS] ✅ Connected to live orders stream.');
+            wsReconnectAttempts = 0;
+            updateConnectionStatus(true);
+
+            // Start heartbeat ping every 20s to keep connection alive
+            wsPingInterval = setInterval(() => {
+                if (realtimeWs && realtimeWs.readyState === WebSocket.OPEN) {
+                    realtimeWs.send(JSON.stringify({ type: 'PING' }));
+                }
+            }, 20000);
         };
 
         realtimeWs.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
-                console.log('[Admin WS Message Received]:', data);
 
                 if (data.type === 'NEW_ORDER' && data.order) {
                     handleRealtimeNewOrder(data.order);
                 } else if (data.type === 'ORDER_STATUS_UPDATE') {
                     handleRealtimeStatusUpdate(data);
+                } else if (data.type === 'INVENTORY_UPDATE') {
+                    handleRealtimeInventoryUpdate(data);
+                } else if (data.type === 'CONNECTED') {
+                    console.log('[Admin WS] Server confirmed connection:', data.message);
                 }
+                // Silently ignore PONG
             } catch (err) {
                 console.error('[Admin WS Parse Error]:', err);
             }
@@ -924,8 +956,15 @@ function initRealtimeWebSocket() {
 
         realtimeWs.onclose = () => {
             realtimeWs = null;
+            updateConnectionStatus(false);
+            if (wsPingInterval) { clearInterval(wsPingInterval); wsPingInterval = null; }
+
             if (adminToken && !wsReconnectTimer) {
-                wsReconnectTimer = setTimeout(initRealtimeWebSocket, 3000);
+                // Exponential backoff: 1s, 2s, 4s, 8s... max 15s
+                const delay = Math.min(1000 * Math.pow(2, wsReconnectAttempts), 15000);
+                wsReconnectAttempts++;
+                console.log(`[Admin WS] Reconnecting in ${delay}ms (attempt ${wsReconnectAttempts})`);
+                wsReconnectTimer = setTimeout(initRealtimeWebSocket, delay);
             }
         };
 
@@ -935,10 +974,26 @@ function initRealtimeWebSocket() {
         };
     } catch (e) {
         console.error('[Admin WS Init Error]:', e);
+        updateConnectionStatus(false);
         if (!wsReconnectTimer) {
-            wsReconnectTimer = setTimeout(initRealtimeWebSocket, 5000);
+            wsReconnectTimer = setTimeout(initRealtimeWebSocket, 3000);
         }
     }
+}
+
+// Handle real-time inventory update
+function handleRealtimeInventoryUpdate(data) {
+    const { productId, stock_left, in_stock } = data;
+    // Update products cache in-place
+    const p = productsCache.find(x => x.id === productId);
+    if (p) {
+        p.stock_left = stock_left;
+        p.in_stock = in_stock;
+    }
+    // Refresh current view if on inventory or products
+    if (activeView === 'inventory') filterInventory();
+    else if (activeView === 'products') filterProducts();
+    else if (activeView === 'dashboard') loadDashboard();
 }
 
 // Handle Incoming Order in Real-Time (Strict Single Alert Deduplication)
@@ -1206,6 +1261,41 @@ function logoutAdmin() {
     showLoginModal();
 }
 
+// General purpose toast notification utility
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const id = `toast-gen-${Date.now()}`;
+    const colors = {
+        success: 'border-[#10B981] bg-[#ecfdf5]',
+        error: 'border-[#ba1a1a] bg-[#fce8e6]',
+        info: 'border-[#3c4043] bg-[#f7fafd]',
+        warning: 'border-[#f59e0b] bg-[#fef3c7]'
+    };
+    const iconMap = {
+        success: 'check_circle',
+        error: 'error',
+        info: 'info',
+        warning: 'warning'
+    };
+
+    const html = `
+        <div id="${id}" class="toast-card p-3 border-l-4 ${colors[type] || colors.info} flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-[16px]">${iconMap[type] || 'info'}</span>
+                <span class="text-xs font-semibold text-[#181c1f]">${message}</span>
+            </div>
+            <button onclick="dismissToast('${id}')" class="text-[#74777a] hover:text-[#181c1f] text-xs">✕</button>
+        </div>
+    `;
+
+    container.insertAdjacentHTML('beforeend', html);
+    const el = document.getElementById(id);
+    setTimeout(() => { if (el) el.classList.add('show'); }, 20);
+    setTimeout(() => { dismissToast(id); }, 4000);
+}
+
 // Initial Boot Check
 if (!localStorage.getItem('lpuquick_admin_token')) {
     showLoginModal();
@@ -1217,10 +1307,11 @@ if (!localStorage.getItem('lpuquick_admin_token')) {
 
 updateSoundUI();
 
-// Periodic background sync fallback (every 8 seconds when authenticated)
+// Periodic background sync fallback (every 15 seconds when authenticated)
 setInterval(() => {
     if (!adminToken) return;
     if (activeView === 'dashboard') loadDashboard();
     else if (activeView === 'orders') loadOrders();
-}, 8000);
-
+    else if (activeView === 'inventory') loadInventory();
+    else if (activeView === 'products') loadProducts();
+}, 15000);
