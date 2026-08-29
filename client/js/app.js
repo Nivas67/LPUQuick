@@ -113,8 +113,8 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
     let selectedHostel = 'BH13';
     let selectedBlock = window.currentBlock || localStorage.getItem('lpuquick_block') || 'Block A';
     const savedRoom = window.currentRoom || localStorage.getItem('lpuquick_room') || '';
-    const savedFloor = localStorage.getItem('lpuquick_floor') || '3rd Floor';
-    const savedPhone = localStorage.getItem('lpuquick_phone') || '';
+    let savedPhone = localStorage.getItem('lpuquick_phone') || '';
+    if (savedPhone === '7671836211' || savedPhone === '9877982857') savedPhone = '';
 
     const modal = document.createElement('div');
     modal.id = 'address-modal';
@@ -207,7 +207,7 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
                 <label class="block text-xs font-semibold text-on-surface-variant" for="phone-input">Contact Phone Number (For delivery runner) *</label>
                 <div class="relative">
                     <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant">+91</span>
-                    <input type="tel" id="phone-input" maxlength="10" required class="w-full pl-12 pr-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface font-semibold focus:outline-none focus:border-emerald" placeholder="7671836211" value="${savedPhone}">
+                    <input type="tel" id="phone-input" maxlength="10" required class="w-full pl-12 pr-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface font-semibold focus:outline-none focus:border-emerald" placeholder="XXXXXXXXXX" value="${savedPhone}">
                 </div>
             </div>
 
