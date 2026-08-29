@@ -331,8 +331,60 @@ window.pageInits.orders = function() {
     const riderAvatar = document.getElementById('rider-avatar');
     const riderBadge = document.getElementById('rider-badge');
 
+    let currentOrderStatus = activeOrder ? activeOrder.status : 'Order Placed';
+
+    function updateHelpModalCancelState(status) {
+        currentOrderStatus = status;
+        const cancelBtn = document.getElementById('btn-help-cancel-order');
+        if (!cancelBtn) return;
+
+        const s = (status || '').toLowerCase();
+        const isFrozen = ['out for delivery', 'delivered'].includes(s);
+
+        if (isFrozen) {
+            cancelBtn.disabled = true;
+            cancelBtn.className = 'w-full text-left flex items-center justify-between p-3.5 rounded-2xl bg-surface-container-high opacity-50 border border-outline-variant/30 cursor-not-allowed transition-all select-none';
+            cancelBtn.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-surface-variant text-on-surface-variant flex items-center justify-center shadow-md">
+                        <span class="material-symbols-outlined text-xl">lock</span>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-xs sm:text-sm text-on-surface-variant flex items-center gap-1.5">
+                            <span>3. Cancel Order</span>
+                            <span class="text-[10px] bg-surface-variant text-on-surface-variant font-bold px-2 py-0.5 rounded-full">Locked 🔒</span>
+                        </h4>
+                        <p class="text-[11px] text-on-surface-variant" id="help-cancel-desc">
+                            🔒 Order packed & walker en route. Cannot cancel now.
+                        </p>
+                    </div>
+                </div>
+                <span class="material-symbols-outlined text-on-surface-variant">lock</span>
+            `;
+        } else {
+            cancelBtn.disabled = false;
+            cancelBtn.className = 'w-full text-left flex items-center justify-between p-3.5 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 cursor-pointer transition-all group';
+            cancelBtn.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-error text-white flex items-center justify-center shadow-md">
+                        <span class="material-symbols-outlined text-xl">cancel</span>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-xs sm:text-sm text-error">3. Cancel Order</h4>
+                        <p class="text-[11px] text-on-surface-variant" id="help-cancel-desc">
+                            Cancel active delivery & request immediate refund
+                        </p>
+                    </div>
+                </div>
+                <span class="material-symbols-outlined text-error group-hover:translate-x-1 transition-transform">chevron_right</span>
+            `;
+        }
+    }
+
     // Live status UI updater
     function applyOrderStatusUI(status, riderName) {
+        currentOrderStatus = status;
+        updateHelpModalCancelState(status);
         const rider = riderName || 'Alex';
         if (riderNameDisplay) riderNameDisplay.textContent = rider;
         if (riderAvatar) riderAvatar.textContent = rider[0];
@@ -495,6 +547,7 @@ window.pageInits.orders = function() {
 
     if (btnHelp && helpModal) {
         btnHelp.onclick = () => {
+            updateHelpModalCancelState(currentOrderStatus);
             helpModal.classList.remove('hidden');
         };
     }
@@ -533,9 +586,15 @@ window.pageInits.orders = function() {
         };
     }
 
-    // Option 3: Cancel Order
+    // Option 3: Cancel Order (Strictly blocked when Out for Delivery / Delivered)
     if (btnHelpCancel) {
         btnHelpCancel.onclick = async () => {
+            const s = (currentOrderStatus || '').toLowerCase();
+            if (['out for delivery', 'delivered'].includes(s)) {
+                alert('⚠️ Order is already packed and out for delivery with the campus runner. It can no longer be cancelled.');
+                return;
+            }
+
             const confirmed = confirm('Are you sure you want to cancel this order? Instant refund will be initiated.');
             if (confirmed) {
                 try {
