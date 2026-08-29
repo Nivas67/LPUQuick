@@ -128,6 +128,23 @@ const api = {
         return result;
     },
 
+    async cancelOrder(orderId, reason = '') {
+        const res = await fetch(`${API_BASE}/orders/${orderId}/cancel`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason })
+        });
+        return res.json();
+    },
+    async changeOrderAddress(orderId, newAddress) {
+        const res = await fetch(`${API_BASE}/orders/${orderId}/change-address`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ newAddress })
+        });
+        return res.json();
+    },
+
     // Categories
     async getCategories() {
         const res = await fetch(`${API_BASE}/categories`);

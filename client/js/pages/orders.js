@@ -62,15 +62,22 @@ window.pages.orders = async function() {
         <!-- Active Order Live Tracking Section -->
         ${activeOrder ? `
         <section class="space-y-3" id="active-order-tracking-card" data-order-id="${activeOrder.id}">
-            <div class="flex justify-between items-center">
+            <div class="flex justify-between items-center flex-wrap gap-2">
                 <h2 class="font-headline-md text-base sm:text-lg font-bold text-on-surface flex items-center gap-2">
                     <span class="w-2.5 h-2.5 rounded-full bg-emerald animate-pulse"></span>
                     Live 3-Minute BH13 Campus Delivery
                 </h2>
-                <span class="text-xs bg-emerald/15 text-emerald font-extrabold px-3 py-1 rounded-full flex items-center gap-1" id="tracking-eta">
-                    <span class="material-symbols-outlined text-xs">bolt</span>
-                    <span id="tracking-eta-time">Status: ${activeOrder.status}</span>
-                </span>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs bg-emerald/15 text-emerald font-extrabold px-3 py-1 rounded-full flex items-center gap-1" id="tracking-eta">
+                        <span class="material-symbols-outlined text-xs">bolt</span>
+                        <span id="tracking-eta-time">Status: ${activeOrder.status}</span>
+                    </span>
+                    <!-- Help Option Button (Visible ONLY when order is active) -->
+                    <button type="button" id="btn-order-help" class="text-xs bg-surface-container-high hover:bg-emerald/15 hover:text-emerald text-on-surface font-bold px-3 py-1 rounded-full border border-outline-variant/40 flex items-center gap-1 transition-all active:scale-95 shadow-sm cursor-pointer" title="Order Help & Support">
+                        <span class="material-symbols-outlined text-sm text-emerald">help</span>
+                        <span>Help</span>
+                    </button>
+                </div>
             </div>
             <div class="glass-card rounded-3xl overflow-hidden border border-emerald/30 shadow-lg bg-surface">
                 <!-- BH13 Campus Floor / Corridor Live Map Canvas -->
@@ -119,7 +126,7 @@ window.pages.orders = async function() {
                         <div class="w-10 h-10 rounded-2xl bg-primary text-white flex items-center justify-center shadow-lg border-2 border-white">
                             <span class="material-symbols-outlined text-xl">apartment</span>
                         </div>
-                        <span class="bg-surface text-on-surface text-[10px] font-bold px-2 py-0.5 rounded shadow mt-1 whitespace-nowrap border border-outline-variant/30">${hostelShort} (Block A)</span>
+                        <span class="bg-surface text-on-surface text-[10px] font-bold px-2 py-0.5 rounded shadow mt-1 whitespace-nowrap border border-outline-variant/30" id="tracking-dest-label">${hostelShort} (Block A)</span>
                     </div>
                 </div>
 
@@ -129,7 +136,7 @@ window.pages.orders = async function() {
                         <div>
                             <p class="text-xs text-on-surface-variant font-medium flex items-center gap-1" id="tracking-status-msg">
                                 <span class="material-symbols-outlined text-sm text-emerald">directions_walk</span>
-                                <span>${activeOrder.rider_name || 'Alex'} picked up your snacks from BH13 Dark Store and is walking to ${hostelAddress}.</span>
+                                <span>${activeOrder.rider_name || 'Alex'} picked up your snacks from BH13 Dark Store and is walking to ${activeOrder.delivery_address || hostelAddress}.</span>
                             </p>
                             <h3 class="font-bold text-sm sm:text-base text-on-surface mt-0.5">Order #${activeOrder.id.replace('order_', '')} · Total ₹${activeOrder.total} (${activeOrder.payment_method || 'Cash on Delivery'})</h3>
                         </div>
@@ -184,6 +191,70 @@ window.pages.orders = async function() {
             </div>
         </section>
     </main>
+
+    <!-- Order Help Modal (Shown only for active orders) -->
+    <div id="order-help-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="glass-card bg-surface rounded-3xl max-w-md w-full p-6 shadow-2xl border border-glass-border space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div class="flex items-center justify-between border-b border-surface-variant/40 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="w-8 h-8 rounded-full bg-emerald/15 text-emerald flex items-center justify-center">
+                        <span class="material-symbols-outlined text-lg">support_agent</span>
+                    </span>
+                    <div>
+                        <h3 class="font-bold text-sm sm:text-base text-on-surface">Order Help & Support</h3>
+                        <p class="text-[11px] text-on-surface-variant">Order #${activeOrder ? activeOrder.id.replace('order_', '') : ''}</p>
+                    </div>
+                </div>
+                <button type="button" id="btn-close-help-modal" class="w-8 h-8 rounded-full bg-surface-container-high text-on-surface-variant hover:text-on-surface flex items-center justify-center">
+                    <span class="material-symbols-outlined text-base">close</span>
+                </button>
+            </div>
+
+            <div class="space-y-2.5">
+                <!-- Option 1: Call Delivery Agent -->
+                <a href="tel:7671836211" class="flex items-center justify-between p-3.5 rounded-2xl bg-surface-container-high hover:bg-emerald/10 border border-outline-variant/30 hover:border-emerald transition-all group">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-emerald text-white flex items-center justify-center shadow-md">
+                            <span class="material-symbols-outlined text-xl">call</span>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-xs sm:text-sm text-on-surface">1. Call Delivery Agent</h4>
+                            <p class="text-[11px] text-on-surface-variant">${activeOrder?.rider_name || 'Alex'} (BH13 Express Walker) · 7671836211</p>
+                        </div>
+                    </div>
+                    <span class="material-symbols-outlined text-emerald group-hover:translate-x-1 transition-transform">chevron_right</span>
+                </a>
+
+                <!-- Option 2: Change Address -->
+                <button type="button" id="btn-help-change-address" class="w-full text-left flex items-center justify-between p-3.5 rounded-2xl bg-surface-container-high hover:bg-emerald/10 border border-outline-variant/30 hover:border-emerald transition-all group cursor-pointer">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center shadow-md">
+                            <span class="material-symbols-outlined text-xl">location_on</span>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-xs sm:text-sm text-on-surface">2. Change Delivery Address</h4>
+                            <p class="text-[11px] text-on-surface-variant truncate max-w-[220px]" id="help-current-address-label">${activeOrder?.delivery_address || hostelAddress}</p>
+                        </div>
+                    </div>
+                    <span class="material-symbols-outlined text-primary group-hover:translate-x-1 transition-transform">chevron_right</span>
+                </button>
+
+                <!-- Option 3: Cancel Order -->
+                <button type="button" id="btn-help-cancel-order" class="w-full text-left flex items-center justify-between p-3.5 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 transition-all group cursor-pointer">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-error text-white flex items-center justify-center shadow-md">
+                            <span class="material-symbols-outlined text-xl">cancel</span>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-xs sm:text-sm text-error">3. Cancel Order</h4>
+                            <p class="text-[11px] text-on-surface-variant">Cancel active delivery & request immediate refund</p>
+                        </div>
+                    </div>
+                    <span class="material-symbols-outlined text-error group-hover:translate-x-1 transition-transform">chevron_right</span>
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- BottomNavBar -->
     <div class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-50">
@@ -389,16 +460,72 @@ window.pageInits.orders = function() {
         startPollingStatus();
     }
 
-    function startPollingStatus() {
-        if (ordersPoll) clearInterval(ordersPoll);
-        ordersPoll = setInterval(async () => {
-            try {
-                const res = await window.api.getOrderDetail(activeOrderId);
-                if (res && res.order && res.order.status) {
-                    applyOrderStatusUI(res.order.status, res.order.rider_name);
-                    if (res.order.status === 'Delivered') clearInterval(ordersPoll);
+    // Help Modal Logic (Only available when order is active)
+    const btnHelp = document.getElementById('btn-order-help');
+    const helpModal = document.getElementById('order-help-modal');
+    const btnCloseHelp = document.getElementById('btn-close-help-modal');
+    const btnHelpChangeAddr = document.getElementById('btn-help-change-address');
+    const btnHelpCancel = document.getElementById('btn-help-cancel-order');
+    const helpCurrentAddrLabel = document.getElementById('help-current-address-label');
+    const trackingDestLabel = document.getElementById('tracking-dest-label');
+
+    if (btnHelp && helpModal) {
+        btnHelp.onclick = () => {
+            helpModal.classList.remove('hidden');
+        };
+    }
+
+    if (btnCloseHelp && helpModal) {
+        btnCloseHelp.onclick = () => {
+            helpModal.classList.add('hidden');
+        };
+    }
+
+    // Option 2: Change Address
+    if (btnHelpChangeAddr) {
+        btnHelpChangeAddr.onclick = async () => {
+            const current = helpCurrentAddrLabel?.textContent || hostelAddress;
+            const newRoom = prompt('Enter updated hostel block & room number for fast delivery:', current);
+            if (newRoom && newRoom.trim() && newRoom.trim() !== current) {
+                const trimmed = newRoom.trim();
+                try {
+                    btnHelpChangeAddr.disabled = true;
+                    btnHelpChangeAddr.style.opacity = '0.6';
+                    await window.api.changeOrderAddress(activeOrderId, trimmed);
+                    if (helpCurrentAddrLabel) helpCurrentAddrLabel.textContent = trimmed;
+                    if (trackingDestLabel) trackingDestLabel.textContent = trimmed;
+                    if (msgEl) {
+                        msgEl.innerHTML = `<span class="material-symbols-outlined text-sm text-emerald">directions_walk</span><span>Delivery address updated to <b>${trimmed}</b>. Runner notified!</span>`;
+                    }
+                    alert(`✓ Address updated to: ${trimmed}`);
+                    helpModal.classList.add('hidden');
+                } catch (err) {
+                    alert('Could not update address: ' + err.message);
+                } finally {
+                    btnHelpChangeAddr.disabled = false;
+                    btnHelpChangeAddr.style.opacity = '1';
                 }
-            } catch (err) {}
-        }, 3000);
+            }
+        };
+    }
+
+    // Option 3: Cancel Order
+    if (btnHelpCancel) {
+        btnHelpCancel.onclick = async () => {
+            const confirmed = confirm('Are you sure you want to cancel this order? Instant refund will be initiated.');
+            if (confirmed) {
+                try {
+                    btnHelpCancel.disabled = true;
+                    btnHelpCancel.textContent = 'Cancelling...';
+                    await window.api.cancelOrder(activeOrderId, 'Cancelled by student via Help Menu');
+                    applyOrderStatusUI('Cancelled');
+                    helpModal.classList.add('hidden');
+                } catch (err) {
+                    alert('Could not cancel order: ' + err.message);
+                    btnHelpCancel.disabled = false;
+                }
+            }
+        };
     }
 };
+

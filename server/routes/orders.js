@@ -118,6 +118,94 @@ router.post('/:orderId/reorder', (req, res) => {
     res.json({ success: true, message: 'Order items added to cart', count: items.length });
 });
 
+// POST /api/orders/:orderId/cancel (Student cancels active order)
+router.post('/:orderId/cancel', (req, res) => {
+    const db = req.app.locals.db;
+    const { orderId } = req.params;
+    const { reason } = req.body;
+
+    if (!orderId) return res.status(400).json({ error: 'orderId is required' });
+
+    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+
+    if (['Delivered', 'delivered', 'Cancelled', 'cancelled'].includes(order.status)) {
+        return res.status(400).json({ error: `Cannot cancel order that is already ${order.status}` });
+    }
+
+    let history = [];
+    try { history = JSON.parse(order.status_history || '[]'); } catch(e) {}
+    history.push({
+        status: 'Cancelled',
+        timestamp: new Date().toISOString(),
+        updated_by: 'Student (Help Option)',
+        reason: reason || 'Cancelled by student via Help Menu'
+    });
+
+    db.prepare('UPDATE orders SET status = ?, status_history = ? WHERE id = ?')
+        .run('Cancelled', JSON.stringify(history), orderId);
+
+    // Sync with Supabase Cloud
+    try {
+        const { getSupabaseClient } = require('../supabase');
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            supabase.from('orders').update({ status: 'Cancelled' }).eq('id', orderId).catch(e => {});
+        }
+    } catch (e) {}
+
+    // Broadcast instant real-time updates to Admin Dashboard and Student Live Tracking
+    try {
+        const { notifyOrderStatusUpdate } = require('../realtime');
+        notifyOrderStatusUpdate(orderId, { status: 'Cancelled', riderName: order.rider_name });
+    } catch (e) {}
+
+    res.json({ success: true, message: 'Order has been cancelled successfully', status: 'Cancelled' });
+});
+
+// POST /api/orders/:orderId/change-address (Student changes delivery address/room while in progress)
+router.post('/:orderId/change-address', (req, res) => {
+    const db = req.app.locals.db;
+    const { orderId } = req.params;
+    const { newAddress } = req.body;
+
+    if (!orderId || !newAddress) {
+        return res.status(400).json({ error: 'orderId and newAddress are required' });
+    }
+
+    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+
+    let history = [];
+    try { history = JSON.parse(order.status_history || '[]'); } catch(e) {}
+    history.push({
+        status: order.status,
+        timestamp: new Date().toISOString(),
+        updated_by: 'Student (Address Update)',
+        note: `Address changed to: ${newAddress}`
+    });
+
+    db.prepare('UPDATE orders SET delivery_address = ?, status_history = ? WHERE id = ?')
+        .run(newAddress, JSON.stringify(history), orderId);
+
+    // Sync with Supabase Cloud
+    try {
+        const { getSupabaseClient } = require('../supabase');
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            supabase.from('orders').update({ delivery_address: newAddress }).eq('id', orderId).catch(e => {});
+        }
+    } catch (e) {}
+
+    // Broadcast real-time update
+    try {
+        const { notifyOrderStatusUpdate } = require('../realtime');
+        notifyOrderStatusUpdate(orderId, { status: order.status, riderName: order.rider_name, delivery_address: newAddress });
+    } catch (e) {}
+
+    res.json({ success: true, message: 'Delivery address updated successfully', newAddress });
+});
+
 const requireAdmin = require('../middleware/adminAuth');
 
 // GET /api/orders/admin/all (Fetch all orders for Admin Dashboard)
