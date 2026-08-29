@@ -1,0 +1,461 @@
+/* ============================================================
+   LPUQuick — Global Ultra-Glass Frosted Glassmorphism
+   ============================================================ */
+
+:root {
+    --bg-primary: #f6f8f7;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --card-bg: rgba(255, 255, 255, 0.68);
+    --card-border: rgba(255, 255, 255, 0.85);
+    --surface-high: rgba(240, 244, 241, 0.6);
+    --header-bg: rgba(255, 255, 255, 0.75);
+}
+
+/* ============================================================
+   LIGHT MODE — FROSTED GLASS & AMBIENT MESH GRADIENTS
+   ============================================================ */
+
+body {
+    background-color: #f6f8f7 !important;
+    background-image: 
+        radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.14) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.09) 0px, transparent 50%),
+        radial-gradient(at 50% 100%, rgba(14, 165, 233, 0.08) 0px, transparent 50%),
+        radial-gradient(at 10% 80%, rgba(16, 185, 129, 0.08) 0px, transparent 40%) !important;
+    background-attachment: fixed !important;
+    color: #0f172a !important;
+}
+
+/* Explicit High Contrast Brand Text Rules */
+.brand-title {
+    color: #044e3b !important;
+    font-weight: 800;
+}
+
+.text-primary {
+    color: #044e3b !important;
+}
+
+.bg-background {
+    background-color: transparent !important;
+}
+
+/* Light Mode Glass Cards & Surfaces */
+.glass-card,
+.glass-panel,
+.glass-overlay,
+.bg-surface {
+    background: rgba(255, 255, 255, 0.68) !important;
+    backdrop-filter: blur(28px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.85) !important;
+    box-shadow: 0 10px 32px 0 rgba(0, 0, 0, 0.04), inset 0 1px 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+.bg-surface-container-high {
+    background: rgba(240, 245, 242, 0.6) !important;
+    border: 1px solid rgba(255, 255, 255, 0.7) !important;
+}
+
+.bg-surface-container-lowest {
+    background: rgba(255, 255, 255, 0.8) !important;
+}
+
+.border-glass-border,
+.border-surface-variant {
+    border-color: rgba(255, 255, 255, 0.75) !important;
+}
+
+/* Glassy Top Navigation Header in Light Mode */
+header {
+    background: rgba(255, 255, 255, 0.72) !important;
+    backdrop-filter: blur(32px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(200%) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.85) !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.03) !important;
+}
+
+/* Glassy Floating Bottom Navigation Bar in Light Mode */
+nav {
+    background: rgba(255, 255, 255, 0.78) !important;
+    backdrop-filter: blur(36px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(36px) saturate(200%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.9) !important;
+    box-shadow: 0 14px 44px rgba(0, 0, 0, 0.08), inset 0 1px 2px rgba(255, 255, 255, 1) !important;
+}
+
+/* Product Cards in Light Mode */
+.product-detail-trigger {
+    background: rgba(255, 255, 255, 0.7) !important;
+    backdrop-filter: blur(24px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.85) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04), inset 0 1px 1px rgba(255, 255, 255, 0.9) !important;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s, box-shadow 0.2s;
+}
+.product-detail-trigger:hover {
+    border-color: rgba(16, 185, 129, 0.5) !important;
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.08), 0 0 20px rgba(16, 185, 129, 0.15) !important;
+    transform: translateY(-3px);
+}
+
+/* Search inputs in Light Mode */
+input {
+    background: rgba(255, 255, 255, 0.75) !important;
+    border-color: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(16px) !important;
+}
+
+/* ============================================================
+   DARK MODE — ULTRA-GLASS FROSTED GLASSMORPHISM
+   ============================================================ */
+
+html.dark, body.dark {
+    --bg-primary: #0a110d;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --card-bg: rgba(18, 30, 24, 0.65);
+    --card-border: rgba(255, 255, 255, 0.09);
+    --surface-high: rgba(26, 42, 33, 0.7);
+    --header-bg: rgba(10, 17, 13, 0.75);
+}
+
+body.dark {
+    background-color: #0a110d !important;
+    background-image: 
+        radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.16) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.13) 0px, transparent 50%),
+        radial-gradient(at 50% 100%, rgba(5, 150, 105, 0.13) 0px, transparent 50%),
+        radial-gradient(at 10% 80%, rgba(16, 185, 129, 0.1) 0px, transparent 40%) !important;
+    background-attachment: fixed !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark .bg-background {
+    background-color: transparent !important;
+}
+
+body.dark header {
+    background: rgba(10, 17, 13, 0.7) !important;
+    backdrop-filter: blur(28px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+body.dark nav {
+    background: rgba(14, 24, 19, 0.75) !important;
+    backdrop-filter: blur(32px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(190%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.15) !important;
+}
+
+body.dark .glass-card,
+body.dark .glass-panel,
+body.dark .glass-overlay,
+body.dark .bg-surface {
+    background: rgba(18, 30, 24, 0.65) !important;
+    backdrop-filter: blur(24px) saturate(160%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(160%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35), inset 0 1px 1px 0 rgba(255, 255, 255, 0.08) !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark .bg-surface-container-high {
+    background: rgba(26, 42, 33, 0.65) !important;
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+body.dark .bg-surface-container-lowest {
+    background: rgba(14, 24, 19, 0.75) !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark .text-on-surface {
+    color: #f1f5f9 !important;
+}
+
+body.dark .text-on-surface-variant {
+    color: #94a3b8 !important;
+}
+
+body.dark .text-primary {
+    color: #34d399 !important;
+}
+
+body.dark .brand-title {
+    color: #ffffff !important;
+}
+
+body.dark .border-glass-border {
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+body.dark .border-surface-variant {
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+body.dark input {
+    background: rgba(16, 28, 22, 0.7) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    color: #f1f5f9 !important;
+    backdrop-filter: blur(16px) !important;
+}
+
+body.dark .modal-content {
+    background: rgba(14, 24, 19, 0.92) !important;
+    backdrop-filter: blur(36px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(36px) saturate(200%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.12) !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark .product-detail-trigger {
+    background: rgba(18, 30, 24, 0.65) !important;
+    backdrop-filter: blur(20px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+body.dark .product-detail-trigger:hover {
+    border-color: rgba(16, 185, 129, 0.4) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(16, 185, 129, 0.15) !important;
+}
+
+/* Ensure product images are NEVER inverted or washed out */
+img, video, svg, canvas {
+    filter: none !important;
+}
+
+/* ============================================================
+   INTERACTIVE COMPONENTS & EFFECTS
+   ============================================================ */
+
+/* Input Glow */
+.input-glow:focus {
+    border-color: #10B981 !important;
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15) !important;
+}
+
+/* Scrollbar Hide */
+.no-scrollbar::-webkit-scrollbar,
+.hide-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar,
+.hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* Flow Assist AI Glow */
+.ai-glow {
+    box-shadow: 0 0 24px rgba(16, 185, 129, 0.35), inset 0 0 12px rgba(16, 185, 129, 0.15);
+}
+
+.ai-gradient-text {
+    background: linear-gradient(135deg, #10B981 0%, #A855F7 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
+}
+
+/* Flow Assist animated background */
+.animated-bg {
+    background: linear-gradient(45deg, #f0f7f3, #e8f0fe, #f5e8ff, #f0f7f3);
+    background-size: 400% 400%;
+    animation: gradientBG 15s ease infinite;
+}
+body.dark .animated-bg {
+    background: linear-gradient(45deg, #0a110d, #14221a, #231230, #0a110d) !important;
+    background-size: 400% 400% !important;
+}
+
+@keyframes gradientBG {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Orders map pattern */
+.map-pattern {
+    background-image: radial-gradient(#bbcabf 1.5px, transparent 1.5px);
+    background-size: 20px 20px;
+    background-position: -10px -10px;
+}
+body.dark .map-pattern {
+    background-image: radial-gradient(#2d4235 1.5px, transparent 1.5px) !important;
+}
+
+@keyframes dash {
+    to { stroke-dashoffset: -10; }
+}
+
+/* Checkout Slide-to-Pay */
+.slider-track {
+    position: relative;
+    width: 100%;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(28px);
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+    touch-action: none !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+}
+body.dark .slider-track {
+    background: rgba(18, 30, 24, 0.75) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.1) !important;
+}
+
+.slider-thumb {
+    position: absolute;
+    left: 6px;
+    width: 48px;
+    height: 48px;
+    background: #10B981;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.5);
+    z-index: 2;
+    touch-action: none !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+}
+.slider-thumb:active { cursor: grabbing; transform: scale(0.96); }
+.slider-thumb .material-symbols-outlined { color: white; font-size: 24px; pointer-events: none; }
+.slider-text {
+    width: 100%;
+    text-align: center;
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: #1e293b;
+    z-index: 1;
+    pointer-events: none;
+    transition: opacity 0.3s;
+}
+body.dark .slider-text {
+    color: #f1f5f9 !important;
+}
+
+.slider-progress {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background: rgba(16, 185, 129, 0.25);
+    width: 0;
+    border-radius: 9999px;
+    z-index: 0;
+}
+
+/* Card Quantity Stepper [- qty +] */
+.card-qty-stepper {
+    display: inline-flex;
+    align-items: center;
+    background: #10B981;
+    color: #ffffff;
+    border-radius: 9999px;
+    padding: 2px 4px;
+    box-shadow: 0 3px 10px rgba(16, 185, 129, 0.4);
+}
+.card-qty-btn {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.card-qty-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+.card-qty-val {
+    font-size: 12px;
+    font-weight: 700;
+    min-width: 18px;
+    text-align: center;
+    padding: 0 2px;
+}
+
+/* Modal and Bottom Sheet Animations */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 9999;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    animation: fadeIn 0.2s ease-out;
+}
+@media (min-width: 640px) {
+    .modal-overlay {
+        align-items: center;
+    }
+}
+
+.modal-content {
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+    border-radius: 1.75rem 1.75rem 0 0;
+    background: rgba(255, 255, 255, 0.88) !important;
+    backdrop-filter: blur(36px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(36px) saturate(200%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.95) !important;
+    box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.12), inset 0 1px 2px rgba(255, 255, 255, 1) !important;
+    animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (min-width: 640px) {
+    .modal-content {
+        border-radius: 1.75rem;
+        animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+}
+
+@keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+@keyframes scaleIn {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Shake Animation */
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+}
+.shake { animation: shake 0.2s ease-in-out; }
+
+.page-enter {
+    animation: fadeIn 0.2s ease-out;
+}

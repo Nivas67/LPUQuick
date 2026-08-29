@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LPUQuick — Dark Store Operations Console</title>
+    
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary': '#064e3b',
+                        'emerald': '#10B981',
+                        'surface': '#0e1813',
+                        'surface-card': '#14221a',
+                        'surface-variant': '#1e3327'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        };
+    </script>
+    <style>
+        body {
+            background: #090f0c;
+            color: #f1f5f9;
+        }
+        .glass-panel {
+            background: rgba(20, 34, 26, 0.75);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .order-card {
+            transition: all 0.2s ease;
+        }
+        .order-card:hover {
+            border-color: rgba(16, 185, 129, 0.4);
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans">
+    
+    <!-- Top Admin Bar -->
+    <header class="glass-panel sticky top-0 z-50 px-6 py-4 flex flex-wrap items-center justify-between border-b border-white/10 gap-4">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-emerald/20 border border-emerald/40 flex items-center justify-center text-emerald font-black text-lg">
+                ⚡
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="text-base sm:text-lg font-bold text-white tracking-tight">LPUQuick Dark Store Console</h1>
+                    <span class="text-[10px] bg-emerald/20 text-emerald border border-emerald/30 px-2 py-0.5 rounded-full font-bold">BH13 Hub</span>
+                </div>
+                <p class="text-xs text-neutral-400">Live Campus Dispatch Management (3-Min Delivery)</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-4 text-xs font-semibold">
+            <div class="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-full border border-white/10">
+                <span class="w-2 h-2 rounded-full bg-emerald animate-pulse"></span>
+                <span id="live-time">Live Clock</span>
+            </div>
+            <a href="/" target="_blank" class="bg-emerald/20 hover:bg-emerald text-emerald hover:text-white px-3 py-1.5 rounded-full border border-emerald/40 transition-all flex items-center gap-1">
+                <span class="material-symbols-outlined text-sm">open_in_new</span>
+                <span>Open Student Storefront</span>
+            </a>
+        </div>
+    </header>
+
+    <!-- Main Admin Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
+        
+        <!-- KPI Metrics Grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div class="glass-panel p-4 rounded-3xl space-y-1">
+                <p class="text-xs text-neutral-400 font-medium flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm text-emerald">shopping_bag</span>
+                    Total Orders
+                </p>
+                <h3 class="text-2xl font-bold text-white" id="stat-total-orders">--</h3>
+            </div>
+            <div class="glass-panel p-4 rounded-3xl space-y-1">
+                <p class="text-xs text-neutral-400 font-medium flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm text-amber-400">hourglass_top</span>
+                    Active Orders
+                </p>
+                <h3 class="text-2xl font-bold text-amber-400" id="stat-active-orders">--</h3>
+            </div>
+            <div class="glass-panel p-4 rounded-3xl space-y-1">
+                <p class="text-xs text-neutral-400 font-medium flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm text-emerald">payments</span>
+                    Total Revenue
+                </p>
+                <h3 class="text-2xl font-bold text-emerald" id="stat-revenue">--</h3>
+            </div>
+            <div class="glass-panel p-4 rounded-3xl space-y-1">
+                <p class="text-xs text-neutral-400 font-medium flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm text-blue-400">inventory_2</span>
+                    Campus Products
+                </p>
+                <h3 class="text-2xl font-bold text-blue-400" id="stat-products">--</h3>
+            </div>
+        </div>
+
+        <!-- Tabs Navigation -->
+        <div class="flex items-center gap-2 border-b border-white/10 pb-3">
+            <button type="button" class="tab-btn px-4 py-2 rounded-2xl text-xs font-bold transition-all bg-emerald text-white" data-tab="orders">
+                📦 Live Orders Queue
+            </button>
+            <button type="button" class="tab-btn px-4 py-2 rounded-2xl text-xs font-bold transition-all bg-white/5 hover:bg-white/10 text-neutral-400" data-tab="inventory">
+                🏷️ Campus Inventory & Stock
+            </button>
+        </div>
+
+        <!-- Section 1: Live Orders Queue -->
+        <section id="tab-orders" class="space-y-4">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h2 class="text-base font-bold text-white">Incoming Campus Orders</h2>
+                    <p class="text-xs text-neutral-400">Click any action button to instantly update the order and notify the student</p>
+                </div>
+                <button type="button" onclick="loadAdminOrders()" class="bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-all">
+                    <span class="material-symbols-outlined text-sm">refresh</span>
+                    <span>Refresh</span>
+                </button>
+            </div>
+
+            <!-- Orders Container -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="admin-orders-list">
+                <div class="text-center py-12 col-span-2 text-neutral-400 text-xs">Loading orders...</div>
+            </div>
+        </section>
+
+        <!-- Section 2: Inventory & Stock Management -->
+        <section id="tab-inventory" class="space-y-4 hidden">
+            <div class="flex flex-wrap justify-between items-center gap-3">
+                <div>
+                    <h2 class="text-base font-bold text-white">Campus Inventory Catalog</h2>
+                    <p class="text-xs text-neutral-400">Toggle in-stock/out-of-stock in real-time across student storefront</p>
+                </div>
+                <input type="text" id="inventory-search" placeholder="Search snacks, drinks, staples..." class="bg-black/40 border border-white/10 rounded-full px-4 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald w-full sm:w-64">
+            </div>
+
+            <div class="glass-panel rounded-3xl overflow-hidden border border-white/10">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs text-neutral-300">
+                        <thead class="bg-white/5 text-neutral-400 uppercase text-[10px] font-bold border-b border-white/10">
+                            <tr>
+                                <th class="p-3.5">Product</th>
+                                <th class="p-3.5">Category</th>
+                                <th class="p-3.5">Price</th>
+                                <th class="p-3.5">MRP</th>
+                                <th class="p-3.5">Stock Status</th>
+                                <th class="p-3.5 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventory-table-body" class="divide-y divide-white/5">
+                            <tr><td colspan="6" class="p-6 text-center text-neutral-500">Loading catalog...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Update Live Clock
+        setInterval(() => {
+            const el = document.getElementById('live-time');
+            if (el) el.textContent = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }, 1000);
+
+        // Tab Switching
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll('.tab-btn').forEach(b => {
+                    b.classList.remove('bg-emerald', 'text-white');
+                    b.classList.add('bg-white/5', 'text-neutral-400');
+                });
+                btn.classList.remove('bg-white/5', 'text-neutral-400');
+                btn.classList.add('bg-emerald', 'text-white');
+
+                const tab = btn.dataset.tab;
+                document.getElementById('tab-orders').classList.toggle('hidden', tab !== 'orders');
+                document.getElementById('tab-inventory').classList.toggle('hidden', tab !== 'inventory');
+                if (tab === 'inventory') loadInventory();
+            };
+        });
+
+        // 1. Fetch and render all orders
+        let allProductsCache = [];
+
+        async function loadAdminOrders() {
+            const list = document.getElementById('admin-orders-list');
+            try {
+                const res = await fetch('/api/orders/admin/all');
+                const data = await res.json();
+                const orders = data.orders || [];
+
+                // Update Stats
+                const activeOrders = orders.filter(o => !['Delivered', 'delivered', 'cancelled'].includes(o.status));
+                const totalRevenue = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+
+                document.getElementById('stat-total-orders').textContent = orders.length;
+                document.getElementById('stat-active-orders').textContent = activeOrders.length;
+                document.getElementById('stat-revenue').textContent = `₹${totalRevenue}`;
+
+                if (orders.length === 0) {
+                    list.innerHTML = `<div class="p-8 text-center col-span-2 text-neutral-400 text-xs">No orders placed yet.</div>`;
+                    return;
+                }
+
+                list.innerHTML = orders.map(order => {
+                    const statusBadge = getStatusBadge(order.status);
+                    const nextAction = getNextAction(order);
+                    const formattedId = (order.id || '').replace('order_', '').toUpperCase();
+
+                    return `
+                        <div class="glass-panel p-5 rounded-3xl border border-white/10 order-card space-y-3">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-mono font-black text-white text-sm">#${formattedId}</span>
+                                        ${statusBadge}
+                                    </div>
+                                    <p class="text-xs text-neutral-400 mt-1">${new Date(order.created_at || Date.now()).toLocaleTimeString()} · ${order.payment_method || 'COD'}</p>
+                                </div>
+                                <span class="text-lg font-black text-emerald">₹${order.total}</span>
+                            </div>
+
+                            <div class="bg-black/30 p-3 rounded-2xl text-xs space-y-1 border border-white/5">
+                                <p class="text-neutral-400"><strong class="text-white">Destination:</strong> ${order.delivery_address || 'BH13 (Block A), Room 304'}</p>
+                                <p class="text-neutral-400"><strong class="text-white">Items:</strong> ${order.item_summary || 'Express snacks'}</p>
+                                <p class="text-neutral-400"><strong class="text-white">Rider:</strong> ${order.rider_name || 'Alex'}</p>
+                            </div>
+
+                            <div class="pt-1 flex gap-2">
+                                ${nextAction}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+            } catch (err) {
+                console.error('Failed to load admin orders:', err);
+                list.innerHTML = `<div class="p-8 text-center col-span-2 text-red-400 text-xs">Error loading orders: ${err.message}</div>`;
+            }
+        }
+
+        function getStatusBadge(status) {
+            if (status === 'Delivered') return '<span class="text-[10px] bg-neutral-800 text-neutral-300 px-2 py-0.5 rounded-full font-bold">Delivered ✓</span>';
+            if (status === 'Out for Delivery') return '<span class="text-[10px] bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full font-bold">Out for Delivery 🛵</span>';
+            if (status === 'Preparing') return '<span class="text-[10px] bg-purple-500/20 text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded-full font-bold">Packing 📦</span>';
+            if (status === 'Order Confirmed') return '<span class="text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">Confirmed 👍</span>';
+            return '<span class="text-[10px] bg-emerald/20 text-emerald border border-emerald/30 px-2 py-0.5 rounded-full font-bold animate-pulse">New Order ⚡</span>';
+        }
+
+        function getNextAction(order) {
+            const s = order.status;
+            if (s === 'Order Placed') {
+                return `<button onclick="updateOrderStatus('${order.id}', 'Order Confirmed')" class="w-full bg-emerald hover:bg-emerald/90 text-white font-bold py-2 rounded-xl text-xs transition-all shadow-md">✓ Accept Order</button>`;
+            }
+            if (s === 'Order Confirmed') {
+                return `<button onclick="updateOrderStatus('${order.id}', 'Preparing')" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 rounded-xl text-xs transition-all shadow-md">📦 Mark Packed</button>`;
+            }
+            if (s === 'Preparing') {
+                return `<button onclick="updateOrderStatus('${order.id}', 'Out for Delivery', 'Alex')" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-xl text-xs transition-all shadow-md">🛵 Dispatch with Alex</button>`;
+            }
+            if (s === 'Out for Delivery') {
+                return `<button onclick="updateOrderStatus('${order.id}', 'Delivered')" class="w-full bg-neutral-700 hover:bg-neutral-600 text-white font-bold py-2 rounded-xl text-xs transition-all">🏁 Mark as Delivered</button>`;
+            }
+            return `<span class="text-xs text-neutral-500 font-medium py-1">Order Completed</span>`;
+        }
+
+        async function updateOrderStatus(orderId, nextStatus, riderName) {
+            try {
+                const res = await fetch('/api/orders/admin/status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderId, status: nextStatus, riderName })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    loadAdminOrders();
+                }
+            } catch (err) {
+                alert('Failed to update status: ' + err.message);
+            }
+        }
+
+        // 2. Fetch and render inventory
+        async function loadInventory() {
+            const tbody = document.getElementById('inventory-table-body');
+            try {
+                const res = await fetch('/api/products');
+                const data = await res.json();
+                allProductsCache = data.products || [];
+
+                document.getElementById('stat-products').textContent = allProductsCache.length;
+                renderInventoryTable(allProductsCache);
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-400">Error: ${err.message}</td></tr>`;
+            }
+        }
+
+        function renderInventoryTable(products) {
+            const tbody = document.getElementById('inventory-table-body');
+            if (products.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-neutral-500">No products match search.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = products.map(p => `
+                <tr class="hover:bg-white/5 transition-colors">
+                    <td class="p-3.5 font-semibold text-white flex items-center gap-2.5">
+                        <img src="${p.image_url}" class="w-8 h-8 rounded-lg object-cover bg-white/10" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'">
+                        <span>${p.name}</span>
+                    </td>
+                    <td class="p-3.5 text-neutral-400">${p.category}</td>
+                    <td class="p-3.5 font-bold text-emerald">₹${p.price}</td>
+                    <td class="p-3.5 text-neutral-500 line-through">₹${p.mrp || p.price}</td>
+                    <td class="p-3.5">
+                        ${p.in_stock ? '<span class="text-[10px] bg-emerald/20 text-emerald border border-emerald/30 px-2 py-0.5 rounded-full font-bold">In Stock</span>' : '<span class="text-[10px] bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded-full font-bold">Out of Stock</span>'}
+                    </td>
+                    <td class="p-3.5 text-right">
+                        <button onclick="toggleProductStock('${p.id}', ${!p.in_stock})" class="text-xs px-3 py-1 rounded-full font-semibold transition-all ${p.in_stock ? 'bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white' : 'bg-emerald/20 hover:bg-emerald text-emerald hover:text-white'}">
+                            ${p.in_stock ? 'Set Out of Stock' : 'Set In Stock'}
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function toggleProductStock(productId, inStock) {
+            try {
+                await fetch('/api/products/admin/toggle-stock', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ productId, inStock })
+                });
+                loadInventory();
+            } catch (err) {
+                alert('Failed to update stock: ' + err.message);
+            }
+        }
+
+        // Search Inventory Filter
+        document.getElementById('inventory-search')?.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const filtered = allProductsCache.filter(p => p.name.toLowerCase().includes(query) || p.category.toLowerCase().includes(query));
+            renderInventoryTable(filtered);
+        });
+
+        // Initialize on load & auto-refresh orders every 5s
+        loadAdminOrders();
+        setInterval(loadAdminOrders, 5000);
+    </script>
+</body>
+</html>

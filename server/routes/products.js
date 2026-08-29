@@ -59,4 +59,37 @@ function getHighlights(p) {
     ];
 }
 
+// GET /api/products (Fetch all products)
+router.get('/', (req, res) => {
+    const db = req.app.locals.db;
+    const products = db.prepare('SELECT * FROM products ORDER BY category, name').all();
+    res.json({ products });
+});
+
+// POST /api/products/admin/toggle-stock
+router.post('/admin/toggle-stock', async (req, res) => {
+    const db = req.app.locals.db;
+    const { productId, inStock } = req.body;
+
+    if (!productId || inStock === undefined) {
+        return res.status(400).json({ error: 'productId and inStock are required' });
+    }
+
+    const numericStock = inStock ? 1 : 0;
+    db.prepare('UPDATE products SET in_stock = ? WHERE id = ?').run(numericStock, productId);
+
+    // Sync with Supabase Cloud
+    try {
+        const { getSupabaseClient } = require('../supabase');
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            await supabase.from('products').update({ in_stock: Boolean(inStock) }).eq('id', productId);
+        }
+    } catch (e) {
+        console.error('[Supabase Stock Sync Error]:', e.message);
+    }
+
+    res.json({ success: true, message: `Product ${productId} stock updated to ${inStock}` });
+});
+
 module.exports = router;

@@ -18,7 +18,9 @@ app.use(express.json());
 // Make db accessible to routes
 app.locals.db = db;
 
-// Static files
+// Static files (Client and Admin portals)
+app.use('/admin', express.static(path.join(__dirname, '..', 'admin')));
+app.use(express.static(path.join(__dirname, '..', 'client')));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // API Routes
@@ -37,9 +39,14 @@ app.use('/api/test-supabase', require('./routes/test-supabase'));
 const { setupTracking } = require('./routes/tracking');
 setupTracking(server, db);
 
-// SPA fallback
+// Admin portal route
+app.get('/admin*', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'admin', 'index.html'));
+});
+
+// Client Storefront SPA fallback
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, '..', 'client', 'index.html'));
 });
 
 // Start server

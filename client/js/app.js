@@ -1,0 +1,480 @@
+// LPUQuick SPA Router & Global Controller
+window.pages = window.pages || {};
+window.pageInits = window.pageInits || {};
+window.CURRENT_USER_ID = window.CURRENT_USER_ID || 'user_001';
+window.cartState = window.cartState || {};
+
+// Address state (Defaulting to BH13 Exclusive Launch)
+window.currentAddress = localStorage.getItem('lpuquick_address') || 'BH13';
+window.currentBlock = localStorage.getItem('lpuquick_block') || 'Block A';
+window.currentRoom = localStorage.getItem('lpuquick_room') || '304';
+window.currentAddressDetail = localStorage.getItem('lpuquick_address_detail') || 'Room 304, Block A, Boys Hostel 13';
+
+// Theme state
+if (localStorage.getItem('lpuquick_theme') === 'dark') {
+    document.documentElement.classList.add('dark');
+    document.body.classList.add('dark');
+}
+
+const routes = {
+    '/': 'home',
+    '/signin': 'signin',
+    '/categories': 'categories',
+    '/cart': 'cart',
+    '/checkout': 'checkout',
+    '/flow-assist': 'flowassist',
+    '/orders': 'orders',
+    '/settings': 'settings'
+};
+
+function navigate(path) {
+    window.location.hash = '#' + path;
+}
+
+function getCurrentRoute() {
+    const hash = window.location.hash.slice(1) || '/';
+    return hash;
+}
+
+function getPageName(path) {
+    return routes[path] || 'home';
+}
+
+// Global Address Selection Modal (BH13 Express Live, BH1-BH12 Coming Soon, Block A/B, Room No)
+window.openAddressModal = function() {
+    const existing = document.getElementById('address-modal');
+    if (existing) existing.remove();
+
+    // Hostels 1 to 13 + GHs + UniMall + Main Gate
+    const allLocations = [
+        { name: 'BH13', active: true, tag: 'Live 3m' },
+        { name: 'BH1', active: false, tag: 'Coming Soon' },
+        { name: 'BH2', active: false, tag: 'Coming Soon' },
+        { name: 'BH3', active: false, tag: 'Coming Soon' },
+        { name: 'BH4', active: false, tag: 'Coming Soon' },
+        { name: 'BH5', active: false, tag: 'Coming Soon' },
+        { name: 'BH6', active: false, tag: 'Coming Soon' },
+        { name: 'BH7', active: false, tag: 'Coming Soon' },
+        { name: 'BH8', active: false, tag: 'Coming Soon' },
+        { name: 'BH9', active: false, tag: 'Coming Soon' },
+        { name: 'BH10', active: false, tag: 'Coming Soon' },
+        { name: 'BH11', active: false, tag: 'Coming Soon' },
+        { name: 'BH12', active: false, tag: 'Coming Soon' },
+        { name: 'GH1', active: false, tag: 'Coming Soon' },
+        { name: 'GH2', active: false, tag: 'Coming Soon' },
+        { name: 'GH3', active: false, tag: 'Coming Soon' },
+        { name: 'GH4', active: false, tag: 'Coming Soon' },
+        { name: 'UniMall', active: false, tag: 'Coming Soon' },
+        { name: 'Main Gate', active: false, tag: 'Coming Soon' }
+    ];
+
+    let selectedHostel = 'BH13';
+    let selectedBlock = window.currentBlock || 'Block A';
+
+    const modal = document.createElement('div');
+    modal.id = 'address-modal';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal-content p-5 sm:p-6 space-y-4 max-h-[85vh] overflow-y-auto" onclick="event.stopPropagation()">
+            <!-- Header -->
+            <div class="flex justify-between items-center pb-3 border-b border-surface-variant/40">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-emerald text-2xl">location_on</span>
+                    <div>
+                        <h3 class="font-bold text-sm sm:text-base text-on-surface">Select Delivery Location</h3>
+                        <p class="text-[11px] text-on-surface-variant">LPU Campus Express Delivery (3 mins)</p>
+                    </div>
+                </div>
+                <button type="button" class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface" onclick="document.getElementById('address-modal').remove()">
+                    <span class="material-symbols-outlined text-base">close</span>
+                </button>
+            </div>
+
+            <!-- Notice Banner -->
+            <div class="p-3 bg-emerald/10 border border-emerald/20 rounded-2xl flex items-center gap-2.5 text-xs text-emerald font-medium">
+                <span class="material-symbols-outlined text-base">bolt</span>
+                <span>Express 3-min delivery is exclusively live at <strong>BH13</strong>! Other hostels opening next week.</span>
+            </div>
+
+            <!-- Hostel Selector Grid -->
+            <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                    <label class="block text-xs font-semibold text-on-surface-variant">Choose Hostel / Building</label>
+                    <span class="text-[10px] text-on-surface-variant">13 Hostels</span>
+                </div>
+                <div class="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-44 overflow-y-auto p-1 no-scrollbar" id="hostels-container">
+                    ${allLocations.map(h => {
+                        const isSelected = h.name === selectedHostel;
+                        if (h.active) {
+                            return `
+                            <button type="button" class="p-2 rounded-2xl border text-xs font-bold transition-all relative flex flex-col items-center justify-center gap-0.5 hostel-pick-btn ${isSelected ? 'border-2 border-emerald bg-emerald/10 text-emerald shadow-sm' : 'border-surface-variant bg-surface hover:border-emerald text-on-surface'}" data-hostel="${h.name}">
+                                <span>${h.name}</span>
+                                <span class="bg-emerald text-white text-[9px] px-1.5 py-0.2 rounded-full font-bold">Live ⚡</span>
+                            </button>
+                            `;
+                        } else {
+                            return `
+                            <button type="button" class="p-2 rounded-2xl border border-surface-variant/40 bg-surface/50 text-on-surface-variant/70 text-xs font-medium transition-all relative flex flex-col items-center justify-center gap-0.5 hostel-disabled-btn cursor-not-allowed opacity-60" data-hostel="${h.name}">
+                                <span>${h.name}</span>
+                                <span class="text-[8px] bg-surface-container-high px-1 py-0.2 rounded text-on-surface-variant font-medium">Soon</span>
+                            </button>
+                            `;
+                        }
+                    }).join('')}
+                </div>
+            </div>
+
+            <!-- Block Selector (Block A or Block B) -->
+            <div class="space-y-2">
+                <label class="block text-xs font-semibold text-on-surface-variant">Select Block</label>
+                <div class="grid grid-cols-2 gap-2.5" id="block-selector">
+                    <button type="button" class="py-2.5 px-4 rounded-xl border text-xs font-bold transition-all block-btn flex items-center justify-center gap-1.5 ${selectedBlock === 'Block A' ? 'border-2 border-emerald bg-emerald/10 text-emerald shadow-sm' : 'border-surface-variant bg-surface text-on-surface'}" data-block="Block A">
+                        <span class="material-symbols-outlined text-sm">apartment</span>
+                        Block A
+                    </button>
+                    <button type="button" class="py-2.5 px-4 rounded-xl border text-xs font-bold transition-all block-btn flex items-center justify-center gap-1.5 ${selectedBlock === 'Block B' ? 'border-2 border-emerald bg-emerald/10 text-emerald shadow-sm' : 'border-surface-variant bg-surface text-on-surface'}" data-block="Block B">
+                        <span class="material-symbols-outlined text-sm">apartment</span>
+                        Block B
+                    </button>
+                </div>
+            </div>
+
+            <!-- Room & Floor Input -->
+            <div class="grid grid-cols-2 gap-2.5">
+                <div class="space-y-1">
+                    <label class="block text-xs font-semibold text-on-surface-variant" for="room-input">Room Number</label>
+                    <input type="text" id="room-input" class="w-full px-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface font-semibold focus:outline-none focus:border-emerald" placeholder="e.g. 304" value="${window.currentRoom || '304'}">
+                </div>
+                <div class="space-y-1">
+                    <label class="block text-xs font-semibold text-on-surface-variant" for="floor-input">Floor</label>
+                    <input type="text" id="floor-input" class="w-full px-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface focus:outline-none focus:border-emerald" placeholder="e.g. 3rd Floor" value="3rd Floor">
+                </div>
+            </div>
+
+            <!-- Inline Alert for Blocked Hostels (Initially hidden) -->
+            <div id="blocked-hostel-alert" class="hidden p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-600 text-xs flex items-center gap-2">
+                <span class="material-symbols-outlined text-sm">info</span>
+                <span id="blocked-hostel-msg">This hostel is opening soon. Delivering to BH13 right now.</span>
+            </div>
+
+            <!-- Save Button -->
+            <button type="button" id="save-address-btn" class="w-full bg-emerald text-white rounded-full py-3.5 text-xs sm:text-sm font-semibold shadow-md hover:bg-primary transition-all active:scale-95 cursor-pointer">
+                Deliver to BH13 (<span id="btn-block-label">${selectedBlock}</span>)
+            </button>
+        </div>
+    `;
+
+    modal.onclick = () => modal.remove();
+    document.body.appendChild(modal);
+
+    // Block selection handler
+    modal.querySelectorAll('.block-btn').forEach(btn => {
+        btn.onclick = () => {
+            modal.querySelectorAll('.block-btn').forEach(b => {
+                b.classList.remove('border-2', 'border-emerald', 'bg-emerald/10', 'text-emerald', 'shadow-sm');
+                b.classList.add('border-surface-variant', 'bg-surface', 'text-on-surface');
+            });
+            btn.classList.remove('border-surface-variant', 'bg-surface', 'text-on-surface');
+            btn.classList.add('border-2', 'border-emerald', 'bg-emerald/10', 'text-emerald', 'shadow-sm');
+            selectedBlock = btn.dataset.block;
+            const label = document.getElementById('btn-block-label');
+            if (label) label.textContent = selectedBlock;
+        };
+    });
+
+    // Disabled hostels click handler (displays coming soon message)
+    modal.querySelectorAll('.hostel-disabled-btn').forEach(btn => {
+        btn.onclick = () => {
+            const hName = btn.dataset.hostel;
+            const alertBox = document.getElementById('blocked-hostel-alert');
+            const alertMsg = document.getElementById('blocked-hostel-msg');
+            if (alertBox && alertMsg) {
+                alertBox.classList.remove('hidden');
+                alertMsg.textContent = `${hName} is opening next week! Delivering to BH13 for now.`;
+            }
+        };
+    });
+
+    // Save Address
+    document.getElementById('save-address-btn').onclick = () => {
+        const room = document.getElementById('room-input')?.value?.trim() || '304';
+        const floor = document.getElementById('floor-input')?.value?.trim() || '3rd Floor';
+
+        window.currentAddress = 'BH13';
+        window.currentBlock = selectedBlock;
+        window.currentRoom = room;
+        window.currentAddressDetail = `Room ${room}, ${floor}, ${selectedBlock}, Boys Hostel 13`;
+
+        localStorage.setItem('lpuquick_address', window.currentAddress);
+        localStorage.setItem('lpuquick_block', window.currentBlock);
+        localStorage.setItem('lpuquick_room', window.currentRoom);
+        localStorage.setItem('lpuquick_address_detail', window.currentAddressDetail);
+
+        modal.remove();
+        router(); // Refresh header everywhere
+    };
+};
+
+// Global Product Details Modal
+window.openProductModal = async function(productId) {
+    const existing = document.getElementById('product-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'product-modal';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal-content p-6 flex items-center justify-center min-h-[300px]" onclick="event.stopPropagation()">
+            <span class="material-symbols-outlined text-emerald text-3xl animate-spin">progress_activity</span>
+        </div>
+    `;
+    modal.onclick = () => modal.remove();
+    document.body.appendChild(modal);
+
+    try {
+        const p = await window.api.getProduct(productId);
+        const cartInfo = window.cartState[p.id];
+        const qty = cartInfo ? cartInfo.quantity : 0;
+
+        modal.innerHTML = `
+            <div class="modal-content p-6 space-y-5" onclick="event.stopPropagation()">
+                <!-- Modal Top -->
+                <div class="flex justify-between items-start">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-emerald bg-emerald/10 px-2.5 py-0.5 rounded-full">
+                        ${p.category} · ${p.subcategory || 'Essential'}
+                    </span>
+                    <button type="button" class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface" onclick="document.getElementById('product-modal').remove()">
+                        <span class="material-symbols-outlined text-base">close</span>
+                    </button>
+                </div>
+
+                <!-- Product Image Banner -->
+                <div class="h-48 bg-surface-container-high rounded-2xl overflow-hidden flex items-center justify-center p-4 relative">
+                    <img class="max-h-full max-w-full object-contain" src="${p.image_url}" alt="${p.name}" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400'">
+                    ${p.discount_percent > 0 ? `
+                    <div class="absolute top-3 left-3 bg-vibrant-yellow text-on-surface font-bold text-[11px] px-2.5 py-0.5 rounded-md shadow-sm">
+                        ${p.discount_percent}% OFF
+                    </div>
+                    ` : ''}
+                </div>
+
+                <!-- Title & Price -->
+                <div class="space-y-1">
+                    <h2 class="font-headline-md text-lg font-bold text-on-surface">${p.name}</h2>
+                    <p class="text-xs text-on-surface-variant font-medium">${p.size || p.unit}</p>
+                    <div class="flex items-baseline gap-2 pt-1">
+                        <span class="text-2xl font-bold text-emerald">₹${p.price}</span>
+                        ${p.mrp > p.price ? `<span class="text-xs text-on-surface-variant line-through">₹${p.mrp}</span>` : ''}
+                    </div>
+                </div>
+
+                <!-- Highlights & Description -->
+                <div class="space-y-3 border-t border-surface-variant/40 pt-3 text-xs">
+                    <p class="text-on-surface-variant leading-relaxed">${p.description}</p>
+                    <div class="grid grid-cols-2 gap-2 text-[11px]">
+                        <div class="bg-surface p-2 rounded-xl border border-surface-variant/40">
+                            <span class="text-on-surface-variant block text-[10px]">Shelf Life</span>
+                            <span class="font-semibold text-on-surface">${p.shelf_life}</span>
+                        </div>
+                        <div class="bg-surface p-2 rounded-xl border border-surface-variant/40">
+                            <span class="text-on-surface-variant block text-[10px]">Campus Delivery</span>
+                            <span class="font-semibold text-emerald">3 mins to BH13</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Button inside Modal -->
+                <div class="pt-2" id="modal-action-container">
+                    ${qty === 0 ? `
+                    <button type="button" class="w-full bg-emerald text-white rounded-full py-3 text-xs font-semibold shadow-md hover:bg-primary transition-all flex items-center justify-center gap-1.5 cursor-pointer" id="modal-add-btn">
+                        <span class="material-symbols-outlined text-sm">add_shopping_cart</span> Add to Cart · ₹${p.price}
+                    </button>
+                    ` : `
+                    <div class="flex items-center justify-between bg-surface-container-high rounded-full p-1.5 px-4 border border-outline-variant/30">
+                        <span class="text-xs font-semibold text-on-surface">Quantity in Cart:</span>
+                        <div class="flex items-center gap-3">
+                            <button type="button" class="w-7 h-7 rounded-full bg-white dark:bg-surface flex items-center justify-center text-on-surface shadow-sm cursor-pointer" id="modal-dec-btn">
+                                <span class="material-symbols-outlined text-sm">remove</span>
+                            </button>
+                            <span class="font-bold text-xs w-4 text-center">${qty}</span>
+                            <button type="button" class="w-7 h-7 rounded-full bg-emerald text-white flex items-center justify-center shadow-sm cursor-pointer" id="modal-inc-btn">
+                                <span class="material-symbols-outlined text-sm">add</span>
+                            </button>
+                        </div>
+                    </div>
+                    `}
+                </div>
+            </div>
+        `;
+
+        // Bind Modal Action Buttons
+        const modalAddBtn = document.getElementById('modal-add-btn');
+        if (modalAddBtn) {
+            modalAddBtn.onclick = async () => {
+                await window.api.addToCart(window.CURRENT_USER_ID, p.id, 1);
+                window.openProductModal(p.id);
+                window.syncCardSteppers();
+            };
+        }
+        const modalIncBtn = document.getElementById('modal-inc-btn');
+        if (modalIncBtn) {
+            modalIncBtn.onclick = async () => {
+                const item = window.cartState[p.id];
+                if (item) await window.api.updateCartItem(item.cart_id, item.quantity + 1, window.CURRENT_USER_ID);
+                window.openProductModal(p.id);
+                window.syncCardSteppers();
+            };
+        }
+        const modalDecBtn = document.getElementById('modal-dec-btn');
+        if (modalDecBtn) {
+            modalDecBtn.onclick = async () => {
+                const item = window.cartState[p.id];
+                if (item) {
+                    if (item.quantity <= 1) await window.api.removeCartItem(item.cart_id);
+                    else await window.api.updateCartItem(item.cart_id, item.quantity - 1, window.CURRENT_USER_ID);
+                }
+                window.openProductModal(p.id);
+                window.syncCardSteppers();
+            };
+        }
+    } catch(e) {
+        modal.innerHTML = `
+            <div class="modal-content p-6 text-center space-y-3">
+                <p class="text-error text-xs">Could not load product details.</p>
+                <button type="button" class="bg-surface-container-high text-xs px-4 py-1.5 rounded-full" onclick="document.getElementById('product-modal').remove()">Close</button>
+            </div>
+        `;
+    }
+};
+
+// Global Card Stepper Synchronizer (Turns Add button into [- qty +])
+window.syncCardSteppers = function() {
+    document.querySelectorAll('.product-action-slot').forEach(slot => {
+        const productId = slot.dataset.id;
+        const cartInfo = window.cartState[productId];
+        const qty = cartInfo ? cartInfo.quantity : 0;
+
+        if (qty > 0) {
+            slot.innerHTML = `
+                <div class="card-qty-stepper">
+                    <button type="button" class="card-qty-btn card-dec-btn" data-id="${productId}">
+                        <span class="material-symbols-outlined text-[13px]">remove</span>
+                    </button>
+                    <span class="card-qty-val">${qty}</span>
+                    <button type="button" class="card-qty-btn card-inc-btn" data-id="${productId}">
+                        <span class="material-symbols-outlined text-[13px]">add</span>
+                    </button>
+                </div>
+            `;
+        } else {
+            slot.innerHTML = `
+                <button type="button" class="bg-emerald text-white rounded-full px-3.5 py-1 text-xs font-semibold shadow-sm hover:opacity-90 active:scale-95 transition-all add-to-cart-btn" data-id="${productId}">Add</button>
+            `;
+        }
+    });
+
+    // Rebind newly created buttons
+    document.querySelectorAll('.add-to-cart-btn').forEach(btn => {
+        btn.onclick = async (e) => {
+            e.stopPropagation();
+            const id = btn.dataset.id;
+            await window.api.addToCart(window.CURRENT_USER_ID, id, 1);
+            window.syncCardSteppers();
+        };
+    });
+
+    document.querySelectorAll('.card-inc-btn').forEach(btn => {
+        btn.onclick = async (e) => {
+            e.stopPropagation();
+            const id = btn.dataset.id;
+            const item = window.cartState[id];
+            if (item) {
+                await window.api.updateCartItem(item.cart_id, item.quantity + 1, window.CURRENT_USER_ID);
+                window.syncCardSteppers();
+            }
+        };
+    });
+
+    document.querySelectorAll('.card-dec-btn').forEach(btn => {
+        btn.onclick = async (e) => {
+            e.stopPropagation();
+            const id = btn.dataset.id;
+            const item = window.cartState[id];
+            if (item) {
+                if (item.quantity <= 1) {
+                    await window.api.removeCartItem(item.cart_id);
+                } else {
+                    await window.api.updateCartItem(item.cart_id, item.quantity - 1, window.CURRENT_USER_ID);
+                }
+                window.syncCardSteppers();
+            }
+        };
+    });
+
+    // Product card click to open details modal
+    document.querySelectorAll('.product-detail-trigger').forEach(el => {
+        el.onclick = (e) => {
+            if (e.target.closest('.product-action-slot')) return;
+            const id = el.dataset.productId;
+            if (id) window.openProductModal(id);
+        };
+    });
+};
+
+// Router Main Function
+async function router() {
+    const path = getCurrentRoute();
+    const pageName = getPageName(path);
+    const appRoot = document.getElementById('app');
+    
+    if (!appRoot) return;
+
+    try {
+        // Pre-fetch cart so steppers have exact state immediately
+        await window.api.getCart(window.CURRENT_USER_ID);
+
+        const renderFn = window.pages[pageName];
+        if (renderFn) {
+            const html = await renderFn();
+            appRoot.innerHTML = html;
+            appRoot.classList.add('page-enter');
+            setTimeout(() => appRoot.classList.remove('page-enter'), 200);
+
+            // Initialize page-specific JS
+            const initFn = window.pageInits[pageName];
+            if (initFn) initFn();
+
+            // Synchronize steppers
+            window.syncCardSteppers();
+
+            // Bind global address modal trigger
+            document.querySelectorAll('.address-selector-trigger').forEach(el => {
+                el.onclick = (e) => {
+                    e.preventDefault();
+                    window.openAddressModal();
+                };
+            });
+
+            window.scrollTo(0, 0);
+        } else {
+            appRoot.innerHTML = `
+                <div class="text-center pt-32 px-4">
+                    <h1 class="font-headline-md text-xl font-bold text-on-surface">Page not found</h1>
+                    <a href="#/" class="mt-4 inline-block bg-emerald text-white px-5 py-2 rounded-full text-xs font-semibold">Back to Home</a>
+                </div>
+            `;
+        }
+    } catch (err) {
+        console.error('Router error:', err);
+    }
+}
+
+window.router = router;
+window.navigate = navigate;
+
+window.addEventListener('hashchange', router);
+window.addEventListener('DOMContentLoaded', router);
+
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    router();
+}
