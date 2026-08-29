@@ -76,7 +76,7 @@ window.pages.settings = async function() {
             <button type="button" onclick="window.openCouponsModal()" class="glass-card rounded-2xl p-3.5 border border-glass-border shadow-sm text-center hover:bg-surface-container-high/40 hover:border-emerald transition-all flex flex-col items-center cursor-pointer group active:scale-95" title="View Active Promo Codes">
                 <span class="material-symbols-outlined text-2xl text-amber-500 group-hover:scale-110 transition-transform mb-1.5">local_offer</span>
                 <span class="font-semibold text-xs text-on-surface">Coupons</span>
-                <span class="text-[10px] text-amber-500 font-bold">3 Active Offers</span>
+                <span class="text-[10px] text-amber-500 font-bold">2 Active Offers</span>
             </button>
 
             <!-- 4. Campus Help Modal (7671836211 & 9877982857) -->
@@ -242,35 +242,21 @@ window.pages.settings = async function() {
             </div>
 
             <div class="space-y-2.5">
-                <!-- Coupon 1: 5% OFF Above 350 -->
+                <!-- Coupon 1: LPUWELCOME (5% FLAT OFF Above 350) -->
                 <div class="p-3.5 rounded-2xl bg-surface-container-high border border-dashed border-emerald/60 flex items-center justify-between gap-2">
                     <div>
                         <div class="flex items-center gap-1.5">
-                            <span class="text-xs font-black text-emerald tracking-wider bg-emerald/15 px-2 py-0.5 rounded-md">LPU5</span>
+                            <span class="text-xs font-black text-emerald tracking-wider bg-emerald/15 px-2 py-0.5 rounded-md">LPUWELCOME</span>
                             <span class="text-[10px] font-bold text-on-surface">5% FLAT OFF</span>
                         </div>
                         <p class="text-[11px] text-on-surface-variant mt-1">Get 5% discount on all orders above ₹350</p>
                     </div>
-                    <button type="button" onclick="navigator.clipboard.writeText('LPU5'); alert('✓ Coupon LPU5 (5% OFF above ₹350) copied to clipboard!'); window.closeCouponsModal();" class="bg-emerald text-white text-xs font-bold px-3 py-1.5 rounded-xl hover:bg-primary transition-all active:scale-95 cursor-pointer">
+                    <button type="button" onclick="navigator.clipboard.writeText('LPUWELCOME'); alert('✓ Coupon LPUWELCOME (5% OFF above ₹350) copied to clipboard!'); window.closeCouponsModal();" class="bg-emerald text-white text-xs font-bold px-3 py-1.5 rounded-xl hover:bg-primary transition-all active:scale-95 cursor-pointer">
                         Copy
                     </button>
                 </div>
 
-                <!-- Coupon 2: LPUWELCOME -->
-                <div class="p-3.5 rounded-2xl bg-surface-container-high border border-dashed border-teal-500/60 flex items-center justify-between gap-2">
-                    <div>
-                        <div class="flex items-center gap-1.5">
-                            <span class="text-xs font-black text-teal-600 tracking-wider bg-teal-500/15 px-2 py-0.5 rounded-md">LPUWELCOME</span>
-                            <span class="text-[10px] font-bold text-on-surface">₹50 OFF</span>
-                        </div>
-                        <p class="text-[11px] text-on-surface-variant mt-1">Valid on first campus order above ₹149</p>
-                    </div>
-                    <button type="button" onclick="navigator.clipboard.writeText('LPUWELCOME'); alert('✓ Coupon LPUWELCOME copied to clipboard!'); window.closeCouponsModal();" class="bg-teal-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl hover:bg-teal-700 transition-all active:scale-95 cursor-pointer">
-                        Copy
-                    </button>
-                </div>
-
-                <!-- Coupon 3: NIGHTMUNCH -->
+                <!-- Coupon 2: NIGHTMUNCH -->
                 <div class="p-3.5 rounded-2xl bg-surface-container-high border border-dashed border-amber-500/60 flex items-center justify-between gap-2">
                     <div>
                         <div class="flex items-center gap-1.5">
