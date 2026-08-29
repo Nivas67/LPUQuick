@@ -174,15 +174,26 @@ body.dark .bg-surface-container-lowest {
     color: #f1f5f9 !important;
 }
 
-body.dark .text-on-surface {
+body.dark .text-on-surface,
+html.dark .text-on-surface {
     color: #f1f5f9 !important;
 }
 
-body.dark .text-on-surface-variant {
+body.dark .text-on-surface-variant,
+html.dark .text-on-surface-variant,
+body.dark [class*="text-on-surface-variant"],
+html.dark [class*="text-on-surface-variant"] {
     color: #94a3b8 !important;
 }
 
-body.dark .text-primary {
+body.dark .line-through,
+html.dark .line-through {
+    color: #94a3b8 !important;
+    opacity: 0.9 !important;
+}
+
+body.dark .text-primary,
+html.dark .text-primary {
     color: #34d399 !important;
 }
 

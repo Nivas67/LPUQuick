@@ -192,62 +192,62 @@ window.pages.checkout = async function() {
                 <div class="space-y-3 text-xs sm:text-sm">
                     ${mrpDiscount > 0 ? `
                     <!-- Total MRP Value -->
-                    <div class="flex justify-between items-center text-on-surface-variant">
-                        <span>Total MRP Value</span>
-                        <span class="line-through text-on-surface-variant/60 font-medium">₹${totalMrp}</span>
+                    <div class="flex justify-between items-center text-slate-700 dark:text-slate-200">
+                        <span class="font-medium">Total MRP Value</span>
+                        <span class="line-through text-slate-400 dark:text-slate-400 font-semibold text-xs sm:text-sm">₹${totalMrp}</span>
                     </div>
 
                     <!-- Product MRP Discount -->
-                    <div class="flex justify-between items-center text-emerald font-semibold">
+                    <div class="flex justify-between items-center text-emerald-600 dark:text-emerald-400 font-semibold">
                         <span>Product Discount</span>
-                        <span class="bg-emerald/15 text-emerald px-2 py-0.5 rounded-lg font-bold text-xs">-₹${mrpDiscount}</span>
+                        <span class="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-lg font-bold text-xs">-₹${mrpDiscount}</span>
                     </div>
                     ` : ''}
 
                     <!-- Item Total -->
-                    <div class="flex justify-between items-center text-on-surface-variant">
-                        <span>Item Subtotal</span>
-                        <span class="font-semibold text-on-surface" id="checkout-subtotal-val">₹${subtotal}</span>
+                    <div class="flex justify-between items-center text-slate-700 dark:text-slate-200">
+                        <span class="font-medium">Item Subtotal</span>
+                        <span class="font-bold text-slate-900 dark:text-white" id="checkout-subtotal-val">₹${subtotal}</span>
                     </div>
 
                     ${hasDiscount ? `
                     <!-- 5% Bulk Offer -->
-                    <div class="flex justify-between items-center text-emerald font-semibold">
+                    <div class="flex justify-between items-center text-emerald-600 dark:text-emerald-400 font-semibold">
                         <span>5% Bulk Offer (&gt;₹350)</span>
-                        <span class="bg-emerald/15 text-emerald px-2 py-0.5 rounded-lg font-bold text-xs">-₹${discount5}</span>
+                        <span class="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-lg font-bold text-xs">-₹${discount5}</span>
                     </div>
                     ` : ''}
 
                     <!-- Delivery Partner Fee -->
-                    <div class="flex justify-between items-center text-on-surface-variant">
-                        <span>Delivery Fee</span>
+                    <div class="flex justify-between items-center text-slate-700 dark:text-slate-200">
+                        <span class="font-medium">Delivery Fee</span>
                         <div class="flex items-center gap-1.5">
-                            <span class="line-through text-on-surface-variant/50 text-xs">₹25</span>
-                            <span class="font-bold text-emerald text-xs">FREE</span>
+                            <span class="line-through text-slate-400 dark:text-slate-400 text-xs font-medium">₹25</span>
+                            <span class="font-bold text-emerald-600 dark:text-emerald-400 text-xs">FREE</span>
                         </div>
                     </div>
 
                     <!-- Handling Fee -->
-                    <div class="flex justify-between items-center text-on-surface-variant">
-                        <span>Handling & Bag Fee</span>
+                    <div class="flex justify-between items-center text-slate-700 dark:text-slate-200">
+                        <span class="font-medium">Handling & Bag Fee</span>
                         <div class="flex items-center gap-1.5">
-                            <span class="line-through text-on-surface-variant/50 text-xs">₹5</span>
-                            <span class="font-bold text-emerald text-xs">FREE</span>
+                            <span class="line-through text-slate-400 dark:text-slate-400 text-xs font-medium">₹5</span>
+                            <span class="font-bold text-emerald-600 dark:text-emerald-400 text-xs">FREE</span>
                         </div>
                     </div>
                     
                     <!-- Grand Total To Pay -->
-                    <div class="border-t border-glass-border pt-3.5 mt-2 flex justify-between items-center text-base sm:text-lg font-bold text-on-surface">
+                    <div class="border-t border-glass-border pt-3.5 mt-2 flex justify-between items-center text-base sm:text-lg font-bold text-slate-900 dark:text-white">
                         <div>
                             <span>Total to Pay</span>
-                            <p class="text-[10px] text-emerald font-medium">100% Free Campus Delivery</p>
+                            <p class="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">100% Free Campus Delivery</p>
                         </div>
-                        <span class="text-2xl text-emerald font-display font-black" id="checkout-total-val">₹${exactTotal}</span>
+                        <span class="text-2xl text-emerald-600 dark:text-emerald-400 font-display font-black" id="checkout-total-val">₹${exactTotal}</span>
                     </div>
                 </div>
 
                 <!-- Savings Banner -->
-                <div class="p-3 bg-emerald/10 border border-emerald/20 rounded-xl flex items-center gap-2 text-xs text-emerald font-semibold">
+                <div class="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
                     <span class="material-symbols-outlined text-base">savings</span>
                     <span>🎉 Total Savings: ₹${totalSavings} applied!</span>
                 </div>
