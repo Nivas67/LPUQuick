@@ -66,55 +66,54 @@ window.pages.orders = async function() {
                     <span id="tracking-eta-time">Status: ${activeOrder.status}</span>
                 </span>
             </div>
-
             <div class="glass-card rounded-3xl overflow-hidden border border-emerald/30 shadow-lg bg-surface">
                 <!-- BH13 Campus Floor / Corridor Live Map Canvas -->
-                <div class="h-52 sm:h-60 relative bg-[#f1f5f9] dark:bg-slate-900/80 overflow-hidden flex items-center justify-center p-4 select-none">
+                <div class="h-64 sm:h-72 relative bg-[#f1f5f9] dark:bg-slate-900/90 overflow-hidden flex items-center justify-center p-4 select-none">
                     
                     <!-- Campus Map Grid Lines & Footpath -->
                     <div class="absolute inset-0 opacity-20 pointer-events-none" style="background-image: radial-gradient(#10B981 1px, transparent 1px); background-size: 20px 20px;"></div>
 
                     <!-- Walking Footpath Path SVG -->
-                    <svg class="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                    <svg class="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 800 280">
                         <!-- Shadow Track -->
-                        <path d="M 60 140 Q 180 50 360 120 T 680 75" fill="none" stroke="#cbd5e1" stroke-width="6" stroke-linecap="round"/>
+                        <path d="M 60 140 C 200 90, 320 200, 480 110 S 640 170, 740 140" fill="none" stroke="#cbd5e1" stroke-width="8" stroke-linecap="round"/>
                         <!-- Animated Green Walking Dash Track -->
-                        <path d="M 60 140 Q 180 50 360 120 T 680 75" fill="none" stroke="#10B981" stroke-width="4" stroke-linecap="round" stroke-dasharray="8,8" style="animation: dash 1s linear infinite;"/>
+                        <path d="M 60 140 C 200 90, 320 200, 480 110 S 640 170, 740 140" fill="none" stroke="#10B981" stroke-width="5" stroke-linecap="round" stroke-dasharray="10,10" style="animation: dash 1s linear infinite;"/>
                     </svg>
 
                     <!-- Origin: BH13 Dark Store Hub Pin (Left) -->
-                    <div class="absolute left-6 sm:left-10 top-24 sm:top-28 transform -translate-y-1/2 z-10 flex flex-col items-center">
-                        <div class="w-9 h-9 rounded-2xl bg-[#3c4043] text-white flex items-center justify-center shadow-md border-2 border-white">
-                            <span class="material-symbols-outlined text-lg">storefront</span>
+                    <div class="absolute left-4 sm:left-8 top-1/2 transform -translate-y-1/2 z-10 flex flex-col items-center">
+                        <div class="w-10 h-10 rounded-2xl bg-[#3c4043] text-white flex items-center justify-center shadow-lg border-2 border-white">
+                            <span class="material-symbols-outlined text-xl">storefront</span>
                         </div>
-                        <span class="bg-surface text-on-surface text-[9px] font-bold px-1.5 py-0.5 rounded shadow mt-1 whitespace-nowrap">BH13 Hub</span>
+                        <span class="bg-surface text-on-surface text-[10px] font-bold px-2 py-0.5 rounded shadow mt-1 whitespace-nowrap border border-outline-variant/30">BH13 Hub</span>
                     </div>
 
                     <!-- Active Walking Runner Pin (Dynamic Movement) -->
-                    <div class="absolute transform -translate-x-1/2 -translate-y-1/2 transition-all duration-700 z-20" id="rider-pin" style="left: 35%; top: 40%;">
+                    <div class="absolute transform -translate-x-1/2 -translate-y-1/2 transition-all duration-700 z-20" id="rider-pin" style="left: 48%; top: 50%;">
                         <div class="relative flex flex-col items-center">
                             <!-- Pulsing Radar Ring -->
                             <div class="absolute -inset-2 rounded-full bg-emerald/30 animate-ping"></div>
                             
                             <!-- Walking Runner Icon -->
-                            <div class="w-11 h-11 rounded-full bg-emerald text-white flex items-center justify-center shadow-xl border-2 border-white relative z-10 animate-bounce">
+                            <div class="w-12 h-12 rounded-full bg-emerald text-white flex items-center justify-center shadow-2xl border-2 border-white relative z-10 animate-bounce">
                                 <span class="material-symbols-outlined text-2xl font-black">directions_walk</span>
                             </div>
                             
                             <!-- Runner Status Badge -->
-                            <div class="mt-1 bg-surface/95 backdrop-blur-md text-on-surface text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-md border border-emerald/30 whitespace-nowrap flex items-center gap-1" id="rider-badge">
-                                <span class="w-1.5 h-1.5 rounded-full bg-emerald animate-pulse"></span>
+                            <div class="mt-1.5 bg-white dark:bg-slate-800 text-on-surface text-[11px] font-extrabold px-3 py-0.5 rounded-full shadow-lg border border-emerald/40 whitespace-nowrap flex items-center gap-1" id="rider-badge">
+                                <span class="w-2 h-2 rounded-full bg-emerald animate-pulse"></span>
                                 <span>${activeOrder.rider_name || 'Alex'} · Walking to ${hostelShort}</span>
                             </div>
                         </div>
                     </div>
 
                     <!-- Destination: Student Hostel Room Pin (Right) -->
-                    <div class="absolute right-6 sm:right-10 top-10 sm:top-12 transform -translate-y-1/2 z-10 flex flex-col items-center">
-                        <div class="w-9 h-9 rounded-2xl bg-primary text-white flex items-center justify-center shadow-md border-2 border-white">
-                            <span class="material-symbols-outlined text-lg">apartment</span>
+                    <div class="absolute right-4 sm:right-8 top-1/2 transform -translate-y-1/2 z-10 flex flex-col items-center">
+                        <div class="w-10 h-10 rounded-2xl bg-primary text-white flex items-center justify-center shadow-lg border-2 border-white">
+                            <span class="material-symbols-outlined text-xl">apartment</span>
                         </div>
-                        <span class="bg-surface text-on-surface text-[9px] font-bold px-1.5 py-0.5 rounded shadow mt-1 whitespace-nowrap">${hostelShort} (Block A)</span>
+                        <span class="bg-surface text-on-surface text-[10px] font-bold px-2 py-0.5 rounded shadow mt-1 whitespace-nowrap border border-outline-variant/30">${hostelShort} (Block A)</span>
                     </div>
                 </div>
 
@@ -239,13 +238,13 @@ window.pageInits.orders = function() {
         const rider = riderName || 'Alex';
         if (riderNameDisplay) riderNameDisplay.textContent = rider;
         if (riderAvatar) riderAvatar.textContent = rider[0];
-        if (riderBadge) riderBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald animate-pulse"></span><span>${rider} · Walking to ${hostelShort}</span>`;
+        if (riderBadge) riderBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald animate-pulse"></span><span>${rider} · Walking to ${hostelShort}</span>`;
 
         if (status === 'Order Placed') {
             if (progressBar) progressBar.style.width = '20%';
             if (etaTimeEl) etaTimeEl.textContent = 'Order Placed (Verifying Stock)';
             if (msgEl) msgEl.innerHTML = '<span class="material-symbols-outlined text-sm text-emerald">storefront</span><span>BH13 Dark Store received your order and is preparing items.</span>';
-            if (pin) { pin.style.left = '16%'; pin.style.top = '48%'; }
+            if (pin) { pin.style.left = '18%'; pin.style.top = '50%'; }
             if (stepPlaced) stepPlaced.classList.add('text-emerald', 'font-bold');
             if (stepPacked) stepPacked.classList.remove('text-emerald', 'font-bold');
             if (stepEnroute) stepEnroute.classList.remove('text-emerald', 'font-bold');
@@ -254,7 +253,7 @@ window.pageInits.orders = function() {
             if (progressBar) progressBar.style.width = '40%';
             if (etaTimeEl) etaTimeEl.textContent = 'Confirmed · Walking in 3 mins';
             if (msgEl) msgEl.innerHTML = '<span class="material-symbols-outlined text-sm text-emerald">check_circle</span><span>BH13 Dark Store confirmed all snacks are packed.</span>';
-            if (pin) { pin.style.left = '28%'; pin.style.top = '42%'; }
+            if (pin) { pin.style.left = '32%'; pin.style.top = '46%'; }
             if (stepPlaced) stepPlaced.classList.add('text-emerald', 'font-bold');
             if (stepPacked) stepPacked.classList.add('text-emerald', 'font-bold');
             if (stepEnroute) stepEnroute.classList.remove('text-emerald', 'font-bold');
@@ -263,7 +262,7 @@ window.pageInits.orders = function() {
             if (progressBar) progressBar.style.width = '60%';
             if (etaTimeEl) etaTimeEl.textContent = 'Packing at BH13 Hub (2 mins)';
             if (msgEl) msgEl.innerHTML = '<span class="material-symbols-outlined text-sm text-emerald">inventory_2</span><span>Campus runner is picking up your bag at BH13 Hub.</span>';
-            if (pin) { pin.style.left = '45%'; pin.style.top = '36%'; }
+            if (pin) { pin.style.left = '48%'; pin.style.top = '54%'; }
             if (stepPlaced) stepPlaced.classList.add('text-emerald', 'font-bold');
             if (stepPacked) stepPacked.classList.add('text-emerald', 'font-bold');
             if (stepEnroute) stepEnroute.classList.remove('text-emerald', 'font-bold');
@@ -272,7 +271,7 @@ window.pageInits.orders = function() {
             if (progressBar) progressBar.style.width = '85%';
             if (etaTimeEl) etaTimeEl.textContent = 'Walking to Room · 1 min (00:59)';
             if (msgEl) msgEl.innerHTML = `<span class="material-symbols-outlined text-sm text-emerald">directions_walk</span><span>${rider} picked up your snacks from BH13 Hub and is walking to ${hostelAddress}.</span>`;
-            if (pin) { pin.style.left = '70%'; pin.style.top = '30%'; }
+            if (pin) { pin.style.left = '68%'; pin.style.top = '48%'; }
             if (stepPlaced) stepPlaced.classList.add('text-emerald', 'font-bold');
             if (stepPacked) stepPacked.classList.add('text-emerald', 'font-bold');
             if (stepEnroute) stepEnroute.classList.add('text-emerald', 'font-bold');
@@ -281,10 +280,18 @@ window.pageInits.orders = function() {
             if (progressBar) progressBar.style.width = '100%';
             if (etaTimeEl) etaTimeEl.textContent = 'Delivered ✓';
             if (msgEl) msgEl.innerHTML = `<span class="material-symbols-outlined text-sm text-emerald">task_alt</span><span>🎉 Arrived at ${hostelShort} hostel room/gate! Please collect your items.</span>`;
-            if (pin) { pin.style.left = '85%'; pin.style.top = '22%'; }
+            if (pin) { pin.style.left = '86%'; pin.style.top = '50%'; }
             if (stepPlaced) stepPlaced.classList.add('text-emerald', 'font-bold');
             if (stepPacked) stepPacked.classList.add('text-emerald', 'font-bold');
             if (stepEnroute) stepEnroute.classList.add('text-emerald', 'font-bold');
+            if (stepDelivered) stepDelivered.classList.add('text-emerald', 'font-bold');
+
+            // Soft auto-refresh after delivery completion so past orders update cleanly
+            setTimeout(() => {
+                if (window.location.hash === '#/orders') {
+                    window.router();
+                }
+            }, 3500);
         }
     }
 
