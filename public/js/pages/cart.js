@@ -8,8 +8,11 @@ window.pages.cart = async function() {
     try { cartData = await window.api.getCart(userId); } catch(e) { cartData = { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 5, tax: 0, total: 0, free_delivery_remaining: 199 } }; }
 
     const items = cartData.items || [];
-    const p = cartData.pricing || { subtotal: 0, delivery_fee: 0, platform_fee: 5, tax: 0, total: 0, free_delivery_remaining: 199 };
-    const freeDeliveryPct = Math.min(100, Math.round((p.subtotal / 199) * 100));
+    const p = cartData.pricing || { subtotal: 0, delivery_fee: 0, platform_fee: 5, tax: 0, total: 0 };
+    const subtotal = p.subtotal || 0;
+    const netHandling = subtotal > 0 ? 5 : 0;
+    const exactTotal = subtotal > 0 ? Math.round((subtotal + netHandling) * 100) / 100 : 0;
+    const totalSavings = subtotal > 0 ? 30 : 0; // ₹25 delivery + ₹5 handling discount
 
     const itemCards = items.length === 0 ? `
         <div class="glass-card rounded-3xl p-10 sm:p-12 text-center my-6 border border-glass-border">
@@ -91,10 +94,13 @@ window.pages.cart = async function() {
                 </h3>
                 
                 <div class="space-y-2.5 text-xs sm:text-sm">
+                    <!-- 1. Item Total -->
                     <div class="flex justify-between text-on-surface-variant">
                         <span>Item Total</span>
-                        <span class="font-semibold text-on-surface">₹${p.subtotal}</span>
+                        <span class="font-semibold text-on-surface">₹${subtotal}</span>
                     </div>
+
+                    <!-- 2. Delivery Fee with Offer -->
                     <div class="flex justify-between text-on-surface-variant">
                         <span>Delivery Fee</span>
                         <div class="flex items-center gap-1.5">
@@ -108,26 +114,41 @@ window.pages.cart = async function() {
                         </span>
                         <span class="font-bold">-₹25</span>
                     </div>
+
+                    <!-- 3. Handling Fee with Offer -->
                     <div class="flex justify-between text-on-surface-variant">
                         <span>Handling Fee</span>
-                        <span class="font-semibold text-on-surface">₹${p.platform_fee || 5}</span>
+                        <div class="flex items-center gap-1.5">
+                            <span class="line-through text-on-surface-variant/60 text-[11px]">₹10</span>
+                            <span class="font-semibold text-on-surface">₹5</span>
+                        </div>
+                    </div>
+                    <div class="flex justify-between text-emerald font-semibold">
+                        <span class="flex items-center gap-1">
+                            <span class="material-symbols-outlined text-xs">local_offer</span> Handling Fee Discount
+                        </span>
+                        <span class="font-bold">-₹5</span>
                     </div>
                     
+                    <!-- 4. Total to Pay -->
                     <div class="border-t border-outline-variant/40 pt-3 flex justify-between items-center text-base sm:text-lg font-bold text-on-surface">
-                        <span>To Pay</span>
-                        <span class="text-2xl text-emerald font-display font-black">₹${p.total}</span>
+                        <div>
+                            <span>To Pay</span>
+                            <p class="text-[10px] text-on-surface-variant font-normal">₹${subtotal} + ₹5 handling fee</p>
+                        </div>
+                        <span class="text-2xl text-emerald font-display font-black">₹${exactTotal}</span>
                     </div>
                 </div>
 
                 <!-- Savings Banner -->
                 <div class="p-3 bg-emerald/10 border border-emerald/20 rounded-xl flex items-center gap-2 text-xs text-emerald font-semibold">
                     <span class="material-symbols-outlined text-base">savings</span>
-                    <span>Yay! You saved ₹25 on this order</span>
+                    <span>Yay! You saved ₹${totalSavings} on this order</span>
                 </div>
 
                 ${items.length > 0 ? `
                 <a href="#/checkout" class="w-full bg-emerald text-white rounded-full py-3.5 sm:py-4 font-semibold text-xs sm:text-sm text-center flex items-center justify-center gap-2 hover:bg-primary transition-all shadow-md active:scale-95">
-                    Proceed to Checkout
+                    Proceed to Checkout (₹${exactTotal})
                     <span class="material-symbols-outlined text-sm">arrow_forward</span>
                 </a>
                 ` : `

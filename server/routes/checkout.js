@@ -31,7 +31,7 @@ router.post('/', (req, res) => {
         });
     }
 
-    // Calculate pricing: 0 GST, FREE delivery, only ₹5 Handling fee
+    // Calculate pricing: 0 GST, FREE delivery (-₹25 offer), ₹5 net handling fee
     const subtotal = cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
     const delivery_fee = 0;
     const platform_fee = 5;

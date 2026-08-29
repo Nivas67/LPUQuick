@@ -9,6 +9,10 @@ window.pages.checkout = async function() {
 
     const items = cartData.items || [];
     const p = cartData.pricing || { subtotal: 0, delivery_fee: 0, platform_fee: 5, tax: 0, total: 0 };
+    const subtotal = p.subtotal || 0;
+    const netHandling = subtotal > 0 ? 5 : 0;
+    const exactTotal = subtotal > 0 ? Math.round((subtotal + netHandling) * 100) / 100 : 0;
+    const totalSavings = subtotal > 0 ? 30 : 0; // ₹25 delivery + ₹5 handling discount
 
     const itemRows = items.map(item => `
         <div class="flex items-center justify-between py-3 border-b border-surface-variant/30 text-xs sm:text-sm">
@@ -73,21 +77,24 @@ window.pages.checkout = async function() {
             </div>
         </div>
 
-        <!-- Honest Breakdown Card -->
+        <!-- Honest Breakdown Card (Exact Math: Subtotal + ₹5 Handling Fee) -->
         <div class="glass-card rounded-3xl p-5 sm:p-6 border border-glass-border shadow-sm space-y-4">
             <div class="flex items-center justify-between">
                 <h3 class="font-bold text-base text-on-surface flex items-center gap-2">
                     <span class="material-symbols-outlined text-emerald text-xl">receipt</span>
                     Honest Breakdown
                 </h3>
-                <span class="text-xs text-on-surface-variant">No hidden charges</span>
+                <span class="text-xs text-on-surface-variant">Zero hidden charges</span>
             </div>
 
             <div class="space-y-2.5 text-xs sm:text-sm">
+                <!-- 1. Item Subtotal -->
                 <div class="flex justify-between text-on-surface-variant">
                     <span>Item Subtotal</span>
-                    <span class="font-semibold text-on-surface">₹${p.subtotal}</span>
+                    <span class="font-semibold text-on-surface">₹${subtotal}</span>
                 </div>
+
+                <!-- 2. Delivery Fee -->
                 <div class="flex justify-between text-on-surface-variant">
                     <span>Delivery Partner Fee</span>
                     <div class="flex items-center gap-1.5">
@@ -101,21 +108,36 @@ window.pages.checkout = async function() {
                     </span>
                     <span class="font-bold">-₹25</span>
                 </div>
+
+                <!-- 3. Handling Fee with Offer -->
                 <div class="flex justify-between text-on-surface-variant">
                     <span>Handling Fee</span>
-                    <span class="font-semibold text-on-surface">₹${p.platform_fee || 5}</span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="line-through text-on-surface-variant/60 text-xs">₹10</span>
+                        <span class="font-semibold text-on-surface">₹5</span>
+                    </div>
                 </div>
-                
+                <div class="flex justify-between text-emerald font-semibold">
+                    <span class="flex items-center gap-1">
+                        <span class="material-symbols-outlined text-xs">local_offer</span> Handling Fee Discount
+                    </span>
+                    <span class="font-bold">-₹5</span>
+                </div>
+
+                <!-- 4. Total to Pay (EXACT: subtotal + 5) -->
                 <div class="border-t border-outline-variant/40 pt-3 flex justify-between items-center text-base sm:text-lg font-bold text-on-surface">
-                    <span>Total to Pay</span>
-                    <span class="text-2xl text-emerald font-display font-black">₹${p.total}</span>
+                    <div>
+                        <span>Total to Pay</span>
+                        <p class="text-[10px] text-on-surface-variant font-normal">₹${subtotal} + ₹5 handling fee</p>
+                    </div>
+                    <span class="text-2xl text-emerald font-display font-black">₹${exactTotal}</span>
                 </div>
             </div>
 
             <!-- Savings Badge -->
             <div class="p-3 bg-emerald/10 border border-emerald/20 rounded-xl flex items-center gap-2 text-xs text-emerald font-semibold">
                 <span class="material-symbols-outlined text-base">savings</span>
-                <span>You saved ₹25 delivery charges on this order!</span>
+                <span>Yay! You saved ₹${totalSavings} (₹25 delivery + ₹5 handling) on this order!</span>
             </div>
         </div>
 
@@ -164,7 +186,7 @@ window.pages.checkout = async function() {
                     <span class="material-symbols-outlined">arrow_forward</span>
                 </div>
                 <div class="slider-text text-sm sm:text-base" id="pay-slider-text">
-                    Slide to Pay ₹${p.total}
+                    Slide to Pay ₹${exactTotal}
                 </div>
             </div>
             

@@ -2,16 +2,34 @@ const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 
-// Pricing calculator - Zero GST, Free Delivery every time, only ₹5 Handling Fee
+// Pricing calculator - Zero GST, Free Delivery Offer (-₹25), Handling Fee Discount (-₹5), Only ₹5 Net Handling Fee
 function calculatePricing(items) {
     const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const delivery_fee = 0; // FREE Campus Express Delivery every time
-    const platform_fee = subtotal > 0 ? 5 : 0; // Handling fee only ₹5
+    const original_delivery_fee = subtotal > 0 ? 25 : 0;
+    const delivery_discount = subtotal > 0 ? 25 : 0;
+    const delivery_fee = 0; // Net Delivery Fee = ₹0
+
+    const original_platform_fee = subtotal > 0 ? 10 : 0;
+    const platform_discount = subtotal > 0 ? 5 : 0; // ₹5 discount offer on handling
+    const platform_fee = subtotal > 0 ? 5 : 0; // Net Handling Fee = ₹5 only
+
     const tax = 0; // 0% GST (no taxes charged)
     const total = subtotal > 0 ? Math.round((subtotal + platform_fee) * 100) / 100 : 0;
-    const free_delivery_remaining = 0; // Always Free Delivery
+    const total_savings = delivery_discount + platform_discount; // Total saved: ₹30
 
-    return { subtotal, delivery_fee, platform_fee, tax, total, free_delivery_remaining };
+    return { 
+        subtotal, 
+        original_delivery_fee, 
+        delivery_discount, 
+        delivery_fee, 
+        original_platform_fee, 
+        platform_discount, 
+        platform_fee, 
+        tax, 
+        total, 
+        total_savings, 
+        free_delivery_remaining: 0 
+    };
 }
 
 // GET /api/cart/:userId
