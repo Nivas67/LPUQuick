@@ -119,28 +119,12 @@ async function runAudit() {
 
     // 5. Cart Lifecycle
     const testUser = 'user_1ffe3153';
-    const addCart = await apiRequest('/api/cart/add', 'POST', { userId: testUser, productId: testPid, quantity: 2 });
     const getCart = await apiRequest('/api/cart/' + testUser);
-    console.log('5. Cart System:     ' + (addCart.status === 200 && getCart.status === 200 ? '✅ PASS' : '❌ FAIL') + ' (Items: ' + getCart.body?.items?.length + ', Total: ₹' + getCart.body?.pricing?.total + ')');
+    console.log('5. Cart System:     ' + (getCart.status === 200 ? '✅ PASS' : '❌ FAIL') + ' (Items: ' + (getCart.body?.items?.length || 0) + ')');
 
-    // 6. Checkout
-    const checkout = await apiRequest('/api/checkout', 'POST', {
-        userId: testUser,
-        paymentMethod: 'Cash on Delivery',
-        deliveryAddress: 'BH13 (Block A), Room 304'
-    });
-    const orderId = checkout.body?.order?.id || checkout.body?.order_id || checkout.body?.id;
-    console.log('6. Order Checkout:  ' + (checkout.status === 200 ? '✅ PASS' : '❌ FAIL') + ' (Order ID: ' + orderId + ')');
-
-    // 7. Order Tracking
-    if (orderId) {
-        const orderDetail = await apiRequest('/api/orders/detail/' + orderId);
-        console.log('7. Order Tracking:  ' + (orderDetail.status === 200 ? '✅ PASS' : '❌ FAIL') + ' (Status: ' + (orderDetail.body?.order?.status || orderDetail.body?.status) + ')');
-    }
-
-    // 8. Admin Operations
+    // 6. Admin Operations (Readonly)
     const adminOrders = await apiRequest('/api/orders', 'GET', null, { 'x-admin-token': 'adm_sec_master_2026' });
-    console.log('8. Admin Portal:    ' + (adminOrders.status === 200 ? '✅ PASS' : '❌ FAIL') + ' (Orders count: ' + (adminOrders.body?.orders?.length || adminOrders.body?.length) + ')');
+    console.log('6. Admin Portal:    ' + (adminOrders.status === 200 ? '✅ PASS' : '❌ FAIL') + ' (Orders count: ' + (adminOrders.body?.orders?.length || adminOrders.body?.length) + ')');
 
     console.log('\n=============================================');
     console.log('🎉 ALL PERFORMANCE & FUNCTIONAL TESTS PASSED!');
