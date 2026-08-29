@@ -137,62 +137,56 @@ window.pages.cart = async function() {
                 
                 <div class="space-y-3 text-xs sm:text-sm">
                     ${mrpDiscount > 0 ? `
-                    <!-- 0. Total MRP -->
-                    <div class="flex justify-between text-on-surface-variant">
+                    <!-- Total MRP Value -->
+                    <div class="flex justify-between items-center text-on-surface-variant">
                         <span>Total MRP Value</span>
-                        <span class="line-through text-on-surface-variant/70">₹${totalMrp}</span>
+                        <span class="line-through text-on-surface-variant/60 font-medium">₹${totalMrp}</span>
                     </div>
 
                     <!-- Product MRP Discount -->
-                    <div class="flex justify-between text-emerald font-semibold">
-                        <span class="flex items-center gap-1">
-                            <span class="material-symbols-outlined text-sm">discount</span>
-                            Product MRP Discount
-                        </span>
-                        <span>-₹${mrpDiscount}</span>
+                    <div class="flex justify-between items-center text-emerald font-semibold">
+                        <span>Product Discount</span>
+                        <span class="bg-emerald/15 text-emerald px-2 py-0.5 rounded-lg font-bold text-xs">-₹${mrpDiscount}</span>
                     </div>
                     ` : ''}
 
-                    <!-- 1. Item Total -->
-                    <div class="flex justify-between text-on-surface-variant">
-                        <span>Item Total (Discounted)</span>
+                    <!-- Item Total -->
+                    <div class="flex justify-between items-center text-on-surface-variant">
+                        <span>Item Subtotal</span>
                         <span class="font-semibold text-on-surface">₹${subtotal}</span>
                     </div>
 
                     ${hasDiscount ? `
-                    <!-- 5% Discount Line -->
-                    <div class="flex justify-between text-emerald font-bold">
-                        <span class="flex items-center gap-1">
-                            <span class="material-symbols-outlined text-sm">local_offer</span>
-                            5% Bulk Offer (Above ₹350)
-                        </span>
-                        <span>-₹${discount5}</span>
+                    <!-- 5% Bulk Offer -->
+                    <div class="flex justify-between items-center text-emerald font-semibold">
+                        <span>5% Bulk Offer (&gt;₹350)</span>
+                        <span class="bg-emerald/15 text-emerald px-2 py-0.5 rounded-lg font-bold text-xs">-₹${discount5}</span>
                     </div>
                     ` : ''}
 
-                    <!-- 2. Delivery Partner Fee -->
-                    <div class="flex justify-between text-on-surface-variant">
+                    <!-- Delivery Partner Fee -->
+                    <div class="flex justify-between items-center text-on-surface-variant">
                         <span>Delivery Fee</span>
                         <div class="flex items-center gap-1.5">
-                            <span class="line-through text-on-surface-variant/60 text-xs">₹25</span>
-                            <span class="font-bold text-emerald">FREE (Offer Applied)</span>
+                            <span class="line-through text-on-surface-variant/50 text-xs">₹25</span>
+                            <span class="font-bold text-emerald text-xs">FREE</span>
                         </div>
                     </div>
 
-                    <!-- 3. Handling Fee (Minused with Offer) -->
-                    <div class="flex justify-between text-on-surface-variant">
-                        <span>Handling Fee</span>
+                    <!-- Handling Fee -->
+                    <div class="flex justify-between items-center text-on-surface-variant">
+                        <span>Handling & Bag Fee</span>
                         <div class="flex items-center gap-1.5">
-                            <span class="line-through text-on-surface-variant/60 text-xs">₹5</span>
-                            <span class="font-bold text-emerald">FREE (Offer Applied)</span>
+                            <span class="line-through text-on-surface-variant/50 text-xs">₹5</span>
+                            <span class="font-bold text-emerald text-xs">FREE</span>
                         </div>
                     </div>
                     
-                    <!-- 4. Total to Pay -->
-                    <div class="border-t border-outline-variant/40 pt-3 flex justify-between items-center text-base sm:text-lg font-bold text-on-surface">
+                    <!-- Grand Total To Pay -->
+                    <div class="border-t border-glass-border pt-3.5 mt-2 flex justify-between items-center text-base sm:text-lg font-bold text-on-surface">
                         <div>
                             <span>To Pay</span>
-                            <p class="text-[10px] text-emerald font-semibold">Free Delivery${hasDiscount ? ' + 5% OFF' : ''}</p>
+                            <p class="text-[10px] text-emerald font-medium">100% Free Campus Delivery</p>
                         </div>
                         <span class="text-2xl text-emerald font-display font-black">₹${exactTotal}</span>
                     </div>

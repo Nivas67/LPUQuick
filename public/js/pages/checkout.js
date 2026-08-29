@@ -41,18 +41,30 @@ window.pages.checkout = async function() {
         const discPercent = hasItemDiscount ? Math.round(((itemMrp - itemPrice) / itemMrp) * 100) : 0;
 
         return `
-        <div class="flex items-center justify-between py-3 border-b border-surface-variant/30 text-xs sm:text-sm">
-            <div class="flex items-center gap-3">
-                <img class="w-10 h-10 rounded-xl object-cover bg-surface-container-high" src="${item.image_url}" alt="${item.name}" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=100'">
-                <div>
-                    <p class="font-semibold text-on-surface truncate max-w-[160px] sm:max-w-xs">${item.name}</p>
+        <div class="flex items-center justify-between py-3 border-b border-surface-variant/30 text-xs sm:text-sm cart-checkout-row" data-cart-id="${item.cart_id}">
+            <div class="flex items-center gap-3 min-w-0">
+                <img class="w-11 h-11 rounded-xl object-cover bg-surface-container-high flex-shrink-0" src="${item.image_url}" alt="${item.name}" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=100'">
+                <div class="min-w-0">
+                    <p class="font-semibold text-on-surface truncate">${item.name}</p>
                     <div class="flex items-center gap-1.5 mt-0.5">
-                        <span class="text-[11px] text-on-surface-variant">${item.quantity} × ₹${itemPrice}</span>
-                        ${hasItemDiscount ? `<span class="line-through text-[10px] text-on-surface-variant/60">₹${itemMrp}</span> <span class="text-[10px] text-emerald font-bold">${discPercent}% OFF</span>` : ''}
+                        <span class="text-[11px] text-on-surface-variant font-medium">₹${itemPrice} each</span>
+                        ${hasItemDiscount ? `<span class="line-through text-[10px] text-on-surface-variant/60">₹${itemMrp}</span> <span class="text-[10px] text-emerald font-bold bg-emerald/15 px-1 py-0.2 rounded">${discPercent}% OFF</span>` : ''}
                     </div>
                 </div>
             </div>
-            <span class="font-bold text-on-surface">₹${item.quantity * itemPrice}</span>
+            
+            <div class="flex items-center gap-2 flex-shrink-0 ml-2">
+                <div class="cart-qty-stepper flex items-center gap-2 rounded-full px-2 py-0.5">
+                    <button class="w-6 h-6 rounded-full flex items-center justify-center active:scale-90 transition-all checkout-qty-dec" data-id="${item.cart_id}" data-qty="${item.quantity}">
+                        <span class="material-symbols-outlined text-sm">remove</span>
+                    </button>
+                    <span class="font-bold text-xs w-3 text-center">${item.quantity}</span>
+                    <button class="w-6 h-6 rounded-full flex items-center justify-center active:scale-90 transition-all checkout-qty-inc" data-id="${item.cart_id}" data-qty="${item.quantity}">
+                        <span class="material-symbols-outlined text-sm">add</span>
+                    </button>
+                </div>
+                <span class="font-bold text-on-surface text-xs sm:text-sm w-12 text-right">₹${item.quantity * itemPrice}</span>
+            </div>
         </div>
     `}).join('');
 
@@ -179,62 +191,56 @@ window.pages.checkout = async function() {
 
                 <div class="space-y-3 text-xs sm:text-sm">
                     ${mrpDiscount > 0 ? `
-                    <!-- 0. Total MRP Value -->
-                    <div class="flex justify-between text-on-surface-variant">
+                    <!-- Total MRP Value -->
+                    <div class="flex justify-between items-center text-on-surface-variant">
                         <span>Total MRP Value</span>
-                        <span class="line-through text-on-surface-variant/70">₹${totalMrp}</span>
+                        <span class="line-through text-on-surface-variant/60 font-medium">₹${totalMrp}</span>
                     </div>
 
                     <!-- Product MRP Discount -->
-                    <div class="flex justify-between text-emerald font-semibold">
-                        <span class="flex items-center gap-1">
-                            <span class="material-symbols-outlined text-sm">discount</span>
-                            Product MRP Discount
-                        </span>
-                        <span>-₹${mrpDiscount}</span>
+                    <div class="flex justify-between items-center text-emerald font-semibold">
+                        <span>Product Discount</span>
+                        <span class="bg-emerald/15 text-emerald px-2 py-0.5 rounded-lg font-bold text-xs">-₹${mrpDiscount}</span>
                     </div>
                     ` : ''}
 
-                    <!-- 1. Item Subtotal -->
-                    <div class="flex justify-between text-on-surface-variant">
-                        <span>Item Subtotal (Discounted)</span>
+                    <!-- Item Total -->
+                    <div class="flex justify-between items-center text-on-surface-variant">
+                        <span>Item Subtotal</span>
                         <span class="font-semibold text-on-surface" id="checkout-subtotal-val">₹${subtotal}</span>
                     </div>
 
                     ${hasDiscount ? `
-                    <!-- 5% Discount Line -->
-                    <div class="flex justify-between text-emerald font-bold">
-                        <span class="flex items-center gap-1">
-                            <span class="material-symbols-outlined text-sm">local_offer</span>
-                            5% Bulk Offer (Above ₹350)
-                        </span>
-                        <span>-₹${discount5}</span>
+                    <!-- 5% Bulk Offer -->
+                    <div class="flex justify-between items-center text-emerald font-semibold">
+                        <span>5% Bulk Offer (&gt;₹350)</span>
+                        <span class="bg-emerald/15 text-emerald px-2 py-0.5 rounded-lg font-bold text-xs">-₹${discount5}</span>
                     </div>
                     ` : ''}
 
-                    <!-- 2. Delivery Partner Fee -->
-                    <div class="flex justify-between text-on-surface-variant">
+                    <!-- Delivery Partner Fee -->
+                    <div class="flex justify-between items-center text-on-surface-variant">
                         <span>Delivery Fee</span>
                         <div class="flex items-center gap-1.5">
-                            <span class="line-through text-on-surface-variant/60 text-xs">₹25</span>
-                            <span class="font-bold text-emerald">FREE (Offer Applied)</span>
+                            <span class="line-through text-on-surface-variant/50 text-xs">₹25</span>
+                            <span class="font-bold text-emerald text-xs">FREE</span>
                         </div>
                     </div>
 
-                    <!-- 3. Handling Fee (Minused with Offer) -->
-                    <div class="flex justify-between text-on-surface-variant">
-                        <span>Handling Fee</span>
+                    <!-- Handling Fee -->
+                    <div class="flex justify-between items-center text-on-surface-variant">
+                        <span>Handling & Bag Fee</span>
                         <div class="flex items-center gap-1.5">
-                            <span class="line-through text-on-surface-variant/60 text-xs">₹5</span>
-                            <span class="font-bold text-emerald">FREE (Offer Applied)</span>
+                            <span class="line-through text-on-surface-variant/50 text-xs">₹5</span>
+                            <span class="font-bold text-emerald text-xs">FREE</span>
                         </div>
                     </div>
-
-                    <!-- 4. Total to Pay -->
-                    <div class="border-t border-outline-variant/40 pt-3 flex justify-between items-center text-base sm:text-lg font-bold text-on-surface">
+                    
+                    <!-- Grand Total To Pay -->
+                    <div class="border-t border-glass-border pt-3.5 mt-2 flex justify-between items-center text-base sm:text-lg font-bold text-on-surface">
                         <div>
                             <span>Total to Pay</span>
-                            <p class="text-[10px] text-emerald font-semibold">Free Delivery${hasDiscount ? ' + 5% OFF' : ''}</p>
+                            <p class="text-[10px] text-emerald font-medium">100% Free Campus Delivery</p>
                         </div>
                         <span class="text-2xl text-emerald font-display font-black" id="checkout-total-val">₹${exactTotal}</span>
                     </div>
@@ -532,6 +538,41 @@ window.pageInits.checkout = function() {
         trigger.onclick = () => {
             const title = trigger.dataset.title || 'Online Payment';
             showPaymentToast(`${title} is coming soon! All orders currently deliver via Cash on Delivery.`);
+        };
+    });
+
+    // Real-Time Quantity Increment / Decrement on Checkout Page
+    document.querySelectorAll('.checkout-qty-inc').forEach(btn => {
+        btn.onclick = async (e) => {
+            e.stopPropagation();
+            const id = btn.dataset.id;
+            const currentQty = parseInt(btn.dataset.qty) || 1;
+            btn.disabled = true;
+            try {
+                await window.api.updateCartItem(id, currentQty + 1, userId);
+                if (window.router) await window.router();
+            } catch (err) {
+                console.error(err);
+            } finally {
+                btn.disabled = false;
+            }
+        };
+    });
+
+    document.querySelectorAll('.checkout-qty-dec').forEach(btn => {
+        btn.onclick = async (e) => {
+            e.stopPropagation();
+            const id = btn.dataset.id;
+            const currentQty = parseInt(btn.dataset.qty) || 1;
+            btn.disabled = true;
+            try {
+                await window.api.updateCartItem(id, currentQty - 1, userId);
+                if (window.router) await window.router();
+            } catch (err) {
+                console.error(err);
+            } finally {
+                btn.disabled = false;
+            }
         };
     });
 
