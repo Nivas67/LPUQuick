@@ -59,7 +59,7 @@ window.pages.orders = async function() {
             <div class="flex justify-between items-center">
                 <h2 class="font-headline-md text-base sm:text-lg font-bold text-on-surface flex items-center gap-2">
                     <span class="w-2.5 h-2.5 rounded-full bg-emerald animate-pulse"></span>
-                    Live 3-Minute Campus Delivery
+                    Live 3-Minute BH13 Campus Delivery
                 </h2>
                 <span class="text-xs bg-emerald/15 text-emerald font-extrabold px-3 py-1 rounded-full flex items-center gap-1" id="tracking-eta">
                     <span class="material-symbols-outlined text-xs">bolt</span>
@@ -67,32 +67,54 @@ window.pages.orders = async function() {
                 </span>
             </div>
 
-            <div class="glass-card rounded-3xl overflow-hidden border border-emerald/30 shadow-lg">
-                <!-- Map Simulation Canvas/Pattern -->
-                <div class="h-48 sm:h-56 relative bg-surface-container-high map-pattern overflow-hidden flex items-center justify-center p-4">
-                    <!-- Road Path SVG -->
+            <div class="glass-card rounded-3xl overflow-hidden border border-emerald/30 shadow-lg bg-surface">
+                <!-- BH13 Campus Floor / Corridor Live Map Canvas -->
+                <div class="h-52 sm:h-60 relative bg-[#f1f5f9] dark:bg-slate-900/80 overflow-hidden flex items-center justify-center p-4 select-none">
+                    
+                    <!-- Campus Map Grid Lines & Footpath -->
+                    <div class="absolute inset-0 opacity-20 pointer-events-none" style="background-image: radial-gradient(#10B981 1px, transparent 1px); background-size: 20px 20px;"></div>
+
+                    <!-- Walking Footpath Path SVG -->
                     <svg class="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M 40 120 Q 180 50 360 110 T 650 80" fill="none" stroke="#10B981" stroke-width="4" stroke-linecap="round" stroke-dasharray="6,6" style="animation: dash 1s linear infinite;"/>
+                        <!-- Shadow Track -->
+                        <path d="M 60 140 Q 180 50 360 120 T 680 75" fill="none" stroke="#cbd5e1" stroke-width="6" stroke-linecap="round"/>
+                        <!-- Animated Green Walking Dash Track -->
+                        <path d="M 60 140 Q 180 50 360 120 T 680 75" fill="none" stroke="#10B981" stroke-width="4" stroke-linecap="round" stroke-dasharray="8,8" style="animation: dash 1s linear infinite;"/>
                     </svg>
 
-                    <!-- Rider Pin -->
-                    <div class="absolute transform -translate-x-1/2 -translate-y-1/2 transition-all duration-700 z-10" id="rider-pin" style="left: 35%; top: 40%;">
-                        <div class="relative">
-                            <div class="w-10 h-10 rounded-full bg-emerald text-white flex items-center justify-center shadow-lg border-2 border-white animate-bounce">
-                                <span class="material-symbols-outlined text-xl">two_wheeler</span>
+                    <!-- Origin: BH13 Dark Store Hub Pin (Left) -->
+                    <div class="absolute left-6 sm:left-10 top-24 sm:top-28 transform -translate-y-1/2 z-10 flex flex-col items-center">
+                        <div class="w-9 h-9 rounded-2xl bg-[#3c4043] text-white flex items-center justify-center shadow-md border-2 border-white">
+                            <span class="material-symbols-outlined text-lg">storefront</span>
+                        </div>
+                        <span class="bg-surface text-on-surface text-[9px] font-bold px-1.5 py-0.5 rounded shadow mt-1 whitespace-nowrap">BH13 Hub</span>
+                    </div>
+
+                    <!-- Active Walking Runner Pin (Dynamic Movement) -->
+                    <div class="absolute transform -translate-x-1/2 -translate-y-1/2 transition-all duration-700 z-20" id="rider-pin" style="left: 35%; top: 40%;">
+                        <div class="relative flex flex-col items-center">
+                            <!-- Pulsing Radar Ring -->
+                            <div class="absolute -inset-2 rounded-full bg-emerald/30 animate-ping"></div>
+                            
+                            <!-- Walking Runner Icon -->
+                            <div class="w-11 h-11 rounded-full bg-emerald text-white flex items-center justify-center shadow-xl border-2 border-white relative z-10 animate-bounce">
+                                <span class="material-symbols-outlined text-2xl font-black">directions_walk</span>
                             </div>
-                            <div class="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-surface text-on-surface text-[10px] font-bold px-2 py-0.5 rounded shadow whitespace-nowrap" id="rider-badge">
-                                ${activeOrder.rider_name || 'Alex'} · Speeding to ${hostelShort}
+                            
+                            <!-- Runner Status Badge -->
+                            <div class="mt-1 bg-surface/95 backdrop-blur-md text-on-surface text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-md border border-emerald/30 whitespace-nowrap flex items-center gap-1" id="rider-badge">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald animate-pulse"></span>
+                                <span>${activeOrder.rider_name || 'Alex'} · Walking to ${hostelShort}</span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Destination Pin -->
-                    <div class="absolute right-8 sm:right-12 top-14 transform translate-x-1/2 -translate-y-1/2 z-10">
-                        <div class="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shadow-lg border-2 border-white">
-                            <span class="material-symbols-outlined text-lg">home</span>
+                    <!-- Destination: Student Hostel Room Pin (Right) -->
+                    <div class="absolute right-6 sm:right-10 top-10 sm:top-12 transform -translate-y-1/2 z-10 flex flex-col items-center">
+                        <div class="w-9 h-9 rounded-2xl bg-primary text-white flex items-center justify-center shadow-md border-2 border-white">
+                            <span class="material-symbols-outlined text-lg">apartment</span>
                         </div>
-                        <span class="block bg-surface text-on-surface text-[10px] font-bold px-2 py-0.5 rounded shadow mt-0.5 text-center">${hostelShort}</span>
+                        <span class="bg-surface text-on-surface text-[9px] font-bold px-1.5 py-0.5 rounded shadow mt-1 whitespace-nowrap">${hostelShort} (Block A)</span>
                     </div>
                 </div>
 
@@ -100,8 +122,9 @@ window.pages.orders = async function() {
                 <div class="p-5 sm:p-6 space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
                         <div>
-                            <p class="text-xs text-on-surface-variant font-medium" id="tracking-status-msg">
-                                🏍️ ${activeOrder.rider_name || 'Alex'} picked up your snacks and is riding to ${hostelAddress}.
+                            <p class="text-xs text-on-surface-variant font-medium flex items-center gap-1" id="tracking-status-msg">
+                                <span class="material-symbols-outlined text-sm text-emerald">directions_walk</span>
+                                <span>${activeOrder.rider_name || 'Alex'} picked up your snacks from BH13 Dark Store and is walking to ${hostelAddress}.</span>
                             </p>
                             <h3 class="font-bold text-sm sm:text-base text-on-surface mt-0.5">Order #${activeOrder.id.replace('order_', '')} · Total ₹${activeOrder.total} (${activeOrder.payment_method || 'Cash on Delivery'})</h3>
                         </div>
@@ -111,9 +134,12 @@ window.pages.orders = async function() {
                             </div>
                             <div>
                                 <p class="font-semibold text-xs text-on-surface" id="rider-name-display">${activeOrder.rider_name || 'Alex'}</p>
-                                <p class="text-[10px] text-emerald font-semibold">Priority 3-Min Rider</p>
+                                <p class="text-[10px] text-emerald font-semibold flex items-center gap-0.5">
+                                    <span class="material-symbols-outlined text-[12px]">directions_walk</span>
+                                    <span>BH13 Express Walker</span>
+                                </p>
                             </div>
-                            <a href="tel:7671836211" class="ml-2 w-7 h-7 rounded-full bg-emerald text-white flex items-center justify-center hover:opacity-90 shadow-sm">
+                            <a href="tel:7671836211" class="ml-2 w-7 h-7 rounded-full bg-emerald text-white flex items-center justify-center hover:opacity-90 shadow-sm" title="Call Runner">
                                 <span class="material-symbols-outlined text-xs">call</span>
                             </a>
                         </div>
@@ -127,7 +153,7 @@ window.pages.orders = async function() {
                         <div class="flex justify-between text-[10px] sm:text-xs font-semibold text-on-surface-variant">
                             <span class="text-emerald" id="step-placed">Accepted</span>
                             <span id="step-packed">Packed</span>
-                            <span id="step-enroute">On the way</span>
+                            <span id="step-enroute">Walking to Room</span>
                             <span id="step-delivered">Delivered</span>
                         </div>
                     </div>
@@ -137,10 +163,10 @@ window.pages.orders = async function() {
         ` : `
         <section class="glass-card rounded-3xl p-8 text-center border border-glass-border">
             <div class="w-14 h-14 rounded-full bg-surface-container-high mx-auto flex items-center justify-center mb-3">
-                <span class="material-symbols-outlined text-3xl text-on-surface-variant">local_shipping</span>
+                <span class="material-symbols-outlined text-3xl text-on-surface-variant">directions_walk</span>
             </div>
             <p class="font-bold text-sm text-on-surface">No active deliveries right now</p>
-            <p class="text-xs text-on-surface-variant mt-1">Place an order to see live real-time GPS tracking.</p>
+            <p class="text-xs text-on-surface-variant mt-1">Place an order to see live real-time GPS walking tracking.</p>
             <a href="#/" class="mt-4 inline-block bg-emerald text-white text-xs font-semibold px-4 py-2 rounded-full shadow-md">Explore Campus Store</a>
         </section>
         `}
@@ -213,39 +239,39 @@ window.pageInits.orders = function() {
         const rider = riderName || 'Alex';
         if (riderNameDisplay) riderNameDisplay.textContent = rider;
         if (riderAvatar) riderAvatar.textContent = rider[0];
-        if (riderBadge) riderBadge.textContent = `${rider} · Speeding to ${hostelShort}`;
+        if (riderBadge) riderBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald animate-pulse"></span><span>${rider} · Walking to ${hostelShort}</span>`;
 
         if (status === 'Order Placed') {
             if (progressBar) progressBar.style.width = '20%';
             if (etaTimeEl) etaTimeEl.textContent = 'Order Placed (Verifying Stock)';
-            if (msgEl) msgEl.textContent = '📦 Dark Store received your order and is verifying items.';
-            if (pin) { pin.style.left = '15%'; pin.style.top = '45%'; }
+            if (msgEl) msgEl.innerHTML = '<span class="material-symbols-outlined text-sm text-emerald">storefront</span><span>BH13 Dark Store received your order and is preparing items.</span>';
+            if (pin) { pin.style.left = '16%'; pin.style.top = '48%'; }
             if (stepPlaced) stepPlaced.classList.add('text-emerald', 'font-bold');
             if (stepPacked) stepPacked.classList.remove('text-emerald', 'font-bold');
             if (stepEnroute) stepEnroute.classList.remove('text-emerald', 'font-bold');
             if (stepDelivered) stepDelivered.classList.remove('text-emerald', 'font-bold');
         } else if (status === 'Order Confirmed') {
             if (progressBar) progressBar.style.width = '40%';
-            if (etaTimeEl) etaTimeEl.textContent = 'Confirmed · Est. 3 mins';
-            if (msgEl) msgEl.textContent = '✅ Dark Store confirmed all items are in stock.';
-            if (pin) { pin.style.left = '25%'; pin.style.top = '40%'; }
+            if (etaTimeEl) etaTimeEl.textContent = 'Confirmed · Walking in 3 mins';
+            if (msgEl) msgEl.innerHTML = '<span class="material-symbols-outlined text-sm text-emerald">check_circle</span><span>BH13 Dark Store confirmed all snacks are packed.</span>';
+            if (pin) { pin.style.left = '28%'; pin.style.top = '42%'; }
             if (stepPlaced) stepPlaced.classList.add('text-emerald', 'font-bold');
             if (stepPacked) stepPacked.classList.add('text-emerald', 'font-bold');
             if (stepEnroute) stepEnroute.classList.remove('text-emerald', 'font-bold');
             if (stepDelivered) stepDelivered.classList.remove('text-emerald', 'font-bold');
         } else if (status === 'Preparing') {
             if (progressBar) progressBar.style.width = '60%';
-            if (etaTimeEl) etaTimeEl.textContent = 'Packing (Est. 2 mins)';
-            if (msgEl) msgEl.textContent = '🛍️ Staff is packing your items in an express bag.';
-            if (pin) { pin.style.left = '45%'; pin.style.top = '35%'; }
+            if (etaTimeEl) etaTimeEl.textContent = 'Packing at BH13 Hub (2 mins)';
+            if (msgEl) msgEl.innerHTML = '<span class="material-symbols-outlined text-sm text-emerald">inventory_2</span><span>Campus runner is picking up your bag at BH13 Hub.</span>';
+            if (pin) { pin.style.left = '45%'; pin.style.top = '36%'; }
             if (stepPlaced) stepPlaced.classList.add('text-emerald', 'font-bold');
             if (stepPacked) stepPacked.classList.add('text-emerald', 'font-bold');
             if (stepEnroute) stepEnroute.classList.remove('text-emerald', 'font-bold');
             if (stepDelivered) stepDelivered.classList.remove('text-emerald', 'font-bold');
         } else if (status === 'Out for Delivery') {
             if (progressBar) progressBar.style.width = '85%';
-            if (etaTimeEl) etaTimeEl.textContent = 'Out for Delivery · 1 min (00:59)';
-            if (msgEl) msgEl.textContent = `🏍️ Rider ${rider} picked up your snacks and is speeding to ${hostelAddress}.`;
+            if (etaTimeEl) etaTimeEl.textContent = 'Walking to Room · 1 min (00:59)';
+            if (msgEl) msgEl.innerHTML = `<span class="material-symbols-outlined text-sm text-emerald">directions_walk</span><span>${rider} picked up your snacks from BH13 Hub and is walking to ${hostelAddress}.</span>`;
             if (pin) { pin.style.left = '70%'; pin.style.top = '30%'; }
             if (stepPlaced) stepPlaced.classList.add('text-emerald', 'font-bold');
             if (stepPacked) stepPacked.classList.add('text-emerald', 'font-bold');
@@ -254,12 +280,11 @@ window.pageInits.orders = function() {
         } else if (status === 'Delivered') {
             if (progressBar) progressBar.style.width = '100%';
             if (etaTimeEl) etaTimeEl.textContent = 'Delivered ✓';
-            if (msgEl) msgEl.textContent = `🎉 Order arrived at ${hostelShort} hostel gate! Please collect your items.`;
-            if (pin) { pin.style.left = '85%'; pin.style.top = '25%'; }
+            if (msgEl) msgEl.innerHTML = `<span class="material-symbols-outlined text-sm text-emerald">task_alt</span><span>🎉 Arrived at ${hostelShort} hostel room/gate! Please collect your items.</span>`;
+            if (pin) { pin.style.left = '85%'; pin.style.top = '22%'; }
             if (stepPlaced) stepPlaced.classList.add('text-emerald', 'font-bold');
             if (stepPacked) stepPacked.classList.add('text-emerald', 'font-bold');
             if (stepEnroute) stepEnroute.classList.add('text-emerald', 'font-bold');
-            if (stepDelivered) stepDelivered.classList.add('text-emerald', 'font-bold');
         }
     }
 

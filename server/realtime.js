@@ -167,12 +167,12 @@ function getStepNumber(status) {
 }
 
 function getStatusMessage(status, rider = 'Alex') {
-    if (status === 'Order Confirmed') return 'Dark Store confirmed your items are in stock.';
-    if (status === 'Preparing') return 'Staff is packing your items in an express bag.';
-    if (status === 'Out for Delivery') return `Rider ${rider} is on the way to your hostel room.`;
-    if (status === 'Delivered') return '🎉 Order delivered to your hostel gate/room!';
+    if (status === 'Order Confirmed') return 'BH13 Dark Store confirmed your items are in stock.';
+    if (status === 'Preparing') return 'Staff is packing your snacks at BH13 Hub.';
+    if (status === 'Out for Delivery') return `🚶‍♂️ Campus runner ${rider} picked up your bag and is walking to your room.`;
+    if (status === 'Delivered') return '🎉 Order delivered to your hostel room/gate!';
     if (status === 'Cancelled') return 'Order has been cancelled.';
-    return 'Your order has been placed and received.';
+    return 'Your order has been placed and received by BH13 Hub.';
 }
 
 module.exports = {

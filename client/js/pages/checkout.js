@@ -348,14 +348,14 @@ window.pages.checkout = async function() {
                     <!-- Step 4: Ready for Pickup / Out for Delivery -->
                     <div class="flex items-start gap-3.5 relative group opacity-50 transition-opacity" id="timeline-step-4">
                         <div class="w-7 h-7 rounded-full bg-surface-container-high border-2 border-outline-variant text-on-surface-variant flex items-center justify-center flex-shrink-0 z-10 timeline-dot">
-                            <span class="material-symbols-outlined text-sm">radio_button_unchecked</span>
+                            <span class="material-symbols-outlined text-sm">directions_walk</span>
                         </div>
                         <div class="flex-1 pt-0.5">
                             <div class="flex justify-between items-center">
                                 <h4 class="font-semibold text-xs sm:text-sm text-on-surface" id="timeline-title-4">Out for Delivery</h4>
                                 <span class="text-[10px] text-on-surface-variant font-mono" id="timeline-time-4">--</span>
                             </div>
-                            <p class="text-[11px] text-on-surface-variant" id="timeline-desc-4">Campus rider dispatched on electric scooter</p>
+                            <p class="text-[11px] text-on-surface-variant" id="timeline-desc-4">Campus runner walking from BH13 Hub to your room</p>
                         </div>
                     </div>
 
@@ -716,7 +716,7 @@ window.pageInits.checkout = function() {
 
         if (stepNumber >= 4 && riderName) {
             const desc4 = document.getElementById('timeline-desc-4');
-            if (desc4) desc4.textContent = `Rider ${riderName} is on the way to your hostel`;
+            if (desc4) desc4.textContent = `Campus runner ${riderName} is walking from BH13 Hub to your room`;
         }
     }
 
