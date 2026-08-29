@@ -9,10 +9,10 @@ router.post('/', (req, res) => {
 
     if (!userId) return res.status(400).json({ error: 'userId is required' });
 
-    // Fetch cart items with product details (single JOIN, no N+1)
+    // Fetch cart items with product details and current stock
     const cartItems = db.prepare(`
         SELECT ci.id as cart_id, ci.quantity, ci.product_id,
-               p.name, p.price, p.image_url, p.in_stock
+               p.name, p.price, p.image_url, p.in_stock, p.stock_left
         FROM cart_items ci
         JOIN products p ON ci.product_id = p.id
         WHERE ci.user_id = ?
@@ -22,12 +22,12 @@ router.post('/', (req, res) => {
         return res.status(400).json({ error: 'Cart is empty. Please add items to order.' });
     }
 
-    // Validate stock
-    const outOfStock = cartItems.filter(i => !i.in_stock);
+    // Validate stock and prevent overselling
+    const outOfStock = cartItems.filter(i => !i.in_stock || (i.stock_left !== null && i.stock_left < i.quantity));
     if (outOfStock.length > 0) {
         return res.status(409).json({
-            error: 'Some items are out of stock',
-            out_of_stock: outOfStock.map(i => ({ id: i.product_id, name: i.name }))
+            error: 'Some items are out of stock or exceed campus inventory',
+            out_of_stock: outOfStock.map(i => ({ id: i.product_id, name: i.name, available: i.stock_left || 0 }))
         });
     }
 
@@ -45,17 +45,25 @@ router.post('/', (req, res) => {
     const address = deliveryAddress || 'BH13 (Block A), Room 304';
     const method = paymentMethod === 'cod' ? 'Cash on Delivery' : (paymentMethod || 'Cash on Delivery');
     const initialStatus = 'Order Placed';
+    const initialHistory = JSON.stringify([{
+        status: initialStatus,
+        timestamp: new Date().toISOString(),
+        updated_by: 'Student (Checkout)'
+    }]);
 
     // Insert order into SQLite DB
     db.prepare(`
-        INSERT INTO orders (id, user_id, status, subtotal, delivery_fee, platform_fee, tax, total, payment_method, payment_status, rider_name, rider_lat, rider_lng, delivery_address, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 31.2560, 75.7030, ?, datetime('now'))
-    `).run(orderId, userId, initialStatus, subtotal, delivery_fee, platform_fee, tax, total, method, rider, address);
+        INSERT INTO orders (id, user_id, status, subtotal, delivery_fee, platform_fee, tax, total, payment_method, payment_status, rider_name, rider_lat, rider_lng, delivery_address, status_history, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 31.2560, 75.7030, ?, ?, datetime('now'))
+    `).run(orderId, userId, initialStatus, subtotal, delivery_fee, platform_fee, tax, total, method, rider, address, initialHistory);
 
-    // Insert order items
+    // Insert order items and atomically decrement stock
     const insertItem = db.prepare('INSERT INTO order_items (id, order_id, product_id, quantity, unit_price) VALUES (?, ?, ?, ?, ?)');
+    const updateStock = db.prepare('UPDATE products SET stock_left = MAX(0, stock_left - ?), in_stock = CASE WHEN stock_left - ? > 0 THEN 1 ELSE 0 END WHERE id = ?');
+    
     for (const item of cartItems) {
         insertItem.run(`oi_${uuidv4().slice(0, 8)}`, orderId, item.product_id, item.quantity, item.price);
+        updateStock.run(item.quantity, item.quantity, item.product_id);
     }
 
     // Clear cart in DB

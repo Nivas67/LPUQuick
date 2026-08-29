@@ -1,370 +1,1350 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LPUQuick — Dark Store Operations Console</title>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>LPU Quick Admin Dashboard — Campus Operations Console</title>
     
     <link rel="icon" type="image/png" href="/favicon.png">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com" rel="preconnect"/>
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
     
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'primary': '#064e3b',
-                        'emerald': '#10B981',
-                        'surface': '#0e1813',
-                        'surface-card': '#14221a',
-                        'surface-variant': '#1e3327'
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif']
-                    }
-                }
-            }
-        };
-    </script>
     <style>
+        .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 20px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
+        }
+        
         body {
-            background: #090f0c;
-            color: #f1f5f9;
+            font-family: 'Inter', sans-serif;
+            background-color: #F1F3F4;
+            color: #181c1f;
         }
+
         .glass-panel {
-            background: rgba(20, 34, 26, 0.75);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid #DADCE0;
+            box-shadow: 0 4px 20px rgba(60, 64, 67, 0.05);
+            border-radius: 8px;
         }
-        .order-card {
-            transition: all 0.2s ease;
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
         }
-        .order-card:hover {
-            border-color: rgba(16, 185, 129, 0.4);
-            transform: translateY(-2px);
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .badge-in-stock {
+            background-color: #e6f4ea;
+            color: #137333;
+            border: 1px solid #ceead6;
+        }
+        .badge-low-stock {
+            background-color: #fef7e0;
+            color: #b06000;
+            border: 1px solid #fde293;
+        }
+        .badge-out-of-stock {
+            background-color: #fce8e6;
+            color: #c5221f;
+            border: 1px solid #fad2cf;
+        }
+
+        .nav-item.active {
+            background-color: #f1f4f7;
+            color: #262a2d;
+            font-weight: 600;
+            border-left: 4px solid #3c4043;
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col font-sans">
-    
-    <!-- Top Admin Bar -->
-    <header class="glass-panel sticky top-0 z-50 px-6 py-4 flex flex-wrap items-center justify-between border-b border-white/10 gap-4">
-        <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-2xl bg-emerald/20 border border-emerald/40 flex items-center justify-center text-emerald font-black text-lg">
-                ⚡
-            </div>
-            <div>
-                <div class="flex items-center gap-2">
-                    <h1 class="text-base sm:text-lg font-bold text-white tracking-tight">LPUQuick Dark Store Console</h1>
-                    <span class="text-[10px] bg-emerald/20 text-emerald border border-emerald/30 px-2 py-0.5 rounded-full font-bold">BH13 Hub</span>
+<body class="antialiased flex h-screen overflow-hidden">
+
+    <!-- Audio Chime for Real-Time Orders -->
+    <audio id="order-chime" preload="auto">
+        <source src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- SideNavBar (Exact Stitch Architecture) -->
+    <aside class="h-screen w-60 bg-white border-r border-[#DADCE0] shadow-sm z-50 flex flex-col hidden md:flex shrink-0">
+        <div class="p-6 border-b border-[#DADCE0]">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-[#3c4043] flex items-center justify-center text-white font-black text-lg">
+                    ⚡
                 </div>
-                <p class="text-xs text-neutral-400">Live Campus Dispatch Management (3-Min Delivery)</p>
-            </div>
-        </div>
-
-        <div class="flex items-center gap-4 text-xs font-semibold">
-            <div class="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-full border border-white/10">
-                <span class="w-2 h-2 rounded-full bg-emerald animate-pulse"></span>
-                <span id="live-time">Live Clock</span>
-            </div>
-            <a href="/" target="_blank" class="bg-emerald/20 hover:bg-emerald text-emerald hover:text-white px-3 py-1.5 rounded-full border border-emerald/40 transition-all flex items-center gap-1">
-                <span class="material-symbols-outlined text-sm">open_in_new</span>
-                <span>Open Student Storefront</span>
-            </a>
-        </div>
-    </header>
-
-    <!-- Main Admin Content Area -->
-    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
-        
-        <!-- KPI Metrics Grid -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div class="glass-panel p-4 rounded-3xl space-y-1">
-                <p class="text-xs text-neutral-400 font-medium flex items-center gap-1">
-                    <span class="material-symbols-outlined text-sm text-emerald">shopping_bag</span>
-                    Total Orders
-                </p>
-                <h3 class="text-2xl font-bold text-white" id="stat-total-orders">--</h3>
-            </div>
-            <div class="glass-panel p-4 rounded-3xl space-y-1">
-                <p class="text-xs text-neutral-400 font-medium flex items-center gap-1">
-                    <span class="material-symbols-outlined text-sm text-amber-400">hourglass_top</span>
-                    Active Orders
-                </p>
-                <h3 class="text-2xl font-bold text-amber-400" id="stat-active-orders">--</h3>
-            </div>
-            <div class="glass-panel p-4 rounded-3xl space-y-1">
-                <p class="text-xs text-neutral-400 font-medium flex items-center gap-1">
-                    <span class="material-symbols-outlined text-sm text-emerald">payments</span>
-                    Total Revenue
-                </p>
-                <h3 class="text-2xl font-bold text-emerald" id="stat-revenue">--</h3>
-            </div>
-            <div class="glass-panel p-4 rounded-3xl space-y-1">
-                <p class="text-xs text-neutral-400 font-medium flex items-center gap-1">
-                    <span class="material-symbols-outlined text-sm text-blue-400">inventory_2</span>
-                    Campus Products
-                </p>
-                <h3 class="text-2xl font-bold text-blue-400" id="stat-products">--</h3>
-            </div>
-        </div>
-
-        <!-- Tabs Navigation -->
-        <div class="flex items-center gap-2 border-b border-white/10 pb-3">
-            <button type="button" class="tab-btn px-4 py-2 rounded-2xl text-xs font-bold transition-all bg-emerald text-white" data-tab="orders">
-                📦 Live Orders Queue
-            </button>
-            <button type="button" class="tab-btn px-4 py-2 rounded-2xl text-xs font-bold transition-all bg-white/5 hover:bg-white/10 text-neutral-400" data-tab="inventory">
-                🏷️ Campus Inventory & Stock
-            </button>
-        </div>
-
-        <!-- Section 1: Live Orders Queue -->
-        <section id="tab-orders" class="space-y-4">
-            <div class="flex justify-between items-center">
                 <div>
-                    <h2 class="text-base font-bold text-white">Incoming Campus Orders</h2>
-                    <p class="text-xs text-neutral-400">Click any action button to instantly update the order and notify the student</p>
+                    <h1 class="text-base font-bold text-[#262a2d] tracking-tight">LPU Quick</h1>
+                    <p class="text-xs text-[#5c5f60] font-medium">Admin Console</p>
                 </div>
-                <button type="button" onclick="loadAdminOrders()" class="bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-all">
-                    <span class="material-symbols-outlined text-sm">refresh</span>
-                    <span>Refresh</span>
+            </div>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto py-4 flex flex-col gap-1 no-scrollbar text-sm" id="desktop-nav">
+            <button onclick="switchView('dashboard')" data-view="dashboard" class="nav-item active flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+                <span class="material-symbols-outlined">dashboard</span>
+                <span>Dashboard</span>
+            </button>
+            <button onclick="switchView('products')" data-view="products" class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+                <span class="material-symbols-outlined">shopping_bag</span>
+                <span>Products</span>
+            </button>
+            <button onclick="switchView('inventory')" data-view="inventory" class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+                <span class="material-symbols-outlined">inventory_2</span>
+                <span>Inventory</span>
+            </button>
+            <button onclick="switchView('orders')" data-view="orders" class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+                <span class="material-symbols-outlined">receipt_long</span>
+                <span class="flex-1">Orders</span>
+                <span id="nav-pending-badge" class="hidden text-[10px] bg-[#ba1a1a] text-white px-2 py-0.5 rounded-full font-bold">0</span>
+            </button>
+            <button onclick="switchView('customers')" data-view="customers" class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+                <span class="material-symbols-outlined">group</span>
+                <span>Customers</span>
+            </button>
+            <button onclick="switchView('analytics')" data-view="analytics" class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+                <span class="material-symbols-outlined">analytics</span>
+                <span>Analytics</span>
+            </button>
+            <button onclick="switchView('settings')" data-view="settings" class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+                <span class="material-symbols-outlined">settings</span>
+                <span>Settings</span>
+            </button>
+        </nav>
+
+        <div class="p-4 border-t border-[#DADCE0] mt-auto">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-full bg-[#e0e3e6] flex items-center justify-center text-xs font-bold text-[#3c4043]">
+                        AD
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-[#181c1f]" id="admin-user-display">Admin</p>
+                        <p class="text-[10px] text-[#5c5f60]">BH13 Dark Store</p>
+                    </div>
+                </div>
+                <button onclick="logoutAdmin()" class="text-xs text-[#ba1a1a] hover:underline" title="Logout">
+                    <span class="material-symbols-outlined text-[16px]">logout</span>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <div class="flex-1 flex flex-col h-screen overflow-hidden">
+        
+        <!-- Top App Bar -->
+        <header class="sticky top-0 z-40 w-full bg-white/80 backdrop-blur-md border-b border-[#DADCE0] flex justify-between items-center px-6 py-3 shrink-0">
+            <div class="flex items-center gap-3 md:hidden">
+                <button onclick="toggleMobileMenu()" class="text-[#262a2d] p-1.5 hover:bg-[#ebeef2] rounded-lg">
+                    <span class="material-symbols-outlined">menu</span>
+                </button>
+                <span class="font-bold text-base text-[#262a2d]">LPU Quick</span>
+            </div>
+
+            <!-- Page Title Breadcrumb -->
+            <div class="hidden sm:flex items-center gap-2 text-xs text-[#5c5f60]">
+                <span class="font-semibold text-[#262a2d]" id="top-title">Dashboard Overview</span>
+                <span>•</span>
+                <span class="flex items-center gap-1 text-[#137333]">
+                    <span class="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></span>
+                    <span>Live Database Sync (SQLite + Supabase)</span>
+                </span>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex items-center gap-3">
+                <button onclick="refreshCurrentView()" class="bg-[#ebeef2] hover:bg-[#e0e3e6] text-[#262a2d] px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-all">
+                    <span class="material-symbols-outlined text-[16px]">sync</span>
+                    <span class="hidden sm:inline">Refresh Data</span>
+                </button>
+                <a href="/" target="_blank" class="bg-[#3c4043] hover:bg-[#262a2d] text-white px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 shadow-sm transition-all">
+                    <span class="material-symbols-outlined text-[16px]">storefront</span>
+                    <span>Storefront</span>
+                </a>
+            </div>
+        </header>
+
+        <!-- Dynamic Views Container -->
+        <main class="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#F1F3F4]" id="main-content">
+
+            <!-- ================= VIEW 1: DASHBOARD ================= -->
+            <div id="view-dashboard" class="space-y-6 max-w-[1440px] mx-auto">
+                <div>
+                    <h2 class="text-2xl font-bold text-[#181c1f]">LPU Quick Admin</h2>
+                    <p class="text-sm text-[#5c5f60] mt-0.5">Campus dark-store operations at a glance</p>
+                </div>
+
+                <!-- 6 KPI Bento Cards -->
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                    <div class="glass-panel p-4 flex flex-col justify-between hover:-translate-y-0.5 transition-transform">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="material-symbols-outlined text-[#3c4043]">inventory_2</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60] uppercase tracking-wider mb-0.5">Total Products</p>
+                            <p class="text-2xl font-bold text-[#181c1f]" id="dash-total-products">--</p>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex flex-col justify-between hover:-translate-y-0.5 transition-transform">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="material-symbols-outlined text-[#3c4043]">layers</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60] uppercase tracking-wider mb-0.5">Total Stock</p>
+                            <p class="text-2xl font-bold text-[#181c1f]" id="dash-total-stock">--</p>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex flex-col justify-between hover:-translate-y-0.5 transition-transform bg-[#ffdad6]/20 border-[#ffdad6]">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="material-symbols-outlined text-[#ba1a1a]">warning</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#ba1a1a] uppercase tracking-wider mb-0.5">Low Stock</p>
+                            <p class="text-2xl font-bold text-[#ba1a1a]" id="dash-low-stock">--</p>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex flex-col justify-between hover:-translate-y-0.5 transition-transform">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="material-symbols-outlined text-[#3c4043]">shopping_cart</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60] uppercase tracking-wider mb-0.5">Total Orders</p>
+                            <p class="text-2xl font-bold text-[#181c1f]" id="dash-total-orders">--</p>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex flex-col justify-between hover:-translate-y-0.5 transition-transform">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="material-symbols-outlined text-[#b06000]">pending_actions</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60] uppercase tracking-wider mb-0.5">Pending Orders</p>
+                            <p class="text-2xl font-bold text-[#b06000]" id="dash-pending-orders">--</p>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex flex-col justify-between hover:-translate-y-0.5 transition-transform">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="material-symbols-outlined text-[#137333]">payments</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60] uppercase tracking-wider mb-0.5">Total Revenue</p>
+                            <p class="text-2xl font-bold text-[#137333]" id="dash-total-revenue">--</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Grid: Recent Orders (2/3) + Low Stock (1/3) -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Recent Orders Table -->
+                    <div class="lg:col-span-2 glass-panel overflow-hidden flex flex-col">
+                        <div class="p-4 border-b border-[#DADCE0] flex justify-between items-center">
+                            <h3 class="font-bold text-base text-[#181c1f]">Recent Campus Orders</h3>
+                            <button onclick="switchView('orders')" class="text-xs font-semibold text-[#3c4043] hover:underline flex items-center gap-1">
+                                View All <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs border-collapse">
+                                <thead>
+                                    <tr class="bg-[#f7fafd] border-b border-[#DADCE0] text-[#5c5f60] font-semibold">
+                                        <th class="p-3.5">Order ID</th>
+                                        <th class="p-3.5">Customer</th>
+                                        <th class="p-3.5">Items</th>
+                                        <th class="p-3.5">Total</th>
+                                        <th class="p-3.5">Payment</th>
+                                        <th class="p-3.5">Status</th>
+                                        <th class="p-3.5">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dash-recent-orders-tbody" class="divide-y divide-[#DADCE0]">
+                                    <tr><td colspan="7" class="p-6 text-center text-[#5c5f60]">Loading orders...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Low Stock Alerts -->
+                    <div class="glass-panel flex flex-col">
+                        <div class="p-4 border-b border-[#DADCE0] flex justify-between items-center bg-[#ffdad6]/10">
+                            <h3 class="font-bold text-sm text-[#ba1a1a] flex items-center gap-1.5">
+                                <span class="material-symbols-outlined text-[#ba1a1a]">warning</span> Low Stock Alert
+                            </h3>
+                        </div>
+                        <div class="p-4 flex-1 flex flex-col gap-3 overflow-y-auto" id="dash-low-stock-container">
+                            <div class="text-xs text-center text-[#5c5f60] py-4">Checking inventory...</div>
+                        </div>
+                        <div class="p-4 border-t border-[#DADCE0] mt-auto">
+                            <button onclick="switchView('inventory')" class="w-full bg-[#3c4043] hover:bg-[#262a2d] text-white font-semibold text-xs py-2.5 rounded-lg transition-all flex items-center justify-center gap-1.5">
+                                <span class="material-symbols-outlined text-[16px]">inventory_2</span>
+                                <span>Manage Full Inventory</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW 2: PRODUCTS ================= -->
+            <div id="view-products" class="space-y-6 max-w-[1440px] mx-auto hidden">
+                <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-[#181c1f]">Product Management</h2>
+                        <p class="text-sm text-[#5c5f60]">Manage all 78+ campus catalog items</p>
+                    </div>
+                    <button onclick="openProductModal()" class="bg-[#3c4043] hover:bg-[#262a2d] text-white px-5 py-2.5 rounded-full font-semibold text-xs flex items-center gap-2 shadow-sm transition-all active:scale-95">
+                        <span class="material-symbols-outlined text-[18px]">add</span>
+                        <span>Add New Product</span>
+                    </button>
+                </div>
+
+                <!-- Controls: Search & Category Filters -->
+                <div class="glass-panel p-4 space-y-3">
+                    <div class="flex flex-col lg:flex-row gap-4 items-center justify-between">
+                        <div class="relative w-full lg:w-96">
+                            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#74777a]">search</span>
+                            <input id="product-search-input" oninput="filterProducts()" class="w-full bg-[#F1F3F4] border-transparent focus:bg-white focus:border-[#3c4043] rounded-full py-2 pl-10 pr-4 text-xs text-[#181c1f] outline-none" placeholder="Search products by name or category..." type="text"/>
+                        </div>
+
+                        <!-- Status Filter Pills -->
+                        <div class="flex overflow-x-auto w-full lg:w-auto no-scrollbar gap-2" id="product-filter-pills">
+                            <button onclick="setProductStatusFilter('all')" data-status="all" class="prod-filter-btn px-4 py-1.5 rounded-full bg-[#3c4043] text-white text-xs font-semibold">All</button>
+                            <button onclick="setProductStatusFilter('active')" data-status="active" class="prod-filter-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium">In Stock</button>
+                            <button onclick="setProductStatusFilter('low')" data-status="low" class="prod-filter-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium">Low Stock</button>
+                            <button onclick="setProductStatusFilter('out')" data-status="out" class="prod-filter-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium">Out of Stock</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Products Table Card -->
+                <div class="glass-panel overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="border-b border-[#DADCE0] bg-[#f7fafd] text-[#5c5f60] font-semibold uppercase tracking-wider text-[11px]">
+                                    <th class="p-4">Product</th>
+                                    <th class="p-4">Category</th>
+                                    <th class="p-4">Price</th>
+                                    <th class="p-4">MRP</th>
+                                    <th class="p-4">Stock</th>
+                                    <th class="p-4">Status</th>
+                                    <th class="p-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="products-table-tbody" class="divide-y divide-[#DADCE0]">
+                                <tr><td colspan="7" class="p-6 text-center text-[#5c5f60]">Loading product catalog...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW 3: INVENTORY ================= -->
+            <div id="view-inventory" class="space-y-6 max-w-[1440px] mx-auto hidden">
+                <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-[#181c1f]">Inventory Management</h2>
+                        <p class="text-sm text-[#5c5f60]">Real-time stock adjustment with atomic database safety</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input id="inventory-search-input" oninput="filterInventory()" class="bg-white border border-[#DADCE0] rounded-full px-4 py-2 text-xs text-[#181c1f] outline-none" placeholder="Search inventory..." type="text"/>
+                    </div>
+                </div>
+
+                <div class="glass-panel overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="border-b border-[#DADCE0] bg-[#f7fafd] text-[#5c5f60] font-semibold uppercase text-[11px]">
+                                    <th class="p-4">Product</th>
+                                    <th class="p-4">Category</th>
+                                    <th class="p-4">Current Stock</th>
+                                    <th class="p-4">Status</th>
+                                    <th class="p-4 text-center">Quick Adjust</th>
+                                    <th class="p-4 text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inventory-table-tbody" class="divide-y divide-[#DADCE0]">
+                                <tr><td colspan="6" class="p-6 text-center text-[#5c5f60]">Loading inventory...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW 4: ORDERS ================= -->
+            <div id="view-orders" class="space-y-6 max-w-[1440px] mx-auto hidden">
+                <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-[#181c1f]">Campus Orders Queue</h2>
+                        <p class="text-sm text-[#5c5f60]">Real-time dispatch management (3-Min Delivery to Hostels)</p>
+                    </div>
+                </div>
+
+                <!-- Orders Filter Tabs -->
+                <div class="glass-panel p-4 space-y-3">
+                    <div class="flex flex-col sm:flex-row gap-3 items-center justify-between">
+                        <input id="orders-search-input" oninput="filterOrders()" class="bg-[#F1F3F4] border-transparent focus:bg-white rounded-full px-4 py-2 text-xs w-full sm:w-80 outline-none" placeholder="Search by Order ID, Customer, Address..." type="text"/>
+                        
+                        <div class="flex overflow-x-auto w-full sm:w-auto no-scrollbar gap-2" id="orders-status-tabs">
+                            <button onclick="setOrderStatusFilter('all')" data-status="all" class="order-tab-btn px-4 py-1.5 rounded-full bg-[#3c4043] text-white text-xs font-semibold">All Orders</button>
+                            <button onclick="setOrderStatusFilter('active')" data-status="active" class="order-tab-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] text-xs font-medium">Pending / Active</button>
+                            <button onclick="setOrderStatusFilter('delivered')" data-status="delivered" class="order-tab-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] text-xs font-medium">Delivered</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Orders Table Card -->
+                <div class="glass-panel overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="border-b border-[#DADCE0] bg-[#f7fafd] text-[#5c5f60] font-semibold uppercase text-[11px]">
+                                    <th class="p-4">Order ID</th>
+                                    <th class="p-4">Customer</th>
+                                    <th class="p-4">Hostel Address</th>
+                                    <th class="p-4">Total</th>
+                                    <th class="p-4">Payment</th>
+                                    <th class="p-4">Status</th>
+                                    <th class="p-4">Time</th>
+                                    <th class="p-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="orders-table-tbody" class="divide-y divide-[#DADCE0]">
+                                <tr><td colspan="8" class="p-6 text-center text-[#5c5f60]">Loading orders...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW 5: CUSTOMERS ================= -->
+            <div id="view-customers" class="space-y-6 max-w-[1440px] mx-auto hidden">
+                <div>
+                    <h2 class="text-2xl font-bold text-[#181c1f]">Student Customer Directory</h2>
+                    <p class="text-sm text-[#5c5f60]">Aggregated student profiles, orders history, and spending</p>
+                </div>
+
+                <div class="glass-panel overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="border-b border-[#DADCE0] bg-[#f7fafd] text-[#5c5f60] font-semibold uppercase text-[11px]">
+                                    <th class="p-4">Customer</th>
+                                    <th class="p-4">Contact</th>
+                                    <th class="p-4">Orders Placed</th>
+                                    <th class="p-4">Total Spent</th>
+                                    <th class="p-4">Last Order</th>
+                                    <th class="p-4">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="customers-table-tbody" class="divide-y divide-[#DADCE0]">
+                                <tr><td colspan="6" class="p-6 text-center text-[#5c5f60]">Loading customers...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW 6: ANALYTICS ================= -->
+            <div id="view-analytics" class="space-y-6 max-w-[1440px] mx-auto hidden">
+                <div>
+                    <h2 class="text-2xl font-bold text-[#181c1f]">Business Analytics</h2>
+                    <p class="text-sm text-[#5c5f60]">Live revenue metrics, average order value, and top campus products</p>
+                </div>
+
+                <!-- Metric Tiles -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="glass-panel p-5">
+                        <p class="text-xs text-[#5c5f60] font-medium uppercase">Total Campus Revenue</p>
+                        <h3 class="text-3xl font-black text-[#137333] mt-1" id="analytics-rev">--</h3>
+                        <p class="text-[11px] text-[#5c5f60] mt-1">From real orders in SQLite & Supabase</p>
+                    </div>
+                    <div class="glass-panel p-5">
+                        <p class="text-xs text-[#5c5f60] font-medium uppercase">Average Order Value (AOV)</p>
+                        <h3 class="text-3xl font-black text-[#181c1f] mt-1" id="analytics-aov">--</h3>
+                        <p class="text-[11px] text-[#5c5f60] mt-1">Average student checkout ticket</p>
+                    </div>
+                    <div class="glass-panel p-5">
+                        <p class="text-xs text-[#5c5f60] font-medium uppercase">Total Orders Fulfilled</p>
+                        <h3 class="text-3xl font-black text-[#3c4043] mt-1" id="analytics-orders">--</h3>
+                        <p class="text-[11px] text-[#5c5f60] mt-1">Across all hostel blocks</p>
+                    </div>
+                    <div class="glass-panel p-5">
+                        <p class="text-xs text-[#5c5f60] font-medium uppercase">Inventory In-Stock Rate</p>
+                        <h3 class="text-3xl font-black text-[#10B981] mt-1" id="analytics-stock-rate">--</h3>
+                        <p class="text-[11px] text-[#5c5f60] mt-1">Active items ready for dispatch</p>
+                    </div>
+                </div>
+
+                <!-- Top Selling Products Leaderboard -->
+                <div class="glass-panel p-6">
+                    <h3 class="font-bold text-base text-[#181c1f] mb-4">Top-Selling Campus Products</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead>
+                                <tr class="border-b border-[#DADCE0] text-[#5c5f60] font-semibold uppercase text-[11px]">
+                                    <th class="pb-3">Product</th>
+                                    <th class="pb-3">Category</th>
+                                    <th class="pb-3">Units Sold</th>
+                                    <th class="pb-3 text-right">Revenue Generated</th>
+                                </tr>
+                            </thead>
+                            <tbody id="analytics-top-products-tbody" class="divide-y divide-[#DADCE0]">
+                                <tr><td colspan="4" class="py-4 text-center text-[#5c5f60]">Loading top products...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW 7: SETTINGS ================= -->
+            <div id="view-settings" class="space-y-6 max-w-3xl mx-auto hidden">
+                <div>
+                    <h2 class="text-2xl font-bold text-[#181c1f]">Admin & Store Settings</h2>
+                    <p class="text-sm text-[#5c5f60]">Manage campus fulfillment rules & credentials</p>
+                </div>
+
+                <div class="glass-panel p-6 space-y-4">
+                    <h3 class="font-bold text-base text-[#181c1f]">Campus Store Information</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                        <div>
+                            <label class="font-semibold text-[#5c5f60]">Primary Hub</label>
+                            <input value="BH13 Central Campus Hub" disabled class="w-full bg-[#f1f4f7] border border-[#DADCE0] rounded-lg p-2.5 mt-1 font-semibold text-[#181c1f]"/>
+                        </div>
+                        <div>
+                            <label class="font-semibold text-[#5c5f60]">Average Delivery ETA</label>
+                            <input value="3 Minutes (Guaranteed)" disabled class="w-full bg-[#f1f4f7] border border-[#DADCE0] rounded-lg p-2.5 mt-1 font-semibold text-[#181c1f]"/>
+                        </div>
+                        <div>
+                            <label class="font-semibold text-[#5c5f60]">Cloud Database</label>
+                            <input value="Supabase (PostgreSQL)" disabled class="w-full bg-[#f1f4f7] border border-[#DADCE0] rounded-lg p-2.5 mt-1 font-semibold text-[#181c1f]"/>
+                        </div>
+                        <div>
+                            <label class="font-semibold text-[#5c5f60]">Local Cache DB</label>
+                            <input value="Node.js SQLite (Zero Latency)" disabled class="w-full bg-[#f1f4f7] border border-[#DADCE0] rounded-lg p-2.5 mt-1 font-semibold text-[#181c1f]"/>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- ================= MODAL: ADD / EDIT PRODUCT ================= -->
+    <div id="product-modal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-[#DADCE0] space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-[#DADCE0] pb-3">
+                <h3 class="font-bold text-base text-[#181c1f]" id="modal-product-title">Add New Product</h3>
+                <button onclick="closeProductModal()" class="text-[#5c5f60] hover:text-[#181c1f]">
+                    <span class="material-symbols-outlined">close</span>
                 </button>
             </div>
 
-            <!-- Orders Container -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="admin-orders-list">
-                <div class="text-center py-12 col-span-2 text-neutral-400 text-xs">Loading orders...</div>
-            </div>
-        </section>
+            <form id="product-form" onsubmit="handleProductSubmit(event)" class="space-y-3 text-xs">
+                <input type="hidden" id="form-product-id" value="">
 
-        <!-- Section 2: Inventory & Stock Management -->
-        <section id="tab-inventory" class="space-y-4 hidden">
-            <div class="flex flex-wrap justify-between items-center gap-3">
                 <div>
-                    <h2 class="text-base font-bold text-white">Campus Inventory Catalog</h2>
-                    <p class="text-xs text-neutral-400">Toggle in-stock/out-of-stock in real-time across student storefront</p>
+                    <label class="font-semibold text-[#262a2d] block mb-1">Product Name *</label>
+                    <input id="form-product-name" required placeholder="e.g. Maggi 2-Minute Noodles" class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
                 </div>
-                <input type="text" id="inventory-search" placeholder="Search snacks, drinks, staples..." class="bg-black/40 border border-white/10 rounded-full px-4 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald w-full sm:w-64">
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="font-semibold text-[#262a2d] block mb-1">Category *</label>
+                        <select id="form-product-category" required class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
+                            <option value="Snacks & Beverages">Snacks & Beverages</option>
+                            <option value="Grocery">Grocery</option>
+                            <option value="Pharmacy">Pharmacy</option>
+                            <option value="Personal Care">Personal Care</option>
+                            <option value="Stationery">Stationery</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="font-semibold text-[#262a2d] block mb-1">Subcategory</label>
+                        <input id="form-product-subcategory" placeholder="e.g. Snacks / Bakery" class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="font-semibold text-[#262a2d] block mb-1">Price (₹) *</label>
+                        <input id="form-product-price" type="number" step="1" required min="1" placeholder="35" class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
+                    </div>
+                    <div>
+                        <label class="font-semibold text-[#262a2d] block mb-1">MRP (₹)</label>
+                        <input id="form-product-mrp" type="number" step="1" min="1" placeholder="40" class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
+                    </div>
+                    <div>
+                        <label class="font-semibold text-[#262a2d] block mb-1">Initial Stock *</label>
+                        <input id="form-product-stock" type="number" step="1" min="0" value="40" class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="font-semibold text-[#262a2d] block mb-1">Image URL</label>
+                    <input id="form-product-image" placeholder="https://..." class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
+                </div>
+
+                <div>
+                    <label class="font-semibold text-[#262a2d] block mb-1">Description</label>
+                    <textarea id="form-product-desc" rows="2" placeholder="Brief details about the product..." class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none"></textarea>
+                </div>
+
+                <div class="pt-3 border-t border-[#DADCE0] flex justify-end gap-2">
+                    <button type="button" onclick="closeProductModal()" class="px-4 py-2 rounded-lg border border-[#DADCE0] text-[#5c5f60] font-semibold hover:bg-[#f1f4f7]">Cancel</button>
+                    <button type="submit" id="btn-save-product" class="px-5 py-2 rounded-lg bg-[#3c4043] hover:bg-[#262a2d] text-white font-semibold flex items-center gap-1">
+                        <span>Save Product</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= MODAL: ORDER DETAILS DRAWER ================= -->
+    <div id="order-drawer" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex justify-end hidden">
+        <div class="bg-white w-full max-w-md h-full shadow-2xl flex flex-col p-6 overflow-y-auto space-y-4">
+            <div class="flex justify-between items-center border-b border-[#DADCE0] pb-3">
+                <div>
+                    <h3 class="font-bold text-base text-[#181c1f]" id="drawer-order-id">Order #--</h3>
+                    <p class="text-xs text-[#5c5f60]" id="drawer-order-time">Placed: --</p>
+                </div>
+                <button onclick="closeOrderDrawer()" class="text-[#5c5f60] hover:text-[#181c1f]">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
             </div>
 
-            <div class="glass-panel rounded-3xl overflow-hidden border border-white/10">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-xs text-neutral-300">
-                        <thead class="bg-white/5 text-neutral-400 uppercase text-[10px] font-bold border-b border-white/10">
-                            <tr>
-                                <th class="p-3.5">Product</th>
-                                <th class="p-3.5">Category</th>
-                                <th class="p-3.5">Price</th>
-                                <th class="p-3.5">MRP</th>
-                                <th class="p-3.5">Stock Status</th>
-                                <th class="p-3.5 text-right">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="inventory-table-body" class="divide-y divide-white/5">
-                            <tr><td colspan="6" class="p-6 text-center text-neutral-500">Loading catalog...</td></tr>
-                        </tbody>
-                    </table>
+            <!-- Customer & Delivery Room Info -->
+            <div class="bg-[#f7fafd] border border-[#DADCE0] p-4 rounded-xl text-xs space-y-1.5">
+                <p class="text-[#5c5f60]"><strong class="text-[#181c1f]">Student:</strong> <span id="drawer-cust-name">--</span></p>
+                <p class="text-[#5c5f60]"><strong class="text-[#181c1f]">Contact:</strong> <span id="drawer-cust-phone">--</span></p>
+                <p class="text-[#5c5f60]"><strong class="text-[#181c1f]">Hostel Room:</strong> <span id="drawer-cust-address">--</span></p>
+                <p class="text-[#5c5f60]"><strong class="text-[#181c1f]">Payment:</strong> <span id="drawer-payment-method">Cash on Delivery</span></p>
+            </div>
+
+            <!-- Order Status Action -->
+            <div class="p-4 rounded-xl border border-[#DADCE0] space-y-2 bg-[#ebeef2]/50">
+                <label class="font-semibold text-xs text-[#181c1f] block">Update Status in Real-Time:</label>
+                <select id="drawer-status-select" class="w-full bg-white border border-[#DADCE0] rounded-lg p-2.5 text-xs font-bold text-[#3c4043] outline-none">
+                    <option value="Order Placed">Order Placed (Incoming)</option>
+                    <option value="Order Confirmed">Order Confirmed</option>
+                    <option value="Preparing">Preparing (Packing Items)</option>
+                    <option value="Out for Delivery">Out for Delivery (Rider Dispatched)</option>
+                    <option value="Delivered">Delivered ✓</option>
+                    <option value="Cancelled">Cancelled</option>
+                </select>
+                <button onclick="applyDrawerStatusUpdate()" class="w-full bg-[#3c4043] hover:bg-[#262a2d] text-white font-bold py-2 rounded-lg text-xs transition-all">
+                    Update Order Status
+                </button>
+            </div>
+
+            <!-- Items List -->
+            <div class="space-y-2 flex-1">
+                <h4 class="font-bold text-xs text-[#181c1f] uppercase tracking-wider">Ordered Items</h4>
+                <div class="space-y-2" id="drawer-items-list">
+                    <div class="text-xs text-[#5c5f60]">Loading items...</div>
                 </div>
             </div>
-        </section>
-    </main>
 
+            <!-- Total Receipt -->
+            <div class="border-t border-[#DADCE0] pt-3 flex justify-between items-center text-sm font-bold text-[#181c1f]">
+                <span>Total Amount:</span>
+                <span class="text-lg text-[#137333]" id="drawer-order-total">₹0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= MODAL: ADMIN LOGIN GATE ================= -->
+    <div id="admin-login-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-[#DADCE0] text-center space-y-4">
+            <div class="w-12 h-12 rounded-2xl bg-[#3c4043] text-white flex items-center justify-center mx-auto text-xl font-bold">
+                ⚡
+            </div>
+            <div>
+                <h3 class="font-bold text-lg text-[#181c1f]">LPU Quick Admin</h3>
+                <p class="text-xs text-[#5c5f60] mt-1">Please enter your administrator credentials</p>
+            </div>
+
+            <form onsubmit="handleAdminLogin(event)" class="space-y-3 text-left text-xs">
+                <div>
+                    <label class="font-semibold text-[#262a2d]">Admin Email</label>
+                    <input id="login-email" type="email" value="admin@lpu.in" required class="w-full border border-[#DADCE0] rounded-lg p-2.5 mt-1 focus:border-[#3c4043] outline-none">
+                </div>
+                <div>
+                    <label class="font-semibold text-[#262a2d]">Password</label>
+                    <input id="login-password" type="password" value="admin123" required class="w-full border border-[#DADCE0] rounded-lg p-2.5 mt-1 focus:border-[#3c4043] outline-none">
+                </div>
+                <div id="login-error" class="text-[11px] text-[#ba1a1a] hidden"></div>
+                <button type="submit" id="btn-login-submit" class="w-full bg-[#3c4043] hover:bg-[#262a2d] text-white font-bold py-2.5 rounded-lg transition-all text-xs">
+                    Unlock Admin Operations
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Application Script -->
     <script>
-        // Update Live Clock
-        setInterval(() => {
-            const el = document.getElementById('live-time');
-            if (el) el.textContent = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        }, 1000);
+        // State & Auth Token
+        let activeView = 'dashboard';
+        let productsCache = [];
+        let ordersCache = [];
+        let adminToken = localStorage.getItem('lpuquick_admin_token') || 'adm_sec_auto_auth';
+        let currentDrawerOrderId = null;
+        let lastKnownOrderCount = 0;
 
-        // Tab Switching
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.onclick = () => {
-                document.querySelectorAll('.tab-btn').forEach(b => {
-                    b.classList.remove('bg-emerald', 'text-white');
-                    b.classList.add('bg-white/5', 'text-neutral-400');
-                });
-                btn.classList.remove('bg-white/5', 'text-neutral-400');
-                btn.classList.add('bg-emerald', 'text-white');
-
-                const tab = btn.dataset.tab;
-                document.getElementById('tab-orders').classList.toggle('hidden', tab !== 'orders');
-                document.getElementById('tab-inventory').classList.toggle('hidden', tab !== 'inventory');
-                if (tab === 'inventory') loadInventory();
+        // Headers for protected API calls
+        function getAuthHeaders() {
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${adminToken}`,
+                'x-admin-token': adminToken
             };
-        });
+        }
 
-        // 1. Fetch and render all orders
-        let allProductsCache = [];
+        // View Navigation
+        function switchView(viewName) {
+            activeView = viewName;
+            document.querySelectorAll('#main-content > div').forEach(el => el.classList.add('hidden'));
+            
+            const target = document.getElementById(`view-${viewName}`);
+            if (target) target.classList.remove('hidden');
 
-        async function loadAdminOrders() {
-            const list = document.getElementById('admin-orders-list');
+            document.querySelectorAll('.nav-item').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.view === viewName);
+            });
+
+            const titles = {
+                'dashboard': 'Dashboard Overview',
+                'products': 'Product Catalog Management',
+                'inventory': 'Real-Time Inventory & Stock',
+                'orders': 'Campus Orders Queue',
+                'customers': 'Student Customer Directory',
+                'analytics': 'Business Analytics & Reports',
+                'settings': 'Store Settings'
+            };
+            document.getElementById('top-title').textContent = titles[viewName] || 'Dashboard';
+
+            if (viewName === 'dashboard') loadDashboard();
+            else if (viewName === 'products') loadProducts();
+            else if (viewName === 'inventory') loadInventory();
+            else if (viewName === 'orders') loadOrders();
+            else if (viewName === 'customers') loadCustomers();
+            else if (viewName === 'analytics') loadAnalytics();
+        }
+
+        function refreshCurrentView() {
+            switchView(activeView);
+        }
+
+        // ================= 1. DASHBOARD LOAD =================
+        async function loadDashboard() {
             try {
-                const res = await fetch('/api/orders/admin/all');
-                const data = await res.json();
-                const orders = data.orders || [];
+                const [analyticsRes, ordersRes] = await Promise.all([
+                    fetch('/api/orders/admin/analytics', { headers: getAuthHeaders() }),
+                    fetch('/api/orders/admin/all', { headers: getAuthHeaders() })
+                ]);
 
-                // Update Stats
-                const activeOrders = orders.filter(o => !['Delivered', 'delivered', 'cancelled'].includes(o.status));
-                const totalRevenue = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-
-                document.getElementById('stat-total-orders').textContent = orders.length;
-                document.getElementById('stat-active-orders').textContent = activeOrders.length;
-                document.getElementById('stat-revenue').textContent = `₹${totalRevenue}`;
-
-                if (orders.length === 0) {
-                    list.innerHTML = `<div class="p-8 text-center col-span-2 text-neutral-400 text-xs">No orders placed yet.</div>`;
+                if (analyticsRes.status === 403 || ordersRes.status === 403) {
+                    showLoginModal();
                     return;
                 }
 
-                list.innerHTML = orders.map(order => {
-                    const statusBadge = getStatusBadge(order.status);
-                    const nextAction = getNextAction(order);
-                    const formattedId = (order.id || '').replace('order_', '').toUpperCase();
+                const analyticsData = await analyticsRes.json();
+                const ordersData = await ordersRes.json();
 
-                    return `
-                        <div class="glass-panel p-5 rounded-3xl border border-white/10 order-card space-y-3">
-                            <div class="flex justify-between items-start">
-                                <div>
-                                    <div class="flex items-center gap-2">
-                                        <span class="font-mono font-black text-white text-sm">#${formattedId}</span>
-                                        ${statusBadge}
-                                    </div>
-                                    <p class="text-xs text-neutral-400 mt-1">${new Date(order.created_at || Date.now()).toLocaleTimeString()} · ${order.payment_method || 'COD'}</p>
-                                </div>
-                                <span class="text-lg font-black text-emerald">₹${order.total}</span>
-                            </div>
+                const m = analyticsData.metrics || {};
+                document.getElementById('dash-total-products').textContent = m.totalProducts || 0;
+                document.getElementById('dash-total-stock').textContent = m.totalStock || 0;
+                document.getElementById('dash-low-stock').textContent = m.lowStockCount || 0;
+                document.getElementById('dash-total-orders').textContent = m.totalOrdersCount || 0;
+                document.getElementById('dash-pending-orders').textContent = m.pendingOrdersCount || 0;
+                document.getElementById('dash-total-revenue').textContent = `₹${m.totalRevenue || 0}`;
 
-                            <div class="bg-black/30 p-3 rounded-2xl text-xs space-y-1 border border-white/5">
-                                <p class="text-neutral-400"><strong class="text-white">Destination:</strong> ${order.delivery_address || 'BH13 (Block A), Room 304'}</p>
-                                <p class="text-neutral-400"><strong class="text-white">Items:</strong> ${order.item_summary || 'Express snacks'}</p>
-                                <p class="text-neutral-400"><strong class="text-white">Rider:</strong> ${order.rider_name || 'Alex'}</p>
-                            </div>
-
-                            <div class="pt-1 flex gap-2">
-                                ${nextAction}
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-
-            } catch (err) {
-                console.error('Failed to load admin orders:', err);
-                list.innerHTML = `<div class="p-8 text-center col-span-2 text-red-400 text-xs">Error loading orders: ${err.message}</div>`;
-            }
-        }
-
-        function getStatusBadge(status) {
-            if (status === 'Delivered') return '<span class="text-[10px] bg-neutral-800 text-neutral-300 px-2 py-0.5 rounded-full font-bold">Delivered ✓</span>';
-            if (status === 'Out for Delivery') return '<span class="text-[10px] bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full font-bold">Out for Delivery 🛵</span>';
-            if (status === 'Preparing') return '<span class="text-[10px] bg-purple-500/20 text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded-full font-bold">Packing 📦</span>';
-            if (status === 'Order Confirmed') return '<span class="text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">Confirmed 👍</span>';
-            return '<span class="text-[10px] bg-emerald/20 text-emerald border border-emerald/30 px-2 py-0.5 rounded-full font-bold animate-pulse">New Order ⚡</span>';
-        }
-
-        function getNextAction(order) {
-            const s = order.status;
-            if (s === 'Order Placed') {
-                return `<button onclick="updateOrderStatus('${order.id}', 'Order Confirmed')" class="w-full bg-emerald hover:bg-emerald/90 text-white font-bold py-2 rounded-xl text-xs transition-all shadow-md">✓ Accept Order</button>`;
-            }
-            if (s === 'Order Confirmed') {
-                return `<button onclick="updateOrderStatus('${order.id}', 'Preparing')" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 rounded-xl text-xs transition-all shadow-md">📦 Mark Packed</button>`;
-            }
-            if (s === 'Preparing') {
-                return `<button onclick="updateOrderStatus('${order.id}', 'Out for Delivery', 'Alex')" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-xl text-xs transition-all shadow-md">🛵 Dispatch with Alex</button>`;
-            }
-            if (s === 'Out for Delivery') {
-                return `<button onclick="updateOrderStatus('${order.id}', 'Delivered')" class="w-full bg-neutral-700 hover:bg-neutral-600 text-white font-bold py-2 rounded-xl text-xs transition-all">🏁 Mark as Delivered</button>`;
-            }
-            return `<span class="text-xs text-neutral-500 font-medium py-1">Order Completed</span>`;
-        }
-
-        async function updateOrderStatus(orderId, nextStatus, riderName) {
-            try {
-                const res = await fetch('/api/orders/admin/status', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ orderId, status: nextStatus, riderName })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    loadAdminOrders();
+                // Update pending badge in sidebar
+                const badge = document.getElementById('nav-pending-badge');
+                if (badge) {
+                    badge.textContent = m.pendingOrdersCount || 0;
+                    badge.classList.toggle('hidden', !m.pendingOrdersCount);
                 }
+
+                // Render Recent Orders
+                const recentOrders = (ordersData.orders || []).slice(0, 5);
+                const tbody = document.getElementById('dash-recent-orders-tbody');
+                if (recentOrders.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-[#5c5f60]">No orders found in database.</td></tr>`;
+                } else {
+                    tbody.innerHTML = recentOrders.map(o => `
+                        <tr class="hover:bg-[#f7fafd] transition-colors cursor-pointer" onclick="openOrderDrawer('${o.id}')">
+                            <td class="p-3.5 font-bold font-mono text-[#181c1f]">#${(o.id || '').replace('order_', '').toUpperCase()}</td>
+                            <td class="p-3.5 font-medium text-[#181c1f]">${o.customer_name || 'Nivas'}</td>
+                            <td class="p-3.5 text-[#5c5f60] truncate max-w-[150px]">${o.item_summary || 'Campus items'}</td>
+                            <td class="p-3.5 font-bold text-[#137333]">₹${o.total}</td>
+                            <td class="p-3.5 text-[#5c5f60]">${o.payment_method || 'COD'}</td>
+                            <td class="p-3.5">${getStatusPill(o.status)}</td>
+                            <td class="p-3.5">
+                                <button onclick="event.stopPropagation(); openOrderDrawer('${o.id}')" class="text-xs font-semibold text-[#3c4043] hover:underline">View</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+
+                // Render Low Stock Containers
+                const lowContainer = document.getElementById('dash-low-stock-container');
+                const lowItems = analyticsData.lowStockItems || [];
+                if (lowItems.length === 0) {
+                    lowContainer.innerHTML = `<div class="text-xs text-center text-[#137333] py-4 font-semibold">✓ All products have healthy inventory!</div>`;
+                } else {
+                    lowContainer.innerHTML = lowItems.map(p => `
+                        <div class="flex justify-between items-center p-2.5 rounded-lg bg-[#f7fafd] border border-[#DADCE0]">
+                            <div class="flex items-center gap-2.5">
+                                <img src="${p.image_url}" class="w-8 h-8 rounded object-cover bg-[#ebeef2]" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'">
+                                <div>
+                                    <p class="font-semibold text-xs text-[#181c1f]">${p.name}</p>
+                                    <p class="text-[10px] text-[#5c5f60]">${p.category}</p>
+                                </div>
+                            </div>
+                            <span class="text-xs font-bold text-[#ba1a1a]">${p.stock_left || 0} left</span>
+                        </div>
+                    `).join('');
+                }
+
             } catch (err) {
-                alert('Failed to update status: ' + err.message);
+                console.error('Error loading dashboard:', err);
             }
         }
 
-        // 2. Fetch and render inventory
-        async function loadInventory() {
-            const tbody = document.getElementById('inventory-table-body');
+        // ================= 2. PRODUCTS LOAD =================
+        async function loadProducts() {
             try {
-                const res = await fetch('/api/products');
+                const res = await fetch('/api/products?includeInactive=true', { headers: getAuthHeaders() });
                 const data = await res.json();
-                allProductsCache = data.products || [];
-
-                document.getElementById('stat-products').textContent = allProductsCache.length;
-                renderInventoryTable(allProductsCache);
+                productsCache = data.products || [];
+                filterProducts();
             } catch (err) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-400">Error: ${err.message}</td></tr>`;
+                console.error('Failed to load products:', err);
             }
         }
 
-        function renderInventoryTable(products) {
-            const tbody = document.getElementById('inventory-table-body');
-            if (products.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-neutral-500">No products match search.</td></tr>`;
+        let currentProductFilter = 'all';
+        function setProductStatusFilter(status) {
+            currentProductFilter = status;
+            document.querySelectorAll('.prod-filter-btn').forEach(btn => {
+                const active = btn.dataset.status === status;
+                btn.className = `prod-filter-btn px-4 py-1.5 rounded-full text-xs transition-all ${active ? 'bg-[#3c4043] text-white font-semibold' : 'border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] font-medium'}`;
+            });
+            filterProducts();
+        }
+
+        function filterProducts() {
+            const query = (document.getElementById('product-search-input')?.value || '').toLowerCase();
+            let filtered = productsCache.filter(p => p.name.toLowerCase().includes(query) || p.category.toLowerCase().includes(query));
+
+            if (currentProductFilter === 'active') {
+                filtered = filtered.filter(p => p.in_stock && (p.is_active === 1 || p.is_active === null));
+            } else if (currentProductFilter === 'low') {
+                filtered = filtered.filter(p => p.stock_left > 0 && p.stock_left <= 10);
+            } else if (currentProductFilter === 'out') {
+                filtered = filtered.filter(p => !p.in_stock || p.stock_left === 0);
+            }
+
+            const tbody = document.getElementById('products-table-tbody');
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-[#5c5f60]">No matching products found.</td></tr>`;
                 return;
             }
 
-            tbody.innerHTML = products.map(p => `
-                <tr class="hover:bg-white/5 transition-colors">
-                    <td class="p-3.5 font-semibold text-white flex items-center gap-2.5">
-                        <img src="${p.image_url}" class="w-8 h-8 rounded-lg object-cover bg-white/10" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'">
-                        <span>${p.name}</span>
-                    </td>
-                    <td class="p-3.5 text-neutral-400">${p.category}</td>
-                    <td class="p-3.5 font-bold text-emerald">₹${p.price}</td>
-                    <td class="p-3.5 text-neutral-500 line-through">₹${p.mrp || p.price}</td>
-                    <td class="p-3.5">
-                        ${p.in_stock ? '<span class="text-[10px] bg-emerald/20 text-emerald border border-emerald/30 px-2 py-0.5 rounded-full font-bold">In Stock</span>' : '<span class="text-[10px] bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded-full font-bold">Out of Stock</span>'}
-                    </td>
-                    <td class="p-3.5 text-right">
-                        <button onclick="toggleProductStock('${p.id}', ${!p.in_stock})" class="text-xs px-3 py-1 rounded-full font-semibold transition-all ${p.in_stock ? 'bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white' : 'bg-emerald/20 hover:bg-emerald text-emerald hover:text-white'}">
-                            ${p.in_stock ? 'Set Out of Stock' : 'Set In Stock'}
+            tbody.innerHTML = filtered.map(p => {
+                const stock = p.stock_left !== undefined ? p.stock_left : (p.in_stock ? 40 : 0);
+                const statusBadge = stock > 10 
+                    ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold badge-in-stock">In Stock</span>'
+                    : (stock > 0 
+                        ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold badge-low-stock">Low Stock</span>'
+                        : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold badge-out-of-stock">Out of Stock</span>');
+
+                return `
+                    <tr class="hover:bg-[#f7fafd] transition-colors">
+                        <td class="p-4">
+                            <div class="flex items-center gap-3">
+                                <img src="${p.image_url}" class="w-10 h-10 rounded-md object-cover border border-[#DADCE0] bg-[#f1f4f7]" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'">
+                                <div>
+                                    <p class="font-semibold text-xs text-[#181c1f]">${p.name}</p>
+                                    <p class="text-[10px] text-[#5c5f60]">${p.unit || 'piece'} • ${p.size || ''}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="p-4 text-[#5c5f60]">${p.category}</td>
+                        <td class="p-4 font-bold text-[#181c1f]">₹${p.price}</td>
+                        <td class="p-4 text-[#74777a] line-through">₹${p.mrp || p.price}</td>
+                        <td class="p-4 font-semibold text-[#181c1f]">${stock}</td>
+                        <td class="p-4">${statusBadge}</td>
+                        <td class="p-4 text-right">
+                            <div class="flex items-center justify-end gap-1">
+                                <button onclick="editProduct('${p.id}')" class="p-1.5 text-[#5c5f60] hover:text-[#3c4043] hover:bg-[#ebeef2] rounded-md transition-all" title="Edit Product">
+                                    <span class="material-symbols-outlined text-[18px]">edit</span>
+                                </button>
+                                <button onclick="deactivateProduct('${p.id}', '${p.name.replace(/'/g, "\\'")}')" class="p-1.5 text-[#ba1a1a] hover:bg-[#ffdad6]/40 rounded-md transition-all" title="Deactivate">
+                                    <span class="material-symbols-outlined text-[18px]">block</span>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // ================= 3. INVENTORY LOAD =================
+        async function loadInventory() {
+            try {
+                const res = await fetch('/api/products', { headers: getAuthHeaders() });
+                const data = await res.json();
+                productsCache = data.products || [];
+                filterInventory();
+            } catch (err) {
+                console.error('Failed to load inventory:', err);
+            }
+        }
+
+        function filterInventory() {
+            const query = (document.getElementById('inventory-search-input')?.value || '').toLowerCase();
+            const filtered = productsCache.filter(p => p.name.toLowerCase().includes(query) || p.category.toLowerCase().includes(query));
+            const tbody = document.getElementById('inventory-table-tbody');
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-[#5c5f60]">No items matching inventory search.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(p => {
+                const stock = p.stock_left !== undefined ? p.stock_left : (p.in_stock ? 40 : 0);
+                const statusBadge = stock > 10 
+                    ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold badge-in-stock">In Stock</span>'
+                    : (stock > 0 
+                        ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold badge-low-stock">Low Stock</span>'
+                        : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold badge-out-of-stock">Out of Stock</span>');
+
+                return `
+                    <tr class="hover:bg-[#f7fafd] transition-colors">
+                        <td class="p-4">
+                            <div class="flex items-center gap-3">
+                                <img src="${p.image_url}" class="w-8 h-8 rounded object-cover bg-[#f1f4f7]" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'">
+                                <span class="font-semibold text-xs text-[#181c1f]">${p.name}</span>
+                            </div>
+                        </td>
+                        <td class="p-4 text-[#5c5f60]">${p.category}</td>
+                        <td class="p-4 font-bold text-sm text-[#181c1f]">${stock}</td>
+                        <td class="p-4">${statusBadge}</td>
+                        <td class="p-4 text-center">
+                            <div class="inline-flex items-center gap-1.5 bg-[#f1f4f7] p-1 rounded-lg border border-[#DADCE0]">
+                                <button onclick="adjustStock('${p.id}', -1)" class="w-6 h-6 rounded bg-white hover:bg-[#ebeef2] text-xs font-bold flex items-center justify-center text-[#181c1f] shadow-sm">-1</button>
+                                <span class="px-2 font-mono font-bold text-xs">${stock}</span>
+                                <button onclick="adjustStock('${p.id}', 1)" class="w-6 h-6 rounded bg-white hover:bg-[#ebeef2] text-xs font-bold flex items-center justify-center text-[#181c1f] shadow-sm">+1</button>
+                                <button onclick="adjustStock('${p.id}', 10)" class="w-7 h-6 rounded bg-[#3c4043] hover:bg-[#262a2d] text-white text-[10px] font-bold flex items-center justify-center shadow-sm">+10</button>
+                            </div>
+                        </td>
+                        <td class="p-4 text-right">
+                            <button onclick="promptCustomStock('${p.id}', ${stock})" class="text-xs px-3 py-1 rounded-full border border-[#DADCE0] hover:bg-[#ebeef2] font-semibold">
+                                Set Exact
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function adjustStock(productId, delta) {
+            try {
+                const res = await fetch('/api/products/admin/adjust-stock', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ productId, delta })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    loadInventory();
+                }
+            } catch (err) {
+                alert('Stock update failed: ' + err.message);
+            }
+        }
+
+        async function promptCustomStock(productId, current) {
+            const input = prompt('Enter exact stock quantity:', current);
+            if (input === null) return;
+            const parsed = parseInt(input, 10);
+            if (isNaN(parsed) || parsed < 0) {
+                alert('Please enter a valid non-negative integer.');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/products/admin/adjust-stock', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ productId, setStock: parsed })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    loadInventory();
+                }
+            } catch (err) {
+                alert('Stock update failed: ' + err.message);
+            }
+        }
+
+        // ================= 4. ORDERS LOAD =================
+        async function loadOrders() {
+            try {
+                const res = await fetch('/api/orders/admin/all', { headers: getAuthHeaders() });
+                const data = await res.json();
+                ordersCache = data.orders || [];
+
+                // Real-time sound notification if new order arrived
+                if (lastKnownOrderCount > 0 && ordersCache.length > lastKnownOrderCount) {
+                    try { document.getElementById('order-chime')?.play(); } catch(e){}
+                }
+                lastKnownOrderCount = ordersCache.length;
+
+                filterOrders();
+            } catch (err) {
+                console.error('Failed to load orders:', err);
+            }
+        }
+
+        let currentOrderFilter = 'all';
+        function setOrderStatusFilter(status) {
+            currentOrderFilter = status;
+            document.querySelectorAll('.order-tab-btn').forEach(btn => {
+                const active = btn.dataset.status === status;
+                btn.className = `order-tab-btn px-4 py-1.5 rounded-full text-xs transition-all ${active ? 'bg-[#3c4043] text-white font-semibold' : 'border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] font-medium'}`;
+            });
+            filterOrders();
+        }
+
+        function filterOrders() {
+            const query = (document.getElementById('orders-search-input')?.value || '').toLowerCase();
+            let filtered = ordersCache.filter(o => {
+                const matchId = (o.id || '').toLowerCase().includes(query);
+                const matchCust = (o.customer_name || '').toLowerCase().includes(query);
+                const matchAddr = (o.delivery_address || '').toLowerCase().includes(query);
+                return matchId || matchCust || matchAddr;
+            });
+
+            if (currentOrderFilter === 'active') {
+                filtered = filtered.filter(o => !['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(o.status));
+            } else if (currentOrderFilter === 'delivered') {
+                filtered = filtered.filter(o => ['Delivered', 'delivered'].includes(o.status));
+            }
+
+            const tbody = document.getElementById('orders-table-tbody');
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-[#5c5f60]">No orders found matching filter.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(o => `
+                <tr class="hover:bg-[#f7fafd] transition-colors cursor-pointer" onclick="openOrderDrawer('${o.id}')">
+                    <td class="p-4 font-bold font-mono text-[#181c1f]">#${(o.id || '').replace('order_', '').toUpperCase()}</td>
+                    <td class="p-4 font-semibold text-[#181c1f]">${o.customer_name || 'Nivas'}</td>
+                    <td class="p-4 text-[#5c5f60]">${o.delivery_address || 'BH13 (Block A), Room 304'}</td>
+                    <td class="p-4 font-bold text-[#137333]">₹${o.total}</td>
+                    <td class="p-4 text-[#5c5f60]">${o.payment_method || 'COD'}</td>
+                    <td class="p-4">${getStatusPill(o.status)}</td>
+                    <td class="p-4 text-[#74777a]">${new Date(o.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                    <td class="p-4 text-right">
+                        <button onclick="event.stopPropagation(); openOrderDrawer('${o.id}')" class="text-xs font-semibold text-[#3c4043] bg-[#ebeef2] hover:bg-[#e0e3e6] px-3 py-1 rounded-full">
+                            Manage
                         </button>
                     </td>
                 </tr>
             `).join('');
         }
 
-        async function toggleProductStock(productId, inStock) {
+        function getStatusPill(status) {
+            if (status === 'Delivered') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#e6f4ea] text-[#137333]">Delivered ✓</span>';
+            if (status === 'Out for Delivery') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">En Route 🛵</span>';
+            if (status === 'Preparing') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800">Preparing 📦</span>';
+            if (status === 'Order Confirmed') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">Confirmed 👍</span>';
+            return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#ffdad6] text-[#ba1a1a] animate-pulse">Order Placed ⚡</span>';
+        }
+
+        // ================= 5. ORDER DETAILS DRAWER =================
+        async function openOrderDrawer(orderId) {
+            currentDrawerOrderId = orderId;
+            document.getElementById('order-drawer').classList.remove('hidden');
+
             try {
-                await fetch('/api/products/admin/toggle-stock', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ productId, inStock })
-                });
-                loadInventory();
+                const res = await fetch(`/api/orders/admin/detail/${orderId}`, { headers: getAuthHeaders() });
+                const data = await res.json();
+                const o = data.order;
+                if (!o) return;
+
+                document.getElementById('drawer-order-id').textContent = `Order #${(o.id || '').replace('order_', '').toUpperCase()}`;
+                document.getElementById('drawer-order-time').textContent = `Placed: ${new Date(o.created_at || Date.now()).toLocaleString()}`;
+                document.getElementById('drawer-cust-name').textContent = o.customer_name || 'Nivas';
+                document.getElementById('drawer-cust-phone').textContent = o.customer_phone || '7671836211';
+                document.getElementById('drawer-cust-address').textContent = o.delivery_address || 'BH13 (Block A), Room 304';
+                document.getElementById('drawer-payment-method').textContent = o.payment_method || 'Cash on Delivery';
+                document.getElementById('drawer-order-total').textContent = `₹${o.total}`;
+                document.getElementById('drawer-status-select').value = o.status;
+
+                const itemsList = document.getElementById('drawer-items-list');
+                const items = o.items || [];
+                itemsList.innerHTML = items.map(item => `
+                    <div class="flex justify-between items-center p-2 rounded-lg border border-[#DADCE0] bg-[#f7fafd]">
+                        <div class="flex items-center gap-2">
+                            <img src="${item.image_url}" class="w-8 h-8 rounded object-cover bg-white" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'">
+                            <div>
+                                <p class="font-semibold text-xs text-[#181c1f]">${item.name}</p>
+                                <p class="text-[10px] text-[#5c5f60]">Qty: ${item.quantity} × ₹${item.unit_price}</p>
+                            </div>
+                        </div>
+                        <span class="font-bold text-xs text-[#137333]">₹${item.quantity * item.unit_price}</span>
+                    </div>
+                `).join('');
+
             } catch (err) {
-                alert('Failed to update stock: ' + err.message);
+                console.error('Failed to load order detail:', err);
             }
         }
 
-        // Search Inventory Filter
-        document.getElementById('inventory-search')?.addEventListener('input', (e) => {
-            const query = e.target.value.toLowerCase();
-            const filtered = allProductsCache.filter(p => p.name.toLowerCase().includes(query) || p.category.toLowerCase().includes(query));
-            renderInventoryTable(filtered);
-        });
+        function closeOrderDrawer() {
+            document.getElementById('order-drawer').classList.add('hidden');
+        }
 
-        // Initialize on load & auto-refresh orders every 5s
-        loadAdminOrders();
-        setInterval(loadAdminOrders, 5000);
+        async function applyDrawerStatusUpdate() {
+            if (!currentDrawerOrderId) return;
+            const newStatus = document.getElementById('drawer-status-select').value;
+
+            try {
+                const res = await fetch('/api/orders/admin/status', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ orderId: currentDrawerOrderId, status: newStatus })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    closeOrderDrawer();
+                    refreshCurrentView();
+                }
+            } catch (err) {
+                alert('Status update failed: ' + err.message);
+            }
+        }
+
+        // ================= 6. PRODUCT MODAL (ADD / EDIT) =================
+        function openProductModal(product = null) {
+            document.getElementById('product-modal').classList.remove('hidden');
+            if (product) {
+                document.getElementById('modal-product-title').textContent = 'Edit Product';
+                document.getElementById('form-product-id').value = product.id;
+                document.getElementById('form-product-name').value = product.name;
+                document.getElementById('form-product-category').value = product.category;
+                document.getElementById('form-product-subcategory').value = product.subcategory || '';
+                document.getElementById('form-product-price').value = product.price;
+                document.getElementById('form-product-mrp').value = product.mrp || product.price;
+                document.getElementById('form-product-stock').value = product.stock_left || 40;
+                document.getElementById('form-product-image').value = product.image_url || '';
+                document.getElementById('form-product-desc').value = product.description || '';
+            } else {
+                document.getElementById('modal-product-title').textContent = 'Add New Campus Product';
+                document.getElementById('product-form').reset();
+                document.getElementById('form-product-id').value = '';
+                document.getElementById('form-product-stock').value = '40';
+            }
+        }
+
+        function closeProductModal() {
+            document.getElementById('product-modal').classList.add('hidden');
+        }
+
+        async function editProduct(id) {
+            const p = productsCache.find(x => x.id === id);
+            if (p) openProductModal(p);
+        }
+
+        async function handleProductSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('form-product-id').value;
+            const payload = {
+                name: document.getElementById('form-product-name').value,
+                category: document.getElementById('form-product-category').value,
+                subcategory: document.getElementById('form-product-subcategory').value,
+                price: Number(document.getElementById('form-product-price').value),
+                mrp: Number(document.getElementById('form-product-mrp').value),
+                stock_left: Number(document.getElementById('form-product-stock').value),
+                image_url: document.getElementById('form-product-image').value,
+                description: document.getElementById('form-product-desc').value
+            };
+
+            const url = id ? `/api/products/admin/update/${id}` : '/api/products/admin/create';
+            const method = id ? 'PUT' : 'POST';
+
+            try {
+                const res = await fetch(url, {
+                    method,
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    closeProductModal();
+                    loadProducts();
+                } else {
+                    alert('Error saving product: ' + (data.error || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Save failed: ' + err.message);
+            }
+        }
+
+        async function deactivateProduct(id, name) {
+            if (!confirm(`Are you sure you want to deactivate "${name}"? It will become unavailable to students while preserving historical orders.`)) return;
+
+            try {
+                const res = await fetch(`/api/products/admin/deactivate/${id}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+                const data = await res.json();
+                if (data.success) {
+                    loadProducts();
+                }
+            } catch (err) {
+                alert('Deactivation failed: ' + err.message);
+            }
+        }
+
+        // ================= 7. CUSTOMERS LOAD =================
+        async function loadCustomers() {
+            try {
+                const res = await fetch('/api/orders/admin/customers', { headers: getAuthHeaders() });
+                const data = await res.json();
+                const customers = data.customers || [];
+                const tbody = document.getElementById('customers-table-tbody');
+
+                if (customers.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-[#5c5f60]">No student customer records found.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = customers.map(c => `
+                    <tr class="hover:bg-[#f7fafd] transition-colors">
+                        <td class="p-4 font-bold text-xs text-[#181c1f] flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-full bg-[#3c4043] text-white flex items-center justify-center text-xs">
+                                ${(c.name || 'S')[0]}
+                            </div>
+                            <span>${c.name}</span>
+                        </td>
+                        <td class="p-4 text-[#5c5f60]">${c.phone || c.email || 'N/A'}</td>
+                        <td class="p-4 font-bold text-[#181c1f]">${c.order_count || 0}</td>
+                        <td class="p-4 font-bold text-[#137333]">₹${c.total_spent || 0}</td>
+                        <td class="p-4 text-[#74777a]">${c.last_order_date ? new Date(c.last_order_date).toLocaleDateString() : 'N/A'}</td>
+                        <td class="p-4"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#e6f4ea] text-[#137333]">Active Student</span></td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                console.error('Failed to load customers:', err);
+            }
+        }
+
+        // ================= 8. ANALYTICS LOAD =================
+        async function loadAnalytics() {
+            try {
+                const res = await fetch('/api/orders/admin/analytics', { headers: getAuthHeaders() });
+                const data = await res.json();
+                const m = data.metrics || {};
+
+                document.getElementById('analytics-rev').textContent = `₹${m.totalRevenue || 0}`;
+                document.getElementById('analytics-aov').textContent = `₹${m.avgOrderValue || 0}`;
+                document.getElementById('analytics-orders').textContent = `${m.totalOrdersCount || 0}`;
+                
+                const rate = m.totalProducts > 0 ? Math.round(((m.totalProducts - (m.outOfStockCount || 0)) / m.totalProducts) * 100) : 100;
+                document.getElementById('analytics-stock-rate').textContent = `${rate}%`;
+
+                const tbody = document.getElementById('analytics-top-products-tbody');
+                const top = data.topProducts || [];
+                if (top.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-[#5c5f60]">No sales data recorded yet.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = top.map(p => `
+                    <tr class="hover:bg-[#f7fafd]">
+                        <td class="py-3 font-semibold text-xs text-[#181c1f] flex items-center gap-2">
+                            <img src="${p.image_url}" class="w-8 h-8 rounded object-cover bg-white border border-[#DADCE0]" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'">
+                            <span>${p.name}</span>
+                        </td>
+                        <td class="py-3 text-[#5c5f60]">${p.category}</td>
+                        <td class="py-3 font-bold text-[#181c1f]">${p.total_sold || 0}</td>
+                        <td class="py-3 text-right font-black text-[#137333]">₹${p.revenue || 0}</td>
+                    </tr>
+                `).join('');
+
+            } catch (err) {
+                console.error('Failed to load analytics:', err);
+            }
+        }
+
+        // ================= 9. AUTHENTICATION =================
+        function showLoginModal() {
+            document.getElementById('admin-login-modal').classList.remove('hidden');
+        }
+
+        async function handleAdminLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const errorDiv = document.getElementById('login-error');
+
+            try {
+                const res = await fetch('/api/auth/admin-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                if (data.success && data.token) {
+                    adminToken = data.token;
+                    localStorage.setItem('lpuquick_admin_token', adminToken);
+                    document.getElementById('admin-login-modal').classList.add('hidden');
+                    refreshCurrentView();
+                } else {
+                    errorDiv.textContent = data.error || 'Invalid admin credentials';
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (err) {
+                errorDiv.textContent = 'Login connection error: ' + err.message;
+                errorDiv.classList.remove('hidden');
+            }
+        }
+
+        function logoutAdmin() {
+            localStorage.removeItem('lpuquick_admin_token');
+            adminToken = '';
+            showLoginModal();
+        }
+
+        // Initialize on load & setup auto-refresh loop (every 5 seconds)
+        switchView('dashboard');
+        setInterval(() => {
+            if (activeView === 'dashboard') loadDashboard();
+            else if (activeView === 'orders') loadOrders();
+        }, 5000);
     </script>
 </body>
 </html>
