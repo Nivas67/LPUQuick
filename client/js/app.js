@@ -267,24 +267,21 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
                     </button>
                     <div>
                         <h3 class="font-bold text-sm sm:text-base text-on-surface">Verify Mobile Number</h3>
-                        <p class="text-[11px] text-on-surface-variant">Code sent to <strong>+91 <span id="otp-phone-display"></span></strong></p>
+                        <p class="text-[11px] text-on-surface-variant">SMS code sent to <strong>+91 <span id="otp-phone-display"></span></strong></p>
                     </div>
                 </div>
                 <span class="text-[10px] bg-emerald/15 text-emerald px-2 py-0.5 rounded-full font-bold">Step 2: OTP</span>
             </div>
 
-            <!-- Demo / Realistic SMS OTP Banner -->
-            <div id="otp-hint-banner" class="p-3 bg-emerald/10 border border-emerald/30 rounded-2xl flex items-center justify-between text-xs">
-                <div class="flex items-center gap-2 text-emerald font-bold">
-                    <span class="material-symbols-outlined text-base">sms</span>
-                    <span>Your OTP Code: <strong id="demo-otp-val" class="tracking-widest text-sm bg-emerald text-white px-2 py-0.5 rounded-md font-mono"></strong></span>
-                </div>
-                <button type="button" id="autofill-otp-btn" class="text-[11px] font-extrabold text-emerald underline hover:opacity-80 cursor-pointer">Auto Fill</button>
+            <!-- SMS Delivery Notice -->
+            <div class="p-3 bg-emerald/10 border border-emerald/30 rounded-2xl flex items-center gap-2.5 text-xs text-emerald font-medium">
+                <span class="material-symbols-outlined text-base shrink-0">sms</span>
+                <span>We sent a 6-digit verification code via SMS to your mobile phone. Please enter it below.</span>
             </div>
 
             <!-- 6 Digit Input Matrix -->
             <div class="space-y-2 text-center pt-1">
-                <label class="block text-xs font-semibold text-on-surface-variant">Enter 6-Digit OTP</label>
+                <label class="block text-xs font-semibold text-on-surface-variant">Enter 6-Digit OTP from SMS</label>
                 <div class="flex justify-center gap-2" id="otp-boxes-wrapper">
                     <input type="tel" maxlength="1" class="otp-box w-10 sm:w-11 h-12 text-center text-lg font-black rounded-xl border border-surface-variant bg-surface text-on-surface focus:border-emerald focus:ring-2 focus:ring-emerald/20 focus:outline-none" data-idx="0" autofocus>
                     <input type="tel" maxlength="1" class="otp-box w-10 sm:w-11 h-12 text-center text-lg font-black rounded-xl border border-surface-variant bg-surface text-on-surface focus:border-emerald focus:ring-2 focus:ring-emerald/20 focus:outline-none" data-idx="1">
@@ -323,7 +320,6 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
 
     const addressFormScreen = modal.querySelector('#address-form-screen') || modal.children[0];
     const otpScreen = document.getElementById('otp-verification-screen');
-    let generatedDemoOtp = '';
     let resendInterval = null;
 
     // Start 30s resend timer
@@ -352,8 +348,7 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
     async function launchOtpFlow(phoneToVerify) {
         const userId = window.getEffectiveUserId();
         try {
-            const sendRes = await window.api.sendOtp(phoneToVerify, userId);
-            generatedDemoOtp = sendRes.demo_otp || '123456';
+            await window.api.sendOtp(phoneToVerify, userId);
             
             // Switch screen
             if (addressFormScreen) addressFormScreen.classList.add('hidden');
@@ -362,9 +357,6 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
             const phoneDisp = document.getElementById('otp-phone-display');
             if (phoneDisp) phoneDisp.textContent = phoneToVerify;
 
-            const demoVal = document.getElementById('demo-otp-val');
-            if (demoVal) demoVal.textContent = generatedDemoOtp;
-
             // Clear previous inputs
             const boxes = document.querySelectorAll('.otp-box');
             boxes.forEach(b => b.value = '');
@@ -372,7 +364,7 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
 
             startResendTimer();
             if (typeof window.showClientToast === 'function') {
-                window.showClientToast(`📲 SMS Sent! OTP: ${generatedDemoOtp}`, 'success', 'sms');
+                window.showClientToast(`📲 SMS verification code sent to +91 ${phoneToVerify}`, 'success', 'sms');
             }
         } catch (err) {
             alert('Could not send OTP: ' + (err.message || err));
@@ -409,18 +401,6 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
             }
         };
     });
-
-    // Auto-fill OTP button
-    const autofillBtn = document.getElementById('autofill-otp-btn');
-    if (autofillBtn) {
-        autofillBtn.onclick = () => {
-            if (generatedDemoOtp) {
-                generatedDemoOtp.split('').forEach((ch, i) => {
-                    if (otpBoxes[i]) otpBoxes[i].value = ch;
-                });
-            }
-        };
-    }
 
     // Back to address form button
     const backBtn = document.getElementById('back-to-form-btn');
