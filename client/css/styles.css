@@ -459,3 +459,86 @@ body.dark .slider-text {
 .page-enter {
     animation: fadeIn 0.2s ease-out;
 }
+
+/* ============================================================
+   LIVE 3-MINUTE CAMPUS GPS TRACKING MAP ANIMATIONS
+   ============================================================ */
+
+@keyframes radarWave {
+    0% {
+        transform: scale(0.6);
+        opacity: 0.9;
+    }
+    50% {
+        opacity: 0.5;
+    }
+    100% {
+        transform: scale(2.2);
+        opacity: 0;
+    }
+}
+
+.radar-wave-1 {
+    animation: radarWave 2.2s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+}
+.radar-wave-2 {
+    animation: radarWave 2.2s cubic-bezier(0, 0.2, 0.8, 1) infinite 0.7s;
+}
+.radar-wave-3 {
+    animation: radarWave 2.2s cubic-bezier(0, 0.2, 0.8, 1) infinite 1.4s;
+}
+
+@keyframes walkerBob {
+    0% {
+        transform: translateY(0px) rotate(-3deg) scale(1);
+    }
+    50% {
+        transform: translateY(-9px) rotate(3deg) scale(1.05);
+    }
+    100% {
+        transform: translateY(0px) rotate(-3deg) scale(1);
+    }
+}
+
+.walker-bob {
+    animation: walkerBob 1.1s ease-in-out infinite;
+}
+
+@keyframes pathGlowFlow {
+    0% {
+        stroke-dashoffset: 48;
+    }
+    100% {
+        stroke-dashoffset: 0;
+    }
+}
+
+.path-dash-animated {
+    animation: pathGlowFlow 1.2s linear infinite;
+}
+
+@keyframes pinBeaconPulse {
+    0%, 100% {
+        box-shadow: 0 0 15px rgba(16, 185, 129, 0.5), inset 0 0 8px rgba(16, 185, 129, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 32px rgba(16, 185, 129, 0.9), inset 0 0 16px rgba(16, 185, 129, 0.6);
+    }
+}
+
+.beacon-pulse {
+    animation: pinBeaconPulse 2s ease-in-out infinite;
+}
+
+@keyframes floatGrid {
+    0% {
+        background-position: 0 0;
+    }
+    100% {
+        background-position: 32px 32px;
+    }
+}
+
+.map-grid-animated {
+    animation: floatGrid 25s linear infinite;
+}

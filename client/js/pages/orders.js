@@ -80,42 +80,87 @@ window.pages.orders = async function() {
                     </button>
                 </div>
             </div>
-            <div class="glass-card rounded-3xl overflow-hidden border border-emerald/30 shadow-lg bg-surface">
-                <!-- BH13 Campus Floor / Corridor Live Map Canvas -->
-                <div class="h-64 sm:h-72 relative bg-[#f1f5f9] dark:bg-slate-900/90 overflow-hidden flex items-center justify-center p-4 select-none">
+            <div class="glass-card rounded-3xl overflow-hidden border border-emerald/40 shadow-2xl bg-surface relative">
+                <!-- BH13 Campus Floor / Corridor Live High-Tech Map Canvas -->
+                <div class="h-72 sm:h-80 relative bg-gradient-to-b from-[#0b1320] via-[#09101d] to-[#030712] overflow-hidden flex items-center justify-center p-4 select-none">
                     
-                    <!-- Campus Map Grid Lines & Footpath -->
-                    <div class="absolute inset-0 opacity-20 pointer-events-none" style="background-image: radial-gradient(#10B981 1px, transparent 1px); background-size: 20px 20px;"></div>
+                    <!-- Futuristic Animated HUD Overlay (Top Bar) -->
+                    <div class="absolute top-3 inset-x-4 flex justify-between items-center z-30 pointer-events-none">
+                        <div class="flex items-center gap-1.5 bg-black/60 backdrop-blur-md border border-emerald/30 text-emerald text-[11px] font-extrabold px-3 py-1 rounded-full shadow-lg">
+                            <span class="w-2 h-2 rounded-full bg-emerald animate-ping"></span>
+                            <span>📡 BH13 LIVE CORRIDOR GPS</span>
+                        </div>
+                        <div class="flex items-center gap-2 bg-black/60 backdrop-blur-md border border-white/10 text-white/90 text-[11px] font-bold px-3 py-1 rounded-full shadow-lg">
+                            <span class="text-emerald font-black">⚡ 1.2 m/s</span>
+                            <span class="text-white/30">•</span>
+                            <span>Floor 3 Express</span>
+                        </div>
+                    </div>
 
-                    <!-- Walking Footpath Path SVG -->
+                    <!-- Ambient Floating Grid Lines -->
+                    <div class="absolute inset-0 opacity-15 pointer-events-none map-grid-animated" style="background-image: radial-gradient(#10B981 1.5px, transparent 1.5px); background-size: 24px 24px;"></div>
+
+                    <!-- Walking Footpath Path SVG with Gradients & Glow Filters -->
                     <svg class="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 800 280">
-                        <!-- Shadow Track -->
-                        <path d="M 60 140 C 200 90, 320 200, 480 110 S 640 170, 740 140" fill="none" stroke="#cbd5e1" stroke-width="8" stroke-linecap="round"/>
-                        <!-- Animated Green Walking Dash Track -->
-                        <path d="M 60 140 C 200 90, 320 200, 480 110 S 640 170, 740 140" fill="none" stroke="#10B981" stroke-width="5" stroke-linecap="round" stroke-dasharray="10,10" style="animation: dash 1s linear infinite;"/>
+                        <defs>
+                            <linearGradient id="emeraldPathGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stop-color="#059669" stop-opacity="0.8"/>
+                                <stop offset="50%" stop-color="#10B981" stop-opacity="1"/>
+                                <stop offset="100%" stop-color="#34D399" stop-opacity="0.9"/>
+                            </linearGradient>
+                            <filter id="laserGlow" x="-20%" y="-20%" width="140%" height="140%">
+                                <feGaussianBlur stdDeviation="6" result="blur" />
+                                <feMerge>
+                                    <feMergeNode in="blur" />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                        </defs>
+
+                        <!-- Outer Ambient Glow Track -->
+                        <path d="M 70 140 C 200 80, 320 210, 490 100 S 640 180, 730 140" fill="none" stroke="url(#emeraldPathGlow)" stroke-width="14" stroke-linecap="round" opacity="0.3" filter="url(#laserGlow)"/>
+                        
+                        <!-- Base Solid Guideway -->
+                        <path d="M 70 140 C 200 80, 320 210, 490 100 S 640 180, 730 140" fill="none" stroke="#1e293b" stroke-width="8" stroke-linecap="round"/>
+                        
+                        <!-- Animated Neon Laser Dash Track -->
+                        <path class="path-dash-animated" d="M 70 140 C 200 80, 320 210, 490 100 S 640 180, 730 140" fill="none" stroke="#10B981" stroke-width="5" stroke-linecap="round" stroke-dasharray="12,12"/>
+
+                        <!-- Checkpoint Waypoint Rings along corridor -->
+                        <circle cx="270" cy="148" r="4" fill="#10B981" opacity="0.8" />
+                        <circle cx="490" cy="100" r="4" fill="#34D399" opacity="0.8" />
+                        <circle cx="615" cy="155" r="4" fill="#10B981" opacity="0.8" />
                     </svg>
 
                     <!-- Origin: BH13 Dark Store Hub Pin (Left) -->
-                    <div class="absolute left-4 sm:left-8 top-1/2 transform -translate-y-1/2 z-10 flex flex-col items-center">
-                        <div class="w-10 h-10 rounded-2xl bg-[#3c4043] text-white flex items-center justify-center shadow-lg border-2 border-white">
-                            <span class="material-symbols-outlined text-xl">storefront</span>
+                    <div class="absolute left-3 sm:left-6 top-1/2 transform -translate-y-1/2 z-20 flex flex-col items-center group cursor-pointer">
+                        <div class="relative flex items-center justify-center">
+                            <div class="absolute -inset-2 rounded-2xl bg-emerald/20 animate-pulse"></div>
+                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#1e293b] to-[#0f172a] text-emerald flex items-center justify-center shadow-xl border-2 border-emerald/50">
+                                <span class="material-symbols-outlined text-2xl">storefront</span>
+                            </div>
                         </div>
-                        <span class="bg-surface text-on-surface text-[10px] font-bold px-2 py-0.5 rounded shadow mt-1 whitespace-nowrap border border-outline-variant/30">BH13 Hub</span>
+                        <div class="mt-1.5 bg-black/80 backdrop-blur-md text-emerald text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border border-emerald/40 shadow-lg whitespace-nowrap">
+                            BH13 Hub (G-Floor)
+                        </div>
                     </div>
 
-                    <!-- Active Walking Runner Pin (Dynamic Movement) -->
-                    <div class="absolute transform -translate-x-1/2 -translate-y-1/2 transition-all duration-700 z-20" id="rider-pin" style="left: 48%; top: 50%;">
+                    <!-- Active Walking Runner Pin (Dynamic Movement & Triple Radar Waves) -->
+                    <div class="absolute transform -translate-x-1/2 -translate-y-1/2 transition-all duration-700 z-30" id="rider-pin" style="left: 68%; top: 48%;">
                         <div class="relative flex flex-col items-center">
-                            <!-- Pulsing Radar Ring -->
-                            <div class="absolute -inset-2 rounded-full bg-emerald/30 animate-ping"></div>
                             
-                            <!-- Walking Runner Icon -->
-                            <div class="w-12 h-12 rounded-full bg-emerald text-white flex items-center justify-center shadow-2xl border-2 border-white relative z-10 animate-bounce">
-                                <span class="material-symbols-outlined text-2xl font-black">directions_walk</span>
+                            <!-- Triple Expanding Sonar Waves -->
+                            <div class="absolute w-20 h-20 rounded-full bg-emerald/20 radar-wave-1 pointer-events-none"></div>
+                            <div class="absolute w-20 h-20 rounded-full bg-emerald/25 radar-wave-2 pointer-events-none"></div>
+                            <div class="absolute w-20 h-20 rounded-full bg-emerald/30 radar-wave-3 pointer-events-none"></div>
+                            
+                            <!-- 3D Emerald Gradient Runner Orb with Bobbing Animation -->
+                            <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-emerald-600 via-emerald-500 to-teal-400 text-white flex items-center justify-center shadow-[0_0_25px_rgba(16,185,129,0.8)] border-2 border-white relative z-10 walker-bob">
+                                <span class="material-symbols-outlined text-3xl font-black">directions_walk</span>
                             </div>
                             
-                            <!-- Runner Status Badge -->
-                            <div class="mt-1.5 bg-white dark:bg-slate-800 text-on-surface text-[11px] font-extrabold px-3 py-0.5 rounded-full shadow-lg border border-emerald/40 whitespace-nowrap flex items-center gap-1" id="rider-badge">
+                            <!-- Floating Runner Status Badge -->
+                            <div class="mt-2 bg-black/85 backdrop-blur-md text-white text-[11px] font-extrabold px-3 py-1 rounded-full shadow-2xl border border-emerald/50 whitespace-nowrap flex items-center gap-1.5" id="rider-badge">
                                 <span class="w-2 h-2 rounded-full bg-emerald animate-pulse"></span>
                                 <span>${activeOrder.rider_name || 'Alex'} · Walking to ${hostelShort}</span>
                             </div>
@@ -123,11 +168,16 @@ window.pages.orders = async function() {
                     </div>
 
                     <!-- Destination: Student Hostel Room Pin (Right) -->
-                    <div class="absolute right-4 sm:right-8 top-1/2 transform -translate-y-1/2 z-10 flex flex-col items-center">
-                        <div class="w-10 h-10 rounded-2xl bg-primary text-white flex items-center justify-center shadow-lg border-2 border-white">
-                            <span class="material-symbols-outlined text-xl">apartment</span>
+                    <div class="absolute right-3 sm:right-6 top-1/2 transform -translate-y-1/2 z-20 flex flex-col items-center group cursor-pointer">
+                        <div class="relative flex items-center justify-center">
+                            <div class="absolute -inset-2 rounded-2xl bg-teal-500/20 animate-pulse"></div>
+                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-700 to-emerald-900 text-white flex items-center justify-center shadow-xl border-2 border-teal-400">
+                                <span class="material-symbols-outlined text-2xl">apartment</span>
+                            </div>
                         </div>
-                        <span class="bg-surface text-on-surface text-[10px] font-bold px-2 py-0.5 rounded shadow mt-1 whitespace-nowrap border border-outline-variant/30" id="tracking-dest-label">${hostelShort} (Block A)</span>
+                        <div class="mt-1.5 bg-black/80 backdrop-blur-md text-teal-300 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border border-teal-400/40 shadow-lg whitespace-nowrap" id="tracking-dest-label">
+                            ${activeOrder.delivery_address || `${hostelShort} (Block A)`}
+                        </div>
                     </div>
                 </div>
 
@@ -491,7 +541,24 @@ window.pageInits.orders = function() {
             if (progressBar) progressBar.style.width = '85%';
             if (etaTimeEl) etaTimeEl.textContent = 'Walking to Room · 1 min (00:59)';
             if (msgEl) msgEl.innerHTML = `<span class="material-symbols-outlined text-sm text-emerald">directions_walk</span><span>${rider} picked up your snacks from BH13 Hub and is walking to ${hostelAddress}.</span>`;
-            if (pin) { pin.style.left = '68%'; pin.style.top = '48%'; }
+            if (pin) {
+                pin.style.left = '64%';
+                pin.style.top = '44%';
+                pin.innerHTML = `
+                    <div class="relative flex flex-col items-center">
+                        <div class="absolute w-20 h-20 rounded-full bg-emerald/20 radar-wave-1 pointer-events-none"></div>
+                        <div class="absolute w-20 h-20 rounded-full bg-emerald/25 radar-wave-2 pointer-events-none"></div>
+                        <div class="absolute w-20 h-20 rounded-full bg-emerald/30 radar-wave-3 pointer-events-none"></div>
+                        <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-emerald-600 via-emerald-500 to-teal-400 text-white flex items-center justify-center shadow-[0_0_25px_rgba(16,185,129,0.8)] border-2 border-white relative z-10 walker-bob">
+                            <span class="material-symbols-outlined text-3xl font-black">directions_walk</span>
+                        </div>
+                        <div class="mt-2 bg-black/85 backdrop-blur-md text-white text-[11px] font-extrabold px-3 py-1 rounded-full shadow-2xl border border-emerald/50 whitespace-nowrap flex items-center gap-1.5" id="rider-badge">
+                            <span class="w-2 h-2 rounded-full bg-emerald animate-pulse"></span>
+                            <span>${rider} · Walking to ${hostelShort}</span>
+                        </div>
+                    </div>
+                `;
+            }
             if (stepPlaced) stepPlaced.classList.add('text-emerald', 'font-bold');
             if (stepPacked) stepPacked.classList.add('text-emerald', 'font-bold');
             if (stepEnroute) stepEnroute.classList.add('text-emerald', 'font-bold');
@@ -500,7 +567,20 @@ window.pageInits.orders = function() {
             if (progressBar) progressBar.style.width = '100%';
             if (etaTimeEl) etaTimeEl.textContent = 'Delivered ✓';
             if (msgEl) msgEl.innerHTML = `<span class="material-symbols-outlined text-sm text-emerald">task_alt</span><span>🎉 Arrived at ${hostelShort} hostel room/gate! Please collect your items.</span>`;
-            if (pin) { pin.style.left = '86%'; pin.style.top = '50%'; }
+            if (pin) {
+                pin.style.left = '86%';
+                pin.style.top = '50%';
+                pin.innerHTML = `
+                    <div class="relative flex flex-col items-center">
+                        <div class="w-14 h-14 rounded-full bg-emerald text-white flex items-center justify-center shadow-[0_0_25px_rgba(16,185,129,0.9)] border-2 border-white relative z-10 animate-bounce">
+                            <span class="material-symbols-outlined text-3xl font-black">task_alt</span>
+                        </div>
+                        <div class="mt-2 bg-black/85 backdrop-blur-md text-emerald text-[11px] font-extrabold px-3 py-1 rounded-full shadow-2xl border border-emerald/50 whitespace-nowrap flex items-center gap-1.5">
+                            <span>Delivered to Room 🎉</span>
+                        </div>
+                    </div>
+                `;
+            }
             if (stepPlaced) stepPlaced.classList.add('text-emerald', 'font-bold');
             if (stepPacked) stepPacked.classList.add('text-emerald', 'font-bold');
             if (stepEnroute) stepEnroute.classList.add('text-emerald', 'font-bold');
