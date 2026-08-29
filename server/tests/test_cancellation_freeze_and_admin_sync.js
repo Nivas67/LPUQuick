@@ -105,6 +105,13 @@ async function testCancelFreezeAndAdminSync() {
         throw new Error(`Expected HTTP 400 for frozen cancel, but got ${frozenCancelRes.status}`);
     }
 
+    // Clean up test orders from DB so admin dashboard stays pristine
+    const { DatabaseSync } = require('node:sqlite');
+    const db = new DatabaseSync('server/db/lpuquick.db');
+    db.prepare('DELETE FROM order_items WHERE order_id IN (?, ?)').run(order1.id, order2.id);
+    db.prepare('DELETE FROM orders WHERE id IN (?, ?)').run(order1.id, order2.id);
+    console.log('✓ 8. Cleaned up test orders from database.');
+
     adminWs.close();
     console.log('\n========================================================');
     console.log('🎉 100% SUCCESS: STUDENT CANCEL SYNC & FREEZING VERIFIED!');
