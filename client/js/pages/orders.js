@@ -406,7 +406,7 @@ window.pages.orders = async function() {
 };
 
 window.pageInits.orders = function() {
-    const userId = window.CURRENT_USER_ID;
+    const effectiveUserId = (window.isUserLoggedIn() ? window.CURRENT_USER_ID : (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : 'user_guest'));
     const hostelShort = window.currentAddress || 'BH13';
     const hostelAddress = window.currentAddressDetail?.label || 'BH13 (Block A), Room 304';
     const activeOrderId = window.CURRENT_ACTIVE_ORDER_ID;
@@ -415,21 +415,30 @@ window.pageInits.orders = function() {
     document.querySelectorAll('.reorder-btn').forEach(btn => {
         btn.onclick = async (e) => {
             e.preventDefault();
+            e.stopPropagation();
             const orderId = btn.dataset.orderId;
             if (!orderId) return;
 
             btn.disabled = true;
-            btn.textContent = 'Adding...';
+            btn.innerHTML = '<span class="material-symbols-outlined text-xs animate-spin">sync</span><span>Adding...</span>';
             try {
-                await window.api.reorder(orderId, userId);
-                btn.textContent = 'Added ✓';
+                const res = await window.api.reorder(orderId, effectiveUserId);
+                btn.innerHTML = '<span class="material-symbols-outlined text-xs">check</span><span>Added!</span>';
+                if (typeof showClientToast === 'function') {
+                    showClientToast('✓ Items added to cart!', 'success', 'shopping_cart');
+                }
                 setTimeout(() => {
                     window.location.hash = '#/cart';
-                }, 300);
+                }, 350);
             } catch (err) {
                 btn.textContent = 'Reorder';
                 btn.disabled = false;
                 console.error('[Reorder Error]:', err);
+                if (typeof showClientToast === 'function') {
+                    showClientToast('Could not reorder items: ' + err.message, 'error', 'error');
+                } else {
+                    alert('Could not reorder items: ' + err.message);
+                }
             }
         };
     });

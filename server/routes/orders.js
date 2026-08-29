@@ -306,5 +306,83 @@ router.post('/:orderId/cancel', async (req, res) => {
     }
 });
 
+// POST /api/orders/:orderId/reorder (Reorder all items from past order into user cart)
+router.post('/:orderId/reorder', async (req, res) => {
+    const { orderId } = req.params;
+    const { userId } = req.body;
+    const effectiveUserId = userId || 'user_guest';
+
+    try {
+        const order = await supabaseDb.orders.getOrderById(orderId);
+        if (!order) {
+            return res.status(404).json({ error: 'Order not found' });
+        }
+
+        const items = order.items || [];
+        if (items.length === 0) {
+            // Fallback: lookup items directly from order_items table
+            const supabase = getSupabaseClient();
+            const { data: dbItems } = await supabase
+                .from('order_items')
+                .select('product_id, quantity')
+                .eq('order_id', orderId);
+            
+            if (dbItems && dbItems.length > 0) {
+                for (const item of dbItems) {
+                    if (item.product_id) {
+                        await supabaseDb.cart.addItem(effectiveUserId, item.product_id, item.quantity || 1);
+                    }
+                }
+            } else {
+                return res.status(400).json({ error: 'No items found in this order to reorder' });
+            }
+        } else {
+            for (const item of items) {
+                const pid = item.product_id || item.id;
+                const qty = item.quantity || 1;
+                if (pid) {
+                    await supabaseDb.cart.addItem(effectiveUserId, pid, qty);
+                }
+            }
+        }
+
+        const updatedCart = await supabaseDb.cart.getCart(effectiveUserId);
+        res.json({
+            success: true,
+            message: 'All items from order successfully added to cart!',
+            cart: updatedCart,
+            reordered_count: (items.length || 1)
+        });
+    } catch (err) {
+        console.error('[Reorder Route Error]:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/orders/:orderId/change-address (Update active order delivery address)
+router.post('/:orderId/change-address', async (req, res) => {
+    const { orderId } = req.params;
+    const { newAddress } = req.body;
+
+    if (!newAddress) {
+        return res.status(400).json({ error: 'newAddress is required' });
+    }
+
+    try {
+        const supabase = getSupabaseClient();
+        const { data, error } = await supabase
+            .from('orders')
+            .update({ delivery_address: newAddress })
+            .eq('id', orderId)
+            .select()
+            .single();
+
+        if (error) throw error;
+        res.json({ success: true, message: 'Delivery address updated successfully', order: data });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;
 
