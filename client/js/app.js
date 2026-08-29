@@ -2,10 +2,27 @@
 window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
+// Version-controlled session cache buster (Ensures new visits or deployments start completely clean)
+const LPUQUICK_BUILD_VERSION = 'v2026.08.29.rel6';
+if (localStorage.getItem('lpuquick_build_v') !== LPUQUICK_BUILD_VERSION) {
+    localStorage.removeItem('lpuquick_user');
+    localStorage.removeItem('lpuquick_address_configured');
+    localStorage.removeItem('lpuquick_room');
+    localStorage.removeItem('lpuquick_block');
+    localStorage.removeItem('lpuquick_phone');
+    localStorage.removeItem('lpuquick_address_detail');
+    localStorage.removeItem('lpuquick_guest_cart_id');
+    localStorage.setItem('lpuquick_build_v', LPUQUICK_BUILD_VERSION);
+    window.CURRENT_USER_ID = null;
+    window.CURRENT_USER_NAME = null;
+    window.CURRENT_USER_EMAIL = null;
+    window.CURRENT_USER_PICTURE = null;
+}
+
 // Auth User state (Strict real user session - no hardcoded fake fallback)
 try {
     const savedUser = JSON.parse(localStorage.getItem('lpuquick_user') || 'null');
-    if (savedUser && savedUser.id && savedUser.id !== 'user_001') {
+    if (savedUser && savedUser.id && savedUser.id !== 'user_001' && savedUser.id !== 'user_default' && savedUser.email) {
         window.CURRENT_USER_ID = savedUser.id;
         window.CURRENT_USER_NAME = savedUser.name;
         window.CURRENT_USER_EMAIL = savedUser.email;
@@ -533,8 +550,8 @@ window.syncCardSteppers = function() {
 async function router() {
     const path = getCurrentRoute();
     
-    // First-time visit: Require sign in if unauthenticated on home/checkout/orders
-    if (!window.isUserLoggedIn() && (path === '/' || path === '/checkout' || path === '/orders')) {
+    // Mandatory unauthenticated check: Require sign in before entering store
+    if (!window.isUserLoggedIn() && path !== '/signin') {
         if (path !== '/') {
             localStorage.setItem('lpuquick_redirect', '#' + path);
         }
