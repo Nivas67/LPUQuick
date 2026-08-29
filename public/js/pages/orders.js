@@ -576,6 +576,7 @@ window.pageInits.orders = function() {
 
     // Live status UI updater
     window.applyOrderStatusUI = function(status, riderName) {
+        if (!status) return;
         currentOrderStatus = status;
         window.CURRENT_ACTIVE_ORDER_STATUS = status;
         if (typeof window.updateHelpModalCancelState === 'function') {
@@ -600,39 +601,51 @@ window.pageInits.orders = function() {
         if (rAvatar) rAvatar.textContent = rider[0];
         if (rBadge) rBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span><span>${rider} · Walking to ${hostelShort}</span>`;
 
-        const s = (status || '').toLowerCase();
+        const s = status.trim().toLowerCase();
 
         if (s === 'order placed' || s === 'pending') {
-            if (pBar) pBar.style.width = '20%';
+            if (pBar) {
+                pBar.style.width = '25%';
+                pBar.className = 'bg-gradient-to-r from-emerald-600 to-emerald-400 h-full rounded-full transition-all duration-700 shadow-sm';
+            }
             if (etaText) etaText.textContent = 'Status: Order Placed';
             if (statusMsg) statusMsg.innerHTML = '<span class="material-symbols-outlined text-base text-emerald">storefront</span><span>BH13 Dark Store received your order and is verifying items.</span>';
             if (riderPin) { riderPin.style.left = '14%'; riderPin.style.top = '50%'; }
-            if (sPlaced) { sPlaced.className = 'text-emerald font-bold'; }
+            if (sPlaced) { sPlaced.className = 'text-emerald font-extrabold'; }
             if (sPacked) { sPacked.className = 'text-on-surface-variant font-medium'; }
             if (sEnroute) { sEnroute.className = 'text-on-surface-variant font-medium'; }
             if (sDelivered) { sDelivered.className = 'text-on-surface-variant font-medium'; }
         } else if (s === 'order confirmed' || s === 'confirmed' || s === 'accepted') {
-            if (pBar) pBar.style.width = '40%';
+            if (pBar) {
+                pBar.style.width = '45%';
+                pBar.className = 'bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-400 h-full rounded-full transition-all duration-700 shadow-sm';
+            }
             if (etaText) etaText.textContent = 'Status: Confirmed (3 mins)';
             if (statusMsg) statusMsg.innerHTML = '<span class="material-symbols-outlined text-base text-emerald">check_circle</span><span>BH13 Dark Store confirmed your order. Bag packing started!</span>';
             if (riderPin) { riderPin.style.left = '28%'; riderPin.style.top = '38%'; }
-            if (sPlaced) { sPlaced.className = 'text-emerald font-bold'; }
-            if (sPacked) { sPacked.className = 'text-emerald font-bold'; }
+            if (sPlaced) { sPlaced.className = 'text-emerald font-extrabold'; }
+            if (sPacked) { sPacked.className = 'text-emerald font-extrabold'; }
             if (sEnroute) { sEnroute.className = 'text-on-surface-variant font-medium'; }
             if (sDelivered) { sDelivered.className = 'text-on-surface-variant font-medium'; }
         } else if (s === 'preparing' || s === 'packed') {
-            if (pBar) pBar.style.width = '65%';
+            if (pBar) {
+                pBar.style.width = '65%';
+                pBar.className = 'bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-400 h-full rounded-full transition-all duration-700 shadow-sm';
+            }
             if (etaText) etaText.textContent = 'Status: Packed & Ready (2 mins)';
-            if (statusMsg) statusMsg.innerHTML = '<span class="material-symbols-outlined text-base text-emerald">inventory_2</span><span>Snacks sealed in tamper-proof bag. Runner ${rider} at dispatch counter.</span>';
+            if (statusMsg) statusMsg.innerHTML = `<span class="material-symbols-outlined text-base text-emerald">inventory_2</span><span>Snacks sealed in tamper-proof bag. Runner ${rider} at dispatch counter.</span>`;
             if (riderPin) { riderPin.style.left = '48%'; riderPin.style.top = '54%'; }
-            if (sPlaced) { sPlaced.className = 'text-emerald font-bold'; }
-            if (sPacked) { sPacked.className = 'text-emerald font-bold'; }
+            if (sPlaced) { sPlaced.className = 'text-emerald font-extrabold'; }
+            if (sPacked) { sPacked.className = 'text-emerald font-extrabold'; }
             if (sEnroute) { sEnroute.className = 'text-on-surface-variant font-medium'; }
             if (sDelivered) { sDelivered.className = 'text-on-surface-variant font-medium'; }
         } else if (s === 'out for delivery' || s === 'en_route') {
-            if (pBar) pBar.style.width = '85%';
+            if (pBar) {
+                pBar.style.width = '85%';
+                pBar.className = 'bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-400 h-full rounded-full transition-all duration-700 shadow-sm';
+            }
             if (etaText) etaText.textContent = 'Status: Out for Delivery (1 min)';
-            if (statusMsg) statusMsg.innerHTML = `<span class="material-symbols-outlined text-base text-emerald">directions_walk</span><span>${rider} is walking at 1.4 m/s down Floor 3 to ${hostelAddress}!</span>`;
+            if (statusMsg) statusMsg.innerHTML = `<span class="material-symbols-outlined text-base text-emerald">directions_walk</span><span>${rider} picked up your snacks and is walking at 1.4 m/s to ${hostelAddress}!</span>`;
             if (riderPin) {
                 riderPin.style.left = '70%';
                 riderPin.style.top = '42%';
@@ -651,12 +664,15 @@ window.pageInits.orders = function() {
                     </div>
                 `;
             }
-            if (sPlaced) { sPlaced.className = 'text-emerald font-bold'; }
-            if (sPacked) { sPacked.className = 'text-emerald font-bold'; }
-            if (sEnroute) { sEnroute.className = 'text-emerald font-bold'; }
+            if (sPlaced) { sPlaced.className = 'text-emerald font-extrabold'; }
+            if (sPacked) { sPacked.className = 'text-emerald font-extrabold'; }
+            if (sEnroute) { sEnroute.className = 'text-emerald font-extrabold'; }
             if (sDelivered) { sDelivered.className = 'text-on-surface-variant font-medium'; }
         } else if (s === 'delivered') {
-            if (pBar) pBar.style.width = '100%';
+            if (pBar) {
+                pBar.style.width = '100%';
+                pBar.className = 'bg-emerald h-full rounded-full transition-all duration-700 shadow-sm';
+            }
             if (etaText) etaText.textContent = 'Status: Delivered ✓';
             if (statusMsg) statusMsg.innerHTML = `<span class="material-symbols-outlined text-base text-emerald">task_alt</span><span>🎉 Arrived at ${hostelAddress}! Please collect your items.</span>`;
             if (riderPin) {
@@ -674,17 +690,17 @@ window.pageInits.orders = function() {
                     </div>
                 `;
             }
-            if (sPlaced) { sPlaced.className = 'text-emerald font-bold'; }
-            if (sPacked) { sPacked.className = 'text-emerald font-bold'; }
-            if (sEnroute) { sEnroute.className = 'text-emerald font-bold'; }
-            if (sDelivered) { sDelivered.className = 'text-emerald font-bold'; }
+            if (sPlaced) { sPlaced.className = 'text-emerald font-extrabold'; }
+            if (sPacked) { sPacked.className = 'text-emerald font-extrabold'; }
+            if (sEnroute) { sEnroute.className = 'text-emerald font-extrabold'; }
+            if (sDelivered) { sDelivered.className = 'text-emerald font-extrabold'; }
 
             // Auto-refresh softly to update past orders history
             setTimeout(() => {
                 if (window.location.hash === '#/orders') {
                     window.router();
                 }
-            }, 4000);
+            }, 3500);
         } else if (s === 'cancelled') {
             if (pBar) {
                 pBar.style.width = '100%';
@@ -717,9 +733,12 @@ window.pageInits.orders = function() {
                 if (window.location.hash === '#/orders') {
                     window.router();
                 }
-            }, 3500);
+            }, 3000);
         }
     };
+
+    // Trigger initial UI setup immediately on page render
+    window.applyOrderStatusUI(currentOrderStatus, 'Alex');
 
     if (!activeOrderId) return;
 
@@ -740,7 +759,7 @@ window.pageInits.orders = function() {
             try {
                 const data = JSON.parse(event.data);
                 if (data && data.status) {
-                    window.applyOrderStatusUI(data.status, data.rider_name || data.riderName);
+                    window.applyOrderStatusUI(data.status, data.rider_name || data.riderName || 'Alex');
                 }
             } catch (e) {
                 console.error('[Orders WS parse error]:', e);
@@ -764,13 +783,21 @@ window.pageInits.orders = function() {
         ordersPoll = setInterval(async () => {
             try {
                 const res = await window.api.getOrderDetail(activeOrderId);
-                if (res && res.order && res.order.status) {
-                    window.applyOrderStatusUI(res.order.status, res.order.rider_name);
-                    if (res.order.status === 'Delivered') clearInterval(ordersPoll);
+                const orderData = res?.order || res;
+                if (orderData && orderData.status) {
+                    if (orderData.status !== currentOrderStatus) {
+                        window.applyOrderStatusUI(orderData.status, orderData.rider_name || 'Alex');
+                    }
+                    if (['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(orderData.status)) {
+                        clearInterval(ordersPoll);
+                    }
                 }
             } catch (err) {}
-        }, 3000);
+        }, 2000);
     }
+
+    // Always run active polling in background as dual-assurance for instant admin sync
+    startPollingStatus();
 };
 
 
