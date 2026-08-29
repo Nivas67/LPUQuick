@@ -102,7 +102,7 @@ window.pages.signin = async function() {
 };
 
 window.pageInits.signin = function() {
-    const clientId = window.GOOGLE_CLIENT_ID || '632433440395-ec7em4upuplktkanoq3apgif3unet0up.apps.googleusercontent.com';
+    const clientId = window.GOOGLE_CLIENT_ID || '632433440395-kqqcgqs0sd5l83gbbtk4e41mufnvtltt.apps.googleusercontent.com';
 
     function resetGoogleButton() {
         const btn = document.getElementById('btn-google');
