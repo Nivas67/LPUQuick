@@ -276,10 +276,10 @@ window.pages.orders = async function() {
                     <!-- Progress Step Indicator -->
                     <div class="space-y-2 pt-1">
                         <div class="w-full bg-surface-container-high h-3 rounded-full overflow-hidden p-0.5 border border-surface-variant/40">
-                            <div class="bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-400 h-full rounded-full transition-all duration-700 shadow-sm" id="order-progress-bar" style="width: 55%;"></div>
+                            <div class="h-full rounded-full transition-all duration-700 shadow-sm" id="order-progress-bar" style="width: 25%; background: linear-gradient(90deg, #059669 0%, #10B981 100%); box-shadow: 0 0 10px rgba(16, 185, 129, 0.7);"></div>
                         </div>
                         <div class="flex justify-between text-[10px] sm:text-xs font-bold text-on-surface-variant px-1">
-                            <span class="text-emerald" id="step-placed">Accepted ✓</span>
+                            <span class="text-emerald font-extrabold" id="step-placed" style="color: #10B981;">Accepted ✓</span>
                             <span id="step-packed">Packed 📦</span>
                             <span id="step-enroute">Walking to Room 🚶‍♂️</span>
                             <span id="step-delivered">Delivered 🏁</span>
@@ -603,46 +603,56 @@ window.pageInits.orders = function() {
 
         const s = status.trim().toLowerCase();
 
+        if (pBar) {
+            pBar.style.height = '100%';
+            pBar.style.borderRadius = '9999px';
+            pBar.style.transition = 'width 0.7s cubic-bezier(0.4, 0, 0.2, 1), background 0.5s ease';
+        }
+
         if (s === 'order placed' || s === 'pending') {
             if (pBar) {
                 pBar.style.width = '25%';
-                pBar.className = 'bg-gradient-to-r from-emerald-600 to-emerald-400 h-full rounded-full transition-all duration-700 shadow-sm';
+                pBar.style.background = 'linear-gradient(90deg, #059669 0%, #10B981 100%)';
+                pBar.style.boxShadow = '0 0 10px rgba(16, 185, 129, 0.7)';
             }
             if (etaText) etaText.textContent = 'Status: Order Placed';
             if (statusMsg) statusMsg.innerHTML = '<span class="material-symbols-outlined text-base text-emerald">storefront</span><span>BH13 Dark Store received your order and is verifying items.</span>';
             if (riderPin) { riderPin.style.left = '14%'; riderPin.style.top = '50%'; }
-            if (sPlaced) { sPlaced.className = 'text-emerald font-extrabold'; }
-            if (sPacked) { sPacked.className = 'text-on-surface-variant font-medium'; }
-            if (sEnroute) { sEnroute.className = 'text-on-surface-variant font-medium'; }
-            if (sDelivered) { sDelivered.className = 'text-on-surface-variant font-medium'; }
+            if (sPlaced) { sPlaced.className = 'text-emerald font-extrabold'; sPlaced.style.color = '#10B981'; }
+            if (sPacked) { sPacked.className = 'text-on-surface-variant font-medium'; sPacked.style.color = ''; }
+            if (sEnroute) { sEnroute.className = 'text-on-surface-variant font-medium'; sEnroute.style.color = ''; }
+            if (sDelivered) { sDelivered.className = 'text-on-surface-variant font-medium'; sDelivered.style.color = ''; }
         } else if (s === 'order confirmed' || s === 'confirmed' || s === 'accepted') {
             if (pBar) {
                 pBar.style.width = '45%';
-                pBar.className = 'bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-400 h-full rounded-full transition-all duration-700 shadow-sm';
+                pBar.style.background = 'linear-gradient(90deg, #059669 0%, #10B981 60%, #34D399 100%)';
+                pBar.style.boxShadow = '0 0 12px rgba(16, 185, 129, 0.8)';
             }
             if (etaText) etaText.textContent = 'Status: Confirmed (3 mins)';
             if (statusMsg) statusMsg.innerHTML = '<span class="material-symbols-outlined text-base text-emerald">check_circle</span><span>BH13 Dark Store confirmed your order. Bag packing started!</span>';
             if (riderPin) { riderPin.style.left = '28%'; riderPin.style.top = '38%'; }
-            if (sPlaced) { sPlaced.className = 'text-emerald font-extrabold'; }
-            if (sPacked) { sPacked.className = 'text-emerald font-extrabold'; }
-            if (sEnroute) { sEnroute.className = 'text-on-surface-variant font-medium'; }
-            if (sDelivered) { sDelivered.className = 'text-on-surface-variant font-medium'; }
+            if (sPlaced) { sPlaced.className = 'text-emerald font-extrabold'; sPlaced.style.color = '#10B981'; }
+            if (sPacked) { sPacked.className = 'text-emerald font-extrabold'; sPacked.style.color = '#10B981'; }
+            if (sEnroute) { sEnroute.className = 'text-on-surface-variant font-medium'; sEnroute.style.color = ''; }
+            if (sDelivered) { sDelivered.className = 'text-on-surface-variant font-medium'; sDelivered.style.color = ''; }
         } else if (s === 'preparing' || s === 'packed') {
             if (pBar) {
                 pBar.style.width = '65%';
-                pBar.className = 'bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-400 h-full rounded-full transition-all duration-700 shadow-sm';
+                pBar.style.background = 'linear-gradient(90deg, #059669 0%, #10B981 50%, #34D399 100%)';
+                pBar.style.boxShadow = '0 0 14px rgba(16, 185, 129, 0.85)';
             }
             if (etaText) etaText.textContent = 'Status: Packed & Ready (2 mins)';
             if (statusMsg) statusMsg.innerHTML = `<span class="material-symbols-outlined text-base text-emerald">inventory_2</span><span>Snacks sealed in tamper-proof bag. Runner ${rider} at dispatch counter.</span>`;
             if (riderPin) { riderPin.style.left = '48%'; riderPin.style.top = '54%'; }
-            if (sPlaced) { sPlaced.className = 'text-emerald font-extrabold'; }
-            if (sPacked) { sPacked.className = 'text-emerald font-extrabold'; }
-            if (sEnroute) { sEnroute.className = 'text-on-surface-variant font-medium'; }
-            if (sDelivered) { sDelivered.className = 'text-on-surface-variant font-medium'; }
+            if (sPlaced) { sPlaced.className = 'text-emerald font-extrabold'; sPlaced.style.color = '#10B981'; }
+            if (sPacked) { sPacked.className = 'text-emerald font-extrabold'; sPacked.style.color = '#10B981'; }
+            if (sEnroute) { sEnroute.className = 'text-on-surface-variant font-medium'; sEnroute.style.color = ''; }
+            if (sDelivered) { sDelivered.className = 'text-on-surface-variant font-medium'; sDelivered.style.color = ''; }
         } else if (s === 'out for delivery' || s === 'en_route') {
             if (pBar) {
                 pBar.style.width = '85%';
-                pBar.className = 'bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-400 h-full rounded-full transition-all duration-700 shadow-sm';
+                pBar.style.background = 'linear-gradient(90deg, #059669 0%, #10B981 40%, #34D399 100%)';
+                pBar.style.boxShadow = '0 0 16px rgba(16, 185, 129, 0.9)';
             }
             if (etaText) etaText.textContent = 'Status: Out for Delivery (1 min)';
             if (statusMsg) statusMsg.innerHTML = `<span class="material-symbols-outlined text-base text-emerald">directions_walk</span><span>${rider} picked up your snacks and is walking at 1.4 m/s to ${hostelAddress}!</span>`;
@@ -664,14 +674,15 @@ window.pageInits.orders = function() {
                     </div>
                 `;
             }
-            if (sPlaced) { sPlaced.className = 'text-emerald font-extrabold'; }
-            if (sPacked) { sPacked.className = 'text-emerald font-extrabold'; }
-            if (sEnroute) { sEnroute.className = 'text-emerald font-extrabold'; }
-            if (sDelivered) { sDelivered.className = 'text-on-surface-variant font-medium'; }
+            if (sPlaced) { sPlaced.className = 'text-emerald font-extrabold'; sPlaced.style.color = '#10B981'; }
+            if (sPacked) { sPacked.className = 'text-emerald font-extrabold'; sPacked.style.color = '#10B981'; }
+            if (sEnroute) { sEnroute.className = 'text-emerald font-extrabold'; sEnroute.style.color = '#10B981'; }
+            if (sDelivered) { sDelivered.className = 'text-on-surface-variant font-medium'; sDelivered.style.color = ''; }
         } else if (s === 'delivered') {
             if (pBar) {
                 pBar.style.width = '100%';
-                pBar.className = 'bg-emerald h-full rounded-full transition-all duration-700 shadow-sm';
+                pBar.style.background = '#10B981';
+                pBar.style.boxShadow = '0 0 20px rgba(16, 185, 129, 1)';
             }
             if (etaText) etaText.textContent = 'Status: Delivered ✓';
             if (statusMsg) statusMsg.innerHTML = `<span class="material-symbols-outlined text-base text-emerald">task_alt</span><span>🎉 Arrived at ${hostelAddress}! Please collect your items.</span>`;
@@ -690,10 +701,10 @@ window.pageInits.orders = function() {
                     </div>
                 `;
             }
-            if (sPlaced) { sPlaced.className = 'text-emerald font-extrabold'; }
-            if (sPacked) { sPacked.className = 'text-emerald font-extrabold'; }
-            if (sEnroute) { sEnroute.className = 'text-emerald font-extrabold'; }
-            if (sDelivered) { sDelivered.className = 'text-emerald font-extrabold'; }
+            if (sPlaced) { sPlaced.className = 'text-emerald font-extrabold'; sPlaced.style.color = '#10B981'; }
+            if (sPacked) { sPacked.className = 'text-emerald font-extrabold'; sPacked.style.color = '#10B981'; }
+            if (sEnroute) { sEnroute.className = 'text-emerald font-extrabold'; sEnroute.style.color = '#10B981'; }
+            if (sDelivered) { sDelivered.className = 'text-emerald font-extrabold'; sDelivered.style.color = '#10B981'; }
 
             // Auto-refresh softly to update past orders history
             setTimeout(() => {
@@ -704,7 +715,8 @@ window.pageInits.orders = function() {
         } else if (s === 'cancelled') {
             if (pBar) {
                 pBar.style.width = '100%';
-                pBar.className = 'bg-rose-600 h-full rounded-full transition-all duration-700 shadow-sm';
+                pBar.style.background = '#dc2626';
+                pBar.style.boxShadow = '0 0 15px rgba(220, 38, 38, 0.8)';
             }
             if (etaText) etaText.textContent = 'Status: Cancelled ✕';
             if (statusMsg) {
@@ -724,10 +736,10 @@ window.pageInits.orders = function() {
                     </div>
                 `;
             }
-            if (sPlaced) { sPlaced.className = 'text-rose-600 font-bold'; }
-            if (sPacked) { sPacked.className = 'text-on-surface-variant font-medium'; }
-            if (sEnroute) { sEnroute.className = 'text-on-surface-variant font-medium'; }
-            if (sDelivered) { sDelivered.className = 'text-on-surface-variant font-medium'; }
+            if (sPlaced) { sPlaced.className = 'text-rose-600 font-bold'; sPlaced.style.color = '#dc2626'; }
+            if (sPacked) { sPacked.className = 'text-on-surface-variant font-medium'; sPacked.style.color = ''; }
+            if (sEnroute) { sEnroute.className = 'text-on-surface-variant font-medium'; sEnroute.style.color = ''; }
+            if (sDelivered) { sDelivered.className = 'text-on-surface-variant font-medium'; sDelivered.style.color = ''; }
 
             setTimeout(() => {
                 if (window.location.hash === '#/orders') {
