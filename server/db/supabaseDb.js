@@ -364,7 +364,11 @@ const supabaseDb = {
 
         async createUser(userData) {
             const supabase = getSupabaseClient();
-            const { data, error } = await supabase.from('users').insert([userData]).select().single();
+            const payload = { ...userData };
+            if (!payload.phone || payload.phone.trim() === '') {
+                payload.phone = null;
+            }
+            const { data, error } = await supabase.from('users').insert([payload]).select().single();
             if (error) throw error;
             return data;
         }

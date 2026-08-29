@@ -27,7 +27,7 @@ router.post('/signin', async (req, res) => {
                 id,
                 name: displayName,
                 email: trimmedEmail,
-                phone: req.body.phone || '',
+                phone: req.body.phone || null,
                 password_hash: `hash_${password}`
             });
 
@@ -98,7 +98,7 @@ router.post('/google', async (req, res) => {
                 id,
                 name: displayName,
                 email: trimmedEmail,
-                phone: '',
+                phone: null,
                 password_hash: 'google_oauth'
             });
         }
