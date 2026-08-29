@@ -2,8 +2,9 @@ const WebSocket = require('ws');
 const supabaseDb = require('./db/supabaseDb');
 const { getSupabaseClient } = require('./supabase');
 
-// Central Realtime Hub for LPUQuick (Powered by Supabase Cloud)
+// Central Realtime Coordination Hub for LPUQuick (Powered by Supabase Cloud)
 const adminSockets = new Set();
+const clientSockets = new Set();
 const orderTrackingSockets = new Map(); // orderId -> Set of ws
 
 function setupRealtime(server) {
@@ -13,7 +14,7 @@ function setupRealtime(server) {
         const parsedUrl = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
         const pathname = parsedUrl.pathname;
 
-        if (pathname.startsWith('/ws/admin') || pathname.startsWith('/ws/track')) {
+        if (pathname.startsWith('/ws/admin') || pathname.startsWith('/ws/track') || pathname.startsWith('/ws/client') || pathname.startsWith('/ws/store')) {
             wss.handleUpgrade(request, socket, head, (ws) => {
                 wss.emit('connection', ws, request);
             });
@@ -26,22 +27,22 @@ function setupRealtime(server) {
         const parsedUrl = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
         const pathname = parsedUrl.pathname;
 
-        // 1. Admin Dashboard Real-time connection
+        ws.isAlive = true;
+        ws.on('pong', () => { ws.isAlive = true; });
+
+        // 1. Admin Dashboard Real-time connection (/ws/admin)
         if (pathname.startsWith('/ws/admin')) {
             adminSockets.add(ws);
-            console.log(`[WS] Admin connected. Total active admin sockets: ${adminSockets.size}`);
-
-            ws.isAlive = true;
-            ws.on('pong', () => { ws.isAlive = true; });
+            console.log(`[WS Hub] 🛡️ Admin connected. Total admin sockets: ${adminSockets.size}`);
 
             ws.send(JSON.stringify({
                 type: 'CONNECTED',
+                role: 'admin',
                 message: 'Admin real-time operations channel connected (Supabase Cloud)',
                 adminCount: adminSockets.size,
                 timestamp: new Date().toISOString()
             }));
 
-            // Handle incoming admin messages (for future: manual status changes via WS)
             ws.on('message', (raw) => {
                 try {
                     const msg = JSON.parse(raw);
@@ -53,7 +54,7 @@ function setupRealtime(server) {
 
             ws.on('close', () => {
                 adminSockets.delete(ws);
-                console.log(`[WS] Admin disconnected. Remaining admin sockets: ${adminSockets.size}`);
+                console.log(`[WS Hub] Admin disconnected. Remaining admin sockets: ${adminSockets.size}`);
             });
 
             ws.on('error', (err) => {
@@ -63,7 +64,41 @@ function setupRealtime(server) {
             return;
         }
 
-        // 2. Student Order Tracking connection (/ws/track/:orderId)
+        // 2. Global Storefront Client Connection (/ws/client or /ws/store)
+        if (pathname.startsWith('/ws/client') || pathname.startsWith('/ws/store')) {
+            clientSockets.add(ws);
+            console.log(`[WS Hub] 🛍️ Client storefront connected. Total client sockets: ${clientSockets.size}`);
+
+            ws.send(JSON.stringify({
+                type: 'CONNECTED',
+                role: 'client',
+                message: 'LPUQuick Campus Live Sync connected',
+                timestamp: new Date().toISOString()
+            }));
+
+            ws.on('message', (raw) => {
+                try {
+                    const msg = JSON.parse(raw);
+                    if (msg.type === 'PING') {
+                        ws.send(JSON.stringify({ type: 'PONG', timestamp: new Date().toISOString() }));
+                    } else if (msg.type === 'REGISTER_USER' && msg.userId) {
+                        ws.userId = msg.userId;
+                    }
+                } catch (e) {}
+            });
+
+            ws.on('close', () => {
+                clientSockets.delete(ws);
+                console.log(`[WS Hub] Client disconnected. Remaining client sockets: ${clientSockets.size}`);
+            });
+
+            ws.on('error', (err) => {
+                clientSockets.delete(ws);
+            });
+            return;
+        }
+
+        // 3. Student Dedicated Order Tracking connection (/ws/track/:orderId)
         if (pathname.startsWith('/ws/track')) {
             const parts = pathname.split('/').filter(Boolean);
             const orderId = parts.length > 2 ? parts[2] : (parts[1] !== 'track' ? parts[1] : null);
@@ -94,7 +129,7 @@ function setupRealtime(server) {
                 orderTrackingSockets.set(targetOrderId, new Set());
             }
             orderTrackingSockets.get(targetOrderId).add(ws);
-            console.log(`[WS] Student tracking connected for order: ${targetOrderId}`);
+            console.log(`[WS Hub] 📡 Student tracking connected for order: ${targetOrderId}`);
 
             // Send initial order state
             const now = new Date();
@@ -117,27 +152,32 @@ function setupRealtime(server) {
                     group.delete(ws);
                     if (group.size === 0) orderTrackingSockets.delete(targetOrderId);
                 }
-                console.log(`[WS] Student tracking disconnected for order: ${targetOrderId}`);
+                console.log(`[WS Hub] Student tracking disconnected for order: ${targetOrderId}`);
             });
         }
     });
 
-    // Heartbeat: keep admin connections alive & prune dead sockets every 25s
+    // Heartbeat: keep all connections alive & prune dead sockets every 25s
     setInterval(() => {
-        adminSockets.forEach(ws => {
-            if (ws.isAlive === false) {
-                adminSockets.delete(ws);
-                return ws.terminate();
-            }
-            ws.isAlive = false;
-            ws.ping();
-        });
+        const pruneDead = (socketSet) => {
+            socketSet.forEach(ws => {
+                if (ws.isAlive === false) {
+                    socketSet.delete(ws);
+                    return ws.terminate();
+                }
+                ws.isAlive = false;
+                try { ws.ping(); } catch(e) {}
+            });
+        };
+
+        pruneDead(adminSockets);
+        pruneDead(clientSockets);
     }, 25000);
 }
 
-// Broadcast new order to ALL admin sockets
+// Broadcast new order to ALL admin sockets AND client sockets
 async function notifyAdminNewOrder(orderData) {
-    console.log(`[WS] Broadcasting NEW_ORDER to ${adminSockets.size} admin clients:`, orderData.id);
+    console.log(`[WS Hub] ⚡ Broadcasting NEW_ORDER to ${adminSockets.size} admin clients and ${clientSockets.size} store clients:`, orderData.id);
 
     // Enrich with customer info from Supabase
     let customerName = orderData.customer_name || 'Campus Student';
@@ -167,7 +207,6 @@ async function notifyAdminNewOrder(orderData) {
             customer_name: customerName,
             customer_phone: customerPhone,
             customer_email: customerEmail,
-            // Normalize field names for the admin JS
             item_summary: orderData.item_summary || orderData.items_summary || 'Campus items'
         },
         timestamp: new Date().toISOString()
@@ -178,18 +217,25 @@ async function notifyAdminNewOrder(orderData) {
             client.send(payload);
         }
     });
+
+    clientSockets.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(payload);
+        }
+    });
 }
 
-// Broadcast status update to tracking clients AND admin sockets
+// Broadcast status update to tracking clients, admin sockets, AND client sockets
 function broadcastStatusUpdate(orderId, newStatus) {
-    console.log(`[WS] Broadcasting ORDER_STATUS_UPDATE for ${orderId} -> ${newStatus}`);
+    console.log(`[WS Hub] 🚀 Broadcasting STATUS_UPDATE for ${orderId} -> ${newStatus}`);
 
     const now = new Date();
 
-    // Send to student tracking clients
+    // Payload for student tracking clients
     const trackingPayload = JSON.stringify({
         type: 'STATUS_UPDATE',
         order_id: orderId,
+        orderId: orderId,
         status: newStatus,
         step: getStepNumber(newStatus),
         message: getStatusMessage(newStatus, 'Alex'),
@@ -203,10 +249,11 @@ function broadcastStatusUpdate(orderId, newStatus) {
         });
     }
 
-    // Send to admin dashboard clients (uses ORDER_STATUS_UPDATE type that admin JS expects)
+    // Payload for admin dashboard clients
     const adminPayload = JSON.stringify({
         type: 'ORDER_STATUS_UPDATE',
         orderId: orderId,
+        order_id: orderId,
         status: newStatus,
         step: getStepNumber(newStatus),
         message: getStatusMessage(newStatus, 'Alex'),
@@ -216,19 +263,31 @@ function broadcastStatusUpdate(orderId, newStatus) {
     adminSockets.forEach(ws => {
         if (ws.readyState === WebSocket.OPEN) ws.send(adminPayload);
     });
+
+    // Send to global client sockets
+    clientSockets.forEach(ws => {
+        if (ws.readyState === WebSocket.OPEN) ws.send(trackingPayload);
+    });
 }
 
-// Broadcast product/inventory update to all admin sockets
+// Broadcast product/inventory update to all admin sockets AND client sockets
 function broadcastInventoryUpdate(productId, stockLeft, inStock) {
+    console.log(`[WS Hub] 📦 Broadcasting INVENTORY_UPDATE for ${productId} (Stock: ${stockLeft}, InStock: ${inStock})`);
+
     const payload = JSON.stringify({
         type: 'INVENTORY_UPDATE',
         productId,
+        product_id: productId,
         stock_left: stockLeft,
         in_stock: inStock,
         timestamp: new Date().toISOString()
     });
 
     adminSockets.forEach(ws => {
+        if (ws.readyState === WebSocket.OPEN) ws.send(payload);
+    });
+
+    clientSockets.forEach(ws => {
         if (ws.readyState === WebSocket.OPEN) ws.send(payload);
     });
 }

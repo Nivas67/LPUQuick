@@ -609,9 +609,212 @@ async function router() {
     }
 }
 
-// ================= GLOBAL REAL-TIME CLIENT SYNC =================
-let globalTrackingWs = null;
+// ================= GLOBAL REAL-TIME CLIENT-ADMIN COORDINATION HUB =================
+let globalClientWs = null;
+let clientWsReconnectTimer = null;
+let clientWsReconnectAttempts = 0;
+let clientWsPingInterval = null;
 let currentTrackedOrderId = null;
+
+// Client Toast Notification Helper
+function showClientToast(message, type = 'info', icon = 'bolt') {
+    const container = document.getElementById('client-toast-container');
+    if (!container) return;
+
+    const id = `client-toast-${Date.now()}`;
+    const styles = {
+        success: 'border-emerald-500 bg-white/95 dark:bg-slate-900/95 text-emerald-700 dark:text-emerald-300 shadow-emerald-500/10',
+        info: 'border-sky-500 bg-white/95 dark:bg-slate-900/95 text-slate-800 dark:text-slate-100 shadow-sky-500/10',
+        warning: 'border-amber-500 bg-white/95 dark:bg-slate-900/95 text-amber-800 dark:text-amber-300 shadow-amber-500/10',
+        error: 'border-rose-500 bg-white/95 dark:bg-slate-900/95 text-rose-800 dark:text-rose-300 shadow-rose-500/10'
+    };
+
+    const toastHtml = `
+        <div id="${id}" class="pointer-events-auto flex items-center justify-between gap-3 p-3.5 rounded-2xl border-l-4 ${styles[type] || styles.info} shadow-xl backdrop-blur-xl transition-all duration-300 transform translate-y-2 opacity-0">
+            <div class="flex items-center gap-2.5 min-w-0">
+                <span class="material-symbols-outlined text-lg shrink-0 text-emerald">${icon}</span>
+                <p class="text-xs font-bold leading-tight truncate">${message}</p>
+            </div>
+            <button onclick="dismissClientToast('${id}')" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs shrink-0 p-1">✕</button>
+        </div>
+    `;
+
+    container.insertAdjacentHTML('beforeend', toastHtml);
+    const el = document.getElementById(id);
+    setTimeout(() => {
+        if (el) {
+            el.classList.remove('translate-y-2', 'opacity-0');
+            el.classList.add('translate-y-0', 'opacity-100');
+        }
+    }, 20);
+
+    setTimeout(() => { dismissClientToast(id); }, 5000);
+}
+
+function dismissClientToast(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('translate-y-0', 'opacity-100');
+    el.classList.add('translate-y-2', 'opacity-0');
+    setTimeout(() => { el.remove(); }, 350);
+}
+
+// Global Client WebSocket Connection
+function initGlobalClientWebSocket() {
+    if (globalClientWs && (globalClientWs.readyState === WebSocket.OPEN || globalClientWs.readyState === WebSocket.CONNECTING)) {
+        return;
+    }
+
+    if (clientWsReconnectTimer) {
+        clearTimeout(clientWsReconnectTimer);
+        clientWsReconnectTimer = null;
+    }
+
+    if (clientWsPingInterval) {
+        clearInterval(clientWsPingInterval);
+        clientWsPingInterval = null;
+    }
+
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${location.host}/ws/client`;
+
+    try {
+        globalClientWs = new WebSocket(wsUrl);
+
+        globalClientWs.onopen = () => {
+            console.log('[LPUQuick WS] ⚡ Connected to campus live stream.');
+            clientWsReconnectAttempts = 0;
+
+            // Register user if signed in
+            if (window.CURRENT_USER_ID) {
+                globalClientWs.send(JSON.stringify({
+                    type: 'REGISTER_USER',
+                    userId: window.CURRENT_USER_ID
+                }));
+            }
+
+            // Keepalive ping every 20s
+            clientWsPingInterval = setInterval(() => {
+                if (globalClientWs && globalClientWs.readyState === WebSocket.OPEN) {
+                    globalClientWs.send(JSON.stringify({ type: 'PING' }));
+                }
+            }, 20000);
+        };
+
+        globalClientWs.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+
+                // 1. Live Inventory & Stock Updates from Admin
+                if (data.type === 'INVENTORY_UPDATE') {
+                    handleLiveInventoryChange(data);
+                }
+                // 2. Live Order Status Updates from Admin
+                else if (data.type === 'STATUS_UPDATE' || data.type === 'ORDER_STATUS_UPDATE') {
+                    handleLiveOrderStatusChange(data);
+                }
+                // 3. New Order Confirmation
+                else if (data.type === 'NEW_ORDER' && data.order) {
+                    if (window.CURRENT_USER_ID && data.order.user_id === window.CURRENT_USER_ID) {
+                        checkAndConnectGlobalOrderTracking();
+                    }
+                }
+            } catch (err) {
+                console.error('[LPUQuick WS Parse Error]:', err);
+            }
+        };
+
+        globalClientWs.onclose = () => {
+            globalClientWs = null;
+            if (clientWsPingInterval) { clearInterval(clientWsPingInterval); clientWsPingInterval = null; }
+
+            // Auto-reconnect with exponential backoff (1s, 2s, 4s... max 15s)
+            const delay = Math.min(1000 * Math.pow(2, clientWsReconnectAttempts), 15000);
+            clientWsReconnectAttempts++;
+            clientWsReconnectTimer = setTimeout(initGlobalClientWebSocket, delay);
+        };
+
+        globalClientWs.onerror = () => {
+            try { globalClientWs.close(); } catch(e) {}
+        };
+
+    } catch (e) {
+        if (!clientWsReconnectTimer) {
+            clientWsReconnectTimer = setTimeout(initGlobalClientWebSocket, 3000);
+        }
+    }
+}
+
+// In-place Real-Time Stock Updates across DOM
+function handleLiveInventoryChange(data) {
+    const { productId, stock_left, in_stock } = data;
+    console.log(`[Realtime Stock Sync] Product ${productId}: Stock=${stock_left}, InStock=${in_stock}`);
+
+    // 1. Update all product action slots on screen
+    const slots = document.querySelectorAll(`.product-action-slot[data-id="${productId}"]`);
+    slots.forEach(slot => {
+        if (!in_stock || stock_left <= 0) {
+            slot.innerHTML = `
+                <span class="text-[10px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-2 py-1 rounded-xl border border-rose-200 dark:border-rose-800">
+                    Out of Stock
+                </span>
+            `;
+        } else {
+            const hasInCart = window.cartState && window.cartState[productId];
+            if (!hasInCart) {
+                slot.innerHTML = `
+                    <button type="button" class="bg-emerald text-white text-xs px-3.5 py-1 rounded-xl font-bold hover:bg-primary active:scale-95 shadow-sm transition-all add-to-cart-btn" data-id="${productId}">
+                        ADD
+                    </button>
+                `;
+            }
+        }
+    });
+
+    // 2. Update single product detail modal/page if open
+    const modalAddBtn = document.querySelector(`#modal-add-btn[data-id="${productId}"]`);
+    if (modalAddBtn) {
+        if (!in_stock || stock_left <= 0) {
+            modalAddBtn.disabled = true;
+            modalAddBtn.className = 'w-full bg-slate-300 dark:bg-slate-700 text-slate-500 py-3 rounded-full font-bold text-xs cursor-not-allowed';
+            modalAddBtn.textContent = 'Out of Stock';
+        } else {
+            modalAddBtn.disabled = false;
+            modalAddBtn.className = 'w-full bg-emerald hover:bg-primary text-white py-3 rounded-full font-bold text-xs shadow-md transition-all active:scale-95';
+            modalAddBtn.textContent = 'Add to Cart';
+        }
+    }
+}
+
+// In-place Real-Time Order Status Updates
+function handleLiveOrderStatusChange(data) {
+    const status = data.status;
+    const riderName = data.rider_name || data.riderName || 'Alex';
+    const orderId = data.order_id || data.orderId;
+
+    console.log(`[Realtime Order Sync] Order ${orderId} -> ${status}`);
+
+    // 1. Update Global Floating Bar
+    updateGlobalDeliveryBar(status, riderName);
+
+    // 2. If user is currently viewing the Live Orders page, update the interactive HUD/map in real-time
+    if (typeof window.applyOrderStatusUI === 'function') {
+        window.applyOrderStatusUI(status, riderName);
+    }
+
+    // 3. Show dynamic client status toast
+    const statusMessages = {
+        'Order Confirmed': '👍 BH13 Store accepted your order!',
+        'Preparing': '📦 Items packed & sealed at BH13 Dark Store!',
+        'Out for Delivery': `🚶‍♂️ ${riderName} is speeding towards your room!`,
+        'Delivered': '🎉 Order delivered to your room door!',
+        'Cancelled': '❌ Order was cancelled by Admin.'
+    };
+
+    if (statusMessages[status]) {
+        showClientToast(statusMessages[status], status === 'Cancelled' ? 'error' : 'success', status === 'Delivered' ? 'task_alt' : 'bolt');
+    }
+}
 
 async function checkAndConnectGlobalOrderTracking() {
     try {
@@ -632,7 +835,7 @@ async function checkAndConnectGlobalOrderTracking() {
         currentTrackedOrderId = active.id;
         updateGlobalDeliveryBar(active.status, active.rider_name || 'Alex');
 
-        // Only show floating bar when not already on the dedicated /orders or /checkout tracking page
+        // Only show floating bar when not already on dedicated tracking pages
         const currentPath = getCurrentRoute();
         if (bar) {
             if (currentPath === '/orders' || currentPath === '/checkout') {
@@ -641,9 +844,6 @@ async function checkAndConnectGlobalOrderTracking() {
                 bar.classList.remove('hidden');
             }
         }
-
-        // Connect global WebSocket for instant broadcasts
-        connectGlobalTrackingSocket(active.id);
 
     } catch (e) {
         console.warn('[Global Tracking Sync]:', e);
@@ -688,47 +888,24 @@ function updateGlobalDeliveryBar(status, riderName) {
     }
 }
 
-function connectGlobalTrackingSocket(orderId) {
-    if (globalTrackingWs && (globalTrackingWs.readyState === WebSocket.OPEN || globalTrackingWs.readyState === WebSocket.CONNECTING)) {
-        return;
-    }
-    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${location.host}/ws/track/${orderId}`;
-
-    try {
-        globalTrackingWs = new WebSocket(wsUrl);
-
-        globalTrackingWs.onmessage = (evt) => {
-            try {
-                const data = JSON.parse(evt.data);
-                if (data && data.status) {
-                    updateGlobalDeliveryBar(data.status, data.rider_name || 'Alex');
-                }
-            } catch (err) {}
-        };
-
-        globalTrackingWs.onclose = () => {
-            globalTrackingWs = null;
-        };
-    } catch (e) {}
-}
-
 window.router = router;
 window.navigate = navigate;
 
 window.addEventListener('hashchange', router);
 window.addEventListener('DOMContentLoaded', () => {
     router();
+    initGlobalClientWebSocket();
     checkAndConnectGlobalOrderTracking();
 });
 
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
     router();
+    initGlobalClientWebSocket();
     checkAndConnectGlobalOrderTracking();
 }
 
-// Background sync interval (every 8 seconds)
-setInterval(checkAndConnectGlobalOrderTracking, 8000);
+// Background sync interval (every 10 seconds)
+setInterval(checkAndConnectGlobalOrderTracking, 10000);
 
 // ============================================================
 // Interactive Magnetic Cursor Torch & Dynamic Ambient Parallax
