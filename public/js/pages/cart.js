@@ -93,48 +93,36 @@ window.pages.cart = async function() {
                     Bill Details
                 </h3>
                 
-                <div class="space-y-2.5 text-xs sm:text-sm">
+                <div class="space-y-3 text-xs sm:text-sm">
                     <!-- 1. Item Total -->
                     <div class="flex justify-between text-on-surface-variant">
                         <span>Item Total</span>
                         <span class="font-semibold text-on-surface">₹${subtotal}</span>
                     </div>
 
-                    <!-- 2. Delivery Fee with Offer -->
+                    <!-- 2. Delivery Partner Fee -->
                     <div class="flex justify-between text-on-surface-variant">
                         <span>Delivery Fee</span>
                         <div class="flex items-center gap-1.5">
-                            <span class="line-through text-on-surface-variant/60 text-[11px]">₹25</span>
+                            <span class="line-through text-on-surface-variant/60 text-xs">₹25</span>
                             <span class="font-bold text-emerald">FREE</span>
                         </div>
                     </div>
-                    <div class="flex justify-between text-emerald font-semibold">
-                        <span class="flex items-center gap-1">
-                            <span class="material-symbols-outlined text-xs">local_offer</span> Campus Free Delivery Offer
-                        </span>
-                        <span class="font-bold">-₹25</span>
-                    </div>
 
-                    <!-- 3. Handling Fee with Offer -->
+                    <!-- 3. Handling Fee -->
                     <div class="flex justify-between text-on-surface-variant">
                         <span>Handling Fee</span>
                         <div class="flex items-center gap-1.5">
-                            <span class="line-through text-on-surface-variant/60 text-[11px]">₹10</span>
+                            <span class="line-through text-on-surface-variant/60 text-xs">₹10</span>
                             <span class="font-semibold text-on-surface">₹5</span>
                         </div>
-                    </div>
-                    <div class="flex justify-between text-emerald font-semibold">
-                        <span class="flex items-center gap-1">
-                            <span class="material-symbols-outlined text-xs">local_offer</span> Handling Fee Discount
-                        </span>
-                        <span class="font-bold">-₹5</span>
                     </div>
                     
                     <!-- 4. Total to Pay -->
                     <div class="border-t border-outline-variant/40 pt-3 flex justify-between items-center text-base sm:text-lg font-bold text-on-surface">
                         <div>
                             <span>To Pay</span>
-                            <p class="text-[10px] text-on-surface-variant font-normal">₹${subtotal} + ₹5 handling fee</p>
+                            <p class="text-[10px] text-on-surface-variant font-normal">₹${subtotal} items + ₹5 handling</p>
                         </div>
                         <span class="text-2xl text-emerald font-display font-black">₹${exactTotal}</span>
                     </div>
@@ -143,7 +131,7 @@ window.pages.cart = async function() {
                 <!-- Savings Banner -->
                 <div class="p-3 bg-emerald/10 border border-emerald/20 rounded-xl flex items-center gap-2 text-xs text-emerald font-semibold">
                     <span class="material-symbols-outlined text-base">savings</span>
-                    <span>Yay! You saved ₹${totalSavings} on this order</span>
+                    <span>🎉 Campus Offer Applied: You saved ₹${totalSavings} on delivery & handling!</span>
                 </div>
 
                 ${items.length > 0 ? `
