@@ -318,7 +318,7 @@ async function loadDashboard() {
                     <td class="p-3.5 text-[#5c5f60] truncate max-w-[150px]">${o.item_summary || 'Campus items'}</td>
                     <td class="p-3.5 font-bold text-[#137333]">₹${o.total}</td>
                     <td class="p-3.5 text-[#5c5f60]">${o.payment_method || 'COD'}</td>
-                    <td class="p-3.5">${getStatusPill(o.status)}</td>
+                    <td class="p-3.5" id="dash-status-pill-${o.id}" data-status-pill-id="${o.id}">${getStatusPill(o.status)}</td>
                     <td class="p-3.5">
                         <button onclick="event.stopPropagation(); openOrderDrawer('${o.id}')" class="text-xs font-semibold text-[#3c4043] hover:underline">View</button>
                     </td>
@@ -591,10 +591,12 @@ function filterOrders() {
 }
 
 function getStatusPill(status) {
-    if (status === 'Delivered') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#e6f4ea] text-[#137333]">Delivered ✓</span>';
-    if (status === 'Out for Delivery') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">En Route 🛵</span>';
-    if (status === 'Preparing') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800">Preparing 📦</span>';
-    if (status === 'Order Confirmed') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">Confirmed 👍</span>';
+    const s = (status || '').toLowerCase();
+    if (s === 'delivered') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#e6f4ea] text-[#137333]">Delivered ✓</span>';
+    if (s === 'cancelled') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#fce8e6] text-[#c5221f] border border-[#f5c6cb]">Cancelled ✕</span>';
+    if (s === 'out for delivery') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">En Route 🚶‍♂️</span>';
+    if (s === 'preparing') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800">Preparing 📦</span>';
+    if (s === 'order confirmed') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">Confirmed 👍</span>';
     return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#ffdad6] text-[#ba1a1a] animate-pulse">Order Placed ⚡</span>';
 }
 
@@ -964,12 +966,20 @@ function handleRealtimeStatusUpdate(data) {
     const o = ordersCache.find(x => x.id === orderId);
     if (o) o.status = status;
 
-    const pill = document.getElementById(`order-status-pill-${orderId}`);
-    if (pill) pill.innerHTML = getStatusPill(status);
+    // Update both dashboard table and orders queue table
+    const pills = document.querySelectorAll(`[data-status-pill-id="${orderId}"], #order-status-pill-${orderId}, #dash-status-pill-${orderId}`);
+    pills.forEach(p => { p.innerHTML = getStatusPill(status); });
 
     if (currentDrawerOrderId === orderId) {
         const select = document.getElementById('drawer-status-select');
         if (select) select.value = status;
+    }
+
+    // Refresh KPI metrics dynamically if status changed
+    if (activeView === 'dashboard') {
+        loadDashboard();
+    } else if (activeView === 'orders') {
+        filterOrders();
     }
 }
 

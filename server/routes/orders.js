@@ -129,8 +129,8 @@ router.post('/:orderId/cancel', (req, res) => {
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
     if (!order) return res.status(404).json({ error: 'Order not found' });
 
-    if (['Delivered', 'delivered', 'Cancelled', 'cancelled'].includes(order.status)) {
-        return res.status(400).json({ error: `Cannot cancel order that is already ${order.status}` });
+    if (['Out for Delivery', 'out for delivery', 'Delivered', 'delivered', 'Cancelled', 'cancelled'].includes(order.status)) {
+        return res.status(400).json({ error: `Cannot cancel order once it is packed and out for delivery (${order.status}).` });
     }
 
     let history = [];

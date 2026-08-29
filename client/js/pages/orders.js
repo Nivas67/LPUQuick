@@ -239,19 +239,28 @@ window.pages.orders = async function() {
                     <span class="material-symbols-outlined text-primary group-hover:translate-x-1 transition-transform">chevron_right</span>
                 </button>
 
-                <!-- Option 3: Cancel Order -->
-                <button type="button" id="btn-help-cancel-order" class="w-full text-left flex items-center justify-between p-3.5 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 transition-all group cursor-pointer">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl bg-error text-white flex items-center justify-center shadow-md">
-                            <span class="material-symbols-outlined text-xl">cancel</span>
+                <!-- Option 3: Cancel Order (Frozen after order is packed / walker en route) -->
+                ${(() => {
+                    const isFrozen = activeOrder && ['Out for Delivery', 'out for delivery', 'Delivered', 'delivered'].includes(activeOrder.status);
+                    return `
+                    <button type="button" id="btn-help-cancel-order" ${isFrozen ? 'disabled' : ''} class="w-full text-left flex items-center justify-between p-3.5 rounded-2xl ${isFrozen ? 'bg-surface-container-high opacity-50 border border-outline-variant/30 cursor-not-allowed' : 'bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 cursor-pointer'} transition-all group">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl ${isFrozen ? 'bg-surface-variant text-on-surface-variant' : 'bg-error text-white'} flex items-center justify-center shadow-md">
+                                <span class="material-symbols-outlined text-xl">${isFrozen ? 'lock' : 'cancel'}</span>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm ${isFrozen ? 'text-on-surface-variant' : 'text-error'}">
+                                    3. Cancel Order ${isFrozen ? '<span class="text-[10px] bg-surface-variant text-on-surface-variant font-bold px-2 py-0.5 rounded-full ml-1">Locked</span>' : ''}
+                                </h4>
+                                <p class="text-[11px] text-on-surface-variant" id="help-cancel-desc">
+                                    ${isFrozen ? '🔒 Order packed & walker en route. Cannot cancel now.' : 'Cancel active delivery & request immediate refund'}
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <h4 class="font-bold text-xs sm:text-sm text-error">3. Cancel Order</h4>
-                            <p class="text-[11px] text-on-surface-variant">Cancel active delivery & request immediate refund</p>
-                        </div>
-                    </div>
-                    <span class="material-symbols-outlined text-error group-hover:translate-x-1 transition-transform">chevron_right</span>
-                </button>
+                        <span class="material-symbols-outlined ${isFrozen ? 'text-on-surface-variant' : 'text-error'} group-hover:translate-x-1 transition-transform">${isFrozen ? 'lock' : 'chevron_right'}</span>
+                    </button>
+                    `;
+                })()}
             </div>
         </div>
     </div>
@@ -365,6 +374,17 @@ window.pageInits.orders = function() {
             if (stepPacked) stepPacked.classList.add('text-emerald', 'font-bold');
             if (stepEnroute) stepEnroute.classList.add('text-emerald', 'font-bold');
             if (stepDelivered) stepDelivered.classList.remove('text-emerald', 'font-bold');
+
+            // Freeze Cancel Option in Help Modal
+            const cancelBtn = document.getElementById('btn-help-cancel-order');
+            const cancelDesc = document.getElementById('help-cancel-desc');
+            if (cancelBtn) {
+                cancelBtn.disabled = true;
+                cancelBtn.className = 'w-full text-left flex items-center justify-between p-3.5 rounded-2xl bg-surface-container-high opacity-50 border border-outline-variant/30 cursor-not-allowed transition-all group';
+            }
+            if (cancelDesc) {
+                cancelDesc.textContent = '🔒 Order packed & walker en route. Cannot cancel now.';
+            }
         } else if (status === 'Delivered') {
             if (progressBar) progressBar.style.width = '100%';
             if (etaTimeEl) etaTimeEl.textContent = 'Delivered ✓';
@@ -374,6 +394,10 @@ window.pageInits.orders = function() {
             if (stepPacked) stepPacked.classList.add('text-emerald', 'font-bold');
             if (stepEnroute) stepEnroute.classList.add('text-emerald', 'font-bold');
             if (stepDelivered) stepDelivered.classList.add('text-emerald', 'font-bold');
+
+            // Freeze Cancel Option in Help Modal
+            const cancelBtn = document.getElementById('btn-help-cancel-order');
+            if (cancelBtn) cancelBtn.disabled = true;
 
             // Soft auto-refresh after delivery completion so past orders update cleanly
             setTimeout(() => {
