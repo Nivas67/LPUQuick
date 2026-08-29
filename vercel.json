@@ -1,0 +1,45 @@
+{
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/admin",
+      "destination": "/admin/index.html"
+    },
+    {
+      "source": "/admin/(.*)",
+      "destination": "/admin/$1"
+    },
+    {
+      "source": "/css/(.*)",
+      "destination": "/client/css/$1"
+    },
+    {
+      "source": "/js/(.*)",
+      "destination": "/client/js/$1"
+    },
+    {
+      "source": "/assets/(.*)",
+      "destination": "/client/assets/$1"
+    },
+    {
+      "source": "/favicon.ico",
+      "destination": "/client/favicon.ico"
+    },
+    {
+      "source": "/favicon.png",
+      "destination": "/client/favicon.png"
+    },
+    {
+      "source": "/logo.png",
+      "destination": "/client/logo.png"
+    },
+    {
+      "source": "/((?!api|admin|css|js|assets|favicon|logo).*)",
+      "destination": "/client/index.html"
+    }
+  ]
+}
