@@ -1,5 +1,4 @@
 const WebSocket = require('ws');
-const url = require('url');
 
 function setupTracking(server, db) {
     const wss = new WebSocket.Server({ noServer: true });
@@ -20,78 +19,84 @@ function setupTracking(server, db) {
     wss.on('connection', (ws, request) => {
         const parsedUrl = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
         const pathname = parsedUrl.pathname;
-        const orderId = pathname.split('/').pop() || 'order_active01';
+        const parts = pathname.split('/').filter(Boolean);
+        const orderId = parts.length > 2 ? parts[2] : (parts[1] !== 'track' ? parts[1] : null);
 
-        console.log(`[WS] Tracking started for order: ${orderId}`);
+        console.log(`[WS] Tracking connection for order: ${orderId || 'latest'}`);
 
-        // Get order info
-        const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+        let order = null;
+        if (orderId) {
+            order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+        }
         if (!order) {
-            ws.send(JSON.stringify({ error: 'Order not found' }));
+            order = db.prepare('SELECT * FROM orders ORDER BY created_at DESC LIMIT 1').get();
+        }
+
+        if (!order) {
+            ws.send(JSON.stringify({ error: 'No active orders' }));
             ws.close();
             return;
         }
 
-        // Simulate rider movement
-        const startLat = 31.2560;
-        const startLng = 75.7030;
-        const endLat = 31.2540;
-        const endLng = 75.7050;
-        
-        const statuses = ['accepted', 'packed', 'en_route', 'en_route', 'en_route', 'en_route', 'delivered'];
-        let step = 0;
-        const totalSteps = statuses.length;
+        // Timeline Stages
+        const stages = [
+            { status: 'Order Placed', step: 1, delay: 0, msg: 'Your order has been received and logged.' },
+            { status: 'Order Confirmed', step: 2, delay: 4000, msg: 'Dark Store confirmed items are in stock.' },
+            { status: 'Preparing', step: 3, delay: 8000, msg: 'Staff is packing your snacks into express bag.' },
+            { status: 'Out for Delivery', step: 4, delay: 13000, msg: `${order.rider_name || 'Alex'} picked up your order and is riding to ${order.delivery_address || 'BH13'}.` },
+            { status: 'Delivered', step: 5, delay: 20000, msg: `Order delivered to ${order.delivery_address || 'BH13'} hostel gate!` }
+        ];
 
-        const interval = setInterval(() => {
-            if (step >= totalSteps || ws.readyState !== WebSocket.OPEN) {
-                clearInterval(interval);
-                if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({
-                        status: 'delivered',
-                        rider_lat: endLat,
-                        rider_lng: endLng,
-                        eta_minutes: 0,
-                        rider_name: order.rider_name || 'Alex',
-                        message: 'Your order has been delivered!'
-                    }));
-                }
-                return;
+        // Send current immediate status first
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+        ws.send(JSON.stringify({
+            order_id: order.id,
+            status: order.status || 'Order Placed',
+            step: 1,
+            timestamp: timeStr,
+            rider_name: order.rider_name || 'Alex',
+            total: order.total,
+            delivery_address: order.delivery_address || 'BH13 (Block A), Room 304',
+            message: 'Your order has been placed successfully.'
+        }));
+
+        // Progressive progression timer
+        const timeouts = [];
+        stages.forEach(st => {
+            if (st.delay > 0) {
+                const to = setTimeout(() => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        const stepTime = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+                        // Update DB record
+                        try {
+                            db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(st.status, order.id);
+                        } catch (e) {
+                            console.error('Failed to update order status in DB:', e);
+                        }
+
+                        ws.send(JSON.stringify({
+                            order_id: order.id,
+                            status: st.status,
+                            step: st.step,
+                            timestamp: stepTime,
+                            rider_name: order.rider_name || 'Alex',
+                            total: order.total,
+                            delivery_address: order.delivery_address || 'BH13 (Block A), Room 304',
+                            message: st.msg
+                        }));
+                    }
+                }, st.delay);
+                timeouts.push(to);
             }
-
-            const progress = step / (totalSteps - 1);
-            const currentLat = startLat + (endLat - startLat) * progress;
-            const currentLng = startLng + (endLng - startLng) * progress;
-            const eta = Math.max(0, Math.ceil((1 - progress) * 12));
-
-            const data = {
-                status: statuses[step],
-                rider_lat: Math.round(currentLat * 10000) / 10000,
-                rider_lng: Math.round(currentLng * 10000) / 10000,
-                eta_minutes: eta,
-                rider_name: order.rider_name || 'Alex',
-                progress: Math.round(progress * 100),
-                message: getStatusMessage(statuses[step], order.rider_name || 'Alex')
-            };
-
-            ws.send(JSON.stringify(data));
-            step++;
-        }, 3000); // Broadcast every 3 seconds
+        });
 
         ws.on('close', () => {
-            clearInterval(interval);
-            console.log(`[WS] Tracking ended for order: ${orderId}`);
+            timeouts.forEach(t => clearTimeout(t));
+            console.log(`[WS] Tracking closed for: ${order.id}`);
         });
     });
-}
-
-function getStatusMessage(status, riderName) {
-    switch (status) {
-        case 'accepted': return `${riderName} accepted your order!`;
-        case 'packed': return `Your order is packed and ready!`;
-        case 'en_route': return `${riderName} is on the way with your groceries.`;
-        case 'delivered': return `Your order has been delivered!`;
-        default: return 'Processing your order...';
-    }
 }
 
 module.exports = { setupTracking };

@@ -5,21 +5,21 @@ const { v4: uuidv4 } = require('uuid');
 // POST /api/checkout
 router.post('/', (req, res) => {
     const db = req.app.locals.db;
-    const { userId, paymentMethod } = req.body;
+    const { userId, paymentMethod, deliveryAddress } = req.body;
 
     if (!userId) return res.status(400).json({ error: 'userId is required' });
 
     // Fetch cart items with product details (single JOIN, no N+1)
     const cartItems = db.prepare(`
         SELECT ci.id as cart_id, ci.quantity, ci.product_id,
-               p.name, p.price, p.in_stock
+               p.name, p.price, p.image_url, p.in_stock
         FROM cart_items ci
         JOIN products p ON ci.product_id = p.id
         WHERE ci.user_id = ?
     `).all(userId);
 
     if (cartItems.length === 0) {
-        return res.status(400).json({ error: 'Cart is empty' });
+        return res.status(400).json({ error: 'Cart is empty. Please add items to order.' });
     }
 
     // Validate stock
@@ -38,15 +38,19 @@ router.post('/', (req, res) => {
     const tax = 0;
     const total = subtotal;
 
-    // Create order — direct synchronous path, no cross-selling microservice dependency
+    // Create unique order ID and assign campus rider
     const orderId = `order_${uuidv4().slice(0, 8)}`;
     const riderNames = ['Alex', 'Priya', 'Rahul', 'Meera', 'Karan'];
     const rider = riderNames[Math.floor(Math.random() * riderNames.length)];
+    const address = deliveryAddress || 'BH13 (Block A), Room 304';
+    const method = paymentMethod === 'cod' ? 'Cash on Delivery' : (paymentMethod || 'Cash on Delivery');
+    const initialStatus = 'Order Placed';
 
+    // Insert order into SQLite DB
     db.prepare(`
-        INSERT INTO orders (id, user_id, status, subtotal, delivery_fee, platform_fee, tax, total, payment_method, payment_status, rider_name, rider_lat, rider_lng)
-        VALUES (?, ?, 'confirmed', ?, ?, ?, ?, ?, ?, 'pending', ?, 31.2560, 75.7030)
-    `).run(orderId, userId, subtotal, delivery_fee, platform_fee, tax, total, paymentMethod || 'upi', rider);
+        INSERT INTO orders (id, user_id, status, subtotal, delivery_fee, platform_fee, tax, total, payment_method, payment_status, rider_name, rider_lat, rider_lng, delivery_address, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 31.2560, 75.7030, ?, datetime('now'))
+    `).run(orderId, userId, initialStatus, subtotal, delivery_fee, platform_fee, tax, total, method, rider, address);
 
     // Insert order items
     const insertItem = db.prepare('INSERT INTO order_items (id, order_id, product_id, quantity, unit_price) VALUES (?, ?, ?, ?, ?)');
@@ -54,21 +58,36 @@ router.post('/', (req, res) => {
         insertItem.run(`oi_${uuidv4().slice(0, 8)}`, orderId, item.product_id, item.quantity, item.price);
     }
 
-    // Clear cart
+    // Clear cart in DB
     db.prepare('DELETE FROM cart_items WHERE user_id = ?').run(userId);
 
-    // Generate UPI intent URL
-    const upiUrl = `upi://pay?pa=lpuquick@upi&pn=LPUQuick&am=${total}&cu=INR&tn=Order ${orderId}`;
+    // Fetch created order to return exact DB record
+    const createdOrder = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
 
     res.json({
         success: true,
         order: {
-            id: orderId,
-            status: 'confirmed',
-            total,
-            rider_name: rider,
-            eta_minutes: 7 + Math.floor(Math.random() * 8),
-            upi_intent_url: upiUrl
+            id: createdOrder.id,
+            user_id: createdOrder.user_id,
+            status: createdOrder.status,
+            total: createdOrder.total,
+            subtotal: createdOrder.subtotal,
+            delivery_fee: createdOrder.delivery_fee,
+            platform_fee: createdOrder.platform_fee,
+            tax: createdOrder.tax,
+            payment_method: createdOrder.payment_method,
+            payment_status: createdOrder.payment_status,
+            rider_name: createdOrder.rider_name,
+            delivery_address: createdOrder.delivery_address,
+            created_at: createdOrder.created_at,
+            estimated_minutes: 3,
+            items: cartItems.map(item => ({
+                id: item.product_id,
+                name: item.name,
+                price: item.price,
+                quantity: item.quantity,
+                image_url: item.image_url
+            }))
         }
     });
 });

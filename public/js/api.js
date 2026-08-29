@@ -89,10 +89,10 @@ const api = {
     },
 
     // Checkout
-    async checkout(userId, paymentMethod = 'upi') {
+    async checkout(userId, paymentMethod = 'Cash on Delivery', deliveryAddress = '') {
         const res = await fetch(`${API_BASE}/checkout`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, paymentMethod })
+            body: JSON.stringify({ userId, paymentMethod, deliveryAddress })
         });
         return res.json();
     },
@@ -111,6 +111,10 @@ const api = {
     },
     async getActiveOrder(userId) {
         const res = await fetch(`${API_BASE}/orders/${userId}/active`);
+        return res.json();
+    },
+    async getOrderDetail(orderId) {
+        const res = await fetch(`${API_BASE}/orders/detail/${orderId}`);
         return res.json();
     },
 

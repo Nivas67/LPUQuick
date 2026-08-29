@@ -1,4 +1,4 @@
-// Checkout Page — Transparent Pricing + Swipe-to-Order Animation + Celebratory 3-Min Order Placed Confetti Overlay
+// Checkout Page — Real Backend Order Placement + Interactive Slide Confirmation + Real-Time Live Status Timeline
 window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
@@ -33,25 +33,24 @@ window.pages.checkout = async function() {
 
     return `
 <style>
-@keyframes confettiFall {
-    0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
-    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+@keyframes pulseGlow {
+    0% { transform: scale(0.9); opacity: 0.8; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+    70% { transform: scale(1.15); opacity: 0.15; box-shadow: 0 0 0 16px rgba(16, 185, 129, 0); }
+    100% { transform: scale(0.9); opacity: 0; }
 }
-.confetti-piece {
-    position: absolute;
-    width: 10px;
-    height: 14px;
-    top: -20px;
-    opacity: 0.9;
-    animation: confettiFall 3s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+.success-ripple-ring {
+    animation: pulseGlow 2.2s infinite cubic-bezier(0.25, 1, 0.5, 1);
 }
-@keyframes pulseRing {
-    0% { transform: scale(0.85); opacity: 0.8; }
-    50% { transform: scale(1.35); opacity: 0.2; }
-    100% { transform: scale(0.85); opacity: 0.8; }
+@keyframes successBadgePop {
+    0% { transform: scale(0.4); opacity: 0; }
+    60% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
 }
-.pulse-ring-effect {
-    animation: pulseRing 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+.success-badge-anim {
+    animation: successBadgePop 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+.timeline-dot {
+    transition: all 0.35s ease;
 }
 </style>
 
@@ -59,10 +58,10 @@ window.pages.checkout = async function() {
     <!-- TopAppBar -->
     <header class="px-margin-mobile md:px-margin-desktop py-4 flex items-center justify-between sticky top-0 bg-surface/80 backdrop-blur-md z-40 border-b border-glass-border">
         <div class="flex items-center gap-3">
-            <a href="#/cart" class="p-2 hover:bg-surface-variant/50 rounded-full transition-colors">
+            <a href="#/cart" class="p-2 hover:bg-surface-variant/50 rounded-full transition-colors" id="checkout-back-link">
                 <span class="material-symbols-outlined text-on-surface">arrow_back</span>
             </a>
-            <h1 class="font-headline-md text-base sm:text-lg font-bold text-on-surface">Checkout</h1>
+            <h1 class="font-headline-md text-base sm:text-lg font-bold text-on-surface" id="checkout-header-title">Checkout</h1>
         </div>
         <div class="flex items-center gap-1 text-xs bg-emerald/10 text-emerald px-3 py-1.5 rounded-full font-semibold">
             <span class="material-symbols-outlined text-sm">bolt</span>
@@ -70,157 +69,320 @@ window.pages.checkout = async function() {
         </div>
     </header>
 
-    <main class="px-margin-mobile md:px-margin-desktop max-w-2xl mx-auto pt-6 space-y-5" id="checkout-container">
-        <!-- Delivery Address Card -->
-        <div class="glass-card rounded-3xl p-5 border border-glass-border shadow-sm">
-            <div class="flex justify-between items-start">
-                <div class="flex items-start gap-3">
-                    <div class="w-10 h-10 rounded-2xl bg-emerald/10 text-emerald flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <span class="material-symbols-outlined text-xl">location_on</span>
-                    </div>
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <h3 class="font-bold text-on-surface text-sm sm:text-base">Hostel Delivery Destination</h3>
-                            <span class="text-[10px] bg-emerald/20 text-emerald px-2 py-0.5 rounded font-bold">Express 3m</span>
+    <main class="px-margin-mobile md:px-margin-desktop max-w-2xl mx-auto pt-6 space-y-5" id="checkout-main-container">
+        <!-- Pre-Order Section (Visible Before Order Placement) -->
+        <div id="checkout-form-section" class="space-y-5 transition-all duration-300">
+            
+            <!-- Delivery Address Card -->
+            <div class="glass-card rounded-3xl p-5 border border-glass-border shadow-sm">
+                <div class="flex justify-between items-start">
+                    <div class="flex items-start gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-emerald/10 text-emerald flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <span class="material-symbols-outlined text-xl">location_on</span>
                         </div>
-                        <p class="text-xs text-on-surface-variant mt-0.5" id="checkout-address-text">${address}</p>
-                        <p class="text-[11px] text-emerald font-semibold mt-1 flex items-center gap-1">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald"></span> Priority Campus Express Dispatch (3 Mins)
-                        </p>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h3 class="font-bold text-on-surface text-sm sm:text-base">Hostel Delivery Destination</h3>
+                                <span class="text-[10px] bg-emerald/20 text-emerald px-2 py-0.5 rounded font-bold">Express 3m</span>
+                            </div>
+                            <p class="text-xs text-on-surface-variant mt-0.5" id="checkout-address-text">${address}</p>
+                            <p class="text-[11px] text-emerald font-semibold mt-1 flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald"></span> Priority Campus Express Dispatch (3 Mins)
+                            </p>
+                        </div>
                     </div>
+                    <button type="button" class="text-xs font-semibold text-emerald hover:underline address-selector-trigger" onclick="window.openAddressModal()">Change</button>
                 </div>
-                <button type="button" class="text-xs font-semibold text-emerald hover:underline address-selector-trigger" onclick="window.openAddressModal()">Change</button>
             </div>
-        </div>
 
-        <!-- Order Items Summary -->
-        <div class="glass-card rounded-3xl p-5 border border-glass-border shadow-sm">
-            <h3 class="font-bold text-sm sm:text-base text-on-surface mb-2 flex items-center gap-2">
-                <span class="material-symbols-outlined text-primary text-lg">shopping_bag</span>
-                Order Items (${cartData.item_count || 0})
-            </h3>
-            <div class="divide-y divide-surface-variant/30">
-                ${itemRows || '<p class="text-xs text-on-surface-variant py-2">No items in cart.</p>'}
-            </div>
-        </div>
-
-        <!-- Honest Breakdown Card (100% Free Delivery & Free Handling Offer) -->
-        <div class="glass-card rounded-3xl p-5 sm:p-6 border border-glass-border shadow-sm space-y-4">
-            <div class="flex items-center justify-between">
-                <h3 class="font-bold text-base text-on-surface flex items-center gap-2">
-                    <span class="material-symbols-outlined text-emerald text-xl">receipt</span>
-                    Honest Breakdown
+            <!-- Order Items Summary -->
+            <div class="glass-card rounded-3xl p-5 border border-glass-border shadow-sm">
+                <h3 class="font-bold text-sm sm:text-base text-on-surface mb-2 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary text-lg">shopping_bag</span>
+                    Order Items (${cartData.item_count || 0})
                 </h3>
-                <span class="text-xs text-on-surface-variant">Zero hidden charges</span>
-            </div>
-
-            <div class="space-y-3 text-xs sm:text-sm">
-                <!-- 1. Item Subtotal -->
-                <div class="flex justify-between text-on-surface-variant">
-                    <span>Item Subtotal</span>
-                    <span class="font-semibold text-on-surface">₹${subtotal}</span>
-                </div>
-
-                <!-- 2. Delivery Partner Fee -->
-                <div class="flex justify-between text-on-surface-variant">
-                    <span>Delivery Fee</span>
-                    <div class="flex items-center gap-1.5">
-                        <span class="line-through text-on-surface-variant/60 text-xs">₹25</span>
-                        <span class="font-bold text-emerald">FREE (Offer Applied)</span>
-                    </div>
-                </div>
-
-                <!-- 3. Handling Fee (Minused with Offer) -->
-                <div class="flex justify-between text-on-surface-variant">
-                    <span>Handling Fee</span>
-                    <div class="flex items-center gap-1.5">
-                        <span class="line-through text-on-surface-variant/60 text-xs">₹5</span>
-                        <span class="font-bold text-emerald">FREE (Offer Applied)</span>
-                    </div>
-                </div>
-
-                <!-- 4. Total to Pay -->
-                <div class="border-t border-outline-variant/40 pt-3 flex justify-between items-center text-base sm:text-lg font-bold text-on-surface">
-                    <div>
-                        <span>Total to Pay</span>
-                        <p class="text-[10px] text-emerald font-semibold">100% Free Campus Delivery & Handling</p>
-                    </div>
-                    <span class="text-2xl text-emerald font-display font-black">₹${exactTotal}</span>
+                <div class="divide-y divide-surface-variant/30">
+                    ${itemRows || '<p class="text-xs text-on-surface-variant py-2">No items in cart.</p>'}
                 </div>
             </div>
 
-            <!-- Savings Banner -->
-            <div class="p-3 bg-emerald/10 border border-emerald/20 rounded-xl flex items-center gap-2 text-xs text-emerald font-semibold">
-                <span class="material-symbols-outlined text-base">savings</span>
-                <span>🎉 Campus Offer Applied: You saved ₹${totalSavings} on delivery & handling!</span>
+            <!-- Honest Breakdown Card (100% Free Delivery & Free Handling Offer) -->
+            <div class="glass-card rounded-3xl p-5 sm:p-6 border border-glass-border shadow-sm space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-bold text-base text-on-surface flex items-center gap-2">
+                        <span class="material-symbols-outlined text-emerald text-xl">receipt</span>
+                        Honest Breakdown
+                    </h3>
+                    <span class="text-xs text-on-surface-variant">Zero hidden charges</span>
+                </div>
+
+                <div class="space-y-3 text-xs sm:text-sm">
+                    <!-- 1. Item Subtotal -->
+                    <div class="flex justify-between text-on-surface-variant">
+                        <span>Item Subtotal</span>
+                        <span class="font-semibold text-on-surface" id="checkout-subtotal-val">₹${subtotal}</span>
+                    </div>
+
+                    <!-- 2. Delivery Partner Fee -->
+                    <div class="flex justify-between text-on-surface-variant">
+                        <span>Delivery Fee</span>
+                        <div class="flex items-center gap-1.5">
+                            <span class="line-through text-on-surface-variant/60 text-xs">₹25</span>
+                            <span class="font-bold text-emerald">FREE (Offer Applied)</span>
+                        </div>
+                    </div>
+
+                    <!-- 3. Handling Fee (Minused with Offer) -->
+                    <div class="flex justify-between text-on-surface-variant">
+                        <span>Handling Fee</span>
+                        <div class="flex items-center gap-1.5">
+                            <span class="line-through text-on-surface-variant/60 text-xs">₹5</span>
+                            <span class="font-bold text-emerald">FREE (Offer Applied)</span>
+                        </div>
+                    </div>
+
+                    <!-- 4. Total to Pay -->
+                    <div class="border-t border-outline-variant/40 pt-3 flex justify-between items-center text-base sm:text-lg font-bold text-on-surface">
+                        <div>
+                            <span>Total to Pay</span>
+                            <p class="text-[10px] text-emerald font-semibold">100% Free Campus Delivery & Handling</p>
+                        </div>
+                        <span class="text-2xl text-emerald font-display font-black" id="checkout-total-val">₹${exactTotal}</span>
+                    </div>
+                </div>
+
+                <!-- Savings Banner -->
+                <div class="p-3 bg-emerald/10 border border-emerald/20 rounded-xl flex items-center gap-2 text-xs text-emerald font-semibold">
+                    <span class="material-symbols-outlined text-base">savings</span>
+                    <span>🎉 Campus Offer Applied: You saved ₹${totalSavings} on delivery & handling!</span>
+                </div>
+            </div>
+
+            <!-- Payment Method Selection (Online Transactions Blocked / Coming Soon, COD Active) -->
+            <div class="glass-card rounded-3xl p-5 border border-glass-border shadow-sm space-y-3">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-bold text-sm text-on-surface">Select Payment Method</h3>
+                    <span class="text-[10px] text-emerald font-semibold bg-emerald/10 px-2 py-0.5 rounded-full">COD Active</span>
+                </div>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5" id="payment-options">
+                    <!-- 1. Cash on Delivery (ACTIVE & DEFAULT) -->
+                    <label class="flex items-center gap-2.5 p-3 rounded-2xl border-2 border-emerald bg-emerald/5 cursor-pointer payment-option-label relative" data-method="cod">
+                        <input type="radio" name="paymentMethod" value="cod" checked class="text-emerald focus:ring-emerald">
+                        <div>
+                            <div class="flex items-center gap-1.5">
+                                <p class="font-bold text-xs text-on-surface">Cash on Delivery</p>
+                                <span class="text-[9px] bg-emerald text-white font-extrabold px-1.5 py-0.2 rounded-full">Active</span>
+                            </div>
+                            <p class="text-[10px] text-on-surface-variant mt-0.5">Pay at BH13 room/gate</p>
+                        </div>
+                    </label>
+
+                    <!-- 2. UPI / GPay / QR (BLOCKED - COMING SOON) -->
+                    <div class="flex items-center gap-2.5 p-3 rounded-2xl border border-surface-variant/40 bg-surface-container-high/40 opacity-60 cursor-pointer payment-blocked-trigger relative group hover:opacity-80 transition-opacity" data-title="Online UPI Payments">
+                        <input type="radio" name="paymentMethod" value="upi" disabled class="text-neutral-400">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-1.5">
+                                <p class="font-semibold text-xs text-on-surface-variant truncate">UPI / GPay / QR</p>
+                                <span class="text-[8px] bg-amber-500 text-white font-extrabold px-1.5 py-0.2 rounded-full">Soon 🔒</span>
+                            </div>
+                            <p class="text-[10px] text-on-surface-variant">Merchant KYC in progress</p>
+                        </div>
+                    </div>
+
+                    <!-- 3. Cards / NetBanking (BLOCKED - COMING SOON) -->
+                    <div class="flex items-center gap-2.5 p-3 rounded-2xl border border-surface-variant/40 bg-surface-container-high/40 opacity-60 cursor-pointer payment-blocked-trigger relative group hover:opacity-80 transition-opacity" data-title="Card & NetBanking">
+                        <input type="radio" name="paymentMethod" value="card" disabled class="text-neutral-400">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-1.5">
+                                <p class="font-semibold text-xs text-on-surface-variant truncate">Cards / NetBanking</p>
+                                <span class="text-[8px] bg-amber-500 text-white font-extrabold px-1.5 py-0.2 rounded-full">Soon 🔒</span>
+                            </div>
+                            <p class="text-[10px] text-on-surface-variant">Visa, Master, Rupay</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Error Banner (Hidden by default) -->
+            <div id="checkout-error-banner" class="hidden p-4 bg-error/10 border border-error/30 rounded-2xl flex items-start gap-3 text-xs text-error">
+                <span class="material-symbols-outlined text-lg flex-shrink-0 mt-0.5">error</span>
+                <div class="flex-1">
+                    <p class="font-bold text-sm">Couldn't place your order</p>
+                    <p class="text-on-surface-variant mt-0.5" id="checkout-error-msg">Please check your connection and try again.</p>
+                    <button type="button" id="checkout-retry-btn" class="mt-2 bg-error text-white font-bold px-3 py-1 rounded-full text-xs hover:opacity-90 active:scale-95 transition-all">
+                        Try Again
+                    </button>
+                </div>
+            </div>
+
+            <!-- Slide to Pay Interaction Component -->
+            <div class="pt-2">
+                <div class="slider-track select-none" id="pay-slider-track">
+                    <div class="slider-progress" id="pay-slider-progress"></div>
+                    <div class="slider-thumb flex items-center justify-center select-none" id="pay-slider-thumb">
+                        <span class="material-symbols-outlined" id="thumb-icon">arrow_forward</span>
+                    </div>
+                    <div class="slider-text text-sm sm:text-base select-none" id="pay-slider-text">
+                        Slide to Confirm Order ₹${exactTotal}
+                    </div>
+                </div>
+                
+                <div class="flex items-center justify-between mt-3 text-xs text-on-surface-variant">
+                    <button type="button" class="text-primary font-semibold hover:underline cursor-pointer" id="tap-to-pay-btn">
+                        Or Click Here to Place COD Order (₹${exactTotal})
+                    </button>
+                    <span class="flex items-center gap-1 text-emerald font-medium">
+                        <span class="material-symbols-outlined text-sm">verified</span> Verified Campus Dispatch
+                    </span>
+                </div>
             </div>
         </div>
 
-        <!-- Payment Method Selection (Online Transactions Blocked / Coming Soon, COD Active) -->
-        <div class="glass-card rounded-3xl p-5 border border-glass-border shadow-sm space-y-3">
-            <div class="flex items-center justify-between">
-                <h3 class="font-bold text-sm text-on-surface">Select Payment Method</h3>
-                <span class="text-[10px] text-emerald font-semibold bg-emerald/10 px-2 py-0.5 rounded-full">COD Active</span>
-            </div>
+        <!-- POST-ORDER SUCCESS SCREEN & REAL-TIME TIMELINE (Revealed on Real Backend Confirmation) -->
+        <div id="order-success-section" class="hidden space-y-5 transition-all duration-500">
             
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5" id="payment-options">
-                <!-- 1. Cash on Delivery (ACTIVE & DEFAULT) -->
-                <label class="flex items-center gap-2.5 p-3 rounded-2xl border-2 border-emerald bg-emerald/5 cursor-pointer payment-option-label relative" data-method="cod">
-                    <input type="radio" name="paymentMethod" value="cod" checked class="text-emerald focus:ring-emerald">
-                    <div>
-                        <div class="flex items-center gap-1.5">
-                            <p class="font-bold text-xs text-on-surface">Cash on Delivery</p>
-                            <span class="text-[9px] bg-emerald text-white font-extrabold px-1.5 py-0.2 rounded-full">Active</span>
-                        </div>
-                        <p class="text-[10px] text-on-surface-variant mt-0.5">Pay at BH13 room/gate</p>
-                    </div>
-                </label>
-
-                <!-- 2. UPI / GPay / QR (BLOCKED - COMING SOON) -->
-                <div class="flex items-center gap-2.5 p-3 rounded-2xl border border-surface-variant/40 bg-surface-container-high/40 opacity-60 cursor-pointer payment-blocked-trigger relative group hover:opacity-80 transition-opacity" data-title="Online UPI Payments">
-                    <input type="radio" name="paymentMethod" value="upi" disabled class="text-neutral-400">
-                    <div class="min-w-0">
-                        <div class="flex items-center gap-1.5">
-                            <p class="font-semibold text-xs text-on-surface-variant truncate">UPI / GPay / QR</p>
-                            <span class="text-[8px] bg-amber-500 text-white font-extrabold px-1.5 py-0.2 rounded-full">Soon 🔒</span>
-                        </div>
-                        <p class="text-[10px] text-on-surface-variant">Merchant KYC in progress</p>
+            <!-- Success Hero Card -->
+            <div class="glass-card rounded-3xl p-6 sm:p-8 text-center border-2 border-emerald/40 shadow-xl space-y-4 relative overflow-hidden">
+                
+                <!-- Animated Success Badge with Ripple Rings -->
+                <div class="relative w-24 h-24 mx-auto flex items-center justify-center">
+                    <div class="absolute inset-0 rounded-full bg-emerald/20 success-ripple-ring"></div>
+                    <div class="w-18 h-18 sm:w-20 sm:h-20 rounded-full bg-emerald text-white flex items-center justify-center shadow-lg shadow-emerald/40 relative z-10 success-badge-anim">
+                        <span class="material-symbols-outlined text-4xl sm:text-5xl">check</span>
                     </div>
                 </div>
 
-                <!-- 3. Cards / NetBanking (BLOCKED - COMING SOON) -->
-                <div class="flex items-center gap-2.5 p-3 rounded-2xl border border-surface-variant/40 bg-surface-container-high/40 opacity-60 cursor-pointer payment-blocked-trigger relative group hover:opacity-80 transition-opacity" data-title="Card & NetBanking">
-                    <input type="radio" name="paymentMethod" value="card" disabled class="text-neutral-400">
-                    <div class="min-w-0">
-                        <div class="flex items-center gap-1.5">
-                            <p class="font-semibold text-xs text-on-surface-variant truncate">Cards / NetBanking</p>
-                            <span class="text-[8px] bg-amber-500 text-white font-extrabold px-1.5 py-0.2 rounded-full">Soon 🔒</span>
-                        </div>
-                        <p class="text-[10px] text-on-surface-variant">Visa, Master, Rupay</p>
+                <div class="space-y-1">
+                    <h2 class="font-headline-md text-2xl sm:text-3xl font-black text-on-surface">
+                        Order Placed!
+                    </h2>
+                    <p class="text-xs sm:text-sm text-on-surface-variant max-w-md mx-auto font-medium">
+                        Your order has been successfully placed and logged with the Dark Store.
+                    </p>
+                </div>
+
+                <!-- Order Details Snapshot Card -->
+                <div class="bg-surface-container-high/80 rounded-2xl p-4 sm:p-5 border border-surface-variant/40 text-left space-y-2.5 text-xs sm:text-sm shadow-inner">
+                    <div class="flex justify-between items-center pb-2 border-b border-surface-variant/40">
+                        <span class="text-on-surface-variant font-medium">Order ID</span>
+                        <span class="font-black text-on-surface font-mono" id="success-order-id">#ORDER_PENDING</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-on-surface-variant font-medium">Total Amount</span>
+                        <span class="font-black text-emerald text-base" id="success-order-total">₹${exactTotal}</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-on-surface-variant font-medium">Payment Method</span>
+                        <span class="font-semibold text-on-surface" id="success-order-payment">Cash on Delivery</span>
+                    </div>
+                    <div class="flex justify-between items-start pt-2 border-t border-surface-variant/40">
+                        <span class="text-on-surface-variant font-medium">Delivery Destination</span>
+                        <span class="font-semibold text-on-surface text-right max-w-[200px]" id="success-order-address">${address}</span>
+                    </div>
+                    <div class="p-2.5 bg-emerald/10 border border-emerald/20 rounded-xl flex items-center gap-2 text-xs text-emerald font-semibold mt-2">
+                        <span class="material-symbols-outlined text-sm">electric_bolt</span>
+                        <span id="success-order-dispatch-msg">⚡ Estimated delivery: 3 mins to ${address}</span>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Slide to Pay Interaction Component -->
-        <div class="pt-2">
-            <div class="slider-track" id="pay-slider-track">
-                <div class="slider-progress" id="pay-slider-progress"></div>
-                <div class="slider-thumb" id="pay-slider-thumb">
-                    <span class="material-symbols-outlined" id="thumb-icon">arrow_forward</span>
+            <!-- Real-Time Order Status Timeline Card -->
+            <div class="glass-card rounded-3xl p-6 border border-glass-border shadow-sm space-y-4">
+                <div class="flex justify-between items-center pb-2 border-b border-surface-variant/30">
+                    <h3 class="font-bold text-sm sm:text-base text-on-surface flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald animate-pulse"></span>
+                        Live Real-Time Order Status
+                    </h3>
+                    <span class="text-[10px] bg-emerald/15 text-emerald font-bold px-2.5 py-0.5 rounded-full" id="live-connection-badge">
+                        ● Live Backend
+                    </span>
                 </div>
-                <div class="slider-text text-sm sm:text-base" id="pay-slider-text">
-                    Slide to Confirm Order ₹${exactTotal}
+
+                <!-- 5-Step Order Progression Timeline -->
+                <div class="space-y-4 relative pl-2" id="order-timeline-container">
+                    
+                    <!-- Step 1: Order Placed -->
+                    <div class="flex items-start gap-3.5 relative group" id="timeline-step-1">
+                        <div class="w-7 h-7 rounded-full bg-emerald text-white flex items-center justify-center flex-shrink-0 z-10 timeline-dot shadow-sm">
+                            <span class="material-symbols-outlined text-sm">check</span>
+                        </div>
+                        <div class="flex-1 pt-0.5">
+                            <div class="flex justify-between items-center">
+                                <h4 class="font-bold text-xs sm:text-sm text-on-surface">Order Placed</h4>
+                                <span class="text-[10px] text-on-surface-variant font-mono" id="timeline-time-1">Just now</span>
+                            </div>
+                            <p class="text-[11px] text-on-surface-variant">Order received and logged in database</p>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Order Confirmed -->
+                    <div class="flex items-start gap-3.5 relative group opacity-50 transition-opacity" id="timeline-step-2">
+                        <div class="w-7 h-7 rounded-full bg-surface-container-high border-2 border-outline-variant text-on-surface-variant flex items-center justify-center flex-shrink-0 z-10 timeline-dot">
+                            <span class="material-symbols-outlined text-sm">radio_button_unchecked</span>
+                        </div>
+                        <div class="flex-1 pt-0.5">
+                            <div class="flex justify-between items-center">
+                                <h4 class="font-semibold text-xs sm:text-sm text-on-surface" id="timeline-title-2">Order Confirmed</h4>
+                                <span class="text-[10px] text-on-surface-variant font-mono" id="timeline-time-2">--</span>
+                            </div>
+                            <p class="text-[11px] text-on-surface-variant">Dark Store verifying stock and items</p>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Preparing -->
+                    <div class="flex items-start gap-3.5 relative group opacity-50 transition-opacity" id="timeline-step-3">
+                        <div class="w-7 h-7 rounded-full bg-surface-container-high border-2 border-outline-variant text-on-surface-variant flex items-center justify-center flex-shrink-0 z-10 timeline-dot">
+                            <span class="material-symbols-outlined text-sm">radio_button_unchecked</span>
+                        </div>
+                        <div class="flex-1 pt-0.5">
+                            <div class="flex justify-between items-center">
+                                <h4 class="font-semibold text-xs sm:text-sm text-on-surface" id="timeline-title-3">Preparing</h4>
+                                <span class="text-[10px] text-on-surface-variant font-mono" id="timeline-time-3">--</span>
+                            </div>
+                            <p class="text-[11px] text-on-surface-variant">Express packing at campus fulfillment dark store</p>
+                        </div>
+                    </div>
+
+                    <!-- Step 4: Ready for Pickup / Out for Delivery -->
+                    <div class="flex items-start gap-3.5 relative group opacity-50 transition-opacity" id="timeline-step-4">
+                        <div class="w-7 h-7 rounded-full bg-surface-container-high border-2 border-outline-variant text-on-surface-variant flex items-center justify-center flex-shrink-0 z-10 timeline-dot">
+                            <span class="material-symbols-outlined text-sm">radio_button_unchecked</span>
+                        </div>
+                        <div class="flex-1 pt-0.5">
+                            <div class="flex justify-between items-center">
+                                <h4 class="font-semibold text-xs sm:text-sm text-on-surface" id="timeline-title-4">Out for Delivery</h4>
+                                <span class="text-[10px] text-on-surface-variant font-mono" id="timeline-time-4">--</span>
+                            </div>
+                            <p class="text-[11px] text-on-surface-variant" id="timeline-desc-4">Campus rider dispatched on electric scooter</p>
+                        </div>
+                    </div>
+
+                    <!-- Step 5: Delivered -->
+                    <div class="flex items-start gap-3.5 relative group opacity-50 transition-opacity" id="timeline-step-5">
+                        <div class="w-7 h-7 rounded-full bg-surface-container-high border-2 border-outline-variant text-on-surface-variant flex items-center justify-center flex-shrink-0 z-10 timeline-dot">
+                            <span class="material-symbols-outlined text-sm">radio_button_unchecked</span>
+                        </div>
+                        <div class="flex-1 pt-0.5">
+                            <div class="flex justify-between items-center">
+                                <h4 class="font-semibold text-xs sm:text-sm text-on-surface" id="timeline-title-5">Delivered</h4>
+                                <span class="text-[10px] text-on-surface-variant font-mono" id="timeline-time-5">--</span>
+                            </div>
+                            <p class="text-[11px] text-on-surface-variant">Package handed over at hostel room/gate</p>
+                        </div>
+                    </div>
                 </div>
             </div>
-            
-            <div class="flex items-center justify-between mt-3 text-xs text-on-surface-variant">
-                <button type="button" class="text-primary font-semibold hover:underline cursor-pointer" id="tap-to-pay-btn">
-                    Or Click Here to Place COD Order (₹${exactTotal})
+
+            <!-- Navigation Actions (Visible & Stable - Never automatically navigates away immediately) -->
+            <div class="space-y-3 pt-2">
+                <button type="button" id="success-track-btn" class="w-full bg-emerald text-white font-bold text-xs sm:text-sm py-3.5 rounded-full shadow-lg shadow-emerald/30 hover:bg-primary active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-base">location_on</span>
+                    Track Order on Live Map
                 </button>
-                <span class="flex items-center gap-1 text-emerald font-medium">
-                    <span class="material-symbols-outlined text-sm">verified</span> Verified Campus Dispatch
-                </span>
+                <a href="#/" id="success-continue-btn" class="w-full bg-surface-container-high border border-surface-variant/40 text-on-surface font-semibold text-xs sm:text-sm py-3 rounded-full hover:bg-surface-variant/50 active:scale-95 transition-all text-center block">
+                    Continue Shopping
+                </a>
             </div>
         </div>
     </main>
@@ -230,86 +392,40 @@ window.pages.checkout = async function() {
         <span class="material-symbols-outlined text-amber-500 text-sm">lock</span>
         <span id="payment-toast-text">Online payment is launching soon! Delivering with Cash on Delivery right now.</span>
     </div>
-
-    <!-- CELEBRATORY ORDER PLACED (3-MIN COUNTDOWN & CONFETTI) OVERLAY -->
-    <div id="order-placed-overlay" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-2xl flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-300 pointer-events-none overflow-hidden">
-        
-        <!-- Falling Confetti Particle Container -->
-        <div id="confetti-container" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
-
-        <div class="bg-surface rounded-3xl border-2 border-emerald shadow-2xl max-w-sm w-full p-6 text-center space-y-5 transform scale-90 transition-transform duration-300 relative z-20 overflow-hidden pointer-events-auto" id="order-placed-card">
-            
-            <!-- Confetti & Pulsing Checkmark Ring -->
-            <div class="relative w-28 h-28 mx-auto flex items-center justify-center">
-                <div class="absolute inset-0 rounded-full bg-emerald/20 pulse-ring-effect"></div>
-                <div class="absolute inset-2 rounded-full bg-emerald/30 animate-ping"></div>
-                <div class="w-20 h-20 rounded-full bg-emerald text-white flex items-center justify-center shadow-xl shadow-emerald/50 relative z-10 animate-bounce">
-                    <span class="material-symbols-outlined text-4xl">check_circle</span>
-                </div>
-            </div>
-
-            <div class="space-y-1.5">
-                <span class="text-[11px] font-black uppercase tracking-widest text-emerald bg-emerald/15 px-3.5 py-1 rounded-full inline-block">
-                    Order Placed Successfully! 🎉
-                </span>
-                <h3 class="font-headline-md text-2xl font-black text-on-surface mt-2">
-                    Arriving in 3 Minutes! ⚡
-                </h3>
-                <p class="text-xs text-on-surface-variant font-medium" id="placed-dest-text">
-                    Delivering to ${address}
-                </p>
-            </div>
-
-            <!-- 3-Min Express Timer Live Badge -->
-            <div class="p-3.5 bg-surface-container-high rounded-2xl border border-emerald/30 flex items-center justify-between shadow-inner">
-                <div class="flex items-center gap-2.5 text-left">
-                    <span class="w-3 h-3 rounded-full bg-emerald animate-pulse"></span>
-                    <div>
-                        <p class="font-bold text-xs text-on-surface" id="placed-order-num">Order #confirmed</p>
-                        <p class="text-[10px] text-on-surface-variant">Rider Alex is packing your snacks</p>
-                    </div>
-                </div>
-                <div class="text-right">
-                    <span class="text-xs font-black text-emerald font-mono bg-emerald/20 px-2.5 py-1 rounded-lg inline-block border border-emerald/30" id="overlay-timer-badge">
-                        ⏱️ 03:00
-                    </span>
-                </div>
-            </div>
-
-            <!-- Auto-redirect Progress Bar -->
-            <div class="space-y-1.5 pt-1">
-                <div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden">
-                    <div class="bg-emerald h-full rounded-full transition-all duration-[3000ms] shadow-sm" id="placed-auto-progress" style="width: 0%;"></div>
-                </div>
-                <p class="text-[10px] text-on-surface-variant">Switching to Live GPS Rider Tracking...</p>
-            </div>
-
-            <!-- 1-Tap Jump to Live Tracking -->
-            <button type="button" id="jump-to-tracking-btn" class="w-full bg-emerald text-white font-bold text-xs sm:text-sm py-3.5 rounded-full shadow-lg shadow-emerald/30 hover:bg-primary active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2">
-                <span class="material-symbols-outlined text-base">location_on</span>
-                Track Delivery on Live Map (BH13)
-            </button>
-        </div>
-    </div>
 </div>`;
 };
 
 window.pageInits.checkout = function() {
     const userId = window.CURRENT_USER_ID || 'user_001';
+    const formSection = document.getElementById('checkout-form-section');
+    const successSection = document.getElementById('order-success-section');
+    const headerTitle = document.getElementById('checkout-header-title');
+    const backLink = document.getElementById('checkout-back-link');
+
     const track = document.getElementById('pay-slider-track');
     const thumb = document.getElementById('pay-slider-thumb');
     const progress = document.getElementById('pay-slider-progress');
     const text = document.getElementById('pay-slider-text');
     const thumbIcon = document.getElementById('thumb-icon');
     const tapToPayBtn = document.getElementById('tap-to-pay-btn');
+
+    const errorBanner = document.getElementById('checkout-error-banner');
+    const errorMsg = document.getElementById('checkout-error-msg');
+    const retryBtn = document.getElementById('checkout-retry-btn');
+
     const paymentToast = document.getElementById('payment-toast');
     const paymentToastText = document.getElementById('payment-toast-text');
-    const orderOverlay = document.getElementById('order-placed-overlay');
-    const orderCard = document.getElementById('order-placed-card');
-    const placedOrderNum = document.getElementById('placed-order-num');
-    const placedAutoProgress = document.getElementById('placed-auto-progress');
-    const jumpToTrackingBtn = document.getElementById('jump-to-tracking-btn');
-    const confettiContainer = document.getElementById('confetti-container');
+
+    const successOrderId = document.getElementById('success-order-id');
+    const successOrderTotal = document.getElementById('success-order-total');
+    const successOrderPayment = document.getElementById('success-order-payment');
+    const successOrderAddress = document.getElementById('success-order-address');
+    const successOrderDispatchMsg = document.getElementById('success-order-dispatch-msg');
+    const successTrackBtn = document.getElementById('success-track-btn');
+
+    let isSubmitting = false;
+    let wsConnection = null;
+    let pollInterval = null;
 
     function showPaymentToast(msg) {
         if (!paymentToast || !paymentToastText) return;
@@ -320,25 +436,6 @@ window.pageInits.checkout = function() {
             paymentToast.classList.remove('opacity-100', 'translate-y-0');
             paymentToast.classList.add('opacity-0', 'pointer-events-none', '-translate-y-4');
         }, 3200);
-    }
-
-    // Spawn colorful celebratory confetti
-    function launchConfetti() {
-        if (!confettiContainer) return;
-        confettiContainer.innerHTML = '';
-        const colors = ['#10B981', '#34D399', '#FBBF24', '#F43F5E', '#3B82F6', '#8B5CF6', '#EC4899'];
-        for (let i = 0; i < 45; i++) {
-            const piece = document.createElement('div');
-            piece.className = 'confetti-piece';
-            piece.style.left = `${Math.random() * 100}%`;
-            piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-            piece.style.animationDelay = `${Math.random() * 1.5}s`;
-            piece.style.animationDuration = `${2 + Math.random() * 2}s`;
-            piece.style.width = `${6 + Math.random() * 8}px`;
-            piece.style.height = `${10 + Math.random() * 10}px`;
-            piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
-            confettiContainer.appendChild(piece);
-        }
     }
 
     // Blocked Payment Triggers Handler (UPI & Cards)
@@ -361,134 +458,265 @@ window.pageInits.checkout = function() {
         };
     });
 
-    // Slider Drag & Swipe Logic
+    // 1. SLIDER INTERACTION WITH PRECISE THRESHOLD & SPRING PHYSICS
     if (track && thumb) {
         let isDragging = false;
         let startX = 0;
         let maxSlide = track.offsetWidth - thumb.offsetWidth - 16;
 
-        window.addEventListener('resize', () => {
-            if (track && thumb) maxSlide = track.offsetWidth - thumb.offsetWidth - 16;
-        });
+        function updateMaxSlide() {
+            if (track && thumb) maxSlide = Math.max(10, track.offsetWidth - thumb.offsetWidth - 16);
+        }
+        updateMaxSlide();
+        window.addEventListener('resize', updateMaxSlide);
 
         function onStart(clientX) {
+            if (isSubmitting) return;
             isDragging = true;
             startX = clientX;
             thumb.style.transition = 'none';
-            progress.style.transition = 'none';
+            if (progress) progress.style.transition = 'none';
         }
 
         function onMove(clientX) {
-            if (!isDragging) return;
+            if (!isDragging || isSubmitting) return;
             let delta = clientX - startX;
             delta = Math.max(0, Math.min(delta, maxSlide));
             thumb.style.transform = `translateX(${delta}px)`;
-            progress.style.width = `${delta + 24}px`;
-            if (text) text.style.opacity = `${1 - (delta / maxSlide)}`;
+            if (progress) progress.style.width = `${delta + 24}px`;
+            if (text) text.style.opacity = `${Math.max(0, 1 - (delta / (maxSlide * 0.7)))}`;
 
-            // When swiped > 75%, trigger instant animated confirmation
-            if (delta >= maxSlide * 0.75) {
+            // Threshold reached: >= 85% of slide track
+            if (delta >= maxSlide * 0.85) {
                 isDragging = false;
-                triggerOrderPlacement();
+                if (navigator.vibrate) {
+                    try { navigator.vibrate(20); } catch(e) {}
+                }
+                handleOrderPlacement();
             }
         }
 
         function onEnd() {
-            if (!isDragging) return;
+            if (!isDragging || isSubmitting) return;
             isDragging = false;
-            thumb.style.transition = 'transform 0.3s ease';
-            progress.style.transition = 'width 0.3s ease';
-            thumb.style.transform = 'translateX(0px)';
-            progress.style.width = '0px';
-            if (text) text.style.opacity = '1';
+            resetSlider();
         }
 
-        thumb.addEventListener('touchstart', (e) => onStart(e.touches[0].clientX), { passive: true });
+        // Touch event handlers
+        thumb.addEventListener('touchstart', (e) => {
+            if (e.touches && e.touches[0]) onStart(e.touches[0].clientX);
+        }, { passive: true });
         window.addEventListener('touchmove', (e) => {
-            if (isDragging) onMove(e.touches[0].clientX);
-        });
+            if (isDragging && e.touches && e.touches[0]) onMove(e.touches[0].clientX);
+        }, { passive: true });
         window.addEventListener('touchend', onEnd);
+        window.addEventListener('touchcancel', onEnd);
 
-        thumb.addEventListener('mousedown', (e) => onStart(e.clientX));
+        // Mouse event handlers
+        thumb.addEventListener('mousedown', (e) => {
+            onStart(e.clientX);
+            e.preventDefault();
+        });
         window.addEventListener('mousemove', (e) => {
             if (isDragging) onMove(e.clientX);
         });
         window.addEventListener('mouseup', onEnd);
     }
 
-    tapToPayBtn?.addEventListener('click', () => triggerOrderPlacement());
+    tapToPayBtn?.addEventListener('click', () => {
+        if (!isSubmitting) handleOrderPlacement();
+    });
 
-    let orderTriggered = false;
-    async function triggerOrderPlacement() {
-        if (orderTriggered) return;
-        orderTriggered = true;
+    retryBtn?.addEventListener('click', () => {
+        if (errorBanner) errorBanner.classList.add('hidden');
+        if (!isSubmitting) handleOrderPlacement();
+    });
 
+    function resetSlider() {
+        if (!thumb || !track) return;
+        thumb.style.transition = 'transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+        thumb.style.transform = 'translateX(0px)';
+        if (progress) {
+            progress.style.transition = 'width 0.35s ease';
+            progress.style.width = '0px';
+        }
         if (text) {
-            text.textContent = 'Order Confirmed! 🎉';
+            text.style.transition = 'opacity 0.3s ease';
             text.style.opacity = '1';
+            text.textContent = `Slide to Confirm Order ₹${window.cartTotalCache || 65}`;
         }
-        if (thumb && track) {
-            const finalX = track.offsetWidth - thumb.offsetWidth - 16;
-            thumb.style.transition = 'transform 0.25s ease';
-            thumb.style.transform = `translateX(${finalX}px)`;
-            if (thumbIcon) thumbIcon.textContent = 'check';
-            if (progress) {
-                progress.style.transition = 'width 0.25s ease';
-                progress.style.width = '100%';
-            }
-        }
-
-        try {
-            const res = await window.api.checkout(userId, 'cod');
-            if (res.success && res.order) {
-                // Confirm payment callback
-                await window.api.paymentCallback(res.order.id, 'success');
-                showOrderPlacedOverlay(res.order);
-            } else {
-                // Fallback demo order object if cart is already checked out
-                const demoOrder = { id: `order_${Math.random().toString(36).slice(2, 8)}`, total: 65 };
-                showOrderPlacedOverlay(demoOrder);
-            }
-        } catch (err) {
-            console.error('Checkout error:', err);
-            const fallbackOrder = { id: `order_${Math.random().toString(36).slice(2, 8)}`, total: 65 };
-            showOrderPlacedOverlay(fallbackOrder);
+        if (thumbIcon) {
+            thumbIcon.textContent = 'arrow_forward';
+            thumbIcon.classList.remove('animate-spin');
         }
     }
 
-    function showOrderPlacedOverlay(order) {
-        if (!orderOverlay) {
-            window.location.hash = '#/orders';
-            return;
+    // 2. REAL ORDER PLACEMENT TO BACKEND
+    async function handleOrderPlacement() {
+        if (isSubmitting) return;
+        isSubmitting = true;
+
+        if (errorBanner) errorBanner.classList.add('hidden');
+
+        // Loading State on Slider
+        if (thumb && track) {
+            const finalX = track.offsetWidth - thumb.offsetWidth - 16;
+            thumb.style.transition = 'transform 0.2s ease';
+            thumb.style.transform = `translateX(${finalX}px)`;
+            if (progress) {
+                progress.style.transition = 'width 0.2s ease';
+                progress.style.width = '100%';
+            }
+        }
+        if (text) {
+            text.style.opacity = '1';
+            text.textContent = 'Placing your order...';
+        }
+        if (thumbIcon) {
+            thumbIcon.textContent = 'hourglass_empty';
+            thumbIcon.classList.add('animate-spin');
         }
 
-        launchConfetti();
+        const deliveryAddress = window.currentAddressDetail?.label || 'BH13 (Block A), Room 304';
+        const selectedPaymentMethod = 'Cash on Delivery';
 
-        if (placedOrderNum) {
-            placedOrderNum.textContent = `Order #${order.id.replace('order_', '')}`;
+        try {
+            const res = await window.api.checkout(userId, selectedPaymentMethod, deliveryAddress);
+
+            if (res && res.success && res.order) {
+                // Successful confirmation state on slider
+                if (text) text.textContent = 'Order Placed! ✓';
+                if (thumbIcon) {
+                    thumbIcon.classList.remove('animate-spin');
+                    thumbIcon.textContent = 'check';
+                }
+
+                // Render in-place Success Screen with real data
+                setTimeout(() => {
+                    renderSuccessScreen(res.order);
+                }, 300);
+            } else {
+                throw new Error(res?.error || 'Failed to place order.');
+            }
+        } catch (err) {
+            console.error('Order placement failed:', err);
+            isSubmitting = false;
+            resetSlider();
+
+            if (errorBanner) {
+                errorBanner.classList.remove('hidden');
+                if (errorMsg) errorMsg.textContent = err.message || 'Please check your connection and try again.';
+            }
+        }
+    }
+
+    // 3. RENDER POLISHED SUCCESS SCREEN & CONNECT REAL-TIME STATUS
+    function renderSuccessScreen(order) {
+        if (formSection) formSection.classList.add('hidden');
+        if (successSection) {
+            successSection.classList.remove('hidden');
+            successSection.classList.add('page-enter');
+        }
+        if (headerTitle) headerTitle.textContent = 'Order Status';
+        if (backLink) backLink.href = '#/';
+
+        // Populate real order data
+        const formattedId = (order.id || '').replace('order_', '').toUpperCase();
+        if (successOrderId) successOrderId.textContent = `#${formattedId}`;
+        if (successOrderTotal) successOrderTotal.textContent = `₹${order.total}`;
+        if (successOrderPayment) successOrderPayment.textContent = order.payment_method || 'Cash on Delivery';
+        if (successOrderAddress) successOrderAddress.textContent = order.delivery_address || 'BH13 (Block A), Room 304';
+        if (successOrderDispatchMsg) {
+            successOrderDispatchMsg.textContent = `⚡ Estimated delivery: ${order.estimated_minutes || 3} mins to ${order.delivery_address || 'BH13'}`;
         }
 
-        orderOverlay.classList.remove('hidden', 'pointer-events-none');
-        setTimeout(() => {
-            orderOverlay.classList.remove('opacity-0');
-            if (orderCard) {
-                orderCard.classList.remove('scale-90');
-                orderCard.classList.add('scale-100');
-            }
-            if (placedAutoProgress) {
-                placedAutoProgress.style.width = '100%';
-            }
-        }, 20);
+        // Set initial timestamp for Step 1
+        const timeEl1 = document.getElementById('timeline-time-1');
+        if (timeEl1) {
+            timeEl1.textContent = new Date(order.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+        }
 
-        // Auto transition after 3 seconds
-        const navTimer = setTimeout(() => {
-            window.location.hash = '#/orders';
-        }, 3200);
-
-        // 1-Tap Manual Jump to Live GPS Tracking
-        jumpToTrackingBtn?.addEventListener('click', () => {
-            clearTimeout(navTimer);
+        // Track Order Navigation Button
+        successTrackBtn?.addEventListener('click', () => {
             window.location.hash = '#/orders';
         });
+
+        // 4. REAL-TIME WEBSOCKET LISTENER FOR TIMELINE STATUS UPDATES
+        connectRealTimeOrderTracking(order.id);
+    }
+
+    function updateTimelineStep(stepNumber, timestamp, riderName) {
+        for (let i = 1; i <= stepNumber; i++) {
+            const stepEl = document.getElementById(`timeline-step-${i}`);
+            const timeEl = document.getElementById(`timeline-time-${i}`);
+            if (stepEl) {
+                stepEl.classList.remove('opacity-50');
+                const dot = stepEl.querySelector('.timeline-dot');
+                if (dot) {
+                    dot.classList.remove('bg-surface-container-high', 'border-2', 'border-outline-variant', 'text-on-surface-variant');
+                    dot.classList.add('bg-emerald', 'text-white', 'shadow-sm');
+                    dot.innerHTML = '<span class="material-symbols-outlined text-sm">check</span>';
+                }
+            }
+            if (timeEl && i === stepNumber && timestamp) {
+                timeEl.textContent = timestamp;
+            }
+        }
+
+        if (stepNumber >= 4 && riderName) {
+            const desc4 = document.getElementById('timeline-desc-4');
+            if (desc4) desc4.textContent = `Rider ${riderName} is on the way to your hostel`;
+        }
+    }
+
+    function connectRealTimeOrderTracking(orderId) {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws/track/${orderId}`;
+
+        try {
+            wsConnection = new WebSocket(wsUrl);
+
+            wsConnection.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data && data.step) {
+                        updateTimelineStep(data.step, data.timestamp, data.rider_name);
+                    }
+                } catch (e) {
+                    console.error('Error parsing WS message:', e);
+                }
+            };
+
+            wsConnection.onerror = () => {
+                console.warn('WebSocket error, switching to fallback polling.');
+                startPollingFallback(orderId);
+            };
+
+            wsConnection.onclose = () => {
+                console.log('WS tracking connection closed.');
+            };
+        } catch (err) {
+            console.warn('WebSocket unavailable, using polling fallback.');
+            startPollingFallback(orderId);
+        }
+    }
+
+    function startPollingFallback(orderId) {
+        if (pollInterval) clearInterval(pollInterval);
+        pollInterval = setInterval(async () => {
+            try {
+                const res = await window.api.getOrderDetail(orderId);
+                if (res && res.order) {
+                    const status = res.order.status;
+                    const stepMap = { 'Order Placed': 1, 'Order Confirmed': 2, 'Preparing': 3, 'Out for Delivery': 4, 'Delivered': 5 };
+                    const currentStep = stepMap[status] || 1;
+                    const timeStr = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+                    updateTimelineStep(currentStep, timeStr, res.order.rider_name);
+                    if (currentStep >= 5) clearInterval(pollInterval);
+                }
+            } catch (e) {
+                console.error('Polling error:', e);
+            }
+        }, 3500);
     }
 };
