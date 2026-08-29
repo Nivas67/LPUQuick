@@ -98,6 +98,31 @@
     <!-- SPA Root Container -->
     <div id="app"></div>
 
+    <!-- Global Floating Live Delivery Bar (Shows across all store pages when an order is active) -->
+    <div id="global-live-delivery-bar" class="fixed bottom-24 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 hidden transition-all duration-300">
+        <a href="#/orders" class="glass-card p-3 rounded-2xl border border-emerald/40 shadow-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl flex items-center justify-between gap-3 text-xs hover:border-emerald transition-all active:scale-[0.98]">
+            <div class="flex items-center gap-2.5 min-w-0">
+                <div class="w-8 h-8 rounded-full bg-emerald text-white flex items-center justify-center font-bold flex-shrink-0 animate-bounce">
+                    <span class="material-symbols-outlined text-base">directions_walk</span>
+                </div>
+                <div class="truncate">
+                    <div class="flex items-center gap-1.5 font-bold text-on-surface">
+                        <span class="w-2 h-2 rounded-full bg-emerald animate-pulse"></span>
+                        <span id="global-delivery-status">Out for Delivery</span>
+                        <span class="text-[10px] text-emerald font-extrabold bg-emerald/10 px-1.5 py-0.2 rounded-full" id="global-delivery-eta">1 min</span>
+                    </div>
+                    <p class="text-[10px] text-on-surface-variant truncate mt-0.5" id="global-delivery-subtitle">
+                        Campus runner walking to BH13 (Block A), Room 304
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center gap-1 text-emerald font-bold text-xs flex-shrink-0">
+                <span>Live Map</span>
+                <span class="material-symbols-outlined text-sm">arrow_forward</span>
+            </div>
+        </a>
+    </div>
+
     <!-- Core App State & Router Setup -->
     <script>
         window.pages = window.pages || {};

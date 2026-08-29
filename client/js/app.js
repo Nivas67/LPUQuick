@@ -456,6 +456,9 @@ async function router() {
             });
 
             window.scrollTo(0, 0);
+
+            // Check active order delivery bar
+            checkAndConnectGlobalOrderTracking();
         } else {
             appRoot.innerHTML = `
                 <div class="text-center pt-32 px-4">
@@ -469,12 +472,114 @@ async function router() {
     }
 }
 
+// ================= GLOBAL REAL-TIME CLIENT SYNC =================
+let globalTrackingWs = null;
+let currentTrackedOrderId = null;
+
+async function checkAndConnectGlobalOrderTracking() {
+    try {
+        const userId = window.CURRENT_USER_ID || 'user_001';
+        const activeRes = await window.api.getActiveOrder(userId);
+        const active = activeRes?.active;
+        const bar = document.getElementById('global-live-delivery-bar');
+
+        if (!active || ['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(active.status)) {
+            if (bar) bar.classList.add('hidden');
+            return;
+        }
+
+        currentTrackedOrderId = active.id;
+        updateGlobalDeliveryBar(active.status, active.rider_name || 'Alex');
+
+        // Only show floating bar when not already on the dedicated /orders or /checkout tracking page
+        const currentPath = getCurrentRoute();
+        if (bar) {
+            if (currentPath === '/orders' || currentPath === '/checkout') {
+                bar.classList.add('hidden');
+            } else {
+                bar.classList.remove('hidden');
+            }
+        }
+
+        // Connect global WebSocket for instant broadcasts
+        connectGlobalTrackingSocket(active.id);
+
+    } catch (e) {
+        console.warn('[Global Tracking Sync]:', e);
+    }
+}
+
+function updateGlobalDeliveryBar(status, riderName) {
+    const bar = document.getElementById('global-live-delivery-bar');
+    const statusEl = document.getElementById('global-delivery-status');
+    const etaEl = document.getElementById('global-delivery-eta');
+    const subEl = document.getElementById('global-delivery-subtitle');
+    const hostelShort = window.currentAddress || 'BH13';
+
+    if (!bar || !statusEl || !etaEl || !subEl) return;
+
+    statusEl.textContent = status;
+
+    if (status === 'Order Placed') {
+        etaEl.textContent = '3 mins';
+        subEl.textContent = `BH13 Dark Store is verifying your snacks`;
+    } else if (status === 'Order Confirmed') {
+        etaEl.textContent = '3 mins';
+        subEl.textContent = `Confirmed by BH13 Hub · Packing shortly`;
+    } else if (status === 'Preparing') {
+        etaEl.textContent = '2 mins';
+        subEl.textContent = `Staff is packing your bag at BH13 Hub`;
+    } else if (status === 'Out for Delivery') {
+        etaEl.textContent = '1 min';
+        subEl.textContent = `🚶‍♂️ ${riderName} is walking to ${hostelShort} (Block A)`;
+    } else if (status === 'Delivered') {
+        etaEl.textContent = 'Arrived ✓';
+        subEl.textContent = `🎉 Delivered to ${hostelShort}! Enjoy your snacks!`;
+        setTimeout(() => {
+            bar.classList.add('hidden');
+        }, 8000);
+    }
+}
+
+function connectGlobalTrackingSocket(orderId) {
+    if (globalTrackingWs && (globalTrackingWs.readyState === WebSocket.OPEN || globalTrackingWs.readyState === WebSocket.CONNECTING)) {
+        return;
+    }
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${location.host}/ws/track/${orderId}`;
+
+    try {
+        globalTrackingWs = new WebSocket(wsUrl);
+
+        globalTrackingWs.onmessage = (evt) => {
+            try {
+                const data = JSON.parse(evt.data);
+                if (data && data.status) {
+                    updateGlobalDeliveryBar(data.status, data.rider_name || 'Alex');
+                }
+            } catch (err) {}
+        };
+
+        globalTrackingWs.onclose = () => {
+            globalTrackingWs = null;
+        };
+    } catch (e) {}
+}
+
 window.router = router;
 window.navigate = navigate;
 
 window.addEventListener('hashchange', router);
-window.addEventListener('DOMContentLoaded', router);
+window.addEventListener('DOMContentLoaded', () => {
+    router();
+    checkAndConnectGlobalOrderTracking();
+});
 
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
     router();
+    checkAndConnectGlobalOrderTracking();
 }
+
+// Background sync interval (every 8 seconds)
+setInterval(checkAndConnectGlobalOrderTracking, 8000);
+
