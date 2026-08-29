@@ -604,3 +604,59 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
 // Background sync interval (every 8 seconds)
 setInterval(checkAndConnectGlobalOrderTracking, 8000);
 
+// ============================================================
+// Interactive Magnetic Cursor Torch & Dynamic Ambient Parallax
+// ============================================================
+(function initInteractiveAtmosphere() {
+    let mouseX = window.innerWidth / 2;
+    let mouseY = window.innerHeight / 2;
+    let currentX = mouseX;
+    let currentY = mouseY;
+    let isTicking = false;
+
+    window.addEventListener('mousemove', (e) => {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+        if (!isTicking) {
+            isTicking = true;
+            requestAnimationFrame(renderFrame);
+        }
+    }, { passive: true });
+
+    function renderFrame() {
+        // Smooth lerp (dampening)
+        currentX += (mouseX - currentX) * 0.1;
+        currentY += (mouseY - currentY) * 0.1;
+
+        const torch = document.getElementById('ambient-cursor-torch');
+        if (torch) {
+            torch.style.transform = `translate3d(${currentX - 250}px, ${currentY - 250}px, 0)`;
+        }
+
+        // Parallax reaction on floating leaves and snacks
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
+        const deltaX = (mouseX - centerX) / centerX;
+        const deltaY = (mouseY - centerY) / centerY;
+
+        const snacks = document.querySelectorAll('.ambient-snack');
+        snacks.forEach((snack, idx) => {
+            const factor = idx % 2 === 0 ? 14 : -14;
+            snack.style.transform = `translate3d(${deltaX * factor}px, ${deltaY * factor}px, 0)`;
+        });
+
+        const leaves = document.querySelectorAll('.ambient-leaf');
+        leaves.forEach((leaf, idx) => {
+            const factor = (idx + 1) * 2.5;
+            leaf.style.transform = `translate3d(${deltaX * factor}px, ${deltaY * factor}px, 0)`;
+        });
+
+        if (Math.abs(mouseX - currentX) > 0.4 || Math.abs(mouseY - currentY) > 0.4) {
+            requestAnimationFrame(renderFrame);
+        } else {
+            isTicking = false;
+        }
+    }
+})();
+
+

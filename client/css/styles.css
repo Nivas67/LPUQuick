@@ -574,6 +574,25 @@ body.dark .slider-text {
     opacity: 0.9;
 }
 
+/* Interactive Luminous Cursor Torch (Dynamic Ambient Follower) */
+.ambient-cursor-torch {
+    position: absolute;
+    width: 500px;
+    height: 500px;
+    border-radius: 9999px;
+    background: radial-gradient(circle, rgba(16, 185, 129, 0.24) 0%, rgba(6, 182, 212, 0.14) 40%, rgba(251, 191, 36, 0.07) 70%, transparent 100%);
+    filter: blur(65px);
+    opacity: 0.65;
+    pointer-events: none;
+    will-change: transform;
+    transition: opacity 0.3s ease;
+}
+
+.dark .ambient-cursor-torch {
+    background: radial-gradient(circle, rgba(16, 185, 129, 0.18) 0%, rgba(6, 182, 212, 0.10) 40%, transparent 100%);
+    filter: blur(80px);
+}
+
 /* Layer 2: Floating Light Orbs */
 .ambient-orb {
     position: absolute;
