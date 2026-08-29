@@ -8,11 +8,25 @@ function buildProductCardsHTML(items, isAboveFold = false) {
         const discountPercent = p.mrp && p.mrp > p.price ? Math.round(((p.mrp - p.price) / p.mrp) * 100) : 0;
         const ratingVal = p.rating || 4.8;
         const isLcpCandidate = isAboveFold && idx === 0;
+        const stockLeft = p.stock_left !== undefined && p.stock_left !== null ? p.stock_left : (p.in_stock ? 50 : 0);
+        const isLowStock = stockLeft > 0 && stockLeft <= 4;
+        const isOutOfStock = !p.in_stock || stockLeft === 0;
 
         return `
         <div class="bg-surface rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group relative border border-surface-variant/30 p-2.5 flex flex-col justify-between product-detail-trigger cursor-pointer" data-product-id="${p.id}">
             <div>
                 <div class="h-32 sm:h-36 bg-surface-container-high rounded-xl relative overflow-hidden flex items-center justify-center p-2">
+                    <!-- Stock / Urgency Badge -->
+                    ${isLowStock ? `
+                    <div class="absolute top-2 left-2 z-10 stock-badge bg-amber-500 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-0.5" data-id="${p.id}">
+                        <span class="material-symbols-outlined text-[11px]" style="font-variation-settings: 'FILL' 1;">bolt</span> Only ${stockLeft} left!
+                    </div>
+                    ` : (isOutOfStock ? `
+                    <div class="absolute top-2 left-2 z-10 stock-badge bg-rose-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm" data-id="${p.id}">
+                        Out of Stock
+                    </div>
+                    ` : '')}
+
                     <!-- Wishlist Heart -->
                     <button type="button" class="absolute top-2 right-2 w-6 h-6 rounded-full bg-surface/70 backdrop-blur-md flex items-center justify-center text-on-surface-variant hover:text-rose-500 z-10">
                         <span class="material-symbols-outlined text-sm">favorite_border</span>
@@ -45,7 +59,13 @@ function buildProductCardsHTML(items, isAboveFold = false) {
                 <div class="flex justify-between items-center mt-2">
                     <span class="text-xs font-bold text-on-surface truncate max-w-[80px]">${p.size || p.unit}</span>
                     <div class="product-action-slot" data-id="${p.id}">
+                        ${isOutOfStock ? `
+                        <span class="text-[10px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-xl border border-rose-200 dark:border-rose-800">
+                            Out of Stock
+                        </span>
+                        ` : `
                         <button type="button" class="bg-emerald text-white text-xs px-3.5 py-1 rounded-xl font-bold hover:bg-primary active:scale-95 shadow-sm transition-all add-to-cart-btn" data-id="${p.id}">ADD</button>
+                        `}
                     </div>
                 </div>
 

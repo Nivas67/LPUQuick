@@ -1,5 +1,6 @@
 const { getSupabaseClient } = require('../supabase');
 const { v4: uuidv4 } = require('uuid');
+const cache = require('../cache');
 
 /**
  * Single-Database Cloud Layer: Supabase (PostgreSQL)
@@ -316,6 +317,34 @@ const supabaseDb = {
             // 3. Clear cart
             await supabase.from('cart_items').delete().eq('user_id', orderPayload.user_id);
 
+            // 4. Automatically deduct stock from products table
+            if (items && items.length > 0) {
+                try {
+                    const { broadcastInventoryUpdate } = require('../realtime');
+                    for (const item of items) {
+                        const pid = item.product_id;
+                        if (!pid) continue;
+                        const prod = await supabaseDb.products.getById(pid);
+
+                        if (prod) {
+                            const currentStock = Number(prod.stock_left !== undefined && prod.stock_left !== null ? prod.stock_left : 50);
+                            const qty = Number(item.quantity || 1);
+                            const newStock = Math.max(0, currentStock - qty);
+                            const newInStock = newStock > 0;
+                            await supabaseDb.products.update(pid, { stock_left: newStock, in_stock: newInStock });
+
+                            cache.invalidateProducts();
+
+                            try {
+                                broadcastInventoryUpdate(pid, newStock, newInStock);
+                            } catch (e) {}
+                        }
+                    }
+                } catch (stockErr) {
+                    console.error('[Stock Deduction Error]:', stockErr.message);
+                }
+            }
+
             return createdOrder;
         },
 
@@ -380,6 +409,14 @@ const supabaseDb = {
 
         async updateStatus(orderId, status) {
             const supabase = getSupabaseClient();
+            
+            // Get previous status
+            const { data: prevOrder } = await supabase
+                .from('orders')
+                .select('id, status')
+                .eq('id', orderId)
+                .single();
+
             const { data, error } = await supabase
                 .from('orders')
                 .update({ status })
@@ -388,6 +425,42 @@ const supabaseDb = {
                 .single();
 
             if (error) throw error;
+
+            // If transitioned to Cancelled, replenish stock back into inventory!
+            if (status === 'Cancelled' && prevOrder && prevOrder.status !== 'Cancelled') {
+                try {
+                    const { broadcastInventoryUpdate } = require('../realtime');
+                    const { data: items } = await supabase
+                        .from('order_items')
+                        .select('product_id, quantity')
+                        .eq('order_id', orderId);
+
+                    if (items && items.length > 0) {
+                        for (const item of items) {
+                            const pid = item.product_id;
+                            if (!pid) continue;
+                            const prod = await supabaseDb.products.getById(pid);
+
+                            if (prod) {
+                                const currentStock = Number(prod.stock_left !== undefined && prod.stock_left !== null ? prod.stock_left : 0);
+                                const qty = Number(item.quantity || 1);
+                                const newStock = currentStock + qty;
+                                const newInStock = true;
+                                await supabaseDb.products.update(pid, { stock_left: newStock, in_stock: newInStock });
+
+                                cache.invalidateProducts();
+
+                                try {
+                                    broadcastInventoryUpdate(pid, newStock, newInStock);
+                                } catch (e) {}
+                            }
+                        }
+                    }
+                } catch (replenishErr) {
+                    console.error('[Stock Replenish Error]:', replenishErr.message);
+                }
+            }
+
             return data;
         }
     },

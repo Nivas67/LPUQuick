@@ -447,12 +447,25 @@ window.pageInits.categories = async function() {
             const discountPercent = p.mrp && p.mrp > p.price ? Math.round(((p.mrp - p.price) / p.mrp) * 100) : 0;
             const ratingVal = p.rating || 4.8;
             const reviewCount = p.review_count || '1.2 lac';
-            const stockLeft = p.stock_left || 0;
+            const stockLeft = p.stock_left !== undefined && p.stock_left !== null ? p.stock_left : (p.in_stock ? 50 : 0);
+            const isLowStock = stockLeft > 0 && stockLeft <= 4;
+            const isOutOfStock = !p.in_stock || stockLeft === 0;
 
             return `
                 <div class="bg-surface rounded-2xl overflow-hidden border border-surface-variant/40 shadow-sm hover:shadow-md transition-all p-2.5 flex flex-col justify-between group product-card-container product-detail-trigger cursor-pointer" data-product-id="${p.id}">
                     <div>
                         <div class="relative bg-surface-container-high rounded-xl overflow-hidden h-36 flex items-center justify-center p-2">
+                            <!-- Stock / Urgency Badge -->
+                            ${isLowStock ? `
+                            <div class="absolute top-2 left-2 z-10 stock-badge bg-amber-500 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-0.5" data-id="${p.id}">
+                                <span class="material-symbols-outlined text-[11px]" style="font-variation-settings: 'FILL' 1;">bolt</span> Only ${stockLeft} left!
+                            </div>
+                            ` : (isOutOfStock ? `
+                            <div class="absolute top-2 left-2 z-10 stock-badge bg-rose-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm" data-id="${p.id}">
+                                Out of Stock
+                            </div>
+                            ` : '')}
+
                             <!-- Wishlist Heart Button -->
                             <button type="button" class="absolute top-2 right-2 w-7 h-7 rounded-full bg-surface/70 backdrop-blur-md flex items-center justify-center text-on-surface-variant hover:text-rose-500 hover:bg-surface transition-all z-10 wishlist-btn" data-id="${p.id}">
                                 <span class="material-symbols-outlined text-base">favorite_border</span>
@@ -487,9 +500,15 @@ window.pageInits.categories = async function() {
                         <div class="flex justify-between items-center mt-2">
                             <span class="text-xs font-bold text-on-surface">${p.size || p.unit}</span>
                             <div class="product-action-slot" data-id="${p.id}">
+                                ${isOutOfStock ? `
+                                <span class="text-[10px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-2.5 py-1 rounded-xl border border-rose-200 dark:border-rose-800">
+                                    Out of Stock
+                                </span>
+                                ` : `
                                 <button type="button" class="bg-emerald text-white text-xs px-4 py-1.5 rounded-xl font-bold hover:bg-primary active:scale-95 shadow-sm transition-all add-to-cart-btn" data-id="${p.id}">
                                     ADD
                                 </button>
+                                `}
                             </div>
                         </div>
 
@@ -522,9 +541,9 @@ window.pageInits.categories = async function() {
                             <span class="flex items-center gap-0.5 text-emerald font-semibold">
                                 <span class="material-symbols-outlined text-[11px]">bolt</span> 3 mins
                             </span>
-                            ${stockLeft > 0 ? `
-                                <span class="text-[10px] text-amber-600 dark:text-amber-400 font-bold bg-amber-500/10 px-1.5 py-0.2 rounded">
-                                    🪫 ${stockLeft} left
+                            ${isLowStock ? `
+                                <span class="text-[10px] text-amber-600 dark:text-amber-400 font-bold bg-amber-500/10 px-1.5 py-0.2 rounded" data-id="${p.id}">
+                                    ⚡ Only ${stockLeft} left
                                 </span>
                             ` : ''}
                         </div>

@@ -667,6 +667,15 @@ window.openProductModal = async function(productId) {
                         ${p.discount_percent}% OFF
                     </div>
                     ` : ''}
+                    ${p.stock_left !== undefined && p.stock_left !== null && p.stock_left > 0 && p.stock_left <= 4 ? `
+                    <div class="absolute top-3 right-3 bg-amber-500 text-white text-[11px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-0.5">
+                        <span class="material-symbols-outlined text-xs" style="font-variation-settings: 'FILL' 1;">bolt</span> Only ${p.stock_left} left!
+                    </div>
+                    ` : (!p.in_stock || p.stock_left === 0 ? `
+                    <div class="absolute top-3 right-3 bg-rose-600 text-white text-[11px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm">
+                        Out of Stock
+                    </div>
+                    ` : '')}
                 </div>
 
                 <!-- Title & Price -->
@@ -1114,6 +1123,32 @@ function handleLiveInventoryChange(data) {
             modalAddBtn.textContent = 'Add to Cart';
         }
     }
+
+    // 3. Dynamically update stock badges across all card images and headers
+    const badges = document.querySelectorAll(`.stock-badge[data-id="${productId}"]`);
+    badges.forEach(b => {
+        if (!in_stock || stock_left <= 0) {
+            b.className = 'absolute top-2 left-2 z-10 stock-badge bg-rose-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm';
+            b.textContent = 'Out of Stock';
+            b.style.display = 'block';
+        } else if (stock_left > 0 && stock_left <= 4) {
+            b.className = 'absolute top-2 left-2 z-10 stock-badge bg-amber-500 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-0.5';
+            b.innerHTML = `<span class="material-symbols-outlined text-[11px]" style="font-variation-settings: 'FILL' 1;">bolt</span> Only ${stock_left} left!`;
+            b.style.display = 'flex';
+        } else {
+            b.style.display = 'none';
+        }
+    });
+
+    const badgeTexts = document.querySelectorAll(`.stock-badge-text[data-id="${productId}"]`);
+    badgeTexts.forEach(bt => {
+        if (stock_left > 0 && stock_left <= 4) {
+            bt.textContent = `⚡ Only ${stock_left} left`;
+            bt.style.display = 'inline-block';
+        } else {
+            bt.style.display = 'none';
+        }
+    });
 }
 
 // In-place Real-Time Order Status Updates

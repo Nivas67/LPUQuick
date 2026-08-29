@@ -386,7 +386,7 @@ function filterProducts() {
     if (currentProductFilter === 'active') {
         filtered = filtered.filter(p => p.in_stock && p.stock_left > 0);
     } else if (currentProductFilter === 'low') {
-        filtered = filtered.filter(p => p.stock_left > 0 && p.stock_left <= 10);
+        filtered = filtered.filter(p => p.stock_left > 0 && p.stock_left <= 4);
     } else if (currentProductFilter === 'out') {
         filtered = filtered.filter(p => !p.in_stock || p.stock_left === 0);
     }
@@ -399,10 +399,10 @@ function filterProducts() {
 
     tbody.innerHTML = filtered.map(p => {
         const stock = p.stock_left !== undefined ? p.stock_left : (p.in_stock ? 40 : 0);
-        const statusBadge = stock > 10 
+        const statusBadge = stock > 4 
             ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold badge-in-stock">In Stock</span>'
             : (stock > 0 
-                ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold badge-low-stock">Low Stock</span>'
+                ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold badge-low-stock">Low Stock (${stock} left)</span>`
                 : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold badge-out-of-stock">Out of Stock</span>');
 
         return `
@@ -463,10 +463,10 @@ function filterInventory() {
 
     tbody.innerHTML = filtered.map(p => {
         const stock = p.stock_left !== undefined ? p.stock_left : (p.in_stock ? 40 : 0);
-        const statusBadge = stock > 10 
+        const statusBadge = stock > 4 
             ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold badge-in-stock">In Stock</span>'
             : (stock > 0 
-                ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold badge-low-stock">Low Stock</span>'
+                ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold badge-low-stock">Low Stock (${stock} left)</span>`
                 : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold badge-out-of-stock">Out of Stock</span>');
 
         return `

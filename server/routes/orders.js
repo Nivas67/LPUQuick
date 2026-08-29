@@ -63,7 +63,7 @@ router.get('/admin/analytics', requireAdmin, async (req, res) => {
         const avgOrderValue = deliveredOrders.length > 0 ? Math.round(totalRevenue / deliveredOrders.length) : 0;
         
         const totalStock = products.reduce((sum, p) => sum + (p.stock_left || 0), 0);
-        const lowStockProducts = products.filter(p => p.stock_left > 0 && p.stock_left <= 10);
+        const lowStockProducts = products.filter(p => p.stock_left > 0 && p.stock_left <= 4);
         const outOfStockProducts = products.filter(p => !p.in_stock || p.stock_left === 0);
         
         // Top selling products calculated strictly from Delivered orders
