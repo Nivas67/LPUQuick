@@ -52,7 +52,7 @@ window.pages.signin = async function() {
                             <span>Email or Registration Number</span>
                         </label>
                         <div class="relative">
-                            <input class="w-full h-12 pl-4 pr-4 bg-surface-container-lowest/80 dark:bg-slate-800/80 border border-outline-variant/60 dark:border-slate-700 rounded-2xl text-sm font-medium text-on-surface placeholder:text-outline focus:outline-none focus:border-emerald focus:ring-2 focus:ring-emerald/20 transition-all duration-200" id="email-signin" placeholder="nivas@lpu.in or 12345678" type="text" value="nivas@lpu.in">
+                            <input class="w-full h-12 pl-4 pr-4 bg-surface-container-lowest/80 dark:bg-slate-800/80 border border-outline-variant/60 dark:border-slate-700 rounded-2xl text-sm font-medium text-on-surface placeholder:text-outline focus:outline-none focus:border-emerald focus:ring-2 focus:ring-emerald/20 transition-all duration-200" id="email-signin" placeholder="Enter your LPU email or reg number" type="text" value="" autocomplete="username">
                         </div>
                     </div>
 
@@ -63,10 +63,10 @@ window.pages.signin = async function() {
                                 <span class="material-symbols-outlined text-sm text-emerald">lock</span>
                                 <span>Password</span>
                             </label>
-                            <a class="text-xs font-semibold text-emerald hover:underline transition-colors" href="javascript:void(0)" onclick="alert('Password reset link sent to registered LPU email!')">Forgot password?</a>
+                            <a class="text-xs font-semibold text-emerald hover:underline transition-colors" href="javascript:void(0)" onclick="alert('Password reset instructions sent to your email!')">Forgot password?</a>
                         </div>
                         <div class="relative">
-                            <input class="w-full h-12 pl-4 pr-11 bg-surface-container-lowest/80 dark:bg-slate-800/80 border border-outline-variant/60 dark:border-slate-700 rounded-2xl text-sm font-medium text-on-surface placeholder:text-outline focus:outline-none focus:border-emerald focus:ring-2 focus:ring-emerald/20 transition-all duration-200" id="password-signin" placeholder="••••••••" type="password" value="demo123">
+                            <input class="w-full h-12 pl-4 pr-11 bg-surface-container-lowest/80 dark:bg-slate-800/80 border border-outline-variant/60 dark:border-slate-700 rounded-2xl text-sm font-medium text-on-surface placeholder:text-outline focus:outline-none focus:border-emerald focus:ring-2 focus:ring-emerald/20 transition-all duration-200" id="password-signin" placeholder="Enter your password" type="password" value="" autocomplete="current-password">
                             <button type="button" id="btn-toggle-password" class="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface p-1 transition-colors">
                                 <span class="material-symbols-outlined text-lg" id="pwd-icon">visibility</span>
                             </button>
@@ -207,10 +207,24 @@ window.pageInits.signin = function() {
     }
     setupToggle();
 
-    // Sign In Button
+    // Sign In Button (Authenticates Typed Email & Password)
     document.getElementById('btn-signin')?.addEventListener('click', async () => {
-        const email = document.getElementById('email-signin')?.value || 'nivas@lpu.in';
-        const password = document.getElementById('password-signin')?.value || 'demo';
+        const emailInput = document.getElementById('email-signin');
+        const passwordInput = document.getElementById('password-signin');
+        const email = emailInput ? emailInput.value.trim() : '';
+        const password = passwordInput ? passwordInput.value : '';
+
+        if (!email) {
+            alert('Please enter your email or registration number.');
+            emailInput?.focus();
+            return;
+        }
+        if (!password) {
+            alert('Please enter your password.');
+            passwordInput?.focus();
+            return;
+        }
+
         const btn = document.getElementById('btn-signin');
         if (btn) {
             btn.disabled = true;
@@ -218,8 +232,11 @@ window.pageInits.signin = function() {
         }
         try {
             const result = await window.api.signin(email, password);
-            if (result.success) {
-                if (result.user && result.user.id) window.CURRENT_USER_ID = result.user.id;
+            if (result.success && result.user) {
+                window.CURRENT_USER_ID = result.user.id;
+                window.CURRENT_USER_NAME = result.user.name;
+                window.CURRENT_USER_EMAIL = result.user.email;
+                localStorage.setItem('lpuquick_user', JSON.stringify(result.user));
                 window.location.hash = '#/';
             } else {
                 alert(result.error || 'Invalid credentials');
@@ -229,15 +246,29 @@ window.pageInits.signin = function() {
                 }
             }
         } catch(e) {
-            window.location.hash = '#/';
+            alert('Sign-in error: ' + (e.message || 'Please check your connection'));
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = `<span>Sign In to LPUQuick</span><span class="material-symbols-outlined text-base">arrow_forward</span>`;
+            }
         }
     });
 
-    // Sign Up Button
+    // Sign Up Button (Registers Typed Name, Email & Password)
     document.getElementById('btn-signup')?.addEventListener('click', async () => {
-        const name = document.getElementById('name-signup')?.value || 'Nivas';
-        const email = document.getElementById('email-signup')?.value || 'nivas@lpu.in';
-        const password = document.getElementById('password-signup')?.value || 'demo';
+        const nameInput = document.getElementById('name-signup');
+        const emailInput = document.getElementById('email-signup');
+        const passwordInput = document.getElementById('password-signup');
+
+        const name = nameInput ? nameInput.value.trim() : '';
+        const email = emailInput ? emailInput.value.trim() : '';
+        const password = passwordInput ? passwordInput.value : '';
+
+        if (!name || !email || !password) {
+            alert('Please fill in your name, email, and password.');
+            return;
+        }
+
         const btn = document.getElementById('btn-signup');
         if (btn) {
             btn.disabled = true;
@@ -245,8 +276,11 @@ window.pageInits.signin = function() {
         }
         try {
             const result = await window.api.signup({ name, email, password });
-            if (result.success) {
-                if (result.user && result.user.id) window.CURRENT_USER_ID = result.user.id;
+            if (result.success && result.user) {
+                window.CURRENT_USER_ID = result.user.id;
+                window.CURRENT_USER_NAME = result.user.name;
+                window.CURRENT_USER_EMAIL = result.user.email;
+                localStorage.setItem('lpuquick_user', JSON.stringify(result.user));
                 window.location.hash = '#/';
             } else {
                 alert(result.error || 'Could not create account');
@@ -256,7 +290,11 @@ window.pageInits.signin = function() {
                 }
             }
         } catch(e) {
-            window.location.hash = '#/';
+            alert('Signup error: ' + (e.message || 'Please try again'));
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = `<span>Create Account</span><span class="material-symbols-outlined text-base">arrow_forward</span>`;
+            }
         }
     });
 
