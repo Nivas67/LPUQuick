@@ -130,6 +130,7 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
     let selectedHostel = 'BH13';
     let selectedBlock = window.currentBlock || localStorage.getItem('lpuquick_block') || 'Block A';
     const savedRoom = window.currentRoom || localStorage.getItem('lpuquick_room') || '';
+    const savedFloor = localStorage.getItem('lpuquick_floor') || '';
     let savedPhone = localStorage.getItem('lpuquick_phone') || '';
     if (savedPhone === '7671836211' || savedPhone === '9877982857') savedPhone = '';
 
