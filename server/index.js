@@ -39,6 +39,10 @@ app.use('/api/test-supabase', require('./routes/test-supabase'));
 const { setupRealtime } = require('./realtime');
 setupRealtime(server, db);
 
+// Dual-Database Sync: Listen to Supabase Cloud changes in real-time
+const { setupCloudDownwardSync } = require('./sync');
+setupCloudDownwardSync(db);
+
 // Admin portal route
 app.get('/admin*', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'admin', 'index.html'));
