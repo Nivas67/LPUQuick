@@ -619,32 +619,94 @@
         </div>
     </div>
 
-    <!-- ================= MODAL: ADMIN LOGIN GATE ================= -->
-    <div id="admin-login-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 hidden">
-        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-[#DADCE0] text-center space-y-4">
-            <div class="w-12 h-12 rounded-2xl bg-[#3c4043] text-white flex items-center justify-center mx-auto text-xl font-bold">
-                ⚡
-            </div>
-            <div>
-                <h3 class="font-bold text-lg text-[#181c1f]">LPU Quick Admin</h3>
-                <p class="text-xs text-[#5c5f60] mt-1">Please enter your administrator credentials</p>
+    <!-- ================= DEDICATED STITCH ADMIN SIGN IN SCREEN ================= -->
+    <div id="admin-auth-screen" class="fixed inset-0 z-50 bg-[#F1F3F4] flex flex-col items-center justify-center p-4 antialiased overflow-y-auto hidden">
+        <main class="w-full max-w-md my-auto">
+            <!-- Glassmorphic Login Card (Exact Stitch Design) -->
+            <div class="bg-white/85 backdrop-blur-xl rounded-2xl overflow-hidden shadow-2xl border border-white/60 p-8 sm:p-10 transition-all hover:shadow-[0_12px_50px_rgba(60,64,67,0.15)]">
+                
+                <!-- Brand Logo & Header -->
+                <div class="flex flex-col items-center mb-8 text-center">
+                    <div class="w-16 h-16 bg-[#3c4043] rounded-2xl flex items-center justify-center shadow-md mb-4 text-white">
+                        <span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">admin_panel_settings</span>
+                    </div>
+                    <h1 class="text-2xl font-black text-[#181c1f] tracking-tight">Admin Sign In</h1>
+                    <p class="text-xs text-[#5c5f60] mt-1 font-medium">Access the LPU Quick campus operations console.</p>
+                </div>
+
+                <!-- Sign In Form -->
+                <form id="stitch-signin-form" onsubmit="handleAdminLogin(event)" class="w-full space-y-4 text-xs">
+                    <!-- Email Field -->
+                    <div>
+                        <label class="block font-semibold text-[#44474a] mb-1.5" for="login-email">Email Address</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#74777a]">
+                                <span class="material-symbols-outlined text-lg">mail</span>
+                            </div>
+                            <input id="login-email" type="email" value="admin@lpu.in" required placeholder="admin@lpu.in" class="block w-full pl-10 pr-3.5 py-3 border border-[#DADCE0] rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#3c4043] focus:border-transparent text-xs text-[#181c1f] font-medium placeholder-[#c4c7ca] shadow-sm"/>
+                        </div>
+                    </div>
+
+                    <!-- Password Field -->
+                    <div>
+                        <label class="block font-semibold text-[#44474a] mb-1.5" for="login-password">Password</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#74777a]">
+                                <span class="material-symbols-outlined text-lg">lock</span>
+                            </div>
+                            <input id="login-password" type="password" value="admin123" required placeholder="••••••••" class="block w-full pl-10 pr-10 py-3 border border-[#DADCE0] rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#3c4043] focus:border-transparent text-xs text-[#181c1f] font-medium placeholder-[#c4c7ca] shadow-sm"/>
+                            <button type="button" onclick="togglePasswordVisibility()" class="absolute inset-y-0 right-0 pr-3 flex items-center text-[#74777a] hover:text-[#181c1f]">
+                                <span class="material-symbols-outlined text-lg" id="password-toggle-icon">visibility</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Error Alert Box -->
+                    <div id="login-error" class="hidden p-3 rounded-xl bg-[#ffdad6] text-[#ba1a1a] text-xs font-semibold flex items-center gap-2">
+                        <span class="material-symbols-outlined text-base">error</span>
+                        <span id="login-error-text">Invalid admin credentials</span>
+                    </div>
+
+                    <!-- Remember & Auto-Fill -->
+                    <div class="flex items-center justify-between text-xs pt-1">
+                        <label class="flex items-center gap-2 text-[#5c5f60] cursor-pointer">
+                            <input type="checkbox" id="remember-me" checked class="rounded border-[#DADCE0] text-[#3c4043] focus:ring-[#3c4043] w-4 h-4"/>
+                            <span>Remember me</span>
+                        </label>
+                        <button type="button" onclick="fillDemoCredentials()" class="font-bold text-[#3c4043] hover:underline">
+                            Auto-Fill Credentials
+                        </button>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="pt-2">
+                        <button type="submit" id="btn-login-submit" class="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#262a2d] hover:bg-[#3c4043] text-white font-bold text-xs tracking-wide shadow-md transition-all active:scale-[0.98]">
+                            <span>Sign In to Admin Hub</span>
+                            <span class="material-symbols-outlined text-base">arrow_forward</span>
+                        </button>
+                    </div>
+
+                    <!-- Quick Access Google / Demo Pass -->
+                    <div class="pt-1">
+                        <button type="button" onclick="quickPassLogin()" class="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 border border-[#DADCE0] rounded-xl bg-white hover:bg-[#f1f4f7] text-[#181c1f] font-semibold text-xs transition-all shadow-sm">
+                            <svg height="16" viewBox="0 0 18 18" width="16"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"></path><path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"></path><path d="M3.964 10.711c-.18-.54-.282-1.117-.282-1.711s.102-1.171.282-1.711V4.957H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.043l3.007-2.332z" fill="#FBBC05"></path><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.443 2.048.957 4.957l3.007 2.332c.708-2.127 2.692-3.709 5.036-3.709z" fill="#EA4335"></path></svg>
+                            <span>Sign in with Google Workspace (LPU.in)</span>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Help Info -->
+                <div class="mt-6 text-center text-xs text-[#5c5f60]">
+                    Need dispatch credentials? <span class="font-bold text-[#181c1f]">BH13 Dark Store Hub</span>
+                </div>
             </div>
 
-            <form onsubmit="handleAdminLogin(event)" class="space-y-3 text-left text-xs">
-                <div>
-                    <label class="font-semibold text-[#262a2d]">Admin Email</label>
-                    <input id="login-email" type="email" value="admin@lpu.in" required class="w-full border border-[#DADCE0] rounded-lg p-2.5 mt-1 focus:border-[#3c4043] outline-none">
-                </div>
-                <div>
-                    <label class="font-semibold text-[#262a2d]">Password</label>
-                    <input id="login-password" type="password" value="admin123" required class="w-full border border-[#DADCE0] rounded-lg p-2.5 mt-1 focus:border-[#3c4043] outline-none">
-                </div>
-                <div id="login-error" class="text-[11px] text-[#ba1a1a] hidden"></div>
-                <button type="submit" id="btn-login-submit" class="w-full bg-[#3c4043] hover:bg-[#262a2d] text-white font-bold py-2.5 rounded-lg transition-all text-xs">
-                    Unlock Admin Operations
-                </button>
-            </form>
-        </div>
+            <!-- Footer Badge -->
+            <div class="mt-6 flex justify-center items-center gap-1.5 text-[#74777a] text-xs">
+                <span class="material-symbols-outlined text-sm text-[#10B981]">verified_user</span>
+                <span class="uppercase tracking-widest font-bold text-[10px]">Secure Campus Admin Portal</span>
+            </div>
+        </main>
     </div>
 
     <!-- Application Script Reference -->

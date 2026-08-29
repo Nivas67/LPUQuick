@@ -899,16 +899,59 @@ function dismissToast(toastId) {
     }, 400);
 }
 
-// ================= 10. AUTHENTICATION =================
+// ================= 10. AUTHENTICATION (STITCH SIGN IN) =================
 function showLoginModal() {
-    document.getElementById('admin-login-modal').classList.remove('hidden');
+    const authScreen = document.getElementById('admin-auth-screen');
+    if (authScreen) authScreen.classList.remove('hidden');
+}
+
+function hideLoginModal() {
+    const authScreen = document.getElementById('admin-auth-screen');
+    if (authScreen) authScreen.classList.add('hidden');
+}
+
+function togglePasswordVisibility() {
+    const passInput = document.getElementById('login-password');
+    const toggleIcon = document.getElementById('password-toggle-icon');
+    if (!passInput || !toggleIcon) return;
+
+    if (passInput.type === 'password') {
+        passInput.type = 'text';
+        toggleIcon.textContent = 'visibility_off';
+    } else {
+        passInput.type = 'password';
+        toggleIcon.textContent = 'visibility';
+    }
+}
+
+function fillDemoCredentials() {
+    const email = document.getElementById('login-email');
+    const pass = document.getElementById('login-password');
+    if (email) email.value = 'admin@lpu.in';
+    if (pass) pass.value = 'admin123';
+}
+
+function quickPassLogin() {
+    fillDemoCredentials();
+    const form = document.getElementById('stitch-signin-form');
+    if (form) form.requestSubmit();
 }
 
 async function handleAdminLogin(e) {
-    e.preventDefault();
+    if (e) e.preventDefault();
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
-    const errorDiv = document.getElementById('login-error');
+    const errorBox = document.getElementById('login-error');
+    const errorText = document.getElementById('login-error-text');
+    const submitBtn = document.getElementById('btn-login-submit');
+
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `
+            <span class="inline-block animate-spin mr-2">⟳</span>
+            <span>Verifying Admin...</span>
+        `;
+    }
 
     try {
         const res = await fetch('/api/auth/admin-login', {
@@ -917,34 +960,60 @@ async function handleAdminLogin(e) {
             body: JSON.stringify({ email, password })
         });
         const data = await res.json();
+        
         if (data.success && data.token) {
             adminToken = data.token;
             localStorage.setItem('lpuquick_admin_token', adminToken);
-            document.getElementById('admin-login-modal').classList.add('hidden');
+            
+            // Welcome chime and UI unlock
+            getAudioContext();
+            playCampusChime();
+            
+            hideLoginModal();
             refreshCurrentView();
+            initRealtimeWebSocket();
         } else {
-            errorDiv.textContent = data.error || 'Invalid admin credentials';
-            errorDiv.classList.remove('hidden');
+            if (errorText) errorText.textContent = data.error || 'Invalid admin credentials';
+            if (errorBox) errorBox.classList.remove('hidden');
         }
     } catch (err) {
-        errorDiv.textContent = 'Login connection error: ' + err.message;
-        errorDiv.classList.remove('hidden');
+        if (errorText) errorText.textContent = 'Network/Server connection error: ' + err.message;
+        if (errorBox) errorBox.classList.remove('hidden');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = `
+                <span>Sign In to Admin Hub</span>
+                <span class="material-symbols-outlined text-base">arrow_forward</span>
+            `;
+        }
     }
 }
 
 function logoutAdmin() {
     localStorage.removeItem('lpuquick_admin_token');
     adminToken = '';
+    if (realtimeWs) {
+        try { realtimeWs.close(); } catch(e){}
+    }
     showLoginModal();
 }
 
-// Initialize on load
-switchView('dashboard');
-updateSoundUI();
-initRealtimeWebSocket();
+// Initial Boot Check
+if (!localStorage.getItem('lpuquick_admin_token')) {
+    showLoginModal();
+} else {
+    hideLoginModal();
+    switchView('dashboard');
+    initRealtimeWebSocket();
+}
 
-// Periodic background sync fallback (every 8 seconds)
+updateSoundUI();
+
+// Periodic background sync fallback (every 8 seconds when authenticated)
 setInterval(() => {
+    if (!adminToken) return;
     if (activeView === 'dashboard') loadDashboard();
     else if (activeView === 'orders') loadOrders();
 }, 8000);
+
