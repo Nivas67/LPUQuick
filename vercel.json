@@ -55,10 +55,6 @@
     {
       "source": "/logo.png",
       "destination": "/client/logo.png"
-    },
-    {
-      "source": "/((?!api|admin|css|js|assets|favicon|logo).*)",
-      "destination": "/client/index.html"
     }
   ]
 }
