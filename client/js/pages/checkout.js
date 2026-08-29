@@ -14,9 +14,13 @@ window.pages.checkout = async function() {
     const items = cartData.items || [];
     const p = cartData.pricing || { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 };
     const subtotal = p.subtotal || 0;
-    const exactTotal = subtotal; // Total to Pay is exactly the item subtotal!
+    
+    // 5% Offer for orders above ₹350
+    const hasDiscount = subtotal >= 350;
+    const discount5 = hasDiscount ? Math.round(subtotal * 0.05) : 0;
+    const exactTotal = Math.max(0, subtotal - discount5);
     window.cartTotalCache = exactTotal;
-    const totalSavings = subtotal > 0 ? 30 : 0; // ₹25 delivery + ₹5 handling savings
+    const totalSavings = (subtotal > 0 ? 30 : 0) + discount5; // ₹25 delivery + ₹5 handling + 5% discount
     const address = window.currentAddressDetail?.label || 'BH13 (Block A), Room 304';
 
     const itemRows = items.map(item => `
@@ -124,6 +128,17 @@ window.pages.checkout = async function() {
                         <span class="font-semibold text-on-surface" id="checkout-subtotal-val">₹${subtotal}</span>
                     </div>
 
+                    ${hasDiscount ? `
+                    <!-- 5% Discount Line -->
+                    <div class="flex justify-between text-emerald font-bold">
+                        <span class="flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">local_offer</span>
+                            5% Offer (Above ₹350)
+                        </span>
+                        <span>-₹${discount5}</span>
+                    </div>
+                    ` : ''}
+
                     <!-- 2. Delivery Partner Fee -->
                     <div class="flex justify-between text-on-surface-variant">
                         <span>Delivery Fee</span>
@@ -146,7 +161,7 @@ window.pages.checkout = async function() {
                     <div class="border-t border-outline-variant/40 pt-3 flex justify-between items-center text-base sm:text-lg font-bold text-on-surface">
                         <div>
                             <span>Total to Pay</span>
-                            <p class="text-[10px] text-emerald font-semibold">100% Free Campus Delivery & Handling</p>
+                            <p class="text-[10px] text-emerald font-semibold">Free Delivery${hasDiscount ? ' + 5% OFF' : ''}</p>
                         </div>
                         <span class="text-2xl text-emerald font-display font-black" id="checkout-total-val">₹${exactTotal}</span>
                     </div>
@@ -155,7 +170,7 @@ window.pages.checkout = async function() {
                 <!-- Savings Banner -->
                 <div class="p-3 bg-emerald/10 border border-emerald/20 rounded-xl flex items-center gap-2 text-xs text-emerald font-semibold">
                     <span class="material-symbols-outlined text-base">savings</span>
-                    <span>🎉 Campus Offer Applied: You saved ₹${totalSavings} on delivery & handling!</span>
+                    <span>🎉 Total Savings: ₹${totalSavings} applied!</span>
                 </div>
             </div>
 
