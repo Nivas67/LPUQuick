@@ -1,5 +1,125 @@
 // LPUQuick Admin Dashboard Operations Logic
 
+// Web Audio API Synthesizer (Works 100% reliably in all modern browsers without external MP3 files)
+let audioCtx = null;
+let soundEnabled = localStorage.getItem('lpuquick_admin_sound') !== 'false';
+
+function getAudioContext() {
+    if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+            audioCtx = new AudioContextClass();
+        }
+    }
+    if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+    return audioCtx;
+}
+
+// Automatically unlock AudioContext on user's first interaction
+['click', 'touchstart', 'keydown', 'mousedown'].forEach(evt => {
+    document.addEventListener(evt, () => {
+        getAudioContext();
+    }, { once: false, passive: true });
+});
+
+// Dual-tone Crystal Bell Chime Synthesizer
+function playCampusChime() {
+    if (!soundEnabled) return;
+    try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+
+        if (ctx.state === 'suspended') {
+            ctx.resume();
+        }
+
+        const now = ctx.currentTime;
+
+        // Tone 1: High Bell Note (E5 into A5)
+        const osc1 = ctx.createOscillator();
+        const gain1 = ctx.createGain();
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(659.25, now); // E5
+        osc1.frequency.exponentialRampToValueAtTime(880.0, now + 0.08); // A5
+
+        gain1.gain.setValueAtTime(0, now);
+        gain1.gain.linearRampToValueAtTime(0.35, now + 0.02);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+        osc1.connect(gain1);
+        gain1.connect(ctx.destination);
+
+        osc1.start(now);
+        osc1.stop(now + 0.6);
+
+        // Tone 2: Harmonizing High Chime (C#6 into E6)
+        const osc2 = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(1108.73, now + 0.1); // C#6
+        osc2.frequency.exponentialRampToValueAtTime(1318.51, now + 0.2); // E6
+
+        gain2.gain.setValueAtTime(0, now + 0.1);
+        gain2.gain.linearRampToValueAtTime(0.4, now + 0.13);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+
+        osc2.connect(gain2);
+        gain2.connect(ctx.destination);
+
+        osc2.start(now + 0.1);
+        osc2.stop(now + 0.9);
+
+    } catch (e) {
+        console.warn('[Audio Synthesizer Fallback]:', e);
+        try {
+            const chime = document.getElementById('order-chime');
+            if (chime) {
+                chime.currentTime = 0;
+                chime.play().catch(() => {});
+            }
+        } catch (err) {}
+    }
+}
+
+function toggleSound() {
+    soundEnabled = !soundEnabled;
+    localStorage.setItem('lpuquick_admin_sound', soundEnabled ? 'true' : 'false');
+    updateSoundUI();
+    if (soundEnabled) {
+        getAudioContext();
+        playCampusChime();
+    }
+}
+
+function testCampusSound() {
+    getAudioContext();
+    if (!soundEnabled) {
+        soundEnabled = true;
+        localStorage.setItem('lpuquick_admin_sound', 'true');
+        updateSoundUI();
+    }
+    playCampusChime();
+}
+
+function updateSoundUI() {
+    const btn = document.getElementById('btn-sound-toggle');
+    const icon = document.getElementById('sound-icon');
+    const text = document.getElementById('sound-status-text');
+    if (!btn || !icon || !text) return;
+
+    if (soundEnabled) {
+        btn.className = 'bg-[#e6f4ea] hover:bg-[#ceead6] text-[#137333] px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm';
+        icon.textContent = 'volume_up';
+        text.textContent = 'Sound: ON';
+    } else {
+        btn.className = 'bg-[#fce8e6] hover:bg-[#fad2cf] text-[#c5221f] px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm';
+        icon.textContent = 'volume_off';
+        text.textContent = 'Sound: OFF';
+    }
+}
+
 // State & Auth Token
 let activeView = 'dashboard';
 let productsCache = [];
@@ -640,14 +760,8 @@ function initRealtimeWebSocket() {
 
 // Handle Incoming Order in Real-Time
 function handleRealtimeNewOrder(order) {
-    // 1. Play Audio Chime
-    try {
-        const chime = document.getElementById('order-chime');
-        if (chime) {
-            chime.currentTime = 0;
-            chime.play().catch(e => console.log('Audio autoplay prevented:', e.message));
-        }
-    } catch (e) {}
+    // 1. Play Synthesized Crystal Chime Audio
+    playCampusChime();
 
     // 2. Show Animated Toast Notification
     showOrderToast(order);
@@ -826,6 +940,7 @@ function logoutAdmin() {
 
 // Initialize on load
 switchView('dashboard');
+updateSoundUI();
 initRealtimeWebSocket();
 
 // Periodic background sync fallback (every 8 seconds)
