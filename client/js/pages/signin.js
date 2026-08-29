@@ -105,7 +105,7 @@ window.pages.signin = async function() {
 };
 
 window.pageInits.signin = function() {
-    const clientId = window.GOOGLE_CLIENT_ID || '632433440395-kqqcgqs0sd5l83gbbtk4e41mufnvtltt.apps.googleusercontent.com';
+    const clientId = window.GOOGLE_CLIENT_ID || '632433440395-4ph6ghe311niied8h423ki98slbse8d2.apps.googleusercontent.com';
 
     function resetGoogleButton() {
         const btn = document.getElementById('btn-google');
