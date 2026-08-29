@@ -160,6 +160,21 @@ const api = {
     async getCategoryProducts(name) {
         const res = await fetch(`${API_BASE}/categories/${encodeURIComponent(name)}`);
         return res.json();
+    },
+
+    // User Address
+    async updateAddress(userId, hostel, block, room, phone) {
+        try {
+            const res = await fetch(`${API_BASE}/auth/update-address`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, hostel, block, room, phone })
+            });
+            return await res.json();
+        } catch (e) {
+            console.warn('[Address Update Warning]:', e.message);
+            return { success: false };
+        }
     }
 };
 

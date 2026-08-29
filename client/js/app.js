@@ -75,8 +75,13 @@ function getPageName(path) {
     return routes[path] || 'home';
 }
 
-// Global Address Selection Modal (BH13 Express Live, BH1-BH12 Coming Soon, Block A/B, Room No)
-window.openAddressModal = function() {
+// Address Configuration State Helper
+window.hasUserConfiguredAddress = function() {
+    return localStorage.getItem('lpuquick_address_configured') === 'true' && Boolean(localStorage.getItem('lpuquick_room'));
+};
+
+// Global Address Selection Modal (BH13 Express Live, BH1-BH12 Coming Soon, Block A/B, Room No, Phone)
+window.openAddressModal = function(isMandatorySetup = false, onComplete = null) {
     const existing = document.getElementById('address-modal');
     if (existing) existing.remove();
 
@@ -104,40 +109,49 @@ window.openAddressModal = function() {
     ];
 
     let selectedHostel = 'BH13';
-    let selectedBlock = window.currentBlock || 'Block A';
+    let selectedBlock = window.currentBlock || localStorage.getItem('lpuquick_block') || 'Block A';
+    const savedRoom = window.currentRoom || localStorage.getItem('lpuquick_room') || '';
+    const savedFloor = localStorage.getItem('lpuquick_floor') || '3rd Floor';
+    const savedPhone = localStorage.getItem('lpuquick_phone') || '';
 
     const modal = document.createElement('div');
     modal.id = 'address-modal';
     modal.className = 'modal-overlay';
     modal.innerHTML = `
-        <div class="modal-content p-5 sm:p-6 space-y-4 max-h-[85vh] overflow-y-auto" onclick="event.stopPropagation()">
+        <div class="modal-content p-5 sm:p-6 space-y-4 max-h-[88vh] overflow-y-auto" onclick="event.stopPropagation()">
             <!-- Header -->
             <div class="flex justify-between items-center pb-3 border-b border-surface-variant/40">
                 <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined text-emerald text-2xl">location_on</span>
+                    <div class="w-9 h-9 rounded-2xl bg-emerald/10 text-emerald flex items-center justify-center">
+                        <span class="material-symbols-outlined text-xl">location_on</span>
+                    </div>
                     <div>
-                        <h3 class="font-bold text-sm sm:text-base text-on-surface">Select Delivery Location</h3>
+                        <h3 class="font-bold text-sm sm:text-base text-on-surface">${isMandatorySetup ? 'Delivery Address Required' : 'Select Delivery Location'}</h3>
                         <p class="text-[11px] text-on-surface-variant">LPU Campus Express Delivery (3 mins)</p>
                     </div>
                 </div>
+                ${isMandatorySetup ? `
+                <span class="text-[10px] bg-emerald/10 text-emerald px-2 py-0.5 rounded-full font-bold">Step 2: Room Info</span>
+                ` : `
                 <button type="button" class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface" onclick="document.getElementById('address-modal').remove()">
                     <span class="material-symbols-outlined text-base">close</span>
                 </button>
+                `}
             </div>
 
             <!-- Notice Banner -->
             <div class="p-3 bg-emerald/10 border border-emerald/20 rounded-2xl flex items-center gap-2.5 text-xs text-emerald font-medium">
                 <span class="material-symbols-outlined text-base">bolt</span>
-                <span>Express 3-min delivery is exclusively live at <strong>BH13</strong>! Other hostels opening next week.</span>
+                <span>Express 3-min delivery is exclusively live at <strong>BH13</strong>! Food delivered straight to your room.</span>
             </div>
 
             <!-- Hostel Selector Grid -->
             <div class="space-y-2">
                 <div class="flex justify-between items-center">
                     <label class="block text-xs font-semibold text-on-surface-variant">Choose Hostel / Building</label>
-                    <span class="text-[10px] text-on-surface-variant">13 Hostels</span>
+                    <span class="text-[10px] text-emerald font-bold">BH13 Active</span>
                 </div>
-                <div class="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-44 overflow-y-auto p-1 no-scrollbar" id="hostels-container">
+                <div class="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-36 overflow-y-auto p-1 no-scrollbar" id="hostels-container">
                     ${allLocations.map(h => {
                         const isSelected = h.name === selectedHostel;
                         if (h.active) {
@@ -177,13 +191,28 @@ window.openAddressModal = function() {
             <!-- Room & Floor Input -->
             <div class="grid grid-cols-2 gap-2.5">
                 <div class="space-y-1">
-                    <label class="block text-xs font-semibold text-on-surface-variant" for="room-input">Room Number</label>
-                    <input type="text" id="room-input" class="w-full px-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface font-semibold focus:outline-none focus:border-emerald" placeholder="e.g. 304" value="${window.currentRoom || '304'}">
+                    <label class="block text-xs font-semibold text-on-surface-variant" for="room-input">Room Number *</label>
+                    <input type="text" id="room-input" required class="w-full px-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface font-semibold focus:outline-none focus:border-emerald" placeholder="e.g. 304" value="${savedRoom}">
                 </div>
                 <div class="space-y-1">
                     <label class="block text-xs font-semibold text-on-surface-variant" for="floor-input">Floor</label>
-                    <input type="text" id="floor-input" class="w-full px-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface focus:outline-none focus:border-emerald" placeholder="e.g. 3rd Floor" value="3rd Floor">
+                    <input type="text" id="floor-input" class="w-full px-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface focus:outline-none focus:border-emerald" placeholder="e.g. 3rd Floor" value="${savedFloor}">
                 </div>
+            </div>
+
+            <!-- Student Mobile Number for Delivery Rider Contact -->
+            <div class="space-y-1">
+                <label class="block text-xs font-semibold text-on-surface-variant" for="phone-input">Contact Phone Number (For delivery runner) *</label>
+                <div class="relative">
+                    <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant">+91</span>
+                    <input type="tel" id="phone-input" maxlength="10" required class="w-full pl-12 pr-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface font-semibold focus:outline-none focus:border-emerald" placeholder="7671836211" value="${savedPhone}">
+                </div>
+            </div>
+
+            <!-- Inline Validation Alert -->
+            <div id="address-validation-alert" class="hidden p-2.5 bg-red-500/10 border border-red-500/30 rounded-xl text-red-600 text-xs flex items-center gap-2">
+                <span class="material-symbols-outlined text-sm">error</span>
+                <span id="address-validation-msg">Please enter your room number.</span>
             </div>
 
             <!-- Inline Alert for Blocked Hostels (Initially hidden) -->
@@ -194,12 +223,14 @@ window.openAddressModal = function() {
 
             <!-- Save Button -->
             <button type="button" id="save-address-btn" class="w-full bg-emerald text-white rounded-full py-3.5 text-xs sm:text-sm font-semibold shadow-md hover:bg-primary transition-all active:scale-95 cursor-pointer">
-                Deliver to BH13 (<span id="btn-block-label">${selectedBlock}</span>)
+                Confirm Address & Deliver to BH13 (<span id="btn-block-label">${selectedBlock}</span>)
             </button>
         </div>
     `;
 
-    modal.onclick = () => modal.remove();
+    if (!isMandatorySetup) {
+        modal.onclick = () => modal.remove();
+    }
     document.body.appendChild(modal);
 
     // Block selection handler
@@ -217,7 +248,7 @@ window.openAddressModal = function() {
         };
     });
 
-    // Disabled hostels click handler (displays coming soon message)
+    // Disabled hostels click handler
     modal.querySelectorAll('.hostel-disabled-btn').forEach(btn => {
         btn.onclick = () => {
             const hName = btn.dataset.hostel;
@@ -231,22 +262,56 @@ window.openAddressModal = function() {
     });
 
     // Save Address
-    document.getElementById('save-address-btn').onclick = () => {
-        const room = document.getElementById('room-input')?.value?.trim() || '304';
+    document.getElementById('save-address-btn').onclick = async () => {
+        const room = document.getElementById('room-input')?.value?.trim();
         const floor = document.getElementById('floor-input')?.value?.trim() || '3rd Floor';
+        const phone = document.getElementById('phone-input')?.value?.trim();
+        const alertBox = document.getElementById('address-validation-alert');
+        const alertMsg = document.getElementById('address-validation-msg');
+
+        if (!room) {
+            if (alertBox && alertMsg) {
+                alertBox.classList.remove('hidden');
+                alertMsg.textContent = 'Please enter your Room Number (e.g. 304).';
+            }
+            document.getElementById('room-input')?.focus();
+            return;
+        }
+
+        if (phone && phone.length < 10) {
+            if (alertBox && alertMsg) {
+                alertBox.classList.remove('hidden');
+                alertMsg.textContent = 'Please enter a valid 10-digit mobile number.';
+            }
+            document.getElementById('phone-input')?.focus();
+            return;
+        }
 
         window.currentAddress = 'BH13';
         window.currentBlock = selectedBlock;
         window.currentRoom = room;
-        window.currentAddressDetail = `Room ${room}, ${floor}, ${selectedBlock}, Boys Hostel 13`;
+        window.currentAddressDetail = `BH13 (${selectedBlock}), Room ${room}`;
 
         localStorage.setItem('lpuquick_address', window.currentAddress);
         localStorage.setItem('lpuquick_block', window.currentBlock);
         localStorage.setItem('lpuquick_room', window.currentRoom);
+        localStorage.setItem('lpuquick_floor', floor);
+        if (phone) localStorage.setItem('lpuquick_phone', phone);
+        localStorage.setItem('lpuquick_address_configured', 'true');
         localStorage.setItem('lpuquick_address_detail', window.currentAddressDetail);
 
+        // Sync with backend profile
+        if (window.isUserLoggedIn() && window.api?.updateAddress) {
+            window.api.updateAddress(window.CURRENT_USER_ID, 'BH13', selectedBlock, room, phone);
+        }
+
         modal.remove();
-        router(); // Refresh header everywhere
+
+        if (typeof onComplete === 'function') {
+            onComplete();
+        } else {
+            router();
+        }
     };
 };
 

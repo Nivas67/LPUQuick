@@ -16,6 +16,11 @@ async function handlePlaceOrder(req, res) {
         return res.status(401).json({ error: 'Authentication required. Please sign in with Google or Student Email to place your order.' });
     }
 
+    // Strict Address Check: Room address must be specified
+    if (!deliveryAddress || typeof deliveryAddress !== 'string' || deliveryAddress.trim().length < 4 || deliveryAddress.includes('Please set')) {
+        return res.status(400).json({ error: 'Hostel room delivery address is required. Please set your hostel room number.' });
+    }
+
     try {
         // Fetch cart items directly from Supabase
         const cart = await supabaseDb.cart.getCart(userId);

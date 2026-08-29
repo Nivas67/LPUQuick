@@ -150,7 +150,15 @@ window.pageInits.signin = function() {
                 const redirectTarget = window.postLoginRedirect || localStorage.getItem('lpuquick_redirect') || '#/';
                 localStorage.removeItem('lpuquick_redirect');
                 window.postLoginRedirect = null;
-                window.location.hash = redirectTarget;
+
+                // After sign-in, user MUST add / confirm their hostel room address to order food
+                if (!window.hasUserConfiguredAddress()) {
+                    window.openAddressModal(true, () => {
+                        window.location.hash = redirectTarget;
+                    });
+                } else {
+                    window.location.hash = redirectTarget;
+                }
             } else {
                 resetGoogleButton();
                 showStatusMessage('Could not verify Google account. Please try again.', true);

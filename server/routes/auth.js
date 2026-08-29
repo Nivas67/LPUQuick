@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const supabaseDb = require('../db/supabaseDb');
+const { getSupabaseClient } = require('../supabase');
 
 // POST /api/auth/signin
 router.post('/signin', async (req, res) => {
@@ -47,6 +48,25 @@ router.post('/signin', async (req, res) => {
                 phone: user.phone
             }
         });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/auth/update-address (Save campus delivery hostel & room address)
+router.post('/update-address', async (req, res) => {
+    const { userId, hostel, block, room, phone } = req.body;
+    if (!userId) return res.status(400).json({ error: 'userId is required' });
+
+    try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            const payload = {};
+            if (phone) payload.phone = phone;
+            if (room) payload.dob = `${hostel || 'BH13'}, ${block || 'Block A'}, Room ${room}`;
+            await supabase.from('users').update(payload).eq('id', userId);
+        }
+        res.json({ success: true, message: 'Campus delivery address saved successfully' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

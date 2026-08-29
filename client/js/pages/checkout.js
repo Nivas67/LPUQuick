@@ -21,7 +21,9 @@ window.pages.checkout = async function() {
     const exactTotal = Math.max(0, subtotal - discount5);
     window.cartTotalCache = exactTotal;
     const totalSavings = (subtotal > 0 ? 30 : 0) + discount5; // ₹25 delivery + ₹5 handling + 5% discount
-    const address = window.currentAddressDetail?.label || 'BH13 (Block A), Room 304';
+    const savedRoom = localStorage.getItem('lpuquick_room') || window.currentRoom;
+    const savedBlock = localStorage.getItem('lpuquick_block') || window.currentBlock || 'Block A';
+    const address = savedRoom ? `BH13 (${savedBlock}), Room ${savedRoom}` : 'Please set your hostel room number';
 
     const itemRows = items.map(item => `
         <div class="flex items-center justify-between py-3 border-b border-surface-variant/30 text-xs sm:text-sm">
@@ -94,6 +96,23 @@ window.pages.checkout = async function() {
                     <span>Sign In</span>
                     <span class="material-symbols-outlined text-xs">arrow_forward</span>
                 </a>
+            </div>
+            ` : !window.hasUserConfiguredAddress() ? `
+            <!-- Room Address Required Banner -->
+            <div class="glass-card rounded-3xl p-4 border border-emerald/40 bg-emerald/10 flex items-center justify-between shadow-sm">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-emerald/20 text-emerald flex items-center justify-center flex-shrink-0">
+                        <span class="material-symbols-outlined text-xl">home_pin</span>
+                    </div>
+                    <div>
+                        <p class="font-bold text-xs sm:text-sm text-on-surface">Room Address Required</p>
+                        <p class="text-[11px] text-on-surface-variant">Add your hostel room number to order.</p>
+                    </div>
+                </div>
+                <button type="button" onclick="window.openAddressModal(true, () => window.router())" class="bg-emerald text-white px-4 py-2 rounded-full text-xs font-bold shadow-md hover:bg-primary transition-all active:scale-95 flex items-center gap-1 cursor-pointer">
+                    <span>Add Address</span>
+                    <span class="material-symbols-outlined text-xs">arrow_forward</span>
+                </button>
             </div>
             ` : ''}
 
@@ -648,6 +667,15 @@ window.pageInits.checkout = function() {
             return;
         }
 
+        if (!window.hasUserConfiguredAddress()) {
+            resetSlider();
+            showPaymentToast('📍 Room Address Required: Please confirm your hostel room number.');
+            window.openAddressModal(true, () => {
+                if (window.router) window.router();
+            });
+            return;
+        }
+
         if (isSubmitting) return;
         isSubmitting = true;
 
@@ -672,7 +700,9 @@ window.pageInits.checkout = function() {
             thumbIcon.classList.add('animate-spin');
         }
 
-        const deliveryAddress = window.currentAddressDetail?.label || 'BH13 (Block A), Room 304';
+        const savedRoom = localStorage.getItem('lpuquick_room') || window.currentRoom || '304';
+        const savedBlock = localStorage.getItem('lpuquick_block') || window.currentBlock || 'Block A';
+        const deliveryAddress = `BH13 (${savedBlock}), Room ${savedRoom}`;
         const selectedPaymentMethod = 'Cash on Delivery';
 
         try {
