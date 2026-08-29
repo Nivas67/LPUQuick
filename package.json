@@ -9,6 +9,7 @@
     "test": "node server/tests/pricing.test.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.112.4",
     "cors": "^2.8.5",
     "express": "^4.21.0",
     "pngjs": "^7.0.0",
