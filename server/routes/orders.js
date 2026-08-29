@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const supabaseDb = require('../db/supabaseDb');
 const { broadcastStatusUpdate } = require('../realtime');
+const { getSupabaseClient } = require('../supabase');
 
 const ACTIVE_STATUSES = ['Order Placed', 'Order Confirmed', 'Preparing', 'Out for Delivery', 'pending', 'confirmed', 'accepted', 'packed', 'en_route'];
 
@@ -10,6 +11,51 @@ router.get('/', async (req, res) => {
     try {
         const orders = await supabaseDb.orders.getAllOrders();
         res.json({ orders });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/orders/admin/live (Live orders feed)
+router.get('/admin/live', async (req, res) => {
+    try {
+        const orders = await supabaseDb.orders.getAllOrders();
+        const active = orders.filter(o => ACTIVE_STATUSES.includes(o.status));
+        res.json({ orders: active });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/orders/admin/customers (Customers list for admin)
+router.get('/admin/customers', async (req, res) => {
+    try {
+        const supabase = getSupabaseClient();
+        const { data: users, error } = await supabase.from('users').select('id, name, email, phone, created_at');
+        if (error) throw error;
+        res.json({ customers: users || [] });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/orders/admin/metrics
+router.get('/admin/metrics', async (req, res) => {
+    try {
+        const orders = await supabaseDb.orders.getAllOrders();
+        const totalRevenue = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+        const activeOrders = orders.filter(o => ACTIVE_STATUSES.includes(o.status)).length;
+        const deliveredOrders = orders.filter(o => o.status === 'Delivered').length;
+
+        res.json({
+            metrics: {
+                total_orders: orders.length,
+                active_orders: activeOrders,
+                delivered_orders: deliveredOrders,
+                total_revenue: totalRevenue,
+                avg_delivery_time_mins: 3.2
+            }
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

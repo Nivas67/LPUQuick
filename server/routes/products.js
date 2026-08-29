@@ -90,6 +90,17 @@ router.put('/admin/update/:id', requireAdmin, async (req, res) => {
     }
 });
 
+// DELETE /api/products/admin/deactivate/:id (Deactivate product in Supabase)
+router.delete('/admin/deactivate/:id', requireAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const updated = await supabaseDb.products.update(id, { in_stock: false });
+        res.json({ success: true, message: `Product deactivated successfully`, product: updated });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // DELETE /api/products/admin/delete/:id (Hard delete from Supabase)
 router.delete('/admin/delete/:id', requireAdmin, async (req, res) => {
     const { id } = req.params;
@@ -111,6 +122,31 @@ router.post('/admin/toggle-stock', requireAdmin, async (req, res) => {
     try {
         const updated = await supabaseDb.products.update(productId, { in_stock: Boolean(inStock) });
         res.json({ success: true, message: 'Stock updated in Supabase Cloud', in_stock: updated.in_stock });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/products/admin/adjust-stock (Adjust stock in Supabase)
+router.post('/admin/adjust-stock', requireAdmin, async (req, res) => {
+    const { productId, inStock, delta } = req.body;
+    if (!productId) {
+        return res.status(400).json({ error: 'productId is required' });
+    }
+
+    try {
+        const product = await supabaseDb.products.getById(productId);
+        if (!product) return res.status(404).json({ error: 'Product not found' });
+
+        const newInStock = inStock !== undefined ? Boolean(inStock) : true;
+        const updated = await supabaseDb.products.update(productId, { in_stock: newInStock });
+
+        res.json({
+            success: true,
+            productId,
+            in_stock: updated.in_stock,
+            status: updated.in_stock ? 'In Stock' : 'Out of Stock'
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
