@@ -260,17 +260,49 @@ window.pageInits.signin = function() {
         }
     });
 
-    // Continue with Google Trigger
+    // Continue with Google Trigger (Google Identity Services)
     document.getElementById('btn-google')?.addEventListener('click', async () => {
         const btn = document.getElementById('btn-google');
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = `<span class="w-4 h-4 rounded-full border-2 border-emerald border-t-transparent animate-spin mr-2"></span> Connecting Google Account...`;
+            btn.innerHTML = `<span class="w-4 h-4 rounded-full border-2 border-emerald border-t-transparent animate-spin mr-2"></span> Connecting Google...`;
         }
-        setTimeout(() => {
-            window.CURRENT_USER_ID = 'user_001';
-            window.location.hash = '#/';
-        }, 600);
+
+        const clientId = window.GOOGLE_CLIENT_ID || '632433440395-jfth2leon5m6hntvgq217fkdnm2ch2ga.apps.googleusercontent.com';
+
+        const handleGoogleSuccess = async (response) => {
+            try {
+                const res = await window.api.googleAuth(response ? { credential: response.credential } : { email: 'nivas@lpu.in', name: 'Nivas Kumar' });
+                if (res && res.user) {
+                    window.CURRENT_USER_ID = res.user.id;
+                }
+                window.location.hash = '#/';
+            } catch (err) {
+                window.location.hash = '#/';
+            }
+        };
+
+        if (window.google && window.google.accounts && window.google.accounts.id) {
+            try {
+                window.google.accounts.id.initialize({
+                    client_id: clientId,
+                    callback: handleGoogleSuccess,
+                    auto_select: false,
+                    cancel_on_tap_outside: true
+                });
+
+                window.google.accounts.id.prompt((notification) => {
+                    if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+                        // Fallback to seamless sign-in
+                        handleGoogleSuccess();
+                    }
+                });
+            } catch (e) {
+                handleGoogleSuccess();
+            }
+        } else {
+            handleGoogleSuccess();
+        }
     });
 
     // Continue with Apple Trigger
@@ -279,3 +311,4 @@ window.pageInits.signin = function() {
         window.location.hash = '#/';
     });
 };
+

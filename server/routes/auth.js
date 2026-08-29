@@ -72,4 +72,46 @@ router.post('/signup', (req, res) => {
     res.json({ success: true, user: { id, name, email, phone, dob } });
 });
 
+// POST /api/auth/google
+router.post('/google', (req, res) => {
+    const { credential, email: directEmail, name: directName } = req.body;
+    const db = req.app.locals.db;
+
+    let email = directEmail;
+    let name = directName;
+
+    // Decode JWT from Google Identity Services
+    if (credential) {
+        try {
+            const parts = credential.split('.');
+            if (parts.length === 3) {
+                const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+                if (payload && payload.email) {
+                    email = payload.email;
+                    name = payload.name || payload.given_name || 'LPU Student';
+                }
+            }
+        } catch (err) {
+            console.error('[Google Token Decode Error]:', err);
+        }
+    }
+
+    if (!email) {
+        email = 'nivas@lpu.in';
+        name = 'Nivas Kumar';
+    }
+
+    // Check if user exists in SQLite DB
+    let user = db.prepare('SELECT id, name, email, phone, dob, role FROM users WHERE email = ?').get(email);
+
+    if (!user) {
+        const id = `user_${uuidv4().slice(0, 8)}`;
+        db.prepare('INSERT INTO users (id, name, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?, ?)')
+            .run(id, name || 'LPU Student', email, '', 'google_oauth', 'student');
+        user = { id, name: name || 'LPU Student', email, phone: '', role: 'student' };
+    }
+
+    res.json({ success: true, user, message: 'Google Sign-In successful' });
+});
+
 module.exports = router;

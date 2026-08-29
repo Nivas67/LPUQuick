@@ -17,6 +17,13 @@ const api = {
         });
         return res.json();
     },
+    async googleAuth(payload = {}) {
+        const res = await fetch(`${API_BASE}/auth/google`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        return res.json();
+    },
 
     // Home
     async fetchHome() {
