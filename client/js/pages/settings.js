@@ -3,6 +3,11 @@ window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
 window.pages.settings = async function() {
+    const userName = window.CURRENT_USER_NAME || 'Nivas';
+    const userEmail = window.CURRENT_USER_EMAIL || 'nivas@lpu.in';
+    const userPicture = window.CURRENT_USER_PICTURE || '';
+    const initial = userName ? userName[0].toUpperCase() : 'N';
+
     return `
 <div class="bg-background text-on-background font-body-md min-h-screen pb-32">
     <!-- TopAppBar -->
@@ -13,32 +18,34 @@ window.pages.settings = async function() {
             </a>
             <h1 class="font-headline-md text-base sm:text-lg font-bold text-on-surface">Profile & Settings</h1>
         </div>
-        <a href="#/signin" class="p-2 hover:bg-surface-variant/50 rounded-full transition-colors text-error" title="Sign Out">
-            <span class="material-symbols-outlined">logout</span>
-        </a>
+        <button type="button" id="btn-sign-out" class="p-2 hover:bg-surface-variant/50 rounded-full transition-colors text-error cursor-pointer flex items-center gap-1 text-xs font-bold" title="Sign Out">
+            <span class="material-symbols-outlined text-sm">logout</span>
+            <span class="hidden sm:inline">Sign Out</span>
+        </button>
     </header>
 
     <main class="px-margin-mobile md:px-margin-desktop max-w-3xl mx-auto pt-6 space-y-5">
         <!-- User Profile Card -->
         <div class="glass-card rounded-3xl p-5 sm:p-6 border border-glass-border shadow-sm flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left">
+            ${userPicture ? `
+            <img src="${userPicture}" alt="${userName}" class="w-16 sm:w-20 h-16 sm:h-20 rounded-full object-cover border-2 border-emerald shadow-md flex-shrink-0">
+            ` : `
             <div class="w-16 sm:w-20 h-16 sm:h-20 rounded-full bg-gradient-to-tr from-emerald to-royal-purple text-white font-display text-xl sm:text-2xl font-bold flex items-center justify-center shadow-md flex-shrink-0">
-                N
+                ${initial}
             </div>
+            `}
             <div class="flex-1 space-y-1">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
-                    <h2 class="font-headline-md text-lg sm:text-xl font-bold text-on-surface">Nivas</h2>
+                    <h2 class="font-headline-md text-lg sm:text-xl font-bold text-on-surface">${userName}</h2>
                     <span class="inline-flex items-center gap-1 text-[11px] bg-emerald/10 text-emerald font-bold px-3 py-0.5 rounded-full mx-auto sm:mx-0">
                         <span class="material-symbols-outlined text-xs">verified</span> LPU Verified Student
                     </span>
                 </div>
                 <p class="text-xs text-on-surface-variant flex items-center justify-center sm:justify-start gap-1">
-                    <span class="material-symbols-outlined text-sm">call</span> +91 7671836211
+                    <span class="material-symbols-outlined text-sm">mail</span> ${userEmail}
                 </p>
                 <p class="text-xs text-on-surface-variant flex items-center justify-center sm:justify-start gap-1">
-                    <span class="material-symbols-outlined text-sm">mail</span> nivas@lpu.in
-                </p>
-                <p class="text-xs text-on-surface-variant flex items-center justify-center sm:justify-start gap-1">
-                    <span class="material-symbols-outlined text-sm">cake</span> DOB: 04 Aug 2006
+                    <span class="material-symbols-outlined text-sm">location_on</span> BH13 Express Campus Store
                 </p>
             </div>
         </div>
@@ -169,4 +176,14 @@ window.pageInits.settings = function() {
             }
         };
     }
+
+    // Sign Out Handler
+    document.getElementById('btn-sign-out')?.addEventListener('click', () => {
+        localStorage.removeItem('lpuquick_user');
+        window.CURRENT_USER_ID = 'user_001';
+        window.CURRENT_USER_NAME = null;
+        window.CURRENT_USER_EMAIL = null;
+        window.CURRENT_USER_PICTURE = null;
+        window.location.hash = '#/signin';
+    });
 };

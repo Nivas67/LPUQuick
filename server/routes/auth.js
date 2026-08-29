@@ -74,11 +74,12 @@ router.post('/signup', (req, res) => {
 
 // POST /api/auth/google
 router.post('/google', (req, res) => {
-    const { credential, email: directEmail, name: directName } = req.body;
+    const { credential, email: directEmail, name: directName, picture: directPicture } = req.body;
     const db = req.app.locals.db;
 
     let email = directEmail;
     let name = directName;
+    let picture = directPicture || '';
 
     // Decode JWT from Google Identity Services
     if (credential) {
@@ -89,6 +90,7 @@ router.post('/google', (req, res) => {
                 if (payload && payload.email) {
                     email = payload.email;
                     name = payload.name || payload.given_name || 'LPU Student';
+                    picture = payload.picture || '';
                 }
             }
         } catch (err) {
@@ -108,7 +110,9 @@ router.post('/google', (req, res) => {
         const id = `user_${uuidv4().slice(0, 8)}`;
         db.prepare('INSERT INTO users (id, name, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?, ?)')
             .run(id, name || 'LPU Student', email, '', 'google_oauth', 'student');
-        user = { id, name: name || 'LPU Student', email, phone: '', role: 'student' };
+        user = { id, name: name || 'LPU Student', email, phone: '', role: 'student', picture };
+    } else {
+        user = { ...user, picture };
     }
 
     res.json({ success: true, user, message: 'Google Sign-In successful' });

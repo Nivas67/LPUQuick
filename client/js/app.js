@@ -1,7 +1,22 @@
 // LPUQuick SPA Router & Global Controller
 window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
-window.CURRENT_USER_ID = window.CURRENT_USER_ID || 'user_001';
+
+// Auth User state
+try {
+    const savedUser = JSON.parse(localStorage.getItem('lpuquick_user') || 'null');
+    if (savedUser && savedUser.id) {
+        window.CURRENT_USER_ID = savedUser.id;
+        window.CURRENT_USER_NAME = savedUser.name;
+        window.CURRENT_USER_EMAIL = savedUser.email;
+        window.CURRENT_USER_PICTURE = savedUser.picture || '';
+    } else {
+        window.CURRENT_USER_ID = window.CURRENT_USER_ID || 'user_001';
+    }
+} catch(e) {
+    window.CURRENT_USER_ID = window.CURRENT_USER_ID || 'user_001';
+}
+
 window.cartState = window.cartState || {};
 
 // Address state (Defaulting to BH13 Exclusive Launch)
