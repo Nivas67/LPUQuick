@@ -6,7 +6,7 @@ let productsCache = [];
 let ordersCache = [];
 let adminToken = localStorage.getItem('lpuquick_admin_token') || 'adm_sec_auto_auth';
 let currentDrawerOrderId = null;
-let lastKnownOrderCount = 0;
+let realtimeWs = null;
 
 // Headers for protected API calls
 function getAuthHeaders() {
@@ -83,14 +83,15 @@ async function loadDashboard() {
             badge.classList.toggle('hidden', !m.pendingOrdersCount);
         }
 
-        // Render Recent Orders
-        const recentOrders = (ordersData.orders || []).slice(0, 5);
+        // Cache & Render Recent Orders
+        ordersCache = ordersData.orders || [];
+        const recentOrders = ordersCache.slice(0, 5);
         const tbody = document.getElementById('dash-recent-orders-tbody');
         if (recentOrders.length === 0) {
             tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-[#5c5f60]">No orders found in database.</td></tr>`;
         } else {
             tbody.innerHTML = recentOrders.map(o => `
-                <tr class="hover:bg-[#f7fafd] transition-colors cursor-pointer" onclick="openOrderDrawer('${o.id}')">
+                <tr class="hover:bg-[#f7fafd] transition-colors cursor-pointer" onclick="openOrderDrawer('${o.id}')" id="order-row-${o.id}">
                     <td class="p-3.5 font-bold font-mono text-[#181c1f]">#${(o.id || '').replace('order_', '').toUpperCase()}</td>
                     <td class="p-3.5 font-medium text-[#181c1f]">${o.customer_name || 'Nivas'}</td>
                     <td class="p-3.5 text-[#5c5f60] truncate max-w-[150px]">${o.item_summary || 'Campus items'}</td>
@@ -313,13 +314,6 @@ async function loadOrders() {
         const res = await fetch('/api/orders/admin/all', { headers: getAuthHeaders() });
         const data = await res.json();
         ordersCache = data.orders || [];
-
-        // Real-time sound notification if new order arrived
-        if (lastKnownOrderCount > 0 && ordersCache.length > lastKnownOrderCount) {
-            try { document.getElementById('order-chime')?.play(); } catch(e){}
-        }
-        lastKnownOrderCount = ordersCache.length;
-
         filterOrders();
     } catch (err) {
         console.error('Failed to load orders:', err);
@@ -358,13 +352,13 @@ function filterOrders() {
     }
 
     tbody.innerHTML = filtered.map(o => `
-        <tr class="hover:bg-[#f7fafd] transition-colors cursor-pointer" onclick="openOrderDrawer('${o.id}')">
+        <tr class="hover:bg-[#f7fafd] transition-colors cursor-pointer" onclick="openOrderDrawer('${o.id}')" id="order-row-${o.id}">
             <td class="p-4 font-bold font-mono text-[#181c1f]">#${(o.id || '').replace('order_', '').toUpperCase()}</td>
             <td class="p-4 font-semibold text-[#181c1f]">${o.customer_name || 'Nivas'}</td>
             <td class="p-4 text-[#5c5f60]">${o.delivery_address || 'BH13 (Block A), Room 304'}</td>
             <td class="p-4 font-bold text-[#137333]">₹${o.total}</td>
             <td class="p-4 text-[#5c5f60]">${o.payment_method || 'COD'}</td>
-            <td class="p-4">${getStatusPill(o.status)}</td>
+            <td class="p-4" id="order-status-pill-${o.id}">${getStatusPill(o.status)}</td>
             <td class="p-4 text-[#74777a]">${new Date(o.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
             <td class="p-4 text-right">
                 <button onclick="event.stopPropagation(); openOrderDrawer('${o.id}')" class="text-xs font-semibold text-[#3c4043] bg-[#ebeef2] hover:bg-[#e0e3e6] px-3 py-1 rounded-full">
@@ -601,7 +595,197 @@ async function loadAnalytics() {
     }
 }
 
-// ================= 9. AUTHENTICATION =================
+// ================= 9. REAL-TIME WEBSOCKET & TOAST NOTIFICATIONS =================
+function initRealtimeWebSocket() {
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${location.host}/ws/admin`;
+
+    console.log('[Admin WS] Connecting to:', wsUrl);
+    try {
+        realtimeWs = new WebSocket(wsUrl);
+
+        realtimeWs.onopen = () => {
+            console.log('[Admin WS] Connected to live orders stream.');
+        };
+
+        realtimeWs.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                console.log('[Admin WS Message Received]:', data);
+
+                if (data.type === 'NEW_ORDER' && data.order) {
+                    handleRealtimeNewOrder(data.order);
+                } else if (data.type === 'ORDER_STATUS_UPDATE') {
+                    handleRealtimeStatusUpdate(data);
+                }
+            } catch (err) {
+                console.error('[Admin WS Parse Error]:', err);
+            }
+        };
+
+        realtimeWs.onclose = () => {
+            console.warn('[Admin WS] Disconnected. Reconnecting in 3s...');
+            setTimeout(initRealtimeWebSocket, 3000);
+        };
+
+        realtimeWs.onerror = (err) => {
+            console.error('[Admin WS Error]:', err);
+            realtimeWs.close();
+        };
+    } catch (e) {
+        console.error('[Admin WS Init Error]:', e);
+        setTimeout(initRealtimeWebSocket, 5000);
+    }
+}
+
+// Handle Incoming Order in Real-Time
+function handleRealtimeNewOrder(order) {
+    // 1. Play Audio Chime
+    try {
+        const chime = document.getElementById('order-chime');
+        if (chime) {
+            chime.currentTime = 0;
+            chime.play().catch(e => console.log('Audio autoplay prevented:', e.message));
+        }
+    } catch (e) {}
+
+    // 2. Show Animated Toast Notification
+    showOrderToast(order);
+
+    // 3. Prepend to local orders cache
+    ordersCache = ordersCache.filter(o => o.id !== order.id);
+    ordersCache.unshift(order);
+
+    // 4. Update KPI Metrics Dynamically
+    const totalOrdersEl = document.getElementById('dash-total-orders');
+    const pendingOrdersEl = document.getElementById('dash-pending-orders');
+    const totalRevEl = document.getElementById('dash-total-revenue');
+    const badgeEl = document.getElementById('nav-pending-badge');
+
+    if (totalOrdersEl && totalOrdersEl.textContent !== '--') {
+        totalOrdersEl.textContent = parseInt(totalOrdersEl.textContent, 10) + 1;
+    }
+    if (pendingOrdersEl && pendingOrdersEl.textContent !== '--') {
+        const pCount = parseInt(pendingOrdersEl.textContent, 10) + 1;
+        pendingOrdersEl.textContent = pCount;
+        if (badgeEl) {
+            badgeEl.textContent = pCount;
+            badgeEl.classList.remove('hidden');
+        }
+    }
+    if (totalRevEl && totalRevEl.textContent !== '--') {
+        const currentRev = parseFloat(totalRevEl.textContent.replace('₹', '')) || 0;
+        totalRevEl.textContent = `₹${currentRev + Number(order.total || 0)}`;
+    }
+
+    // 5. Update Current View
+    if (activeView === 'dashboard') {
+        const tbody = document.getElementById('dash-recent-orders-tbody');
+        if (tbody) {
+            const rowHtml = `
+                <tr class="hover:bg-[#f7fafd] transition-colors cursor-pointer row-new-highlight" onclick="openOrderDrawer('${order.id}')" id="order-row-${order.id}">
+                    <td class="p-3.5 font-bold font-mono text-[#181c1f]">#${(order.id || '').replace('order_', '').toUpperCase()}</td>
+                    <td class="p-3.5 font-medium text-[#181c1f]">${order.customer_name || 'Nivas'}</td>
+                    <td class="p-3.5 text-[#5c5f60] truncate max-w-[150px]">${order.item_summary || 'Campus items'}</td>
+                    <td class="p-3.5 font-bold text-[#137333]">₹${order.total}</td>
+                    <td class="p-3.5 text-[#5c5f60]">${order.payment_method || 'COD'}</td>
+                    <td class="p-3.5">${getStatusPill(order.status)}</td>
+                    <td class="p-3.5">
+                        <button onclick="event.stopPropagation(); openOrderDrawer('${order.id}')" class="text-xs font-semibold text-[#3c4043] hover:underline">View</button>
+                    </td>
+                </tr>
+            `;
+            // Prepend new row
+            if (tbody.innerHTML.includes('No orders found') || tbody.innerHTML.includes('Loading')) {
+                tbody.innerHTML = rowHtml;
+            } else {
+                tbody.insertAdjacentHTML('afterbegin', rowHtml);
+            }
+        }
+    } else if (activeView === 'orders') {
+        filterOrders();
+        const targetRow = document.getElementById(`order-row-${order.id}`);
+        if (targetRow) targetRow.classList.add('row-new-highlight');
+    }
+}
+
+// Handle Real-Time Status Update
+function handleRealtimeStatusUpdate(data) {
+    const { orderId, status } = data;
+    const o = ordersCache.find(x => x.id === orderId);
+    if (o) o.status = status;
+
+    const pill = document.getElementById(`order-status-pill-${orderId}`);
+    if (pill) pill.innerHTML = getStatusPill(status);
+
+    if (currentDrawerOrderId === orderId) {
+        const select = document.getElementById('drawer-status-select');
+        if (select) select.value = status;
+    }
+}
+
+// Show Real-Time Toast
+function showOrderToast(order) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toastId = `toast-${order.id}-${Date.now()}`;
+    const orderNumber = (order.id || '').replace('order_', '').toUpperCase();
+
+    const toastHtml = `
+        <div id="${toastId}" class="toast-card p-4 flex flex-col gap-2">
+            <div class="flex items-center justify-between">
+                <span class="flex items-center gap-1.5 text-xs font-extrabold text-[#10B981]">
+                    <span class="w-2.5 h-2.5 rounded-full bg-[#10B981] animate-ping"></span>
+                    ⚡ NEW CAMPUS ORDER!
+                </span>
+                <span class="text-[11px] font-mono font-bold text-[#5c5f60]">#${orderNumber}</span>
+            </div>
+            <div class="text-xs text-[#181c1f]">
+                <div class="flex justify-between items-center">
+                    <span class="font-bold text-sm text-[#181c1f]">${order.customer_name || 'Nivas'}</span>
+                    <span class="font-black text-sm text-[#137333]">₹${order.total}</span>
+                </div>
+                <p class="text-[11px] text-[#5c5f60] mt-0.5">📍 ${order.delivery_address || 'BH13 (Block A), Room 304'}</p>
+                <p class="text-[10px] text-[#74777a] italic mt-1 truncate">🛍️ ${order.item_summary || 'Campus essentials'}</p>
+            </div>
+            <div class="flex items-center justify-between pt-2 border-t border-[#DADCE0] mt-1">
+                <button onclick="openOrderDrawer('${order.id}'); dismissToast('${toastId}')" class="text-xs bg-[#3c4043] hover:bg-[#262a2d] text-white px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 transition-all active:scale-95 shadow-sm">
+                    <span class="material-symbols-outlined text-[14px]">visibility</span>
+                    <span>Manage Order</span>
+                </button>
+                <button onclick="dismissToast('${toastId}')" class="text-xs font-semibold text-[#74777a] hover:text-[#181c1f] px-2 py-1">
+                    Dismiss
+                </button>
+            </div>
+        </div>
+    `;
+
+    container.insertAdjacentHTML('beforeend', toastHtml);
+    const toastEl = document.getElementById(toastId);
+
+    // Trigger smooth enter animation
+    setTimeout(() => {
+        if (toastEl) toastEl.classList.add('show');
+    }, 20);
+
+    // Auto-dismiss after 9 seconds
+    setTimeout(() => {
+        dismissToast(toastId);
+    }, 9000);
+}
+
+function dismissToast(toastId) {
+    const toastEl = document.getElementById(toastId);
+    if (!toastEl) return;
+    toastEl.classList.remove('show');
+    toastEl.classList.add('hide');
+    setTimeout(() => {
+        toastEl.remove();
+    }, 400);
+}
+
+// ================= 10. AUTHENTICATION =================
 function showLoginModal() {
     document.getElementById('admin-login-modal').classList.remove('hidden');
 }
@@ -640,9 +824,12 @@ function logoutAdmin() {
     showLoginModal();
 }
 
-// Initialize on load & setup auto-refresh loop (every 5 seconds)
+// Initialize on load
 switchView('dashboard');
+initRealtimeWebSocket();
+
+// Periodic background sync fallback (every 8 seconds)
 setInterval(() => {
     if (activeView === 'dashboard') loadDashboard();
     else if (activeView === 'orders') loadOrders();
-}, 5000);
+}, 8000);

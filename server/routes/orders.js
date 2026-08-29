@@ -183,10 +183,18 @@ router.post('/admin/status', requireAdmin, async (req, res) => {
         if (supabase) {
             const updatePayload = { status };
             if (riderName) updatePayload.rider_name = riderName;
-            await supabase.from('orders').update(updatePayload).eq('id', orderId);
+            supabase.from('orders').update(updatePayload).eq('id', orderId).catch(e => console.error('[Supabase Update Error]:', e.message));
         }
     } catch (e) {
-        console.error('[Supabase Status Sync Error]:', e.message);
+        // Non-blocking
+    }
+
+    // Broadcast real-time status update to both Admin and Student tracking
+    try {
+        const { notifyOrderStatusUpdate } = require('../realtime');
+        notifyOrderStatusUpdate(orderId, { status, riderName });
+    } catch (e) {
+        console.error('[Realtime Status Broadcast Error]:', e.message);
     }
 
     res.json({ success: true, message: `Order ${orderId} updated to ${status}`, status });

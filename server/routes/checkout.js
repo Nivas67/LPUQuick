@@ -95,33 +95,51 @@ router.post('/', (req, res) => {
         // Non-blocking
     }
 
-    // Fetch created order to return exact DB record
+    // Fetch created order and customer details
     const createdOrder = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+    const customer = db.prepare('SELECT name, phone, email FROM users WHERE id = ?').get(userId);
+
+    const fullOrderPayload = {
+        id: createdOrder.id,
+        user_id: createdOrder.user_id,
+        customer_name: customer ? customer.name : 'Nivas',
+        customer_phone: customer ? customer.phone : '7671836211',
+        customer_email: customer ? customer.email : 'nivas@lpu.in',
+        status: createdOrder.status,
+        total: createdOrder.total,
+        subtotal: createdOrder.subtotal,
+        delivery_fee: createdOrder.delivery_fee,
+        platform_fee: createdOrder.platform_fee,
+        tax: createdOrder.tax,
+        payment_method: createdOrder.payment_method,
+        payment_status: createdOrder.payment_status,
+        rider_name: createdOrder.rider_name,
+        delivery_address: createdOrder.delivery_address,
+        created_at: createdOrder.created_at,
+        item_summary: cartItems.map(i => `${i.name} (x${i.quantity})`).join(', '),
+        item_count: cartItems.length,
+        items: cartItems.map(item => ({
+            id: item.product_id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            image_url: item.image_url
+        }))
+    };
+
+    // Broadcast instant real-time alert to all Admin Dashboards!
+    try {
+        const { notifyAdminNewOrder } = require('../realtime');
+        notifyAdminNewOrder(fullOrderPayload);
+    } catch (err) {
+        console.error('[Realtime Broadcast Error]:', err.message);
+    }
 
     res.json({
         success: true,
         order: {
-            id: createdOrder.id,
-            user_id: createdOrder.user_id,
-            status: createdOrder.status,
-            total: createdOrder.total,
-            subtotal: createdOrder.subtotal,
-            delivery_fee: createdOrder.delivery_fee,
-            platform_fee: createdOrder.platform_fee,
-            tax: createdOrder.tax,
-            payment_method: createdOrder.payment_method,
-            payment_status: createdOrder.payment_status,
-            rider_name: createdOrder.rider_name,
-            delivery_address: createdOrder.delivery_address,
-            created_at: createdOrder.created_at,
-            estimated_minutes: 3,
-            items: cartItems.map(item => ({
-                id: item.product_id,
-                name: item.name,
-                price: item.price,
-                quantity: item.quantity,
-                image_url: item.image_url
-            }))
+            ...fullOrderPayload,
+            estimated_minutes: 3
         }
     });
 });
