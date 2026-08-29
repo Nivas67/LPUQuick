@@ -721,6 +721,7 @@ setInterval(checkAndConnectGlobalOrderTracking, 8000);
     let currentX = mouseX;
     let currentY = mouseY;
     let isTicking = false;
+    let lastScrollY = window.scrollY || 0;
 
     window.addEventListener('mousemove', (e) => {
         mouseX = e.clientX;
@@ -731,35 +732,44 @@ setInterval(checkAndConnectGlobalOrderTracking, 8000);
         }
     }, { passive: true });
 
+    window.addEventListener('scroll', () => {
+        lastScrollY = window.scrollY || 0;
+        if (!isTicking) {
+            isTicking = true;
+            requestAnimationFrame(renderFrame);
+        }
+    }, { passive: true });
+
     function renderFrame() {
         // Smooth lerp (dampening)
-        currentX += (mouseX - currentX) * 0.1;
-        currentY += (mouseY - currentY) * 0.1;
+        currentX += (mouseX - currentX) * 0.08;
+        currentY += (mouseY - currentY) * 0.08;
 
         const torch = document.getElementById('ambient-cursor-torch');
         if (torch) {
-            torch.style.transform = `translate3d(${currentX - 250}px, ${currentY - 250}px, 0)`;
+            torch.style.transform = `translate3d(${currentX - 240}px, ${currentY - 240}px, 0)`;
         }
 
-        // Parallax reaction on floating leaves and snacks
+        // Parallax reaction on floating leaves and lineart
         const centerX = window.innerWidth / 2;
         const centerY = window.innerHeight / 2;
         const deltaX = (mouseX - centerX) / centerX;
         const deltaY = (mouseY - centerY) / centerY;
-
-        const snacks = document.querySelectorAll('.ambient-snack');
-        snacks.forEach((snack, idx) => {
-            const factor = idx % 2 === 0 ? 14 : -14;
-            snack.style.transform = `translate3d(${deltaX * factor}px, ${deltaY * factor}px, 0)`;
-        });
+        const scrollOffset = lastScrollY * 0.05;
 
         const leaves = document.querySelectorAll('.ambient-leaf');
         leaves.forEach((leaf, idx) => {
-            const factor = (idx + 1) * 2.5;
-            leaf.style.transform = `translate3d(${deltaX * factor}px, ${deltaY * factor}px, 0)`;
+            const factor = (idx + 1) * 2.2;
+            leaf.style.transform = `translate3d(${deltaX * factor}px, ${deltaY * factor - scrollOffset * (idx % 2 === 0 ? 1 : 0.6)}px, 0)`;
         });
 
-        if (Math.abs(mouseX - currentX) > 0.4 || Math.abs(mouseY - currentY) > 0.4) {
+        const lineart = document.querySelectorAll('.ambient-lineart');
+        lineart.forEach((art, idx) => {
+            const factor = (idx + 1) * 3;
+            art.style.transform = `translate3d(${deltaX * factor}px, ${deltaY * factor - scrollOffset * 0.8}px, 0)`;
+        });
+
+        if (Math.abs(mouseX - currentX) > 0.3 || Math.abs(mouseY - currentY) > 0.3) {
             requestAnimationFrame(renderFrame);
         } else {
             isTicking = false;

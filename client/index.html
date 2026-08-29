@@ -95,7 +95,7 @@
     <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body class="bg-background text-on-surface font-sans antialiased selection:bg-emerald/20 selection:text-primary relative min-h-screen">
-    <!-- Ambient Animated Dynamic Campus Atmosphere Canvas (Matching Reference Mockup) -->
+    <!-- Ambient Animated Dynamic Campus Atmosphere Canvas -->
     <div class="fixed inset-0 overflow-hidden pointer-events-none z-[-1] select-none" id="ambient-canvas" aria-hidden="true">
         <!-- Layer 1: Base Radiant Gradient Mesh -->
         <div class="ambient-base-gradient"></div>
@@ -103,45 +103,56 @@
         <!-- Interactive Luminous Cursor Torch (Dynamic Ambient Follower) -->
         <div class="ambient-cursor-torch" id="ambient-cursor-torch"></div>
 
-        <!-- Layer 2: Floating Light Orbs (Top-L Vibrant Mint, Top-R Cyan/Blue, Mid-R Warm Amber, Bot-L Emerald, Bot-R Golden Peach) -->
+        <!-- Layer 2: 5 Large Floating Blurred Light Orbs -->
+        <!-- Top-Left: Soft Mint/Green Glow -->
         <div class="ambient-orb orb-top-left"></div>
+        <!-- Top-Right: Very Subtle Cyan/Blue Glow -->
         <div class="ambient-orb orb-top-right"></div>
+        <!-- Middle-Right: Soft Warm Pastel Amber Glow -->
         <div class="ambient-orb orb-mid-right"></div>
+        <!-- Bottom-Left: Soft Green Emerald Glow -->
         <div class="ambient-orb orb-bot-left"></div>
+        <!-- Bottom-Right: Extremely Soft Pink/Warm Peach Glow -->
         <div class="ambient-orb orb-bot-right"></div>
 
-        <!-- Layer 3: Dynamic Curved Delivery Wave Ribbons -->
+        <!-- Layer 3: Dynamic Curved Delivery Wave Trails -->
         <svg class="ambient-delivery-trails" viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
             <!-- Top Flowing Mint/Cyan Wave -->
-            <path class="trail-path trail-path-1" d="M-100 240 C 250 100, 550 420, 1050 180 C 1280 80, 1450 250, 1600 160" stroke="url(#trail-grad-1)" stroke-width="3" stroke-linecap="round" stroke-dasharray="16 22"/>
+            <path class="trail-path trail-path-1" d="M-100 220 C 260 90, 560 380, 1020 160 C 1260 60, 1460 220, 1620 140" stroke="url(#trail-grad-1)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="14 20"/>
             <!-- Bottom Golden Amber Delivery Wave -->
-            <path class="trail-path trail-path-2" d="M-80 680 C 350 820, 780 440, 1180 660 C 1380 760, 1550 580, 1680 640" stroke="url(#trail-grad-2)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="12 20"/>
+            <path class="trail-path trail-path-2" d="M-80 660 C 340 780, 760 420, 1160 640 C 1360 740, 1540 560, 1680 620" stroke="url(#trail-grad-2)" stroke-width="2" stroke-linecap="round" stroke-dasharray="12 18"/>
             <defs>
                 <linearGradient id="trail-grad-1" x1="0%" y1="0%" x2="100%" y2="0%">
                     <stop offset="0%" stop-color="#10B981" stop-opacity="0"/>
-                    <stop offset="30%" stop-color="#34D399" stop-opacity="0.55"/>
-                    <stop offset="65%" stop-color="#06B6D4" stop-opacity="0.45"/>
+                    <stop offset="25%" stop-color="#34D399" stop-opacity="0.45"/>
+                    <stop offset="65%" stop-color="#06B6D4" stop-opacity="0.38"/>
                     <stop offset="100%" stop-color="#10B981" stop-opacity="0"/>
                 </linearGradient>
                 <linearGradient id="trail-grad-2" x1="0%" y1="0%" x2="100%" y2="0%">
                     <stop offset="0%" stop-color="#F59E0B" stop-opacity="0"/>
-                    <stop offset="40%" stop-color="#FBBF24" stop-opacity="0.5"/>
-                    <stop offset="75%" stop-color="#10B981" stop-opacity="0.35"/>
+                    <stop offset="35%" stop-color="#FBBF24" stop-opacity="0.42"/>
+                    <stop offset="75%" stop-color="#10B981" stop-opacity="0.30"/>
                     <stop offset="100%" stop-color="#F59E0B" stop-opacity="0"/>
                 </linearGradient>
             </defs>
         </svg>
 
-        <!-- Layer 4: Subtle Background Shopping Bag / Delivery Line-Art -->
+        <!-- Layer 4: Subtle Abstract Delivery & Campus Line-Art -->
         <div class="ambient-lineart lineart-bag">
             <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M30 40 L30 80 C30 86, 34 90, 40 90 L60 90 C66 90, 70 86, 70 80 L70 40 Z" stroke="rgba(16, 185, 129, 0.18)" stroke-width="2.5" stroke-linecap="round"/>
-                <path d="M40 40 C40 26, 60 26, 60 40" stroke="rgba(16, 185, 129, 0.18)" stroke-width="2.5" stroke-linecap="round"/>
+                <path d="M30 40 L30 80 C30 86, 34 90, 40 90 L60 90 C66 90, 70 86, 70 80 L70 40 Z" stroke="rgba(16, 185, 129, 0.15)" stroke-width="2" stroke-linecap="round"/>
+                <path d="M40 40 C40 26, 60 26, 60 40" stroke="rgba(16, 185, 129, 0.15)" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </div>
+        <div class="ambient-lineart lineart-compass">
+            <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="50" cy="50" r="36" stroke="rgba(6, 182, 212, 0.12)" stroke-width="1.8" stroke-dasharray="6 8"/>
+                <path d="M50 20 L58 46 L80 50 L58 54 L50 80 L42 54 L20 50 L42 46 Z" fill="rgba(16, 185, 129, 0.08)" stroke="rgba(16, 185, 129, 0.15)" stroke-width="1.5"/>
             </svg>
         </div>
 
-        <!-- Layer 5: Realistic 3D Floating Fresh Green Leaves (Framing the Store) -->
-        <!-- Leaf 1: Top-Left Header Area -->
+        <!-- Layer 5: Floating Fresh Green Botanical Leaves (Framing the Viewport) -->
+        <!-- Leaf 1: Top-Left Header Margin -->
         <div class="ambient-leaf leaf-top-left">
             <svg viewBox="0 0 64 64" class="w-full h-full">
                 <defs>
@@ -155,7 +166,7 @@
                 <path d="M10 58 C22 46, 36 32, 52 12" stroke="rgba(255,255,255,0.45)" stroke-width="1.8" stroke-linecap="round"/>
             </svg>
         </div>
-        <!-- Leaf 2: Top-Right Search Area -->
+        <!-- Leaf 2: Top-Right Search Margin -->
         <div class="ambient-leaf leaf-top-right">
             <svg viewBox="0 0 64 64" class="w-full h-full">
                 <defs>
@@ -226,24 +237,10 @@
             </svg>
         </div>
 
-        <!-- Layer 6: Floating 3D Snack Packs in Screen Margins (Matching Reference Mockup) -->
-        <!-- Floating Green Snack Pack (Bottom-Left) -->
-        <div class="ambient-snack snack-bottom-left">
-            <div class="snack-wrapper snack-tilt-left">
-                <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuD6pk1u3i-8IsDcuolgrFKT5VWeNYNhrBJPFyhiwOs_ShY9sHKq7nxHuqeqP_F7hpoB0ZFvMl4A4vLhN6W9vIxHdIOPbyaw7PpGagxKnfOocB9DreU86S741XGFX7YglJpywRILEN4u1MdVrepVcuOQaadcbb8Nohqsx1Qq4o7TM0WjY86u7fSmC5O1ogkR4FYumpPW4e4GRvDU2dlSrryhszymX_MB4GMYOQOU3Med7Z8JE1_SeQc" alt="Munchies" class="w-24 sm:w-32 h-auto object-contain drop-shadow-[0_20px_30px_rgba(0,0,0,0.18)] opacity-85">
-            </div>
-        </div>
-        <!-- Floating Red/Golden Snack Pack (Bottom-Right) -->
-        <div class="ambient-snack snack-bottom-right">
-            <div class="snack-wrapper snack-tilt-right">
-                <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDoAk0bG9DUQOs7yFQqZszPd7lHXyFIuMV8eoi9Gvhb98K0Tj7VBnqifqBd4JVxaA3viXhM4_7oX7j39WHXbAjMhaqClrG3zn953zjX9R-58nY5UIS9B4yvMX5Uvf4KKan0IUeq-yOKuOHE-xGCV6SgWfCl_EidYto_UbR_DXLUYJdQxZ-se6KGwDLo1oASiT2Is2CVXvXPyCZgRa3FEUvqEawUBjm7eetOcB9wjurDtrgyUt64nX0" alt="Snacks" class="w-24 sm:w-32 h-auto object-contain drop-shadow-[0_20px_30px_rgba(0,0,0,0.18)] opacity-85">
-            </div>
-        </div>
-
-        <!-- Layer 7: Vibrant 4-Point Golden & Mint Star Sparkles (Twinkling ✨) -->
-        <!-- Sparkle 1: Top-Center (Beneath Search Area) -->
+        <!-- Layer 6: Vibrant 4-Point Golden & Mint Star Sparkles (Twinkling ✨) -->
+        <!-- Sparkle 1: Top-Center -->
         <div class="ambient-sparkle sparkle-top-center">
-            <svg viewBox="0 0 32 32" class="w-full h-full drop-shadow-[0_0_10px_rgba(251,191,36,0.9)]">
+            <svg viewBox="0 0 32 32" class="w-full h-full drop-shadow-[0_0_8px_rgba(251,191,36,0.85)]">
                 <defs>
                     <radialGradient id="spGold1" cx="50%" cy="50%" r="50%">
                         <stop offset="0%" stop-color="#FFFBEB"/>
@@ -252,12 +249,12 @@
                     </radialGradient>
                 </defs>
                 <path d="M16 0 L18.5 13.5 L32 16 L18.5 18.5 L16 32 L13.5 18.5 L0 16 L13.5 13.5 Z" fill="url(#spGold1)"/>
-                <circle cx="16" cy="16" r="3" fill="#FFFFFF"/>
+                <circle cx="16" cy="16" r="2.5" fill="#FFFFFF"/>
             </svg>
         </div>
         <!-- Sparkle 2: Top-Left -->
         <div class="ambient-sparkle sparkle-top-left">
-            <svg viewBox="0 0 32 32" class="w-full h-full drop-shadow-[0_0_12px_rgba(16,185,129,0.85)]">
+            <svg viewBox="0 0 32 32" class="w-full h-full drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]">
                 <defs>
                     <radialGradient id="spMint1" cx="50%" cy="50%" r="50%">
                         <stop offset="0%" stop-color="#ECFDF5"/>
@@ -266,12 +263,12 @@
                     </radialGradient>
                 </defs>
                 <path d="M16 0 L18.5 13.5 L32 16 L18.5 18.5 L16 32 L13.5 18.5 L0 16 L13.5 13.5 Z" fill="url(#spMint1)"/>
-                <circle cx="16" cy="16" r="3.5" fill="#FFFFFF"/>
+                <circle cx="16" cy="16" r="3" fill="#FFFFFF"/>
             </svg>
         </div>
         <!-- Sparkle 3: Bottom-Left -->
         <div class="ambient-sparkle sparkle-bot-left">
-            <svg viewBox="0 0 32 32" class="w-full h-full drop-shadow-[0_0_12px_rgba(16,185,129,0.85)]">
+            <svg viewBox="0 0 32 32" class="w-full h-full drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]">
                 <defs>
                     <radialGradient id="spMint2" cx="50%" cy="50%" r="50%">
                         <stop offset="0%" stop-color="#ECFDF5"/>
@@ -280,12 +277,12 @@
                     </radialGradient>
                 </defs>
                 <path d="M16 0 L18.5 13.5 L32 16 L18.5 18.5 L16 32 L13.5 18.5 L0 16 L13.5 13.5 Z" fill="url(#spMint2)"/>
-                <circle cx="16" cy="16" r="3" fill="#FFFFFF"/>
+                <circle cx="16" cy="16" r="2.5" fill="#FFFFFF"/>
             </svg>
         </div>
         <!-- Sparkle 4: Bottom-Right -->
         <div class="ambient-sparkle sparkle-bot-right">
-            <svg viewBox="0 0 32 32" class="w-full h-full drop-shadow-[0_0_12px_rgba(251,191,36,0.9)]">
+            <svg viewBox="0 0 32 32" class="w-full h-full drop-shadow-[0_0_10px_rgba(251,191,36,0.85)]">
                 <defs>
                     <radialGradient id="spGold2" cx="50%" cy="50%" r="50%">
                         <stop offset="0%" stop-color="#FEF3C7"/>
@@ -294,19 +291,21 @@
                     </radialGradient>
                 </defs>
                 <path d="M16 0 L18.5 13.5 L32 16 L18.5 18.5 L16 32 L13.5 18.5 L0 16 L13.5 13.5 Z" fill="url(#spGold2)"/>
-                <circle cx="16" cy="16" r="3.5" fill="#FFFFFF"/>
+                <circle cx="16" cy="16" r="2.5" fill="#FFFFFF"/>
             </svg>
         </div>
 
-        <!-- Layer 8: Gentle Floating Micro-Specks -->
+        <!-- Layer 7: Floating Micro-Glow Particles -->
         <div class="ambient-particle particle-1"></div>
         <div class="ambient-particle particle-2"></div>
         <div class="ambient-particle particle-3"></div>
         <div class="ambient-particle particle-4"></div>
         <div class="ambient-particle particle-5"></div>
         <div class="ambient-particle particle-6"></div>
+        <div class="ambient-particle particle-7"></div>
+        <div class="ambient-particle particle-8"></div>
 
-        <!-- Layer 9: Gentle Breathing Matrix Grid Overlay -->
+        <!-- Layer 8: Gentle Breathing Matrix Grid Overlay -->
         <div class="ambient-grid-overlay"></div>
     </div>
 
