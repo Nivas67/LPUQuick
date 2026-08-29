@@ -201,6 +201,49 @@ body.dark .brand-title {
     color: #ffffff !important;
 }
 
+/* ============================================================
+   BILL DETAILS & CONTRAST TYPOGRAPHY (LIGHT & DARK MODE)
+   ============================================================ */
+.bill-row-label {
+    color: #334155 !important;
+}
+.bill-row-val {
+    color: #0f172a !important;
+    font-weight: 600;
+}
+.bill-strikethrough {
+    color: #64748b !important;
+    text-decoration: line-through;
+    font-weight: 500;
+}
+.bill-total-label {
+    color: #0f172a !important;
+}
+.bill-total-val {
+    color: #059669 !important;
+}
+
+body.dark .bill-row-label,
+html.dark .bill-row-label {
+    color: #cbd5e1 !important;
+}
+body.dark .bill-row-val,
+html.dark .bill-row-val {
+    color: #f8fafc !important;
+}
+body.dark .bill-strikethrough,
+html.dark .bill-strikethrough {
+    color: #94a3b8 !important;
+}
+body.dark .bill-total-label,
+html.dark .bill-total-label {
+    color: #f8fafc !important;
+}
+body.dark .bill-total-val,
+html.dark .bill-total-val {
+    color: #34d399 !important;
+}
+
 body.dark .border-glass-border {
     border-color: rgba(255, 255, 255, 0.08) !important;
 }

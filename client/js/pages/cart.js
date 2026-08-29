@@ -138,9 +138,9 @@ window.pages.cart = async function() {
                 <div class="space-y-3 text-xs sm:text-sm">
                     ${mrpDiscount > 0 ? `
                     <!-- Total MRP Value -->
-                    <div class="flex justify-between items-center text-slate-700 dark:text-slate-200">
-                        <span class="font-medium">Total MRP Value</span>
-                        <span class="line-through text-slate-400 dark:text-slate-400 font-semibold text-xs sm:text-sm">₹${totalMrp}</span>
+                    <div class="flex justify-between items-center">
+                        <span class="bill-row-label">Total MRP Value</span>
+                        <span class="bill-strikethrough text-xs sm:text-sm">₹${totalMrp}</span>
                     </div>
 
                     <!-- Product MRP Discount -->
@@ -151,9 +151,9 @@ window.pages.cart = async function() {
                     ` : ''}
 
                     <!-- Item Total -->
-                    <div class="flex justify-between items-center text-slate-700 dark:text-slate-200">
-                        <span class="font-medium">Item Subtotal</span>
-                        <span class="font-bold text-slate-900 dark:text-white">₹${subtotal}</span>
+                    <div class="flex justify-between items-center">
+                        <span class="bill-row-label">Item Subtotal</span>
+                        <span class="bill-row-val font-bold">₹${subtotal}</span>
                     </div>
 
                     ${hasDiscount ? `
@@ -165,30 +165,30 @@ window.pages.cart = async function() {
                     ` : ''}
 
                     <!-- Delivery Partner Fee -->
-                    <div class="flex justify-between items-center text-slate-700 dark:text-slate-200">
-                        <span class="font-medium">Delivery Fee</span>
+                    <div class="flex justify-between items-center">
+                        <span class="bill-row-label">Delivery Fee</span>
                         <div class="flex items-center gap-1.5">
-                            <span class="line-through text-slate-400 dark:text-slate-400 text-xs font-medium">₹25</span>
+                            <span class="bill-strikethrough text-xs">₹25</span>
                             <span class="font-bold text-emerald-600 dark:text-emerald-400 text-xs">FREE</span>
                         </div>
                     </div>
 
                     <!-- Handling Fee -->
-                    <div class="flex justify-between items-center text-slate-700 dark:text-slate-200">
-                        <span class="font-medium">Handling & Bag Fee</span>
+                    <div class="flex justify-between items-center">
+                        <span class="bill-row-label">Handling & Bag Fee</span>
                         <div class="flex items-center gap-1.5">
-                            <span class="line-through text-slate-400 dark:text-slate-400 text-xs font-medium">₹5</span>
+                            <span class="bill-strikethrough text-xs">₹5</span>
                             <span class="font-bold text-emerald-600 dark:text-emerald-400 text-xs">FREE</span>
                         </div>
                     </div>
                     
                     <!-- Grand Total To Pay -->
-                    <div class="border-t border-glass-border pt-3.5 mt-2 flex justify-between items-center text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                    <div class="border-t border-glass-border pt-3.5 mt-2 flex justify-between items-center text-base sm:text-lg font-bold">
                         <div>
-                            <span>To Pay</span>
+                            <span class="bill-total-label">To Pay</span>
                             <p class="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">100% Free Campus Delivery</p>
                         </div>
-                        <span class="text-2xl text-emerald-600 dark:text-emerald-400 font-display font-black">₹${exactTotal}</span>
+                        <span class="text-2xl bill-total-val font-display font-black">₹${exactTotal}</span>
                     </div>
                 </div>
 
