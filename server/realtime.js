@@ -1,10 +1,11 @@
 const WebSocket = require('ws');
+const supabaseDb = require('./db/supabaseDb');
 
-// Central Realtime Hub for LPUQuick
+// Central Realtime Hub for LPUQuick (Powered by Supabase Cloud)
 const adminSockets = new Set();
 const orderTrackingSockets = new Map(); // orderId -> Set of ws
 
-function setupRealtime(server, db) {
+function setupRealtime(server) {
     const wss = new WebSocket.Server({ noServer: true });
 
     server.on('upgrade', (request, socket, head) => {
@@ -20,7 +21,7 @@ function setupRealtime(server, db) {
         }
     });
 
-    wss.on('connection', (ws, request) => {
+    wss.on('connection', async (ws, request) => {
         const parsedUrl = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
         const pathname = parsedUrl.pathname;
 
@@ -31,7 +32,7 @@ function setupRealtime(server, db) {
 
             ws.send(JSON.stringify({
                 type: 'CONNECTED',
-                message: 'Admin real-time operations channel connected',
+                message: 'Admin real-time operations channel connected (Supabase Cloud)',
                 timestamp: new Date().toISOString()
             }));
 
@@ -54,17 +55,23 @@ function setupRealtime(server, db) {
 
             let targetOrderId = orderId;
             let order = null;
+
             if (targetOrderId) {
-                order = db.prepare('SELECT * FROM orders WHERE id = ?').get(targetOrderId);
-            }
-            if (!order) {
-                order = db.prepare('SELECT * FROM orders ORDER BY created_at DESC LIMIT 1').get();
-                if (order) targetOrderId = order.id;
+                try { order = await supabaseDb.orders.getOrderById(targetOrderId); } catch (e) {}
             }
 
-            if (!targetOrderId) {
-                ws.send(JSON.stringify({ type: 'ERROR', message: 'No active orders found' }));
-                ws.close();
+            if (!order) {
+                try {
+                    const all = await supabaseDb.orders.getAllOrders();
+                    if (all && all.length > 0) {
+                        order = all[0];
+                        targetOrderId = order.id;
+                    }
+                } catch (e) {}
+            }
+
+            if (!targetOrderId || !order) {
+                ws.send(JSON.stringify({ type: 'CONNECTED', message: 'Ready for live orders' }));
                 return;
             }
 
@@ -101,7 +108,6 @@ function setupRealtime(server, db) {
     });
 }
 
-// Broadcast new order to all Admin Dashboards
 function notifyAdminNewOrder(orderData) {
     console.log(`[WS] Broadcasting NEW_ORDER to ${adminSockets.size} admin clients:`, orderData.id);
     const payload = JSON.stringify({
@@ -110,75 +116,63 @@ function notifyAdminNewOrder(orderData) {
         timestamp: new Date().toISOString()
     });
 
-    for (const ws of Array.from(adminSockets)) {
-        if (ws.readyState === WebSocket.OPEN) {
-            ws.send(payload);
-        } else {
-            adminSockets.delete(ws);
+    adminSockets.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(payload);
         }
-    }
+    });
 }
 
-// Broadcast status update to Admin Dashboards and Student Tracking
-function notifyOrderStatusUpdate(orderId, statusData) {
-    console.log(`[WS] Broadcasting ORDER_STATUS_UPDATE for ${orderId} -> ${statusData.status}`);
-    const adminPayload = JSON.stringify({
-        type: 'ORDER_STATUS_UPDATE',
-        orderId,
-        status: statusData.status,
-        riderName: statusData.riderName,
-        timestamp: new Date().toISOString()
+function broadcastStatusUpdate(orderId, newStatus) {
+    console.log(`[WS] Broadcasting ORDER_STATUS_UPDATE for ${orderId} -> ${newStatus}`);
+
+    const now = new Date();
+    const payload = JSON.stringify({
+        type: 'STATUS_UPDATE',
+        order_id: orderId,
+        status: newStatus,
+        step: getStepNumber(newStatus),
+        message: getStatusMessage(newStatus, 'Alex'),
+        timestamp: now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
     });
 
-    for (const ws of adminSockets) {
-        if (ws.readyState === WebSocket.OPEN) {
-            ws.send(adminPayload);
-        }
-    }
-
-    // Notify student tracking clients
-    const studentGroup = orderTrackingSockets.get(orderId);
-    if (studentGroup) {
-        const studentPayload = JSON.stringify({
-            type: 'STATUS_UPDATE',
-            order_id: orderId,
-            status: statusData.status,
-            step: getStepNumber(statusData.status),
-            rider_name: statusData.riderName || 'Alex',
-            timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-            message: getStatusMessage(statusData.status, statusData.riderName || 'Alex')
+    const trackingClients = orderTrackingSockets.get(orderId);
+    if (trackingClients) {
+        trackingClients.forEach(ws => {
+            if (ws.readyState === WebSocket.OPEN) ws.send(payload);
         });
-
-        for (const ws of studentGroup) {
-            if (ws.readyState === WebSocket.OPEN) {
-                ws.send(studentPayload);
-            }
-        }
     }
+
+    adminSockets.forEach(ws => {
+        if (ws.readyState === WebSocket.OPEN) ws.send(payload);
+    });
 }
 
 function getStepNumber(status) {
-    const s = (status || '').toLowerCase();
-    if (s === 'order confirmed') return 2;
-    if (s === 'preparing') return 3;
-    if (s === 'out for delivery') return 4;
-    if (s === 'delivered') return 5;
-    if (s === 'cancelled') return -1;
-    return 1; // Order Placed
+    switch (status) {
+        case 'Order Placed': case 'pending': return 1;
+        case 'Order Confirmed': case 'confirmed': case 'accepted': return 2;
+        case 'Preparing': case 'packed': return 3;
+        case 'Out for Delivery': case 'en_route': return 4;
+        case 'Delivered': case 'delivered': return 5;
+        default: return 1;
+    }
 }
 
-function getStatusMessage(status, rider = 'Alex') {
-    const s = (status || '').toLowerCase();
-    if (s === 'order confirmed') return 'BH13 Dark Store confirmed your items are in stock.';
-    if (s === 'preparing') return 'Staff is packing your snacks at BH13 Hub.';
-    if (s === 'out for delivery') return `🚶‍♂️ Campus runner ${rider} picked up your bag and is walking to your room.`;
-    if (s === 'delivered') return '🎉 Order delivered to your hostel room/gate!';
-    if (s === 'cancelled') return '❌ Order has been cancelled by Admin.';
-    return 'Your order has been placed and received by BH13 Hub.';
+function getStatusMessage(status, riderName) {
+    switch (status) {
+        case 'Order Placed': return 'Order placed! Dark Store BH13 receiving items...';
+        case 'Order Confirmed': return 'Order accepted by BH13 Store Manager.';
+        case 'Preparing': return 'Items packed and sealed in tamper-proof bag.';
+        case 'Out for Delivery': return `Rider ${riderName} is speeding towards your hostel!`;
+        case 'Delivered': return 'Delivered to your room door! Enjoy your snack.';
+        case 'Cancelled': return 'Order was cancelled.';
+        default: return `Status: ${status}`;
+    }
 }
 
 module.exports = {
     setupRealtime,
-    notifyAdminNewOrder,
-    notifyOrderStatusUpdate
+    broadcastOrderPlaced: notifyAdminNewOrder,
+    broadcastStatusUpdate
 };

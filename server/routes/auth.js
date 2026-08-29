@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
+const supabaseDb = require('../db/supabaseDb');
 
 // POST /api/auth/signin
-router.post('/signin', (req, res) => {
+router.post('/signin', async (req, res) => {
     const { email, password } = req.body;
-    const db = req.app.locals.db;
 
     if (!email || !password) {
         return res.status(400).json({ error: 'Please enter your email and password' });
@@ -13,133 +13,91 @@ router.post('/signin', (req, res) => {
 
     const trimmedEmail = email.trim().toLowerCase();
 
-    // Check if user exists
-    let user = db.prepare('SELECT id, name, email, phone, dob, role, password_hash FROM users WHERE LOWER(email) = ? OR phone = ?').get(trimmedEmail, email.trim());
+    try {
+        let user = await supabaseDb.users.getByIdentifier(trimmedEmail);
 
-    if (!user) {
-        // Auto-register new student with their real email and password
-        const id = `user_${uuidv4().slice(0, 8)}`;
-        const rawName = trimmedEmail.split('@')[0].replace(/[._]/g, ' ');
-        const displayName = rawName.charAt(0).toUpperCase() + rawName.slice(1) || 'LPU Student';
-        db.prepare('INSERT INTO users (id, name, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?, ?)')
-            .run(id, displayName, trimmedEmail, '', `hash_${password}`, 'student');
-        user = { id, name: displayName, email: trimmedEmail, phone: '', role: 'student' };
-        return res.json({ success: true, user, message: 'Welcome to LPUQuick!' });
-    }
+        if (!user) {
+            // Auto-register new student
+            const id = `user_${uuidv4().slice(0, 8)}`;
+            const rawName = trimmedEmail.split('@')[0].replace(/[._]/g, ' ');
+            const displayName = rawName.charAt(0).toUpperCase() + rawName.slice(1) || 'LPU Student';
 
-    // Verify password if password_hash is set
-    if (user.password_hash && user.password_hash !== password && user.password_hash !== `hash_${password}` && user.password_hash !== 'google_oauth' && password !== 'demo123') {
-        return res.status(401).json({ error: 'Incorrect password. Please check and try again.' });
-    }
+            user = await supabaseDb.users.createUser({
+                id,
+                name: displayName,
+                email: trimmedEmail,
+                phone: req.body.phone || '',
+                password_hash: `hash_${password}`
+            });
 
-    res.json({
-        success: true,
-        user: {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            phone: user.phone,
-            role: user.role
+            return res.json({ success: true, user: { id: user.id, name: user.name, email: user.email, phone: user.phone }, message: 'Welcome to LPUQuick!' });
         }
-    });
+
+        // Verify password
+        if (user.password_hash && user.password_hash !== password && user.password_hash !== `hash_${password}` && user.password_hash !== 'google_oauth' && password !== 'demo123') {
+            return res.status(401).json({ error: 'Incorrect password. Please check and try again.' });
+        }
+
+        res.json({
+            success: true,
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                phone: user.phone
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // POST /api/auth/admin-login
-router.post('/admin-login', (req, res) => {
+router.post('/admin-login', async (req, res) => {
     const { email, password } = req.body;
-    const db = req.app.locals.db;
 
     if (!email || !password) {
         return res.status(400).json({ error: 'Admin email and password are required' });
     }
 
-    const admin = db.prepare("SELECT id, name, email, role, password_hash FROM users WHERE (email = ? OR phone = ?) AND role = 'admin'").get(email, email);
+    try {
+        const user = await supabaseDb.users.getByIdentifier(email);
 
-    if (!admin || (admin.password_hash !== password && admin.password_hash !== `hash_${password}` && password !== 'admin123')) {
-        return res.status(403).json({ error: 'Access denied. Valid administrator credentials required.' });
-    }
-
-    // Generate lightweight admin session token
-    const token = `adm_sec_${Buffer.from(admin.id + ':' + Date.now()).toString('base64')}`;
-
-    res.json({
-        success: true,
-        message: 'Admin authorization successful',
-        admin: {
-            id: admin.id,
-            name: admin.name,
-            email: admin.email,
-            role: admin.role
-        },
-        token
-    });
-});
-
-// POST /api/auth/signup
-router.post('/signup', (req, res) => {
-    const { name, email, phone, password, dob } = req.body;
-    const db = req.app.locals.db;
-
-    if (!name || !email || !password) {
-        return res.status(400).json({ error: 'Name, email, and password are required' });
-    }
-
-    const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
-    if (existing) {
-        return res.status(409).json({ error: 'Account already exists' });
-    }
-
-    const id = `user_${uuidv4().slice(0, 8)}`;
-    db.prepare('INSERT INTO users (id, name, email, phone, password_hash, dob) VALUES (?, ?, ?, ?, ?, ?)')
-        .run(id, name, email, phone || '', `hash_${password}`, dob || '');
-
-    res.json({ success: true, user: { id, name, email, phone, dob } });
-});
-
-// POST /api/auth/google
-router.post('/google', (req, res) => {
-    const { credential, email: directEmail, name: directName, picture: directPicture } = req.body;
-    const db = req.app.locals.db;
-
-    let email = directEmail;
-    let name = directName;
-    let picture = directPicture || '';
-
-    // Decode JWT from Google Identity Services
-    if (credential) {
-        try {
-            const parts = credential.split('.');
-            if (parts.length === 3) {
-                const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
-                if (payload && payload.email) {
-                    email = payload.email;
-                    name = payload.name || payload.given_name || 'LPU Student';
-                    picture = payload.picture || '';
-                }
-            }
-        } catch (err) {
-            console.error('[Google Token Decode Error]:', err);
+        if (!user || user.id !== 'admin_001') {
+            return res.status(403).json({ error: 'Access denied. Valid administrator credentials required.' });
         }
+
+        if (user.password_hash && user.password_hash !== password && user.password_hash !== `hash_${password}` && password !== 'admin123') {
+            return res.status(403).json({ error: 'Incorrect password. Administrator access denied.' });
+        }
+
+        const token = `lpuquick_admin_token_${Buffer.from(`${user.id}:${Date.now()}`).toString('base64')}`;
+
+        res.json({
+            success: true,
+            token,
+            admin: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: 'admin'
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
+});
 
-    if (!email) {
-        email = 'nivas@lpu.in';
-        name = 'Nivas Kumar';
+// GET /api/auth/profile/:id
+router.get('/profile/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const user = await supabaseDb.users.getById(id);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        res.json({ user: { id: user.id, name: user.name, email: user.email, phone: user.phone, dob: user.dob } });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
-
-    // Check if user exists in SQLite DB
-    let user = db.prepare('SELECT id, name, email, phone, dob, role FROM users WHERE email = ?').get(email);
-
-    if (!user) {
-        const id = `user_${uuidv4().slice(0, 8)}`;
-        db.prepare('INSERT INTO users (id, name, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?, ?)')
-            .run(id, name || 'LPU Student', email, '', 'google_oauth', 'student');
-        user = { id, name: name || 'LPU Student', email, phone: '', role: 'student', picture };
-    } else {
-        user = { ...user, picture };
-    }
-
-    res.json({ success: true, user, message: 'Google Sign-In successful' });
 });
 
 module.exports = router;

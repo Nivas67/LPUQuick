@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const supabaseDb = require('../db/supabaseDb');
 
 // Levenshtein distance for typo tolerance
 function levenshtein(a, b) {
@@ -17,78 +18,77 @@ function levenshtein(a, b) {
 }
 
 // GET /api/search?q=
-router.get('/', (req, res) => {
-    const db = req.app.locals.db;
+router.get('/', async (req, res) => {
     const query = (req.query.q || '').trim().toLowerCase();
 
     if (!query) {
         return res.json({ results: [], suggestions: [] });
     }
 
-    // Batch fetch ALL products in one query (prevents N+1)
-    const allProducts = db.prepare('SELECT * FROM products').all();
+    try {
+        const allProducts = await supabaseDb.products.getAll({ includeInactive: true });
 
-    // Score each product based on name + category + subcategory + tags + typo tolerance
-    const scored = allProducts.map(p => {
-        const name = (p.name || '').toLowerCase();
-        const category = (p.category || '').toLowerCase();
-        const subcategory = (p.subcategory || '').toLowerCase();
-        const tags = (p.tags || '').toLowerCase();
-        const words = query.split(/\s+/).filter(Boolean);
+        // Score each product based on name + category + subcategory + tags + typo tolerance
+        const scored = allProducts.map(p => {
+            const name = (p.name || '').toLowerCase();
+            const category = (p.category || '').toLowerCase();
+            const subcategory = (p.subcategory || '').toLowerCase();
+            const tags = (p.tags || '').toLowerCase();
+            const words = query.split(/\s+/).filter(Boolean);
 
-        let score = 0;
+            let score = 0;
 
-        // Exact category or subcategory match
-        if (category === query || subcategory === query) score += 120;
-        if (category.includes(query) || subcategory.includes(query)) score += 80;
+            // Exact category or subcategory match
+            if (category === query || subcategory === query) score += 120;
+            if (category.includes(query) || subcategory.includes(query)) score += 80;
 
-        // Exact name substring match
-        if (name.includes(query)) score += 100;
-        if (tags.includes(query)) score += 60;
+            // Exact name substring match
+            if (name.includes(query)) score += 100;
+            if (tags.includes(query)) score += 60;
 
-        // Word-level matching
-        for (const word of words) {
-            if (name.includes(word)) score += 40;
-            if (category.includes(word)) score += 30;
-            if (subcategory.includes(word)) score += 25;
-            if (tags.includes(word)) score += 20;
+            // Word-level matching
+            for (const word of words) {
+                if (name.includes(word)) score += 40;
+                if (category.includes(word)) score += 30;
+                if (subcategory.includes(word)) score += 25;
+                if (tags.includes(word)) score += 20;
 
-            // Typo tolerance: check Levenshtein distance for name & category
-            const nameWords = [...name.split(/\s+/), ...category.split(/\s+/)];
-            for (const nw of nameWords) {
-                const dist = levenshtein(word, nw);
-                if (dist <= 2 && word.length > 2) score += Math.max(0, 25 - dist * 8);
+                // Typo tolerance: check Levenshtein distance
+                const nameWords = [...name.split(/\s+/), ...category.split(/\s+/)];
+                for (const nw of nameWords) {
+                    const dist = levenshtein(word, nw);
+                    if (dist <= 2 && word.length > 2) score += Math.max(0, 25 - dist * 8);
+                }
             }
+
+            return { ...p, score };
+        });
+
+        // Filter and sort by score
+        const results = scored
+            .filter(p => p.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 20);
+
+        // Generate intelligent suggestions
+        const suggestions = [];
+        if (results.length > 0) {
+            const cats = [...new Set(results.map(r => r.category).filter(Boolean))];
+            const subcats = [...new Set(results.map(r => r.subcategory).filter(Boolean))];
+            cats.slice(0, 2).forEach(c => suggestions.push({ text: c, type: 'category' }));
+            subcats.slice(0, 2).forEach(s => suggestions.push({ text: s, type: 'subcategory' }));
+            results.slice(0, 3).forEach(r => suggestions.push({ text: r.name, type: 'product' }));
         }
 
-        return { ...p, _score: score };
-    });
-
-    // Filter and sort by score
-    const results = scored
-        .filter(p => p._score > 0)
-        .sort((a, b) => b._score - a._score)
-        .slice(0, 30)
-        .map(({ _score, ...p }) => p);
-
-    // For out-of-stock results, find smart substitutions
-    const resultsWithSubs = results.map(p => {
-        if (!p.in_stock) {
-            const alternatives = allProducts
-                .filter(alt =>
-                    alt.in_stock &&
-                    alt.id !== p.id &&
-                    alt.category === p.category &&
-                    Math.abs(alt.price - p.price) <= p.price * 0.6
-                )
-                .sort((a, b) => Math.abs(a.price - p.price) - Math.abs(b.price - p.price))
-                .slice(0, 2);
-            return { ...p, alternatives };
-        }
-        return p;
-    });
-
-    res.json({ results: resultsWithSubs, query });
+        res.json({
+            query,
+            total: results.length,
+            results,
+            suggestions: suggestions.slice(0, 5)
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 module.exports = router;
