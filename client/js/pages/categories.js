@@ -512,7 +512,6 @@ window.pageInits.categories = async function() {
                         <div class="flex items-center gap-1 text-[10px] text-on-surface-variant font-medium">
                             <span class="material-symbols-outlined text-xs text-amber-500" style="font-variation-settings: 'FILL' 1;">star</span>
                             <span class="font-bold text-on-surface">${ratingVal}</span>
-                            <span class="text-on-surface-variant/80">(${reviewCount})</span>
                         </div>
                         <div class="flex items-center justify-between text-[10px] text-on-surface-variant mt-0.5">
                             <span class="flex items-center gap-0.5 text-emerald font-semibold">

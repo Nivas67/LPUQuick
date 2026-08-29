@@ -1,26 +1,18 @@
-// Home Page — exact Stitch UI with Address selector, Product modal & live stepper
+// Home Page — Rich Campus Store with Multi-Category Collections & Live Steppers
 window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
-window.pages.home = async function() {
-    let data;
-    try { data = await window.api.fetchHome(); } catch(e) { data = null; }
-
-    const sectionTitle = data?.section_title || 'Evening Snacks';
-    const products = data?.products || [];
-    const buyAgain = data?.buy_again || [];
-    const address = window.currentAddress || 'BH13';
-
-    const productCards = products.slice(0, 4).map((p) => {
+function buildProductCardsHTML(items) {
+    if (!items || items.length === 0) return '';
+    return items.map((p) => {
         const discountPercent = p.mrp && p.mrp > p.price ? Math.round(((p.mrp - p.price) / p.mrp) * 100) : 0;
         const ratingVal = p.rating || 4.8;
         const reviewCount = p.review_count || '1.2 lac';
-        const stockLeft = p.stock_left || 0;
 
         return `
         <div class="bg-surface rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group relative border border-surface-variant/30 p-2.5 flex flex-col justify-between product-detail-trigger cursor-pointer" data-product-id="${p.id}">
             <div>
-                <div class="h-36 bg-surface-container-high rounded-xl relative overflow-hidden flex items-center justify-center p-2">
+                <div class="h-32 sm:h-36 bg-surface-container-high rounded-xl relative overflow-hidden flex items-center justify-center p-2">
                     <!-- Wishlist Heart -->
                     <button type="button" class="absolute top-2 right-2 w-6 h-6 rounded-full bg-surface/70 backdrop-blur-md flex items-center justify-center text-on-surface-variant hover:text-rose-500 z-10">
                         <span class="material-symbols-outlined text-sm">favorite_border</span>
@@ -44,7 +36,7 @@ window.pages.home = async function() {
 
                 <!-- Pack Size & ADD Button -->
                 <div class="flex justify-between items-center mt-2">
-                    <span class="text-xs font-bold text-on-surface">${p.size || p.unit}</span>
+                    <span class="text-xs font-bold text-on-surface truncate max-w-[80px]">${p.size || p.unit}</span>
                     <div class="product-action-slot" data-id="${p.id}">
                         <button type="button" class="bg-emerald text-white text-xs px-3.5 py-1 rounded-xl font-bold hover:bg-primary active:scale-95 shadow-sm transition-all add-to-cart-btn" data-id="${p.id}">ADD</button>
                     </div>
@@ -72,7 +64,6 @@ window.pages.home = async function() {
                 <div class="flex items-center gap-0.5 font-medium">
                     <span class="material-symbols-outlined text-xs text-amber-500" style="font-variation-settings: 'FILL' 1;">star</span>
                     <span class="font-bold text-on-surface">${ratingVal}</span>
-                    <span>(${reviewCount})</span>
                 </div>
                 <span class="text-emerald font-semibold flex items-center gap-0.5">
                     <span class="material-symbols-outlined text-[11px]">bolt</span> 3m
@@ -80,15 +71,36 @@ window.pages.home = async function() {
             </div>
         </div>`;
     }).join('');
+}
+
+window.pages.home = async function() {
+    let data;
+    try { data = await window.api.fetchHome(); } catch(e) { data = null; }
+
+    const sectionTitle = data?.section_title || 'Afternoon Pick-Me-Up';
+    const products = data?.products || [];
+    const buyAgain = data?.buy_again || [];
+    const trendingSnacks = data?.trending_snacks || [];
+    const drinks = data?.drinks || [];
+    const instantFood = data?.instant_food || [];
+    const address = window.currentAddress || 'BH13';
+
+    const mainProductCards = buildProductCardsHTML(products);
+    const trendingSnackCards = buildProductCardsHTML(trendingSnacks);
+    const drinkCards = buildProductCardsHTML(drinks);
+    const instantFoodCards = buildProductCardsHTML(instantFood);
 
     const buyAgainCards = buyAgain.map(p => `
-        <div class="flex-none w-36 sm:w-44 snap-start bg-surface rounded-[2rem] p-3 sm:p-4 shadow-sm border border-surface-variant/30 hover:border-emerald transition-all product-detail-trigger cursor-pointer" data-product-id="${p.id}">
-            <div class="h-24 sm:h-28 bg-surface-container-high rounded-[1.5rem] mb-2.5 relative overflow-hidden flex items-center justify-center p-2">
-                <img class="object-contain w-full h-full" src="${p.image_url}" alt="${p.name}" onerror="this.src='https://images.unsplash.com/photo-1568651316335-714a806283db?w=300'">
+        <div class="flex-none w-36 sm:w-44 snap-start bg-surface rounded-[2rem] p-3 sm:p-4 shadow-sm border border-surface-variant/30 hover:border-emerald transition-all product-detail-trigger cursor-pointer flex flex-col justify-between" data-product-id="${p.id}">
+            <div>
+                <div class="h-24 sm:h-28 bg-surface-container-high rounded-[1.5rem] mb-2.5 relative overflow-hidden flex items-center justify-center p-2">
+                    <img class="object-contain w-full h-full" src="${p.image_url}" alt="${p.name}" onerror="this.src='https://images.unsplash.com/photo-1568651316335-714a806283db?w=300'">
+                </div>
+                <p class="font-label-lg font-semibold text-xs truncate text-on-surface">${p.name}</p>
+                <p class="text-[10px] text-on-surface-variant">${p.size || p.unit}</p>
             </div>
-            <p class="font-label-lg font-semibold text-xs truncate text-on-surface">${p.name}</p>
-            <div class="flex justify-between items-center mt-1">
-                <p class="text-xs text-on-surface-variant font-bold">₹${p.price}</p>
+            <div class="flex justify-between items-center mt-2 pt-1 border-t border-surface-variant/20">
+                <p class="text-xs text-on-surface font-extrabold">₹${p.price}</p>
                 <div class="product-action-slot" data-id="${p.id}">
                     <button type="button" class="bg-emerald text-white rounded-full p-1 shadow-sm hover:opacity-90 active:scale-90 transition-all add-to-cart-btn" data-id="${p.id}">
                         <span class="material-symbols-outlined text-xs" style="font-variation-settings: 'FILL' 1;">add</span>
@@ -154,7 +166,7 @@ window.pages.home = async function() {
     </header>
 
     <!-- Main Content -->
-    <main class="pt-20 md:pt-28 px-margin-mobile md:px-margin-desktop max-w-7xl mx-auto space-y-7">
+    <main class="pt-20 md:pt-28 px-margin-mobile md:px-margin-desktop max-w-7xl mx-auto space-y-8">
         <!-- Mobile Product Search -->
         <section class="md:hidden relative w-full">
             <div class="relative">
@@ -164,7 +176,7 @@ window.pages.home = async function() {
             <div id="mobile-search-dropdown" class="hidden absolute top-12 left-0 w-full bg-surface border border-surface-variant rounded-2xl shadow-xl z-50 max-h-80 overflow-y-auto p-2"></div>
         </section>
 
-        <!-- Dynamic Time Section -->
+        <!-- 1. Dynamic Live Time Section (Expanded Collection) -->
         <section>
             <div class="flex justify-between items-end mb-3.5">
                 <div>
@@ -177,16 +189,73 @@ window.pages.home = async function() {
                     See all <span class="material-symbols-outlined text-xs">arrow_forward</span>
                 </a>
             </div>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">${productCards}</div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">${mainProductCards}</div>
         </section>
 
-        <!-- Buy Again -->
+        <!-- 2. Buy Again Horizontal Snap Carousel -->
         <section>
-            <h2 class="font-headline-md text-base sm:text-lg font-bold text-on-surface mb-2.5">Buy Again</h2>
+            <div class="flex justify-between items-center mb-2.5">
+                <h2 class="font-headline-md text-base sm:text-lg font-bold text-on-surface">Buy Again & Student Favorites</h2>
+                <span class="text-xs text-on-surface-variant">Swipe for more</span>
+            </div>
             <div class="flex overflow-x-auto gap-3 sm:gap-4 no-scrollbar pb-2 snap-x">${buyAgainCards}</div>
         </section>
 
-        <!-- Promotional Bento -->
+        <!-- 3. Trending Hostel Munchies & Quick Bites -->
+        ${trendingSnackCards ? `
+        <section>
+            <div class="flex justify-between items-end mb-3.5">
+                <div>
+                    <h2 class="font-headline-md text-lg sm:text-xl font-bold text-on-surface flex items-center gap-2">
+                        <span>🍿 Trending Hostel Munchies</span>
+                        <span class="text-[10px] bg-amber-500/10 text-amber-500 font-bold px-2 py-0.5 rounded-full">Popular</span>
+                    </h2>
+                </div>
+                <a class="text-xs font-semibold text-emerald hover:text-primary transition-colors flex items-center gap-0.5" href="#/categories">
+                    Explore Snacks <span class="material-symbols-outlined text-xs">arrow_forward</span>
+                </a>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">${trendingSnackCards}</div>
+        </section>
+        ` : ''}
+
+        <!-- 4. Cold Drinks, Shakes & Energy -->
+        ${drinkCards ? `
+        <section>
+            <div class="flex justify-between items-end mb-3.5">
+                <div>
+                    <h2 class="font-headline-md text-lg sm:text-xl font-bold text-on-surface flex items-center gap-2">
+                        <span>🥤 Cold Drinks & Refreshers</span>
+                        <span class="text-[10px] bg-sky-500/10 text-sky-500 font-bold px-2 py-0.5 rounded-full">Chilled</span>
+                    </h2>
+                </div>
+                <a class="text-xs font-semibold text-emerald hover:text-primary transition-colors flex items-center gap-0.5" href="#/categories">
+                    Explore Drinks <span class="material-symbols-outlined text-xs">arrow_forward</span>
+                </a>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">${drinkCards}</div>
+        </section>
+        ` : ''}
+
+        <!-- 5. Instant Noodles & Late Night Fuel -->
+        ${instantFoodCards ? `
+        <section>
+            <div class="flex justify-between items-end mb-3.5">
+                <div>
+                    <h2 class="font-headline-md text-lg sm:text-xl font-bold text-on-surface flex items-center gap-2">
+                        <span>🍜 Instant Maggi & Late Night Fuel</span>
+                        <span class="text-[10px] bg-rose-500/10 text-rose-500 font-bold px-2 py-0.5 rounded-full">Ready in 3m</span>
+                    </h2>
+                </div>
+                <a class="text-xs font-semibold text-emerald hover:text-primary transition-colors flex items-center gap-0.5" href="#/categories">
+                    Explore Instant <span class="material-symbols-outlined text-xs">arrow_forward</span>
+                </a>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">${instantFoodCards}</div>
+        </section>
+        ` : ''}
+
+        <!-- 6. Promotional Bento Banners -->
         <section class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-16">
             <a href="#/flow-assist" class="bg-royal-purple/10 border border-royal-purple/20 rounded-[2rem] p-5 sm:p-7 flex items-center justify-between overflow-hidden relative group cursor-pointer hover:bg-royal-purple/15 transition-all shadow-sm">
                 <div class="z-10 w-3/4">
@@ -212,7 +281,7 @@ window.pages.home = async function() {
                         <span class="material-symbols-outlined text-emerald bg-emerald/20 p-2 rounded-2xl text-lg" style="font-variation-settings: 'FILL' 1;">local_pizza</span>
                     </div>
                     <p class="text-xs text-on-surface-variant mb-3">Open till 2 AM across all LPU Hostels. Get hot noodles, iced beverages & munchies delivered.</p>
-                    <span class="text-xs font-semibold text-emerald flex items-center gap-1">Browse 6 Categories <span class="material-symbols-outlined text-xs">arrow_forward</span></span>
+                    <span class="text-xs font-semibold text-emerald flex items-center gap-1">Browse All Categories <span class="material-symbols-outlined text-xs">arrow_forward</span></span>
                 </div>
             </a>
         </section>
