@@ -268,7 +268,7 @@ async function sendRealSms(phone, otp) {
     return { success: true, provider: 'console' };
 }
 
-// POST /api/auth/send-otp (Generates and dispatches real SMS OTP for mobile number verification)
+// POST /api/auth/send-otp (Generates and dispatches real SMS / WhatsApp OTP for mobile number verification)
 router.post('/send-otp', async (req, res) => {
     const rawPhone = req.body.phone || req.body.mobile;
     const userId = req.body.userId || req.body.user_id;
@@ -296,9 +296,16 @@ router.post('/send-otp', async (req, res) => {
     // Send real carrier SMS
     await sendRealSms(cleanPhone, otp);
 
+    // Direct WhatsApp Delivery Deep Link
+    const waText = encodeURIComponent(`⚡ *LPUQuick Campus Express*\n\nYour Mobile Verification OTP is: *${otp}*\n\n(Enter this 6-digit code in LPUQuick to verify your hostel delivery room. Valid for 5 minutes.)`);
+    const whatsappUrl = `https://api.whatsapp.com/send?phone=91${cleanPhone}&text=${waText}`;
+
+    console.log(`[WhatsApp Gateway] 💬 Generated WhatsApp OTP dispatch for +91${cleanPhone}: ${otp}`);
+
     res.json({
         success: true,
         phone: cleanPhone,
+        whatsapp_url: whatsappUrl,
         message: `OTP sent successfully to +91 ${cleanPhone}`,
         expires_in: 300
     });

@@ -221,21 +221,25 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
             </div>
 
             <!-- Student Mobile Number for Delivery Rider Contact with OTP Verification -->
-            <div class="space-y-1.5">
+            <div class="space-y-2">
                 <div class="flex justify-between items-center">
                     <label class="block text-xs font-semibold text-on-surface-variant" for="phone-input">Contact Phone Number (For delivery runner) *</label>
                     <span id="phone-verify-status-badge" class="${localStorage.getItem('lpuquick_phone_verified_' + savedPhone) === 'true' ? 'text-emerald font-bold text-[11px] flex items-center gap-1' : 'hidden'}">
                         <span class="material-symbols-outlined text-[13px]">verified</span> Verified
                     </span>
                 </div>
-                <div class="relative flex items-center gap-2">
-                    <div class="relative flex-1">
-                        <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant">+91</span>
-                        <input type="tel" id="phone-input" maxlength="10" required class="w-full pl-12 pr-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface font-semibold focus:outline-none focus:border-emerald" placeholder="XXXXXXXXXX" value="${savedPhone}">
-                    </div>
-                    <button type="button" id="btn-trigger-otp" class="py-2.5 px-3.5 bg-emerald/15 hover:bg-emerald/25 text-emerald border border-emerald/30 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1 cursor-pointer">
+                <div class="relative">
+                    <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant">+91</span>
+                    <input type="tel" id="phone-input" maxlength="10" required class="w-full pl-12 pr-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface font-semibold focus:outline-none focus:border-emerald" placeholder="XXXXXXXXXX" value="${savedPhone}">
+                </div>
+                <div class="grid grid-cols-2 gap-2 pt-0.5">
+                    <button type="button" id="btn-trigger-wa-otp" class="py-2.5 px-3 bg-emerald/15 hover:bg-emerald/25 text-emerald border border-emerald/30 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm">
+                        <span class="material-symbols-outlined text-sm text-emerald">chat</span>
+                        <span>WhatsApp OTP</span>
+                    </button>
+                    <button type="button" id="btn-trigger-sms-otp" class="py-2.5 px-3 bg-surface-container-high hover:bg-surface-variant text-on-surface border border-surface-variant rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm">
                         <span class="material-symbols-outlined text-sm">sms</span>
-                        <span id="btn-trigger-otp-text">${localStorage.getItem('lpuquick_phone_verified_' + savedPhone) === 'true' ? 'Verified' : 'Verify'}</span>
+                        <span>SMS OTP</span>
                     </button>
                 </div>
             </div>
@@ -267,21 +271,27 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
                     </button>
                     <div>
                         <h3 class="font-bold text-sm sm:text-base text-on-surface">Verify Mobile Number</h3>
-                        <p class="text-[11px] text-on-surface-variant">SMS code sent to <strong>+91 <span id="otp-phone-display"></span></strong></p>
+                        <p class="text-[11px] text-on-surface-variant">Dispatched to <strong>+91 <span id="otp-phone-display"></span></strong></p>
                     </div>
                 </div>
                 <span class="text-[10px] bg-emerald/15 text-emerald px-2 py-0.5 rounded-full font-bold">Step 2: OTP</span>
             </div>
 
-            <!-- SMS Delivery Notice -->
-            <div class="p-3 bg-emerald/10 border border-emerald/30 rounded-2xl flex items-center gap-2.5 text-xs text-emerald font-medium">
-                <span class="material-symbols-outlined text-base shrink-0">sms</span>
-                <span>We sent a 6-digit verification code via SMS to your mobile phone. Please enter it below.</span>
+            <!-- WhatsApp Direct Action Button -->
+            <a id="wa-direct-launch-link" href="#" target="_blank" rel="noopener noreferrer" class="w-full py-3 px-4 bg-emerald hover:bg-primary text-white rounded-2xl text-xs font-bold transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 cursor-pointer no-underline">
+                <span class="material-symbols-outlined text-base">chat</span>
+                <span>Open WhatsApp to Receive OTP Message</span>
+            </a>
+
+            <!-- Delivery Notice -->
+            <div class="p-3 bg-surface-container-high border border-surface-variant/50 rounded-2xl flex items-center gap-2.5 text-xs text-on-surface font-medium">
+                <span class="material-symbols-outlined text-base text-emerald shrink-0">mark_chat_read</span>
+                <span>Enter the 6-digit code received on your mobile / WhatsApp below:</span>
             </div>
 
             <!-- 6 Digit Input Matrix -->
             <div class="space-y-2 text-center pt-1">
-                <label class="block text-xs font-semibold text-on-surface-variant">Enter 6-Digit OTP from SMS</label>
+                <label class="block text-xs font-semibold text-on-surface-variant">Enter 6-Digit OTP</label>
                 <div class="flex justify-center gap-2" id="otp-boxes-wrapper">
                     <input type="tel" maxlength="1" class="otp-box w-10 sm:w-11 h-12 text-center text-lg font-black rounded-xl border border-surface-variant bg-surface text-on-surface focus:border-emerald focus:ring-2 focus:ring-emerald/20 focus:outline-none" data-idx="0" autofocus>
                     <input type="tel" maxlength="1" class="otp-box w-10 sm:w-11 h-12 text-center text-lg font-black rounded-xl border border-surface-variant bg-surface text-on-surface focus:border-emerald focus:ring-2 focus:ring-emerald/20 focus:outline-none" data-idx="1">
@@ -307,7 +317,7 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
             <!-- Resend Timer -->
             <div class="text-center pt-1">
                 <p class="text-xs text-on-surface-variant">
-                    Didn't receive SMS? <button type="button" id="resend-otp-link" class="text-emerald font-bold underline cursor-pointer disabled:opacity-50" disabled>Resend Code (<span id="resend-timer-sec">30</span>s)</button>
+                    Didn't receive code? <button type="button" id="resend-otp-link" class="text-emerald font-bold underline cursor-pointer disabled:opacity-50" disabled>Resend Code (<span id="resend-timer-sec">30</span>s)</button>
                 </p>
             </div>
         </div>
@@ -345,10 +355,10 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
     }
 
     // Function to launch OTP verification screen
-    async function launchOtpFlow(phoneToVerify) {
+    async function launchOtpFlow(phoneToVerify, autoOpenWhatsApp = false) {
         const userId = window.getEffectiveUserId();
         try {
-            await window.api.sendOtp(phoneToVerify, userId);
+            const sendRes = await window.api.sendOtp(phoneToVerify, userId);
             
             // Switch screen
             if (addressFormScreen) addressFormScreen.classList.add('hidden');
@@ -357,6 +367,14 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
             const phoneDisp = document.getElementById('otp-phone-display');
             if (phoneDisp) phoneDisp.textContent = phoneToVerify;
 
+            const waLink = document.getElementById('wa-direct-launch-link');
+            if (waLink && sendRes.whatsapp_url) {
+                waLink.href = sendRes.whatsapp_url;
+                if (autoOpenWhatsApp) {
+                    window.open(sendRes.whatsapp_url, '_blank');
+                }
+            }
+
             // Clear previous inputs
             const boxes = document.querySelectorAll('.otp-box');
             boxes.forEach(b => b.value = '');
@@ -364,7 +382,7 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
 
             startResendTimer();
             if (typeof window.showClientToast === 'function') {
-                window.showClientToast(`📲 SMS verification code sent to +91 ${phoneToVerify}`, 'success', 'sms');
+                window.showClientToast(`📲 Verification code sent to +91 ${phoneToVerify}`, 'success', 'chat');
             }
         } catch (err) {
             alert('Could not send OTP: ' + (err.message || err));
@@ -417,14 +435,14 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
     if (resendBtn) {
         resendBtn.onclick = async () => {
             const phone = document.getElementById('phone-input')?.value?.trim();
-            if (phone) await launchOtpFlow(phone);
+            if (phone) await launchOtpFlow(phone, false);
         };
     }
 
-    // Trigger OTP button from form
-    const triggerOtpBtn = document.getElementById('btn-trigger-otp');
-    if (triggerOtpBtn) {
-        triggerOtpBtn.onclick = () => {
+    // Trigger WhatsApp OTP button from form
+    const triggerWaBtn = document.getElementById('btn-trigger-wa-otp');
+    if (triggerWaBtn) {
+        triggerWaBtn.onclick = () => {
             const phone = document.getElementById('phone-input')?.value?.trim();
             const alertBox = document.getElementById('address-validation-alert');
             const alertMsg = document.getElementById('address-validation-msg');
@@ -438,7 +456,28 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
                 return;
             }
             if (alertBox) alertBox.classList.add('hidden');
-            launchOtpFlow(phone);
+            launchOtpFlow(phone, true);
+        };
+    }
+
+    // Trigger SMS OTP button from form
+    const triggerSmsBtn = document.getElementById('btn-trigger-sms-otp');
+    if (triggerSmsBtn) {
+        triggerSmsBtn.onclick = () => {
+            const phone = document.getElementById('phone-input')?.value?.trim();
+            const alertBox = document.getElementById('address-validation-alert');
+            const alertMsg = document.getElementById('address-validation-msg');
+
+            if (!phone || phone.length < 10) {
+                if (alertBox && alertMsg) {
+                    alertBox.classList.remove('hidden');
+                    alertMsg.textContent = 'Please enter a valid 10-digit mobile number first.';
+                }
+                document.getElementById('phone-input')?.focus();
+                return;
+            }
+            if (alertBox) alertBox.classList.add('hidden');
+            launchOtpFlow(phone, false);
         };
     }
 
@@ -578,7 +617,7 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
         const isVerified = localStorage.getItem('lpuquick_phone_verified_' + phone) === 'true';
         if (!isVerified) {
             if (alertBox) alertBox.classList.add('hidden');
-            await launchOtpFlow(phone);
+            await launchOtpFlow(phone, true);
             return;
         }
 
