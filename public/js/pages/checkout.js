@@ -15,6 +15,7 @@ window.pages.checkout = async function() {
     const p = cartData.pricing || { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 };
     const subtotal = p.subtotal || 0;
     const exactTotal = subtotal; // Total to Pay is exactly the item subtotal!
+    window.cartTotalCache = exactTotal;
     const totalSavings = subtotal > 0 ? 30 : 0; // ₹25 delivery + ₹5 handling savings
     const address = window.currentAddressDetail?.label || 'BH13 (Block A), Room 304';
 
@@ -458,8 +459,6 @@ window.pageInits.checkout = function() {
         };
     });
 
-    window.cartTotalCache = exactTotal;
-
     // 1. ROCK-SOLID SLIDER INTERACTION WITH MULTI-EVENT WINDOW TRACKING
     if (track && thumb) {
         let isDragging = false;
@@ -515,52 +514,64 @@ window.pageInits.checkout = function() {
             resetSlider();
         }
 
-        // --- Touch Events ---
-        thumb.addEventListener('touchstart', (e) => {
-            if (e.touches && e.touches[0]) {
-                onDragStart(e.touches[0].clientX);
+        // --- Touch Events (Scoped Document Listeners) ---
+        thumb.ontouchstart = (e) => {
+            if (isSubmitting || !e.touches || !e.touches[0]) return;
+            onDragStart(e.touches[0].clientX);
+
+            function onTouchMove(moveEvent) {
+                if (!moveEvent.touches || !moveEvent.touches[0]) return;
+                onDragMove(moveEvent.touches[0].clientX);
             }
-        }, { passive: true });
 
-        window.addEventListener('touchmove', (e) => {
-            if (isDragging && e.touches && e.touches[0]) {
-                onDragMove(e.touches[0].clientX);
+            function onTouchEnd() {
+                document.removeEventListener('touchmove', onTouchMove);
+                document.removeEventListener('touchend', onTouchEnd);
+                document.removeEventListener('touchcancel', onTouchEnd);
+                onDragEnd();
             }
-        }, { passive: true });
 
-        window.addEventListener('touchend', onDragEnd);
-        window.addEventListener('touchcancel', onDragEnd);
+            document.addEventListener('touchmove', onTouchMove, { passive: true });
+            document.addEventListener('touchend', onTouchEnd);
+            document.addEventListener('touchcancel', onTouchEnd);
+        };
 
-        // --- Mouse Events ---
-        thumb.addEventListener('mousedown', (e) => {
-            onDragStart(e.clientX);
+        // --- Mouse Events (Scoped Document Listeners) ---
+        thumb.onmousedown = (e) => {
+            if (isSubmitting) return;
             e.preventDefault();
-        });
+            onDragStart(e.clientX);
 
-        window.addEventListener('mousemove', (e) => {
-            if (isDragging) {
-                onDragMove(e.clientX);
+            function onMouseMove(moveEvent) {
+                onDragMove(moveEvent.clientX);
             }
-        });
 
-        window.addEventListener('mouseup', onDragEnd);
+            function onMouseUp() {
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+                onDragEnd();
+            }
+
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        };
 
         // --- Direct Track Click / Tap Support ---
-        track.addEventListener('click', (e) => {
+        track.onclick = (e) => {
             if (isSubmitting) return;
             const trackRect = track.getBoundingClientRect();
             const clickOffset = e.clientX - trackRect.left;
             const maxSlide = getMaxSlide();
-            if (clickOffset > maxSlide * 0.4) {
-                // Animate thumb towards end and submit
-                thumb.style.transition = 'transform 0.25s ease';
-                if (progress) progress.style.transition = 'width 0.25s ease';
+            if (clickOffset > maxSlide * 0.35) {
+                // Animate thumb smoothly to the end and submit
+                thumb.style.transition = 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)';
+                if (progress) progress.style.transition = 'width 0.25s cubic-bezier(0.16, 1, 0.3, 1)';
                 updateSliderUI(maxSlide);
                 setTimeout(() => {
                     handleOrderPlacement();
-                }, 150);
+                }, 200);
             }
-        });
+        };
     }
 
     tapToPayBtn?.addEventListener('click', () => {
