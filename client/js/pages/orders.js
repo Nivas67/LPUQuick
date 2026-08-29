@@ -41,6 +41,7 @@ window.pages.orders = async function() {
     }).join('');
 
     window.CURRENT_ACTIVE_ORDER_ID = activeOrder ? activeOrder.id : null;
+    window.CURRENT_ACTIVE_ORDER_STATUS = activeOrder ? activeOrder.status : 'Order Placed';
 
     return `
 <div class="bg-background text-on-background font-body-md min-h-screen pb-32">
@@ -73,7 +74,7 @@ window.pages.orders = async function() {
                         <span id="tracking-eta-time">Status: ${activeOrder.status}</span>
                     </span>
                     <!-- Help Option Button (Visible ONLY when order is active) -->
-                    <button type="button" id="btn-order-help" class="text-xs bg-surface-container-high hover:bg-emerald/15 hover:text-emerald text-on-surface font-bold px-3 py-1 rounded-full border border-outline-variant/40 flex items-center gap-1 transition-all active:scale-95 shadow-sm cursor-pointer" title="Order Help & Support">
+                    <button type="button" id="btn-order-help" onclick="window.openOrderHelpModal()" class="text-xs bg-surface-container-high hover:bg-emerald/15 hover:text-emerald text-on-surface font-bold px-3 py-1 rounded-full border border-outline-variant/40 flex items-center gap-1 transition-all active:scale-95 shadow-sm cursor-pointer z-30" title="Order Help & Support">
                         <span class="material-symbols-outlined text-sm text-emerald">help</span>
                         <span>Help</span>
                     </button>
@@ -205,7 +206,7 @@ window.pages.orders = async function() {
                         <p class="text-[11px] text-on-surface-variant">Order #${activeOrder ? activeOrder.id.replace('order_', '') : ''}</p>
                     </div>
                 </div>
-                <button type="button" id="btn-close-help-modal" class="w-8 h-8 rounded-full bg-surface-container-high text-on-surface-variant hover:text-on-surface flex items-center justify-center">
+                <button type="button" id="btn-close-help-modal" onclick="window.closeOrderHelpModal()" class="w-8 h-8 rounded-full bg-surface-container-high text-on-surface-variant hover:text-on-surface flex items-center justify-center cursor-pointer">
                     <span class="material-symbols-outlined text-base">close</span>
                 </button>
             </div>
@@ -226,7 +227,7 @@ window.pages.orders = async function() {
                 </a>
 
                 <!-- Option 2: Change Address -->
-                <button type="button" id="btn-help-change-address" class="w-full text-left flex items-center justify-between p-3.5 rounded-2xl bg-surface-container-high hover:bg-emerald/10 border border-outline-variant/30 hover:border-emerald transition-all group cursor-pointer">
+                <button type="button" id="btn-help-change-address" onclick="window.changeHelpOrderAddress()" class="w-full text-left flex items-center justify-between p-3.5 rounded-2xl bg-surface-container-high hover:bg-emerald/10 border border-outline-variant/30 hover:border-emerald transition-all group cursor-pointer">
                     <div class="flex items-center gap-3">
                         <div class="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center shadow-md">
                             <span class="material-symbols-outlined text-xl">location_on</span>
@@ -243,7 +244,7 @@ window.pages.orders = async function() {
                 ${(() => {
                     const isFrozen = activeOrder && ['Out for Delivery', 'out for delivery', 'Delivered', 'delivered'].includes(activeOrder.status);
                     return `
-                    <button type="button" id="btn-help-cancel-order" ${isFrozen ? 'disabled' : ''} class="w-full text-left flex items-center justify-between p-3.5 rounded-2xl ${isFrozen ? 'bg-surface-container-high opacity-50 border border-outline-variant/30 cursor-not-allowed' : 'bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 cursor-pointer'} transition-all group">
+                    <button type="button" id="btn-help-cancel-order" onclick="window.cancelHelpOrder()" ${isFrozen ? 'disabled' : ''} class="w-full text-left flex items-center justify-between p-3.5 rounded-2xl ${isFrozen ? 'bg-surface-container-high opacity-50 border border-outline-variant/30 cursor-not-allowed' : 'bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 cursor-pointer'} transition-all group">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 rounded-xl ${isFrozen ? 'bg-surface-variant text-on-surface-variant' : 'bg-error text-white'} flex items-center justify-center shadow-md">
                                 <span class="material-symbols-outlined text-xl">${isFrozen ? 'lock' : 'cancel'}</span>
@@ -331,10 +332,11 @@ window.pageInits.orders = function() {
     const riderAvatar = document.getElementById('rider-avatar');
     const riderBadge = document.getElementById('rider-badge');
 
-    let currentOrderStatus = activeOrder ? activeOrder.status : 'Order Placed';
+    let currentOrderStatus = window.CURRENT_ACTIVE_ORDER_STATUS || 'Order Placed';
 
-    function updateHelpModalCancelState(status) {
+    window.updateHelpModalCancelState = function(status) {
         currentOrderStatus = status;
+        window.CURRENT_ACTIVE_ORDER_STATUS = status;
         const cancelBtn = document.getElementById('btn-help-cancel-order');
         if (!cancelBtn) return;
 
@@ -379,12 +381,80 @@ window.pageInits.orders = function() {
                 <span class="material-symbols-outlined text-error group-hover:translate-x-1 transition-transform">chevron_right</span>
             `;
         }
-    }
+    };
+
+    window.openOrderHelpModal = function() {
+        const modal = document.getElementById('order-help-modal');
+        if (modal) {
+            window.updateHelpModalCancelState(window.CURRENT_ACTIVE_ORDER_STATUS || currentOrderStatus || 'Order Placed');
+            modal.classList.remove('hidden');
+        }
+    };
+
+    window.closeOrderHelpModal = function() {
+        const modal = document.getElementById('order-help-modal');
+        if (modal) modal.classList.add('hidden');
+    };
+
+    window.changeHelpOrderAddress = async function() {
+        const activeOrderId = window.CURRENT_ACTIVE_ORDER_ID;
+        if (!activeOrderId) return alert('No active order found.');
+
+        const currentLabel = document.getElementById('help-current-address-label');
+        const current = currentLabel ? currentLabel.textContent : (window.currentAddressDetail?.label || 'BH13 (Block A), Room 304');
+        const newRoom = prompt('Enter updated hostel block & room number for fast delivery:', current);
+        if (newRoom && newRoom.trim() && newRoom.trim() !== current) {
+            const trimmed = newRoom.trim();
+            try {
+                await window.api.changeOrderAddress(activeOrderId, trimmed);
+                if (currentLabel) currentLabel.textContent = trimmed;
+                const destLabel = document.getElementById('tracking-dest-label');
+                if (destLabel) destLabel.textContent = trimmed;
+                if (msgEl) {
+                    msgEl.innerHTML = `<span class="material-symbols-outlined text-sm text-emerald">directions_walk</span><span>Delivery address updated to <b>${trimmed}</b>. Runner notified!</span>`;
+                }
+                alert(`✓ Delivery address updated to: ${trimmed}`);
+                window.closeOrderHelpModal();
+            } catch (err) {
+                alert('Could not update address: ' + err.message);
+            }
+        }
+    };
+
+    window.cancelHelpOrder = async function() {
+        const activeOrderId = window.CURRENT_ACTIVE_ORDER_ID;
+        if (!activeOrderId) return alert('No active order found.');
+
+        const s = (window.CURRENT_ACTIVE_ORDER_STATUS || currentOrderStatus || '').toLowerCase();
+        if (['out for delivery', 'delivered'].includes(s)) {
+            alert('⚠️ Order is already packed and out for delivery with the campus runner. It can no longer be cancelled.');
+            return;
+        }
+
+        const confirmed = confirm('Are you sure you want to cancel this order? Instant refund will be initiated.');
+        if (!confirmed) return;
+
+        try {
+            const cancelBtn = document.getElementById('btn-help-cancel-order');
+            if (cancelBtn) {
+                cancelBtn.disabled = true;
+                cancelBtn.textContent = 'Cancelling...';
+            }
+            await window.api.cancelOrder(activeOrderId, 'Cancelled by student via Help Menu');
+            window.applyOrderStatusUI('Cancelled');
+            window.closeOrderHelpModal();
+        } catch (err) {
+            alert('Could not cancel order: ' + err.message);
+            const cancelBtn = document.getElementById('btn-help-cancel-order');
+            if (cancelBtn) cancelBtn.disabled = false;
+        }
+    };
 
     // Live status UI updater
-    function applyOrderStatusUI(status, riderName) {
+    window.applyOrderStatusUI = function(status, riderName) {
         currentOrderStatus = status;
-        updateHelpModalCancelState(status);
+        window.CURRENT_ACTIVE_ORDER_STATUS = status;
+        window.updateHelpModalCancelState(status);
         const rider = riderName || 'Alex';
         if (riderNameDisplay) riderNameDisplay.textContent = rider;
         if (riderAvatar) riderAvatar.textContent = rider[0];
@@ -426,17 +496,6 @@ window.pageInits.orders = function() {
             if (stepPacked) stepPacked.classList.add('text-emerald', 'font-bold');
             if (stepEnroute) stepEnroute.classList.add('text-emerald', 'font-bold');
             if (stepDelivered) stepDelivered.classList.remove('text-emerald', 'font-bold');
-
-            // Freeze Cancel Option in Help Modal
-            const cancelBtn = document.getElementById('btn-help-cancel-order');
-            const cancelDesc = document.getElementById('help-cancel-desc');
-            if (cancelBtn) {
-                cancelBtn.disabled = true;
-                cancelBtn.className = 'w-full text-left flex items-center justify-between p-3.5 rounded-2xl bg-surface-container-high opacity-50 border border-outline-variant/30 cursor-not-allowed transition-all group';
-            }
-            if (cancelDesc) {
-                cancelDesc.textContent = '🔒 Order packed & walker en route. Cannot cancel now.';
-            }
         } else if (status === 'Delivered') {
             if (progressBar) progressBar.style.width = '100%';
             if (etaTimeEl) etaTimeEl.textContent = 'Delivered ✓';
@@ -446,10 +505,6 @@ window.pageInits.orders = function() {
             if (stepPacked) stepPacked.classList.add('text-emerald', 'font-bold');
             if (stepEnroute) stepEnroute.classList.add('text-emerald', 'font-bold');
             if (stepDelivered) stepDelivered.classList.add('text-emerald', 'font-bold');
-
-            // Freeze Cancel Option in Help Modal
-            const cancelBtn = document.getElementById('btn-help-cancel-order');
-            if (cancelBtn) cancelBtn.disabled = true;
 
             // Soft auto-refresh after delivery completion so past orders update cleanly
             setTimeout(() => {
@@ -496,7 +551,7 @@ window.pageInits.orders = function() {
                 }
             }, 3000);
         }
-    }
+    };
 
     if (!activeOrderId) return;
 
@@ -517,7 +572,7 @@ window.pageInits.orders = function() {
             try {
                 const data = JSON.parse(event.data);
                 if (data && data.status) {
-                    applyOrderStatusUI(data.status, data.rider_name || data.riderName);
+                    window.applyOrderStatusUI(data.status, data.rider_name || data.riderName);
                 }
             } catch (e) {
                 console.error('[Orders WS parse error]:', e);
@@ -536,79 +591,18 @@ window.pageInits.orders = function() {
         startPollingStatus();
     }
 
-    // Help Modal Logic (Only available when order is active)
-    const btnHelp = document.getElementById('btn-order-help');
-    const helpModal = document.getElementById('order-help-modal');
-    const btnCloseHelp = document.getElementById('btn-close-help-modal');
-    const btnHelpChangeAddr = document.getElementById('btn-help-change-address');
-    const btnHelpCancel = document.getElementById('btn-help-cancel-order');
-    const helpCurrentAddrLabel = document.getElementById('help-current-address-label');
-    const trackingDestLabel = document.getElementById('tracking-dest-label');
-
-    if (btnHelp && helpModal) {
-        btnHelp.onclick = () => {
-            updateHelpModalCancelState(currentOrderStatus);
-            helpModal.classList.remove('hidden');
-        };
-    }
-
-    if (btnCloseHelp && helpModal) {
-        btnCloseHelp.onclick = () => {
-            helpModal.classList.add('hidden');
-        };
-    }
-
-    // Option 2: Change Address
-    if (btnHelpChangeAddr) {
-        btnHelpChangeAddr.onclick = async () => {
-            const current = helpCurrentAddrLabel?.textContent || hostelAddress;
-            const newRoom = prompt('Enter updated hostel block & room number for fast delivery:', current);
-            if (newRoom && newRoom.trim() && newRoom.trim() !== current) {
-                const trimmed = newRoom.trim();
-                try {
-                    btnHelpChangeAddr.disabled = true;
-                    btnHelpChangeAddr.style.opacity = '0.6';
-                    await window.api.changeOrderAddress(activeOrderId, trimmed);
-                    if (helpCurrentAddrLabel) helpCurrentAddrLabel.textContent = trimmed;
-                    if (trackingDestLabel) trackingDestLabel.textContent = trimmed;
-                    if (msgEl) {
-                        msgEl.innerHTML = `<span class="material-symbols-outlined text-sm text-emerald">directions_walk</span><span>Delivery address updated to <b>${trimmed}</b>. Runner notified!</span>`;
-                    }
-                    alert(`✓ Address updated to: ${trimmed}`);
-                    helpModal.classList.add('hidden');
-                } catch (err) {
-                    alert('Could not update address: ' + err.message);
-                } finally {
-                    btnHelpChangeAddr.disabled = false;
-                    btnHelpChangeAddr.style.opacity = '1';
+    function startPollingStatus() {
+        if (ordersPoll) clearInterval(ordersPoll);
+        ordersPoll = setInterval(async () => {
+            try {
+                const res = await window.api.getOrderDetail(activeOrderId);
+                if (res && res.order && res.order.status) {
+                    window.applyOrderStatusUI(res.order.status, res.order.rider_name);
+                    if (res.order.status === 'Delivered') clearInterval(ordersPoll);
                 }
-            }
-        };
-    }
-
-    // Option 3: Cancel Order (Strictly blocked when Out for Delivery / Delivered)
-    if (btnHelpCancel) {
-        btnHelpCancel.onclick = async () => {
-            const s = (currentOrderStatus || '').toLowerCase();
-            if (['out for delivery', 'delivered'].includes(s)) {
-                alert('⚠️ Order is already packed and out for delivery with the campus runner. It can no longer be cancelled.');
-                return;
-            }
-
-            const confirmed = confirm('Are you sure you want to cancel this order? Instant refund will be initiated.');
-            if (confirmed) {
-                try {
-                    btnHelpCancel.disabled = true;
-                    btnHelpCancel.textContent = 'Cancelling...';
-                    await window.api.cancelOrder(activeOrderId, 'Cancelled by student via Help Menu');
-                    applyOrderStatusUI('Cancelled');
-                    helpModal.classList.add('hidden');
-                } catch (err) {
-                    alert('Could not cancel order: ' + err.message);
-                    btnHelpCancel.disabled = false;
-                }
-            }
-        };
+            } catch (err) {}
+        }, 3000);
     }
 };
+
 
