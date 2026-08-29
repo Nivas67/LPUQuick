@@ -538,6 +538,12 @@ function updateGlobalDeliveryBar(status, riderName) {
         setTimeout(() => {
             bar.classList.add('hidden');
         }, 8000);
+    } else if (status === 'Cancelled' || status === 'cancelled') {
+        etaEl.textContent = 'Cancelled ✕';
+        subEl.textContent = '❌ Order was cancelled by Admin';
+        setTimeout(() => {
+            bar.classList.add('hidden');
+        }, 4000);
     }
 }
 

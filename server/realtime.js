@@ -158,20 +158,22 @@ function notifyOrderStatusUpdate(orderId, statusData) {
 }
 
 function getStepNumber(status) {
-    if (status === 'Order Confirmed') return 2;
-    if (status === 'Preparing') return 3;
-    if (status === 'Out for Delivery') return 4;
-    if (status === 'Delivered') return 5;
-    if (status === 'Cancelled') return -1;
+    const s = (status || '').toLowerCase();
+    if (s === 'order confirmed') return 2;
+    if (s === 'preparing') return 3;
+    if (s === 'out for delivery') return 4;
+    if (s === 'delivered') return 5;
+    if (s === 'cancelled') return -1;
     return 1; // Order Placed
 }
 
 function getStatusMessage(status, rider = 'Alex') {
-    if (status === 'Order Confirmed') return 'BH13 Dark Store confirmed your items are in stock.';
-    if (status === 'Preparing') return 'Staff is packing your snacks at BH13 Hub.';
-    if (status === 'Out for Delivery') return `🚶‍♂️ Campus runner ${rider} picked up your bag and is walking to your room.`;
-    if (status === 'Delivered') return '🎉 Order delivered to your hostel room/gate!';
-    if (status === 'Cancelled') return 'Order has been cancelled.';
+    const s = (status || '').toLowerCase();
+    if (s === 'order confirmed') return 'BH13 Dark Store confirmed your items are in stock.';
+    if (s === 'preparing') return 'Staff is packing your snacks at BH13 Hub.';
+    if (s === 'out for delivery') return `🚶‍♂️ Campus runner ${rider} picked up your bag and is walking to your room.`;
+    if (s === 'delivered') return '🎉 Order delivered to your hostel room/gate!';
+    if (s === 'cancelled') return '❌ Order has been cancelled by Admin.';
     return 'Your order has been placed and received by BH13 Hub.';
 }
 

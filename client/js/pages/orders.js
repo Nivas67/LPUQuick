@@ -15,12 +15,17 @@ window.pages.orders = async function() {
     const hostelAddress = window.currentAddressDetail?.label || 'BH13 (Block A), Room 304';
     const hostelShort = window.currentAddress || 'BH13';
 
-    const pastRows = pastOrders.map(o => `
+    const pastRows = pastOrders.map(o => {
+        const isCancelled = ['Cancelled', 'cancelled'].includes(o.status);
+        const statusBadgeClass = isCancelled 
+            ? 'bg-error/15 text-error border border-error/30' 
+            : 'bg-emerald/10 text-emerald';
+        return `
         <div class="glass-card rounded-2xl p-4 border border-glass-border shadow-sm flex flex-col sm:flex-row justify-between sm:items-center gap-3">
             <div class="space-y-1">
                 <div class="flex items-center gap-2">
                     <span class="font-bold text-xs sm:text-sm text-on-surface">Order #${o.id.replace('order_', '')}</span>
-                    <span class="text-[10px] bg-emerald/10 text-emerald font-bold px-2 py-0.5 rounded-full capitalize">${o.status}</span>
+                    <span class="text-[10px] ${statusBadgeClass} font-bold px-2 py-0.5 rounded-full capitalize">${o.status}</span>
                 </div>
                 <p class="text-xs text-on-surface-variant line-clamp-1">${o.item_names || 'Campus Groceries & Essentials'}</p>
                 <p class="text-[11px] text-on-surface-variant">${new Date(o.created_at || Date.now()).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
@@ -32,7 +37,8 @@ window.pages.orders = async function() {
                 </button>
             </div>
         </div>
-    `).join('');
+        `;
+    }).join('');
 
     window.CURRENT_ACTIVE_ORDER_ID = activeOrder ? activeOrder.id : null;
 
@@ -292,6 +298,44 @@ window.pageInits.orders = function() {
                     window.router();
                 }
             }, 3500);
+        } else if (status === 'Cancelled' || status === 'cancelled') {
+            if (progressBar) {
+                progressBar.style.width = '100%';
+                progressBar.className = 'bg-error h-full rounded-full transition-all duration-700 shadow-sm';
+            }
+            if (etaTimeEl) {
+                etaTimeEl.textContent = 'Cancelled ✕';
+                const parentBadge = etaTimeEl.closest('#tracking-eta');
+                if (parentBadge) parentBadge.className = 'text-xs bg-error/15 text-error font-extrabold px-3 py-1 rounded-full flex items-center gap-1';
+            }
+            if (msgEl) {
+                msgEl.innerHTML = '<span class="material-symbols-outlined text-sm text-error">cancel</span><span class="text-error font-semibold">Order cancelled by Admin / Dark Store. Refund initiated.</span>';
+            }
+            if (pin) {
+                pin.style.left = '50%';
+                pin.style.top = '50%';
+                pin.innerHTML = `
+                    <div class="relative flex flex-col items-center">
+                        <div class="w-12 h-12 rounded-full bg-error text-white flex items-center justify-center shadow-2xl border-2 border-white relative z-10">
+                            <span class="material-symbols-outlined text-2xl font-black">close</span>
+                        </div>
+                        <div class="mt-1.5 bg-white dark:bg-slate-800 text-error text-[11px] font-extrabold px-3 py-0.5 rounded-full shadow-lg border border-error/40 whitespace-nowrap flex items-center gap-1">
+                            <span>Order Cancelled</span>
+                        </div>
+                    </div>
+                `;
+            }
+            if (stepPlaced) stepPlaced.classList.remove('text-emerald', 'font-bold');
+            if (stepPacked) stepPacked.classList.remove('text-emerald', 'font-bold');
+            if (stepEnroute) stepEnroute.classList.remove('text-emerald', 'font-bold');
+            if (stepDelivered) stepDelivered.classList.remove('text-emerald', 'font-bold');
+
+            // Soft auto-refresh after cancellation so the active card moves to Past Orders
+            setTimeout(() => {
+                if (window.location.hash === '#/orders') {
+                    window.router();
+                }
+            }, 3000);
         }
     }
 
