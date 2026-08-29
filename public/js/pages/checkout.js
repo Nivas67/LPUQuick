@@ -460,84 +460,105 @@ window.pageInits.checkout = function() {
 
     window.cartTotalCache = exactTotal;
 
-    // 1. ROBUST SLIDER INTERACTION WITH POINTER EVENTS & SPRING PHYSICS
+    // 1. ROCK-SOLID SLIDER INTERACTION WITH MULTI-EVENT WINDOW TRACKING
     if (track && thumb) {
         let isDragging = false;
-        let activePointerId = null;
+        let startClientX = 0;
+        let currentPos = 0;
 
-        function getTrackDimensions() {
-            const trackRect = track.getBoundingClientRect();
-            const thumbRect = thumb.getBoundingClientRect();
-            const thumbWidth = thumbRect.width || 48;
-            const trackWidth = trackRect.width || track.offsetWidth || 320;
-            const maxSlide = Math.max(20, trackWidth - thumbWidth - 12);
-            return { trackRect, trackWidth, thumbWidth, maxSlide };
+        function getMaxSlide() {
+            const trackWidth = track.clientWidth || track.offsetWidth || 320;
+            const thumbWidth = thumb.clientWidth || thumb.offsetWidth || 48;
+            return Math.max(20, trackWidth - thumbWidth - 12);
         }
 
-        function setSliderPosition(delta, maxSlide) {
-            const clampedDelta = Math.max(0, Math.min(delta, maxSlide));
-            thumb.style.transform = `translateX(${clampedDelta}px)`;
-            if (progress) progress.style.width = `${clampedDelta + 32}px`;
+        function updateSliderUI(x) {
+            const maxSlide = getMaxSlide();
+            const clamped = Math.max(0, Math.min(x, maxSlide));
+            currentPos = clamped;
+            thumb.style.transform = `translateX(${clamped}px)`;
+            if (progress) progress.style.width = `${clamped + 28}px`;
             if (text) {
-                const ratio = clampedDelta / maxSlide;
+                const ratio = clamped / maxSlide;
                 text.style.opacity = `${Math.max(0, 1 - (ratio * 1.3))}`;
             }
-            return clampedDelta;
+            return { clamped, maxSlide };
         }
 
-        function startDrag(e) {
+        function onDragStart(clientX) {
             if (isSubmitting) return;
             isDragging = true;
-            activePointerId = e.pointerId;
-            try { thumb.setPointerCapture(e.pointerId); } catch(err) {}
-
+            startClientX = clientX;
             thumb.style.transition = 'none';
             if (progress) progress.style.transition = 'none';
             if (text) text.style.transition = 'none';
-            e.preventDefault();
         }
 
-        function moveDrag(e) {
+        function onDragMove(clientX) {
             if (!isDragging || isSubmitting) return;
-            const { trackRect, thumbWidth, maxSlide } = getTrackDimensions();
-            const relativeX = e.clientX - trackRect.left - (thumbWidth / 2);
-            const currentDelta = setSliderPosition(relativeX, maxSlide);
+            const delta = clientX - startClientX;
+            const { clamped, maxSlide } = updateSliderUI(delta);
 
-            // Threshold: reached 75% of track
-            if (currentDelta >= maxSlide * 0.75) {
+            // Threshold: reached 70% of slider distance
+            if (clamped >= maxSlide * 0.70) {
                 isDragging = false;
-                try { thumb.releasePointerCapture(e.pointerId); } catch(err) {}
                 if (navigator.vibrate) {
-                    try { navigator.vibrate(25); } catch(err) {}
+                    try { navigator.vibrate(25); } catch(e) {}
                 }
                 handleOrderPlacement();
             }
         }
 
-        function endDrag(e) {
+        function onDragEnd() {
             if (!isDragging || isSubmitting) return;
             isDragging = false;
-            try { thumb.releasePointerCapture(e.pointerId); } catch(err) {}
             resetSlider();
         }
 
-        // Standard Pointer Events (Desktop mouse & Mobile touch)
-        thumb.addEventListener('pointerdown', startDrag);
-        thumb.addEventListener('pointermove', moveDrag);
-        thumb.addEventListener('pointerup', endDrag);
-        thumb.addEventListener('pointercancel', endDrag);
+        // --- Touch Events ---
+        thumb.addEventListener('touchstart', (e) => {
+            if (e.touches && e.touches[0]) {
+                onDragStart(e.touches[0].clientX);
+            }
+        }, { passive: true });
 
-        // Direct track tap/slide support
-        track.addEventListener('pointerdown', (e) => {
-            if (isSubmitting || isDragging) return;
-            if (e.target === thumb || thumb.contains(e.target)) return;
-            const { trackRect, thumbWidth, maxSlide } = getTrackDimensions();
-            const relativeX = e.clientX - trackRect.left - (thumbWidth / 2);
-            if (relativeX >= maxSlide * 0.70) {
-                setSliderPosition(maxSlide, maxSlide);
-                handleOrderPlacement();
-            } else {
-                startDrag(e);
+        window.addEventListener('touchmove', (e) => {
+            if (isDragging && e.touches && e.touches[0]) {
+                onDragMove(e.touches[0].clientX);
+            }
+        }, { passive: true });
+
+        window.addEventListener('touchend', onDragEnd);
+        window.addEventListener('touchcancel', onDragEnd);
+
+        // --- Mouse Events ---
+        thumb.addEventListener('mousedown', (e) => {
+            onDragStart(e.clientX);
+            e.preventDefault();
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                onDragMove(e.clientX);
+            }
+        });
+
+        window.addEventListener('mouseup', onDragEnd);
+
+        // --- Direct Track Click / Tap Support ---
+        track.addEventListener('click', (e) => {
+            if (isSubmitting) return;
+            const trackRect = track.getBoundingClientRect();
+            const clickOffset = e.clientX - trackRect.left;
+            const maxSlide = getMaxSlide();
+            if (clickOffset > maxSlide * 0.4) {
+                // Animate thumb towards end and submit
+                thumb.style.transition = 'transform 0.25s ease';
+                if (progress) progress.style.transition = 'width 0.25s ease';
+                updateSliderUI(maxSlide);
+                setTimeout(() => {
+                    handleOrderPlacement();
+                }, 150);
             }
         });
     }
