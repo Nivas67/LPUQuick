@@ -2,10 +2,11 @@ const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 
-// POST /api/checkout
-router.post('/', (req, res) => {
+function processCheckoutOrder(req, res) {
     const db = req.app.locals.db;
-    const { userId, paymentMethod, deliveryAddress } = req.body;
+    const userId = req.body.userId || req.body.user_id;
+    const paymentMethod = req.body.paymentMethod || req.body.payment_method || 'Cash on Delivery';
+    const deliveryAddress = req.body.deliveryAddress || req.body.delivery_address || 'BH13 (Block A), Room 304';
 
     if (!userId) return res.status(400).json({ error: 'userId is required' });
 
@@ -142,7 +143,11 @@ router.post('/', (req, res) => {
             estimated_minutes: 3
         }
     });
-});
+}
+
+// POST /api/checkout and POST /api/checkout/place
+router.post('/', processCheckoutOrder);
+router.post('/place', processCheckoutOrder);
 
 // POST /api/checkout/payment-callback (webhook)
 router.post('/payment-callback', (req, res) => {
@@ -156,7 +161,6 @@ router.post('/payment-callback', (req, res) => {
         res.json({ success: true, order_status: 'accepted' });
     } else {
         db.prepare("UPDATE orders SET payment_status = 'failed' WHERE id = ?").run(orderId);
-        // Return error code that triggers frontend 200ms shake + alternative methods
         res.json({
             success: false,
             error_code: 'PAYMENT_FAILED',

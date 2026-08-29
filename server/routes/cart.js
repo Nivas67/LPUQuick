@@ -33,12 +33,7 @@ function calculatePricing(items) {
     };
 }
 
-// GET /api/cart/:userId
-router.get('/:userId', (req, res) => {
-    const db = req.app.locals.db;
-    const { userId } = req.params;
-
-    // Single JOIN query - no N+1
+function fetchUserCart(db, userId) {
     const items = db.prepare(`
         SELECT ci.id as cart_id, ci.quantity, 
                p.id as product_id, p.name, p.price, p.mrp, p.unit, p.size, 
@@ -51,7 +46,7 @@ router.get('/:userId', (req, res) => {
 
     const pricing = calculatePricing(items);
 
-    res.json({
+    return {
         items: items.map(i => ({
             cart_id: i.cart_id,
             product_id: i.product_id,
@@ -68,19 +63,38 @@ router.get('/:userId', (req, res) => {
         })),
         pricing,
         item_count: items.reduce((sum, i) => sum + i.quantity, 0)
-    });
+    };
+}
+
+// GET /api/cart?userId=... or GET /api/cart?user_id=...
+router.get('/', (req, res) => {
+    const db = req.app.locals.db;
+    const userId = req.query.userId || req.query.user_id || req.query.id;
+    if (!userId) {
+        return res.status(400).json({ error: 'userId is required' });
+    }
+    res.json(fetchUserCart(db, userId));
+});
+
+// GET /api/cart/:userId
+router.get('/:userId', (req, res) => {
+    const db = req.app.locals.db;
+    const { userId } = req.params;
+    res.json(fetchUserCart(db, userId));
 });
 
 // POST /api/cart
 router.post('/', (req, res) => {
     const db = req.app.locals.db;
-    const { userId, productId, quantity } = req.body;
+    const userId = req.body.userId || req.body.user_id;
+    const productId = req.body.productId || req.body.product_id;
+    const quantity = req.body.quantity;
 
     if (!userId || !productId) {
         return res.status(400).json({ error: 'userId and productId are required' });
     }
 
-    const qty = quantity || 1;
+    const qty = quantity !== undefined ? Number(quantity) : 1;
 
     // Check if already in cart
     const existing = db.prepare('SELECT id, quantity FROM cart_items WHERE user_id = ? AND product_id = ?').get(userId, productId);
@@ -118,43 +132,41 @@ router.put('/:cartId', (req, res) => {
 
     // Get userId from cart item for pricing update
     const item = db.prepare('SELECT user_id FROM cart_items WHERE id = ?').get(cartId);
-    const userId = item ? item.user_id : req.body.userId;
-
-    if (userId) {
-        const items = db.prepare(`
-            SELECT ci.quantity, p.price
-            FROM cart_items ci JOIN products p ON ci.product_id = p.id
-            WHERE ci.user_id = ?
-        `).all(userId);
-        const pricing = calculatePricing(items);
-        return res.json({ success: true, pricing, item_count: items.reduce((s, i) => s + i.quantity, 0) });
+    if (!item) {
+        return res.json({ success: true, pricing: calculatePricing([]), item_count: 0 });
     }
 
-    res.json({ success: true });
+    const items = db.prepare(`
+        SELECT ci.id as cart_id, ci.quantity, p.price
+        FROM cart_items ci JOIN products p ON ci.product_id = p.id
+        WHERE ci.user_id = ?
+    `).all(item.user_id);
+
+    const pricing = calculatePricing(items);
+    res.json({ success: true, pricing, item_count: items.reduce((s, i) => s + i.quantity, 0) });
 });
 
 // DELETE /api/cart/:cartId
 router.delete('/:cartId', (req, res) => {
     const db = req.app.locals.db;
     const { cartId } = req.params;
-
+    
+    // Get userId first
     const item = db.prepare('SELECT user_id FROM cart_items WHERE id = ?').get(cartId);
     db.prepare('DELETE FROM cart_items WHERE id = ?').run(cartId);
 
-    if (item) {
-        const items = db.prepare(`
-            SELECT ci.quantity, p.price
-            FROM cart_items ci JOIN products p ON ci.product_id = p.id
-            WHERE ci.user_id = ?
-        `).all(item.user_id);
-        const pricing = calculatePricing(items);
-        return res.json({ success: true, pricing, item_count: items.reduce((s, i) => s + i.quantity, 0) });
+    if (!item) {
+        return res.json({ success: true, pricing: calculatePricing([]), item_count: 0 });
     }
 
-    res.json({ success: true });
-});
+    const items = db.prepare(`
+        SELECT ci.id as cart_id, ci.quantity, p.price
+        FROM cart_items ci JOIN products p ON ci.product_id = p.id
+        WHERE ci.user_id = ?
+    `).all(item.user_id);
 
-// Export calculatePricing for unit tests
-router.calculatePricing = calculatePricing;
+    const pricing = calculatePricing(items);
+    res.json({ success: true, pricing, item_count: items.reduce((s, i) => s + i.quantity, 0) });
+});
 
 module.exports = router;
