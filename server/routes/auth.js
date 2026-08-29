@@ -81,6 +81,22 @@ router.post('/google', async (req, res) => {
             }
         }
 
+        if (!email && req.body.access_token) {
+            try {
+                const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                    headers: { Authorization: `Bearer ${req.body.access_token}` }
+                });
+                const profile = await userInfoRes.json();
+                if (profile && profile.email) {
+                    email = profile.email;
+                    name = profile.name || name;
+                    picture = profile.picture || picture;
+                }
+            } catch(fetchErr) {
+                console.warn('[Server Google Userinfo Fetch Warning]:', fetchErr.message);
+            }
+        }
+
         if (!email) {
             return res.status(400).json({ error: 'Valid email required from Google Authentication' });
         }
