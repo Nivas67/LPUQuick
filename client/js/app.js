@@ -532,6 +532,16 @@ window.syncCardSteppers = function() {
 // Router Main Function
 async function router() {
     const path = getCurrentRoute();
+    
+    // First-time visit: Require sign in if unauthenticated on home/checkout/orders
+    if (!window.isUserLoggedIn() && (path === '/' || path === '/checkout' || path === '/orders')) {
+        if (path !== '/') {
+            localStorage.setItem('lpuquick_redirect', '#' + path);
+        }
+        window.location.hash = '#/signin';
+        return;
+    }
+
     const pageName = getPageName(path);
     const appRoot = document.getElementById('app');
     
