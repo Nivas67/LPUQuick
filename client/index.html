@@ -94,7 +94,16 @@
     <!-- Custom Glassmorphism Styles -->
     <link rel="stylesheet" href="/css/styles.css">
 </head>
-<body class="bg-background text-on-surface font-sans antialiased selection:bg-emerald/20 selection:text-primary">
+<body class="bg-background text-on-surface font-sans antialiased selection:bg-emerald/20 selection:text-primary relative min-h-screen">
+    <!-- Ambient Animated Dynamic Aurora Canvas (Floating Gradient Mesh) -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none z-[-1] select-none" id="ambient-canvas" aria-hidden="true">
+        <div class="ambient-orb orb-1"></div>
+        <div class="ambient-orb orb-2"></div>
+        <div class="ambient-orb orb-3"></div>
+        <div class="ambient-orb orb-4"></div>
+        <div class="ambient-grid-overlay"></div>
+    </div>
+
     <!-- SPA Root Container -->
     <div id="app"></div>
 

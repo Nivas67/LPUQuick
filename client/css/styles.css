@@ -542,3 +542,153 @@ body.dark .slider-text {
 .map-grid-animated {
     animation: floatGrid 25s linear infinite;
 }
+
+/* ============================================================
+   AMBIENT ANIMATED DYNAMIC AURORA BACKGROUND
+   ============================================================ */
+
+#ambient-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: -1;
+    background: transparent;
+}
+
+.ambient-orb {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(85px);
+    opacity: 0.55;
+    will-change: transform, opacity;
+    pointer-events: none;
+}
+
+.dark .ambient-orb {
+    opacity: 0.42;
+    filter: blur(105px);
+}
+
+/* 1. Emerald Primary Orb (Drifting North-West) */
+.orb-1 {
+    width: min(550px, 90vw);
+    height: min(550px, 90vw);
+    background: radial-gradient(circle, rgba(16, 185, 129, 0.55) 0%, rgba(5, 150, 105, 0.2) 65%, transparent 100%);
+    top: -80px;
+    left: -80px;
+    animation: floatOrb1 16s ease-in-out infinite alternate;
+}
+
+/* 2. Royal Purple Orb (Drifting East) */
+.orb-2 {
+    width: min(580px, 95vw);
+    height: min(580px, 95vw);
+    background: radial-gradient(circle, rgba(168, 85, 247, 0.42) 0%, rgba(139, 92, 246, 0.16) 65%, transparent 100%);
+    top: 25%;
+    right: -120px;
+    animation: floatOrb2 20s ease-in-out infinite alternate;
+}
+
+/* 3. Cyan Light Orb (Drifting South) */
+.orb-3 {
+    width: min(520px, 85vw);
+    height: min(520px, 85vw);
+    background: radial-gradient(circle, rgba(6, 182, 212, 0.42) 0%, rgba(14, 165, 233, 0.15) 65%, transparent 100%);
+    bottom: -90px;
+    left: 25%;
+    animation: floatOrb3 18s ease-in-out infinite alternate;
+}
+
+/* 4. Golden Sunset Orb (Drifting Center-West) */
+.orb-4 {
+    width: min(460px, 80vw);
+    height: min(460px, 80vw);
+    background: radial-gradient(circle, rgba(245, 158, 11, 0.32) 0%, rgba(217, 119, 6, 0.1) 65%, transparent 100%);
+    top: 55%;
+    left: -100px;
+    animation: floatOrb4 22s ease-in-out infinite alternate;
+}
+
+/* Breathing Dot Grid Matrix */
+.ambient-grid-overlay {
+    position: absolute;
+    inset: 0;
+    opacity: 0.07;
+    background-image: radial-gradient(#10B981 1.3px, transparent 1.3px);
+    background-size: 26px 26px;
+    animation: gridBreathe 9s ease-in-out infinite alternate;
+}
+
+.dark .ambient-grid-overlay {
+    opacity: 0.09;
+    background-image: radial-gradient(#34D399 1.4px, transparent 1.4px);
+}
+
+@keyframes floatOrb1 {
+    0% {
+        transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+    }
+    50% {
+        transform: translate3d(130px, 140px, 0) scale(1.16) rotate(45deg);
+    }
+    100% {
+        transform: translate3d(50px, 70px, 0) scale(0.92) rotate(90deg);
+    }
+}
+
+@keyframes floatOrb2 {
+    0% {
+        transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+    }
+    50% {
+        transform: translate3d(-140px, 110px, 0) scale(1.14) rotate(-40deg);
+    }
+    100% {
+        transform: translate3d(-70px, -80px, 0) scale(0.9) rotate(-80deg);
+    }
+}
+
+@keyframes floatOrb3 {
+    0% {
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+    50% {
+        transform: translate3d(110px, -130px, 0) scale(1.2);
+    }
+    100% {
+        transform: translate3d(-90px, -50px, 0) scale(0.94);
+    }
+}
+
+@keyframes floatOrb4 {
+    0% {
+        transform: translate3d(0, 0, 0) scale(0.95);
+    }
+    50% {
+        transform: translate3d(160px, -90px, 0) scale(1.15);
+    }
+    100% {
+        transform: translate3d(30px, 110px, 0) scale(1.02);
+    }
+}
+
+@keyframes gridBreathe {
+    0% {
+        opacity: 0.05;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.1;
+        transform: scale(1.015);
+    }
+    100% {
+        opacity: 0.05;
+        transform: scale(1);
+    }
+}
