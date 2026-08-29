@@ -1,4 +1,4 @@
-// Categories Page — Visual Department Directory (Blinkit/Zepto Grid) + Dual-Pane Product Explorer
+// Categories Page — Left Categories Column Rail with Blocked "Coming Soon" State & Active Snacks
 window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
@@ -6,312 +6,218 @@ window.pages.categories = async function() {
     const address = window.currentAddressDetail?.label || 'BH13 (Block A), Room 304';
 
     return `
-<div class="bg-background text-on-background font-body-md min-h-screen pb-28">
-    <!-- Top Sticky Search & Department Tabs Header -->
+<div class="bg-background text-on-background font-body-md min-h-screen pb-24 flex flex-col">
+    <!-- Top Sticky Search & Header -->
     <header class="sticky top-0 z-40 bg-surface/90 backdrop-blur-2xl border-b border-glass-border shadow-sm">
-        <!-- Search Bar Row -->
-        <div class="px-margin-mobile md:px-margin-desktop pt-3 pb-2 flex items-center gap-3">
-            <a href="#/" class="p-1.5 hover:bg-surface-variant/50 rounded-full transition-colors shrink-0 md:hidden">
-                <span class="material-symbols-outlined text-on-surface text-xl">arrow_back</span>
-            </a>
-            <div class="relative flex-1">
-                <input class="w-full pl-10 pr-10 py-2.5 rounded-2xl border border-surface-variant bg-surface focus:outline-none focus:border-emerald text-xs sm:text-sm shadow-sm" placeholder="Search for atta, dal, coke, biscuits and more" type="text" id="main-category-search" autocomplete="off">
-                <span class="material-symbols-outlined absolute left-3 top-2.5 text-on-surface-variant text-base">search</span>
-                <button type="button" class="absolute right-3 top-2.5 text-on-surface-variant hover:text-emerald" title="Voice Search">
-                    <span class="material-symbols-outlined text-base">mic</span>
-                </button>
+        <div class="px-margin-mobile md:px-margin-desktop py-2.5 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2 min-w-0">
+                <a href="#/" class="p-1.5 hover:bg-surface-variant/50 rounded-full transition-colors shrink-0">
+                    <span class="material-symbols-outlined text-on-surface text-xl">arrow_back</span>
+                </a>
+                <div class="min-w-0">
+                    <h1 class="font-headline-md text-base sm:text-lg font-black text-on-surface truncate">
+                        Campus Categories
+                    </h1>
+                    <!-- Clickable Delivery Location -->
+                    <button type="button" class="address-selector-trigger flex items-center text-[11px] text-on-surface-variant hover:text-emerald transition-colors text-left truncate">
+                        <span>Delivery to: <strong class="text-on-surface font-semibold">${address}</strong></span>
+                        <span class="material-symbols-outlined text-[10px] ml-0.5 text-emerald">arrow_drop_down</span>
+                    </button>
+                </div>
             </div>
+
+            <!-- Top Search Input -->
+            <div class="relative flex-1 max-w-md hidden sm:block">
+                <input class="w-full pl-9 pr-4 py-2 rounded-full border border-surface-variant bg-surface focus:outline-none focus:border-emerald text-xs shadow-inner" placeholder="Search snacks, drinks, chips, noodles..." type="text" id="desktop-cat-search" autocomplete="off">
+                <span class="material-symbols-outlined absolute left-3 top-2 text-on-surface-variant text-sm">search</span>
+            </div>
+
             <a href="#/cart" class="p-2 text-on-surface-variant hover:text-emerald rounded-full transition-colors relative shrink-0" title="Cart">
                 <span class="material-symbols-outlined text-xl">shopping_cart</span>
             </a>
         </div>
 
-        <!-- Top Department Filter Tabs (All, Campus Fest, Electronics, Beauty, Gifting) -->
-        <div class="px-margin-mobile md:px-margin-desktop flex items-center gap-4 sm:gap-6 overflow-x-auto no-scrollbar border-t border-glass-border/40 text-xs font-semibold pt-2 pb-1" id="dept-tabs-nav">
-            <button type="button" class="flex flex-col items-center gap-1 pb-2 border-b-2 border-emerald text-emerald dept-tab-btn whitespace-nowrap cursor-pointer" data-dept="all">
-                <span class="material-symbols-outlined text-lg">apps</span>
-                <span class="text-[11px]">All</span>
-            </button>
-            <button type="button" class="flex flex-col items-center gap-1 pb-2 border-b-2 border-transparent text-on-surface-variant hover:text-on-surface dept-tab-btn whitespace-nowrap cursor-pointer relative" data-dept="grocery">
-                <span class="material-symbols-outlined text-lg">local_mall</span>
-                <span class="text-[11px]">Grocery</span>
-            </button>
-            <button type="button" class="flex flex-col items-center gap-1 pb-2 border-b-2 border-transparent text-on-surface-variant hover:text-on-surface dept-tab-btn whitespace-nowrap cursor-pointer relative" data-dept="snacks">
-                <span class="absolute -top-1 -right-2 bg-rose-500 text-white text-[8px] font-extrabold px-1 rounded-full">New</span>
-                <span class="material-symbols-outlined text-lg">fastfood</span>
-                <span class="text-[11px]">Snacks</span>
-            </button>
-            <button type="button" class="flex flex-col items-center gap-1 pb-2 border-b-2 border-transparent text-on-surface-variant hover:text-on-surface dept-tab-btn whitespace-nowrap cursor-pointer" data-dept="electronics">
-                <span class="material-symbols-outlined text-lg">headphones</span>
-                <span class="text-[11px]">Electronics</span>
-            </button>
-            <button type="button" class="flex flex-col items-center gap-1 pb-2 border-b-2 border-transparent text-on-surface-variant hover:text-on-surface dept-tab-btn whitespace-nowrap cursor-pointer" data-dept="beauty">
-                <span class="material-symbols-outlined text-lg">face_3</span>
-                <span class="text-[11px]">Beauty</span>
-            </button>
-            <button type="button" class="flex flex-col items-center gap-1 pb-2 border-b-2 border-transparent text-on-surface-variant hover:text-on-surface dept-tab-btn whitespace-nowrap cursor-pointer" data-dept="stationery">
-                <span class="material-symbols-outlined text-lg">edit_note</span>
-                <span class="text-[11px]">Stationery</span>
-            </button>
+        <!-- Mobile Search Bar (Always Visible on Mobile) -->
+        <div class="px-margin-mobile pb-2.5 sm:hidden">
+            <div class="relative">
+                <input class="w-full pl-9 pr-8 py-2 rounded-xl border border-surface-variant bg-surface focus:outline-none focus:border-emerald text-xs shadow-inner" placeholder="Search snacks, drinks, maggi, chips..." type="text" id="mobile-cat-search" autocomplete="off">
+                <span class="material-symbols-outlined absolute left-2.5 top-2.5 text-on-surface-variant text-sm">search</span>
+            </div>
         </div>
     </header>
 
-    <!-- VIEW 1: Visual Categories Directory (Default View matching screenshot) -->
-    <main id="categories-directory-view" class="px-margin-mobile md:px-margin-desktop max-w-7xl mx-auto pt-4 space-y-6">
-        
-        <!-- SECTION 1: Grocery & Kitchen -->
-        <section class="dept-section" data-dept-group="grocery">
-            <h2 class="font-headline-md text-base sm:text-lg font-black text-on-surface tracking-tight mb-3 flex items-center justify-between">
-                <span>Grocery & Kitchen</span>
-                <span class="text-[11px] font-bold text-emerald">8 Categories</span>
-            </h2>
-            <!-- 4-Column Grid on Mobile and Desktop -->
-            <div class="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-8 gap-2 sm:gap-3.5">
-                <!-- Vegetables & Fruits -->
-                <div class="category-card flex flex-col items-center text-center cursor-pointer group" data-category="Vegetables & Fruits">
-                    <div class="w-full aspect-square bg-surface-container-high rounded-2xl p-2 sm:p-3 flex items-center justify-center border border-surface-variant/40 group-hover:border-emerald group-hover:shadow-md transition-all relative overflow-hidden">
-                        <img class="w-full h-full object-contain group-hover:scale-105 transition-transform" src="https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=200" alt="Vegetables & Fruits">
+    <!-- Main Dual-Pane Layout: Left Categories Column Rail + Right Products/Coming Soon Content -->
+    <div class="flex flex-1 max-w-7xl mx-auto w-full overflow-hidden">
+        <!-- Left Vertical Category Column Rail (Full list of all categories in a column) -->
+        <aside class="w-[88px] sm:w-32 shrink-0 bg-surface/70 border-r border-glass-border overflow-y-auto max-h-[calc(100vh-120px)] sticky top-[95px] py-2 no-scrollbar" id="left-categories-rail">
+            <div class="flex flex-col gap-1.5 items-center px-1" id="category-sidebar-list">
+                
+                <!-- 1. Snacks & Drinks (LIVE & ACTIVE) -->
+                <button type="button" class="w-full flex flex-col items-center py-2 px-1 relative transition-all group cursor-pointer cat-sidebar-btn active-cat" data-category-id="snacks" data-status="live">
+                    <div class="absolute left-0 top-1 bottom-1 w-1 bg-emerald rounded-r-full indicator-bar"></div>
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border-2 border-emerald shadow-md bg-emerald/10 relative">
+                        <img src="https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=120" alt="Snacks & Drinks" class="w-full h-full object-cover rounded-xl">
+                        <span class="absolute bottom-0 inset-x-0 bg-emerald text-white text-[8px] font-black text-center py-[1px] tracking-wider uppercase">Live ⚡</span>
                     </div>
-                    <span class="text-[11px] sm:text-xs font-bold text-on-surface mt-1.5 line-clamp-2 leading-tight">Vegetables & Fruits</span>
+                    <span class="text-[10px] sm:text-[11px] font-bold text-center mt-1.5 leading-tight text-emerald">
+                        Snacks & Drinks
+                    </span>
+                </button>
+
+                <!-- 2. Bakery & Biscuits (COMING SOON) -->
+                <button type="button" class="w-full flex flex-col items-center py-2 px-1 relative transition-all group cursor-pointer cat-sidebar-btn opacity-60 hover:opacity-100" data-category-id="bakery" data-status="blocked" data-name="Bakery & Biscuits">
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant bg-surface-container-high relative">
+                        <img src="https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=120" alt="Bakery & Biscuits" class="w-full h-full object-cover rounded-xl filter grayscale contrast-125">
+                        <span class="absolute bottom-0 inset-x-0 bg-neutral-800/90 text-neutral-300 text-[8px] font-bold text-center py-[1px]">Soon 🔒</span>
+                    </div>
+                    <span class="text-[10px] sm:text-[11px] font-medium text-center mt-1.5 leading-tight text-on-surface-variant">
+                        Bakery & Biscuits
+                    </span>
+                </button>
+
+                <!-- 3. Grocery & Kitchen (COMING SOON) -->
+                <button type="button" class="w-full flex flex-col items-center py-2 px-1 relative transition-all group cursor-pointer cat-sidebar-btn opacity-60 hover:opacity-100" data-category-id="grocery" data-status="blocked" data-name="Grocery & Kitchen">
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant bg-surface-container-high relative">
+                        <img src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=120" alt="Grocery & Kitchen" class="w-full h-full object-cover rounded-xl filter grayscale contrast-125">
+                        <span class="absolute bottom-0 inset-x-0 bg-neutral-800/90 text-neutral-300 text-[8px] font-bold text-center py-[1px]">Soon 🔒</span>
+                    </div>
+                    <span class="text-[10px] sm:text-[11px] font-medium text-center mt-1.5 leading-tight text-on-surface-variant">
+                        Grocery & Kitchen
+                    </span>
+                </button>
+
+                <!-- 4. Beauty & Personal Care (COMING SOON) -->
+                <button type="button" class="w-full flex flex-col items-center py-2 px-1 relative transition-all group cursor-pointer cat-sidebar-btn opacity-60 hover:opacity-100" data-category-id="beauty" data-status="blocked" data-name="Beauty & Personal Care">
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant bg-surface-container-high relative">
+                        <img src="https://images.unsplash.com/photo-1556228720-195a672e8a03?w=120" alt="Beauty & Personal Care" class="w-full h-full object-cover rounded-xl filter grayscale contrast-125">
+                        <span class="absolute bottom-0 inset-x-0 bg-neutral-800/90 text-neutral-300 text-[8px] font-bold text-center py-[1px]">Soon 🔒</span>
+                    </div>
+                    <span class="text-[10px] sm:text-[11px] font-medium text-center mt-1.5 leading-tight text-on-surface-variant">
+                        Beauty & Care
+                    </span>
+                </button>
+
+                <!-- 5. Stationery & Notes (COMING SOON) -->
+                <button type="button" class="w-full flex flex-col items-center py-2 px-1 relative transition-all group cursor-pointer cat-sidebar-btn opacity-60 hover:opacity-100" data-category-id="stationery" data-status="blocked" data-name="Stationery & Notebooks">
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant bg-surface-container-high relative">
+                        <img src="https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=120" alt="Stationery" class="w-full h-full object-cover rounded-xl filter grayscale contrast-125">
+                        <span class="absolute bottom-0 inset-x-0 bg-neutral-800/90 text-neutral-300 text-[8px] font-bold text-center py-[1px]">Soon 🔒</span>
+                    </div>
+                    <span class="text-[10px] sm:text-[11px] font-medium text-center mt-1.5 leading-tight text-on-surface-variant">
+                        Stationery
+                    </span>
+                </button>
+
+                <!-- 6. Electronics & Tech (COMING SOON) -->
+                <button type="button" class="w-full flex flex-col items-center py-2 px-1 relative transition-all group cursor-pointer cat-sidebar-btn opacity-60 hover:opacity-100" data-category-id="electronics" data-status="blocked" data-name="Electronics & Accessories">
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant bg-surface-container-high relative">
+                        <img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=120" alt="Electronics" class="w-full h-full object-cover rounded-xl filter grayscale contrast-125">
+                        <span class="absolute bottom-0 inset-x-0 bg-neutral-800/90 text-neutral-300 text-[8px] font-bold text-center py-[1px]">Soon 🔒</span>
+                    </div>
+                    <span class="text-[10px] sm:text-[11px] font-medium text-center mt-1.5 leading-tight text-on-surface-variant">
+                        Electronics
+                    </span>
+                </button>
+
+                <!-- 7. Pharmacy & First Aid (COMING SOON) -->
+                <button type="button" class="w-full flex flex-col items-center py-2 px-1 relative transition-all group cursor-pointer cat-sidebar-btn opacity-60 hover:opacity-100" data-category-id="pharmacy" data-status="blocked" data-name="Pharmacy & First Aid">
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant bg-surface-container-high relative">
+                        <img src="https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=120" alt="Pharmacy" class="w-full h-full object-cover rounded-xl filter grayscale contrast-125">
+                        <span class="absolute bottom-0 inset-x-0 bg-neutral-800/90 text-neutral-300 text-[8px] font-bold text-center py-[1px]">Soon 🔒</span>
+                    </div>
+                    <span class="text-[10px] sm:text-[11px] font-medium text-center mt-1.5 leading-tight text-on-surface-variant">
+                        Pharmacy
+                    </span>
+                </button>
+
+            </div>
+        </aside>
+
+        <!-- Right Main Pane -->
+        <main class="flex-1 p-2 sm:p-4 overflow-y-auto max-h-[calc(100vh-120px)]" id="right-content-pane">
+            
+            <!-- LIVE SNACKS & DRINKS VIEW -->
+            <div id="live-snacks-container" class="space-y-3">
+                <!-- Subcategory Filter Chips -->
+                <div class="flex items-center justify-between gap-2">
+                    <div class="flex gap-1.5 overflow-x-auto no-scrollbar py-1" id="snacks-subcat-chips">
+                        <!-- Chips dynamically rendered -->
+                    </div>
                 </div>
 
-                <!-- Atta, Rice & Dal -->
-                <div class="category-card flex flex-col items-center text-center cursor-pointer group" data-category="Atta, Rice & Dal">
-                    <div class="w-full aspect-square bg-surface-container-high rounded-2xl p-2 sm:p-3 flex items-center justify-center border border-surface-variant/40 group-hover:border-emerald group-hover:shadow-md transition-all relative overflow-hidden">
-                        <img class="w-full h-full object-contain group-hover:scale-105 transition-transform" src="https://images.unsplash.com/photo-1586201375761-83865001e31c?w=200" alt="Atta, Rice & Dal">
+                <!-- Active Subcategory Heading & Filter Pills Bar -->
+                <div class="flex items-center justify-between pt-1 pb-1 border-b border-surface-variant/40">
+                    <div class="flex items-center gap-1.5">
+                        <span class="font-bold text-xs sm:text-sm text-on-surface" id="snacks-active-heading">All Snacks & Drinks</span>
+                        <span class="text-[10px] bg-emerald/10 text-emerald font-extrabold px-2 py-0.5 rounded-full" id="snacks-item-count">24 items</span>
                     </div>
-                    <span class="text-[11px] sm:text-xs font-bold text-on-surface mt-1.5 line-clamp-2 leading-tight">Atta, Rice & Dal</span>
+                    
+                    <div class="flex items-center gap-2">
+                        <!-- Veg Only Toggle -->
+                        <button type="button" id="snacks-veg-toggle" class="flex items-center gap-1 px-2.5 py-1 rounded-full border border-surface-variant bg-surface hover:bg-surface-container-high text-[11px] font-bold text-on-surface cursor-pointer transition-all">
+                            <span class="w-2.5 h-2.5 border border-emerald-600 rounded-sm flex items-center justify-center p-[1px]">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                            </span>
+                            <span>Veg</span>
+                        </button>
+
+                        <!-- Sort dropdown -->
+                        <select id="snacks-sort-select" class="text-[11px] px-2 py-1 rounded-full border border-surface-variant bg-surface text-on-surface font-semibold focus:outline-none focus:border-emerald cursor-pointer">
+                            <option value="relevance">⇅ Sort</option>
+                            <option value="price_asc">Price: Low to High</option>
+                            <option value="price_desc">Price: High to Low</option>
+                            <option value="discount">% Discount</option>
+                            <option value="rating">Top Rated (★)</option>
+                        </select>
+                    </div>
                 </div>
 
-                <!-- Oil, Ghee & Masala -->
-                <div class="category-card flex flex-col items-center text-center cursor-pointer group" data-category="Oil, Ghee & Masala">
-                    <div class="w-full aspect-square bg-surface-container-high rounded-2xl p-2 sm:p-3 flex items-center justify-center border border-surface-variant/40 group-hover:border-emerald group-hover:shadow-md transition-all relative overflow-hidden">
-                        <img class="w-full h-full object-contain group-hover:scale-105 transition-transform" src="https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=200" alt="Oil, Ghee & Masala">
-                    </div>
-                    <span class="text-[11px] sm:text-xs font-bold text-on-surface mt-1.5 line-clamp-2 leading-tight">Oil, Ghee & Masala</span>
-                </div>
-
-                <!-- Dairy, Bread & Eggs -->
-                <div class="category-card flex flex-col items-center text-center cursor-pointer group" data-category="Dairy, Bread & Eggs">
-                    <div class="w-full aspect-square bg-surface-container-high rounded-2xl p-2 sm:p-3 flex items-center justify-center border border-surface-variant/40 group-hover:border-emerald group-hover:shadow-md transition-all relative overflow-hidden">
-                        <img class="w-full h-full object-contain group-hover:scale-105 transition-transform" src="https://images.unsplash.com/photo-1550583724-b2692b85b150?w=200" alt="Dairy, Bread & Eggs">
-                    </div>
-                    <span class="text-[11px] sm:text-xs font-bold text-on-surface mt-1.5 line-clamp-2 leading-tight">Dairy, Bread & Eggs</span>
-                </div>
-
-                <!-- Bakery & Biscuits -->
-                <div class="category-card flex flex-col items-center text-center cursor-pointer group" data-category="Bakery & Biscuits">
-                    <div class="w-full aspect-square bg-surface-container-high rounded-2xl p-2 sm:p-3 flex items-center justify-center border border-surface-variant/40 group-hover:border-emerald group-hover:shadow-md transition-all relative overflow-hidden">
-                        <img class="w-full h-full object-contain group-hover:scale-105 transition-transform" src="https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=200" alt="Bakery & Biscuits">
-                    </div>
-                    <span class="text-[11px] sm:text-xs font-bold text-on-surface mt-1.5 line-clamp-2 leading-tight">Bakery & Biscuits</span>
-                </div>
-
-                <!-- Dry Fruits & Cereals -->
-                <div class="category-card flex flex-col items-center text-center cursor-pointer group" data-category="Atta, Rice & Dal">
-                    <div class="w-full aspect-square bg-surface-container-high rounded-2xl p-2 sm:p-3 flex items-center justify-center border border-surface-variant/40 group-hover:border-emerald group-hover:shadow-md transition-all relative overflow-hidden">
-                        <img class="w-full h-full object-contain group-hover:scale-105 transition-transform" src="https://images.unsplash.com/photo-1548365328-8c6db3220e4c?w=200" alt="Dry Fruits & Cereals">
-                    </div>
-                    <span class="text-[11px] sm:text-xs font-bold text-on-surface mt-1.5 line-clamp-2 leading-tight">Dry Fruits & Cereals</span>
-                </div>
-
-                <!-- Chicken, Meat & Fish -->
-                <div class="category-card flex flex-col items-center text-center cursor-pointer group" data-category="Dairy, Bread & Eggs">
-                    <div class="w-full aspect-square bg-surface-container-high rounded-2xl p-2 sm:p-3 flex items-center justify-center border border-surface-variant/40 group-hover:border-emerald group-hover:shadow-md transition-all relative overflow-hidden">
-                        <img class="w-full h-full object-contain group-hover:scale-105 transition-transform" src="https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=200" alt="Chicken, Meat & Fish">
-                    </div>
-                    <span class="text-[11px] sm:text-xs font-bold text-on-surface mt-1.5 line-clamp-2 leading-tight">Chicken, Meat & Fish</span>
-                </div>
-
-                <!-- Kitchenware & Appliances -->
-                <div class="category-card flex flex-col items-center text-center cursor-pointer group" data-category="Electronics">
-                    <div class="w-full aspect-square bg-surface-container-high rounded-2xl p-2 sm:p-3 flex items-center justify-center border border-surface-variant/40 group-hover:border-emerald group-hover:shadow-md transition-all relative overflow-hidden">
-                        <img class="w-full h-full object-contain group-hover:scale-105 transition-transform" src="https://images.unsplash.com/photo-1584992236310-6edddc08acff?w=200" alt="Kitchenware & Appliances">
-                    </div>
-                    <span class="text-[11px] sm:text-xs font-bold text-on-surface mt-1.5 line-clamp-2 leading-tight">Kitchenware & Appliances</span>
+                <!-- Snacks Products Grid (2 columns mobile, 3-4 desktop) -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3.5" id="snacks-products-grid">
+                    <!-- Cards populated here -->
                 </div>
             </div>
-        </section>
 
-        <!-- SECTION 2: Snacks & Drinks -->
-        <section class="dept-section" data-dept-group="snacks">
-            <h2 class="font-headline-md text-base sm:text-lg font-black text-on-surface tracking-tight mb-3 flex items-center justify-between">
-                <span>Snacks & Drinks</span>
-                <span class="text-[11px] font-bold text-emerald">8 Categories</span>
-            </h2>
-            <div class="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-8 gap-2 sm:gap-3.5">
-                <!-- Chips & Namkeen -->
-                <div class="category-card flex flex-col items-center text-center cursor-pointer group" data-category="Chips & Namkeen">
-                    <div class="w-full aspect-square bg-surface-container-high rounded-2xl p-2 sm:p-3 flex items-center justify-center border border-surface-variant/40 group-hover:border-emerald group-hover:shadow-md transition-all relative overflow-hidden">
-                        <img class="w-full h-full object-contain group-hover:scale-105 transition-transform" src="https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=200" alt="Chips & Namkeen">
-                    </div>
-                    <span class="text-[11px] sm:text-xs font-bold text-on-surface mt-1.5 line-clamp-2 leading-tight">Chips & Namkeen</span>
+            <!-- BLOCKED / COMING SOON SPLASH VIEW (Shown when other categories are tapped) -->
+            <div id="blocked-category-splash" class="hidden py-8 px-4 flex flex-col items-center justify-center text-center space-y-4 max-w-md mx-auto">
+                <div class="w-20 h-20 rounded-3xl bg-surface-container-high border border-surface-variant flex items-center justify-center shadow-lg relative">
+                    <span class="material-symbols-outlined text-4xl text-on-surface-variant">lock_clock</span>
+                    <span class="absolute -top-1.5 -right-1.5 bg-amber-500 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-full shadow-sm">Coming Soon</span>
                 </div>
-
-                <!-- Sweets & Chocolates -->
-                <div class="category-card flex flex-col items-center text-center cursor-pointer group" data-category="Sweets & Chocolates">
-                    <div class="w-full aspect-square bg-surface-container-high rounded-2xl p-2 sm:p-3 flex items-center justify-center border border-surface-variant/40 group-hover:border-emerald group-hover:shadow-md transition-all relative overflow-hidden">
-                        <img class="w-full h-full object-contain group-hover:scale-105 transition-transform" src="https://images.unsplash.com/photo-1548907040-4baa42d10919?w=200" alt="Sweets & Chocolates">
-                    </div>
-                    <span class="text-[11px] sm:text-xs font-bold text-on-surface mt-1.5 line-clamp-2 leading-tight">Sweets & Chocolates</span>
+                
+                <div>
+                    <h2 class="font-headline-md text-lg sm:text-xl font-bold text-on-surface" id="blocked-cat-title">
+                        Category Coming Soon
+                    </h2>
+                    <p class="text-xs text-on-surface-variant mt-1.5 leading-relaxed" id="blocked-cat-desc">
+                        We are actively onboarding vendors and kitchen partners for this category. It will unlock in the next campus rollout phase!
+                    </p>
                 </div>
 
-                <!-- Drinks & Juices -->
-                <div class="category-card flex flex-col items-center text-center cursor-pointer group" data-category="Drinks & Juices">
-                    <div class="w-full aspect-square bg-surface-container-high rounded-2xl p-2 sm:p-3 flex items-center justify-center border border-surface-variant/40 group-hover:border-emerald group-hover:shadow-md transition-all relative overflow-hidden">
-                        <img class="w-full h-full object-contain group-hover:scale-105 transition-transform" src="https://images.unsplash.com/photo-1554866585-cd94860890b7?w=200" alt="Drinks & Juices">
+                <!-- Notification Alert Banner -->
+                <div class="w-full p-3.5 bg-emerald/10 border border-emerald/30 rounded-2xl text-left space-y-1">
+                    <div class="flex items-center gap-1.5 text-emerald font-bold text-xs">
+                        <span class="material-symbols-outlined text-sm">bolt</span>
+                        <span>Snacks & Drinks are Live 24/7!</span>
                     </div>
-                    <span class="text-[11px] sm:text-xs font-bold text-on-surface mt-1.5 line-clamp-2 leading-tight">Drinks & Juices</span>
+                    <p class="text-[11px] text-on-surface-variant">
+                        Get instant noodles, cold beverages, chips, chocolates, tea & biscuits delivered to BH13 in 3 minutes.
+                    </p>
                 </div>
 
-                <!-- Tea, Coffee & Milk Drinks -->
-                <div class="category-card flex flex-col items-center text-center cursor-pointer group" data-category="Tea, Coffee & Milk Drinks">
-                    <div class="w-full aspect-square bg-surface-container-high rounded-2xl p-2 sm:p-3 flex items-center justify-center border border-surface-variant/40 group-hover:border-emerald group-hover:shadow-md transition-all relative overflow-hidden">
-                        <img class="w-full h-full object-contain group-hover:scale-105 transition-transform" src="https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=200" alt="Tea, Coffee & Milk Drinks">
-                    </div>
-                    <span class="text-[11px] sm:text-xs font-bold text-on-surface mt-1.5 line-clamp-2 leading-tight">Tea, Coffee & Milk Drinks</span>
-                </div>
-
-                <!-- Instant Food -->
-                <div class="category-card flex flex-col items-center text-center cursor-pointer group" data-category="Instant Food">
-                    <div class="w-full aspect-square bg-surface-container-high rounded-2xl p-2 sm:p-3 flex items-center justify-center border border-surface-variant/40 group-hover:border-emerald group-hover:shadow-md transition-all relative overflow-hidden">
-                        <img class="w-full h-full object-contain group-hover:scale-105 transition-transform" src="https://images.unsplash.com/photo-1612927601601-6638404737ce?w=200" alt="Instant Food">
-                    </div>
-                    <span class="text-[11px] sm:text-xs font-bold text-on-surface mt-1.5 line-clamp-2 leading-tight">Instant Food</span>
-                </div>
-
-                <!-- Sauces & Spreads -->
-                <div class="category-card flex flex-col items-center text-center cursor-pointer group" data-category="Sauces & Spreads">
-                    <div class="w-full aspect-square bg-surface-container-high rounded-2xl p-2 sm:p-3 flex items-center justify-center border border-surface-variant/40 group-hover:border-emerald group-hover:shadow-md transition-all relative overflow-hidden">
-                        <img class="w-full h-full object-contain group-hover:scale-105 transition-transform" src="https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=200" alt="Sauces & Spreads">
-                    </div>
-                    <span class="text-[11px] sm:text-xs font-bold text-on-surface mt-1.5 line-clamp-2 leading-tight">Sauces & Spreads</span>
-                </div>
-
-                <!-- Paan Corner -->
-                <div class="category-card flex flex-col items-center text-center cursor-pointer group" data-category="Chips & Namkeen">
-                    <div class="w-full aspect-square bg-surface-container-high rounded-2xl p-2 sm:p-3 flex items-center justify-center border border-surface-variant/40 group-hover:border-emerald group-hover:shadow-md transition-all relative overflow-hidden">
-                        <img class="w-full h-full object-contain group-hover:scale-105 transition-transform" src="https://images.unsplash.com/photo-1599490659213-e2b9527bd087?w=200" alt="Paan Corner">
-                    </div>
-                    <span class="text-[11px] sm:text-xs font-bold text-on-surface mt-1.5 line-clamp-2 leading-tight">Paan Corner</span>
-                </div>
-
-                <!-- Ice Creams & More -->
-                <div class="category-card flex flex-col items-center text-center cursor-pointer group" data-category="Ice Creams & More">
-                    <div class="w-full aspect-square bg-surface-container-high rounded-2xl p-2 sm:p-3 flex items-center justify-center border border-surface-variant/40 group-hover:border-emerald group-hover:shadow-md transition-all relative overflow-hidden">
-                        <img class="w-full h-full object-contain group-hover:scale-105 transition-transform" src="https://images.unsplash.com/photo-1570197788417-0e82375c9371?w=200" alt="Ice Creams & More">
-                    </div>
-                    <span class="text-[11px] sm:text-xs font-bold text-on-surface mt-1.5 line-clamp-2 leading-tight">Ice Creams & More</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- SECTION 3: Beauty & Personal Care -->
-        <section class="dept-section" data-dept-group="beauty">
-            <h2 class="font-headline-md text-base sm:text-lg font-black text-on-surface tracking-tight mb-3 flex items-center justify-between">
-                <span>Beauty & Personal Care</span>
-                <span class="text-[11px] font-bold text-emerald">4 Categories</span>
-            </h2>
-            <div class="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-8 gap-2 sm:gap-3.5">
-                <div class="category-card flex flex-col items-center text-center cursor-pointer group" data-category="Personal Care">
-                    <div class="w-full aspect-square bg-surface-container-high rounded-2xl p-2 sm:p-3 flex items-center justify-center border border-surface-variant/40 group-hover:border-emerald group-hover:shadow-md transition-all relative overflow-hidden">
-                        <img class="w-full h-full object-contain group-hover:scale-105 transition-transform" src="https://images.unsplash.com/photo-1556228720-195a672e8a03?w=200" alt="Bath & Body">
-                    </div>
-                    <span class="text-[11px] sm:text-xs font-bold text-on-surface mt-1.5 line-clamp-2 leading-tight">Bath & Body</span>
-                </div>
-                <div class="category-card flex flex-col items-center text-center cursor-pointer group" data-category="Personal Care">
-                    <div class="w-full aspect-square bg-surface-container-high rounded-2xl p-2 sm:p-3 flex items-center justify-center border border-surface-variant/40 group-hover:border-emerald group-hover:shadow-md transition-all relative overflow-hidden">
-                        <img class="w-full h-full object-contain group-hover:scale-105 transition-transform" src="https://images.unsplash.com/photo-1559591937-e10f135b91b9?w=200" alt="Oral Care">
-                    </div>
-                    <span class="text-[11px] sm:text-xs font-bold text-on-surface mt-1.5 line-clamp-2 leading-tight">Oral Care</span>
-                </div>
-                <div class="category-card flex flex-col items-center text-center cursor-pointer group" data-category="Personal Care">
-                    <div class="w-full aspect-square bg-surface-container-high rounded-2xl p-2 sm:p-3 flex items-center justify-center border border-surface-variant/40 group-hover:border-emerald group-hover:shadow-md transition-all relative overflow-hidden">
-                        <img class="w-full h-full object-contain group-hover:scale-105 transition-transform" src="https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=200" alt="Hair Care">
-                    </div>
-                    <span class="text-[11px] sm:text-xs font-bold text-on-surface mt-1.5 line-clamp-2 leading-tight">Hair Care</span>
-                </div>
-                <div class="category-card flex flex-col items-center text-center cursor-pointer group" data-category="Personal Care">
-                    <div class="w-full aspect-square bg-surface-container-high rounded-2xl p-2 sm:p-3 flex items-center justify-center border border-surface-variant/40 group-hover:border-emerald group-hover:shadow-md transition-all relative overflow-hidden">
-                        <img class="w-full h-full object-contain group-hover:scale-105 transition-transform" src="https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=200" alt="Skin & Face">
-                    </div>
-                    <span class="text-[11px] sm:text-xs font-bold text-on-surface mt-1.5 line-clamp-2 leading-tight">Skin & Face</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- SECTION 4: Stationery & Electronics -->
-        <section class="dept-section" data-dept-group="stationery">
-            <h2 class="font-headline-md text-base sm:text-lg font-black text-on-surface tracking-tight mb-3 flex items-center justify-between">
-                <span>Stationery, Electronics & Campus Essentials</span>
-                <span class="text-[11px] font-bold text-emerald">4 Categories</span>
-            </h2>
-            <div class="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-8 gap-2 sm:gap-3.5">
-                <div class="category-card flex flex-col items-center text-center cursor-pointer group" data-category="Stationery">
-                    <div class="w-full aspect-square bg-surface-container-high rounded-2xl p-2 sm:p-3 flex items-center justify-center border border-surface-variant/40 group-hover:border-emerald group-hover:shadow-md transition-all relative overflow-hidden">
-                        <img class="w-full h-full object-contain group-hover:scale-105 transition-transform" src="https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=200" alt="Notebooks">
-                    </div>
-                    <span class="text-[11px] sm:text-xs font-bold text-on-surface mt-1.5 line-clamp-2 leading-tight">Notebooks & Registers</span>
-                </div>
-                <div class="category-card flex flex-col items-center text-center cursor-pointer group" data-category="Stationery">
-                    <div class="w-full aspect-square bg-surface-container-high rounded-2xl p-2 sm:p-3 flex items-center justify-center border border-surface-variant/40 group-hover:border-emerald group-hover:shadow-md transition-all relative overflow-hidden">
-                        <img class="w-full h-full object-contain group-hover:scale-105 transition-transform" src="https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=200" alt="Pens">
-                    </div>
-                    <span class="text-[11px] sm:text-xs font-bold text-on-surface mt-1.5 line-clamp-2 leading-tight">Pens & Exam Prep</span>
-                </div>
-                <div class="category-card flex flex-col items-center text-center cursor-pointer group" data-category="Electronics">
-                    <div class="w-full aspect-square bg-surface-container-high rounded-2xl p-2 sm:p-3 flex items-center justify-center border border-surface-variant/40 group-hover:border-emerald group-hover:shadow-md transition-all relative overflow-hidden">
-                        <img class="w-full h-full object-contain group-hover:scale-105 transition-transform" src="https://images.unsplash.com/photo-1541689592655-f5f52825a3b8?w=200" alt="Cables & Chargers">
-                    </div>
-                    <span class="text-[11px] sm:text-xs font-bold text-on-surface mt-1.5 line-clamp-2 leading-tight">Cables & Chargers</span>
-                </div>
-                <div class="category-card flex flex-col items-center text-center cursor-pointer group" data-category="Electronics">
-                    <div class="w-full aspect-square bg-surface-container-high rounded-2xl p-2 sm:p-3 flex items-center justify-center border border-surface-variant/40 group-hover:border-emerald group-hover:shadow-md transition-all relative overflow-hidden">
-                        <img class="w-full h-full object-contain group-hover:scale-105 transition-transform" src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200" alt="Earphones & Audio">
-                    </div>
-                    <span class="text-[11px] sm:text-xs font-bold text-on-surface mt-1.5 line-clamp-2 leading-tight">Earphones & Audio</span>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <!-- VIEW 2: Dual-Pane Product Listing (Shown when a category is tapped) -->
-    <div id="dual-pane-explorer-view" class="hidden flex-1 flex flex-col">
-        <!-- Dual Pane Header Sub-Bar -->
-        <div class="px-margin-mobile md:px-margin-desktop py-2 bg-surface/70 border-b border-glass-border flex items-center justify-between">
-            <button type="button" id="back-to-directory-btn" class="text-xs text-emerald font-bold flex items-center gap-1 hover:underline cursor-pointer">
-                <span class="material-symbols-outlined text-sm">arrow_back</span> All Categories
-            </button>
-            <div class="flex items-center gap-2">
-                <select id="dual-pane-sort-select" class="text-xs px-2.5 py-1 rounded-full border border-surface-variant bg-surface text-on-surface font-semibold focus:outline-none focus:border-emerald">
-                    <option value="relevance">⇅ Sort</option>
-                    <option value="price_asc">Price: Low to High</option>
-                    <option value="price_desc">Price: High to Low</option>
-                    <option value="discount">% Discount</option>
-                    <option value="rating">Top Rated (★)</option>
-                </select>
-                <button type="button" id="dual-pane-veg-btn" class="text-[11px] px-2.5 py-1 rounded-full border border-surface-variant bg-surface text-on-surface font-bold flex items-center gap-1">
-                    <span class="w-2 h-2 rounded-full bg-emerald-600"></span> Veg
+                <button type="button" id="switch-to-snacks-btn" class="w-full bg-emerald text-white rounded-full py-3 text-xs sm:text-sm font-bold shadow-md hover:bg-primary active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-sm">fastfood</span>
+                    Browse Live Snacks & Drinks
                 </button>
             </div>
-        </div>
 
-        <!-- Left Rail + Right Product Grid -->
-        <div class="flex flex-1 max-w-7xl mx-auto w-full overflow-hidden">
-            <!-- Left Subcategory Rail -->
-            <aside class="w-[78px] sm:w-24 shrink-0 bg-surface/60 border-r border-glass-border overflow-y-auto max-h-[calc(100vh-140px)] sticky top-[108px] py-2 no-scrollbar" id="dual-pane-subcat-rail">
-                <div class="flex flex-col gap-1 items-center" id="dual-pane-subcat-list"></div>
-            </aside>
+        </main>
+    </div>
 
-            <!-- Right Products Grid -->
-            <main class="flex-1 p-2 sm:p-4 overflow-y-auto max-h-[calc(100vh-140px)]" id="dual-pane-products-pane">
-                <div class="flex justify-between items-center mb-2.5 px-1">
-                    <span class="text-xs font-bold text-on-surface-variant" id="dual-pane-subcat-heading">Showing Items</span>
-                    <span class="text-[11px] text-on-surface-variant" id="dual-pane-count-badge">0 items</span>
-                </div>
-                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3.5" id="dual-pane-products-grid"></div>
-            </main>
-        </div>
+    <!-- Bottom Toast Alert for Blocked Categories -->
+    <div id="coming-soon-toast" class="fixed top-20 left-1/2 -translate-x-1/2 bg-surface-container-lowest/95 backdrop-blur-xl border border-amber-500/40 text-on-surface px-4 py-2.5 rounded-full shadow-2xl z-50 text-xs font-semibold flex items-center gap-2 transition-all duration-300 opacity-0 pointer-events-none -translate-y-4">
+        <span class="material-symbols-outlined text-amber-500 text-sm">info</span>
+        <span id="coming-soon-toast-text">Category is opening soon! Delivering Snacks & Drinks right now.</span>
     </div>
 
     <!-- BottomNavBar -->
@@ -339,191 +245,207 @@ window.pages.categories = async function() {
 };
 
 window.pageInits.categories = async function() {
-    const directoryView = document.getElementById('categories-directory-view');
-    const dualPaneView = document.getElementById('dual-pane-explorer-view');
-    const backToDirBtn = document.getElementById('back-to-directory-btn');
-    const mainSearchInput = document.getElementById('main-category-search');
-    const deptTabs = document.querySelectorAll('.dept-tab-btn');
-    const categoryCards = document.querySelectorAll('.category-card');
-    
-    // Dual Pane Elements
-    const subcatListEl = document.getElementById('dual-pane-subcat-list');
-    const productsGridEl = document.getElementById('dual-pane-products-grid');
-    const subcatHeadingEl = document.getElementById('dual-pane-subcat-heading');
-    const countBadgeEl = document.getElementById('dual-pane-count-badge');
-    const sortSelect = document.getElementById('dual-pane-sort-select');
-    const vegBtn = document.getElementById('dual-pane-veg-btn');
+    const sidebarBtns = document.querySelectorAll('.cat-sidebar-btn');
+    const liveSnacksContainer = document.getElementById('live-snacks-container');
+    const blockedSplash = document.getElementById('blocked-category-splash');
+    const blockedTitle = document.getElementById('blocked-cat-title');
+    const blockedDesc = document.getElementById('blocked-cat-desc');
+    const switchToSnacksBtn = document.getElementById('switch-to-snacks-btn');
+    const subcatChipsContainer = document.getElementById('snacks-subcat-chips');
+    const productsGrid = document.getElementById('snacks-products-grid');
+    const activeHeading = document.getElementById('snacks-active-heading');
+    const itemCountBadge = document.getElementById('snacks-item-count');
+    const vegToggleBtn = document.getElementById('snacks-veg-toggle');
+    const sortSelect = document.getElementById('snacks-sort-select');
+    const desktopSearch = document.getElementById('desktop-cat-search');
+    const mobileSearch = document.getElementById('mobile-cat-search');
+    const toastEl = document.getElementById('coming-soon-toast');
+    const toastText = document.getElementById('coming-soon-toast-text');
 
-    let currentCategory = 'Bakery & Biscuits';
-    let currentSubcategory = 'Cookies';
-    let currentSort = 'relevance';
     let isVegOnly = false;
-    let categoryData = null;
-    let allProducts = [];
+    let currentSort = 'relevance';
+    let currentSubcategory = 'All';
+    let allSnackProducts = [];
 
-    // Preset Icons for Subcategories
-    const subcatIcons = {
-        'Cookies': 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=100',
-        'Cream Biscuits': 'https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?w=100',
-        'Healthy & Digestive': 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=100',
-        'Sweet & Salty': 'https://images.unsplash.com/photo-1590080875515-8a3a8dc5735e?w=100',
-        'Glucose & Marie': 'https://images.unsplash.com/photo-1548365328-8c6db3220e4c?w=100',
-        'Rusks & Wafers': 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=100',
-        'Cakes & Rolls': 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=100',
-        'Fresh Fruits': 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=100',
-        'Vegetables': 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=100',
-        'Atta & Flour': 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=100',
-        'Rice & Grains': 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=100',
-        'Dals & Pulses': 'https://images.unsplash.com/photo-1585994192701-f1a505c817ea?w=100',
-        'Cooking Oil': 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=100',
-        'Ghee & Butter': 'https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=100',
-        'Spices & Masalas': 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=100',
-        'Milk': 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=100',
-        'Bread & Buns': 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=100',
-        'Eggs': 'https://images.unsplash.com/photo-1516448620398-c5f44bf9f441?w=100',
-        'Potato Chips': 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=100',
-        'Namkeen & Bhujia': 'https://images.unsplash.com/photo-1599490659213-e2b9527bd087?w=100',
-        'Corn Puffs & Nachos': 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=100',
-        'Chocolates': 'https://images.unsplash.com/photo-1548907040-4baa42d10919?w=100',
-        'Indian Sweets': 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=100',
-        'Soft Drinks & Sodas': 'https://images.unsplash.com/photo-1554866585-cd94860890b7?w=100',
-        'Fruit Juices': 'https://images.unsplash.com/photo-1546173159-315724a31696?w=100',
-        'Energy & Sports Drinks': 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=100',
-        'Coffee': 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=100',
-        'Tea': 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=100',
-        'Noodles & Pasta': 'https://images.unsplash.com/photo-1612927601601-6638404737ce?w=100',
-        'Cup Noodles': 'https://images.unsplash.com/photo-1612927601601-6638404737ce?w=100',
-        'Sweet Spreads': 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=100',
-        'Ketchup & Dips': 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=100',
-        'Ice Cream Tubs': 'https://images.unsplash.com/photo-1570197788417-0e82375c9371?w=100',
-        'Chocobars & Cones': 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=100'
-    };
+    // Snacks Subcategories List with Emojis
+    const snackSubcats = [
+        { id: 'All', name: '🔥 All Snacks' },
+        { id: 'Potato Chips', name: '🥔 Chips & Crisps' },
+        { id: 'Namkeen & Bhujia', name: '🥨 Namkeen' },
+        { id: 'Chocolates', name: '🍫 Chocolates' },
+        { id: 'Indian Sweets', name: '🍮 Sweets' },
+        { id: 'Soft Drinks & Sodas', name: '🥤 Cold Drinks' },
+        { id: 'Fruit Juices', name: '🧃 Juices' },
+        { id: 'Coffee', name: '☕ Coffee' },
+        { id: 'Tea', name: '🫖 Chai & Tea' },
+        { id: 'Noodles & Pasta', name: '🍜 Maggi & Noodles' },
+        { id: 'Cup Noodles', name: '🥣 Cup Noodles' },
+        { id: 'Sweet Spreads', name: '🍫 Nutella & Spreads' },
+        { id: 'Paan Corner', name: '🌿 Mints & Gum' },
+        { id: 'Ice Cream Tubs', name: '🍨 Ice Cream' },
+        { id: 'Cookies', name: '🍪 Biscuits' }
+    ];
 
-    // Department Tab Filter Handler
-    deptTabs.forEach(tab => {
-        tab.onclick = () => {
-            deptTabs.forEach(t => {
-                t.classList.remove('border-emerald', 'text-emerald');
-                t.classList.add('border-transparent', 'text-on-surface-variant');
+    // Show Coming Soon Toast Helper
+    function showComingSoonToast(msg) {
+        if (!toastEl || !toastText) return;
+        toastText.textContent = msg;
+        toastEl.classList.remove('opacity-0', 'pointer-events-none', '-translate-y-4');
+        toastEl.classList.add('opacity-100', 'translate-y-0');
+        setTimeout(() => {
+            toastEl.classList.remove('opacity-100', 'translate-y-0');
+            toastEl.classList.add('opacity-0', 'pointer-events-none', '-translate-y-4');
+        }, 3000);
+    }
+
+    // Left Sidebar Click Handler
+    sidebarBtns.forEach(btn => {
+        btn.onclick = () => {
+            const status = btn.dataset.status;
+            const catName = btn.dataset.name || 'Category';
+
+            sidebarBtns.forEach(b => {
+                b.classList.remove('active-cat', 'opacity-100');
+                b.classList.add('opacity-60');
+                const bar = b.querySelector('.indicator-bar');
+                if (bar) bar.remove();
+                const label = b.querySelector('span');
+                if (label) label.classList.remove('text-emerald', 'font-bold');
             });
-            tab.classList.remove('border-transparent', 'text-on-surface-variant');
-            tab.classList.add('border-emerald', 'text-emerald');
 
-            const dept = tab.dataset.dept;
-            document.querySelectorAll('.dept-section').forEach(sec => {
-                if (dept === 'all' || sec.dataset.deptGroup === dept) {
-                    sec.classList.remove('hidden');
-                } else {
-                    sec.classList.add('hidden');
-                }
-            });
-        };
-    });
+            btn.classList.add('active-cat', 'opacity-100');
+            btn.classList.remove('opacity-60');
+            
+            // Add left indicator
+            const bar = document.createElement('div');
+            bar.className = 'absolute left-0 top-1 bottom-1 w-1 bg-emerald rounded-r-full indicator-bar';
+            btn.prepend(bar);
 
-    // Back to Directory View Button
-    backToDirBtn?.addEventListener('click', () => {
-        dualPaneView.classList.add('hidden');
-        directoryView.classList.remove('hidden');
-        window.scrollTo(0, 0);
-    });
+            const label = btn.querySelector('span');
+            if (label) label.classList.add('text-emerald', 'font-bold');
 
-    // Category Card Click -> Switch to Dual Pane Explorer
-    categoryCards.forEach(card => {
-        card.onclick = async () => {
-            const catName = card.dataset.category;
-            await openDualPaneCategory(catName);
-        };
-    });
-
-    async function openDualPaneCategory(catName) {
-        currentCategory = catName;
-        directoryView.classList.add('hidden');
-        dualPaneView.classList.remove('hidden');
-        window.scrollTo(0, 0);
-
-        try {
-            const url = `/api/categories/${encodeURIComponent(catName)}?sort=${currentSort}&veg=${isVegOnly ? '1' : '0'}`;
-            const res = await (await fetch(url)).json();
-            categoryData = res;
-            allProducts = res.products || [];
-
-            const subcats = res.subcategories || [];
-            if (subcats.length > 0) {
-                currentSubcategory = subcats[0].subcategory;
+            if (status === 'blocked') {
+                // Show Blocked Splash
+                liveSnacksContainer.classList.add('hidden');
+                blockedSplash.classList.remove('hidden');
+                if (blockedTitle) blockedTitle.textContent = `${catName} — Coming Soon`;
+                if (blockedDesc) blockedDesc.textContent = `${catName} is being prepared for upcoming delivery expansion. All Snacks & Drinks are currently 100% live!`;
+                showComingSoonToast(`${catName} is opening soon! Delivering Snacks & Drinks right now.`);
             } else {
-                currentSubcategory = 'All';
+                // Show Live Snacks
+                blockedSplash.classList.add('hidden');
+                liveSnacksContainer.classList.remove('hidden');
             }
+        };
+    });
 
-            renderSubcatRail(subcats);
-            renderProductsGrid();
+    // Switch back to Snacks button
+    switchToSnacksBtn?.addEventListener('click', () => {
+        const snacksBtn = document.querySelector('.cat-sidebar-btn[data-category-id="snacks"]');
+        if (snacksBtn) snacksBtn.click();
+    });
+
+    // Load Live Snacks & Drinks Products
+    async function loadSnacksData() {
+        try {
+            // Fetch all products across snack/drink categories
+            const [resSnacks, resBisc, resDrinks, resInst, resIce, resSweets] = await Promise.all([
+                fetch(`/api/categories/${encodeURIComponent('Chips & Namkeen')}`).then(r => r.json()).catch(() => ({ products: [] })),
+                fetch(`/api/categories/${encodeURIComponent('Bakery & Biscuits')}`).then(r => r.json()).catch(() => ({ products: [] })),
+                fetch(`/api/categories/${encodeURIComponent('Drinks & Juices')}`).then(r => r.json()).catch(() => ({ products: [] })),
+                fetch(`/api/categories/${encodeURIComponent('Instant Food')}`).then(r => r.json()).catch(() => ({ products: [] })),
+                fetch(`/api/categories/${encodeURIComponent('Ice Creams & More')}`).then(r => r.json()).catch(() => ({ products: [] })),
+                fetch(`/api/categories/${encodeURIComponent('Sweets & Chocolates')}`).then(r => r.json()).catch(() => ({ products: [] }))
+            ]);
+
+            const combined = [
+                ...(resSnacks.products || []),
+                ...(resDrinks.products || []),
+                ...(resInst.products || []),
+                ...(resSweets.products || []),
+                ...(resIce.products || []),
+                ...(resBisc.products || [])
+            ];
+
+            // Remove duplicate IDs
+            const seen = new Set();
+            allSnackProducts = combined.filter(p => {
+                if (seen.has(p.id)) return false;
+                seen.add(p.id);
+                return true;
+            });
+
+            renderSubcatChips();
+            filterAndRenderProducts();
         } catch(e) {
-            console.error('Failed to load category:', e);
+            console.error('Failed to load snacks:', e);
         }
     }
 
-    function renderSubcatRail(subcats) {
-        if (!subcatListEl) return;
-        
-        let railItems = subcats.map((sc) => {
-            const isActive = sc.subcategory === currentSubcategory;
-            const iconImg = subcatIcons[sc.subcategory] || sc.sample_image || 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=100';
-            
-            return `
-                <button type="button" class="w-full flex flex-col items-center py-2.5 px-1 relative transition-all group cursor-pointer subcat-rail-item ${isActive ? 'active-subcat' : 'opacity-70 hover:opacity-100'}" data-subcat="${sc.subcategory}">
-                    <!-- Green Active Indicator Bar -->
-                    ${isActive ? '<div class="absolute left-0 top-1 bottom-1 w-1 bg-emerald rounded-r-full"></div>' : ''}
-                    
-                    <!-- Circular Thumbnail Container -->
-                    <div class="w-12 h-12 rounded-full overflow-hidden p-0.5 border-2 transition-all ${isActive ? 'border-emerald shadow-sm scale-105 bg-emerald/10' : 'border-transparent bg-surface-container-high group-hover:border-surface-variant'}">
-                        <img src="${iconImg}" alt="${sc.subcategory}" class="w-full h-full object-cover rounded-full">
-                    </div>
-                    
-                    <!-- Label -->
-                    <span class="text-[10px] sm:text-[11px] font-semibold text-center mt-1.5 leading-tight px-1 ${isActive ? 'text-emerald font-bold' : 'text-on-surface'}">
-                        ${sc.subcategory}
-                    </span>
-                </button>
-            `;
-        }).join('');
+    function renderSubcatChips() {
+        if (!subcatChipsContainer) return;
+        subcatChipsContainer.innerHTML = snackSubcats.map((sc, idx) => `
+            <button type="button" class="px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all subcat-chip cursor-pointer ${sc.id === currentSubcategory ? 'bg-emerald text-white shadow-sm' : 'bg-surface-container-high text-on-surface hover:bg-emerald/10'}" data-subcat-id="${sc.id}">
+                ${sc.name}
+            </button>
+        `).join('');
 
-        subcatListEl.innerHTML = railItems || `<div class="p-2 text-[10px] text-on-surface-variant text-center">No subcategories</div>`;
-
-        subcatListEl.querySelectorAll('.subcat-rail-item').forEach(item => {
-            item.onclick = () => {
-                currentSubcategory = item.dataset.subcat;
-                renderSubcatRail(categoryData?.subcategories || []);
-                renderProductsGrid();
+        subcatChipsContainer.querySelectorAll('.subcat-chip').forEach(chip => {
+            chip.onclick = () => {
+                currentSubcategory = chip.dataset.subcatId;
+                renderSubcatChips();
+                filterAndRenderProducts();
             };
         });
     }
 
-    function renderProductsGrid() {
-        if (!productsGridEl) return;
+    function filterAndRenderProducts() {
+        if (!productsGrid) return;
 
-        let filtered = allProducts;
+        let filtered = allSnackProducts;
 
-        if (currentSubcategory && currentSubcategory !== 'All') {
-            filtered = filtered.filter(p => p.subcategory === currentSubcategory);
+        // Subcategory filter
+        if (currentSubcategory !== 'All') {
+            filtered = filtered.filter(p => p.subcategory === currentSubcategory || p.tags?.includes(currentSubcategory.toLowerCase()));
         }
 
+        // Veg filter
         if (isVegOnly) {
             filtered = filtered.filter(p => p.is_veg === 1);
         }
 
-        if (subcatHeadingEl) subcatHeadingEl.textContent = `Showing ${currentSubcategory}`;
-        if (countBadgeEl) countBadgeEl.textContent = `${filtered.length} item${filtered.length === 1 ? '' : 's'}`;
+        // Search filter
+        const q = (desktopSearch?.value || mobileSearch?.value || '').trim().toLowerCase();
+        if (q) {
+            filtered = filtered.filter(p => p.name.toLowerCase().includes(q) || (p.tags && p.tags.toLowerCase().includes(q)));
+        }
+
+        // Sort filter
+        if (currentSort === 'price_asc') {
+            filtered.sort((a, b) => a.price - b.price);
+        } else if (currentSort === 'price_desc') {
+            filtered.sort((a, b) => b.price - a.price);
+        } else if (currentSort === 'discount') {
+            filtered.sort((a, b) => ((b.mrp || b.price) - b.price) - ((a.mrp || a.price) - a.price));
+        } else if (currentSort === 'rating') {
+            filtered.sort((a, b) => (b.rating || 4.8) - (a.rating || 4.8));
+        }
+
+        if (activeHeading) activeHeading.textContent = q ? `Search: "${q}"` : (currentSubcategory === 'All' ? 'All Snacks & Drinks' : currentSubcategory);
+        if (itemCountBadge) itemCountBadge.textContent = `${filtered.length} item${filtered.length === 1 ? '' : 's'}`;
 
         if (filtered.length === 0) {
-            productsGridEl.innerHTML = `
+            productsGrid.innerHTML = `
                 <div class="col-span-full py-12 text-center">
                     <span class="material-symbols-outlined text-4xl text-on-surface-variant/60">inventory_2</span>
-                    <p class="text-xs font-semibold text-on-surface-variant mt-2">No items in this section</p>
+                    <p class="text-xs font-semibold text-on-surface-variant mt-2">No snacks matching your filter</p>
                 </div>
             `;
             return;
         }
 
-        productsGridEl.innerHTML = filtered.map(p => {
+        // Render Cards matching screenshot
+        productsGrid.innerHTML = filtered.map(p => {
             const discountPercent = p.mrp && p.mrp > p.price ? Math.round(((p.mrp - p.price) / p.mrp) * 100) : 0;
             const ratingVal = p.rating || 4.8;
             const reviewCount = p.review_count || '1.2 lac';
@@ -531,7 +453,6 @@ window.pageInits.categories = async function() {
 
             return `
                 <div class="bg-surface rounded-2xl overflow-hidden border border-surface-variant/40 shadow-sm hover:shadow-md transition-all p-2.5 flex flex-col justify-between group product-card-container product-detail-trigger cursor-pointer" data-product-id="${p.id}">
-                    <!-- Card Top Image Section -->
                     <div>
                         <div class="relative bg-surface-container-high rounded-xl overflow-hidden h-36 flex items-center justify-center p-2">
                             <!-- Wishlist Heart Button -->
@@ -611,44 +532,34 @@ window.pageInits.categories = async function() {
         window.syncCardSteppers();
     }
 
-    // Sort Handler
-    sortSelect?.addEventListener('change', async (e) => {
-        currentSort = e.target.value;
-        await openDualPaneCategory(currentCategory);
-    });
-
     // Veg Only Handler
-    vegBtn?.addEventListener('click', () => {
+    vegToggleBtn?.addEventListener('click', () => {
         isVegOnly = !isVegOnly;
         if (isVegOnly) {
-            vegBtn.classList.add('bg-emerald/15', 'border-emerald', 'text-emerald');
+            vegToggleBtn.classList.add('bg-emerald/15', 'border-emerald', 'text-emerald');
         } else {
-            vegBtn.classList.remove('bg-emerald/15', 'border-emerald', 'text-emerald');
+            vegToggleBtn.classList.remove('bg-emerald/15', 'border-emerald', 'text-emerald');
         }
-        renderProductsGrid();
+        filterAndRenderProducts();
     });
 
-    // Main Top Search in Directory
-    let searchDebounce;
-    mainSearchInput?.addEventListener('input', () => {
-        clearTimeout(searchDebounce);
-        const q = mainSearchInput.value.trim();
-        if (!q) {
-            directoryView.classList.remove('hidden');
-            dualPaneView.classList.add('hidden');
-            return;
-        }
-
-        searchDebounce = setTimeout(async () => {
-            directoryView.classList.add('hidden');
-            dualPaneView.classList.remove('hidden');
-            if (subcatHeadingEl) subcatHeadingEl.textContent = `Search: "${q}"`;
-            
-            const res = await window.api.searchProducts(q);
-            allProducts = res.results || [];
-            currentSubcategory = 'All';
-            if (subcatListEl) subcatListEl.innerHTML = `<div class="p-2 text-[10px] text-emerald font-bold text-center">Search Results</div>`;
-            renderProductsGrid();
-        }, 180);
+    // Sort Handler
+    sortSelect?.addEventListener('change', (e) => {
+        currentSort = e.target.value;
+        filterAndRenderProducts();
     });
+
+    // Search Handlers
+    let searchTimer;
+    [desktopSearch, mobileSearch].forEach(inp => {
+        inp?.addEventListener('input', () => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => {
+                filterAndRenderProducts();
+            }, 150);
+        });
+    });
+
+    // Initial load
+    await loadSnacksData();
 };
