@@ -4,7 +4,7 @@ window.pageInits = window.pageInits || {};
 
 window.pages.checkout = async function() {
     let cartData;
-    const userId = window.CURRENT_USER_ID || 'user_001';
+    const userId = window.getEffectiveUserId();
     try { 
         cartData = await window.api.getCart(userId); 
     } catch(e) { 
@@ -450,7 +450,7 @@ window.pages.checkout = async function() {
 };
 
 window.pageInits.checkout = function() {
-    const userId = window.CURRENT_USER_ID || 'user_001';
+    const userId = window.CURRENT_USER_ID;
     const formSection = document.getElementById('checkout-form-section');
     const successSection = document.getElementById('order-success-section');
     const headerTitle = document.getElementById('checkout-header-title');

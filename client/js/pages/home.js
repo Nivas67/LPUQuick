@@ -358,7 +358,8 @@ window.pageInits.home = function() {
                 dropdown.querySelectorAll('.quick-add-btn').forEach(btn => {
                     btn.onclick = async (e) => {
                         e.stopPropagation();
-                        await window.api.addToCart(window.CURRENT_USER_ID, btn.dataset.id, 1);
+                        const uid = window.getEffectiveUserId();
+                        await window.api.addToCart(uid, btn.dataset.id, 1);
                         btn.textContent = '✓';
                         window.syncCardSteppers();
                     };

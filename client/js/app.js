@@ -5,18 +5,20 @@ window.pageInits = window.pageInits || {};
 // Auth User state (Strict real user session - no hardcoded fake fallback)
 try {
     const savedUser = JSON.parse(localStorage.getItem('lpuquick_user') || 'null');
-    if (savedUser && savedUser.id) {
+    if (savedUser && savedUser.id && savedUser.id !== 'user_001') {
         window.CURRENT_USER_ID = savedUser.id;
         window.CURRENT_USER_NAME = savedUser.name;
         window.CURRENT_USER_EMAIL = savedUser.email;
         window.CURRENT_USER_PICTURE = savedUser.picture || '';
     } else {
+        localStorage.removeItem('lpuquick_user');
         window.CURRENT_USER_ID = null;
         window.CURRENT_USER_NAME = null;
         window.CURRENT_USER_EMAIL = null;
         window.CURRENT_USER_PICTURE = null;
     }
 } catch(e) {
+    localStorage.removeItem('lpuquick_user');
     window.CURRENT_USER_ID = null;
     window.CURRENT_USER_NAME = null;
     window.CURRENT_USER_EMAIL = null;
@@ -39,11 +41,11 @@ window.getEffectiveUserId = function() {
 
 window.cartState = window.cartState || {};
 
-// Address state (Defaulting to BH13 Exclusive Launch)
+// Address state (Unconfigured until user signs in and sets room)
 window.currentAddress = localStorage.getItem('lpuquick_address') || 'BH13';
 window.currentBlock = localStorage.getItem('lpuquick_block') || 'Block A';
-window.currentRoom = localStorage.getItem('lpuquick_room') || '304';
-window.currentAddressDetail = localStorage.getItem('lpuquick_address_detail') || 'Room 304, Block A, Boys Hostel 13';
+window.currentRoom = localStorage.getItem('lpuquick_room') || '';
+window.currentAddressDetail = localStorage.getItem('lpuquick_address_detail') || '';
 
 // Theme state
 if (localStorage.getItem('lpuquick_theme') === 'dark') {
@@ -585,10 +587,14 @@ let currentTrackedOrderId = null;
 
 async function checkAndConnectGlobalOrderTracking() {
     try {
-        const userId = window.CURRENT_USER_ID || 'user_001';
+        const bar = document.getElementById('global-live-delivery-bar');
+        if (!window.isUserLoggedIn()) {
+            if (bar) bar.classList.add('hidden');
+            return;
+        }
+        const userId = window.CURRENT_USER_ID;
         const activeRes = await window.api.getActiveOrder(userId);
         const active = activeRes?.active;
-        const bar = document.getElementById('global-live-delivery-bar');
 
         if (!active || ['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(active.status)) {
             if (bar) bar.classList.add('hidden');

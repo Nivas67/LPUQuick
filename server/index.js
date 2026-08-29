@@ -19,7 +19,6 @@ app.use(express.json());
 // Static files (Client and Admin portals)
 app.use('/admin', express.static(path.join(__dirname, '..', 'admin')));
 app.use(express.static(path.join(__dirname, '..', 'client')));
-app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // API Routes (All backed 100% by Supabase Cloud)
 app.use('/api/auth', require('./routes/auth'));

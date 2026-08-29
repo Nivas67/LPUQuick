@@ -3,7 +3,59 @@ window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
 window.pages.orders = async function() {
-    const userId = window.CURRENT_USER_ID || 'user_001';
+    if (!window.isUserLoggedIn()) {
+        return `
+<div class="bg-background text-on-background font-body-md min-h-screen pb-32">
+    <header class="px-margin-mobile md:px-margin-desktop py-4 flex items-center justify-between sticky top-0 bg-surface/80 backdrop-blur-md z-40 border-b border-glass-border">
+        <div class="flex items-center gap-3">
+            <a href="#/" class="p-2 hover:bg-surface-variant/50 rounded-full transition-colors">
+                <span class="material-symbols-outlined text-on-surface">arrow_back</span>
+            </a>
+            <h1 class="font-headline-md text-base sm:text-lg font-bold text-on-surface">Live Tracking & Orders</h1>
+        </div>
+    </header>
+
+    <main class="px-margin-mobile md:px-margin-desktop max-w-md mx-auto pt-16 text-center space-y-6">
+        <div class="w-20 h-20 rounded-full bg-emerald/10 text-emerald flex items-center justify-center mx-auto shadow-sm">
+            <span class="material-symbols-outlined text-4xl">receipt_long</span>
+        </div>
+        <div class="space-y-2">
+            <h2 class="text-xl sm:text-2xl font-bold text-on-surface">Sign In to Track Orders</h2>
+            <p class="text-xs text-on-surface-variant max-w-xs mx-auto">
+                Sign in with your Google or student account to view live 3-minute delivery tracking and your campus order history.
+            </p>
+        </div>
+        <a href="#/signin" onclick="localStorage.setItem('lpuquick_redirect', '#/orders')" class="inline-flex items-center justify-center gap-2 bg-emerald text-white px-7 py-3.5 rounded-full font-bold text-xs shadow-md hover:bg-primary transition-all active:scale-95">
+            <span>Continue with Google</span>
+            <span class="material-symbols-outlined text-sm">arrow_forward</span>
+        </a>
+    </main>
+
+    <!-- BottomNavBar -->
+    <div class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-50">
+        <nav class="flex justify-around items-center p-2 mx-auto bg-white/80 backdrop-blur-2xl shadow-xl border border-glass-border rounded-full">
+            <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-95 duration-200" href="#/">
+                <span class="material-symbols-outlined">home</span>
+                <span class="font-label-sm text-[11px] mt-0.5 hidden sm:block">Home</span>
+            </a>
+            <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-95 duration-200" href="#/categories">
+                <span class="material-symbols-outlined">category</span>
+                <span class="font-label-sm text-[11px] mt-0.5 hidden sm:block">Categories</span>
+            </a>
+            <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-95 duration-200" href="#/cart">
+                <span class="material-symbols-outlined">shopping_cart</span>
+                <span class="font-label-sm text-[11px] mt-0.5 hidden sm:block">Cart</span>
+            </a>
+            <a class="flex flex-col items-center justify-center bg-emerald text-on-primary rounded-full px-6 py-2 active:scale-95 duration-200 shadow-md" href="#/orders">
+                <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">receipt_long</span>
+                <span class="font-label-sm text-[11px] mt-0.5">Orders</span>
+            </a>
+        </nav>
+    </div>
+</div>`;
+    }
+
+    const userId = window.CURRENT_USER_ID;
     let ordersData;
     try { ordersData = await window.api.getOrders(userId); } catch(e) { ordersData = { active: [], past: [] }; }
     
@@ -12,7 +64,9 @@ window.pages.orders = async function() {
 
     const activeOrder = activeData?.active || (ordersData?.active && ordersData.active[0]) || null;
     const pastOrders = ordersData?.past || [];
-    const hostelAddress = window.currentAddressDetail?.label || 'BH13 (Block A), Room 304';
+    const savedRoom = localStorage.getItem('lpuquick_room') || window.currentRoom;
+    const savedBlock = localStorage.getItem('lpuquick_block') || window.currentBlock || 'Block A';
+    const hostelAddress = savedRoom ? `BH13 (${savedBlock}), Room ${savedRoom}` : 'BH13 (Block A)';
     const hostelShort = window.currentAddress || 'BH13';
 
     const pastRows = pastOrders.map(o => {
@@ -341,7 +395,7 @@ window.pages.orders = async function() {
 };
 
 window.pageInits.orders = function() {
-    const userId = window.CURRENT_USER_ID || 'user_001';
+    const userId = window.CURRENT_USER_ID;
     const hostelShort = window.currentAddress || 'BH13';
     const hostelAddress = window.currentAddressDetail?.label || 'BH13 (Block A), Room 304';
     const activeOrderId = window.CURRENT_ACTIVE_ORDER_ID;

@@ -55,7 +55,7 @@ router.put('/:id', async (req, res) => {
     }
 
     try {
-        const cart = await supabaseDb.cart.updateItem(id, Number(quantity), userId || 'user_001');
+        const cart = await supabaseDb.cart.updateItem(id, Number(quantity), userId || 'guest_cart');
         res.json(cart);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -65,7 +65,7 @@ router.put('/:id', async (req, res) => {
 // DELETE /api/cart/:id (Remove single item)
 router.delete('/:id', async (req, res) => {
     const { id } = req.params;
-    const userId = req.body?.userId || req.query?.userId || 'user_001';
+    const userId = req.body?.userId || req.query?.userId || 'guest_cart';
 
     try {
         const cart = await supabaseDb.cart.updateItem(id, 0, userId);

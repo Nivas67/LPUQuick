@@ -3,15 +3,16 @@ window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
 window.pages.settings = async function() {
-    const userName = window.CURRENT_USER_NAME || 'Nivas Naidu';
-    const userEmail = window.CURRENT_USER_EMAIL || 'nivasnaidu07@gmail.com';
-    const userPicture = window.CURRENT_USER_PICTURE || '';
-    const initial = userName ? userName[0].toUpperCase() : 'N';
+    const isLoggedIn = window.isUserLoggedIn();
+    const userName = isLoggedIn ? (window.CURRENT_USER_NAME || 'LPU Student') : 'Guest Student';
+    const userEmail = isLoggedIn ? (window.CURRENT_USER_EMAIL || '') : 'Sign in with Google to place campus orders';
+    const userPicture = isLoggedIn ? (window.CURRENT_USER_PICTURE || '') : '';
+    const initial = isLoggedIn && userName ? userName[0].toUpperCase() : 'G';
 
-    const currentHostel = window.currentAddress || 'BH13';
-    const currentBlock = window.currentBlock || 'Block A';
-    const currentRoom = window.currentRoom || '304';
-    const currentDetail = window.currentAddressDetail || `Room ${currentRoom}, ${currentBlock}, ${currentHostel}`;
+    const currentHostel = localStorage.getItem('lpuquick_address') || 'BH13';
+    const currentBlock = localStorage.getItem('lpuquick_block') || 'Block A';
+    const currentRoom = localStorage.getItem('lpuquick_room') || '';
+    const currentDetail = currentRoom ? `BH13 (${currentBlock}), Room ${currentRoom}` : 'No room address configured yet';
 
     return `
 <div class="bg-background text-on-background font-body-md min-h-screen pb-32">
@@ -23,10 +24,17 @@ window.pages.settings = async function() {
             </a>
             <h1 class="font-headline-md text-base sm:text-lg font-bold text-on-surface">Profile & Settings</h1>
         </div>
+        ${isLoggedIn ? `
         <button type="button" id="btn-sign-out" class="p-2 hover:bg-error/15 rounded-full transition-colors text-error cursor-pointer flex items-center gap-1 text-xs font-bold" title="Sign Out">
             <span class="material-symbols-outlined text-sm">logout</span>
             <span class="hidden sm:inline">Sign Out</span>
         </button>
+        ` : `
+        <a href="#/signin" class="bg-emerald text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-md hover:bg-primary transition-all active:scale-95 flex items-center gap-1">
+            <span class="material-symbols-outlined text-xs">login</span>
+            <span>Sign In</span>
+        </a>
+        `}
     </header>
 
     <main class="px-margin-mobile md:px-margin-desktop max-w-3xl mx-auto pt-6 space-y-5">
@@ -42,9 +50,15 @@ window.pages.settings = async function() {
             <div class="flex-1 space-y-1">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                     <h2 class="font-headline-md text-lg sm:text-xl font-bold text-on-surface">${userName}</h2>
+                    ${isLoggedIn ? `
                     <span class="inline-flex items-center gap-1 text-[11px] bg-emerald/10 text-emerald font-bold px-3 py-0.5 rounded-full mx-auto sm:mx-0 border border-emerald/20">
                         <span class="material-symbols-outlined text-xs">verified</span> LPU Verified Student
                     </span>
+                    ` : `
+                    <a href="#/signin" class="inline-flex items-center gap-1 text-[11px] bg-amber-500/10 text-amber-500 font-bold px-3 py-0.5 rounded-full mx-auto sm:mx-0 border border-amber-500/20 hover:underline">
+                        <span>Sign In Now</span>
+                    </a>
+                    `}
                 </div>
                 <p class="text-xs text-on-surface-variant flex items-center justify-center sm:justify-start gap-1">
                     <span class="material-symbols-outlined text-sm">mail</span> ${userEmail}
@@ -341,10 +355,16 @@ window.pageInits.settings = function() {
     // Sign Out Handler
     document.getElementById('btn-sign-out')?.addEventListener('click', () => {
         localStorage.removeItem('lpuquick_user');
-        window.CURRENT_USER_ID = 'user_001';
+        localStorage.removeItem('lpuquick_address_configured');
+        localStorage.removeItem('lpuquick_room');
+        localStorage.removeItem('lpuquick_phone');
+        localStorage.removeItem('lpuquick_address_detail');
+        window.CURRENT_USER_ID = null;
         window.CURRENT_USER_NAME = null;
         window.CURRENT_USER_EMAIL = null;
         window.CURRENT_USER_PICTURE = null;
-        window.location.hash = '#/signin';
+        window.currentRoom = '';
+        window.currentAddressDetail = '';
+        window.location.hash = '#/';
     });
 };

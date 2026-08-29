@@ -4,7 +4,7 @@ window.pageInits = window.pageInits || {};
 
 window.pages.cart = async function() {
     let cartData;
-    const userId = window.CURRENT_USER_ID || 'user_001';
+    const userId = window.getEffectiveUserId();
     try { cartData = await window.api.getCart(userId); } catch(e) { cartData = { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 5, tax: 0, total: 0, free_delivery_remaining: 199 } }; }
 
     const items = cartData.items || [];

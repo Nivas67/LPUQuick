@@ -90,7 +90,7 @@ const api = {
     async removeCartItem(cartId) {
         const res = await fetch(`${API_BASE}/cart/${cartId}`, { method: 'DELETE' });
         const result = await res.json();
-        const userId = window.CURRENT_USER_ID || 'user_001';
+        const userId = window.getEffectiveUserId();
         await this.getCart(userId); // Refresh cart state
         return result;
     },
@@ -124,7 +124,7 @@ const api = {
         const res = await fetch(`${API_BASE}/orders/detail/${orderId}`);
         return res.json();
     },
-    async reorder(orderId, userId = window.CURRENT_USER_ID || 'user_001') {
+    async reorder(orderId, userId = (window.isUserLoggedIn() ? window.CURRENT_USER_ID : window.getEffectiveUserId())) {
         const res = await fetch(`${API_BASE}/orders/${orderId}/reorder`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
