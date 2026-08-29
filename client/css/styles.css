@@ -690,82 +690,207 @@ body.dark .slider-text {
     100% { transform: translate3d(-18px, -65px, 0) scale(0.85); opacity: 0.2; }
 }
 
-/* Layer 5: Occasional 4-Point Star Sparkles */
-.ambient-sparkle {
+/* Layer 4: Subtle Background Shopping Bag / Delivery Line-Art */
+.ambient-lineart {
     position: absolute;
-    width: 16px;
-    height: 16px;
-    color: #10B981;
     pointer-events: none;
-    opacity: 0;
+    opacity: 0.7;
+}
+.lineart-bag {
+    width: 140px;
+    height: 140px;
+    top: 40%;
+    left: 3%;
+    transform: rotate(-10deg);
+}
+
+/* Layer 5: Realistic 3D Floating Fresh Green Leaves */
+.ambient-leaf {
+    position: absolute;
+    pointer-events: none;
+    filter: drop-shadow(0 8px 14px rgba(5, 150, 105, 0.22));
     will-change: transform, opacity;
 }
 
-.sparkle-1 { top: 22%; left: 35%; animation: sparkleGlow 8s ease-in-out infinite; }
-.sparkle-2 { top: 38%; left: 88%; color: #06B6D4; animation: sparkleGlow 9s ease-in-out infinite 2.5s; }
-.sparkle-3 { top: 68%; left: 28%; animation: sparkleGlow 10s ease-in-out infinite 5s; }
-.sparkle-4 { top: 80%; left: 72%; color: #F59E0B; animation: sparkleGlow 8.5s ease-in-out infinite 1.2s; }
-
-@keyframes sparkleGlow {
-    0%, 100% { opacity: 0; transform: translate3d(0, 0, 0) scale(0.5) rotate(0deg); }
-    35% { opacity: 0; transform: translate3d(0, 0, 0) scale(0.6) rotate(15deg); }
-    50% { opacity: 0.65; transform: translate3d(0, -6px, 0) scale(1.15) rotate(45deg); }
-    65% { opacity: 0; transform: translate3d(0, -12px, 0) scale(0.5) rotate(90deg); }
+.leaf-top-left {
+    width: 34px;
+    height: 34px;
+    top: 12%;
+    left: 4%;
+    opacity: 0.9;
+    animation: leafFloat1 18s ease-in-out infinite alternate;
 }
 
-/* Layer 6: Subtle Floating Fresh Leaves */
-.ambient-leaf {
+.leaf-top-right {
+    width: 30px;
+    height: 30px;
+    top: 8%;
+    right: 8%;
+    opacity: 0.85;
+    animation: leafFloat2 22s ease-in-out infinite alternate 2s;
+}
+
+.leaf-mid-left {
+    width: 38px;
+    height: 38px;
+    top: 45%;
+    left: 1.5%;
+    opacity: 0.92;
+    animation: leafFloat3 20s ease-in-out infinite alternate 4s;
+}
+
+.leaf-bot-left {
+    width: 40px;
+    height: 40px;
+    top: 74%;
+    left: 3.5%;
+    opacity: 0.95;
+    animation: leafFloat4 24s ease-in-out infinite alternate 1s;
+}
+
+.leaf-mid-right {
+    width: 32px;
+    height: 32px;
+    top: 36%;
+    right: 3%;
+    opacity: 0.85;
+    animation: leafFloat5 21s ease-in-out infinite alternate 3s;
+}
+
+.leaf-bot-right {
+    width: 36px;
+    height: 36px;
+    top: 80%;
+    right: 5%;
+    opacity: 0.9;
+    animation: leafFloat6 25s ease-in-out infinite alternate 5s;
+}
+
+@keyframes leafFloat1 {
+    0% { transform: translate3d(0, 0, 0) rotate(12deg) scale(0.95); }
+    50% { transform: translate3d(25px, 30px, 0) rotate(35deg) scale(1.05); }
+    100% { transform: translate3d(-15px, 60px, 0) rotate(18deg) scale(0.92); }
+}
+
+@keyframes leafFloat2 {
+    0% { transform: translate3d(0, 0, 0) rotate(-20deg) scale(1); }
+    50% { transform: translate3d(-30px, 35px, 0) rotate(-5deg) scale(1.1); }
+    100% { transform: translate3d(15px, 70px, 0) rotate(-30deg) scale(0.95); }
+}
+
+@keyframes leafFloat3 {
+    0% { transform: translate3d(0, 0, 0) rotate(-35deg) scale(1); }
+    50% { transform: translate3d(30px, -25px, 0) rotate(-10deg) scale(1.12); }
+    100% { transform: translate3d(-20px, -50px, 0) rotate(-40deg) scale(0.9); }
+}
+
+@keyframes leafFloat4 {
+    0% { transform: translate3d(0, 0, 0) rotate(45deg) scale(1.05); }
+    50% { transform: translate3d(35px, -30px, 0) rotate(20deg) scale(0.95); }
+    100% { transform: translate3d(-15px, -60px, 0) rotate(50deg) scale(1.1); }
+}
+
+@keyframes leafFloat5 {
+    0% { transform: translate3d(0, 0, 0) rotate(10deg) scale(0.95); }
+    50% { transform: translate3d(-25px, 40px, 0) rotate(-15deg) scale(1.08); }
+    100% { transform: translate3d(20px, 75px, 0) rotate(25deg) scale(0.9); }
+}
+
+@keyframes leafFloat6 {
+    0% { transform: translate3d(0, 0, 0) rotate(-15deg) scale(1); }
+    50% { transform: translate3d(30px, -35px, 0) rotate(15deg) scale(1.1); }
+    100% { transform: translate3d(-25px, -70px, 0) rotate(-25deg) scale(0.95); }
+}
+
+/* Layer 6: Floating 3D Snack Packs in Margins */
+.ambient-snack {
     position: absolute;
-    width: 22px;
-    height: 22px;
-    color: #10B981;
     pointer-events: none;
-    opacity: 0.22;
+    z-index: -1;
     will-change: transform;
 }
 
-.leaf-1 {
-    top: 15%;
-    left: 8%;
-    animation: leafSway1 24s ease-in-out infinite alternate;
+.snack-bottom-left {
+    bottom: -20px;
+    left: -15px;
 }
 
-.leaf-2 {
-    top: 55%;
-    right: 6%;
-    animation: leafSway2 28s ease-in-out infinite alternate 3s;
+.snack-bottom-right {
+    bottom: 12%;
+    right: -10px;
 }
 
-.leaf-3 {
-    top: 78%;
-    left: 18%;
-    animation: leafSway3 26s ease-in-out infinite alternate 6s;
+.snack-tilt-left {
+    transform: rotate(-18deg);
+    animation: snackBobLeft 8s ease-in-out infinite alternate;
 }
 
-@keyframes leafSway1 {
-    0% { transform: translate3d(0, 0, 0) rotate(15deg); }
-    50% { transform: translate3d(35px, 50px, 0) rotate(40deg); }
-    100% { transform: translate3d(-20px, 95px, 0) rotate(20deg); }
+.snack-tilt-right {
+    transform: rotate(22deg);
+    animation: snackBobRight 9s ease-in-out infinite alternate;
 }
 
-@keyframes leafSway2 {
-    0% { transform: translate3d(0, 0, 0) rotate(-25deg); }
-    50% { transform: translate3d(-40px, 45px, 0) rotate(-5deg); }
-    100% { transform: translate3d(15px, 90px, 0) rotate(-35deg); }
+@keyframes snackBobLeft {
+    0% { transform: translate3d(0, 0, 0) rotate(-18deg); }
+    50% { transform: translate3d(18px, -22px, 0) rotate(-12deg); }
+    100% { transform: translate3d(6px, -42px, 0) rotate(-22deg); }
 }
 
-@keyframes leafSway3 {
-    0% { transform: translate3d(0, 0, 0) rotate(5deg); }
-    50% { transform: translate3d(30px, -40px, 0) rotate(-20deg); }
-    100% { transform: translate3d(-25px, -80px, 0) rotate(15deg); }
+@keyframes snackBobRight {
+    0% { transform: translate3d(0, 0, 0) rotate(22deg); }
+    50% { transform: translate3d(-20px, -28px, 0) rotate(16deg); }
+    100% { transform: translate3d(-10px, -50px, 0) rotate(26deg); }
 }
 
-/* Layer 7: Breathing Matrix Grid */
+/* Layer 7: Vibrant 4-Point Star Sparkles */
+.ambient-sparkle {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    pointer-events: none;
+    will-change: transform, opacity;
+}
+
+.sparkle-top-center {
+    top: 14%;
+    left: 48%;
+    animation: sparkleTwinkleGold 6s ease-in-out infinite;
+}
+
+.sparkle-top-left {
+    top: 24%;
+    left: 7%;
+    animation: sparkleTwinkleMint 7s ease-in-out infinite 1.5s;
+}
+
+.sparkle-bot-left {
+    top: 68%;
+    left: 6%;
+    animation: sparkleTwinkleMint 8s ease-in-out infinite 3.5s;
+}
+
+.sparkle-bot-right {
+    top: 84%;
+    right: 12%;
+    animation: sparkleTwinkleGold 6.5s ease-in-out infinite 2s;
+}
+
+@keyframes sparkleTwinkleGold {
+    0%, 100% { opacity: 0.25; transform: scale(0.7) rotate(0deg); }
+    50% { opacity: 1; transform: scale(1.35) rotate(45deg); }
+}
+
+@keyframes sparkleTwinkleMint {
+    0%, 100% { opacity: 0.3; transform: scale(0.7) rotate(0deg); }
+    50% { opacity: 1; transform: scale(1.4) rotate(-45deg); }
+}
+
+/* Layer 8: Breathing Matrix Grid */
 .ambient-grid-overlay {
     position: absolute;
     inset: 0;
-    opacity: 0.05;
-    background-image: radial-gradient(#10B981 1.2px, transparent 1.2px);
+    opacity: 0.06;
+    background-image: radial-gradient(#10B981 1.3px, transparent 1.3px);
     background-size: 28px 28px;
     animation: gridBreathe 10s ease-in-out infinite alternate;
 }
@@ -816,6 +941,7 @@ body.dark .slider-text {
     .ambient-particle,
     .ambient-sparkle,
     .ambient-leaf,
+    .ambient-snack,
     .trail-path,
     .ambient-grid-overlay {
         animation: none !important;
@@ -828,9 +954,11 @@ body.dark .slider-text {
         filter: blur(65px);
         opacity: 0.32;
     }
-    .particle-5, .particle-6, .particle-7, .particle-8,
-    .sparkle-3, .sparkle-4,
-    .leaf-3 {
+    .ambient-snack {
+        display: none !important;
+    }
+    .particle-5, .particle-6,
+    .leaf-mid-right, .leaf-mid-left {
         display: none !important;
     }
 }
