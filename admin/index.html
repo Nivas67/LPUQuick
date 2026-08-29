@@ -566,11 +566,17 @@
                     <textarea id="form-product-desc" rows="2" placeholder="Brief details about the product..." class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none"></textarea>
                 </div>
 
-                <div class="pt-3 border-t border-[#DADCE0] flex justify-end gap-2">
-                    <button type="button" onclick="closeProductModal()" class="px-4 py-2 rounded-lg border border-[#DADCE0] text-[#5c5f60] font-semibold hover:bg-[#f1f4f7]">Cancel</button>
-                    <button type="submit" id="btn-save-product" class="px-5 py-2 rounded-lg bg-[#3c4043] hover:bg-[#262a2d] text-white font-semibold flex items-center gap-1">
-                        <span>Save Product</span>
+                <div class="pt-3 border-t border-[#DADCE0] flex justify-between items-center">
+                    <button type="button" id="btn-modal-delete-product" onclick="handleModalDeleteProduct()" class="px-3 py-2 rounded-lg bg-[#ffdad6] text-[#ba1a1a] font-semibold hover:bg-[#ffdad6]/80 flex items-center gap-1 hidden">
+                        <span class="material-symbols-outlined text-[16px]">delete_forever</span>
+                        <span>Delete Completely</span>
                     </button>
+                    <div class="flex items-center gap-2 ml-auto">
+                        <button type="button" onclick="closeProductModal()" class="px-4 py-2 rounded-lg border border-[#DADCE0] text-[#5c5f60] font-semibold hover:bg-[#f1f4f7]">Cancel</button>
+                        <button type="submit" id="btn-save-product" class="px-5 py-2 rounded-lg bg-[#3c4043] hover:bg-[#262a2d] text-white font-semibold flex items-center gap-1">
+                            <span>Save Product</span>
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>

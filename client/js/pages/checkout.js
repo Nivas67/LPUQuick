@@ -78,6 +78,25 @@ window.pages.checkout = async function() {
         <!-- Pre-Order Section (Visible Before Order Placement) -->
         <div id="checkout-form-section" class="space-y-5 transition-all duration-300">
             
+            ${!window.isUserLoggedIn() ? `
+            <!-- Sign In Required Banner -->
+            <div class="glass-card rounded-3xl p-4 border border-amber-500/40 bg-amber-500/10 flex items-center justify-between shadow-sm">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-500 flex items-center justify-center flex-shrink-0">
+                        <span class="material-symbols-outlined text-xl">account_circle</span>
+                    </div>
+                    <div>
+                        <p class="font-bold text-xs sm:text-sm text-on-surface">Sign In Required to Order</p>
+                        <p class="text-[11px] text-on-surface-variant">Sign in to confirm delivery to your room.</p>
+                    </div>
+                </div>
+                <a href="#/signin" onclick="localStorage.setItem('lpuquick_redirect', '#/checkout')" class="bg-emerald text-white px-4 py-2 rounded-full text-xs font-bold shadow-md hover:bg-primary transition-all active:scale-95 flex items-center gap-1">
+                    <span>Sign In</span>
+                    <span class="material-symbols-outlined text-xs">arrow_forward</span>
+                </a>
+            </div>
+            ` : ''}
+
             <!-- Delivery Address Card -->
             <div class="glass-card rounded-3xl p-5 border border-glass-border shadow-sm">
                 <div class="flex justify-between items-start">
@@ -619,6 +638,16 @@ window.pageInits.checkout = function() {
 
     // 2. REAL ORDER PLACEMENT TO BACKEND
     async function handleOrderPlacement() {
+        if (!window.isUserLoggedIn()) {
+            resetSlider();
+            localStorage.setItem('lpuquick_redirect', '#/checkout');
+            showPaymentToast('🔐 Sign In Required: Please sign in to confirm your room delivery order.');
+            setTimeout(() => {
+                window.location.hash = '#/signin';
+            }, 800);
+            return;
+        }
+
         if (isSubmitting) return;
         isSubmitting = true;
 

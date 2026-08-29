@@ -168,7 +168,7 @@ window.pages.cart = async function() {
                 </div>
 
                 ${items.length > 0 ? `
-                <a href="#/checkout" class="w-full bg-emerald text-white rounded-full py-3.5 sm:py-4 font-semibold text-xs sm:text-sm text-center flex items-center justify-center gap-2 hover:bg-primary transition-all shadow-md active:scale-95">
+                <a href="#/checkout" id="proceed-to-checkout-btn" class="w-full bg-emerald text-white rounded-full py-3.5 sm:py-4 font-semibold text-xs sm:text-sm text-center flex items-center justify-center gap-2 hover:bg-primary transition-all shadow-md active:scale-95">
                     Proceed to Checkout (₹${exactTotal})
                     <span class="material-symbols-outlined text-sm">arrow_forward</span>
                 </a>
@@ -206,7 +206,7 @@ window.pages.cart = async function() {
 };
 
 window.pageInits.cart = function() {
-    const userId = window.CURRENT_USER_ID || 'user_001';
+    const userId = window.getEffectiveUserId();
 
     async function reRenderCart() {
         if (window.router) {
@@ -214,6 +214,17 @@ window.pageInits.cart = function() {
         } else {
             window.location.reload();
         }
+    }
+
+    const proceedBtn = document.getElementById('proceed-to-checkout-btn');
+    if (proceedBtn) {
+        proceedBtn.onclick = (e) => {
+            if (!window.isUserLoggedIn()) {
+                e.preventDefault();
+                localStorage.setItem('lpuquick_redirect', '#/checkout');
+                window.location.hash = '#/signin';
+            }
+        };
     }
 
     document.querySelectorAll('.qty-inc-btn').forEach(btn => {

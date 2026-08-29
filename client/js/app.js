@@ -2,7 +2,7 @@
 window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
-// Auth User state
+// Auth User state (Strict real user session - no hardcoded fake fallback)
 try {
     const savedUser = JSON.parse(localStorage.getItem('lpuquick_user') || 'null');
     if (savedUser && savedUser.id) {
@@ -11,11 +11,31 @@ try {
         window.CURRENT_USER_EMAIL = savedUser.email;
         window.CURRENT_USER_PICTURE = savedUser.picture || '';
     } else {
-        window.CURRENT_USER_ID = window.CURRENT_USER_ID || 'user_001';
+        window.CURRENT_USER_ID = null;
+        window.CURRENT_USER_NAME = null;
+        window.CURRENT_USER_EMAIL = null;
+        window.CURRENT_USER_PICTURE = null;
     }
 } catch(e) {
-    window.CURRENT_USER_ID = window.CURRENT_USER_ID || 'user_001';
+    window.CURRENT_USER_ID = null;
+    window.CURRENT_USER_NAME = null;
+    window.CURRENT_USER_EMAIL = null;
+    window.CURRENT_USER_PICTURE = null;
 }
+
+window.isUserLoggedIn = function() {
+    return Boolean(window.CURRENT_USER_ID && window.CURRENT_USER_EMAIL);
+};
+
+window.getEffectiveUserId = function() {
+    if (window.isUserLoggedIn()) return window.CURRENT_USER_ID;
+    let guestId = localStorage.getItem('lpuquick_guest_cart_id');
+    if (!guestId) {
+        guestId = 'guest_' + Math.random().toString(36).substring(2, 10);
+        localStorage.setItem('lpuquick_guest_cart_id', guestId);
+    }
+    return guestId;
+};
 
 window.cartState = window.cartState || {};
 
@@ -326,7 +346,8 @@ window.openProductModal = async function(productId) {
         const modalAddBtn = document.getElementById('modal-add-btn');
         if (modalAddBtn) {
             modalAddBtn.onclick = async () => {
-                await window.api.addToCart(window.CURRENT_USER_ID, p.id, 1);
+                const uid = window.getEffectiveUserId();
+                await window.api.addToCart(uid, p.id, 1);
                 window.openProductModal(p.id);
                 window.syncCardSteppers();
             };
@@ -334,8 +355,9 @@ window.openProductModal = async function(productId) {
         const modalIncBtn = document.getElementById('modal-inc-btn');
         if (modalIncBtn) {
             modalIncBtn.onclick = async () => {
+                const uid = window.getEffectiveUserId();
                 const item = window.cartState[p.id];
-                if (item) await window.api.updateCartItem(item.cart_id, item.quantity + 1, window.CURRENT_USER_ID);
+                if (item) await window.api.updateCartItem(item.cart_id, item.quantity + 1, uid);
                 window.openProductModal(p.id);
                 window.syncCardSteppers();
             };
@@ -343,10 +365,11 @@ window.openProductModal = async function(productId) {
         const modalDecBtn = document.getElementById('modal-dec-btn');
         if (modalDecBtn) {
             modalDecBtn.onclick = async () => {
+                const uid = window.getEffectiveUserId();
                 const item = window.cartState[p.id];
                 if (item) {
                     if (item.quantity <= 1) await window.api.removeCartItem(item.cart_id);
-                    else await window.api.updateCartItem(item.cart_id, item.quantity - 1, window.CURRENT_USER_ID);
+                    else await window.api.updateCartItem(item.cart_id, item.quantity - 1, uid);
                 }
                 window.openProductModal(p.id);
                 window.syncCardSteppers();
@@ -393,7 +416,8 @@ window.syncCardSteppers = function() {
         btn.onclick = async (e) => {
             e.stopPropagation();
             const id = btn.dataset.id;
-            await window.api.addToCart(window.CURRENT_USER_ID, id, 1);
+            const uid = window.getEffectiveUserId();
+            await window.api.addToCart(uid, id, 1);
             window.syncCardSteppers();
         };
     });
@@ -402,9 +426,10 @@ window.syncCardSteppers = function() {
         btn.onclick = async (e) => {
             e.stopPropagation();
             const id = btn.dataset.id;
+            const uid = window.getEffectiveUserId();
             const item = window.cartState[id];
             if (item) {
-                await window.api.updateCartItem(item.cart_id, item.quantity + 1, window.CURRENT_USER_ID);
+                await window.api.updateCartItem(item.cart_id, item.quantity + 1, uid);
                 window.syncCardSteppers();
             }
         };
@@ -414,12 +439,13 @@ window.syncCardSteppers = function() {
         btn.onclick = async (e) => {
             e.stopPropagation();
             const id = btn.dataset.id;
+            const uid = window.getEffectiveUserId();
             const item = window.cartState[id];
             if (item) {
                 if (item.quantity <= 1) {
                     await window.api.removeCartItem(item.cart_id);
                 } else {
-                    await window.api.updateCartItem(item.cart_id, item.quantity - 1, window.CURRENT_USER_ID);
+                    await window.api.updateCartItem(item.cart_id, item.quantity - 1, uid);
                 }
                 window.syncCardSteppers();
             }
@@ -446,7 +472,8 @@ async function router() {
 
     try {
         // Pre-fetch cart so steppers have exact state immediately
-        await window.api.getCart(window.CURRENT_USER_ID);
+        const effectiveUid = window.getEffectiveUserId();
+        await window.api.getCart(effectiveUid);
 
         const renderFn = window.pages[pageName];
         if (renderFn) {

@@ -147,7 +147,10 @@ window.pageInits.signin = function() {
                 window.CURRENT_USER_EMAIL = res.user.email;
                 window.CURRENT_USER_PICTURE = res.user.picture || '';
                 localStorage.setItem('lpuquick_user', JSON.stringify(res.user));
-                window.location.hash = '#/';
+                const redirectTarget = window.postLoginRedirect || localStorage.getItem('lpuquick_redirect') || '#/';
+                localStorage.removeItem('lpuquick_redirect');
+                window.postLoginRedirect = null;
+                window.location.hash = redirectTarget;
             } else {
                 resetGoogleButton();
                 showStatusMessage('Could not verify Google account. Please try again.', true);

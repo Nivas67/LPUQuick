@@ -416,12 +416,15 @@ function filterProducts() {
                 <td class="p-4 font-semibold text-[#181c1f]">${stock}</td>
                 <td class="p-4">${statusBadge}</td>
                 <td class="p-4 text-right">
-                    <div class="flex items-center justify-end gap-1">
+                    <div class="flex items-center justify-end gap-1.5">
                         <button onclick="editProduct('${p.id}')" class="p-1.5 text-[#5c5f60] hover:text-[#3c4043] hover:bg-[#ebeef2] rounded-md transition-all" title="Edit Product">
                             <span class="material-symbols-outlined text-[18px]">edit</span>
                         </button>
-                        <button onclick="deactivateProduct('${p.id}', '${p.name.replace(/'/g, "\\'")}')" class="p-1.5 text-[#ba1a1a] hover:bg-[#ffdad6]/40 rounded-md transition-all" title="Deactivate">
+                        <button onclick="deactivateProduct('${p.id}', '${p.name.replace(/'/g, "\\'")}')" class="p-1.5 text-[#f59e0b] hover:bg-[#fef3c7] rounded-md transition-all" title="Deactivate (Out of Stock)">
                             <span class="material-symbols-outlined text-[18px]">block</span>
+                        </button>
+                        <button onclick="deleteProductPermanently('${p.id}', '${p.name.replace(/'/g, "\\'")}')" class="p-1.5 text-[#ba1a1a] hover:bg-[#ffdad6] rounded-md transition-all" title="Delete Completely From Database">
+                            <span class="material-symbols-outlined text-[18px]">delete_forever</span>
                         </button>
                     </div>
                 </td>
@@ -667,6 +670,7 @@ async function applyDrawerStatusUpdate() {
 // ================= 6. PRODUCT MODAL (ADD / EDIT) =================
 function openProductModal(product = null) {
     document.getElementById('product-modal').classList.remove('hidden');
+    const deleteBtn = document.getElementById('btn-modal-delete-product');
     if (product) {
         document.getElementById('modal-product-title').textContent = 'Edit Product';
         document.getElementById('form-product-id').value = product.id;
@@ -678,16 +682,35 @@ function openProductModal(product = null) {
         document.getElementById('form-product-stock').value = product.stock_left || 40;
         document.getElementById('form-product-image').value = product.image_url || '';
         document.getElementById('form-product-desc').value = product.description || '';
+        if (deleteBtn) {
+            deleteBtn.classList.remove('hidden');
+            deleteBtn.dataset.productId = product.id;
+            deleteBtn.dataset.productName = product.name;
+        }
     } else {
         document.getElementById('modal-product-title').textContent = 'Add New Campus Product';
         document.getElementById('product-form').reset();
         document.getElementById('form-product-id').value = '';
         document.getElementById('form-product-stock').value = '40';
+        if (deleteBtn) {
+            deleteBtn.classList.add('hidden');
+            deleteBtn.dataset.productId = '';
+            deleteBtn.dataset.productName = '';
+        }
     }
 }
 
 function closeProductModal() {
     document.getElementById('product-modal').classList.add('hidden');
+}
+
+async function handleModalDeleteProduct() {
+    const deleteBtn = document.getElementById('btn-modal-delete-product');
+    const id = deleteBtn?.dataset.productId || document.getElementById('form-product-id').value;
+    const name = deleteBtn?.dataset.productName || document.getElementById('form-product-name').value || 'this product';
+    if (!id) return;
+    closeProductModal();
+    await deleteProductPermanently(id, name);
 }
 
 async function editProduct(id) {
@@ -741,9 +764,31 @@ async function deactivateProduct(id, name) {
         const data = await res.json();
         if (data.success) {
             loadProducts();
+            if (typeof loadInventory === 'function') loadInventory();
         }
     } catch (err) {
         alert('Deactivation failed: ' + err.message);
+    }
+}
+
+async function deleteProductPermanently(id, name) {
+    if (!confirm(`⚠️ PERMANENT DELETE:\n\nAre you sure you want to permanently delete "${name}" from Supabase Cloud inventory?\n\nThis will completely remove the item and cannot be undone.`)) return;
+
+    try {
+        const res = await fetch(`/api/products/admin/delete/${id}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert(`"${name}" was permanently removed from inventory.`);
+            loadProducts();
+            if (typeof loadInventory === 'function') loadInventory();
+        } else {
+            alert('Failed to delete: ' + (data.error || 'Unknown error'));
+        }
+    } catch (err) {
+        alert('Delete failed: ' + err.message);
     }
 }
 

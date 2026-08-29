@@ -11,8 +11,9 @@ async function handlePlaceOrder(req, res) {
     const deliveryAddress = req.body.deliveryAddress || req.body.delivery_address;
     const customOrderId = req.body.orderId || req.body.order_id;
 
-    if (!userId) {
-        return res.status(400).json({ error: 'userId is required' });
+    // Strict Auth Check: User MUST be signed in
+    if (!userId || userId === 'null' || userId === 'undefined' || userId.startsWith('guest_') || userId === 'anonymous') {
+        return res.status(401).json({ error: 'Authentication required. Please sign in with Google or Student Email to place your order.' });
     }
 
     try {
