@@ -61,6 +61,32 @@ router.post('/', (req, res) => {
     // Clear cart in DB
     db.prepare('DELETE FROM cart_items WHERE user_id = ?').run(userId);
 
+    // Sync to Supabase Cloud if configured
+    try {
+        const { getSupabaseClient } = require('../supabase');
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            supabase.from('orders').insert({
+                id: orderId,
+                user_id: userId,
+                status: initialStatus,
+                subtotal,
+                delivery_fee,
+                platform_fee,
+                tax,
+                total,
+                payment_method: method,
+                payment_status: 'pending',
+                rider_name: rider,
+                delivery_address: address
+            }).then(() => {
+                console.log(`[Supabase] Synced order ${orderId} to Cloud.`);
+            }).catch(e => console.error('[Supabase Order Sync Error]:', e.message));
+        }
+    } catch (e) {
+        // Non-blocking
+    }
+
     // Fetch created order to return exact DB record
     const createdOrder = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
 
