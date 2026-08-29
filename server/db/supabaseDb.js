@@ -40,14 +40,26 @@ const supabaseDb = {
                 console.error('[Supabase getAllProducts Error]:', error.message);
                 return [];
             }
-            return data || [];
+            return (data || []).map(p => {
+                const match = (p.tags || '').match(/stock:(\d+)/);
+                const stock_left = match ? parseInt(match[1], 10) : (p.in_stock ? 50 : 0);
+                return {
+                    ...p,
+                    stock_left
+                };
+            });
         },
 
         async getById(id) {
             const supabase = getSupabaseClient();
             const { data, error } = await supabase.from('products').select('*').eq('id', id).single();
-            if (error) return null;
-            return data;
+            if (error || !data) return null;
+            const match = (data.tags || '').match(/stock:(\d+)/);
+            const stock_left = match ? parseInt(match[1], 10) : (data.in_stock ? 50 : 0);
+            return {
+                ...data,
+                stock_left
+            };
         },
 
         async create(p) {
@@ -55,7 +67,11 @@ const supabaseDb = {
             const id = p.id || `prod_cust_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
             const price = Number(p.price);
             const mrp = p.mrp ? Number(p.mrp) : price;
-            const inStock = p.in_stock !== undefined ? Boolean(p.in_stock) : true;
+            const stock = p.stock_left !== undefined ? Math.max(0, Number(p.stock_left)) : 50;
+            const inStock = p.in_stock !== undefined ? Boolean(p.in_stock) : stock > 0;
+
+            const baseTags = (p.tags || '').replace(/stock:\d+,?/g, '').trim();
+            const finalTags = `stock:${stock}${baseTags ? ',' + baseTags : ''}`;
 
             const newProduct = {
                 id,
@@ -68,7 +84,7 @@ const supabaseDb = {
                 size: p.size || 'Standard',
                 image_url: p.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300',
                 image_alt: p.image_alt || p.name,
-                tags: p.tags || '',
+                tags: finalTags,
                 in_stock: inStock,
                 bestseller: Boolean(p.bestseller),
                 is_new: Boolean(p.is_new)
@@ -76,7 +92,10 @@ const supabaseDb = {
 
             const { data, error } = await supabase.from('products').insert([newProduct]).select().single();
             if (error) throw error;
-            return data;
+            return {
+                ...data,
+                stock_left: stock
+            };
         },
 
         async update(id, updates) {
@@ -91,13 +110,30 @@ const supabaseDb = {
             if (updates.unit !== undefined) payload.unit = updates.unit;
             if (updates.size !== undefined) payload.size = updates.size;
             if (updates.image_url !== undefined) payload.image_url = updates.image_url;
-            if (updates.tags !== undefined) payload.tags = updates.tags;
-            if (updates.in_stock !== undefined) payload.in_stock = Boolean(updates.in_stock);
             if (updates.bestseller !== undefined) payload.bestseller = Boolean(updates.bestseller);
+
+            if (updates.stock_left !== undefined) {
+                const stock = Math.max(0, Number(updates.stock_left));
+                const currentProduct = await this.getById(id);
+                const baseTags = ((updates.tags !== undefined ? updates.tags : (currentProduct?.tags || ''))).replace(/stock:\d+,?/g, '').trim();
+                payload.tags = `stock:${stock}${baseTags ? ',' + baseTags : ''}`;
+                payload.in_stock = stock > 0;
+            } else if (updates.tags !== undefined) {
+                payload.tags = updates.tags;
+            }
+
+            if (updates.in_stock !== undefined && updates.stock_left === undefined) {
+                payload.in_stock = Boolean(updates.in_stock);
+            }
 
             const { data, error } = await supabase.from('products').update(payload).eq('id', id).select().single();
             if (error) throw error;
-            return data;
+            const match = (data.tags || '').match(/stock:(\d+)/);
+            const stock_left = match ? parseInt(match[1], 10) : (data.in_stock ? 50 : 0);
+            return {
+                ...data,
+                stock_left
+            };
         },
 
         async delete(id) {

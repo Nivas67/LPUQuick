@@ -685,7 +685,7 @@ function openProductModal(product = null) {
         document.getElementById('form-product-subcategory').value = product.subcategory || '';
         document.getElementById('form-product-price').value = product.price;
         document.getElementById('form-product-mrp').value = product.mrp || product.price;
-        document.getElementById('form-product-stock').value = product.stock_left || 40;
+        document.getElementById('form-product-stock').value = product.stock_left !== undefined ? product.stock_left : 10;
         document.getElementById('form-product-image').value = product.image_url || '';
         document.getElementById('form-product-desc').value = product.description || '';
         if (deleteBtn) {
@@ -697,7 +697,7 @@ function openProductModal(product = null) {
         document.getElementById('modal-product-title').textContent = 'Add New Campus Product';
         document.getElementById('product-form').reset();
         document.getElementById('form-product-id').value = '';
-        document.getElementById('form-product-stock').value = '40';
+        document.getElementById('form-product-stock').value = '10';
         if (deleteBtn) {
             deleteBtn.classList.add('hidden');
             deleteBtn.dataset.productId = '';
@@ -727,15 +727,17 @@ async function editProduct(id) {
 async function handleProductSubmit(e) {
     e.preventDefault();
     const id = document.getElementById('form-product-id').value;
+    const stockVal = Number(document.getElementById('form-product-stock').value) || 0;
     const payload = {
-        name: document.getElementById('form-product-name').value,
+        name: document.getElementById('form-product-name').value.trim(),
         category: document.getElementById('form-product-category').value,
-        subcategory: document.getElementById('form-product-subcategory').value,
+        subcategory: document.getElementById('form-product-subcategory').value.trim(),
         price: Number(document.getElementById('form-product-price').value),
-        mrp: Number(document.getElementById('form-product-mrp').value),
-        stock_left: Number(document.getElementById('form-product-stock').value),
-        image_url: document.getElementById('form-product-image').value,
-        description: document.getElementById('form-product-desc').value
+        mrp: Number(document.getElementById('form-product-mrp').value) || Number(document.getElementById('form-product-price').value),
+        stock_left: stockVal,
+        in_stock: stockVal > 0,
+        image_url: document.getElementById('form-product-image').value.trim(),
+        description: document.getElementById('form-product-desc').value.trim()
     };
 
     const url = id ? `/api/products/admin/update/${id}` : '/api/products/admin/create';
@@ -750,7 +752,12 @@ async function handleProductSubmit(e) {
         const data = await res.json();
         if (data.success) {
             closeProductModal();
-            loadProducts();
+            await loadProducts();
+            await loadInventory();
+            await loadDashboard();
+            if (typeof showToast === 'function') {
+                showToast(`Product "${payload.name}" saved with ${stockVal} items in stock!`, 'success');
+            }
         } else {
             alert('Error saving product: ' + (data.error || 'Unknown error'));
         }
