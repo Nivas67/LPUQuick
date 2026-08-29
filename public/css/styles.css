@@ -307,6 +307,9 @@ body.dark .map-pattern {
     align-items: center;
     overflow: hidden;
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+    touch-action: none !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
 }
 body.dark .slider-track {
     background: rgba(18, 30, 24, 0.75) !important;
@@ -324,13 +327,15 @@ body.dark .slider-track {
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
+    cursor: grab;
     box-shadow: 0 4px 14px rgba(16, 185, 129, 0.5);
-    transition: transform 0.1s;
     z-index: 2;
+    touch-action: none !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
 }
-.slider-thumb:active { transform: scale(0.95); }
-.slider-thumb .material-symbols-outlined { color: white; font-size: 24px; }
+.slider-thumb:active { cursor: grabbing; transform: scale(0.96); }
+.slider-thumb .material-symbols-outlined { color: white; font-size: 24px; pointer-events: none; }
 .slider-text {
     width: 100%;
     text-align: center;

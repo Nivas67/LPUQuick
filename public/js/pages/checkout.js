@@ -458,69 +458,88 @@ window.pageInits.checkout = function() {
         };
     });
 
-    // 1. SLIDER INTERACTION WITH PRECISE THRESHOLD & SPRING PHYSICS
+    window.cartTotalCache = exactTotal;
+
+    // 1. ROBUST SLIDER INTERACTION WITH POINTER EVENTS & SPRING PHYSICS
     if (track && thumb) {
         let isDragging = false;
-        let startX = 0;
-        let maxSlide = track.offsetWidth - thumb.offsetWidth - 16;
+        let activePointerId = null;
 
-        function updateMaxSlide() {
-            if (track && thumb) maxSlide = Math.max(10, track.offsetWidth - thumb.offsetWidth - 16);
+        function getTrackDimensions() {
+            const trackRect = track.getBoundingClientRect();
+            const thumbRect = thumb.getBoundingClientRect();
+            const thumbWidth = thumbRect.width || 48;
+            const trackWidth = trackRect.width || track.offsetWidth || 320;
+            const maxSlide = Math.max(20, trackWidth - thumbWidth - 12);
+            return { trackRect, trackWidth, thumbWidth, maxSlide };
         }
-        updateMaxSlide();
-        window.addEventListener('resize', updateMaxSlide);
 
-        function onStart(clientX) {
+        function setSliderPosition(delta, maxSlide) {
+            const clampedDelta = Math.max(0, Math.min(delta, maxSlide));
+            thumb.style.transform = `translateX(${clampedDelta}px)`;
+            if (progress) progress.style.width = `${clampedDelta + 32}px`;
+            if (text) {
+                const ratio = clampedDelta / maxSlide;
+                text.style.opacity = `${Math.max(0, 1 - (ratio * 1.3))}`;
+            }
+            return clampedDelta;
+        }
+
+        function startDrag(e) {
             if (isSubmitting) return;
             isDragging = true;
-            startX = clientX;
+            activePointerId = e.pointerId;
+            try { thumb.setPointerCapture(e.pointerId); } catch(err) {}
+
             thumb.style.transition = 'none';
             if (progress) progress.style.transition = 'none';
+            if (text) text.style.transition = 'none';
+            e.preventDefault();
         }
 
-        function onMove(clientX) {
+        function moveDrag(e) {
             if (!isDragging || isSubmitting) return;
-            let delta = clientX - startX;
-            delta = Math.max(0, Math.min(delta, maxSlide));
-            thumb.style.transform = `translateX(${delta}px)`;
-            if (progress) progress.style.width = `${delta + 24}px`;
-            if (text) text.style.opacity = `${Math.max(0, 1 - (delta / (maxSlide * 0.7)))}`;
+            const { trackRect, thumbWidth, maxSlide } = getTrackDimensions();
+            const relativeX = e.clientX - trackRect.left - (thumbWidth / 2);
+            const currentDelta = setSliderPosition(relativeX, maxSlide);
 
-            // Threshold reached: >= 85% of slide track
-            if (delta >= maxSlide * 0.85) {
+            // Threshold: reached 75% of track
+            if (currentDelta >= maxSlide * 0.75) {
                 isDragging = false;
+                try { thumb.releasePointerCapture(e.pointerId); } catch(err) {}
                 if (navigator.vibrate) {
-                    try { navigator.vibrate(20); } catch(e) {}
+                    try { navigator.vibrate(25); } catch(err) {}
                 }
                 handleOrderPlacement();
             }
         }
 
-        function onEnd() {
+        function endDrag(e) {
             if (!isDragging || isSubmitting) return;
             isDragging = false;
+            try { thumb.releasePointerCapture(e.pointerId); } catch(err) {}
             resetSlider();
         }
 
-        // Touch event handlers
-        thumb.addEventListener('touchstart', (e) => {
-            if (e.touches && e.touches[0]) onStart(e.touches[0].clientX);
-        }, { passive: true });
-        window.addEventListener('touchmove', (e) => {
-            if (isDragging && e.touches && e.touches[0]) onMove(e.touches[0].clientX);
-        }, { passive: true });
-        window.addEventListener('touchend', onEnd);
-        window.addEventListener('touchcancel', onEnd);
+        // Standard Pointer Events (Desktop mouse & Mobile touch)
+        thumb.addEventListener('pointerdown', startDrag);
+        thumb.addEventListener('pointermove', moveDrag);
+        thumb.addEventListener('pointerup', endDrag);
+        thumb.addEventListener('pointercancel', endDrag);
 
-        // Mouse event handlers
-        thumb.addEventListener('mousedown', (e) => {
-            onStart(e.clientX);
-            e.preventDefault();
+        // Direct track tap/slide support
+        track.addEventListener('pointerdown', (e) => {
+            if (isSubmitting || isDragging) return;
+            if (e.target === thumb || thumb.contains(e.target)) return;
+            const { trackRect, thumbWidth, maxSlide } = getTrackDimensions();
+            const relativeX = e.clientX - trackRect.left - (thumbWidth / 2);
+            if (relativeX >= maxSlide * 0.70) {
+                setSliderPosition(maxSlide, maxSlide);
+                handleOrderPlacement();
+            } else {
+                startDrag(e);
+            }
         });
-        window.addEventListener('mousemove', (e) => {
-            if (isDragging) onMove(e.clientX);
-        });
-        window.addEventListener('mouseup', onEnd);
     }
 
     tapToPayBtn?.addEventListener('click', () => {
