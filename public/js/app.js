@@ -772,12 +772,22 @@ window.openProductModal = async function(productId) {
             </div>
         `;
     }
-};
-
-// Global Card Stepper Synchronizer (Turns Add button into [- qty +])
+// Global Card Stepper Synchronizer (Turns Add button into [- qty +], and keeps Out of Stock blocked)
 window.syncCardSteppers = function() {
     document.querySelectorAll('.product-action-slot').forEach(slot => {
         const productId = slot.dataset.id;
+        const isOutOfStock = slot.dataset.outOfStock === 'true' || slot.getAttribute('data-out-of-stock') === 'true';
+
+        // 1. If product is out of stock, block until stock is updated by admin
+        if (isOutOfStock) {
+            slot.innerHTML = `
+                <span class="text-[10px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-2.5 py-1 rounded-xl border border-rose-200 dark:border-rose-800 cursor-not-allowed select-none">
+                    Out of Stock
+                </span>
+            `;
+            return;
+        }
+
         const cartInfo = window.cartState[productId];
         const qty = cartInfo ? cartInfo.quantity : 0;
 
@@ -1103,38 +1113,31 @@ function handleLiveInventoryChange(data) {
     const { productId, stock_left, in_stock } = data;
     console.log(`[Realtime Stock Sync] Product ${productId}: Stock=${stock_left}, InStock=${in_stock}`);
 
-    // 1. Update all product action slots on screen
+    // 1. Update all product action slots and cards on screen
+    const isOut = !in_stock || stock_left <= 0;
     const slots = document.querySelectorAll(`.product-action-slot[data-id="${productId}"]`);
     slots.forEach(slot => {
-        if (!in_stock || stock_left <= 0) {
-            slot.innerHTML = `
-                <span class="text-[10px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-2 py-1 rounded-xl border border-rose-200 dark:border-rose-800">
-                    Out of Stock
-                </span>
-            `;
-        } else {
-            const hasInCart = window.cartState && window.cartState[productId];
-            if (!hasInCart) {
-                slot.innerHTML = `
-                    <button type="button" class="bg-emerald text-white text-xs px-3.5 py-1 rounded-xl font-bold hover:bg-primary active:scale-95 shadow-sm transition-all add-to-cart-btn" data-id="${productId}">
-                        ADD
-                    </button>
-                `;
-            }
+        slot.dataset.outOfStock = isOut ? 'true' : 'false';
+        const card = slot.closest('.product-detail-trigger, .product-card-container');
+        if (card) {
+            if (isOut) card.classList.add('opacity-85');
+            else card.classList.remove('opacity-85');
         }
     });
+
+    window.syncCardSteppers();
 
     // 2. Update single product detail modal/page if open
     const modalAddBtn = document.querySelector(`#modal-add-btn[data-id="${productId}"]`);
     if (modalAddBtn) {
-        if (!in_stock || stock_left <= 0) {
+        if (isOut) {
             modalAddBtn.disabled = true;
-            modalAddBtn.className = 'w-full bg-slate-300 dark:bg-slate-700 text-slate-500 py-3 rounded-full font-bold text-xs cursor-not-allowed';
-            modalAddBtn.textContent = 'Out of Stock';
+            modalAddBtn.className = 'w-full bg-rose-500/10 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60 rounded-full py-3 text-xs font-bold cursor-not-allowed';
+            modalAddBtn.innerHTML = '<span class="material-symbols-outlined text-sm">block</span> Out of Stock';
         } else {
             modalAddBtn.disabled = false;
-            modalAddBtn.className = 'w-full bg-emerald hover:bg-primary text-white py-3 rounded-full font-bold text-xs shadow-md transition-all active:scale-95';
-            modalAddBtn.textContent = 'Add to Cart';
+            modalAddBtn.className = 'w-full bg-emerald hover:bg-primary text-white py-3 rounded-full font-bold text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer';
+            modalAddBtn.innerHTML = '<span class="material-symbols-outlined text-sm">add_shopping_cart</span> Add to Cart';
         }
     }
 

@@ -10,10 +10,8 @@ function buildProductCardsHTML(items, isAboveFold = false) {
         const isLcpCandidate = isAboveFold && idx === 0;
         const stockLeft = p.stock_left !== undefined && p.stock_left !== null ? p.stock_left : (p.in_stock ? 50 : 0);
         const isLowStock = stockLeft > 0 && stockLeft <= 4;
-        const isOutOfStock = !p.in_stock || stockLeft === 0;
-
-        return `
-        <div class="bg-surface rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group relative border border-surface-variant/30 p-2.5 flex flex-col justify-between product-detail-trigger cursor-pointer" data-product-id="${p.id}">
+        const isOutOfStock = !p.in_stock || stockLeft === 0;        return `
+        <div class="bg-surface rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group relative border border-surface-variant/30 p-2.5 flex flex-col justify-between product-detail-trigger cursor-pointer ${isOutOfStock ? 'opacity-90' : ''}" data-product-id="${p.id}" data-out-of-stock="${isOutOfStock}">
             <div>
                 <div class="h-32 sm:h-36 bg-surface-container-high rounded-xl relative overflow-hidden flex items-center justify-center p-2">
                     <!-- Stock / Urgency Badge -->
@@ -43,9 +41,9 @@ function buildProductCardsHTML(items, isAboveFold = false) {
                          src="${p.image_url}" 
                          alt="${p.name}" 
                          width="160" 
-                         height="160"
+                         height="160" 
                          ${isLcpCandidate ? 'fetchpriority="high"' : 'loading="lazy"'} 
-                         decoding="async"
+                         decoding="async" 
                          onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300&auto=format&q=75'">
 
                     <!-- Image Carousel Dots -->
@@ -58,9 +56,9 @@ function buildProductCardsHTML(items, isAboveFold = false) {
                 <!-- Pack Size & ADD Button -->
                 <div class="flex justify-between items-center mt-2">
                     <span class="text-xs font-bold text-on-surface truncate max-w-[80px]">${p.size || p.unit}</span>
-                    <div class="product-action-slot" data-id="${p.id}">
+                    <div class="product-action-slot" data-id="${p.id}" data-out-of-stock="${isOutOfStock}">
                         ${isOutOfStock ? `
-                        <span class="text-[10px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-xl border border-rose-200 dark:border-rose-800">
+                        <span class="text-[10px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-2.5 py-1 rounded-xl border border-rose-200 dark:border-rose-800 cursor-not-allowed select-none">
                             Out of Stock
                         </span>
                         ` : `
@@ -379,10 +377,10 @@ window.pageInits.home = function() {
                 dropdown.classList.remove('hidden');
                 if (items.length === 0) {
                     dropdown.innerHTML = `<div class="p-3 text-xs text-on-surface-variant text-center">No products matching "${q}"</div>`;
-                    return;
-                }
-                dropdown.innerHTML = items.slice(0, 6).map(p => `
-                    <div class="flex items-center justify-between p-2 hover:bg-surface-container-high rounded-xl cursor-pointer search-item-row" data-id="${p.id}">
+                dropdown.innerHTML = items.slice(0, 6).map(p => {
+                    const isOutOfStock = !p.in_stock || (p.stock_left !== undefined && p.stock_left <= 0);
+                    return `
+                    <div class="flex items-center justify-between p-2 hover:bg-surface-container-high rounded-xl cursor-pointer search-item-row ${isOutOfStock ? 'opacity-75' : ''}" data-id="${p.id}">
                         <div class="flex items-center gap-2.5 min-w-0">
                             <img class="w-9 h-9 object-contain rounded-lg bg-surface-container-high" src="${p.image_url}" alt="${p.name}">
                             <div class="min-w-0">
@@ -390,9 +388,15 @@ window.pageInits.home = function() {
                                 <p class="text-[10px] text-on-surface-variant">₹${p.price} · ${p.size || p.unit}</p>
                             </div>
                         </div>
+                        ${isOutOfStock ? `
+                        <span class="text-[10px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-full border border-rose-200 dark:border-rose-800">
+                            Out of Stock
+                        </span>
+                        ` : `
                         <button type="button" class="bg-emerald text-white text-[11px] px-3 py-1 rounded-full font-semibold quick-add-btn" data-id="${p.id}">Add</button>
+                        `}
                     </div>
-                `).join('');
+                `;}).join('');
 
                 dropdown.querySelectorAll('.search-item-row').forEach(row => {
                     row.onclick = (e) => {

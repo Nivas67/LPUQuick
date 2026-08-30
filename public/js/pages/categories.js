@@ -452,7 +452,7 @@ window.pageInits.categories = async function() {
             const isOutOfStock = !p.in_stock || stockLeft === 0;
 
             return `
-                <div class="bg-surface rounded-2xl overflow-hidden border border-surface-variant/40 shadow-sm hover:shadow-md transition-all p-2.5 flex flex-col justify-between group product-card-container product-detail-trigger cursor-pointer" data-product-id="${p.id}">
+                <div class="bg-surface rounded-2xl overflow-hidden border border-surface-variant/40 shadow-sm hover:shadow-md transition-all p-2.5 flex flex-col justify-between group product-card-container product-detail-trigger cursor-pointer ${isOutOfStock ? 'opacity-85' : ''}" data-product-id="${p.id}" data-out-of-stock="${isOutOfStock}">
                     <div>
                         <div class="relative bg-surface-container-high rounded-xl overflow-hidden h-36 flex items-center justify-center p-2">
                             <!-- Stock / Urgency Badge -->
@@ -499,9 +499,9 @@ window.pageInits.categories = async function() {
                         <!-- Pack Size / Weight + ADD Button Row -->
                         <div class="flex justify-between items-center mt-2">
                             <span class="text-xs font-bold text-on-surface">${p.size || p.unit}</span>
-                            <div class="product-action-slot" data-id="${p.id}">
+                            <div class="product-action-slot" data-id="${p.id}" data-out-of-stock="${isOutOfStock}">
                                 ${isOutOfStock ? `
-                                <span class="text-[10px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-2.5 py-1 rounded-xl border border-rose-200 dark:border-rose-800">
+                                <span class="text-[10px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-2.5 py-1 rounded-xl border border-rose-200 dark:border-rose-800 cursor-not-allowed select-none">
                                     Out of Stock
                                 </span>
                                 ` : `
