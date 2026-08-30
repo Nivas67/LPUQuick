@@ -41,7 +41,7 @@ async function handleAddToCart(req, res) {
         const cart = await supabaseDb.cart.addItem(userId, productId, quantity);
         res.json(cart);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(400).json({ error: err.message });
     }
 }
 
@@ -61,7 +61,7 @@ router.put('/:id', async (req, res) => {
         const cart = await supabaseDb.cart.updateItem(id, Number(quantity), userId || 'guest_cart');
         res.json(cart);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(400).json({ error: err.message });
     }
 });
 

@@ -37,6 +37,20 @@ async function handlePlaceOrder(req, res) {
             return res.status(400).json({ error: 'Cart is empty. Please add items before checking out.' });
         }
 
+        // Validate stock limits for every cart item before order placement
+        for (const item of cart.items) {
+            const prod = await supabaseDb.products.getById(item.product_id);
+            if (prod) {
+                const availableStock = prod.stock_left !== undefined && prod.stock_left !== null ? Number(prod.stock_left) : (prod.in_stock ? 50 : 0);
+                if (!prod.in_stock || availableStock <= 0) {
+                    return res.status(400).json({ error: `"${item.name}" is currently out of stock. Please remove it from your cart to proceed.` });
+                }
+                if (item.quantity > availableStock) {
+                    return res.status(400).json({ error: `Only ${availableStock} units of "${item.name}" left in stock (you have ${item.quantity} in cart). Please adjust quantity.` });
+                }
+            }
+        }
+
         const subtotal = cart.pricing.subtotal;
         const discount5 = subtotal >= 350 ? Math.round(subtotal * 0.05) : 0;
         const total = Math.max(0, subtotal - discount5);

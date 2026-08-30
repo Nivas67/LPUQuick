@@ -239,12 +239,13 @@ const supabaseDb = {
         async addItem(userId, productId, quantity = 1) {
             const supabase = getSupabaseClient();
 
-            // Validate product stock status before adding
-            if (quantity > 0) {
-                const product = await module.exports.products.getById(productId);
-                if (product && (!product.in_stock || (product.stock_left !== undefined && product.stock_left <= 0))) {
-                    throw new Error('This item is currently out of stock');
-                }
+            // Validate product stock status and quantity limits before adding
+            const product = await module.exports.products.getById(productId);
+            if (!product) throw new Error('Product not found');
+
+            const stockLimit = product.stock_left !== undefined && product.stock_left !== null ? Number(product.stock_left) : (product.in_stock ? 50 : 0);
+            if (!product.in_stock || stockLimit <= 0) {
+                throw new Error('This item is currently out of stock');
             }
 
             const { data: existing } = await supabase
@@ -256,12 +257,18 @@ const supabaseDb = {
 
             if (existing) {
                 const newQty = existing.quantity + quantity;
+                if (newQty > stockLimit) {
+                    throw new Error(`Only ${stockLimit} units available in stock`);
+                }
                 if (newQty <= 0) {
                     await supabase.from('cart_items').delete().eq('id', existing.id);
                 } else {
                     await supabase.from('cart_items').update({ quantity: newQty }).eq('id', existing.id);
                 }
             } else if (quantity > 0) {
+                if (quantity > stockLimit) {
+                    throw new Error(`Only ${stockLimit} units available in stock`);
+                }
                 const id = `cart_${uuidv4().slice(0, 8)}`;
                 await supabase.from('cart_items').insert([{
                     id,
@@ -279,6 +286,17 @@ const supabaseDb = {
             if (quantity <= 0) {
                 await supabase.from('cart_items').delete().eq('id', cartId);
             } else {
+                // Enforce stock limit on quantity update
+                const { data: cartItem } = await supabase.from('cart_items').select('product_id').eq('id', cartId).single();
+                if (cartItem && cartItem.product_id) {
+                    const product = await module.exports.products.getById(cartItem.product_id);
+                    if (product) {
+                        const stockLimit = product.stock_left !== undefined && product.stock_left !== null ? Number(product.stock_left) : (product.in_stock ? 50 : 0);
+                        if (quantity > stockLimit) {
+                            throw new Error(`Only ${stockLimit} units available in stock`);
+                        }
+                    }
+                }
                 await supabase.from('cart_items').update({ quantity }).eq('id', cartId);
             }
             return this.getCart(userId);

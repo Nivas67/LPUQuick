@@ -41,9 +41,11 @@ window.pages.cart = async function() {
         const itemPrice = Number(item.price) || 0;
         const hasItemDiscount = itemMrp > itemPrice;
         const discPercent = hasItemDiscount ? Math.round(((itemMrp - itemPrice) / itemMrp) * 100) : 0;
+        const stockLeft = item.stock_left !== undefined && item.stock_left !== null ? Number(item.stock_left) : 50;
+        const isMaxStockReached = item.quantity >= stockLeft;
 
         return `
-        <div class="glass-card rounded-2xl p-4 flex items-center justify-between gap-3 border border-glass-border shadow-sm mb-3 cart-row" data-cart-id="${item.cart_id}">
+        <div class="glass-card rounded-2xl p-4 flex items-center justify-between gap-3 border border-glass-border shadow-sm mb-3 cart-row" data-cart-id="${item.cart_id}" data-stock-left="${stockLeft}">
             <div class="flex items-center gap-3.5 min-w-0">
                 <div class="w-16 h-16 rounded-xl bg-surface-container-high overflow-hidden flex-shrink-0 flex items-center justify-center">
                     <img class="w-full h-full object-cover" src="${item.image_url}" alt="${item.name}" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200'">
@@ -51,6 +53,11 @@ window.pages.cart = async function() {
                 <div class="min-w-0">
                     <h4 class="font-label-lg font-semibold text-sm text-on-surface truncate">${item.name}</h4>
                     <p class="text-xs text-on-surface-variant mt-0.5">${item.size || item.unit || ''}</p>
+                    ${stockLeft > 0 && stockLeft <= 4 ? `
+                    <p class="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-0.5 mt-0.5">
+                        <span class="material-symbols-outlined text-[11px]">bolt</span> Only ${stockLeft} left in stock!
+                    </p>
+                    ` : ''}
                     <div class="flex items-center gap-1.5 mt-1">
                         <span class="font-bold text-sm text-on-surface">₹${itemPrice}</span>
                         ${hasItemDiscount ? `
@@ -61,11 +68,11 @@ window.pages.cart = async function() {
                 </div>
             </div>
             <div class="cart-qty-stepper flex items-center gap-2.5 rounded-full px-2.5 py-1 flex-shrink-0">
-                <button class="w-7 h-7 rounded-full flex items-center justify-center active:scale-90 transition-all qty-dec-btn" data-id="${item.cart_id}" data-qty="${item.quantity}">
+                <button class="w-7 h-7 rounded-full flex items-center justify-center active:scale-90 transition-all qty-dec-btn" data-id="${item.cart_id}" data-qty="${item.quantity}" data-stock-left="${stockLeft}">
                     <span class="material-symbols-outlined text-base">remove</span>
                 </button>
                 <span class="font-bold text-xs w-4 text-center qty-num">${item.quantity}</span>
-                <button class="w-7 h-7 rounded-full flex items-center justify-center active:scale-90 transition-all qty-inc-btn" data-id="${item.cart_id}" data-qty="${item.quantity}">
+                <button class="w-7 h-7 rounded-full flex items-center justify-center active:scale-90 transition-all qty-inc-btn ${isMaxStockReached ? 'opacity-40 cursor-not-allowed' : ''}" data-id="${item.cart_id}" data-qty="${item.quantity}" data-stock-left="${stockLeft}" title="${isMaxStockReached ? `Max stock limit reached (${stockLeft})` : 'Add one more'}">
                     <span class="material-symbols-outlined text-base">add</span>
                 </button>
             </div>
@@ -264,6 +271,15 @@ window.pageInits.cart = function() {
             const row = btn.closest('.cart-row');
             const qtyNum = row?.querySelector('.qty-num');
             const currentQty = parseInt(qtyNum?.textContent || btn.dataset.qty) || 1;
+            const stockLeft = parseInt(btn.dataset.stockLeft) || 50;
+
+            if (currentQty >= stockLeft) {
+                if (typeof window.showClientToast === 'function') {
+                    window.showClientToast(`⚠️ Only ${stockLeft} unit${stockLeft === 1 ? '' : 's'} available in stock!`, 'warning', 'inventory_2');
+                }
+                return;
+            }
+
             const nextQty = currentQty + 1;
 
             // Instant UI update (0ms)
@@ -273,10 +289,16 @@ window.pageInits.cart = function() {
             if (decBtn) decBtn.dataset.qty = nextQty;
 
             try {
-                await window.api.updateCartItem(id, nextQty, userId);
+                const res = await window.api.updateCartItem(id, nextQty, userId);
+                if (res && res.error) {
+                    throw new Error(res.error);
+                }
                 refreshCartBill();
             } catch(err) {
                 if (qtyNum) qtyNum.textContent = currentQty;
+                if (typeof window.showClientToast === 'function') {
+                    window.showClientToast(err.message || `Only ${stockLeft} units available in stock`, 'warning', 'inventory_2');
+                }
             }
         };
     });

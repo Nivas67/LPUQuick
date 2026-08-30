@@ -499,13 +499,13 @@ window.pageInits.categories = async function() {
                         <!-- Pack Size / Weight + ADD Button Row -->
                         <div class="flex justify-between items-center mt-2">
                             <span class="text-xs font-bold text-on-surface">${p.size || p.unit}</span>
-                            <div class="product-action-slot" data-id="${p.id}" data-out-of-stock="${isOutOfStock}">
+                            <div class="product-action-slot" data-id="${p.id}" data-out-of-stock="${isOutOfStock}" data-stock-left="${stockLeft}">
                                 ${isOutOfStock ? `
                                 <span class="text-[10px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-2.5 py-1 rounded-xl border border-rose-200 dark:border-rose-800 cursor-not-allowed select-none">
                                     Out of Stock
                                 </span>
                                 ` : `
-                                <button type="button" class="bg-emerald text-white text-xs px-4 py-1.5 rounded-xl font-bold hover:bg-primary active:scale-95 shadow-sm transition-all add-to-cart-btn" data-id="${p.id}">
+                                <button type="button" class="bg-emerald text-white text-xs px-4 py-1.5 rounded-xl font-bold hover:bg-primary active:scale-95 shadow-sm transition-all add-to-cart-btn" data-id="${p.id}" data-stock-left="${stockLeft}">
                                     ADD
                                 </button>
                                 `}
