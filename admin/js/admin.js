@@ -26,6 +26,16 @@ function getAudioContext() {
 // Master Sound Synthesizer
 function playCampusChime(theme = currentSoundTheme) {
     if (!soundEnabled) return;
+
+    // Trigger HTML5 Audio Element fallback
+    const fallbackAudio = document.getElementById('order-chime');
+    if (fallbackAudio) {
+        try {
+            fallbackAudio.currentTime = 0;
+            fallbackAudio.play().catch(() => {});
+        } catch(e) {}
+    }
+
     try {
         const ctx = getAudioContext();
         if (!ctx) return;
@@ -996,7 +1006,7 @@ function updateConnectionStatus(connected, mode = 'Live') {
 async function syncOrdersLive() {
     if (!adminToken) return;
     try {
-        const res = await fetch('/api/orders', {
+        const res = await fetch('/api/orders/admin/all', {
             headers: { 'Cache-Control': 'no-cache', ...getAuthHeaders() }
         });
         if (!res.ok) return;
@@ -1035,7 +1045,7 @@ async function syncOrdersLive() {
 function startLiveOrderPolling() {
     if (liveOrderPollInterval) clearInterval(liveOrderPollInterval);
     syncOrdersLive(); // Run immediately
-    liveOrderPollInterval = setInterval(syncOrdersLive, 3000); // Check every 3s
+    liveOrderPollInterval = setInterval(syncOrdersLive, 2500); // Rapid check every 2.5s
 }
 
 function initRealtimeWebSocket() {

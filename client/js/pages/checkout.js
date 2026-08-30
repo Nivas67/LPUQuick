@@ -811,6 +811,10 @@ window.pageInits.checkout = function() {
                     thumbIcon.textContent = 'check';
                 }
 
+                if (typeof window.showClientToast === 'function') {
+                    window.showClientToast('🎉 Order Placed! Campus delivery runner dispatched to your room.', 'success', 'bolt');
+                }
+
                 // Render in-place Success Screen with real data
                 setTimeout(() => {
                     renderSuccessScreen(res.order);
