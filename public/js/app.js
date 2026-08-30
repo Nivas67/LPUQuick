@@ -1290,9 +1290,14 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
 setInterval(checkAndConnectGlobalOrderTracking, 10000);
 
 // ============================================================
-// Interactive Magnetic Cursor Torch & Dynamic Ambient Parallax
+// Interactive Magnetic Cursor Torch & Dynamic Ambient Parallax (Desktop Only)
 // ============================================================
 (function initInteractiveAtmosphere() {
+    // Only run cursor torch & mouse parallax on desktop screens with fine pointer to avoid mobile scroll lag
+    if (window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 768) {
+        return;
+    }
+
     let mouseX = window.innerWidth / 2;
     let mouseY = window.innerHeight / 2;
     let currentX = mouseX;
