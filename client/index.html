@@ -366,31 +366,90 @@
     <!-- Client Live Notifications Container -->
     <div id="client-toast-container" class="fixed top-4 right-4 sm:right-6 z-50 flex flex-col gap-2 max-w-sm w-[90%] pointer-events-none"></div>
 
-    <!-- Core App State & Router Setup -->
+    <!-- Core App State & Router Setup with Immediate Session Hydration -->
     <script>
         window.pages = window.pages || {};
         window.pageInits = window.pageInits || {};
-        window.CURRENT_USER_ID = null;
-        window.CURRENT_USER_NAME = null;
-        window.CURRENT_USER_EMAIL = null;
-        window.CURRENT_USER_PICTURE = null;
         window.GOOGLE_CLIENT_ID = '632433440395-4ph6ghe311niied8h423ki98slbse8d2.apps.googleusercontent.com';
+        
+        // 1-Hour Inactivity Session Management (3,600,000 ms = 1 Hour)
+        const SESSION_LIMIT_MS = 60 * 60 * 1000;
+        
+        (function hydrateUserSession() {
+            try {
+                const savedUserStr = localStorage.getItem('lpuquick_user');
+                const lastActiveStr = localStorage.getItem('lpuquick_last_active');
+                
+                if (savedUserStr) {
+                    const lastActive = Number(lastActiveStr) || 0;
+                    const now = Date.now();
+                    
+                    // Only expire if explicitly inactive for more than 1 hour
+                    if (lastActive > 0 && (now - lastActive) > SESSION_LIMIT_MS) {
+                        console.log('[Auth] 1-hour inactivity limit reached. Expiring session.');
+                        localStorage.removeItem('lpuquick_user');
+                        localStorage.removeItem('lpuquick_last_active');
+                        window.CURRENT_USER_ID = null;
+                        window.CURRENT_USER_NAME = null;
+                        window.CURRENT_USER_EMAIL = null;
+                        window.CURRENT_USER_PICTURE = null;
+                    } else {
+                        const savedUser = JSON.parse(savedUserStr);
+                        const uid = savedUser?.id || savedUser?.user_id || savedUser?.uid;
+                        if (uid) {
+                            window.CURRENT_USER_ID = uid;
+                            window.CURRENT_USER_NAME = savedUser.name || 'LPU Student';
+                            window.CURRENT_USER_EMAIL = savedUser.email || '';
+                            window.CURRENT_USER_PICTURE = savedUser.picture || '';
+                            localStorage.setItem('lpuquick_last_active', now.toString());
+                        }
+                    }
+                } else {
+                    window.CURRENT_USER_ID = null;
+                    window.CURRENT_USER_NAME = null;
+                    window.CURRENT_USER_EMAIL = null;
+                    window.CURRENT_USER_PICTURE = null;
+                }
+            } catch(e) {
+                console.warn('[Hydrate Session Warning]:', e);
+            }
+        })();
+
+        window.isUserLoggedIn = function() {
+            if (Boolean(window.CURRENT_USER_ID)) return true;
+            try {
+                const savedUserStr = localStorage.getItem('lpuquick_user');
+                if (!savedUserStr) return false;
+                const lastActive = Number(localStorage.getItem('lpuquick_last_active')) || 0;
+                if (lastActive > 0 && (Date.now() - lastActive) > SESSION_LIMIT_MS) return false;
+                const savedUser = JSON.parse(savedUserStr);
+                const uid = savedUser?.id || savedUser?.user_id || savedUser?.uid;
+                if (uid) {
+                    window.CURRENT_USER_ID = uid;
+                    window.CURRENT_USER_NAME = savedUser.name || 'LPU Student';
+                    window.CURRENT_USER_EMAIL = savedUser.email || '';
+                    window.CURRENT_USER_PICTURE = savedUser.picture || '';
+                    return true;
+                }
+            } catch(e) {}
+            return false;
+        };
     </script>
 
     <!-- API Client -->
-    <script src="/js/api.js?v=20260830r15"></script>
+    <script src="/js/api.js?v=20260830r16"></script>
 
     <!-- Page Templates -->
-    <script src="/js/pages/signin.js?v=20260830r15"></script>
-    <script src="/js/pages/home.js?v=20260830r15"></script>
-    <script src="/js/pages/categories.js?v=20260830r15"></script>
-    <script src="/js/pages/cart.js?v=20260830r15"></script>
-    <script src="/js/pages/checkout.js?v=20260830r15"></script>
-    <script src="/js/pages/flowassist.js?v=20260830r15"></script>
-    <script src="/js/pages/orders.js?v=20260830r15"></script>
-    <script src="/js/pages/settings.js?v=20260830r15"></script>
+    <script src="/js/pages/signin.js?v=20260830r16"></script>
+    <script src="/js/pages/home.js?v=20260830r16"></script>
+    <script src="/js/pages/categories.js?v=20260830r16"></script>
+    <script src="/js/pages/cart.js?v=20260830r16"></script>
+    <script src="/js/pages/checkout.js?v=20260830r16"></script>
+    <script src="/js/pages/flowassist.js?v=20260830r16"></script>
+    <script src="/js/pages/orders.js?v=20260830r16"></script>
+    <script src="/js/pages/settings.js?v=20260830r16"></script>
 
     <!-- App Router & Real-Time Sync Hub -->
-    <script src="/js/app.js?v=20260830r15"></script>
+    <script src="/js/app.js?v=20260830r16"></script>
 </body>
 </html>

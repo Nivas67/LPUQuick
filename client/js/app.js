@@ -6,7 +6,7 @@ window.pageInits = window.pageInits || {};
 const SESSION_INACTIVITY_LIMIT_MS = 60 * 60 * 1000; // 1 hour
 
 window.refreshUserActivity = function() {
-    if (window.CURRENT_USER_ID && window.CURRENT_USER_EMAIL) {
+    if (window.isUserLoggedIn()) {
         try {
             localStorage.setItem('lpuquick_last_active', Date.now().toString());
         } catch(e) {}
@@ -38,12 +38,11 @@ window.logoutUser = function() {
         const lastActiveStr = localStorage.getItem('lpuquick_last_active');
         
         if (savedUserStr) {
-            const savedUser = JSON.parse(savedUserStr);
             const lastActive = Number(lastActiveStr) || 0;
             const now = Date.now();
             const elapsed = now - lastActive;
 
-            // If user has been inactive for more than 1 hour, expire session
+            // ONLY expire if user was inactive for more than 1 hour (3600000ms)
             if (lastActive > 0 && elapsed > SESSION_INACTIVITY_LIMIT_MS) {
                 console.log(`[Auth] Session expired due to 1 hour of inactivity (${Math.round(elapsed / 60000)} mins inactive)`);
                 localStorage.removeItem('lpuquick_user');
@@ -52,27 +51,24 @@ window.logoutUser = function() {
                 window.CURRENT_USER_NAME = null;
                 window.CURRENT_USER_EMAIL = null;
                 window.CURRENT_USER_PICTURE = null;
-            } else if (savedUser && savedUser.id && savedUser.email) {
+                return;
+            }
+
+            const savedUser = JSON.parse(savedUserStr);
+            const uid = savedUser?.id || savedUser?.user_id || savedUser?.uid;
+            if (uid) {
                 // Session is VALID & ACTIVE - Keep logged in on reload!
-                window.CURRENT_USER_ID = savedUser.id;
-                window.CURRENT_USER_NAME = savedUser.name;
-                window.CURRENT_USER_EMAIL = savedUser.email;
+                window.CURRENT_USER_ID = uid;
+                window.CURRENT_USER_NAME = savedUser.name || 'LPU Student';
+                window.CURRENT_USER_EMAIL = savedUser.email || '';
                 window.CURRENT_USER_PICTURE = savedUser.picture || '';
-                window.refreshUserActivity();
-            } else {
-                localStorage.removeItem('lpuquick_user');
-                window.CURRENT_USER_ID = null;
-                window.CURRENT_USER_NAME = null;
-                window.CURRENT_USER_EMAIL = null;
-                window.CURRENT_USER_PICTURE = null;
+                window.currentRoom = localStorage.getItem('lpuquick_room') || '';
+                window.currentAddressDetail = localStorage.getItem('lpuquick_address_detail') || '';
+                localStorage.setItem('lpuquick_last_active', now.toString());
             }
         }
     } catch (e) {
         console.warn('[Auth Init Error]:', e);
-        window.CURRENT_USER_ID = null;
-        window.CURRENT_USER_NAME = null;
-        window.CURRENT_USER_EMAIL = null;
-        window.CURRENT_USER_PICTURE = null;
     }
 })();
 
@@ -92,7 +88,23 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
 }
 
 window.isUserLoggedIn = function() {
-    return Boolean(window.CURRENT_USER_ID && window.CURRENT_USER_EMAIL);
+    if (Boolean(window.CURRENT_USER_ID)) return true;
+    try {
+        const savedUserStr = localStorage.getItem('lpuquick_user');
+        if (!savedUserStr) return false;
+        const lastActive = Number(localStorage.getItem('lpuquick_last_active')) || 0;
+        if (lastActive > 0 && (Date.now() - lastActive) > SESSION_INACTIVITY_LIMIT_MS) return false;
+        const savedUser = JSON.parse(savedUserStr);
+        const uid = savedUser?.id || savedUser?.user_id || savedUser?.uid;
+        if (uid) {
+            window.CURRENT_USER_ID = uid;
+            window.CURRENT_USER_NAME = savedUser.name || 'LPU Student';
+            window.CURRENT_USER_EMAIL = savedUser.email || '';
+            window.CURRENT_USER_PICTURE = savedUser.picture || '';
+            return true;
+        }
+    } catch(e) {}
+    return false;
 };
 
 window.getEffectiveUserId = function() {
