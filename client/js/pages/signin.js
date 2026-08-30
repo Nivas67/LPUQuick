@@ -150,6 +150,8 @@ window.pageInits.signin = function() {
                 window.CURRENT_USER_EMAIL = res.user.email;
                 window.CURRENT_USER_PICTURE = res.user.picture || '';
                 localStorage.setItem('lpuquick_user', JSON.stringify(res.user));
+                localStorage.setItem('lpuquick_last_active', Date.now().toString());
+                if (typeof window.refreshUserActivity === 'function') window.refreshUserActivity();
                 const redirectTarget = window.postLoginRedirect || localStorage.getItem('lpuquick_redirect') || '#/';
                 localStorage.removeItem('lpuquick_redirect');
                 window.postLoginRedirect = null;

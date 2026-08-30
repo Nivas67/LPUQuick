@@ -2,40 +2,93 @@
 window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
-// Version-controlled session cache buster (Ensures new visits or deployments start completely clean)
-const LPUQUICK_BUILD_VERSION = 'v2026.08.30.rel10';
-if (localStorage.getItem('lpuquick_build_v') !== LPUQUICK_BUILD_VERSION) {
-    localStorage.clear();
-    localStorage.setItem('lpuquick_build_v', LPUQUICK_BUILD_VERSION);
+// 1-Hour Inactivity Session Management (3,600,000 ms = 1 Hour)
+const SESSION_INACTIVITY_LIMIT_MS = 60 * 60 * 1000; // 1 hour
+
+window.refreshUserActivity = function() {
+    if (window.CURRENT_USER_ID && window.CURRENT_USER_EMAIL) {
+        try {
+            localStorage.setItem('lpuquick_last_active', Date.now().toString());
+        } catch(e) {}
+    }
+};
+
+window.logoutUser = function() {
+    try {
+        localStorage.removeItem('lpuquick_user');
+        localStorage.removeItem('lpuquick_last_active');
+        localStorage.removeItem('lpuquick_address_configured');
+        localStorage.removeItem('lpuquick_room');
+        localStorage.removeItem('lpuquick_phone');
+        localStorage.removeItem('lpuquick_address_detail');
+    } catch(e) {}
     window.CURRENT_USER_ID = null;
     window.CURRENT_USER_NAME = null;
     window.CURRENT_USER_EMAIL = null;
     window.CURRENT_USER_PICTURE = null;
     window.currentRoom = '';
     window.currentAddressDetail = '';
-}
+    window.location.hash = '#/signin';
+};
 
-// Auth User state (Strict real user session - no hardcoded fake fallback)
-try {
-    const savedUser = JSON.parse(localStorage.getItem('lpuquick_user') || 'null');
-    if (savedUser && savedUser.id && savedUser.id !== 'user_001' && savedUser.id !== 'user_default' && savedUser.email) {
-        window.CURRENT_USER_ID = savedUser.id;
-        window.CURRENT_USER_NAME = savedUser.name;
-        window.CURRENT_USER_EMAIL = savedUser.email;
-        window.CURRENT_USER_PICTURE = savedUser.picture || '';
-    } else {
-        localStorage.removeItem('lpuquick_user');
+// Initialize User Session from localStorage with 1-Hour Inactivity Guard
+(function initUserSession() {
+    try {
+        const savedUserStr = localStorage.getItem('lpuquick_user');
+        const lastActiveStr = localStorage.getItem('lpuquick_last_active');
+        
+        if (savedUserStr) {
+            const savedUser = JSON.parse(savedUserStr);
+            const lastActive = Number(lastActiveStr) || 0;
+            const now = Date.now();
+            const elapsed = now - lastActive;
+
+            // If user has been inactive for more than 1 hour, expire session
+            if (lastActive > 0 && elapsed > SESSION_INACTIVITY_LIMIT_MS) {
+                console.log(`[Auth] Session expired due to 1 hour of inactivity (${Math.round(elapsed / 60000)} mins inactive)`);
+                localStorage.removeItem('lpuquick_user');
+                localStorage.removeItem('lpuquick_last_active');
+                window.CURRENT_USER_ID = null;
+                window.CURRENT_USER_NAME = null;
+                window.CURRENT_USER_EMAIL = null;
+                window.CURRENT_USER_PICTURE = null;
+            } else if (savedUser && savedUser.id && savedUser.email) {
+                // Session is VALID & ACTIVE - Keep logged in on reload!
+                window.CURRENT_USER_ID = savedUser.id;
+                window.CURRENT_USER_NAME = savedUser.name;
+                window.CURRENT_USER_EMAIL = savedUser.email;
+                window.CURRENT_USER_PICTURE = savedUser.picture || '';
+                window.refreshUserActivity();
+            } else {
+                localStorage.removeItem('lpuquick_user');
+                window.CURRENT_USER_ID = null;
+                window.CURRENT_USER_NAME = null;
+                window.CURRENT_USER_EMAIL = null;
+                window.CURRENT_USER_PICTURE = null;
+            }
+        }
+    } catch (e) {
+        console.warn('[Auth Init Error]:', e);
         window.CURRENT_USER_ID = null;
         window.CURRENT_USER_NAME = null;
         window.CURRENT_USER_EMAIL = null;
         window.CURRENT_USER_PICTURE = null;
     }
-} catch(e) {
-    localStorage.removeItem('lpuquick_user');
-    window.CURRENT_USER_ID = null;
-    window.CURRENT_USER_NAME = null;
-    window.CURRENT_USER_EMAIL = null;
-    window.CURRENT_USER_PICTURE = null;
+})();
+
+// Attach throttled global user activity listeners to continuously refresh the 1-hour session
+let lastActivityTouch = 0;
+function handleUserInteraction() {
+    const now = Date.now();
+    if (now - lastActivityTouch > 15000) { // Throttle writes to localStorage to once every 15s
+        lastActivityTouch = now;
+        window.refreshUserActivity();
+    }
+}
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    ['mousedown', 'keydown', 'touchstart', 'scroll', 'click'].forEach(evt => {
+        window.addEventListener(evt, handleUserInteraction, { passive: true });
+    });
 }
 
 window.isUserLoggedIn = function() {

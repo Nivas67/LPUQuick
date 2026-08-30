@@ -354,17 +354,11 @@ window.pageInits.settings = function() {
 
     // Sign Out Handler
     document.getElementById('btn-sign-out')?.addEventListener('click', () => {
-        localStorage.removeItem('lpuquick_user');
-        localStorage.removeItem('lpuquick_address_configured');
-        localStorage.removeItem('lpuquick_room');
-        localStorage.removeItem('lpuquick_phone');
-        localStorage.removeItem('lpuquick_address_detail');
-        window.CURRENT_USER_ID = null;
-        window.CURRENT_USER_NAME = null;
-        window.CURRENT_USER_EMAIL = null;
-        window.CURRENT_USER_PICTURE = null;
-        window.currentRoom = '';
-        window.currentAddressDetail = '';
-        window.location.hash = '#/';
+        if (typeof window.logoutUser === 'function') {
+            window.logoutUser();
+        } else {
+            localStorage.clear();
+            window.location.hash = '#/signin';
+        }
     });
 };
