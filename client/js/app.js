@@ -793,13 +793,52 @@ function formatClientReopenHeadline(avail) {
 
 window.renderStoreClosedBannerOrOverlay = function() {
     const avail = window.__storeAvailability;
+    const isUserBlocked = Boolean(window.__isUserBlocked);
+    const homeHeroContainer = document.getElementById('store-closed-banner-slot');
+
+    if (isUserBlocked) {
+        const blockReason = window.__userBlockReason || 'Fake Orders';
+        if (homeHeroContainer) {
+            homeHeroContainer.innerHTML = `
+                <div id="blocked-user-hero-card" class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#ba1a1a] to-[#93000a] text-white p-6 sm:p-8 shadow-2xl border-2 border-[#ff8a80] my-4 animate-fade-in">
+                    <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div class="flex items-center gap-4 text-left">
+                            <div class="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center shrink-0 shadow-inner">
+                                <span class="material-symbols-outlined text-4xl text-white">gavel</span>
+                            </div>
+                            <div class="space-y-1">
+                                <div class="inline-flex items-center gap-2 px-3 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-white/20 text-white border border-white/30">
+                                    <span class="w-2 h-2 rounded-full bg-white animate-ping"></span>
+                                    <span>Account Suspended</span>
+                                </div>
+                                <h2 class="text-xl sm:text-3xl font-black text-white tracking-tight leading-tight">
+                                    You are blocked due to ${(blockReason).toLowerCase()}.
+                                </h2>
+                                <p class="text-xs sm:text-sm text-white/90 font-medium max-w-xl">
+                                    Your student account is restricted from placing orders on LPUQuick. Please contact BH13 Central Campus Hub to appeal or resolve this restriction.
+                                </p>
+                            </div>
+                        </div>
+                        <a href="#/blocked" class="shrink-0 bg-white text-[#ba1a1a] hover:bg-white/90 px-6 py-3 rounded-2xl font-extrabold text-xs tracking-wider uppercase shadow-lg transition-all active:scale-95">
+                            View Details
+                        </a>
+                    </div>
+                </div>
+            `;
+            homeHeroContainer.classList.remove('hidden');
+        }
+        updateBlockedUI(true, blockReason);
+        updateCheckoutButtonsForLock(true, 'Account Suspended');
+        return;
+    }
+
     if (!avail) return;
 
     const isLocked = Boolean(avail.is_locked);
-    const homeHeroContainer = document.getElementById('store-closed-banner-slot');
     
     // 1. Manage Global Sticky Announcement Bar (Visible across ALL pages)
     let globalBar = document.getElementById('global-store-lock-bar');
+
     if (isLocked) {
         const reopenHeadline = formatClientReopenHeadline(avail);
         const secondaryText = avail.message || "You can still add items and order when the store re-opens";
@@ -981,6 +1020,9 @@ window.syncUserBlockStatus = async function() {
         if (res && (res.isBlocked || res.account_status === 'BLOCKED')) {
             window.__isUserBlocked = true;
             window.__userBlockReason = res.reason || 'Fake Orders';
+            if (typeof window.renderStoreClosedBannerOrOverlay === 'function') {
+                window.renderStoreClosedBannerOrOverlay();
+            }
             updateBlockedUI(true, window.__userBlockReason);
             
             const currentRoute = getCurrentRoute();
@@ -989,11 +1031,16 @@ window.syncUserBlockStatus = async function() {
             }
             return { isBlocked: true, reason: window.__userBlockReason };
         } else {
+            const wasBlocked = window.__isUserBlocked;
             window.__isUserBlocked = false;
             window.__userBlockReason = null;
             updateBlockedUI(false);
+            if (wasBlocked && typeof window.renderStoreClosedBannerOrOverlay === 'function') {
+                window.renderStoreClosedBannerOrOverlay();
+            }
             return { isBlocked: false };
         }
+
     } catch (e) {
         return { isBlocked: false };
     }

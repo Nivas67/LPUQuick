@@ -43,10 +43,16 @@ function updateLocalCartState(cartData) {
 // Atomic Optimistic Cart State & Fast-Tap Debounced Syncer (< 1ms UI response, 100% accurate count)
 window.setOptimisticCartQuantity = function(productId, targetQty, maxStock = 50, onSynced = null) {
     if (!productId) return;
+    if (window.__isUserBlocked) {
+        alert(`⛔ Account Suspended:\n\nYou are blocked due to ${(window.__userBlockReason || 'fake orders').toLowerCase()}.\n\nPlease contact BH13 Central Campus Hub.`);
+        if (typeof window.syncUserBlockStatus === 'function') window.syncUserBlockStatus();
+        return;
+    }
     const uid = typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : window.CURRENT_USER_ID;
     window.cartState = window.cartState || {};
     window.__pendingCartSync = window.__pendingCartSync || {};
     window.__cartSyncDebounceTimers = window.__cartSyncDebounceTimers || {};
+
 
     // 1. Clamp target quantity to [0, maxStock]
     const clampedQty = Math.max(0, Math.min(Number(targetQty), Number(maxStock)));
