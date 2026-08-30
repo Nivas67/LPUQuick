@@ -34,11 +34,13 @@ router.post('/client-lock', async (req, res) => {
         let finalType = lock_type || 'IMMEDIATE';
         let isLocked = true;
 
-        if (finalType === 'DURATION') {
-            const mins = parseInt(duration_minutes, 10) || 30;
-            const startNow = new Date();
-            finalStart = startNow.toISOString();
-            finalEnd = new Date(startNow.getTime() + (mins * 60 * 1000)).toISOString();
+        if (finalType === 'DURATION' || (finalType === 'IMMEDIATE' && duration_minutes)) {
+            const mins = parseInt(duration_minutes, 10);
+            if (mins && mins > 0) {
+                const startNow = new Date();
+                finalStart = startNow.toISOString();
+                finalEnd = new Date(startNow.getTime() + (mins * 60 * 1000)).toISOString();
+            }
             isLocked = true;
         } else if (finalType === 'SCHEDULED') {
             if (!finalStart || !finalEnd) {
@@ -53,6 +55,7 @@ router.post('/client-lock', async (req, res) => {
             isLocked = true;
             if (!finalStart) finalStart = new Date().toISOString();
         }
+
 
         const updated = await supabaseDb.availability.setLock({
             is_locked: isLocked,

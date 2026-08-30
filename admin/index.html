@@ -412,9 +412,10 @@
                             </label>
                         </div>
 
-                        <!-- Duration Selector (Shown when DURATION selected) -->
-                        <div id="section-duration-picker" class="hidden space-y-3 p-4 bg-[#f8f9fa] rounded-xl border border-[#DADCE0]">
-                            <label class="font-bold text-[#181c1f] block">Select Lock Duration</label>
+                        <!-- Duration Selector (Shown when IMMEDIATE or DURATION selected) -->
+                        <div id="section-duration-picker" class="space-y-3 p-4 bg-[#f8f9fa] rounded-xl border border-[#DADCE0]">
+                            <label class="font-bold text-[#181c1f] block">Select Lock Duration (Auto-Unlock Countdown Timer)</label>
+
                             <div class="flex flex-wrap gap-2">
                                 <button type="button" onclick="setDurationMins(15)" class="duration-chip px-4 py-2 rounded-lg border border-[#DADCE0] bg-white font-semibold hover:border-[#3c4043]">15 Minutes</button>
                                 <button type="button" onclick="setDurationMins(30)" class="duration-chip active px-4 py-2 rounded-lg border-2 border-[#3c4043] bg-[#3c4043] text-white font-semibold">30 Minutes</button>

@@ -671,10 +671,10 @@ function handleLockModeChange() {
         }
     });
 
-    if (selectedMode === 'DURATION') {
+    if (selectedMode === 'DURATION' || selectedMode === 'IMMEDIATE') {
         durationSection?.classList.remove('hidden');
         scheduleSection?.classList.add('hidden');
-        if (btnText) btnText.textContent = 'Start Duration Lock';
+        if (btnText) btnText.textContent = selectedMode === 'DURATION' ? 'Start Duration Lock' : 'Lock Client Dashboard Now';
     } else if (selectedMode === 'SCHEDULED') {
         durationSection?.classList.add('hidden');
         scheduleSection?.classList.remove('hidden');
@@ -682,8 +682,9 @@ function handleLockModeChange() {
     } else {
         durationSection?.classList.add('hidden');
         scheduleSection?.classList.add('hidden');
-        if (btnText) btnText.textContent = selectedMode === 'MANUAL' ? 'Apply Manual Lock' : 'Lock Client Dashboard Now';
+        if (btnText) btnText.textContent = 'Apply Manual Lock (Indefinite)';
     }
+
 }
 
 function setDurationMins(mins) {

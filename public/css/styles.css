@@ -39,6 +39,24 @@ body::before {
     transform: translateZ(0);
 }
 
+/* Store Lock Fixed Header & Nav Offsets */
+body.store-locked-active header,
+body.store-locked-active header.fixed,
+body.store-locked-active header[class*="fixed"] {
+    top: 36px !important;
+    transition: top 0.2s ease-in-out;
+}
+
+body.store-locked-active main {
+    padding-top: 6.5rem !important;
+}
+
+@media (min-width: 768px) {
+    body.store-locked-active main {
+        padding-top: 8.5rem !important;
+    }
+}
+
 /* Explicit High Contrast Brand Text Rules */
 .brand-title {
     color: #044e3b !important;
@@ -48,6 +66,7 @@ body::before {
 .text-primary {
     color: #044e3b !important;
 }
+
 
 .bg-background {
     background-color: transparent !important;

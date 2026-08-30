@@ -843,6 +843,12 @@ window.renderStoreClosedBannerOrOverlay = function() {
         const reopenHeadline = formatClientReopenHeadline(avail);
         const secondaryText = avail.message || "You can still add items and order when the store re-opens";
 
+        document.body.classList.add('store-locked-active');
+        document.body.style.paddingTop = '36px';
+
+        const fixedHeaders = document.querySelectorAll('header.fixed, header[class*="fixed"]');
+        fixedHeaders.forEach(h => { h.style.top = '36px'; });
+
         if (!globalBar) {
             globalBar = document.createElement('div');
             globalBar.id = 'global-store-lock-bar';
@@ -864,10 +870,10 @@ window.renderStoreClosedBannerOrOverlay = function() {
             </div>
         `;
         globalBar.classList.remove('hidden');
-        document.body.style.paddingTop = '32px';
 
         // 2. Render Reference Design Card on Homepage
         if (homeHeroContainer) {
+            const hasCountdown = Boolean(avail.remaining_seconds || avail.end_at);
             const closedCardHtml = `
                 <div id="store-closed-hero-card" class="relative overflow-hidden rounded-3xl bg-[#1a1d20] text-white p-6 sm:p-8 shadow-2xl border border-white/10 my-4 animate-fade-in">
                     <!-- Ambient glow -->
@@ -892,7 +898,7 @@ window.renderStoreClosedBannerOrOverlay = function() {
                             </p>
 
                             <!-- Live Ticking Countdown -->
-                            <div id="client-countdown-wrapper" class="pt-2 ${avail.remaining_seconds ? '' : 'hidden'}">
+                            <div id="client-countdown-wrapper" class="pt-2">
                                 <div class="inline-flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-white/10 border border-white/15 text-white font-mono text-sm shadow-inner">
                                     <span class="material-symbols-outlined text-base text-[#ea4335] animate-pulse">timer</span>
                                     <span class="text-xs font-semibold text-white/80">Time remaining:</span>
@@ -927,17 +933,40 @@ window.renderStoreClosedBannerOrOverlay = function() {
         }
 
         // Start live ticker
-        if (avail.remaining_seconds && avail.remaining_seconds > 0) {
-            startClientCountdown(avail.remaining_seconds, avail.end_at);
+        let countdownSecs = avail.remaining_seconds;
+        if (!countdownSecs && avail.end_at) {
+            countdownSecs = Math.max(0, Math.floor((new Date(avail.end_at).getTime() - Date.now()) / 1000));
+        }
+
+        if (countdownSecs && countdownSecs > 0) {
+            startClientCountdown(countdownSecs, avail.end_at);
+        } else {
+            if (window.__clientLockTicker) {
+                clearInterval(window.__clientLockTicker);
+                window.__clientLockTicker = null;
+            }
+            const globalDisplayEl = document.getElementById('global-lock-timer-display');
+            if (globalDisplayEl) {
+                globalDisplayEl.innerHTML = '<span class="text-[11px] font-bold text-amber-300">Until Unlocked</span>';
+            }
+            const clientDisplayEl = document.getElementById('client-countdown-display');
+            if (clientDisplayEl) {
+                clientDisplayEl.textContent = 'Until Reopened';
+            }
         }
 
         // Update any checkout submit button if visible
         updateCheckoutButtonsForLock(true, reopenHeadline);
     } else {
+        document.body.classList.remove('store-locked-active');
+        document.body.style.paddingTop = '0px';
+
+        const fixedHeaders = document.querySelectorAll('header.fixed, header[class*="fixed"]');
+        fixedHeaders.forEach(h => { h.style.top = '0px'; });
+
         if (globalBar) {
             globalBar.classList.add('hidden');
         }
-        document.body.style.paddingTop = '0px';
 
         if (homeHeroContainer) {
             homeHeroContainer.innerHTML = '';
@@ -978,12 +1007,16 @@ function startClientCountdown(seconds, endAt) {
         if (diff <= 0) {
             clearInterval(window.__clientLockTicker);
             window.__clientLockTicker = null;
-            window.syncStoreAvailability(); // Automatically unlock and re-enable store when timer ends!
+            if (typeof window.syncStoreAvailability === 'function') {
+                window.syncStoreAvailability();
+            }
         }
     };
 
     update();
     window.__clientLockTicker = setInterval(update, 1000);
+}
+
 }
 
 function updateCheckoutButtonsForLock(isLocked, reopenText = 'Soon') {
