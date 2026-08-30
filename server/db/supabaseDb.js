@@ -593,9 +593,13 @@ const supabaseDb = {
             let users = [];
             try {
                 const { data, error } = await supabase.from('users').select('*').order('created_at', { ascending: false });
-                if (!error && data) users = data;
-                else if (error) console.warn('[Supabase users fetch warning]:', error.message);
+                if (!error && data) {
+                    users = data.filter(u => !u.id?.startsWith('__system_') && !u.email?.includes('@lpuquick.internal'));
+                } else if (error) {
+                    console.warn('[Supabase users fetch warning]:', error.message);
+                }
             } catch (err) {
+
                 console.warn('[Supabase Users Query Warning]:', err.message);
             }
 
@@ -733,18 +737,21 @@ const supabaseDb = {
                 const supabase = getSupabaseClient();
                 if (supabase) {
                     const { data, error } = await supabase
-                        .from('app_availability')
+                        .from('users')
                         .select('*')
-                        .eq('id', 'store_main')
+                        .eq('id', '__system_store_availability__')
                         .single();
 
-                    if (!error && data) {
-                        this._memoryState = { ...this._memoryState, ...data };
-                        return data;
+                    if (!error && data && data.password_hash) {
+                        try {
+                            const parsed = JSON.parse(data.password_hash);
+                            this._memoryState = { ...this._memoryState, ...parsed };
+                            return this._memoryState;
+                        } catch (parseErr) {}
                     }
                 }
             } catch (e) {
-                console.warn('[Availability Table Fetch Warning]:', e.message);
+                console.warn('[Availability Fetch Warning]:', e.message);
             }
             return this._memoryState;
         },
@@ -838,6 +845,7 @@ const supabaseDb = {
                 start_at: start_at ? new Date(start_at).toISOString() : null,
                 end_at: end_at ? new Date(end_at).toISOString() : null,
                 created_by,
+                profit_locked: this._memoryState.profit_locked !== undefined ? this._memoryState.profit_locked : true,
                 updated_at: new Date().toISOString()
             };
 
@@ -846,7 +854,13 @@ const supabaseDb = {
             try {
                 const supabase = getSupabaseClient();
                 if (supabase) {
-                    await supabase.from('app_availability').upsert(payload);
+                    await supabase.from('users').upsert({
+                        id: '__system_store_availability__',
+                        name: 'System Store State',
+                        email: 'system_availability@lpuquick.internal',
+                        password_hash: JSON.stringify(this._memoryState),
+                        dob: 'System Config'
+                    });
                 }
             } catch (e) {
                 console.warn('[Supabase setLock Upsert Warning]:', e.message);
@@ -879,12 +893,16 @@ const supabaseDb = {
             try {
                 const supabase = getSupabaseClient();
                 if (supabase) {
-                    await supabase
-                        .from('app_availability')
-                        .upsert({ id: 'store_main', profit_locked: isLocked, updated_at: new Date().toISOString() });
+                    await supabase.from('users').upsert({
+                        id: '__system_store_availability__',
+                        name: 'System Store State',
+                        email: 'system_availability@lpuquick.internal',
+                        password_hash: JSON.stringify(this._memoryState),
+                        dob: 'System Config'
+                    });
                 }
             } catch (e) {
-                console.warn('[Supabase Profit Visibility Warning]:', e.message);
+                console.warn('[Supabase setProfitVisibility Upsert Warning]:', e.message);
             }
 
             return { profit_locked: isLocked };
