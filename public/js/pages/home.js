@@ -377,6 +377,8 @@ window.pageInits.home = function() {
                 dropdown.classList.remove('hidden');
                 if (items.length === 0) {
                     dropdown.innerHTML = `<div class="p-3 text-xs text-on-surface-variant text-center">No products matching "${q}"</div>`;
+                    return;
+                }
                 dropdown.innerHTML = items.slice(0, 6).map(p => {
                     const isOutOfStock = !p.in_stock || (p.stock_left !== undefined && p.stock_left <= 0);
                     return `
