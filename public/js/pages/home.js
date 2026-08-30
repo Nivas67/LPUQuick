@@ -257,7 +257,10 @@ window.pages.home = async function() {
     </header>
 
     <!-- Main Content -->
-    <main class="pt-20 md:pt-28 px-margin-mobile md:px-margin-desktop max-w-7xl mx-auto space-y-8">
+    <main class="pt-20 md:pt-28 px-margin-mobile md:px-margin-desktop max-w-7xl mx-auto space-y-6">
+        <!-- Store Closed / Reopening Hero Alert Slot (Matches reference design) -->
+        <div id="store-closed-banner-slot" class="hidden"></div>
+
         <!-- Mobile Product Search -->
         <section class="md:hidden relative w-full">
             <div class="relative">
@@ -266,6 +269,7 @@ window.pages.home = async function() {
             </div>
             <div id="mobile-search-dropdown" class="hidden absolute top-12 left-0 w-full bg-surface border border-surface-variant rounded-2xl shadow-xl z-50 max-h-80 overflow-y-auto p-2"></div>
         </section>
+
 
         <!-- 1. Explore All Available In-Stock Products & Live Filter Chips -->
         <section>

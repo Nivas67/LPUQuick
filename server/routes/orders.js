@@ -162,39 +162,9 @@ router.get('/admin/analytics', requireAdmin, async (req, res) => {
 router.get('/admin/customers', requireAdmin, async (req, res) => {
     try {
         const payload = await cache.wrap('orders:admin:customers', async () => {
-            const supabase = getSupabaseClient();
-
-            // Fetch users and lightweight order summary in parallel
-            const [usersRes, ordersRes] = await Promise.all([
-                supabase.from('users').select('id, name, email, phone, created_at'),
-                supabase.from('orders').select('user_id, total, created_at')
-            ]);
-
-            const users = usersRes.data || [];
-            const orders = ordersRes.data || [];
-
-            const customerStats = {};
-            orders.forEach(o => {
-                if (!customerStats[o.user_id]) {
-                    customerStats[o.user_id] = { order_count: 0, total_spent: 0, last_order_date: null };
-                }
-                customerStats[o.user_id].order_count++;
-                customerStats[o.user_id].total_spent += Number(o.total) || 0;
-                const orderDate = new Date(o.created_at);
-                if (!customerStats[o.user_id].last_order_date || orderDate > new Date(customerStats[o.user_id].last_order_date)) {
-                    customerStats[o.user_id].last_order_date = o.created_at;
-                }
-            });
-
-            const enrichedCustomers = users.map(u => ({
-                ...u,
-                order_count: customerStats[u.id]?.order_count || 0,
-                total_spent: Math.round(customerStats[u.id]?.total_spent || 0),
-                last_order_date: customerStats[u.id]?.last_order_date || null
-            }));
-
+            const enrichedCustomers = await supabaseDb.users.getAllCustomersWithMetrics();
             return { customers: enrichedCustomers };
-        }, 20000);
+        }, 10000);
 
         res.json(payload);
     } catch (err) {
@@ -202,6 +172,7 @@ router.get('/admin/customers', requireAdmin, async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
 
 // GET /api/orders/admin/detail/:orderId (Order detail for drawer)
 router.get('/admin/detail/:orderId', requireAdmin, async (req, res) => {

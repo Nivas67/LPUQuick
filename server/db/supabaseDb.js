@@ -563,8 +563,539 @@ const supabaseDb = {
                 console.warn('[Supabase updatePhone Warning]:', error.message);
             }
             return data;
+        },
+
+        async updateAccountStatus(userId, status, blockedBy = null, reason = null) {
+            const supabase = getSupabaseClient();
+            if (!userId) return null;
+            const payload = {
+                account_status: status,
+                blocked_at: status === 'BLOCKED' ? new Date().toISOString() : null,
+                blocked_by: status === 'BLOCKED' ? blockedBy : null,
+                block_reason: status === 'BLOCKED' ? reason : null
+            };
+            const { data, error } = await supabase
+                .from('users')
+                .update(payload)
+                .eq('id', userId)
+                .select()
+                .single();
+            if (error) {
+                console.warn('[Supabase updateAccountStatus Warning]:', error.message);
+            }
+            return data;
+        },
+
+        async getAllCustomersWithMetrics() {
+            const supabase = getSupabaseClient();
+            const [usersRes, ordersRes, blacklistRes] = await Promise.all([
+                supabase.from('users').select('id, name, email, phone, role, account_status, blocked_at, blocked_by, block_reason, created_at'),
+                supabase.from('orders').select('user_id, total, created_at'),
+                supabase.from('blacklisted_users').select('user_id, reason, status, blocked_by, blocked_at').eq('status', 'BLOCKED')
+            ]);
+
+            const users = usersRes.data || [];
+            const orders = ordersRes.data || [];
+            const blacklistMap = new Map((blacklistRes.data || []).map(b => [b.user_id, b]));
+
+            const customerStats = {};
+            orders.forEach(o => {
+                if (!o.user_id) return;
+                if (!customerStats[o.user_id]) {
+                    customerStats[o.user_id] = { order_count: 0, total_spent: 0, last_order_date: null };
+                }
+                customerStats[o.user_id].order_count++;
+                customerStats[o.user_id].total_spent += Number(o.total) || 0;
+                const orderDate = new Date(o.created_at);
+                if (!customerStats[o.user_id].last_order_date || orderDate > new Date(customerStats[o.user_id].last_order_date)) {
+                    customerStats[o.user_id].last_order_date = o.created_at;
+                }
+            });
+
+            return users.map(u => {
+                const isBlocked = u.account_status === 'BLOCKED' || blacklistMap.has(u.id);
+                const blRecord = blacklistMap.get(u.id);
+                return {
+                    id: u.id,
+                    name: u.name || 'Student',
+                    email: u.email || '',
+                    phone: u.phone || '',
+                    role: u.role || 'student',
+                    account_status: isBlocked ? 'BLOCKED' : 'ACTIVE',
+                    blocked_at: u.blocked_at || blRecord?.blocked_at || null,
+                    blocked_by: u.blocked_by || blRecord?.blocked_by || null,
+                    block_reason: u.block_reason || blRecord?.reason || (isBlocked ? 'Fake Orders' : null),
+                    order_count: customerStats[u.id]?.order_count || 0,
+                    total_spent: Math.round(customerStats[u.id]?.total_spent || 0),
+                    last_order_date: customerStats[u.id]?.last_order_date || null,
+                    created_at: u.created_at
+                };
+            });
+        }
+    },
+
+    // ==========================================
+    // APP AVAILABILITY & STORE LOCK
+    // ==========================================
+    availability: {
+        // In-memory persistent fallback if table being created
+        _memoryState: {
+            id: 'store_main',
+            is_locked: false,
+            lock_type: 'NONE',
+            message: null,
+            start_at: null,
+            end_at: null,
+            profit_locked: true,
+            created_by: null,
+            updated_at: new Date().toISOString()
+        },
+
+        formatReopeningTime(endAtDate) {
+            if (!endAtDate) return null;
+            const end = new Date(endAtDate);
+            if (isNaN(end.getTime())) return null;
+
+            const now = new Date();
+            const isToday = end.getDate() === now.getDate() && end.getMonth() === now.getMonth() && end.getFullYear() === now.getFullYear();
+            
+            const tomorrow = new Date(now);
+            tomorrow.setDate(now.getDate() + 1);
+            const isTomorrow = end.getDate() === tomorrow.getDate() && end.getMonth() === tomorrow.getMonth() && end.getFullYear() === tomorrow.getFullYear();
+
+            // Format time e.g. 6:00 am or 8:30 am
+            let hours = end.getHours();
+            const minutes = end.getMinutes();
+            const ampm = hours >= 12 ? 'pm' : 'am';
+            hours = hours % 12;
+            hours = hours ? hours : 12; // 0 becomes 12
+            const minutesStr = minutes < 10 ? (minutes === 0 ? '' : `:${minutes < 10 ? '0' + minutes : minutes}`) : `:${minutes}`;
+            const timeStr = `${hours}${minutesStr} ${ampm}`;
+
+            let dayWording = 'today';
+            if (isToday) dayWording = 'today';
+            else if (isTomorrow) dayWording = 'tomorrow';
+            else dayWording = `on ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+
+            return {
+                timeStr,
+                dayWording,
+                fullHeadline: `We'll reopen at ${timeStr}, ${dayWording}`
+            };
+        },
+
+        async getRawRecord() {
+            try {
+                const supabase = getSupabaseClient();
+                if (supabase) {
+                    const { data, error } = await supabase
+                        .from('app_availability')
+                        .select('*')
+                        .eq('id', 'store_main')
+                        .single();
+
+                    if (!error && data) {
+                        this._memoryState = { ...this._memoryState, ...data };
+                        return data;
+                    }
+                }
+            } catch (e) {
+                console.warn('[Availability Table Fetch Warning]:', e.message);
+            }
+            return this._memoryState;
+        },
+
+        async getStatus() {
+            const raw = await this.getRawRecord();
+            const now = Date.now();
+            let effectiveLocked = Boolean(raw.is_locked);
+            let lockStatus = 'AVAILABLE';
+            let remainingSeconds = null;
+            let reopenAt = raw.end_at || null;
+            let displayReopen = null;
+
+            if (raw.lock_type === 'SCHEDULED') {
+                const startTime = raw.start_at ? new Date(raw.start_at).getTime() : 0;
+                const endTime = raw.end_at ? new Date(raw.end_at).getTime() : 0;
+
+                if (startTime > 0 && now < startTime) {
+                    // Scheduled for the future, currently available
+                    lockStatus = 'SCHEDULED';
+                    effectiveLocked = false;
+                } else if (startTime > 0 && endTime > 0 && now >= startTime && now < endTime) {
+                    // Active scheduled lock
+                    lockStatus = 'LOCKED';
+                    effectiveLocked = true;
+                    remainingSeconds = Math.max(0, Math.floor((endTime - now) / 1000));
+                    displayReopen = this.formatReopeningTime(raw.end_at);
+                } else if (endTime > 0 && now >= endTime) {
+                    // Schedule expired -> automatically available!
+                    lockStatus = 'AVAILABLE';
+                    effectiveLocked = false;
+                } else {
+                    lockStatus = raw.is_locked ? 'LOCKED' : 'AVAILABLE';
+                }
+            } else if (raw.lock_type === 'DURATION') {
+                const endTime = raw.end_at ? new Date(raw.end_at).getTime() : 0;
+                if (endTime > 0 && now < endTime) {
+                    lockStatus = 'LOCKED';
+                    effectiveLocked = true;
+                    remainingSeconds = Math.max(0, Math.floor((endTime - now) / 1000));
+                    displayReopen = this.formatReopeningTime(raw.end_at);
+                } else {
+                    // Duration expired -> automatically available!
+                    lockStatus = 'AVAILABLE';
+                    effectiveLocked = false;
+                }
+            } else if (raw.lock_type === 'IMMEDIATE' || raw.lock_type === 'MANUAL') {
+                if (raw.is_locked) {
+                    lockStatus = 'LOCKED';
+                    effectiveLocked = true;
+                    if (raw.end_at) {
+                        const endTime = new Date(raw.end_at).getTime();
+                        if (endTime > now) {
+                            remainingSeconds = Math.max(0, Math.floor((endTime - now) / 1000));
+                            displayReopen = this.formatReopeningTime(raw.end_at);
+                        } else {
+                            // Expired
+                            lockStatus = 'AVAILABLE';
+                            effectiveLocked = false;
+                        }
+                    }
+                } else {
+                    lockStatus = 'AVAILABLE';
+                    effectiveLocked = false;
+                }
+            } else {
+                lockStatus = effectiveLocked ? 'LOCKED' : 'AVAILABLE';
+            }
+
+            return {
+                is_locked: effectiveLocked,
+                lock_status: lockStatus,
+                lock_type: raw.lock_type || 'NONE',
+                message: raw.message || null,
+                start_at: raw.start_at || null,
+                end_at: raw.end_at || null,
+                reopen_at: reopenAt,
+                remaining_seconds: remainingSeconds,
+                display_reopen: displayReopen,
+                profit_locked: raw.profit_locked !== undefined ? Boolean(raw.profit_locked) : true,
+                server_time: new Date().toISOString()
+            };
+        },
+
+        async setLock({ is_locked, lock_type = 'IMMEDIATE', message = null, start_at = null, end_at = null, created_by = null }) {
+            const payload = {
+                id: 'store_main',
+                is_locked: Boolean(is_locked),
+                lock_type,
+                message: message ? message.trim() : null,
+                start_at: start_at ? new Date(start_at).toISOString() : null,
+                end_at: end_at ? new Date(end_at).toISOString() : null,
+                created_by,
+                updated_at: new Date().toISOString()
+            };
+
+            this._memoryState = { ...this._memoryState, ...payload };
+
+            try {
+                const supabase = getSupabaseClient();
+                if (supabase) {
+                    await supabase.from('app_availability').upsert(payload);
+                }
+            } catch (e) {
+                console.warn('[Supabase setLock Upsert Warning]:', e.message);
+            }
+
+            return this.getStatus();
+        },
+
+        async unlock(adminId = null) {
+            return this.setLock({
+                is_locked: false,
+                lock_type: 'NONE',
+                message: null,
+                start_at: null,
+                end_at: null,
+                created_by: adminId
+            });
+        },
+
+        async getProfitVisibility() {
+            const raw = await this.getRawRecord();
+            return raw.profit_locked !== undefined ? Boolean(raw.profit_locked) : true;
+        },
+
+        async setProfitVisibility(locked, adminId = null) {
+            const isLocked = Boolean(locked);
+            this._memoryState.profit_locked = isLocked;
+            this._memoryState.updated_at = new Date().toISOString();
+
+            try {
+                const supabase = getSupabaseClient();
+                if (supabase) {
+                    await supabase
+                        .from('app_availability')
+                        .upsert({ id: 'store_main', profit_locked: isLocked, updated_at: new Date().toISOString() });
+                }
+            } catch (e) {
+                console.warn('[Supabase Profit Visibility Warning]:', e.message);
+            }
+
+            return { profit_locked: isLocked };
+        }
+    },
+
+    // ==========================================
+    // USER BLACKLIST & FRAUD PREVENTION
+    // ==========================================
+    blacklist: {
+        _memoryBlacklist: new Map(),
+
+        async isUserBlacklisted(userId) {
+            if (!userId) return { isBlacklisted: false };
+            
+            // Check memory cache
+            if (this._memoryBlacklist.has(userId)) {
+                return { isBlacklisted: true, record: this._memoryBlacklist.get(userId) };
+            }
+
+            try {
+                const supabase = getSupabaseClient();
+                if (supabase) {
+                    // Check users table account_status
+                    const { data: user } = await supabase.from('users').select('account_status, block_reason, blocked_at, blocked_by').eq('id', userId).single();
+                    if (user && user.account_status === 'BLOCKED') {
+                        return {
+                            isBlacklisted: true,
+                            reason: user.block_reason || 'Fake Orders',
+                            blocked_at: user.blocked_at,
+                            blocked_by: user.blocked_by
+                        };
+                    }
+
+                    // Check blacklisted_users table
+                    const { data: bl } = await supabase.from('blacklisted_users').select('*').eq('user_id', userId).eq('status', 'BLOCKED').single();
+                    if (bl) {
+                        this._memoryBlacklist.set(userId, bl);
+                        return { isBlacklisted: true, record: bl, reason: bl.reason || 'Fake Orders' };
+                    }
+                }
+            } catch (e) {
+                console.warn('[Blacklist Check Warning]:', e.message);
+            }
+
+            return { isBlacklisted: false };
+        },
+
+        async getAll() {
+            try {
+                const supabase = getSupabaseClient();
+                if (supabase) {
+                    const { data: list, error } = await supabase
+                        .from('blacklisted_users')
+                        .select('*, users(name, email, phone)')
+                        .order('blocked_at', { ascending: false });
+
+                    if (!error && list) {
+                        return list.map(b => ({
+                            id: b.id,
+                            user_id: b.user_id,
+                            customer_name: b.users?.name || 'Student',
+                            customer_email: b.users?.email || '',
+                            customer_phone: b.users?.phone || '',
+                            reason: b.reason || 'Fake Orders',
+                            status: b.status || 'BLOCKED',
+                            blocked_by: b.blocked_by || 'Admin',
+                            blocked_at: b.blocked_at,
+                            unblocked_by: b.unblocked_by,
+                            unblocked_at: b.unblocked_at,
+                            notes: b.notes || ''
+                        }));
+                    }
+                }
+            } catch (e) {
+                console.warn('[Blacklist GetAll Warning]:', e.message);
+            }
+
+            return Array.from(this._memoryBlacklist.values());
+        },
+
+        async blockUser({ userId, reason = 'Fake Orders', notes = '', blockedBy = 'Admin' }) {
+            if (!userId) throw new Error('userId is required');
+
+            const id = `bl_${uuidv4().slice(0, 8)}`;
+            const blockedAt = new Date().toISOString();
+
+            const record = {
+                id,
+                user_id: userId,
+                reason,
+                status: 'BLOCKED',
+                blocked_by: blockedBy,
+                blocked_at: blockedAt,
+                notes,
+                created_at: blockedAt,
+                updated_at: blockedAt
+            };
+
+            this._memoryBlacklist.set(userId, record);
+
+            // Update database
+            try {
+                const supabase = getSupabaseClient();
+                if (supabase) {
+                    // 1. Update user account status
+                    await supabase.from('users').update({
+                        account_status: 'BLOCKED',
+                        block_reason: reason,
+                        blocked_at: blockedAt,
+                        blocked_by: blockedBy
+                    }).eq('id', userId);
+
+                    // 2. Insert into blacklisted_users
+                    await supabase.from('blacklisted_users').upsert(record);
+                }
+            } catch (e) {
+                console.warn('[Supabase Block User DB Warning]:', e.message);
+            }
+
+            return record;
+        },
+
+        async unblockUser({ userId, unblockedBy = 'Admin' }) {
+            if (!userId) throw new Error('userId is required');
+
+            this._memoryBlacklist.delete(userId);
+            const unblockedAt = new Date().toISOString();
+
+            try {
+                const supabase = getSupabaseClient();
+                if (supabase) {
+                    // 1. Update user account status to ACTIVE
+                    await supabase.from('users').update({
+                        account_status: 'ACTIVE',
+                        block_reason: null,
+                        blocked_at: null,
+                        blocked_by: null
+                    }).eq('id', userId);
+
+                    // 2. Update blacklist table status to RESOLVED
+                    await supabase.from('blacklisted_users').update({
+                        status: 'RESOLVED',
+                        unblocked_by: unblockedBy,
+                        unblocked_at: unblockedAt,
+                        updated_at: unblockedAt
+                    }).eq('user_id', userId).eq('status', 'BLOCKED');
+                }
+            } catch (e) {
+                console.warn('[Supabase Unblock User DB Warning]:', e.message);
+            }
+
+            return { success: true, userId, status: 'ACTIVE' };
+        }
+    },
+
+    // ==========================================
+    // AUDIT LOGS
+    // ==========================================
+    audit: {
+        _memoryLogs: [],
+
+        async logAction({ adminId, targetUserId = null, action, reason = null, metadata = null }) {
+            const id = `audit_${uuidv4().slice(0, 8)}`;
+            const payload = {
+                id,
+                admin_id: adminId || 'admin_system',
+                target_user_id: targetUserId,
+                action,
+                reason,
+                metadata: metadata ? JSON.parse(JSON.stringify(metadata)) : null,
+                created_at: new Date().toISOString()
+            };
+
+            this._memoryLogs.unshift(payload);
+
+            try {
+                const supabase = getSupabaseClient();
+                if (supabase) {
+                    await supabase.from('audit_logs').insert([payload]);
+                }
+            } catch (e) {
+                console.warn('[Audit Log Insert Warning]:', e.message);
+            }
+
+            return payload;
+        },
+
+        async getLogs(limit = 50) {
+            try {
+                const supabase = getSupabaseClient();
+                if (supabase) {
+                    const { data, error } = await supabase
+                        .from('audit_logs')
+                        .select('*')
+                        .order('created_at', { ascending: false })
+                        .limit(limit);
+                    if (!error && data && data.length > 0) return data;
+                }
+            } catch (e) {
+                console.warn('[Audit Log Fetch Warning]:', e.message);
+            }
+            return this._memoryLogs.slice(0, limit);
+        }
+    },
+
+
+    // ==========================================
+    // PROFIT SECURITY & FINANCIAL CALCULATION
+    // ==========================================
+    profits: {
+        async calculateDeliveredProfits() {
+            const supabase = getSupabaseClient();
+            if (!supabase) return { revenue: 0, total_costs: 0, net_profit: 0, margin_percent: 0, delivered_orders_count: 0 };
+
+            // Fetch delivered orders and order items
+            const [ordersRes, orderItemsRes, productsRes] = await Promise.all([
+                supabase.from('orders').select('id, total, status').in('status', ['Delivered', 'delivered']),
+                supabase.from('order_items').select('order_id, product_id, quantity, unit_price'),
+                supabase.from('products').select('id, price, cost_price')
+            ]);
+
+            const deliveredOrders = ordersRes.data || [];
+            const deliveredOrderIds = new Set(deliveredOrders.map(o => o.id));
+            const products = productsRes.data || [];
+            const productCostMap = new Map(products.map(p => [p.id, Number(p.cost_price || Math.round(Number(p.price || 0) * 0.70))]));
+
+            const totalRevenue = deliveredOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+
+            let totalProductCosts = 0;
+            (orderItemsRes.data || []).forEach(item => {
+                if (deliveredOrderIds.has(item.order_id)) {
+                    const unitCost = productCostMap.get(item.product_id) || Math.round(Number(item.unit_price || 0) * 0.70);
+                    totalProductCosts += unitCost * (Number(item.quantity) || 1);
+                }
+            });
+
+            // If no individual item breakdown, calculate standard retail cost
+            if (totalProductCosts === 0 && totalRevenue > 0) {
+                totalProductCosts = Math.round(totalRevenue * 0.70);
+            }
+
+            const netProfit = Math.max(0, Math.round(totalRevenue - totalProductCosts));
+            const marginPercent = totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 100) : 0;
+
+            return {
+                revenue: Math.round(totalRevenue),
+                total_costs: Math.round(totalProductCosts),
+                net_profit: netProfit,
+                margin_percent: marginPercent,
+                delivered_orders_count: deliveredOrders.length
+            };
         }
     }
 };
 
 module.exports = supabaseDb;
+

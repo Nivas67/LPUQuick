@@ -3,15 +3,16 @@
 <head>
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <base href="/admin/"/>
     <title>LPU Quick Admin Dashboard — Campus Operations Console</title>
     
-    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="icon" type="image/png" href="/admin/favicon.png">
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com" rel="preconnect"/>
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-    <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="/admin/css/admin.css?v=20260830r6">
 </head>
 <body class="antialiased flex h-screen overflow-hidden">
 
@@ -42,6 +43,11 @@
                 <span class="material-symbols-outlined">dashboard</span>
                 <span>Dashboard</span>
             </button>
+            <button onclick="switchView('client-lock')" data-view="client-lock" class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+                <span class="material-symbols-outlined">lock_clock</span>
+                <span class="flex-1">Client Lock</span>
+                <span id="nav-lock-badge" class="hidden text-[10px] bg-[#ba1a1a] text-white px-2 py-0.5 rounded-full font-bold">LOCKED</span>
+            </button>
             <button onclick="switchView('products')" data-view="products" class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined">shopping_bag</span>
                 <span>Products</span>
@@ -58,6 +64,11 @@
             <button onclick="switchView('customers')" data-view="customers" class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined">group</span>
                 <span>Customers</span>
+            </button>
+            <button onclick="switchView('blacklist')" data-view="blacklist" class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+                <span class="material-symbols-outlined">block</span>
+                <span class="flex-1">Blacklist</span>
+                <span id="nav-blacklist-badge" class="hidden text-[10px] bg-[#ba1a1a] text-white px-2 py-0.5 rounded-full font-bold">0</span>
             </button>
             <button onclick="switchView('analytics')" data-view="analytics" class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined">analytics</span>
@@ -158,69 +169,103 @@
 
             <!-- ================= VIEW 1: DASHBOARD ================= -->
             <div id="view-dashboard" class="space-y-6 max-w-[1440px] mx-auto">
-                <div>
-                    <h2 class="text-2xl font-bold text-[#181c1f]">LPU Quick Admin</h2>
-                    <p class="text-sm text-[#5c5f60] mt-0.5">Campus dark-store operations at a glance</p>
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-2xl font-bold text-[#181c1f]">LPU Quick Admin</h2>
+                        <p class="text-sm text-[#5c5f60] mt-0.5">Campus dark-store operations & security console</p>
+                    </div>
+                    <!-- Quick Store Lock Shortcut Button -->
+                    <div class="flex items-center gap-2">
+                        <div id="dash-store-status-pill" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-[#e6f4ea] text-[#137333] border border-[#ceead6]">
+                            <span class="w-2 h-2 rounded-full bg-[#137333] animate-pulse"></span>
+                            <span id="dash-store-status-text">STORE OPEN</span>
+                        </div>
+                        <button onclick="switchView('client-lock')" class="bg-[#3c4043] hover:bg-[#262a2d] text-white text-xs font-bold px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 shadow-sm transition-all">
+                            <span class="material-symbols-outlined text-[16px]">lock_clock</span>
+                            <span>Manage Store Lock</span>
+                        </button>
+                    </div>
                 </div>
 
-                <!-- 6 KPI Bento Cards -->
-                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                    <div class="glass-panel p-4 flex flex-col justify-between hover:-translate-y-0.5 transition-transform">
-                        <div class="flex justify-between items-start mb-3">
-                            <span class="material-symbols-outlined text-[#3c4043]">inventory_2</span>
+                <!-- 7 KPI Bento Cards (Including Profits KPI Card) -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px;">
+                    <div class="glass-panel p-3.5 flex flex-col justify-between hover:-translate-y-0.5 transition-transform">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="material-symbols-outlined text-[#3c4043] text-lg">inventory_2</span>
                         </div>
                         <div>
-                            <p class="text-[11px] font-semibold text-[#5c5f60] uppercase tracking-wider mb-0.5">Total Products</p>
-                            <p class="text-2xl font-bold text-[#181c1f]" id="dash-total-products">--</p>
+                            <p class="text-[10px] font-semibold text-[#5c5f60] uppercase tracking-wider mb-0.5">Products</p>
+                            <p class="text-xl font-bold text-[#181c1f]" id="dash-total-products">--</p>
                         </div>
                     </div>
-                    <div class="glass-panel p-4 flex flex-col justify-between hover:-translate-y-0.5 transition-transform">
-                        <div class="flex justify-between items-start mb-3">
-                            <span class="material-symbols-outlined text-[#3c4043]">layers</span>
+                    <div class="glass-panel p-3.5 flex flex-col justify-between hover:-translate-y-0.5 transition-transform">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="material-symbols-outlined text-[#3c4043] text-lg">layers</span>
                         </div>
                         <div>
-                            <p class="text-[11px] font-semibold text-[#5c5f60] uppercase tracking-wider mb-0.5">Total Stock</p>
-                            <p class="text-2xl font-bold text-[#181c1f]" id="dash-total-stock">--</p>
+                            <p class="text-[10px] font-semibold text-[#5c5f60] uppercase tracking-wider mb-0.5">Total Stock</p>
+                            <p class="text-xl font-bold text-[#181c1f]" id="dash-total-stock">--</p>
                         </div>
                     </div>
-                    <div class="glass-panel p-4 flex flex-col justify-between hover:-translate-y-0.5 transition-transform bg-[#ffdad6]/20 border-[#ffdad6]">
-                        <div class="flex justify-between items-start mb-3">
-                            <span class="material-symbols-outlined text-[#ba1a1a]">warning</span>
+                    <div class="glass-panel p-3.5 flex flex-col justify-between hover:-translate-y-0.5 transition-transform bg-[#ffdad6]/20 border-[#ffdad6]">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="material-symbols-outlined text-[#ba1a1a] text-lg">warning</span>
                         </div>
                         <div>
-                            <p class="text-[11px] font-semibold text-[#ba1a1a] uppercase tracking-wider mb-0.5">Low Stock</p>
-                            <p class="text-2xl font-bold text-[#ba1a1a]" id="dash-low-stock">--</p>
+                            <p class="text-[10px] font-semibold text-[#ba1a1a] uppercase tracking-wider mb-0.5">Low Stock</p>
+                            <p class="text-xl font-bold text-[#ba1a1a]" id="dash-low-stock">--</p>
                         </div>
                     </div>
-                    <div class="glass-panel p-4 flex flex-col justify-between hover:-translate-y-0.5 transition-transform">
-                        <div class="flex justify-between items-start mb-3">
-                            <span class="material-symbols-outlined text-[#3c4043]">shopping_cart</span>
+                    <div class="glass-panel p-3.5 flex flex-col justify-between hover:-translate-y-0.5 transition-transform">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="material-symbols-outlined text-[#3c4043] text-lg">shopping_cart</span>
                         </div>
                         <div>
-                            <p class="text-[11px] font-semibold text-[#5c5f60] uppercase tracking-wider mb-0.5">Total Orders</p>
-                            <p class="text-2xl font-bold text-[#181c1f]" id="dash-total-orders">--</p>
+                            <p class="text-[10px] font-semibold text-[#5c5f60] uppercase tracking-wider mb-0.5">Total Orders</p>
+                            <p class="text-xl font-bold text-[#181c1f]" id="dash-total-orders">--</p>
                         </div>
                     </div>
-                    <div class="glass-panel p-4 flex flex-col justify-between hover:-translate-y-0.5 transition-transform">
-                        <div class="flex justify-between items-start mb-3">
-                            <span class="material-symbols-outlined text-[#b06000]">pending_actions</span>
+                    <div class="glass-panel p-3.5 flex flex-col justify-between hover:-translate-y-0.5 transition-transform">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="material-symbols-outlined text-[#b06000] text-lg">pending_actions</span>
                         </div>
                         <div>
-                            <p class="text-[11px] font-semibold text-[#5c5f60] uppercase tracking-wider mb-0.5">Pending Orders</p>
-                            <p class="text-2xl font-bold text-[#b06000]" id="dash-pending-orders">--</p>
+                            <p class="text-[10px] font-semibold text-[#5c5f60] uppercase tracking-wider mb-0.5">Pending</p>
+                            <p class="text-xl font-bold text-[#b06000]" id="dash-pending-orders">--</p>
                         </div>
                     </div>
-                    <div class="glass-panel p-4 flex flex-col justify-between hover:-translate-y-0.5 transition-transform">
-                        <div class="flex justify-between items-start mb-3">
-                            <span class="material-symbols-outlined text-[#137333]">payments</span>
+                    <div class="glass-panel p-3.5 flex flex-col justify-between hover:-translate-y-0.5 transition-transform">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="material-symbols-outlined text-[#137333] text-lg">payments</span>
                         </div>
                         <div>
-                            <p class="text-[11px] font-semibold text-[#5c5f60] uppercase tracking-wider mb-0.5">Total Revenue</p>
-                            <p class="text-2xl font-bold text-[#137333]" id="dash-total-revenue">--</p>
-                            <p class="text-[10px] text-[#5c5f60] font-medium mt-0.5">Delivered orders only</p>
+                            <p class="text-[10px] font-semibold text-[#5c5f60] uppercase tracking-wider mb-0.5">Revenue</p>
+                            <p class="text-xl font-bold text-[#137333]" id="dash-total-revenue">--</p>
+                        </div>
+                    </div>
+
+                    <!-- 7. SECURE PROFITS KPI CARD (Default: LOCKED) -->
+                    <div class="glass-panel p-3.5 flex flex-col justify-between hover:-translate-y-0.5 transition-transform bg-[#fef7e0]/40 border-[#fce8b2] relative overflow-hidden" id="dash-profit-card">
+                        <div class="flex justify-between items-start mb-1">
+                            <span class="material-symbols-outlined text-[#b06000] text-lg">monetization_on</span>
+                            <button onclick="toggleProfitVisibility()" id="btn-profit-lock-toggle" class="p-1 rounded hover:bg-black/5 text-[#b06000]" title="Toggle Profit Visibility">
+                                <span class="material-symbols-outlined text-[16px]" id="icon-profit-lock">lock</span>
+                            </button>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-bold text-[#b06000] uppercase tracking-wider mb-0.5 flex items-center gap-1">
+                                <span>Profits</span>
+                                <span id="profit-badge" class="text-[9px] bg-[#b06000]/15 text-[#b06000] px-1.5 py-0.2 rounded font-bold">LOCKED</span>
+                            </p>
+                            <div id="dash-profit-content">
+                                <p class="text-lg font-bold text-[#5c5f60] tracking-widest" id="dash-net-profit">••••••</p>
+                                <p class="text-[9px] text-[#74777a]" id="dash-profit-sub">Click lock to view</p>
+                            </div>
                         </div>
                     </div>
                 </div>
+
+
 
                 <!-- Main Grid: Recent Orders (2/3) + Low Stock (1/3) -->
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -272,8 +317,163 @@
                 </div>
             </div>
 
+            <!-- ================= VIEW: CLIENT DASHBOARD CONTROL ================= -->
+            <div id="view-client-lock" class="space-y-6 max-w-[1440px] mx-auto hidden">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-2xl font-bold text-[#181c1f] flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[#ba1a1a]">lock_clock</span>
+                            <span>Client Dashboard Control</span>
+                        </h2>
+                        <p class="text-sm text-[#5c5f60] mt-0.5">Control customer storefront access, duration locks, and automated schedules</p>
+                    </div>
+                    <button onclick="refreshClientLockState()" class="text-xs font-semibold text-[#3c4043] bg-white border border-[#DADCE0] px-3.5 py-2 rounded-lg hover:bg-[#f1f4f7] flex items-center gap-1.5 shadow-sm">
+                        <span class="material-symbols-outlined text-[16px]">refresh</span>
+                        <span>Refresh Status</span>
+                    </button>
+                </div>
+
+                <!-- Current Live Status Card -->
+                <div class="glass-panel p-6 border-l-4" id="lock-hero-card">
+                    <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                        <div class="space-y-2">
+                            <div class="flex items-center gap-3">
+                                <span class="text-xs uppercase font-bold tracking-wider text-[#5c5f60]">Current Storefront State</span>
+                                <span id="lock-state-badge" class="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wide bg-[#e6f4ea] text-[#137333] border border-[#ceead6]">
+                                    AVAILABLE
+                                </span>
+                            </div>
+                            <h3 class="text-2xl font-black text-[#181c1f]" id="lock-headline-display">
+                                Store is OPEN for student orders
+                            </h3>
+                            <p class="text-xs text-[#5c5f60]" id="lock-sub-display">
+                                Students can browse products, manage their cart, and place orders with 3-minute delivery.
+                            </p>
+                            <div id="lock-timer-box" class="hidden flex items-center gap-2 pt-2">
+                                <span class="material-symbols-outlined text-[#ba1a1a] text-lg animate-pulse">timer</span>
+                                <span class="text-sm font-bold text-[#ba1a1a]">Time Remaining:</span>
+                                <span class="text-lg font-black font-mono text-[#ba1a1a] bg-[#ffdad6]/40 px-3 py-0.5 rounded-lg" id="lock-timer-countdown">00:00:00</span>
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-2 w-full md:w-auto">
+                            <button type="button" id="btn-quick-unlock" onclick="handleUnlockStore()" class="hidden bg-[#137333] hover:bg-[#0f5b28] text-white px-5 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-95">
+                                <span class="material-symbols-outlined text-[18px]">lock_open</span>
+                                <span>Unlock Storefront Now</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lock Configuration Form -->
+                <div class="glass-panel p-6">
+                    <h3 class="font-bold text-base text-[#181c1f] mb-4 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[#3c4043]">tune</span>
+                        <span>Lock Configuration & Timing Modes</span>
+                    </h3>
+
+                    <form id="client-lock-form" onsubmit="handleApplyLock(event)" class="space-y-6 text-xs">
+                        
+                        <!-- Mode Selector (Radio Cards) -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                            <label class="lock-mode-card border-2 border-[#3c4043] bg-[#3c4043]/5 p-4 rounded-xl cursor-pointer flex flex-col gap-2 transition-all">
+                                <div class="flex items-center justify-between">
+                                    <input type="radio" name="lock_mode" value="IMMEDIATE" checked onchange="handleLockModeChange()" class="text-[#3c4043] focus:ring-[#3c4043]">
+                                    <span class="material-symbols-outlined text-[#ba1a1a]">lock</span>
+                                </div>
+                                <span class="font-bold text-sm text-[#181c1f]">Immediate Lock</span>
+                                <span class="text-[11px] text-[#5c5f60]">Lock the store immediately until manually unlocked or duration ends.</span>
+                            </label>
+
+                            <label class="lock-mode-card border border-[#DADCE0] p-4 rounded-xl cursor-pointer flex flex-col gap-2 hover:border-[#3c4043] transition-all">
+                                <div class="flex items-center justify-between">
+                                    <input type="radio" name="lock_mode" value="DURATION" onchange="handleLockModeChange()" class="text-[#3c4043] focus:ring-[#3c4043]">
+                                    <span class="material-symbols-outlined text-[#b06000]">hourglass_top</span>
+                                </div>
+                                <span class="font-bold text-sm text-[#181c1f]">Duration Timer</span>
+                                <span class="text-[11px] text-[#5c5f60]">Lock for a set duration (e.g. 30m, 1h) with auto-unlock when timer ends.</span>
+                            </label>
+
+                            <label class="lock-mode-card border border-[#DADCE0] p-4 rounded-xl cursor-pointer flex flex-col gap-2 hover:border-[#3c4043] transition-all">
+                                <div class="flex items-center justify-between">
+                                    <input type="radio" name="lock_mode" value="SCHEDULED" onchange="handleLockModeChange()" class="text-[#3c4043] focus:ring-[#3c4043]">
+                                    <span class="material-symbols-outlined text-[#1a73e8]">event</span>
+                                </div>
+                                <span class="font-bold text-sm text-[#181c1f]">Scheduled Lock</span>
+                                <span class="text-[11px] text-[#5c5f60]">Specify exact start and end date & time for automated lock window.</span>
+                            </label>
+
+                            <label class="lock-mode-card border border-[#DADCE0] p-4 rounded-xl cursor-pointer flex flex-col gap-2 hover:border-[#3c4043] transition-all">
+                                <div class="flex items-center justify-between">
+                                    <input type="radio" name="lock_mode" value="MANUAL" onchange="handleLockModeChange()" class="text-[#3c4043] focus:ring-[#3c4043]">
+                                    <span class="material-symbols-outlined text-[#74777a]">pan_tool</span>
+                                </div>
+                                <span class="font-bold text-sm text-[#181c1f]">Manual Lock</span>
+                                <span class="text-[11px] text-[#5c5f60]">Lock indefinitely without countdown until an admin manually unlocks.</span>
+                            </label>
+                        </div>
+
+                        <!-- Duration Selector (Shown when DURATION selected) -->
+                        <div id="section-duration-picker" class="hidden space-y-3 p-4 bg-[#f8f9fa] rounded-xl border border-[#DADCE0]">
+                            <label class="font-bold text-[#181c1f] block">Select Lock Duration</label>
+                            <div class="flex flex-wrap gap-2">
+                                <button type="button" onclick="setDurationMins(15)" class="duration-chip px-4 py-2 rounded-lg border border-[#DADCE0] bg-white font-semibold hover:border-[#3c4043]">15 Minutes</button>
+                                <button type="button" onclick="setDurationMins(30)" class="duration-chip active px-4 py-2 rounded-lg border-2 border-[#3c4043] bg-[#3c4043] text-white font-semibold">30 Minutes</button>
+                                <button type="button" onclick="setDurationMins(60)" class="duration-chip px-4 py-2 rounded-lg border border-[#DADCE0] bg-white font-semibold hover:border-[#3c4043]">1 Hour</button>
+                                <button type="button" onclick="setDurationMins(120)" class="duration-chip px-4 py-2 rounded-lg border border-[#DADCE0] bg-white font-semibold hover:border-[#3c4043]">2 Hours</button>
+                                <button type="button" onclick="setDurationMins(480)" class="duration-chip px-4 py-2 rounded-lg border border-[#DADCE0] bg-white font-semibold hover:border-[#3c4043]">Overnight (8 Hours)</button>
+                            </div>
+                            <div class="flex items-center gap-2 pt-2">
+                                <span class="text-xs text-[#5c5f60]">Or custom minutes:</span>
+                                <input type="number" id="input-custom-duration" min="1" max="1440" value="30" class="w-24 border border-[#DADCE0] rounded-lg p-2 font-semibold">
+                                <span class="text-xs text-[#5c5f60]">minutes</span>
+                            </div>
+                        </div>
+
+                        <!-- Schedule Pickers (Shown when SCHEDULED selected) -->
+                        <div id="section-schedule-picker" class="hidden space-y-3 p-4 bg-[#f8f9fa] rounded-xl border border-[#DADCE0]">
+                            <label class="font-bold text-[#181c1f] block">Select Lock Schedule Window</label>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="font-semibold text-[#5c5f60] block mb-1">Start Date & Time</label>
+                                    <input type="datetime-local" id="input-schedule-start" class="w-full border border-[#DADCE0] rounded-lg p-2.5 bg-white font-medium">
+                                </div>
+                                <div>
+                                    <label class="font-semibold text-[#5c5f60] block mb-1">End Date & Time (Store Reopens)</label>
+                                    <input type="datetime-local" id="input-schedule-end" class="w-full border border-[#DADCE0] rounded-lg p-2.5 bg-white font-medium">
+                                </div>
+                            </div>
+                            <p class="text-[11px] text-[#5c5f60]">
+                                💡 Tip: Storefront will automatically lock when the start time arrives, show live countdown to reopening time, and automatically reopen at the end time.
+                            </p>
+                        </div>
+
+                        <!-- Custom Closed Message -->
+                        <div>
+                            <label class="font-bold text-[#181c1f] block mb-1.5" for="input-lock-message">
+                                Custom Closed Message <span class="font-normal text-[#5c5f60]">(Optional)</span>
+                            </label>
+                            <input id="input-lock-message" type="text" placeholder="e.g. We are restocking fresh snacks! Back in a moment." class="w-full border border-[#DADCE0] rounded-xl p-3 bg-white focus:outline-none focus:ring-2 focus:ring-[#3c4043] font-medium text-xs">
+                            <p class="text-[11px] text-[#74777a] mt-1">If provided, this message will be displayed on the customer lock screen.</p>
+                        </div>
+
+                        <!-- Submit Buttons -->
+                        <div class="flex items-center gap-3 pt-2">
+                            <button type="submit" id="btn-apply-lock" class="bg-[#ba1a1a] hover:bg-[#93000a] text-white px-6 py-3 rounded-xl font-bold text-xs flex items-center gap-2 shadow-md transition-all active:scale-95">
+                                <span class="material-symbols-outlined text-[18px]">lock</span>
+                                <span id="btn-apply-lock-text">Lock Client Dashboard Now</span>
+                            </button>
+                            <button type="button" onclick="handleUnlockStore()" class="bg-white border border-[#DADCE0] text-[#181c1f] hover:bg-[#f1f4f7] px-5 py-3 rounded-xl font-bold text-xs flex items-center gap-2 transition-all">
+                                <span class="material-symbols-outlined text-[18px]">lock_open</span>
+                                <span>Unlock / Set Available</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
             <!-- ================= VIEW 2: PRODUCTS ================= -->
             <div id="view-products" class="space-y-6 max-w-[1440px] mx-auto hidden">
+
                 <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                     <div>
                         <h2 class="text-2xl font-bold text-[#181c1f]">Product Management</h2>
@@ -407,9 +607,20 @@
 
             <!-- ================= VIEW 5: CUSTOMERS ================= -->
             <div id="view-customers" class="space-y-6 max-w-[1440px] mx-auto hidden">
-                <div>
-                    <h2 class="text-2xl font-bold text-[#181c1f]">Student Customer Directory</h2>
-                    <p class="text-sm text-[#5c5f60]">Aggregated student profiles, orders history, and spending</p>
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-2xl font-bold text-[#181c1f]">Student Customer Directory</h2>
+                        <p class="text-sm text-[#5c5f60]">Aggregated student profiles, contact info, and fraud management</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="relative w-64">
+                            <span class="material-symbols-outlined absolute left-3 top-2.5 text-[#74777a] text-lg">search</span>
+                            <input type="text" id="customer-search-input" onkeyup="filterCustomerDirectory()" placeholder="Search by name, email, phone..." class="w-full pl-9 pr-3 py-2 border border-[#DADCE0] rounded-xl text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[#3c4043]">
+                        </div>
+                        <button onclick="loadCustomers()" class="p-2 border border-[#DADCE0] rounded-xl bg-white hover:bg-[#f1f4f7] text-[#3c4043]" title="Reload Customers">
+                            <span class="material-symbols-outlined text-lg">refresh</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="glass-panel overflow-hidden">
@@ -418,20 +629,76 @@
                             <thead>
                                 <tr class="border-b border-[#DADCE0] bg-[#f7fafd] text-[#5c5f60] font-semibold uppercase text-[11px]">
                                     <th class="p-4">Customer</th>
-                                    <th class="p-4">Contact</th>
+                                    <th class="p-4">Phone Number</th>
+                                    <th class="p-4">Email Address</th>
                                     <th class="p-4">Orders Placed</th>
                                     <th class="p-4">Total Spent</th>
                                     <th class="p-4">Last Order</th>
-                                    <th class="p-4">Status</th>
+                                    <th class="p-4">Account Status</th>
+                                    <th class="p-4 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="customers-table-tbody" class="divide-y divide-[#DADCE0]">
-                                <tr><td colspan="6" class="p-6 text-center text-[#5c5f60]">Loading customers...</td></tr>
+                                <tr><td colspan="8" class="p-6 text-center text-[#5c5f60]">Loading customers...</td></tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
+
+            <!-- ================= VIEW: BLACKLIST & FRAUD PREVENTION ================= -->
+            <div id="view-blacklist" class="space-y-6 max-w-[1440px] mx-auto hidden">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-2xl font-bold text-[#181c1f] flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[#ba1a1a]">block</span>
+                            <span>Blacklist & Fraud Prevention</span>
+                        </h2>
+                        <p class="text-sm text-[#5c5f60]">Manage blocked accounts, fake order abusers, and blacklist enforcement</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="relative w-64">
+                            <span class="material-symbols-outlined absolute left-3 top-2.5 text-[#74777a] text-lg">search</span>
+                            <input type="text" id="blacklist-search-input" onkeyup="filterBlacklistTable()" placeholder="Search blacklist..." class="w-full pl-9 pr-3 py-2 border border-[#DADCE0] rounded-xl text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[#3c4043]">
+                        </div>
+                        <button onclick="loadBlacklistData()" class="p-2 border border-[#DADCE0] rounded-xl bg-white hover:bg-[#f1f4f7] text-[#3c4043]" title="Refresh Blacklist">
+                            <span class="material-symbols-outlined text-lg">refresh</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filter Pills -->
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="font-bold text-[#5c5f60] mr-1">Filter Reason:</span>
+                    <button type="button" onclick="setBlacklistFilter('all')" class="bl-filter-pill active px-3 py-1.5 rounded-full border border-[#3c4043] bg-[#3c4043] text-white font-semibold">All Records</button>
+                    <button type="button" onclick="setBlacklistFilter('fake')" class="bl-filter-pill px-3 py-1.5 rounded-full border border-[#DADCE0] bg-white text-[#5c5f60] hover:border-[#3c4043] font-semibold">Fake Orders</button>
+                    <button type="button" onclick="setBlacklistFilter('other')" class="bl-filter-pill px-3 py-1.5 rounded-full border border-[#DADCE0] bg-white text-[#5c5f60] hover:border-[#3c4043] font-semibold">Other Reasons</button>
+                </div>
+
+                <!-- Blacklist Table -->
+                <div class="glass-panel overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="border-b border-[#DADCE0] bg-[#f7fafd] text-[#5c5f60] font-semibold uppercase text-[11px]">
+                                    <th class="p-4">Customer</th>
+                                    <th class="p-4">Phone Number</th>
+                                    <th class="p-4">Email Address</th>
+                                    <th class="p-4">Block Reason</th>
+                                    <th class="p-4">Blocked Date</th>
+                                    <th class="p-4">Blocked By</th>
+                                    <th class="p-4">Status</th>
+                                    <th class="p-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="blacklist-table-tbody" class="divide-y divide-[#DADCE0]">
+                                <tr><td colspan="8" class="p-6 text-center text-[#5c5f60]">Loading blacklist records...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
 
             <!-- ================= VIEW 6: ANALYTICS ================= -->
             <div id="view-analytics" class="space-y-6 max-w-[1440px] mx-auto hidden">
@@ -440,13 +707,29 @@
                     <p class="text-sm text-[#5c5f60]">Live revenue metrics, average order value, and top campus products</p>
                 </div>
 
-                <!-- Metric Tiles -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Metric Tiles (Including Protected Profits) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                     <div class="glass-panel p-5">
                         <p class="text-xs text-[#5c5f60] font-medium uppercase">Total Campus Revenue</p>
                         <h3 class="text-3xl font-black text-[#137333] mt-1" id="analytics-rev">--</h3>
-                        <p class="text-[11px] text-[#5c5f60] mt-1">From real orders in SQLite & Supabase</p>
+                        <p class="text-[11px] text-[#5c5f60] mt-1">From real orders in Supabase Cloud</p>
                     </div>
+
+                    <!-- Protected Net Profits Card -->
+                    <div class="glass-panel p-5 bg-[#fef7e0]/30 border-[#fce8b2] flex flex-col justify-between" id="analytics-profit-card">
+                        <div class="flex justify-between items-start">
+                            <p class="text-xs text-[#b06000] font-bold uppercase flex items-center gap-1.5">
+                                <span>Net Profits</span>
+                                <span id="analytics-profit-badge" class="text-[10px] bg-[#b06000]/15 text-[#b06000] px-1.5 py-0.5 rounded font-bold">LOCKED</span>
+                            </p>
+                            <button onclick="toggleProfitVisibility()" class="p-1 rounded hover:bg-black/5 text-[#b06000]" title="Toggle Profit Visibility">
+                                <span class="material-symbols-outlined text-[18px]" id="analytics-icon-profit-lock">lock</span>
+                            </button>
+                        </div>
+                        <h3 class="text-3xl font-black text-[#5c5f60] mt-1 tracking-wider" id="analytics-net-profit">••••••</h3>
+                        <p class="text-[11px] text-[#74777a] mt-1" id="analytics-profit-sub">Click lock icon to decrypt</p>
+                    </div>
+
                     <div class="glass-panel p-5">
                         <p class="text-xs text-[#5c5f60] font-medium uppercase">Average Order Value (AOV)</p>
                         <h3 class="text-3xl font-black text-[#181c1f] mt-1" id="analytics-aov">--</h3>
@@ -463,6 +746,7 @@
                         <p class="text-[11px] text-[#5c5f60] mt-1">Active items ready for dispatch</p>
                     </div>
                 </div>
+
 
                 <!-- Top Selling Products Leaderboard -->
                 <div class="glass-panel p-6">
@@ -671,10 +955,76 @@
         </div>
     </div>
 
-    <!-- ================= DEDICATED STITCH ADMIN SIGN IN SCREEN ================= -->
+    <!-- ================= MODAL: BLOCK USER / FRAUD PREVENTION ================= -->
+    <div id="block-user-modal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#DADCE0] space-y-4">
+            <div class="flex justify-between items-center border-b border-[#DADCE0] pb-3">
+                <div class="flex items-center gap-2 text-[#ba1a1a]">
+                    <span class="material-symbols-outlined text-2xl">block</span>
+                    <h3 class="font-bold text-base text-[#181c1f]">Block User & Add to Blacklist</h3>
+                </div>
+                <button onclick="closeBlockUserModal()" class="text-[#5c5f60] hover:text-[#181c1f]">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <!-- Student Summary Box -->
+            <div class="p-3.5 bg-[#f8f9fa] rounded-xl border border-[#DADCE0] space-y-1 text-xs">
+                <p class="font-bold text-sm text-[#181c1f]" id="modal-block-user-name">Student Name</p>
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between text-[#5c5f60] gap-1">
+                    <span>Phone: <b id="modal-block-user-phone" class="text-[#181c1f]">--</b></span>
+                    <span>Email: <b id="modal-block-user-email" class="text-[#181c1f]">--</b></span>
+                </div>
+            </div>
+
+            <form id="block-user-form" onsubmit="handleBlockUserSubmit(event)" class="space-y-4 text-xs">
+                <input type="hidden" id="modal-block-user-id" value="">
+
+                <!-- Block Reason Dropdown -->
+                <div>
+                    <label class="font-semibold text-[#262a2d] block mb-1">Reason for Blocking *</label>
+                    <select id="modal-block-reason" required onchange="updateBlockReasonPreview()" class="w-full border border-[#DADCE0] rounded-xl p-2.5 bg-white font-semibold text-xs focus:ring-2 focus:ring-[#ba1a1a] outline-none">
+                        <option value="Fake Orders" selected>Fake Orders</option>
+                        <option value="Suspicious Activity">Suspicious Activity</option>
+                        <option value="Payment Fraud / Chargeback">Payment Fraud / Chargeback</option>
+                        <option value="Abusive Behavior to Rider">Abusive Behavior to Rider</option>
+                        <option value="Multiple Address Violations">Multiple Address Violations</option>
+                        <option value="Other Policy Violation">Other Policy Violation</option>
+                    </select>
+                </div>
+
+                <!-- Customer Facing Message Preview -->
+                <div>
+                    <label class="font-semibold text-[#5c5f60] block mb-1">Customer-Facing Notice Preview</label>
+                    <div class="p-3 bg-[#ffdad6]/40 border border-[#ffdad6] rounded-xl text-[#ba1a1a] font-medium text-xs flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm">info</span>
+                        <span id="modal-block-preview-text">"You are blocked due to fake orders."</span>
+                    </div>
+                </div>
+
+                <!-- Internal Admin Notes -->
+                <div>
+                    <label class="font-semibold text-[#262a2d] block mb-1">Internal Admin Notes (Optional)</label>
+                    <textarea id="modal-block-notes" rows="2" placeholder="Record incident details, cancelled order IDs, or notes..." class="w-full border border-[#DADCE0] rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-[#3c4043] outline-none"></textarea>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 pt-2 border-t border-[#DADCE0]">
+                    <button type="button" onclick="closeBlockUserModal()" class="px-4 py-2.5 rounded-xl border border-[#DADCE0] bg-white text-[#5c5f60] font-semibold hover:bg-[#f1f4f7]">
+                        Cancel
+                    </button>
+                    <button type="submit" id="btn-confirm-block" class="px-5 py-2.5 rounded-xl bg-[#ba1a1a] hover:bg-[#93000a] text-white font-bold flex items-center gap-1.5 shadow-md transition-all">
+                        <span class="material-symbols-outlined text-[16px]">block</span>
+                        <span>Confirm Block User</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= DEDICATED SECURE ADMIN SIGN IN SCREEN ================= -->
     <div id="admin-auth-screen" class="fixed inset-0 z-50 bg-[#F1F3F4] flex flex-col items-center justify-center p-4 antialiased overflow-y-auto hidden">
         <main class="w-full max-w-md my-auto">
-            <!-- Glassmorphic Login Card (Exact Stitch Design) -->
+            <!-- Glassmorphic Login Card -->
             <div class="bg-white/85 backdrop-blur-xl rounded-2xl overflow-hidden shadow-2xl border border-white/60 p-8 sm:p-10 transition-all hover:shadow-[0_12px_50px_rgba(60,64,67,0.15)]">
                 
                 <!-- Brand Logo & Header -->
@@ -688,25 +1038,25 @@
 
                 <!-- Sign In Form -->
                 <form id="stitch-signin-form" onsubmit="handleAdminLogin(event)" class="w-full space-y-4 text-xs">
-                    <!-- Email Field -->
+                    <!-- Email Field: Empty by default -->
                     <div>
                         <label class="block font-semibold text-[#44474a] mb-1.5" for="login-email">Email Address</label>
                         <div class="relative">
                             <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#74777a]">
                                 <span class="material-symbols-outlined text-lg">mail</span>
                             </div>
-                            <input id="login-email" type="email" value="admin@lpu.in" required placeholder="admin@lpu.in" class="block w-full pl-10 pr-3.5 py-3 border border-[#DADCE0] rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#3c4043] focus:border-transparent text-xs text-[#181c1f] font-medium placeholder-[#c4c7ca] shadow-sm"/>
+                            <input id="login-email" type="email" value="" required placeholder="admin@lpu.in" autocomplete="username" class="block w-full pl-10 pr-3.5 py-3 border border-[#DADCE0] rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#3c4043] focus:border-transparent text-xs text-[#181c1f] font-medium placeholder-[#c4c7ca] shadow-sm"/>
                         </div>
                     </div>
 
-                    <!-- Password Field -->
+                    <!-- Password Field: Empty by default -->
                     <div>
                         <label class="block font-semibold text-[#44474a] mb-1.5" for="login-password">Password</label>
                         <div class="relative">
                             <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#74777a]">
                                 <span class="material-symbols-outlined text-lg">lock</span>
                             </div>
-                            <input id="login-password" type="password" value="admin123" required placeholder="••••••••" class="block w-full pl-10 pr-10 py-3 border border-[#DADCE0] rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#3c4043] focus:border-transparent text-xs text-[#181c1f] font-medium placeholder-[#c4c7ca] shadow-sm"/>
+                            <input id="login-password" type="password" value="" required placeholder="Enter password" autocomplete="current-password" class="block w-full pl-10 pr-10 py-3 border border-[#DADCE0] rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#3c4043] focus:border-transparent text-xs text-[#181c1f] font-medium placeholder-[#c4c7ca] shadow-sm"/>
                             <button type="button" onclick="togglePasswordVisibility()" class="absolute inset-y-0 right-0 pr-3 flex items-center text-[#74777a] hover:text-[#181c1f]">
                                 <span class="material-symbols-outlined text-lg" id="password-toggle-icon">visibility</span>
                             </button>
@@ -716,18 +1066,15 @@
                     <!-- Error Alert Box -->
                     <div id="login-error" class="hidden p-3 rounded-xl bg-[#ffdad6] text-[#ba1a1a] text-xs font-semibold flex items-center gap-2">
                         <span class="material-symbols-outlined text-base">error</span>
-                        <span id="login-error-text">Invalid admin credentials</span>
+                        <span id="login-error-text">Invalid administrator credentials</span>
                     </div>
 
-                    <!-- Remember & Auto-Fill -->
+                    <!-- Remember Me -->
                     <div class="flex items-center justify-between text-xs pt-1">
                         <label class="flex items-center gap-2 text-[#5c5f60] cursor-pointer">
-                            <input type="checkbox" id="remember-me" checked class="rounded border-[#DADCE0] text-[#3c4043] focus:ring-[#3c4043] w-4 h-4"/>
-                            <span>Remember me</span>
+                            <input type="checkbox" id="remember-me" class="rounded border-[#DADCE0] text-[#3c4043] focus:ring-[#3c4043] w-4 h-4"/>
+                            <span>Remember this workstation</span>
                         </label>
-                        <button type="button" onclick="fillDemoCredentials()" class="font-bold text-[#3c4043] hover:underline">
-                            Auto-Fill Credentials
-                        </button>
                     </div>
 
                     <!-- Submit Button -->
@@ -737,19 +1084,11 @@
                             <span class="material-symbols-outlined text-base">arrow_forward</span>
                         </button>
                     </div>
-
-                    <!-- Quick Access Google / Demo Pass -->
-                    <div class="pt-1">
-                        <button type="button" onclick="quickPassLogin()" class="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 border border-[#DADCE0] rounded-xl bg-white hover:bg-[#f1f4f7] text-[#181c1f] font-semibold text-xs transition-all shadow-sm">
-                            <svg height="16" viewBox="0 0 18 18" width="16"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"></path><path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"></path><path d="M3.964 10.711c-.18-.54-.282-1.117-.282-1.711s.102-1.171.282-1.711V4.957H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.043l3.007-2.332z" fill="#FBBC05"></path><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.443 2.048.957 4.957l3.007 2.332c.708-2.127 2.692-3.709 5.036-3.709z" fill="#EA4335"></path></svg>
-                            <span>Sign in with Google Workspace (LPU.in)</span>
-                        </button>
-                    </div>
                 </form>
 
                 <!-- Help Info -->
                 <div class="mt-6 text-center text-xs text-[#5c5f60]">
-                    Need dispatch credentials? <span class="font-bold text-[#181c1f]">BH13 Dark Store Hub</span>
+                    Campus dispatch credentials managed by <span class="font-bold text-[#181c1f]">BH13 Operations</span>
                 </div>
             </div>
 
@@ -762,6 +1101,7 @@
     </div>
 
     <!-- Application Script Reference -->
-    <script src="js/admin.js?v=20260830r5"></script>
+    <script src="/admin/js/admin.js?v=20260830r7"></script>
 </body>
 </html>
+

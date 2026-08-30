@@ -315,9 +315,55 @@ function getStatusMessage(status, riderName) {
     }
 }
 
+// Broadcast client lock status update to all connected storefront clients & admin sockets
+function broadcastClientLockUpdate(lockState) {
+    console.log(`[WS Hub] 🔒 Broadcasting CLIENT_LOCK_UPDATE: ${lockState.lock_status} (is_locked: ${lockState.is_locked})`);
+
+    const payload = JSON.stringify({
+        type: 'CLIENT_LOCK_UPDATE',
+        availability: lockState,
+        timestamp: new Date().toISOString()
+    });
+
+    clientSockets.forEach(ws => {
+        if (ws.readyState === WebSocket.OPEN) ws.send(payload);
+    });
+
+    adminSockets.forEach(ws => {
+        if (ws.readyState === WebSocket.OPEN) ws.send(payload);
+    });
+}
+
+// Broadcast user block signal
+function broadcastUserBlocked(userId, reason = 'Fake Orders') {
+    console.log(`[WS Hub] ⛔ Broadcasting USER_BLOCKED for user: ${userId}`);
+
+    const payload = JSON.stringify({
+        type: 'USER_BLOCKED',
+        userId,
+        reason,
+        timestamp: new Date().toISOString()
+    });
+
+    clientSockets.forEach(ws => {
+        if (ws.readyState === WebSocket.OPEN) {
+            if (ws.userId === userId) {
+                ws.send(payload);
+            }
+        }
+    });
+
+    adminSockets.forEach(ws => {
+        if (ws.readyState === WebSocket.OPEN) ws.send(payload);
+    });
+}
+
 module.exports = {
     setupRealtime,
     broadcastOrderPlaced: notifyAdminNewOrder,
     broadcastStatusUpdate,
-    broadcastInventoryUpdate
+    broadcastInventoryUpdate,
+    broadcastClientLockUpdate,
+    broadcastUserBlocked
 };
+

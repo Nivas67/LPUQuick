@@ -745,6 +745,201 @@ initGlobalEventDelegation();
 
 // Router Main Function
 // Router Main Function - Instant Zero-Blocking Navigation
+// ================= CLIENT STORE AVAILABILITY & LOCK CONTROLLER =================
+window.__storeAvailability = null;
+window.__isUserBlocked = false;
+window.__userBlockReason = null;
+window.__clientLockTicker = null;
+
+window.syncStoreAvailability = async function() {
+    try {
+        const data = await window.api.getClientStatus();
+        window.__storeAvailability = data;
+        renderStoreClosedBannerOrOverlay();
+        return data;
+    } catch (e) {
+        console.warn('[Store Availability Sync Error]:', e);
+        return { is_locked: false, lock_status: 'AVAILABLE' };
+    }
+};
+
+window.renderStoreClosedBannerOrOverlay = function() {
+    const avail = window.__storeAvailability;
+    if (!avail) return;
+
+    const isLocked = Boolean(avail.is_locked);
+    const homeHeroContainer = document.getElementById('store-closed-banner-slot');
+    
+    if (isLocked) {
+        // Build reference design visual component
+        const reopenHeadline = avail.display_reopen?.fullHeadline || (avail.reopen_at ? `We'll reopen at ${new Date(avail.reopen_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}` : "We'll reopen soon");
+        const secondaryText = avail.message || "You can still add items and order when the store re-opens";
+
+        const closedCardHtml = `
+            <div id="store-closed-hero-card" class="relative overflow-hidden rounded-3xl bg-[#1a1d20] text-white p-6 sm:p-8 shadow-2xl border border-white/10 my-4 animate-fade-in">
+                <!-- Ambient glow -->
+                <div class="absolute -top-24 -left-24 w-72 h-72 bg-red-600/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="absolute -bottom-24 -right-24 w-72 h-72 bg-amber-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+                    
+                    <!-- Left Column: Dynamic Typography & Live Countdown -->
+                    <div class="flex-1 space-y-3 text-left">
+                        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-white/10 text-white/90 border border-white/10">
+                            <span class="w-2 h-2 rounded-full bg-[#ea4335] animate-ping"></span>
+                            <span>Temporary Store Restock</span>
+                        </div>
+
+                        <h1 class="text-2xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight" id="client-closed-headline">
+                            ${reopenHeadline}
+                        </h1>
+
+                        <p class="text-sm sm:text-base text-[#a0a5aa] font-medium leading-relaxed max-w-xl">
+                            ${secondaryText}
+                        </p>
+
+                        <!-- Live Ticking Countdown -->
+                        <div id="client-countdown-wrapper" class="pt-2 ${avail.remaining_seconds ? '' : 'hidden'}">
+                            <div class="inline-flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-white/10 border border-white/15 text-white font-mono text-sm shadow-inner">
+                                <span class="material-symbols-outlined text-base text-[#ea4335] animate-pulse">timer</span>
+                                <span class="text-xs font-semibold text-white/80">Time remaining:</span>
+                                <span class="font-bold text-white font-mono text-base tracking-widest" id="client-countdown-display">00:00:00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Hanging Red CLOSED Sign (Visual Reference Match) -->
+                    <div class="shrink-0 flex flex-col items-center select-none pt-2 sm:pt-0">
+                        <!-- Top Chains / Strings -->
+                        <div class="flex justify-between w-36 px-4 mb-[-2px] relative z-0">
+                            <div class="w-[2px] h-8 bg-gradient-to-b from-[#80868b] to-[#5f6368] shadow-sm"></div>
+                            <div class="w-[2px] h-8 bg-gradient-to-b from-[#80868b] to-[#5f6368] shadow-sm"></div>
+                        </div>
+
+                        <!-- Red Board -->
+                        <div class="relative z-10 w-44 sm:w-48 bg-gradient-to-b from-[#d93025] to-[#b3261e] border-2 border-[#ff8a80] rounded-2xl p-4 text-center shadow-[0_15px_35px_rgba(0,0,0,0.6)] transform hover:rotate-1 transition-transform duration-300">
+                            <!-- Metal Grommets -->
+                            <div class="absolute top-2 left-3 w-2.5 h-2.5 rounded-full bg-[#3c4043] border border-white/40 shadow-inner"></div>
+                            <div class="absolute top-2 right-3 w-2.5 h-2.5 rounded-full bg-[#3c4043] border border-white/40 shadow-inner"></div>
+                            
+                            <p class="text-[11px] font-extrabold uppercase tracking-widest text-white/90 drop-shadow-sm">Sorry, we are</p>
+                            <h2 class="text-3xl font-black uppercase tracking-wider text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)] mt-0.5">CLOSED</h2>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        `;
+
+        if (homeHeroContainer) {
+            homeHeroContainer.innerHTML = closedCardHtml;
+            homeHeroContainer.classList.remove('hidden');
+        }
+
+        // Start live ticker
+        if (avail.remaining_seconds && avail.remaining_seconds > 0) {
+            startClientCountdown(avail.remaining_seconds, avail.end_at);
+        }
+
+        // Update any checkout submit button if visible
+        updateCheckoutButtonsForLock(true, reopenHeadline);
+    } else {
+        if (homeHeroContainer) {
+            homeHeroContainer.innerHTML = '';
+            homeHeroContainer.classList.add('hidden');
+        }
+        if (window.__clientLockTicker) {
+            clearInterval(window.__clientLockTicker);
+            window.__clientLockTicker = null;
+        }
+        updateCheckoutButtonsForLock(false);
+    }
+};
+
+function startClientCountdown(seconds, endAt) {
+    if (window.__clientLockTicker) clearInterval(window.__clientLockTicker);
+
+    const endTimestamp = endAt ? new Date(endAt).getTime() : Date.now() + (seconds * 1000);
+
+    const update = () => {
+        const now = Date.now();
+        const diff = Math.max(0, Math.floor((endTimestamp - now) / 1000));
+
+        const h = String(Math.floor(diff / 3600)).padStart(2, '0');
+        const m = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
+        const s = String(diff % 60).padStart(2, '0');
+
+        const displayEl = document.getElementById('client-countdown-display');
+        if (displayEl) {
+            displayEl.textContent = `${h}:${m}:${s}`;
+        }
+
+        if (diff <= 0) {
+            clearInterval(window.__clientLockTicker);
+            window.syncStoreAvailability(); // Automatically unlock and re-enable store when timer ends!
+        }
+    };
+
+    update();
+    window.__clientLockTicker = setInterval(update, 1000);
+}
+
+function updateCheckoutButtonsForLock(isLocked, reopenText = 'Soon') {
+    const checkoutBtns = document.querySelectorAll('#proceed-to-checkout-btn, #btn-place-order, .btn-checkout-submit, #checkout-submit-btn');
+    checkoutBtns.forEach(btn => {
+        if (isLocked) {
+            btn.dataset.locked = 'true';
+            btn.classList.add('opacity-60', 'cursor-not-allowed');
+            if (btn.tagName === 'A') {
+                btn.onclick = (e) => {
+                    e.preventDefault();
+                    showClientToast('🏪 Store is currently closed for orders. Items stay safe in your cart!', 'warning', 'lock');
+                };
+            }
+        } else {
+            btn.dataset.locked = 'false';
+            btn.classList.remove('opacity-60', 'cursor-not-allowed');
+            if (btn.tagName === 'A') btn.onclick = null;
+        }
+    });
+}
+
+// Blocked Account Page Route
+window.pages = window.pages || {};
+window.pages.blocked = async function() {
+    const reason = window.__userBlockReason || 'Fake Orders';
+    return `
+    <div class="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+        <div class="w-full max-w-md bg-surface rounded-3xl p-8 shadow-2xl border border-rose-500/20 text-center space-y-5">
+            <div class="w-20 h-20 mx-auto rounded-3xl bg-rose-500/10 text-rose-600 flex items-center justify-center">
+                <span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1;">gavel</span>
+            </div>
+            <div>
+                <span class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest bg-rose-500/10 text-rose-600">
+                    Account Suspended
+                </span>
+                <h1 class="text-2xl font-black text-on-surface tracking-tight mt-2">Account Blocked</h1>
+                <p class="text-sm font-bold text-rose-600 mt-1">
+                    "You are blocked due to ${(reason).toLowerCase()}."
+                </p>
+            </div>
+            <div class="bg-surface-variant/40 border border-surface-variant/60 rounded-2xl p-4 text-xs text-on-surface-variant leading-relaxed text-left space-y-2">
+                <p>
+                    Your student account has been restricted from placing orders on <b>LPU Quick</b> due to flagged policy violations (e.g. fake or cancelled orders).
+                </p>
+                <p class="text-[11px] text-on-surface-variant/80">
+                    If you believe this restriction is in error, please visit the <b>BH13 Central Campus Hub</b> or reach out to campus operations.
+                </p>
+            </div>
+            <a href="#/" class="inline-block w-full py-3 px-4 rounded-2xl bg-emerald hover:bg-emerald-600 text-white font-bold text-xs tracking-wide shadow-md transition-all">
+                Back to Store Catalog
+            </a>
+        </div>
+    </div>
+    `;
+};
+
+// Router Main Function - Instant Zero-Blocking Navigation
 let cartSyncInProgress = false;
 async function router() {
     const path = getCurrentRoute();
@@ -755,6 +950,12 @@ async function router() {
             localStorage.setItem('lpuquick_redirect', '#' + path);
         }
         window.location.hash = '#/signin';
+        return;
+    }
+
+    // Blocked user guard: Prevent checkout navigation
+    if (window.__isUserBlocked && (path === '/checkout' || path === '/cart')) {
+        window.location.hash = '#/blocked';
         return;
     }
 
@@ -790,6 +991,9 @@ async function router() {
             // Synchronize steppers
             window.syncCardSteppers();
 
+            // Check and sync store availability banner
+            window.syncStoreAvailability();
+
             // Bind global address modal trigger
             document.querySelectorAll('.address-selector-trigger').forEach(el => {
                 el.onclick = (e) => {
@@ -814,6 +1018,20 @@ async function router() {
         console.error('Router error:', err);
     }
 }
+
+// Listen for tab focus to instantly refresh store availability
+if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            window.syncStoreAvailability();
+        }
+    });
+}
+
+// Periodic background availability sync (every 30s)
+setInterval(() => {
+    window.syncStoreAvailability();
+}, 30000);
 
 // ================= GLOBAL REAL-TIME CLIENT-ADMIN COORDINATION HUB =================
 let globalClientWs = null;
@@ -925,6 +1143,25 @@ function initGlobalClientWebSocket() {
                         checkAndConnectGlobalOrderTracking();
                     }
                 }
+                // 4. Live Store Lock / Availability Updates from Admin
+                else if (data.type === 'CLIENT_LOCK_UPDATE' && data.availability) {
+                    window.__storeAvailability = data.availability;
+                    window.renderStoreClosedBannerOrOverlay();
+                    if (data.availability.is_locked) {
+                        showClientToast('🏪 Storefront is currently closed for restock.', 'warning', 'lock');
+                    } else {
+                        showClientToast('🚀 Storefront is now OPEN for orders!', 'success', 'bolt');
+                    }
+                }
+                // 5. Account Blocked Real-Time Notification
+                else if (data.type === 'USER_BLOCKED') {
+                    if (window.CURRENT_USER_ID && data.userId === window.CURRENT_USER_ID) {
+                        window.__isUserBlocked = true;
+                        window.__userBlockReason = data.reason || 'Fake Orders';
+                        window.location.hash = '#/blocked';
+                        alert(`⚠️ Account Suspended:\n\n${data.message || 'You are blocked due to fake orders.'}\n\nPlease contact BH13 Campus Hub.`);
+                    }
+                }
             } catch (err) {
                 console.error('[LPUQuick WS Parse Error]:', err);
             }
@@ -950,6 +1187,7 @@ function initGlobalClientWebSocket() {
         }
     }
 }
+
 
 // In-place Real-Time Stock Updates across DOM
 function handleLiveInventoryChange(data) {

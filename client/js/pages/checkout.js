@@ -819,8 +819,28 @@ window.pageInits.checkout = function() {
                 setTimeout(() => {
                     renderSuccessScreen(res.order);
                 }, 300);
+            } else if (res && res.error === 'STORE_CLOSED') {
+                isSubmitting = false;
+                resetSlider();
+                if (typeof window.syncStoreAvailability === 'function') {
+                    window.syncStoreAvailability();
+                }
+                const msg = res.message || (res.availability?.display_reopen?.fullHeadline ? `Store is closed. ${res.availability.display_reopen.fullHeadline}` : 'Dark store is temporarily closed for orders.');
+                alert(`🏪 Store is Closed:\n\n${msg}\n\nYour items will remain in your cart until the store re-opens.`);
+                window.location.hash = '#/';
+                return;
+            } else if (res && res.error === 'ACCOUNT_BLOCKED') {
+                isSubmitting = false;
+                resetSlider();
+                window.__isUserBlocked = true;
+                window.__userBlockReason = res.reason || 'Fake Orders';
+                alert(`⚠️ Account Suspended:\n\n${res.message || 'You are blocked due to fake orders.'}\n\nPlease contact BH13 Campus Hub.`);
+                if (typeof window.renderBlockedPage === 'function') {
+                    window.location.hash = '#/blocked';
+                }
+                return;
             } else {
-                throw new Error(res?.error || 'Failed to place order.');
+                throw new Error(res?.message || res?.error || 'Failed to place order.');
             }
         } catch (err) {
             console.error('Order placement failed:', err);
@@ -833,6 +853,7 @@ window.pageInits.checkout = function() {
             }
         }
     }
+
 
     // 3. RENDER POLISHED SUCCESS SCREEN & CONNECT REAL-TIME STATUS
     function renderSuccessScreen(order) {

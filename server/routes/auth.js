@@ -3,6 +3,7 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const supabaseDb = require('../db/supabaseDb');
 const { getSupabaseClient } = require('../supabase');
+const { generateAdminToken } = require('../middleware/adminAuth');
 
 // POST /api/auth/signin
 router.post('/signin', async (req, res) => {
@@ -28,10 +29,23 @@ router.post('/signin', async (req, res) => {
                 name: displayName,
                 email: trimmedEmail,
                 phone: req.body.phone || null,
-                password_hash: `hash_${password}`
+                password_hash: `hash_${password}`,
+                role: 'student',
+                account_status: 'ACTIVE'
             });
 
-            return res.json({ success: true, user: { id: user.id, name: user.name, email: user.email, phone: user.phone }, message: 'Welcome to LPUQuick!' });
+            return res.json({
+                success: true,
+                user: {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    phone: user.phone,
+                    role: user.role || 'student',
+                    account_status: 'ACTIVE'
+                },
+                message: 'Welcome to LPUQuick!'
+            });
         }
 
         // Verify password
@@ -39,13 +53,22 @@ router.post('/signin', async (req, res) => {
             return res.status(401).json({ error: 'Incorrect password. Please check and try again.' });
         }
 
+        // Check if user is blacklisted / blocked
+        const blacklistCheck = await supabaseDb.blacklist.isUserBlacklisted(user.id);
+        const isBlocked = user.account_status === 'BLOCKED' || blacklistCheck.isBlacklisted;
+        const blockReason = user.block_reason || blacklistCheck.reason || 'Fake Orders';
+
         res.json({
             success: true,
             user: {
                 id: user.id,
                 name: user.name,
                 email: user.email,
-                phone: user.phone
+                phone: user.phone,
+                role: user.role || 'student',
+                account_status: isBlocked ? 'BLOCKED' : 'ACTIVE',
+                block_reason: isBlocked ? blockReason : null,
+                blocked_at: user.blocked_at || blacklistCheck.blocked_at || null
             }
         });
     } catch (err) {
@@ -115,9 +138,16 @@ router.post('/google', async (req, res) => {
                 name: displayName,
                 email: trimmedEmail,
                 phone: null,
-                password_hash: 'google_oauth'
+                password_hash: 'google_oauth',
+                role: 'student',
+                account_status: 'ACTIVE'
             });
         }
+
+        // Check if user is blacklisted / blocked
+        const blacklistCheck = await supabaseDb.blacklist.isUserBlacklisted(user.id);
+        const isBlocked = user.account_status === 'BLOCKED' || blacklistCheck.isBlacklisted;
+        const blockReason = user.block_reason || blacklistCheck.reason || 'Fake Orders';
 
         res.json({
             success: true,
@@ -126,7 +156,11 @@ router.post('/google', async (req, res) => {
                 name: user.name,
                 email: user.email,
                 phone: user.phone || '',
-                picture: picture || ''
+                picture: picture || '',
+                role: user.role || 'student',
+                account_status: isBlocked ? 'BLOCKED' : 'ACTIVE',
+                block_reason: isBlocked ? blockReason : null,
+                blocked_at: user.blocked_at || blacklistCheck.blocked_at || null
             }
         });
     } catch (err) {
@@ -135,10 +169,36 @@ router.post('/google', async (req, res) => {
     }
 });
 
+// GET /api/auth/check-status/:userId (Lightweight check for blocked account status)
+router.get('/check-status/:userId', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const blacklistCheck = await supabaseDb.blacklist.isUserBlacklisted(userId);
+        res.json({
+            userId,
+            isBlocked: blacklistCheck.isBlacklisted,
+            account_status: blacklistCheck.isBlacklisted ? 'BLOCKED' : 'ACTIVE',
+            reason: blacklistCheck.reason || (blacklistCheck.isBlacklisted ? 'Fake Orders' : null)
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // POST /api/auth/update-address (Save campus delivery hostel & room address)
 router.post('/update-address', async (req, res) => {
     const { userId, hostel, block, room, phone } = req.body;
     if (!userId) return res.status(400).json({ error: 'userId is required' });
+
+    // Check if user is blocked
+    const blCheck = await supabaseDb.blacklist.isUserBlacklisted(userId);
+    if (blCheck.isBlacklisted) {
+        return res.status(403).json({
+            success: false,
+            code: 'ACCOUNT_BLOCKED',
+            error: 'You are blocked due to fake orders.'
+        });
+    }
 
     try {
         const supabase = getSupabaseClient();
@@ -154,36 +214,63 @@ router.post('/update-address', async (req, res) => {
     }
 });
 
-// POST /api/auth/admin-login
+// POST /api/auth/admin-login (Secure administrator authentication)
 router.post('/admin-login', async (req, res) => {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-        return res.status(400).json({ error: 'Admin email and password are required' });
+    if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
+        return res.status(400).json({ error: 'Administrator email and password are required' });
     }
 
-    try {
-        const user = await supabaseDb.users.getByIdentifier(email);
+    const trimmedEmail = email.trim().toLowerCase();
 
-        if (!user || (!user.id.startsWith('admin_') && user.role !== 'admin')) {
+    try {
+        // Look up user in database
+        let user = await supabaseDb.users.getByIdentifier(trimmedEmail);
+
+        // Fallback for bootstrap / root administrator credentials if database user not seeded yet
+        const isMasterAdminEmail = trimmedEmail === 'admin@lpu.in' || trimmedEmail === 'admin@lpuquick.com';
+        const isMasterAdminPassword = password === 'admin123' || password === process.env.ADMIN_PASSWORD;
+
+        if (!user && isMasterAdminEmail && isMasterAdminPassword) {
+            user = {
+                id: 'admin_001',
+                name: 'LPU Administrator',
+                email: trimmedEmail,
+                role: 'admin'
+            };
+        }
+
+        if (!user || (!user.id.startsWith('admin_') && user.role !== 'admin' && !isMasterAdminEmail)) {
             return res.status(403).json({ error: 'Access denied. Valid administrator credentials required.' });
         }
 
+        // Verify password
         const isPasswordCorrect = (user.password_hash && (user.password_hash === password || user.password_hash === `hash_${password}`)) ||
-                                  (user.id === 'admin_001' && password === 'admin123');
+                                  (isMasterAdminEmail && isMasterAdminPassword);
 
         if (!isPasswordCorrect) {
             return res.status(403).json({ error: 'Incorrect password. Administrator access denied.' });
         }
 
-        const token = `lpuquick_admin_token_${Buffer.from(`${user.id}:${Date.now()}`).toString('base64')}`;
+        // Generate cryptographically signed HMAC admin session token
+        const token = generateAdminToken(user.id, 'admin');
+
+        // Audit log administrator login
+        try {
+            await supabaseDb.audit.logAction({
+                adminId: user.id,
+                action: 'ADMIN_LOGIN',
+                metadata: { email: user.email, timestamp: new Date().toISOString() }
+            });
+        } catch (auditErr) {}
 
         res.json({
             success: true,
             token,
             admin: {
                 id: user.id,
-                name: user.name,
+                name: user.name || 'Administrator',
                 email: user.email,
                 role: 'admin'
             }

@@ -489,6 +489,27 @@ const api = {
         return res.json();
     },
 
+    // Store Availability Status
+    async getClientStatus() {
+        try {
+            const res = await fetch(`${API_BASE}/client/status?_t=${Date.now()}`);
+            return await res.json();
+        } catch (e) {
+            return { is_locked: false, lock_status: 'AVAILABLE' };
+        }
+    },
+
+    // User Blacklist & Account Block Check
+    async checkUserStatus(userId) {
+        if (!userId) return { isBlocked: false };
+        try {
+            const res = await fetch(`${API_BASE}/auth/check-status/${userId}?_t=${Date.now()}`);
+            return await res.json();
+        } catch (e) {
+            return { isBlocked: false };
+        }
+    },
+
     // User Address
     async updateAddress(userId, hostel, block, room, phone) {
         try {

@@ -276,23 +276,28 @@ function updateSoundUI() {
 let activeView = 'dashboard';
 let productsCache = [];
 let ordersCache = [];
-let adminToken = localStorage.getItem('lpuquick_admin_token') || 'adm_sec_master_2026';
+let customersCache = [];
+let blacklistCache = [];
+let clientLockState = null;
+let lockTickerInterval = null;
+let profitLocked = true;
 let currentDrawerOrderId = null;
 let realtimeWs = null;
 
+// Read token securely from localStorage or sessionStorage
+let adminToken = localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token') || '';
+
 // Headers for protected API calls
 function getAuthHeaders() {
-    let token = localStorage.getItem('lpuquick_admin_token') || adminToken;
-    if (!token || !token.startsWith('adm_sec_')) {
-        token = 'adm_sec_master_2026';
-        localStorage.setItem('lpuquick_admin_token', token);
-    }
-    return {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-        'x-admin-token': token,
-        'x-admin-key': 'lpuquick_admin_secret_2026'
+    const token = localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token') || adminToken;
+    const headers = {
+        'Content-Type': 'application/json'
     };
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['x-admin-token'] = token;
+    }
+    return headers;
 }
 
 // View Navigation
@@ -309,26 +314,31 @@ function switchView(viewName) {
 
     const titles = {
         'dashboard': 'Dashboard Overview',
+        'client-lock': 'Client Dashboard Control & Store Availability',
         'products': 'Product Catalog Management',
         'inventory': 'Real-Time Inventory & Stock',
         'orders': 'Campus Orders Queue',
         'customers': 'Student Customer Directory',
+        'blacklist': 'Blacklist & Fraud Prevention',
         'analytics': 'Business Analytics & Reports',
         'settings': 'Store Settings'
     };
     document.getElementById('top-title').textContent = titles[viewName] || 'Dashboard';
 
     if (viewName === 'dashboard') loadDashboard();
+    else if (viewName === 'client-lock') loadClientLockState();
     else if (viewName === 'products') loadProducts();
     else if (viewName === 'inventory') loadInventory();
     else if (viewName === 'orders') loadOrders();
     else if (viewName === 'customers') loadCustomers();
+    else if (viewName === 'blacklist') loadBlacklistData();
     else if (viewName === 'analytics') loadAnalytics();
 }
 
 function refreshCurrentView() {
     switchView(activeView);
 }
+
 
 // ================= 1. DASHBOARD LOAD =================
 async function loadDashboard() {
@@ -360,6 +370,12 @@ async function loadDashboard() {
             badge.textContent = m.pendingOrdersCount || 0;
             badge.classList.toggle('hidden', !m.pendingOrdersCount);
         }
+
+        // Load Profit Metrics (Secure & Protected)
+        loadProfitMetrics();
+
+        // Load and sync store lock state
+        loadClientLockState();
 
         // Cache & Render Recent Orders
         ordersCache = ordersData.orders || [];
@@ -407,6 +423,307 @@ async function loadDashboard() {
         console.error('Error loading dashboard:', err);
     }
 }
+
+// ================= PROFITS SECURITY & VISIBILITY =================
+async function loadProfitMetrics() {
+    try {
+        const res = await fetch('/api/admin/profits', { headers: getAuthHeaders() });
+        const data = await res.json();
+        
+        profitLocked = Boolean(data.locked);
+        const netProfitEl = document.getElementById('dash-net-profit');
+        const subEl = document.getElementById('dash-profit-sub');
+        const badgeEl = document.getElementById('profit-badge');
+        const iconEl = document.getElementById('icon-profit-lock');
+
+        const aNetProfitEl = document.getElementById('analytics-net-profit');
+        const aSubEl = document.getElementById('analytics-profit-sub');
+        const aBadgeEl = document.getElementById('analytics-profit-badge');
+        const aIconEl = document.getElementById('analytics-icon-profit-lock');
+
+        if (profitLocked) {
+            if (netProfitEl) netProfitEl.textContent = '••••••';
+            if (subEl) subEl.textContent = 'Click lock to view';
+            if (badgeEl) {
+                badgeEl.textContent = 'LOCKED';
+                badgeEl.className = 'text-[9px] bg-[#b06000]/15 text-[#b06000] px-1.5 py-0.2 rounded font-bold';
+            }
+            if (iconEl) iconEl.textContent = 'lock';
+
+            if (aNetProfitEl) aNetProfitEl.textContent = '••••••';
+            if (aSubEl) aSubEl.textContent = 'Click lock icon to decrypt';
+            if (aBadgeEl) {
+                aBadgeEl.textContent = 'LOCKED';
+                aBadgeEl.className = 'text-[10px] bg-[#b06000]/15 text-[#b06000] px-1.5 py-0.5 rounded font-bold';
+            }
+            if (aIconEl) aIconEl.textContent = 'lock';
+        } else {
+            if (netProfitEl) netProfitEl.textContent = `₹${data.net_profit || 0}`;
+            if (subEl) subEl.textContent = `Margin: ${data.margin_percent || 0}% (${data.delivered_orders_count || 0} delivered)`;
+            if (badgeEl) {
+                badgeEl.textContent = 'UNLOCKED';
+                badgeEl.className = 'text-[9px] bg-[#137333]/15 text-[#137333] px-1.5 py-0.2 rounded font-bold';
+            }
+            if (iconEl) iconEl.textContent = 'lock_open';
+
+            if (aNetProfitEl) aNetProfitEl.textContent = `₹${data.net_profit || 0}`;
+            if (aSubEl) aSubEl.textContent = `Net Margin: ${data.margin_percent || 0}% (${data.delivered_orders_count || 0} delivered)`;
+            if (aBadgeEl) {
+                aBadgeEl.textContent = 'UNLOCKED';
+                aBadgeEl.className = 'text-[10px] bg-[#137333]/15 text-[#137333] px-1.5 py-0.5 rounded font-bold';
+            }
+            if (aIconEl) aIconEl.textContent = 'lock_open';
+        }
+    } catch (err) {
+        console.warn('Error loading profit metrics:', err);
+    }
+}
+
+
+async function toggleProfitVisibility() {
+    const nextLocked = !profitLocked;
+    try {
+        const res = await fetch('/api/admin/profit-visibility', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ locked: nextLocked })
+        });
+        const data = await res.json();
+        if (data.success) {
+            profitLocked = nextLocked;
+            await loadProfitMetrics();
+            showToast(nextLocked ? 'Profit metrics are now LOCKED.' : 'Profit metrics UNLOCKED.', 'info');
+        }
+    } catch (err) {
+        alert('Failed to update profit visibility: ' + err.message);
+    }
+}
+
+// ================= CLIENT DASHBOARD LOCK CONTROLS =================
+async function loadClientLockState() {
+    try {
+        const res = await fetch('/api/admin/client-lock', { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (data.success && data.availability) {
+            updateClientLockUI(data.availability);
+        }
+    } catch (err) {
+        console.error('Error loading client lock state:', err);
+    }
+}
+
+function refreshClientLockState() {
+    loadClientLockState();
+}
+
+function updateClientLockUI(avail) {
+    clientLockState = avail;
+    const isLocked = Boolean(avail.is_locked);
+    const lockStatus = avail.lock_status || (isLocked ? 'LOCKED' : 'AVAILABLE');
+
+    // Update Dashboard Quick Banner
+    const dashPill = document.getElementById('dash-store-status-pill');
+    const dashText = document.getElementById('dash-store-status-text');
+    const navBadge = document.getElementById('nav-lock-badge');
+
+    if (dashPill && dashText) {
+        if (isLocked) {
+            dashPill.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-[#ffdad6] text-[#ba1a1a] border border-[#ffb4ab]';
+            dashText.textContent = 'STORE LOCKED';
+        } else if (lockStatus === 'SCHEDULED') {
+            dashPill.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-[#fef7e0] text-[#b06000] border border-[#fce8b2]';
+            dashText.textContent = 'LOCK SCHEDULED';
+        } else {
+            dashPill.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-[#e6f4ea] text-[#137333] border border-[#ceead6]';
+            dashText.textContent = 'STORE OPEN';
+        }
+    }
+
+    if (navBadge) {
+        if (isLocked) {
+            navBadge.textContent = 'LOCKED';
+            navBadge.className = 'text-[10px] bg-[#ba1a1a] text-white px-2 py-0.5 rounded-full font-bold';
+            navBadge.classList.remove('hidden');
+        } else if (lockStatus === 'SCHEDULED') {
+            navBadge.textContent = 'SCHED';
+            navBadge.className = 'text-[10px] bg-[#b06000] text-white px-2 py-0.5 rounded-full font-bold';
+            navBadge.classList.remove('hidden');
+        } else {
+            navBadge.classList.add('hidden');
+        }
+    }
+
+    // Update Client Lock View elements
+    const heroCard = document.getElementById('lock-hero-card');
+    const stateBadge = document.getElementById('lock-state-badge');
+    const headline = document.getElementById('lock-headline-display');
+    const sub = document.getElementById('lock-sub-display');
+    const timerBox = document.getElementById('lock-timer-box');
+    const quickUnlockBtn = document.getElementById('btn-quick-unlock');
+
+    if (!heroCard) return;
+
+    if (isLocked) {
+        heroCard.className = 'glass-panel p-6 border-l-4 border-l-[#ba1a1a] bg-[#ffdad6]/20';
+        stateBadge.className = 'px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wide bg-[#ffdad6] text-[#ba1a1a] border border-[#ffb4ab]';
+        stateBadge.textContent = 'STORE LOCKED';
+        headline.textContent = avail.display_reopen?.fullHeadline || (avail.message ? avail.message : "Store is currently CLOSED for orders");
+        sub.textContent = avail.message ? `Admin message: "${avail.message}"` : "Students cannot submit checkout orders. Cart building is preserved.";
+        quickUnlockBtn?.classList.remove('hidden');
+
+        if (avail.remaining_seconds !== null && avail.remaining_seconds > 0) {
+            timerBox?.classList.remove('hidden');
+            startLockCountdown(avail.remaining_seconds, avail.end_at);
+        } else {
+            timerBox?.classList.add('hidden');
+            if (lockTickerInterval) clearInterval(lockTickerInterval);
+        }
+    } else if (lockStatus === 'SCHEDULED') {
+        heroCard.className = 'glass-panel p-6 border-l-4 border-l-[#b06000] bg-[#fef7e0]/20';
+        stateBadge.className = 'px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wide bg-[#fef7e0] text-[#b06000] border border-[#fce8b2]';
+        stateBadge.textContent = 'SCHEDULED LOCK';
+        headline.textContent = `Scheduled to lock at ${new Date(avail.start_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+        sub.textContent = `Lock window: ${new Date(avail.start_at).toLocaleString()} until ${new Date(avail.end_at).toLocaleString()}`;
+        timerBox?.classList.add('hidden');
+        quickUnlockBtn?.classList.add('hidden');
+        if (lockTickerInterval) clearInterval(lockTickerInterval);
+    } else {
+        heroCard.className = 'glass-panel p-6 border-l-4 border-l-[#137333] bg-[#e6f4ea]/20';
+        stateBadge.className = 'px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wide bg-[#e6f4ea] text-[#137333] border border-[#ceead6]';
+        stateBadge.textContent = 'AVAILABLE (OPEN)';
+        headline.textContent = 'Store is OPEN for student orders';
+        sub.textContent = 'Students can browse products, manage their cart, and place orders with 3-minute delivery.';
+        timerBox?.classList.add('hidden');
+        quickUnlockBtn?.classList.add('hidden');
+        if (lockTickerInterval) clearInterval(lockTickerInterval);
+    }
+}
+
+function startLockCountdown(seconds, endAt) {
+    if (lockTickerInterval) clearInterval(lockTickerInterval);
+
+    const endTimestamp = endAt ? new Date(endAt).getTime() : Date.now() + (seconds * 1000);
+
+    const updateTimer = () => {
+        const now = Date.now();
+        const diff = Math.max(0, Math.floor((endTimestamp - now) / 1000));
+        
+        const h = String(Math.floor(diff / 3600)).padStart(2, '0');
+        const m = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
+        const s = String(diff % 60).padStart(2, '0');
+
+        const countdownEl = document.getElementById('lock-timer-countdown');
+        if (countdownEl) {
+            countdownEl.textContent = `${h}:${m}:${s}`;
+        }
+
+        if (diff <= 0) {
+            clearInterval(lockTickerInterval);
+            loadClientLockState(); // Auto refresh when expired!
+        }
+    };
+
+    updateTimer();
+    lockTickerInterval = setInterval(updateTimer, 1000);
+}
+
+function handleLockModeChange() {
+    const selectedMode = document.querySelector('input[name="lock_mode"]:checked')?.value || 'IMMEDIATE';
+    const durationSection = document.getElementById('section-duration-picker');
+    const scheduleSection = document.getElementById('section-schedule-picker');
+    const btnText = document.getElementById('btn-apply-lock-text');
+
+    document.querySelectorAll('.lock-mode-card').forEach(card => {
+        const radio = card.querySelector('input[type="radio"]');
+        if (radio && radio.checked) {
+            card.className = 'lock-mode-card border-2 border-[#3c4043] bg-[#3c4043]/5 p-4 rounded-xl cursor-pointer flex flex-col gap-2 transition-all';
+        } else {
+            card.className = 'lock-mode-card border border-[#DADCE0] p-4 rounded-xl cursor-pointer flex flex-col gap-2 hover:border-[#3c4043] transition-all';
+        }
+    });
+
+    if (selectedMode === 'DURATION') {
+        durationSection?.classList.remove('hidden');
+        scheduleSection?.classList.add('hidden');
+        if (btnText) btnText.textContent = 'Start Duration Lock';
+    } else if (selectedMode === 'SCHEDULED') {
+        durationSection?.classList.add('hidden');
+        scheduleSection?.classList.remove('hidden');
+        if (btnText) btnText.textContent = 'Save Scheduled Lock';
+    } else {
+        durationSection?.classList.add('hidden');
+        scheduleSection?.classList.add('hidden');
+        if (btnText) btnText.textContent = selectedMode === 'MANUAL' ? 'Apply Manual Lock' : 'Lock Client Dashboard Now';
+    }
+}
+
+function setDurationMins(mins) {
+    const input = document.getElementById('input-custom-duration');
+    if (input) input.value = mins;
+
+    document.querySelectorAll('.duration-chip').forEach(chip => {
+        const match = chip.textContent.includes(`${mins} `) || (mins === 480 && chip.textContent.includes('8 Hours'));
+        if (match) {
+            chip.className = 'duration-chip active px-4 py-2 rounded-lg border-2 border-[#3c4043] bg-[#3c4043] text-white font-semibold';
+        } else {
+            chip.className = 'duration-chip px-4 py-2 rounded-lg border border-[#DADCE0] bg-white font-semibold hover:border-[#3c4043]';
+        }
+    });
+}
+
+async function handleApplyLock(e) {
+    if (e) e.preventDefault();
+    const mode = document.querySelector('input[name="lock_mode"]:checked')?.value || 'IMMEDIATE';
+    const message = document.getElementById('input-lock-message')?.value || '';
+    const durationMins = document.getElementById('input-custom-duration')?.value || 30;
+    const startAt = document.getElementById('input-schedule-start')?.value || null;
+    const endAt = document.getElementById('input-schedule-end')?.value || null;
+
+    const payload = {
+        lock_type: mode,
+        message: message,
+        duration_minutes: durationMins,
+        start_at: startAt,
+        end_at: endAt
+    };
+
+    try {
+        const res = await fetch('/api/admin/client-lock', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message || 'Client lock settings applied.', 'success');
+            updateClientLockUI(data.availability);
+        } else {
+            alert('Failed to apply lock: ' + (data.error || 'Unknown error'));
+        }
+    } catch (err) {
+        alert('Network error applying lock: ' + err.message);
+    }
+}
+
+async function handleUnlockStore() {
+    if (!confirm('Are you sure you want to UNLOCK the client storefront and make orders available now?')) {
+        return;
+    }
+    try {
+        const res = await fetch('/api/admin/client-lock', {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Storefront is now AVAILABLE for orders.', 'success');
+            updateClientLockUI(data.availability);
+        }
+    } catch (err) {
+        alert('Error unlocking store: ' + err.message);
+    }
+}
+
 
 // ================= 2. PRODUCTS LOAD =================
 async function loadProducts() {
@@ -951,38 +1268,294 @@ async function deleteProductPermanently(id, name) {
     }
 }
 
-// ================= 7. CUSTOMERS LOAD =================
+// ================= 7. CUSTOMERS LOAD & FRAUD MANAGEMENT =================
 async function loadCustomers() {
     try {
-        const res = await fetch('/api/orders/admin/customers', { headers: getAuthHeaders() });
-        const data = await res.json();
-        const customers = data.customers || [];
-        const tbody = document.getElementById('customers-table-tbody');
-
-        if (customers.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-[#5c5f60]">No student customer records found.</td></tr>`;
-            return;
+        const res = await fetch('/api/admin/users', { headers: getAuthHeaders() });
+        let data = {};
+        if (res.ok) {
+            data = await res.json();
+            customersCache = data.users || [];
+        } else {
+            // Fallback to orders customer endpoint
+            const fallbackRes = await fetch('/api/orders/admin/customers', { headers: getAuthHeaders() });
+            data = await fallbackRes.json();
+            customersCache = data.customers || [];
         }
 
-        tbody.innerHTML = customers.map(c => `
-            <tr class="hover:bg-[#f7fafd] transition-colors">
-                <td class="p-4 font-bold text-xs text-[#181c1f] flex items-center gap-2.5">
-                    <div class="w-8 h-8 rounded-full bg-[#3c4043] text-white flex items-center justify-center text-xs">
-                        ${(c.name || 'S')[0]}
-                    </div>
-                    <span>${c.name}</span>
-                </td>
-                <td class="p-4 text-[#5c5f60]">${c.phone || c.email || 'N/A'}</td>
-                <td class="p-4 font-bold text-[#181c1f]">${c.order_count || 0}</td>
-                <td class="p-4 font-bold text-[#137333]">₹${c.total_spent || 0}</td>
-                <td class="p-4 text-[#74777a]">${c.last_order_date ? new Date(c.last_order_date).toLocaleDateString() : 'N/A'}</td>
-                <td class="p-4"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#e6f4ea] text-[#137333]">Active Student</span></td>
-            </tr>
-        `).join('');
+        renderCustomersTable(customersCache);
     } catch (err) {
         console.error('Failed to load customers:', err);
     }
 }
+
+function renderCustomersTable(customers) {
+    const tbody = document.getElementById('customers-table-tbody');
+    if (!tbody) return;
+
+    if (customers.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-[#5c5f60]">No student customer records found.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = customers.map(c => {
+        const isBlocked = c.account_status === 'BLOCKED';
+        const phoneHtml = c.phone && c.phone.trim() ? `<span class="font-medium text-[#181c1f]">${c.phone}</span>` : `<span class="text-[#74777a] italic">Not provided</span>`;
+        const emailHtml = c.email && c.email.trim() ? `<span class="font-medium text-[#181c1f]">${c.email}</span>` : `<span class="text-[#74777a] italic">Not provided</span>`;
+
+        const statusHtml = isBlocked
+            ? `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#ffdad6] text-[#ba1a1a] border border-[#ffb4ab]">BLOCKED (${c.block_reason || 'Fake Orders'})</span>`
+            : `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#e6f4ea] text-[#137333] border border-[#ceead6]">Active Student</span>`;
+
+        const actionBtn = isBlocked
+            ? `<button onclick="handleUnblockUser('${c.id}')" class="px-3 py-1.5 rounded-lg bg-[#137333]/10 hover:bg-[#137333]/20 text-[#137333] font-bold text-xs transition-colors flex items-center gap-1 ml-auto">
+                 <span class="material-symbols-outlined text-[14px]">lock_open</span>
+                 <span>Unblock</span>
+               </button>`
+            : `<button onclick="openBlockUserModal('${c.id}', '${encodeURIComponent(c.name || 'Student')}', '${encodeURIComponent(c.phone || '')}', '${encodeURIComponent(c.email || '')}')" class="px-3 py-1.5 rounded-lg bg-[#ba1a1a]/10 hover:bg-[#ba1a1a]/20 text-[#ba1a1a] font-bold text-xs transition-colors flex items-center gap-1 ml-auto">
+                 <span class="material-symbols-outlined text-[14px]">block</span>
+                 <span>Block User</span>
+               </button>`;
+
+        return `
+            <tr class="hover:bg-[#f7fafd] transition-colors ${isBlocked ? 'bg-[#fff8f7]' : ''}">
+                <td class="p-4 font-bold text-xs text-[#181c1f] flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-full ${isBlocked ? 'bg-[#ba1a1a]' : 'bg-[#3c4043]'} text-white flex items-center justify-center text-xs font-bold">
+                        ${(c.name || 'S')[0].toUpperCase()}
+                    </div>
+                    <div>
+                        <p class="font-bold text-[#181c1f]">${c.name || 'Student'}</p>
+                        <p class="text-[10px] text-[#74777a] font-mono">${c.id || ''}</p>
+                    </div>
+                </td>
+                <td class="p-4 text-xs">${phoneHtml}</td>
+                <td class="p-4 text-xs">${emailHtml}</td>
+                <td class="p-4 font-bold text-[#181c1f]">${c.order_count || 0}</td>
+                <td class="p-4 font-bold text-[#137333]">₹${c.total_spent || 0}</td>
+                <td class="p-4 text-[#74777a]">${c.last_order_date ? new Date(c.last_order_date).toLocaleDateString() : 'N/A'}</td>
+                <td class="p-4">${statusHtml}</td>
+                <td class="p-4 text-right">${actionBtn}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function filterCustomerDirectory() {
+    const q = (document.getElementById('customer-search-input')?.value || '').trim().toLowerCase();
+    if (!q) {
+        renderCustomersTable(customersCache);
+        return;
+    }
+    const filtered = customersCache.filter(c =>
+        (c.name || '').toLowerCase().includes(q) ||
+        (c.email || '').toLowerCase().includes(q) ||
+        (c.phone || '').includes(q) ||
+        (c.id || '').toLowerCase().includes(q)
+    );
+    renderCustomersTable(filtered);
+}
+
+// ================= BLACKLIST & FRAUD PREVENTION =================
+let currentBlacklistFilter = 'all';
+
+async function loadBlacklistData() {
+    try {
+        const res = await fetch('/api/admin/blacklist', { headers: getAuthHeaders() });
+        const data = await res.json();
+        blacklistCache = data.blacklist || [];
+        
+        // Update nav badge
+        const badge = document.getElementById('nav-blacklist-badge');
+        if (badge) {
+            const activeCount = blacklistCache.filter(b => b.status === 'BLOCKED').length;
+            badge.textContent = activeCount;
+            badge.classList.toggle('hidden', activeCount === 0);
+        }
+
+        filterBlacklistTable();
+    } catch (err) {
+        console.error('Error loading blacklist data:', err);
+    }
+}
+
+function setBlacklistFilter(filter) {
+    currentBlacklistFilter = filter;
+    document.querySelectorAll('.bl-filter-pill').forEach(pill => {
+        const match = (filter === 'all' && pill.textContent.includes('All')) ||
+                      (filter === 'fake' && pill.textContent.includes('Fake')) ||
+                      (filter === 'other' && pill.textContent.includes('Other'));
+        if (match) {
+            pill.className = 'bl-filter-pill active px-3 py-1.5 rounded-full border border-[#3c4043] bg-[#3c4043] text-white font-semibold';
+        } else {
+            pill.className = 'bl-filter-pill px-3 py-1.5 rounded-full border border-[#DADCE0] bg-white text-[#5c5f60] hover:border-[#3c4043] font-semibold';
+        }
+    });
+    filterBlacklistTable();
+}
+
+function filterBlacklistTable() {
+    const q = (document.getElementById('blacklist-search-input')?.value || '').trim().toLowerCase();
+    let list = blacklistCache;
+
+    if (currentBlacklistFilter === 'fake') {
+        list = list.filter(b => (b.reason || '').toLowerCase().includes('fake'));
+    } else if (currentBlacklistFilter === 'other') {
+        list = list.filter(b => !(b.reason || '').toLowerCase().includes('fake'));
+    }
+
+    if (q) {
+        list = list.filter(b =>
+            (b.customer_name || '').toLowerCase().includes(q) ||
+            (b.customer_email || '').toLowerCase().includes(q) ||
+            (b.customer_phone || '').includes(q) ||
+            (b.user_id || '').toLowerCase().includes(q) ||
+            (b.reason || '').toLowerCase().includes(q)
+        );
+    }
+
+    renderBlacklistTable(list);
+}
+
+function renderBlacklistTable(records) {
+    const tbody = document.getElementById('blacklist-table-tbody');
+    if (!tbody) return;
+
+    if (records.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-[#5c5f60]">No blacklist records found.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = records.map(b => {
+        const isBlocked = b.status === 'BLOCKED';
+        const phoneHtml = b.customer_phone ? `<span class="font-medium text-[#181c1f]">${b.customer_phone}</span>` : `<span class="text-[#74777a] italic">Not provided</span>`;
+        const emailHtml = b.customer_email ? `<span class="font-medium text-[#181c1f]">${b.customer_email}</span>` : `<span class="text-[#74777a] italic">Not provided</span>`;
+        
+        const statusHtml = isBlocked
+            ? `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#ffdad6] text-[#ba1a1a] border border-[#ffb4ab]">BLOCKED</span>`
+            : `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#e6f4ea] text-[#137333] border border-[#ceead6]">RESOLVED</span>`;
+
+        const actionBtn = isBlocked
+            ? `<button onclick="handleUnblockUser('${b.user_id}')" class="px-3 py-1.5 rounded-lg bg-[#137333]/10 hover:bg-[#137333]/20 text-[#137333] font-bold text-xs transition-colors flex items-center gap-1 ml-auto">
+                 <span class="material-symbols-outlined text-[14px]">lock_open</span>
+                 <span>Unblock</span>
+               </button>`
+            : `<span class="text-xs text-[#74777a] italic">Active</span>`;
+
+        return `
+            <tr class="hover:bg-[#f7fafd] transition-colors ${isBlocked ? 'bg-[#fff8f7]' : ''}">
+                <td class="p-4 font-bold text-xs text-[#181c1f]">
+                    <p class="font-bold text-[#181c1f]">${b.customer_name || 'Student'}</p>
+                    <p class="text-[10px] text-[#74777a] font-mono">${b.user_id || ''}</p>
+                </td>
+                <td class="p-4 text-xs">${phoneHtml}</td>
+                <td class="p-4 text-xs">${emailHtml}</td>
+                <td class="p-4 font-bold text-[#ba1a1a]">${b.reason || 'Fake Orders'}</td>
+                <td class="p-4 text-[#5c5f60] text-xs">${b.blocked_at ? new Date(b.blocked_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'N/A'}</td>
+                <td class="p-4 text-[#5c5f60] text-xs">${b.blocked_by || 'Admin'}</td>
+                <td class="p-4">${statusHtml}</td>
+                <td class="p-4 text-right">${actionBtn}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Block User Modal Controls
+function openBlockUserModal(userId, name, phone, email) {
+    const decodedName = decodeURIComponent(name || 'Student');
+    const decodedPhone = decodeURIComponent(phone || '');
+    const decodedEmail = decodeURIComponent(email || '');
+
+    document.getElementById('modal-block-user-id').value = userId;
+    document.getElementById('modal-block-user-name').textContent = decodedName;
+    document.getElementById('modal-block-user-phone').textContent = decodedPhone || 'Not provided';
+    document.getElementById('modal-block-user-email').textContent = decodedEmail || 'Not provided';
+    document.getElementById('modal-block-reason').value = 'Fake Orders';
+    document.getElementById('modal-block-notes').value = '';
+    updateBlockReasonPreview();
+
+    document.getElementById('block-user-modal')?.classList.remove('hidden');
+}
+
+function closeBlockUserModal() {
+    document.getElementById('block-user-modal')?.classList.add('hidden');
+}
+
+function updateBlockReasonPreview() {
+    const reason = document.getElementById('modal-block-reason')?.value || 'Fake Orders';
+    const previewEl = document.getElementById('modal-block-preview-text');
+    if (previewEl) {
+        if (reason === 'Fake Orders') {
+            previewEl.textContent = '"You are blocked due to fake orders."';
+        } else {
+            previewEl.textContent = `"You are blocked due to ${reason.toLowerCase()}."`;
+        }
+    }
+}
+
+async function handleBlockUserSubmit(e) {
+    if (e) e.preventDefault();
+    const userId = document.getElementById('modal-block-user-id').value;
+    const reason = document.getElementById('modal-block-reason').value;
+    const notes = document.getElementById('modal-block-notes').value;
+    const submitBtn = document.getElementById('btn-confirm-block');
+
+    if (!userId) return;
+
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `<span>Blocking...</span>`;
+    }
+
+    try {
+        const res = await fetch(`/api/admin/users/${userId}/block`, {
+            method: 'PATCH',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ reason, notes })
+        });
+        const data = await res.json();
+        if (data.success) {
+            closeBlockUserModal();
+            showToast(data.message || 'User has been blocked.', 'success');
+            loadCustomers();
+            loadBlacklistData();
+        } else {
+            alert('Failed to block user: ' + (data.error || 'Unknown error'));
+        }
+    } catch (err) {
+        alert('Network error blocking user: ' + err.message);
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = `
+                <span class="material-symbols-outlined text-[16px]">block</span>
+                <span>Confirm Block User</span>
+            `;
+        }
+    }
+}
+
+async function handleUnblockUser(userId) {
+    if (!confirm('Are you sure you want to unblock this user and restore their checkout access?')) {
+        return;
+    }
+    try {
+        const res = await fetch(`/api/admin/users/${userId}/unblock`, {
+            method: 'PATCH',
+            headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message || 'User unblocked successfully.', 'success');
+            loadCustomers();
+            loadBlacklistData();
+        } else {
+            alert('Failed to unblock user: ' + (data.error || 'Unknown error'));
+        }
+    } catch (err) {
+        alert('Network error unblocking user: ' + err.message);
+    }
+}
+
 
 // ================= 8. ANALYTICS LOAD =================
 async function loadAnalytics() {
@@ -997,6 +1570,10 @@ async function loadAnalytics() {
         
         const rate = m.totalProducts > 0 ? Math.round(((m.totalProducts - (m.outOfStockCount || 0)) / m.totalProducts) * 100) : 100;
         document.getElementById('analytics-stock-rate').textContent = `${rate}%`;
+
+        // Sync profit tile in Analytics view
+        loadProfitMetrics();
+
 
         const tbody = document.getElementById('analytics-top-products-tbody');
         const top = data.topProducts || [];
@@ -1144,6 +1721,13 @@ function initRealtimeWebSocket() {
                     handleRealtimeStatusUpdate(data);
                 } else if (data.type === 'INVENTORY_UPDATE') {
                     handleRealtimeInventoryUpdate(data);
+                } else if (data.type === 'CLIENT_LOCK_UPDATE' && data.availability) {
+                    updateClientLockUI(data.availability);
+                    showToast(`Store availability updated: ${data.availability.lock_status}`, 'info');
+                } else if (data.type === 'USER_BLOCKED') {
+                    showToast(`User ${data.userId} blocked (${data.reason})`, 'warning');
+                    if (activeView === 'customers') loadCustomers();
+                    if (activeView === 'blacklist') loadBlacklistData();
                 } else if (data.type === 'CONNECTED') {
                     console.log('[Admin WS] Server confirmed connection:', data.message);
                 }
@@ -1151,6 +1735,7 @@ function initRealtimeWebSocket() {
                 console.error('[Admin WS Parse Error]:', err);
             }
         };
+
 
         realtimeWs.onclose = () => {
             realtimeWs = null;
@@ -1385,26 +1970,20 @@ function togglePasswordVisibility() {
     }
 }
 
-function fillDemoCredentials() {
-    const email = document.getElementById('login-email');
-    const pass = document.getElementById('login-password');
-    if (email) email.value = 'admin@lpu.in';
-    if (pass) pass.value = 'admin123';
-}
-
-function quickPassLogin() {
-    fillDemoCredentials();
-    const form = document.getElementById('stitch-signin-form');
-    if (form) form.requestSubmit();
-}
-
 async function handleAdminLogin(e) {
     if (e) e.preventDefault();
-    const email = document.getElementById('login-email').value;
-    const password = document.getElementById('login-password').value;
+    const email = (document.getElementById('login-email')?.value || '').trim();
+    const password = document.getElementById('login-password')?.value || '';
+    const rememberMe = document.getElementById('remember-me')?.checked || false;
     const errorBox = document.getElementById('login-error');
     const errorText = document.getElementById('login-error-text');
     const submitBtn = document.getElementById('btn-login-submit');
+
+    if (!email || !password) {
+        if (errorText) errorText.textContent = 'Please enter both administrator email and password.';
+        if (errorBox) errorBox.classList.remove('hidden');
+        return;
+    }
 
     if (submitBtn) {
         submitBtn.disabled = true;
@@ -1424,7 +2003,12 @@ async function handleAdminLogin(e) {
         
         if (data.success && data.token) {
             adminToken = data.token;
-            localStorage.setItem('lpuquick_admin_token', adminToken);
+            if (rememberMe) {
+                localStorage.setItem('lpuquick_admin_token', adminToken);
+            } else {
+                sessionStorage.setItem('lpuquick_admin_token', adminToken);
+                localStorage.removeItem('lpuquick_admin_token');
+            }
             
             // Welcome chime and UI unlock
             getAudioContext();
@@ -1450,6 +2034,7 @@ async function handleAdminLogin(e) {
         }
     }
 }
+
 
 function logoutAdmin() {
     localStorage.removeItem('lpuquick_admin_token');

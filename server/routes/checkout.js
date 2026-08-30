@@ -17,6 +17,42 @@ async function handlePlaceOrder(req, res) {
         return res.status(401).json({ error: 'Authentication required. Please sign in with Google or Student Email to place your order.' });
     }
 
+    // 1. SERVER-SIDE STORE AVAILABILITY CHECK (Client Lock Protection)
+    try {
+        const storeStatus = await supabaseDb.availability.getStatus();
+        if (storeStatus && storeStatus.is_locked) {
+            return res.status(400).json({
+                success: false,
+                error: 'STORE_CLOSED',
+                code: 'STORE_CLOSED',
+                message: 'Orders are currently unavailable. Please try again when the store reopens.',
+                reopen_at: storeStatus.reopen_at,
+                display_reopen: storeStatus.display_reopen,
+                availability: storeStatus
+            });
+        }
+    } catch (lockErr) {
+        console.warn('[Checkout Availability Check Warning]:', lockErr.message);
+    }
+
+    // 2. SERVER-SIDE USER BLACKLIST & FRAUD CHECK
+    try {
+        const blacklistCheck = await supabaseDb.blacklist.isUserBlacklisted(userId);
+        if (blacklistCheck && blacklistCheck.isBlacklisted) {
+            const reason = blacklistCheck.reason || 'Fake Orders';
+            return res.status(403).json({
+                success: false,
+                error: 'ACCOUNT_BLOCKED',
+                code: 'ACCOUNT_BLOCKED',
+                message: `You are blocked due to ${reason.toLowerCase()}.`,
+                reason: reason
+            });
+        }
+    } catch (blErr) {
+        console.warn('[Checkout Blacklist Check Warning]:', blErr.message);
+    }
+
+
     // Strict Address Check: Must be non-empty and explicitly contain a room number
     if (!deliveryAddress || typeof deliveryAddress !== 'string' || deliveryAddress.trim().length < 5 || 
         deliveryAddress.includes('Please set') || 
