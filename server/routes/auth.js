@@ -165,7 +165,7 @@ router.post('/admin-login', async (req, res) => {
     try {
         const user = await supabaseDb.users.getByIdentifier(email);
 
-        if (!user || user.id !== 'admin_001') {
+        if (!user || (!user.id.startsWith('admin_') && user.role !== 'admin')) {
             return res.status(403).json({ error: 'Access denied. Valid administrator credentials required.' });
         }
 
