@@ -692,6 +692,7 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
 
 // Global Product Details Modal
 window.openProductModal = async function(productId) {
+    if (!productId) return;
     const existing = document.getElementById('product-modal');
     if (existing) existing.remove();
 
@@ -707,8 +708,25 @@ window.openProductModal = async function(productId) {
     document.body.appendChild(modal);
 
     try {
-        const p = await window.api.getProduct(productId);
-        const cartInfo = window.cartState[p.id];
+        const res = await window.api.getProduct(productId);
+        const p = (res && res.product) ? res.product : (res && res.id ? res : (window.__cachedProducts && window.__cachedProducts.get(productId)) || {});
+        
+        const pid = p.id || productId;
+        const pName = p.name || 'Campus Essential';
+        const pCategory = p.category || 'Snacks & Drinks';
+        const pSubcategory = p.subcategory || 'Hostel Favorite';
+        const pImg = p.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400';
+        const pPrice = Number(p.price) || 0;
+        const pMrp = Number(p.mrp) || pPrice;
+        const pDiscount = p.discount_percent || (pMrp > pPrice ? Math.round(((pMrp - pPrice) / pMrp) * 100) : 0);
+        const pSize = p.size || p.unit || '1 Pack';
+        const pDesc = p.description || `${pName} is available for express 3-minute delivery right to your hostel room.`;
+        const pShelfLife = p.shelf_life || '12 Months';
+        const stockLeft = p.stock_left !== undefined && p.stock_left !== null ? Number(p.stock_left) : (p.in_stock !== false ? 50 : 0);
+        const isOutOfStock = p.in_stock === false || stockLeft <= 0;
+        const isLowStock = !isOutOfStock && stockLeft <= 4;
+
+        const cartInfo = window.cartState ? window.cartState[pid] : null;
         const qty = cartInfo ? cartInfo.quantity : 0;
 
         modal.innerHTML = `
@@ -716,26 +734,26 @@ window.openProductModal = async function(productId) {
                 <!-- Modal Top -->
                 <div class="flex justify-between items-start">
                     <span class="text-[10px] font-bold uppercase tracking-wider text-emerald bg-emerald/10 px-2.5 py-0.5 rounded-full">
-                        ${p.category} · ${p.subcategory || 'Essential'}
+                        ${pCategory} · ${pSubcategory}
                     </span>
-                    <button type="button" class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface" onclick="document.getElementById('product-modal').remove()">
+                    <button type="button" class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface hover:bg-surface-variant transition-colors" onclick="document.getElementById('product-modal').remove()">
                         <span class="material-symbols-outlined text-base">close</span>
                     </button>
                 </div>
 
                 <!-- Product Image Banner -->
                 <div class="h-48 bg-surface-container-high rounded-2xl overflow-hidden flex items-center justify-center p-4 relative">
-                    <img class="max-h-full max-w-full object-contain" src="${p.image_url}" alt="${p.name}" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400'">
-                    ${p.discount_percent > 0 ? `
-                    <div class="absolute top-3 left-3 bg-vibrant-yellow text-on-surface font-bold text-[11px] px-2.5 py-0.5 rounded-md shadow-sm">
-                        ${p.discount_percent}% OFF
+                    <img class="max-h-full max-w-full object-contain" src="${pImg}" alt="${pName}" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400'">
+                    ${pDiscount > 0 ? `
+                    <div class="absolute top-3 left-3 bg-vibrant-yellow text-slate-900 font-bold text-[11px] px-2.5 py-0.5 rounded-md shadow-sm">
+                        ${pDiscount}% OFF
                     </div>
                     ` : ''}
-                    ${p.stock_left !== undefined && p.stock_left !== null && p.stock_left > 0 && p.stock_left <= 4 ? `
+                    ${isLowStock ? `
                     <div class="absolute top-3 right-3 bg-amber-500 text-white text-[11px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-0.5">
-                        <span class="material-symbols-outlined text-xs" style="font-variation-settings: 'FILL' 1;">bolt</span> Only ${p.stock_left} left!
+                        <span class="material-symbols-outlined text-xs" style="font-variation-settings: 'FILL' 1;">bolt</span> Only ${stockLeft} left!
                     </div>
-                    ` : (!p.in_stock || p.stock_left === 0 ? `
+                    ` : (isOutOfStock ? `
                     <div class="absolute top-3 right-3 bg-rose-600 text-white text-[11px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm">
                         Out of Stock
                     </div>
@@ -744,21 +762,21 @@ window.openProductModal = async function(productId) {
 
                 <!-- Title & Price -->
                 <div class="space-y-1">
-                    <h2 class="font-headline-md text-lg font-bold text-on-surface">${p.name}</h2>
-                    <p class="text-xs text-on-surface-variant font-medium">${p.size || p.unit}</p>
+                    <h2 class="font-headline-md text-lg font-bold text-on-surface">${pName}</h2>
+                    <p class="text-xs text-on-surface-variant font-medium">${pSize}</p>
                     <div class="flex items-baseline gap-2 pt-1">
-                        <span class="text-2xl font-bold text-emerald">₹${p.price}</span>
-                        ${p.mrp > p.price ? `<span class="text-xs text-on-surface-variant line-through">₹${p.mrp}</span>` : ''}
+                        <span class="text-2xl font-bold text-emerald">₹${pPrice}</span>
+                        ${pMrp > pPrice ? `<span class="text-xs text-on-surface-variant line-through">₹${pMrp}</span>` : ''}
                     </div>
                 </div>
 
                 <!-- Highlights & Description -->
                 <div class="space-y-3 border-t border-surface-variant/40 pt-3 text-xs">
-                    <p class="text-on-surface-variant leading-relaxed">${p.description}</p>
+                    <p class="text-on-surface-variant leading-relaxed">${pDesc}</p>
                     <div class="grid grid-cols-2 gap-2 text-[11px]">
                         <div class="bg-surface p-2 rounded-xl border border-surface-variant/40">
                             <span class="text-on-surface-variant block text-[10px]">Shelf Life</span>
-                            <span class="font-semibold text-on-surface">${p.shelf_life}</span>
+                            <span class="font-semibold text-on-surface">${pShelfLife}</span>
                         </div>
                         <div class="bg-surface p-2 rounded-xl border border-surface-variant/40">
                             <span class="text-on-surface-variant block text-[10px]">Campus Delivery</span>
@@ -769,13 +787,13 @@ window.openProductModal = async function(productId) {
 
                 <!-- Action Button inside Modal -->
                 <div class="pt-2" id="modal-action-container">
-                    ${(!p.in_stock || (p.stock_left !== undefined && p.stock_left <= 0)) ? `
+                    ${isOutOfStock ? `
                     <button type="button" class="w-full bg-rose-500/10 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60 rounded-full py-3 text-xs font-bold shadow-none cursor-not-allowed flex items-center justify-center gap-1.5" disabled>
                         <span class="material-symbols-outlined text-sm">block</span> Out of Stock
                     </button>
                     ` : (qty === 0 ? `
                     <button type="button" class="w-full bg-emerald text-white rounded-full py-3 text-xs font-semibold shadow-md hover:bg-primary transition-all flex items-center justify-center gap-1.5 cursor-pointer" id="modal-add-btn">
-                        <span class="material-symbols-outlined text-sm">add_shopping_cart</span> Add to Cart · ₹${p.price}
+                        <span class="material-symbols-outlined text-sm">add_shopping_cart</span> Add to Cart · ₹${pPrice}
                     </button>
                     ` : `
                     <div class="flex items-center justify-between bg-surface-container-high rounded-full p-1.5 px-4 border border-outline-variant/30">
@@ -785,7 +803,7 @@ window.openProductModal = async function(productId) {
                                 <span class="material-symbols-outlined text-sm">remove</span>
                             </button>
                             <span class="font-bold text-xs w-4 text-center">${qty}</span>
-                            <button type="button" class="w-7 h-7 rounded-full bg-emerald text-white flex items-center justify-center shadow-sm cursor-pointer" id="modal-inc-btn">
+                            <button type="button" class="w-7 h-7 rounded-full bg-emerald text-white flex items-center justify-center shadow-sm cursor-pointer ${qty >= stockLeft ? 'opacity-40 cursor-not-allowed' : ''}" id="modal-inc-btn" ${qty >= stockLeft ? 'disabled' : ''}>
                                 <span class="material-symbols-outlined text-sm">add</span>
                             </button>
                         </div>
@@ -799,46 +817,44 @@ window.openProductModal = async function(productId) {
         const modalAddBtn = document.getElementById('modal-add-btn');
         if (modalAddBtn) {
             modalAddBtn.onclick = () => {
-                const stockLimit = p.stock_left !== undefined && p.stock_left !== null ? Number(p.stock_left) : (p.in_stock ? 50 : 0);
-                if (stockLimit <= 0 || !p.in_stock) {
+                if (isOutOfStock) {
                     if (typeof window.showClientToast === 'function') window.showClientToast('This item is currently out of stock', 'warning', 'inventory_2');
                     return;
                 }
-                window.setOptimisticCartQuantity(p.id, 1, stockLimit, () => {
-                    if (document.getElementById('product-modal')) window.openProductModal(p.id);
+                window.setOptimisticCartQuantity(pid, 1, stockLeft, () => {
+                    if (document.getElementById('product-modal')) window.openProductModal(pid);
                 });
-                window.openProductModal(p.id);
+                window.openProductModal(pid);
             };
         }
         const modalIncBtn = document.getElementById('modal-inc-btn');
         if (modalIncBtn) {
             modalIncBtn.onclick = () => {
-                const stockLimit = p.stock_left !== undefined && p.stock_left !== null ? Number(p.stock_left) : (p.in_stock ? 50 : 0);
-                const currentQty = window.cartState?.[p.id]?.quantity || 0;
-                if (currentQty >= stockLimit) {
+                const currentQty = window.cartState?.[pid]?.quantity || 0;
+                if (currentQty >= stockLeft) {
                     if (typeof window.showClientToast === 'function') {
-                        window.showClientToast(`⚠️ Only ${stockLimit} unit${stockLimit === 1 ? '' : 's'} available in stock!`, 'warning', 'inventory_2');
+                        window.showClientToast(`⚠️ Only ${stockLeft} unit${stockLeft === 1 ? '' : 's'} available in stock!`, 'warning', 'inventory_2');
                     }
                     return;
                 }
-                window.setOptimisticCartQuantity(p.id, currentQty + 1, stockLimit, () => {
-                    if (document.getElementById('product-modal')) window.openProductModal(p.id);
+                window.setOptimisticCartQuantity(pid, currentQty + 1, stockLeft, () => {
+                    if (document.getElementById('product-modal')) window.openProductModal(pid);
                 });
-                window.openProductModal(p.id);
+                window.openProductModal(pid);
             };
         }
         const modalDecBtn = document.getElementById('modal-dec-btn');
         if (modalDecBtn) {
             modalDecBtn.onclick = () => {
-                const stockLimit = p.stock_left !== undefined && p.stock_left !== null ? Number(p.stock_left) : (p.in_stock ? 50 : 0);
-                const currentQty = window.cartState?.[p.id]?.quantity || 0;
-                window.setOptimisticCartQuantity(p.id, Math.max(0, currentQty - 1), stockLimit, () => {
-                    if (document.getElementById('product-modal')) window.openProductModal(p.id);
+                const currentQty = window.cartState?.[pid]?.quantity || 0;
+                window.setOptimisticCartQuantity(pid, Math.max(0, currentQty - 1), stockLeft, () => {
+                    if (document.getElementById('product-modal')) window.openProductModal(pid);
                 });
-                window.openProductModal(p.id);
+                window.openProductModal(pid);
             };
         }
     } catch(e) {
+        console.error('[Product Modal Error]:', e);
         modal.innerHTML = `
             <div class="modal-content p-6 text-center space-y-3">
                 <p class="text-error text-xs">Could not load product details.</p>

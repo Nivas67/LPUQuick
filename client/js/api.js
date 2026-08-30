@@ -260,14 +260,25 @@ const api = {
     // Single Product Details (0ms in-memory fast path)
     async getProduct(id) {
         if (window.__cachedProducts && window.__cachedProducts.has(id)) {
-            return { product: window.__cachedProducts.get(id) };
+            const cached = window.__cachedProducts.get(id);
+            return { product: cached, ...cached };
         }
-        const res = await fetch(`${API_BASE}/products/${id}`);
-        const data = await res.json();
-        if (data && data.product) {
-            indexProducts([data.product]);
+        try {
+            const res = await fetch(`${API_BASE}/products/${id}`);
+            const data = await res.json();
+            if (data && data.product) {
+                indexProducts([data.product]);
+                return { product: data.product, ...data.product };
+            } else if (data && data.id) {
+                indexProducts([data]);
+                return { product: data, ...data };
+            }
+            return data;
+        } catch(e) {
+            const fallback = window.__cachedProducts?.get(id);
+            if (fallback) return { product: fallback, ...fallback };
+            throw e;
         }
-        return data;
     },
 
     // Flow Assist
