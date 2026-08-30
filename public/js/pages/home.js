@@ -273,7 +273,7 @@ window.pages.home = async function() {
                 <div>
                     <h2 class="font-headline-md text-lg sm:text-xl font-bold text-on-surface flex items-center gap-2">
                         <span>${sectionTitle}</span>
-                        <span class="text-[10px] bg-emerald/10 text-emerald font-bold px-2 py-0.5 rounded-full">${inStockProducts.length} In-Stock Available</span>
+                        <span class="text-[10px] bg-emerald/10 text-emerald font-bold px-2 py-0.5 rounded-full">Live Campus Menu</span>
                     </h2>
                     <p class="text-xs text-on-surface-variant mt-0.5">Every campus product ready for instant 3-minute delivery</p>
                 </div>
@@ -282,34 +282,34 @@ window.pages.home = async function() {
                 </a>
             </div>
 
-            <!-- Interactive Category Filter Chips -->
+            <!-- Interactive Category Filter Chips (Clean without numbers) -->
             <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-3 pt-1" id="home-category-filters">
                 <button type="button" class="home-filter-btn px-4 py-1.5 rounded-full text-xs font-bold transition-all bg-emerald text-white shadow-sm shrink-0 active:scale-95 cursor-pointer" data-filter="all">
-                    ⚡ All In-Stock (${inStockProducts.length})
+                    ⚡ All In-Stock
                 </button>
                 ${biscuits.length > 0 ? `
                 <button type="button" class="home-filter-btn px-4 py-1.5 rounded-full text-xs font-bold transition-all bg-surface hover:bg-emerald/10 text-on-surface border border-surface-variant/40 shrink-0 active:scale-95 cursor-pointer" data-filter="biscuits">
-                    🍪 Biscuits (${biscuits.length})
+                    🍪 Biscuits
                 </button>
                 ` : ''}
                 ${trendingSnacks.length > 0 ? `
                 <button type="button" class="home-filter-btn px-4 py-1.5 rounded-full text-xs font-bold transition-all bg-surface hover:bg-emerald/10 text-on-surface border border-surface-variant/40 shrink-0 active:scale-95 cursor-pointer" data-filter="snacks">
-                    🍿 Chips & Munchies (${trendingSnacks.length})
+                    🍿 Chips & Munchies
                 </button>
                 ` : ''}
                 ${chocolates.length > 0 ? `
                 <button type="button" class="home-filter-btn px-4 py-1.5 rounded-full text-xs font-bold transition-all bg-surface hover:bg-emerald/10 text-on-surface border border-surface-variant/40 shrink-0 active:scale-95 cursor-pointer" data-filter="chocolates">
-                    🍫 Chocolates (${chocolates.length})
+                    🍫 Chocolates
                 </button>
                 ` : ''}
                 ${instantFood.length > 0 ? `
                 <button type="button" class="home-filter-btn px-4 py-1.5 rounded-full text-xs font-bold transition-all bg-surface hover:bg-emerald/10 text-on-surface border border-surface-variant/40 shrink-0 active:scale-95 cursor-pointer" data-filter="instant">
-                    🍜 Instant Food (${instantFood.length})
+                    🍜 Instant Food
                 </button>
                 ` : ''}
                 ${drinks.length > 0 ? `
                 <button type="button" class="home-filter-btn px-4 py-1.5 rounded-full text-xs font-bold transition-all bg-surface hover:bg-emerald/10 text-on-surface border border-surface-variant/40 shrink-0 active:scale-95 cursor-pointer" data-filter="drinks">
-                    🥤 Drinks (${drinks.length})
+                    🥤 Drinks
                 </button>
                 ` : ''}
             </div>
@@ -342,7 +342,6 @@ window.pages.home = async function() {
                 <div>
                     <h2 class="font-headline-md text-lg sm:text-xl font-bold text-on-surface flex items-center gap-2">
                         <span>🍪 Crunchy Biscuits & Cookies</span>
-                        <span class="text-[10px] bg-amber-500/10 text-amber-600 font-bold px-2 py-0.5 rounded-full">${biscuits.length} In-Stock</span>
                     </h2>
                 </div>
                 <a class="text-xs font-semibold text-emerald hover:text-primary transition-colors flex items-center gap-0.5" href="#/categories">
@@ -360,7 +359,6 @@ window.pages.home = async function() {
                 <div>
                     <h2 class="font-headline-md text-lg sm:text-xl font-bold text-on-surface flex items-center gap-2">
                         <span>🍿 Trending Hostel Munchies</span>
-                        <span class="text-[10px] bg-amber-500/10 text-amber-500 font-bold px-2 py-0.5 rounded-full">${trendingSnacks.length} In-Stock</span>
                     </h2>
                 </div>
                 <a class="text-xs font-semibold text-emerald hover:text-primary transition-colors flex items-center gap-0.5" href="#/categories">
@@ -378,7 +376,6 @@ window.pages.home = async function() {
                 <div>
                     <h2 class="font-headline-md text-lg sm:text-xl font-bold text-on-surface flex items-center gap-2">
                         <span>🍫 Chocolates & Sweet Bites</span>
-                        <span class="text-[10px] bg-rose-500/10 text-rose-500 font-bold px-2 py-0.5 rounded-full">${chocolates.length} In-Stock</span>
                     </h2>
                 </div>
                 <a class="text-xs font-semibold text-emerald hover:text-primary transition-colors flex items-center gap-0.5" href="#/categories">
