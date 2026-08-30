@@ -730,59 +730,47 @@ window.openProductModal = async function(productId) {
             </div>
         `;
 
-        // Bind Modal Action Buttons
+        // Bind Modal Action Buttons with Atomic Debounced Sync
         const modalAddBtn = document.getElementById('modal-add-btn');
         if (modalAddBtn) {
-            modalAddBtn.onclick = async () => {
+            modalAddBtn.onclick = () => {
                 const stockLimit = p.stock_left !== undefined && p.stock_left !== null ? Number(p.stock_left) : (p.in_stock ? 50 : 0);
                 if (stockLimit <= 0 || !p.in_stock) {
                     if (typeof window.showClientToast === 'function') window.showClientToast('This item is currently out of stock', 'warning', 'inventory_2');
                     return;
                 }
-                const uid = window.getEffectiveUserId();
-                try {
-                    await window.api.addToCart(uid, p.id, 1);
-                    window.openProductModal(p.id);
-                    window.syncCardSteppers();
-                } catch(err) {
-                    if (typeof window.showClientToast === 'function') window.showClientToast(err.message || 'Could not add to cart', 'warning', 'inventory_2');
-                }
+                window.setOptimisticCartQuantity(p.id, 1, stockLimit, () => {
+                    if (document.getElementById('product-modal')) window.openProductModal(p.id);
+                });
+                window.openProductModal(p.id);
             };
         }
         const modalIncBtn = document.getElementById('modal-inc-btn');
         if (modalIncBtn) {
-            modalIncBtn.onclick = async () => {
+            modalIncBtn.onclick = () => {
                 const stockLimit = p.stock_left !== undefined && p.stock_left !== null ? Number(p.stock_left) : (p.in_stock ? 50 : 0);
-                const uid = window.getEffectiveUserId();
-                const item = window.cartState[p.id];
-                if (item) {
-                    if (item.quantity >= stockLimit) {
-                        if (typeof window.showClientToast === 'function') {
-                            window.showClientToast(`⚠️ Only ${stockLimit} unit${stockLimit === 1 ? '' : 's'} available in stock!`, 'warning', 'inventory_2');
-                        }
-                        return;
+                const currentQty = window.cartState?.[p.id]?.quantity || 0;
+                if (currentQty >= stockLimit) {
+                    if (typeof window.showClientToast === 'function') {
+                        window.showClientToast(`⚠️ Only ${stockLimit} unit${stockLimit === 1 ? '' : 's'} available in stock!`, 'warning', 'inventory_2');
                     }
-                    try {
-                        await window.api.updateCartItem(item.cart_id, item.quantity + 1, uid);
-                        window.openProductModal(p.id);
-                        window.syncCardSteppers();
-                    } catch(err) {
-                        if (typeof window.showClientToast === 'function') window.showClientToast(err.message || `Only ${stockLimit} units available`, 'warning', 'inventory_2');
-                    }
+                    return;
                 }
+                window.setOptimisticCartQuantity(p.id, currentQty + 1, stockLimit, () => {
+                    if (document.getElementById('product-modal')) window.openProductModal(p.id);
+                });
+                window.openProductModal(p.id);
             };
         }
         const modalDecBtn = document.getElementById('modal-dec-btn');
         if (modalDecBtn) {
-            modalDecBtn.onclick = async () => {
-                const uid = window.getEffectiveUserId();
-                const item = window.cartState[p.id];
-                if (item) {
-                    if (item.quantity <= 1) await window.api.removeCartItem(item.cart_id);
-                    else await window.api.updateCartItem(item.cart_id, item.quantity - 1, uid);
-                }
+            modalDecBtn.onclick = () => {
+                const stockLimit = p.stock_left !== undefined && p.stock_left !== null ? Number(p.stock_left) : (p.in_stock ? 50 : 0);
+                const currentQty = window.cartState?.[p.id]?.quantity || 0;
+                window.setOptimisticCartQuantity(p.id, Math.max(0, currentQty - 1), stockLimit, () => {
+                    if (document.getElementById('product-modal')) window.openProductModal(p.id);
+                });
                 window.openProductModal(p.id);
-                window.syncCardSteppers();
             };
         }
     } catch(e) {
@@ -856,7 +844,7 @@ function initGlobalEventDelegation() {
     if (isGlobalCartDelegationBound) return;
     isGlobalCartDelegationBound = true;
 
-    document.addEventListener('click', async (e) => {
+    document.addEventListener('click', (e) => {
         // 1. Add to Cart Button Click
         const addBtn = e.target.closest('.add-to-cart-btn');
         if (addBtn) {
@@ -864,7 +852,6 @@ function initGlobalEventDelegation() {
             e.stopPropagation();
             const id = addBtn.dataset.id;
             if (!id) return;
-            const uid = window.getEffectiveUserId();
 
             const slot = addBtn.closest('.product-action-slot');
             const cachedProd = window.__cachedProducts?.get(id);
@@ -877,26 +864,8 @@ function initGlobalEventDelegation() {
                 return;
             }
 
-            // Instant Optimistic UI Update (< 1ms)
-            window.cartState = window.cartState || {};
-            window.cartState[id] = { quantity: 1, cart_id: window.cartState[id]?.cart_id || `temp_${id}` };
-            window.updateSingleProductSlot(id);
-
-            try {
-                const res = await window.api.addToCart(uid, id, 1);
-                if (res && res.error) {
-                    throw new Error(res.error);
-                }
-                if (res && res.cart_id && window.cartState[id]) {
-                    window.cartState[id].cart_id = res.cart_id;
-                }
-            } catch(err) {
-                delete window.cartState[id];
-                window.updateSingleProductSlot(id);
-                if (typeof window.showClientToast === 'function') {
-                    window.showClientToast(err.message || 'Could not update cart', 'warning', 'inventory_2');
-                }
-            }
+            // Instant Atomic Sync
+            window.setOptimisticCartQuantity(id, 1, stockLeft);
             return;
         }
 
@@ -907,37 +876,21 @@ function initGlobalEventDelegation() {
             e.stopPropagation();
             const id = incBtn.dataset.id;
             if (!id) return;
-            const uid = window.getEffectiveUserId();
-            const item = window.cartState?.[id];
-            if (item) {
-                const slot = incBtn.closest('.product-action-slot');
-                const cachedProd = window.__cachedProducts?.get(id);
-                const stockLeft = cachedProd?.stock_left !== undefined ? Number(cachedProd.stock_left) : (slot?.dataset?.stockLeft !== undefined ? Number(slot.dataset.stockLeft) : (incBtn.dataset.stockLeft !== undefined ? Number(incBtn.dataset.stockLeft) : 50));
 
-                if (item.quantity >= stockLeft) {
-                    if (typeof window.showClientToast === 'function') {
-                        window.showClientToast(`⚠️ Only ${stockLeft} unit${stockLeft === 1 ? '' : 's'} available in stock!`, 'warning', 'inventory_2');
-                    }
-                    return;
+            const slot = incBtn.closest('.product-action-slot');
+            const cachedProd = window.__cachedProducts?.get(id);
+            const stockLeft = cachedProd?.stock_left !== undefined ? Number(cachedProd.stock_left) : (slot?.dataset?.stockLeft !== undefined ? Number(slot.dataset.stockLeft) : (incBtn.dataset.stockLeft !== undefined ? Number(incBtn.dataset.stockLeft) : 50));
+            const currentQty = window.cartState?.[id]?.quantity || 0;
+
+            if (currentQty >= stockLeft) {
+                if (typeof window.showClientToast === 'function') {
+                    window.showClientToast(`⚠️ Only ${stockLeft} unit${stockLeft === 1 ? '' : 's'} available in stock!`, 'warning', 'inventory_2');
                 }
-
-                const prevQty = item.quantity;
-                item.quantity += 1;
-                window.updateSingleProductSlot(id);
-
-                try {
-                    const res = await window.api.updateCartItem(item.cart_id, item.quantity, uid);
-                    if (res && res.error) {
-                        throw new Error(res.error);
-                    }
-                } catch(err) {
-                    item.quantity = prevQty;
-                    window.updateSingleProductSlot(id);
-                    if (typeof window.showClientToast === 'function') {
-                        window.showClientToast(err.message || `Only ${stockLeft} units available in stock`, 'warning', 'inventory_2');
-                    }
-                }
+                return;
             }
+
+            // Instant Atomic Sync (batches fast multi-taps into 1 exact sync)
+            window.setOptimisticCartQuantity(id, currentQty + 1, stockLeft);
             return;
         }
 
@@ -948,30 +901,14 @@ function initGlobalEventDelegation() {
             e.stopPropagation();
             const id = decBtn.dataset.id;
             if (!id) return;
-            const uid = window.getEffectiveUserId();
-            const item = window.cartState?.[id];
-            if (item) {
-                const prevQty = item.quantity;
-                if (item.quantity <= 1) {
-                    delete window.cartState[id];
-                    window.updateSingleProductSlot(id);
-                    try {
-                        await window.api.removeCartItem(item.cart_id);
-                    } catch(err) {
-                        window.cartState[id] = { quantity: prevQty, cart_id: item.cart_id };
-                        window.updateSingleProductSlot(id);
-                    }
-                } else {
-                    item.quantity -= 1;
-                    window.updateSingleProductSlot(id);
-                    try {
-                        await window.api.updateCartItem(item.cart_id, item.quantity, uid);
-                    } catch(err) {
-                        item.quantity = prevQty;
-                        window.updateSingleProductSlot(id);
-                    }
-                }
-            }
+
+            const slot = decBtn.closest('.product-action-slot');
+            const cachedProd = window.__cachedProducts?.get(id);
+            const stockLeft = cachedProd?.stock_left !== undefined ? Number(cachedProd.stock_left) : (slot?.dataset?.stockLeft !== undefined ? Number(slot.dataset.stockLeft) : 50);
+            const currentQty = window.cartState?.[id]?.quantity || 0;
+
+            // Instant Atomic Sync
+            window.setOptimisticCartQuantity(id, Math.max(0, currentQty - 1), stockLeft);
             return;
         }
 

@@ -45,7 +45,7 @@ window.pages.cart = async function() {
         const isMaxStockReached = item.quantity >= stockLeft;
 
         return `
-        <div class="glass-card rounded-2xl p-4 flex items-center justify-between gap-3 border border-glass-border shadow-sm mb-3 cart-row" data-cart-id="${item.cart_id}" data-stock-left="${stockLeft}">
+        <div class="glass-card rounded-2xl p-4 flex items-center justify-between gap-3 border border-glass-border shadow-sm mb-3 cart-row" data-cart-id="${item.cart_id}" data-product-id="${item.product_id}" data-stock-left="${stockLeft}">
             <div class="flex items-center gap-3.5 min-w-0">
                 <div class="w-16 h-16 rounded-xl bg-surface-container-high overflow-hidden flex-shrink-0 flex items-center justify-center">
                     <img class="w-full h-full object-cover" src="${item.image_url}" alt="${item.name}" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200'">
@@ -68,11 +68,11 @@ window.pages.cart = async function() {
                 </div>
             </div>
             <div class="cart-qty-stepper flex items-center gap-2.5 rounded-full px-2.5 py-1 flex-shrink-0">
-                <button class="w-7 h-7 rounded-full flex items-center justify-center active:scale-90 transition-all qty-dec-btn" data-id="${item.cart_id}" data-qty="${item.quantity}" data-stock-left="${stockLeft}">
+                <button class="w-7 h-7 rounded-full flex items-center justify-center active:scale-90 transition-all qty-dec-btn" data-id="${item.cart_id}" data-product-id="${item.product_id}" data-qty="${item.quantity}" data-stock-left="${stockLeft}">
                     <span class="material-symbols-outlined text-base">remove</span>
                 </button>
                 <span class="font-bold text-xs w-4 text-center qty-num">${item.quantity}</span>
-                <button class="w-7 h-7 rounded-full flex items-center justify-center active:scale-90 transition-all qty-inc-btn ${isMaxStockReached ? 'opacity-40 cursor-not-allowed' : ''}" data-id="${item.cart_id}" data-qty="${item.quantity}" data-stock-left="${stockLeft}" title="${isMaxStockReached ? `Max stock limit reached (${stockLeft})` : 'Add one more'}">
+                <button class="w-7 h-7 rounded-full flex items-center justify-center active:scale-90 transition-all qty-inc-btn ${isMaxStockReached ? 'opacity-40 cursor-not-allowed' : ''}" data-id="${item.cart_id}" data-product-id="${item.product_id}" data-qty="${item.quantity}" data-stock-left="${stockLeft}" title="${isMaxStockReached ? `Max stock limit reached (${stockLeft})` : 'Add one more'}">
                     <span class="material-symbols-outlined text-base">add</span>
                 </button>
             </div>
@@ -265,10 +265,12 @@ window.pageInits.cart = function() {
     }
 
     document.querySelectorAll('.qty-inc-btn').forEach(btn => {
-        btn.onclick = async (e) => {
+        btn.onclick = (e) => {
             e.stopPropagation();
-            const id = btn.dataset.id;
             const row = btn.closest('.cart-row');
+            const productId = btn.dataset.productId || row?.dataset?.productId;
+            if (!productId) return;
+
             const qtyNum = row?.querySelector('.qty-num');
             const currentQty = parseInt(qtyNum?.textContent || btn.dataset.qty) || 1;
             const stockLeft = parseInt(btn.dataset.stockLeft) || 50;
@@ -288,28 +290,23 @@ window.pageInits.cart = function() {
             const decBtn = row?.querySelector('.qty-dec-btn');
             if (decBtn) decBtn.dataset.qty = nextQty;
 
-            try {
-                const res = await window.api.updateCartItem(id, nextQty, userId);
-                if (res && res.error) {
-                    throw new Error(res.error);
-                }
+            // Atomic sync batches multiple rapid clicks accurately
+            window.setOptimisticCartQuantity(productId, nextQty, stockLeft, () => {
                 refreshCartBill();
-            } catch(err) {
-                if (qtyNum) qtyNum.textContent = currentQty;
-                if (typeof window.showClientToast === 'function') {
-                    window.showClientToast(err.message || `Only ${stockLeft} units available in stock`, 'warning', 'inventory_2');
-                }
-            }
+            });
         };
     });
 
     document.querySelectorAll('.qty-dec-btn').forEach(btn => {
-        btn.onclick = async (e) => {
+        btn.onclick = (e) => {
             e.stopPropagation();
-            const id = btn.dataset.id;
             const row = btn.closest('.cart-row');
+            const productId = btn.dataset.productId || row?.dataset?.productId;
+            if (!productId) return;
+
             const qtyNum = row?.querySelector('.qty-num');
             const currentQty = parseInt(qtyNum?.textContent || btn.dataset.qty) || 1;
+            const stockLeft = parseInt(btn.dataset.stockLeft) || 50;
 
             if (currentQty <= 1) {
                 // Instant Row Removal (0ms)
@@ -322,7 +319,9 @@ window.pageInits.cart = function() {
                         refreshCartBill();
                     }, 150);
                 }
-                await window.api.removeCartItem(id);
+                window.setOptimisticCartQuantity(productId, 0, stockLeft, () => {
+                    refreshCartBill();
+                });
             } else {
                 const nextQty = currentQty - 1;
                 if (qtyNum) qtyNum.textContent = nextQty;
@@ -330,12 +329,9 @@ window.pageInits.cart = function() {
                 const incBtn = row?.querySelector('.qty-inc-btn');
                 if (incBtn) incBtn.dataset.qty = nextQty;
 
-                try {
-                    await window.api.updateCartItem(id, nextQty, userId);
+                window.setOptimisticCartQuantity(productId, nextQty, stockLeft, () => {
                     refreshCartBill();
-                } catch(err) {
-                    if (qtyNum) qtyNum.textContent = currentQty;
-                }
+                });
             }
         };
     });

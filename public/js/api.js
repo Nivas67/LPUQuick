@@ -19,21 +19,110 @@ function indexProducts(items) {
     });
 }
 
+window.__pendingCartSync = window.__pendingCartSync || {};
+window.__cartSyncDebounceTimers = window.__cartSyncDebounceTimers || {};
+
 function updateLocalCartState(cartData) {
     window.cartState = window.cartState || {};
+    window.__pendingCartSync = window.__pendingCartSync || {};
     if (cartData && Array.isArray(cartData.items)) {
         const nextState = {};
         cartData.items.forEach(i => {
             if (i.product_id) {
+                const isPending = window.__pendingCartSync[i.product_id];
                 nextState[i.product_id] = {
                     cart_id: i.cart_id,
-                    quantity: i.quantity
+                    quantity: isPending ? isPending.targetQty : i.quantity
                 };
             }
         });
         window.cartState = nextState;
     }
 }
+
+// Atomic Optimistic Cart State & Fast-Tap Debounced Syncer (< 1ms UI response, 100% accurate count)
+window.setOptimisticCartQuantity = function(productId, targetQty, maxStock = 50, onSynced = null) {
+    if (!productId) return;
+    const uid = typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : window.CURRENT_USER_ID;
+    window.cartState = window.cartState || {};
+    window.__pendingCartSync = window.__pendingCartSync || {};
+    window.__cartSyncDebounceTimers = window.__cartSyncDebounceTimers || {};
+
+    // 1. Clamp target quantity to [0, maxStock]
+    const clampedQty = Math.max(0, Math.min(Number(targetQty), Number(maxStock)));
+    
+    // Track original confirmed quantity for rollback on network failure
+    if (!window.__pendingCartSync[productId]) {
+        window.__pendingCartSync[productId] = {
+            confirmedQty: window.cartState[productId]?.quantity || 0,
+            cartId: window.cartState[productId]?.cart_id || null,
+            targetQty: clampedQty
+        };
+    } else {
+        window.__pendingCartSync[productId].targetQty = clampedQty;
+    }
+
+    // 2. Synchronous Instant State & DOM update (0ms UI lag)
+    if (clampedQty > 0) {
+        window.cartState[productId] = {
+            quantity: clampedQty,
+            cart_id: window.cartState[productId]?.cart_id || window.__pendingCartSync[productId]?.cartId || `temp_${productId}`
+        };
+    } else {
+        delete window.cartState[productId];
+    }
+    
+    if (typeof window.updateSingleProductSlot === 'function') {
+        window.updateSingleProductSlot(productId);
+    }
+
+    // 3. Clear existing debounce timer for this product
+    if (window.__cartSyncDebounceTimers[productId]) {
+        clearTimeout(window.__cartSyncDebounceTimers[productId]);
+    }
+
+    // 4. Debounce network dispatch by 250ms (batches rapid multi-taps into a single accurate request)
+    window.__cartSyncDebounceTimers[productId] = setTimeout(async () => {
+        delete window.__cartSyncDebounceTimers[productId];
+        const syncInfo = window.__pendingCartSync[productId];
+        if (!syncInfo) return;
+
+        const finalQty = syncInfo.targetQty;
+        const knownCartId = syncInfo.cartId || window.cartState[productId]?.cart_id;
+        delete window.__pendingCartSync[productId];
+
+        try {
+            if (finalQty <= 0) {
+                if (knownCartId && !knownCartId.startsWith('temp_')) {
+                    await window.api.removeCartItem(knownCartId);
+                }
+            } else if (!knownCartId || knownCartId.startsWith('temp_')) {
+                const res = await window.api.addToCart(uid, productId, finalQty);
+                if (res && res.cart_id && window.cartState[productId]) {
+                    window.cartState[productId].cart_id = res.cart_id;
+                }
+            } else {
+                await window.api.updateCartItem(knownCartId, finalQty, uid);
+            }
+            if (typeof onSynced === 'function') onSynced(finalQty);
+        } catch (err) {
+            console.error('[Cart Sync Error]', err);
+            // Rollback on server error
+            if (syncInfo.confirmedQty > 0) {
+                window.cartState[productId] = { quantity: syncInfo.confirmedQty, cart_id: syncInfo.cartId };
+            } else {
+                delete window.cartState[productId];
+            }
+            if (typeof window.updateSingleProductSlot === 'function') {
+                window.updateSingleProductSlot(productId);
+            }
+            if (typeof window.showClientToast === 'function') {
+                window.showClientToast(err.message || 'Cart sync error', 'warning', 'inventory_2');
+            }
+            if (typeof onSynced === 'function') onSynced(syncInfo.confirmedQty);
+        }
+    }, 250);
+};
 
 let cartMemoryCache = null;
 let cartMemoryCacheTime = 0;
