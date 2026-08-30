@@ -272,15 +272,11 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
                 </div>
             </div>
 
-            <!-- Room & Floor Input (Strictly Numeric) -->
-            <div class="grid grid-cols-2 gap-2.5">
-                <div class="space-y-1">
-                    <label class="block text-xs font-semibold text-on-surface-variant" for="room-input">Room Number (Digits only) *</label>
+            <!-- Room Number Input (Strictly Numeric) -->
+            <div class="space-y-1">
+                <label class="block text-xs font-semibold text-on-surface-variant" for="room-input">Room Number (Digits only) *</label>
+                <div class="relative">
                     <input type="tel" inputmode="numeric" pattern="[0-9]*" id="room-input" required class="w-full px-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface font-semibold focus:outline-none focus:border-emerald" placeholder="e.g. 304" value="${savedRoom.replace(/\D/g, '')}">
-                </div>
-                <div class="space-y-1">
-                    <label class="block text-xs font-semibold text-on-surface-variant" for="floor-input">Floor (Digits only) *</label>
-                    <input type="tel" inputmode="numeric" pattern="[0-9]*" id="floor-input" required class="w-full px-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface font-semibold focus:outline-none focus:border-emerald" placeholder="e.g. 3" value="${savedFloor.replace(/\D/g, '') || '3'}">
                 </div>
             </div>
 
@@ -326,13 +322,6 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
         };
     }
 
-    const floorInput = modal.querySelector('#floor-input');
-    if (floorInput) {
-        floorInput.oninput = () => {
-            floorInput.value = floorInput.value.replace(/\D/g, '');
-        };
-    }
-
     const phoneInput = modal.querySelector('#phone-input');
     if (phoneInput) {
         phoneInput.oninput = () => {
@@ -369,7 +358,7 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
     });
 
     // Helper to finalize address saving
-    function finalizeAddressSave(room, floor, phone) {
+    function finalizeAddressSave(room, phone) {
         window.currentAddress = 'BH13';
         window.currentBlock = selectedBlock;
         window.currentRoom = room;
@@ -378,7 +367,6 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
         localStorage.setItem('lpuquick_address', window.currentAddress);
         localStorage.setItem('lpuquick_block', window.currentBlock);
         localStorage.setItem('lpuquick_room', window.currentRoom);
-        localStorage.setItem('lpuquick_floor', floor);
         if (phone) {
             localStorage.setItem('lpuquick_phone', phone);
         }
@@ -408,7 +396,6 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
     if (saveAddressBtn) {
         saveAddressBtn.onclick = async () => {
             const room = modal.querySelector('#room-input')?.value?.trim();
-            const floor = modal.querySelector('#floor-input')?.value?.trim();
             const phone = modal.querySelector('#phone-input')?.value?.trim();
             const alertBox = modal.querySelector('#address-validation-alert');
             const alertMsg = modal.querySelector('#address-validation-msg');
@@ -420,16 +407,6 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
                     alertMsg.textContent = 'Please enter a valid numeric Room Number (e.g. 304).';
                 }
                 modal.querySelector('#room-input')?.focus();
-                return;
-            }
-
-            const cleanFloor = (floor || '').replace(/\D/g, '');
-            if (!cleanFloor) {
-                if (alertBox && alertMsg) {
-                    alertBox.classList.remove('hidden');
-                    alertMsg.textContent = 'Please enter a valid numeric Floor Number (e.g. 3).';
-                }
-                modal.querySelector('#floor-input')?.focus();
                 return;
             }
 
@@ -445,10 +422,8 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
 
             if (alertBox) alertBox.classList.add('hidden');
 
-            const formattedFloor = cleanFloor === '0' ? 'Ground Floor' : `Floor ${cleanFloor}`;
-
             // Finalize address and phone saving directly
-            finalizeAddressSave(cleanRoom, formattedFloor, cleanPhone);
+            finalizeAddressSave(cleanRoom, cleanPhone);
         };
     }
 };
