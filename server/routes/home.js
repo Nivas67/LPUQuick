@@ -49,8 +49,8 @@ router.get('/', async (req, res) => {
             const section = getTimeSection(hour);
             const allProducts = await supabaseDb.products.getAll({ includeInactive: false });
 
-            // Filter products for curated sections
-            const products = allProducts.slice(0, 12);
+            // Ensure all products are available for customer home screen
+            const products = allProducts;
             
             // Personalized Buy Again computation for this specific user
             let buyAgain = [];
@@ -94,9 +94,12 @@ router.get('/', async (req, res) => {
                 buyAgain = allProducts.slice(0, 10);
             }
 
-            const trendingSnacks = allProducts.filter(p => (p.category || '').toLowerCase().includes('snack') || (p.tags || '').toLowerCase().includes('snack')).slice(0, 8);
-            const drinks = allProducts.filter(p => (p.category || '').toLowerCase().includes('beverage') || (p.category || '').toLowerCase().includes('drink')).slice(0, 8);
-            const instantFood = allProducts.filter(p => (p.category || '').toLowerCase().includes('instant') || (p.tags || '').toLowerCase().includes('noodle')).slice(0, 8);
+            // Smart keyword categorization for curated trays
+            const biscuits = allProducts.filter(p => /biscuit|cookie|wafer|pie|bikis|bourbon|creme|shakti|magic|treat/i.test((p.name || '') + ' ' + (p.category || '') + ' ' + (p.tags || '')));
+            const trendingSnacks = allProducts.filter(p => /chips|snack|kurkure|lays|crax|bingo|tedhe|namkeen|curls/i.test((p.name || '') + ' ' + (p.category || '') + ' ' + (p.tags || '')));
+            const chocolates = allProducts.filter(p => /choco|dark fantasy|pie|sweet|dessert|wafer/i.test((p.name || '') + ' ' + (p.category || '') + ' ' + (p.tags || '')));
+            const instantFood = allProducts.filter(p => /instant|maggi|noodle|pasta|soup|cup/i.test((p.name || '') + ' ' + (p.category || '') + ' ' + (p.tags || '')));
+            const drinks = allProducts.filter(p => /beverage|drink|shake|juice|coke|pepsi|water|soda|tea|coffee/i.test((p.name || '') + ' ' + (p.category || '') + ' ' + (p.tags || '')));
 
             const promos = [
                 {
@@ -123,12 +126,16 @@ router.get('/', async (req, res) => {
                 section_icon: section.icon,
                 delivery_time: '3 mins',
                 delivery_location: 'BH13',
-                products,
+                total_products_count: allProducts.length,
+                all_products: allProducts,
+                products: allProducts,
                 buy_again: buyAgain,
                 is_personalized_buy_again: isPersonalizedBuyAgain,
-                trending_snacks: trendingSnacks.length > 0 ? trendingSnacks : products.slice(0, 4),
-                drinks: drinks.length > 0 ? drinks : products.slice(2, 6),
-                instant_food: instantFood.length > 0 ? instantFood : products.slice(0, 4),
+                biscuits,
+                trending_snacks: trendingSnacks,
+                chocolates,
+                drinks,
+                instant_food: instantFood,
                 promos,
                 free_delivery_banner: {
                     active: true,
@@ -136,7 +143,7 @@ router.get('/', async (req, res) => {
                     tag: 'INSTANT_FREE'
                 }
             };
-        }, userId ? 10000 : 45000); // 10s TTL for personalized user feed, 45s for anonymous
+        }, userId ? 5000 : 15000); // 10s TTL for personalized user feed, 45s for anonymous
 
         res.json(payload);
     } catch (err) {
