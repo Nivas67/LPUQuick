@@ -210,7 +210,19 @@ window.pages.cart = async function() {
                     <span>🎉 Total Savings: ₹${totalSavings} applied!</span>
                 </div>
 
-                ${items.length > 0 ? `
+                ${window.__isUserBlocked ? `
+                <div class="p-4 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-center space-y-2">
+                    <div class="flex items-center justify-center gap-1.5 text-rose-600 font-bold text-xs">
+                        <span class="material-symbols-outlined text-base">block</span>
+                        <span>Account Suspended (${window.__userBlockReason || 'Fake Orders'})</span>
+                    </div>
+                    <p class="text-[11px] text-on-surface-variant">Your student account is restricted from placing orders. Please contact BH13 Campus Hub.</p>
+                </div>
+                <button disabled class="w-full bg-rose-600 text-white rounded-full py-3.5 sm:py-4 font-bold text-xs sm:text-sm text-center flex items-center justify-center gap-2 cursor-not-allowed opacity-80">
+                    <span class="material-symbols-outlined text-sm">lock</span>
+                    Checkout Disabled (Account Blocked)
+                </button>
+                ` : (items.length > 0 ? `
                 <a href="#/checkout" id="proceed-to-checkout-btn" class="w-full bg-emerald text-white rounded-full py-3.5 sm:py-4 font-semibold text-xs sm:text-sm text-center flex items-center justify-center gap-2 hover:bg-primary transition-all shadow-md active:scale-95">
                     Proceed to Checkout (₹${exactTotal})
                     <span class="material-symbols-outlined text-sm">arrow_forward</span>
@@ -219,7 +231,8 @@ window.pages.cart = async function() {
                 <button disabled class="w-full bg-surface-variant text-on-surface-variant rounded-full py-3.5 font-semibold text-xs sm:text-sm text-center cursor-not-allowed">
                     Cart is Empty
                 </button>
-                `}
+                `)}
+
             </div>
         </div>
     </main>

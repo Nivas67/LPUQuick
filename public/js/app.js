@@ -966,7 +966,69 @@ function updateCheckoutButtonsForLock(isLocked, reopenText = 'Soon') {
     });
 }
 
-// Blocked Account Page Route
+// Blocked Account Page Route & Real-Time Client Synchronization
+window.syncUserBlockStatus = async function() {
+    const uid = window.isUserLoggedIn() ? window.CURRENT_USER_ID : (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : null);
+    if (!uid) {
+        window.__isUserBlocked = false;
+        window.__userBlockReason = null;
+        updateBlockedUI(false);
+        return { isBlocked: false };
+    }
+
+    try {
+        const res = await window.api.checkUserStatus(uid);
+        if (res && (res.isBlocked || res.account_status === 'BLOCKED')) {
+            window.__isUserBlocked = true;
+            window.__userBlockReason = res.reason || 'Fake Orders';
+            updateBlockedUI(true, window.__userBlockReason);
+            
+            const currentRoute = getCurrentRoute();
+            if (currentRoute === '/checkout' || currentRoute === '/cart') {
+                window.location.hash = '#/blocked';
+            }
+            return { isBlocked: true, reason: window.__userBlockReason };
+        } else {
+            window.__isUserBlocked = false;
+            window.__userBlockReason = null;
+            updateBlockedUI(false);
+            return { isBlocked: false };
+        }
+    } catch (e) {
+        return { isBlocked: false };
+    }
+};
+
+function updateBlockedUI(isBlocked, reason = 'Fake Orders') {
+    let bar = document.getElementById('global-user-blocked-bar');
+    if (isBlocked) {
+        if (!bar) {
+            bar = document.createElement('div');
+            bar.id = 'global-user-blocked-bar';
+            bar.className = 'fixed top-0 left-0 right-0 z-[110] bg-[#ba1a1a] text-white py-2.5 px-4 text-xs font-bold flex items-center justify-between shadow-2xl border-b border-red-300 animate-fade-in';
+            document.body.prepend(bar);
+        }
+        bar.innerHTML = `
+            <div class="flex items-center gap-2 max-w-5xl mx-auto w-full justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-base animate-pulse">block</span>
+                    <span>Account Suspended: You are blocked due to ${(reason).toLowerCase()}.</span>
+                </div>
+                <a href="#/blocked" class="bg-white text-[#ba1a1a] px-3 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider hover:bg-white/90">Details</a>
+            </div>
+        `;
+        bar.classList.remove('hidden');
+        document.body.style.paddingTop = '40px';
+    } else {
+        if (bar) {
+            bar.classList.add('hidden');
+        }
+        if (!window.__storeAvailability?.is_locked) {
+            document.body.style.paddingTop = '0px';
+        }
+    }
+}
+
 window.pages = window.pages || {};
 window.pages.blocked = async function() {
     const reason = window.__userBlockReason || 'Fake Orders';
@@ -1015,11 +1077,17 @@ async function router() {
         return;
     }
 
+    // Check user block status on route change
+    if (window.isUserLoggedIn()) {
+        window.syncUserBlockStatus();
+    }
+
     // Blocked user guard: Prevent checkout navigation
     if (window.__isUserBlocked && (path === '/checkout' || path === '/cart')) {
         window.location.hash = '#/blocked';
         return;
     }
+
 
     const pageName = getPageName(path);
     const appRoot = document.getElementById('app');
@@ -1217,13 +1285,27 @@ function initGlobalClientWebSocket() {
                 }
                 // 5. Account Blocked Real-Time Notification
                 else if (data.type === 'USER_BLOCKED') {
-                    if (window.CURRENT_USER_ID && data.userId === window.CURRENT_USER_ID) {
+                    const myUid = window.CURRENT_USER_ID || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : null);
+                    if (data.userId && (data.userId === myUid || data.userId === window.CURRENT_USER_ID)) {
                         window.__isUserBlocked = true;
                         window.__userBlockReason = data.reason || 'Fake Orders';
+                        if (typeof updateBlockedUI === 'function') updateBlockedUI(true, window.__userBlockReason);
                         window.location.hash = '#/blocked';
-                        alert(`⚠️ Account Suspended:\n\n${data.message || 'You are blocked due to fake orders.'}\n\nPlease contact BH13 Campus Hub.`);
+                        alert(`⚠️ Account Suspended:\n\nYou are blocked due to ${(data.reason || 'fake orders').toLowerCase()}.\n\nPlease contact BH13 Central Campus Hub.`);
                     }
                 }
+                // 6. Account Unblocked Real-Time Notification
+                else if (data.type === 'USER_UNBLOCKED') {
+                    const myUid = window.CURRENT_USER_ID || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : null);
+                    if (data.userId && (data.userId === myUid || data.userId === window.CURRENT_USER_ID)) {
+                        window.__isUserBlocked = false;
+                        window.__userBlockReason = null;
+                        if (typeof updateBlockedUI === 'function') updateBlockedUI(false);
+                        window.location.hash = '#/';
+                        showClientToast('🎉 Your account access has been restored!', 'success', 'bolt');
+                    }
+                }
+
             } catch (err) {
                 console.error('[LPUQuick WS Parse Error]:', err);
             }

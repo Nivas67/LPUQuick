@@ -347,9 +347,27 @@ function broadcastUserBlocked(userId, reason = 'Fake Orders') {
 
     clientSockets.forEach(ws => {
         if (ws.readyState === WebSocket.OPEN) {
-            if (ws.userId === userId) {
-                ws.send(payload);
-            }
+            ws.send(payload);
+        }
+    });
+
+    adminSockets.forEach(ws => {
+        if (ws.readyState === WebSocket.OPEN) ws.send(payload);
+    });
+}
+
+function broadcastUserUnblocked(userId) {
+    console.log(`[WS Hub] ✅ Broadcasting USER_UNBLOCKED for user: ${userId}`);
+
+    const payload = JSON.stringify({
+        type: 'USER_UNBLOCKED',
+        userId,
+        timestamp: new Date().toISOString()
+    });
+
+    clientSockets.forEach(ws => {
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send(payload);
         }
     });
 
@@ -364,6 +382,8 @@ module.exports = {
     broadcastStatusUpdate,
     broadcastInventoryUpdate,
     broadcastClientLockUpdate,
-    broadcastUserBlocked
+    broadcastUserBlocked,
+    broadcastUserUnblocked
 };
+
 

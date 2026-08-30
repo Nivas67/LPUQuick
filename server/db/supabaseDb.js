@@ -900,30 +900,26 @@ const supabaseDb = {
         async isUserBlacklisted(userId) {
             if (!userId) return { isBlacklisted: false };
             
-            // Check memory cache
+            // 1. Check memory cache
             if (this._memoryBlacklist.has(userId)) {
-                return { isBlacklisted: true, record: this._memoryBlacklist.get(userId) };
+                const rec = this._memoryBlacklist.get(userId);
+                return { isBlacklisted: true, record: rec, reason: rec.reason || 'Fake Orders' };
             }
 
+            // 2. Check Supabase users table
             try {
                 const supabase = getSupabaseClient();
                 if (supabase) {
-                    // Check users table account_status
-                    const { data: user } = await supabase.from('users').select('account_status, block_reason, blocked_at, blocked_by').eq('id', userId).single();
-                    if (user && user.account_status === 'BLOCKED') {
+                    const { data: user } = await supabase.from('users').select('id, name, email, phone, password_hash').eq('id', userId).single();
+                    if (user && user.password_hash && user.password_hash.startsWith('BLOCKED:')) {
+                        const reason = user.password_hash.split('BLOCKED:')[1].split('::')[0] || 'Fake Orders';
+                        const rec = { user_id: userId, reason, status: 'BLOCKED' };
+                        this._memoryBlacklist.set(userId, rec);
                         return {
                             isBlacklisted: true,
-                            reason: user.block_reason || 'Fake Orders',
-                            blocked_at: user.blocked_at,
-                            blocked_by: user.blocked_by
+                            reason,
+                            record: rec
                         };
-                    }
-
-                    // Check blacklisted_users table
-                    const { data: bl } = await supabase.from('blacklisted_users').select('*').eq('user_id', userId).eq('status', 'BLOCKED').single();
-                    if (bl) {
-                        this._memoryBlacklist.set(userId, bl);
-                        return { isBlacklisted: true, record: bl, reason: bl.reason || 'Fake Orders' };
                     }
                 }
             } catch (e) {
@@ -934,37 +930,43 @@ const supabaseDb = {
         },
 
         async getAll() {
+            const memoryList = Array.from(this._memoryBlacklist.values());
             try {
                 const supabase = getSupabaseClient();
                 if (supabase) {
-                    const { data: list, error } = await supabase
-                        .from('blacklisted_users')
-                        .select('*, users(name, email, phone)')
-                        .order('blocked_at', { ascending: false });
-
-                    if (!error && list) {
-                        return list.map(b => ({
-                            id: b.id,
-                            user_id: b.user_id,
-                            customer_name: b.users?.name || 'Student',
-                            customer_email: b.users?.email || '',
-                            customer_phone: b.users?.phone || '',
-                            reason: b.reason || 'Fake Orders',
-                            status: b.status || 'BLOCKED',
-                            blocked_by: b.blocked_by || 'Admin',
-                            blocked_at: b.blocked_at,
-                            unblocked_by: b.unblocked_by,
-                            unblocked_at: b.unblocked_at,
-                            notes: b.notes || ''
-                        }));
+                    const { data: users } = await supabase.from('users').select('*');
+                    if (users) {
+                        const blockedUsers = users.filter(u => u.password_hash && u.password_hash.startsWith('BLOCKED:'));
+                        const dbList = blockedUsers.map(u => {
+                            const reason = u.password_hash.split('BLOCKED:')[1].split('::')[0] || 'Fake Orders';
+                            return {
+                                id: `bl_${u.id}`,
+                                user_id: u.id,
+                                customer_name: u.name || 'Student',
+                                customer_email: u.email || '',
+                                customer_phone: u.phone || '',
+                                reason: reason,
+                                status: 'BLOCKED',
+                                blocked_by: 'Admin',
+                                blocked_at: u.created_at,
+                                notes: ''
+                            };
+                        });
+                        const combinedMap = new Map();
+                        dbList.forEach(b => combinedMap.set(b.user_id, b));
+                        memoryList.forEach(b => {
+                            if (b.status === 'BLOCKED') combinedMap.set(b.user_id, b);
+                        });
+                        return Array.from(combinedMap.values());
                     }
                 }
             } catch (e) {
                 console.warn('[Blacklist GetAll Warning]:', e.message);
             }
 
-            return Array.from(this._memoryBlacklist.values());
+            return memoryList;
         },
+
 
         async blockUser({ userId, reason = 'Fake Orders', notes = '', blockedBy = 'Admin' }) {
             if (!userId) throw new Error('userId is required');
@@ -986,20 +988,17 @@ const supabaseDb = {
 
             this._memoryBlacklist.set(userId, record);
 
-            // Update database
+            // Update database permanently in PostgreSQL
             try {
                 const supabase = getSupabaseClient();
                 if (supabase) {
-                    // 1. Update user account status
-                    await supabase.from('users').update({
-                        account_status: 'BLOCKED',
-                        block_reason: reason,
-                        blocked_at: blockedAt,
-                        blocked_by: blockedBy
-                    }).eq('id', userId);
-
-                    // 2. Insert into blacklisted_users
-                    await supabase.from('blacklisted_users').upsert(record);
+                    const { data: user } = await supabase.from('users').select('*').eq('id', userId).single();
+                    if (user) {
+                        const currentHash = user.password_hash || 'google_oauth';
+                        const cleanHash = currentHash.startsWith('BLOCKED:') ? (currentHash.includes('::') ? currentHash.split('::')[1] : 'google_oauth') : currentHash;
+                        const blockedHash = `BLOCKED:${reason}::${cleanHash}`;
+                        await supabase.from('users').update({ password_hash: blockedHash }).eq('id', userId);
+                    }
                 }
             } catch (e) {
                 console.warn('[Supabase Block User DB Warning]:', e.message);
@@ -1012,26 +1011,15 @@ const supabaseDb = {
             if (!userId) throw new Error('userId is required');
 
             this._memoryBlacklist.delete(userId);
-            const unblockedAt = new Date().toISOString();
 
             try {
                 const supabase = getSupabaseClient();
                 if (supabase) {
-                    // 1. Update user account status to ACTIVE
-                    await supabase.from('users').update({
-                        account_status: 'ACTIVE',
-                        block_reason: null,
-                        blocked_at: null,
-                        blocked_by: null
-                    }).eq('id', userId);
-
-                    // 2. Update blacklist table status to RESOLVED
-                    await supabase.from('blacklisted_users').update({
-                        status: 'RESOLVED',
-                        unblocked_by: unblockedBy,
-                        unblocked_at: unblockedAt,
-                        updated_at: unblockedAt
-                    }).eq('user_id', userId).eq('status', 'BLOCKED');
+                    const { data: user } = await supabase.from('users').select('*').eq('id', userId).single();
+                    if (user && user.password_hash && user.password_hash.startsWith('BLOCKED:')) {
+                        const restoredHash = user.password_hash.includes('::') ? user.password_hash.split('::')[1] : 'google_oauth';
+                        await supabase.from('users').update({ password_hash: restoredHash }).eq('id', userId);
+                    }
                 }
             } catch (e) {
                 console.warn('[Supabase Unblock User DB Warning]:', e.message);
@@ -1039,6 +1027,7 @@ const supabaseDb = {
 
             return { success: true, userId, status: 'ACTIVE' };
         }
+
     },
 
     // ==========================================

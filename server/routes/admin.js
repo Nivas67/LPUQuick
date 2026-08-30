@@ -2,8 +2,9 @@ const express = require('express');
 const router = express.Router();
 const supabaseDb = require('../db/supabaseDb');
 const requireAdmin = require('../middleware/adminAuth');
-const { broadcastClientLockUpdate, broadcastUserBlocked } = require('../realtime');
+const { broadcastClientLockUpdate, broadcastUserBlocked, broadcastUserUnblocked } = require('../realtime');
 const cache = require('../cache');
+
 
 // All routes in this file require Administrator Authorization
 router.use(requireAdmin);
@@ -255,6 +256,14 @@ router.patch('/users/:id/unblock', async (req, res) => {
             action: 'USER_UNBLOCKED',
             reason: 'Admin unblocked user'
         });
+
+        // Broadcast realtime unblock signal to client storefronts
+        try {
+            if (typeof broadcastUserUnblocked === 'function') {
+                broadcastUserUnblocked(id);
+            }
+        } catch (wsErr) {}
+
 
         res.json({
             success: true,
