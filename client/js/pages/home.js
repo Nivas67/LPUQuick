@@ -117,38 +117,49 @@ function buildProductCardsHTML(items, isAboveFold = false) {
 
 window.pages.home = async function() {
     const effectiveUserId = (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : window.CURRENT_USER_ID) || null;
-    let data;
-    try { data = await window.api.fetchHome(effectiveUserId); } catch(e) { data = null; }
+    let data = null;
+    let productsRes = null;
+    try {
+        [data, productsRes] = await Promise.all([
+            window.api.fetchHome(effectiveUserId),
+            window.api.fetchProducts()
+        ]);
+    } catch(e) {
+        console.warn('Home data load warning:', e);
+    }
 
     const sectionTitle = data?.section_title || 'Campus Express Menu';
-    // Use all available products so the user sees everything
-    const allProducts = data?.all_products || data?.products || [];
-    
-    // Sort so in-stock products come first, then out-of-stock items
-    const sortedProducts = [...allProducts].sort((a, b) => {
-        const aStock = a.in_stock && (a.stock_left === undefined || a.stock_left > 0) ? 1 : 0;
-        const bStock = b.in_stock && (b.stock_left === undefined || b.stock_left > 0) ? 1 : 0;
-        return bStock - aStock;
+    // Use fresh products list identical to Categories page
+    const allProductsFromApi = (productsRes?.products && productsRes.products.length > 0) ? productsRes.products : (data?.all_products || data?.products || []);
+
+    // Filter strictly for products that are NOT out of stock for the main home display
+    const inStockProducts = allProductsFromApi.filter(p => {
+        return p.in_stock !== false && (p.stock_left === undefined || p.stock_left === null || p.stock_left > 0);
     });
 
-    const buyAgain = data?.buy_again || [];
+    const outOfStockProducts = allProductsFromApi.filter(p => {
+        return p.in_stock === false || (p.stock_left !== undefined && p.stock_left <= 0);
+    });
+
+    const buyAgain = (data?.buy_again || []).filter(p => p.in_stock !== false && (p.stock_left === undefined || p.stock_left > 0));
     const isPersonalizedBuyAgain = Boolean(data?.is_personalized_buy_again);
     
-    // Category collections
-    const biscuits = data?.biscuits || allProducts.filter(p => /biscuit|cookie|wafer|pie|bikis|bourbon|creme|shakti|magic|treat/i.test((p.name || '') + ' ' + (p.category || '')));
-    const trendingSnacks = data?.trending_snacks || allProducts.filter(p => /chips|snack|kurkure|lays|crax|bingo|tedhe|namkeen|curls/i.test((p.name || '') + ' ' + (p.category || '')));
-    const chocolates = data?.chocolates || allProducts.filter(p => /choco|dark fantasy|pie|sweet|dessert/i.test((p.name || '') + ' ' + (p.category || '')));
-    const instantFood = data?.instant_food || allProducts.filter(p => /instant|maggi|noodle|pasta|soup|cup/i.test((p.name || '') + ' ' + (p.category || '')));
-    const drinks = data?.drinks || allProducts.filter(p => /beverage|drink|shake|juice|coke|pepsi|water|soda/i.test((p.name || '') + ' ' + (p.category || '')));
+    // In-Stock Category collections
+    const biscuits = inStockProducts.filter(p => /biscuit|cookie|wafer|pie|bikis|bourbon|creme|shakti|magic|treat/i.test((p.name || '') + ' ' + (p.category || '')));
+    const trendingSnacks = inStockProducts.filter(p => /chips|snack|kurkure|lays|crax|bingo|tedhe|namkeen|curls/i.test((p.name || '') + ' ' + (p.category || '')));
+    const chocolates = inStockProducts.filter(p => /choco|dark fantasy|pie|sweet|dessert/i.test((p.name || '') + ' ' + (p.category || '')));
+    const instantFood = inStockProducts.filter(p => /instant|maggi|noodle|pasta|soup|cup/i.test((p.name || '') + ' ' + (p.category || '')));
+    const drinks = inStockProducts.filter(p => /beverage|drink|shake|juice|coke|pepsi|water|soda/i.test((p.name || '') + ' ' + (p.category || '')));
     
     const address = window.currentAddress || 'BH13';
 
-    const allProductCards = buildProductCardsHTML(sortedProducts, true);
+    const inStockProductCards = buildProductCardsHTML(inStockProducts, true);
     const biscuitCards = buildProductCardsHTML(biscuits);
     const trendingSnackCards = buildProductCardsHTML(trendingSnacks);
     const chocolateCards = buildProductCardsHTML(chocolates);
     const instantFoodCards = buildProductCardsHTML(instantFood);
     const drinkCards = buildProductCardsHTML(drinks);
+    const outOfStockCards = buildProductCardsHTML(outOfStockProducts);
 
     const buyAgainCards = buyAgain.map(p => {
         const isOutOfStock = !p.in_stock || (p.stock_left !== undefined && p.stock_left <= 0);
@@ -256,15 +267,15 @@ window.pages.home = async function() {
             <div id="mobile-search-dropdown" class="hidden absolute top-12 left-0 w-full bg-surface border border-surface-variant rounded-2xl shadow-xl z-50 max-h-80 overflow-y-auto p-2"></div>
         </section>
 
-        <!-- 1. Explore All Campus Products & Live Interactive Category Chips -->
+        <!-- 1. Explore All Available In-Stock Products & Live Filter Chips -->
         <section>
             <div class="flex flex-col sm:flex-row justify-between sm:items-end gap-2 mb-3.5">
                 <div>
                     <h2 class="font-headline-md text-lg sm:text-xl font-bold text-on-surface flex items-center gap-2">
                         <span>${sectionTitle}</span>
-                        <span class="text-[10px] bg-emerald/10 text-emerald font-bold px-2 py-0.5 rounded-full">All ${sortedProducts.length} Items</span>
+                        <span class="text-[10px] bg-emerald/10 text-emerald font-bold px-2 py-0.5 rounded-full">${inStockProducts.length} In-Stock Available</span>
                     </h2>
-                    <p class="text-xs text-on-surface-variant mt-0.5">Explore every snack, drink & meal available right now for 3-minute delivery</p>
+                    <p class="text-xs text-on-surface-variant mt-0.5">Every campus product ready for instant 3-minute delivery</p>
                 </div>
                 <a class="text-xs font-semibold text-emerald hover:text-primary transition-colors flex items-center gap-0.5 shrink-0" href="#/categories">
                     Browse Categories <span class="material-symbols-outlined text-xs">arrow_forward</span>
@@ -273,41 +284,42 @@ window.pages.home = async function() {
 
             <!-- Interactive Category Filter Chips -->
             <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-3 pt-1" id="home-category-filters">
-                <button type="button" class="home-filter-btn px-4 py-1.5 rounded-full text-xs font-bold transition-all bg-emerald text-white shadow-sm shrink-0 active:scale-95" data-filter="all">
-                    ⚡ All Items (${sortedProducts.length})
+                <button type="button" class="home-filter-btn px-4 py-1.5 rounded-full text-xs font-bold transition-all bg-emerald text-white shadow-sm shrink-0 active:scale-95 cursor-pointer" data-filter="all">
+                    ⚡ All In-Stock (${inStockProducts.length})
                 </button>
                 ${biscuits.length > 0 ? `
-                <button type="button" class="home-filter-btn px-4 py-1.5 rounded-full text-xs font-bold transition-all bg-surface hover:bg-emerald/10 text-on-surface border border-surface-variant/40 shrink-0 active:scale-95" data-filter="biscuits">
+                <button type="button" class="home-filter-btn px-4 py-1.5 rounded-full text-xs font-bold transition-all bg-surface hover:bg-emerald/10 text-on-surface border border-surface-variant/40 shrink-0 active:scale-95 cursor-pointer" data-filter="biscuits">
                     🍪 Biscuits (${biscuits.length})
                 </button>
                 ` : ''}
                 ${trendingSnacks.length > 0 ? `
-                <button type="button" class="home-filter-btn px-4 py-1.5 rounded-full text-xs font-bold transition-all bg-surface hover:bg-emerald/10 text-on-surface border border-surface-variant/40 shrink-0 active:scale-95" data-filter="snacks">
+                <button type="button" class="home-filter-btn px-4 py-1.5 rounded-full text-xs font-bold transition-all bg-surface hover:bg-emerald/10 text-on-surface border border-surface-variant/40 shrink-0 active:scale-95 cursor-pointer" data-filter="snacks">
                     🍿 Chips & Munchies (${trendingSnacks.length})
                 </button>
                 ` : ''}
                 ${chocolates.length > 0 ? `
-                <button type="button" class="home-filter-btn px-4 py-1.5 rounded-full text-xs font-bold transition-all bg-surface hover:bg-emerald/10 text-on-surface border border-surface-variant/40 shrink-0 active:scale-95" data-filter="chocolates">
+                <button type="button" class="home-filter-btn px-4 py-1.5 rounded-full text-xs font-bold transition-all bg-surface hover:bg-emerald/10 text-on-surface border border-surface-variant/40 shrink-0 active:scale-95 cursor-pointer" data-filter="chocolates">
                     🍫 Chocolates (${chocolates.length})
                 </button>
                 ` : ''}
                 ${instantFood.length > 0 ? `
-                <button type="button" class="home-filter-btn px-4 py-1.5 rounded-full text-xs font-bold transition-all bg-surface hover:bg-emerald/10 text-on-surface border border-surface-variant/40 shrink-0 active:scale-95" data-filter="instant">
+                <button type="button" class="home-filter-btn px-4 py-1.5 rounded-full text-xs font-bold transition-all bg-surface hover:bg-emerald/10 text-on-surface border border-surface-variant/40 shrink-0 active:scale-95 cursor-pointer" data-filter="instant">
                     🍜 Instant Food (${instantFood.length})
                 </button>
                 ` : ''}
                 ${drinks.length > 0 ? `
-                <button type="button" class="home-filter-btn px-4 py-1.5 rounded-full text-xs font-bold transition-all bg-surface hover:bg-emerald/10 text-on-surface border border-surface-variant/40 shrink-0 active:scale-95" data-filter="drinks">
+                <button type="button" class="home-filter-btn px-4 py-1.5 rounded-full text-xs font-bold transition-all bg-surface hover:bg-emerald/10 text-on-surface border border-surface-variant/40 shrink-0 active:scale-95 cursor-pointer" data-filter="drinks">
                     🥤 Drinks (${drinks.length})
                 </button>
                 ` : ''}
             </div>
 
-            <!-- Complete Product Catalog Grid -->
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4" id="home-main-products-grid">${allProductCards}</div>
+            <!-- In-Stock Product Grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4" id="home-main-products-grid">${inStockProductCards}</div>
         </section>
 
         <!-- 2. Buy Again Horizontal Snap Carousel -->
+        ${buyAgainCards ? `
         <section>
             <div class="flex justify-between items-center mb-2.5">
                 <div>
@@ -321,6 +333,7 @@ window.pages.home = async function() {
             </div>
             <div class="flex overflow-x-auto gap-3 sm:gap-4 no-scrollbar pb-2 snap-x">${buyAgainCards}</div>
         </section>
+        ` : ''}
 
         <!-- 3. Crunchy Biscuits & Cookies -->
         ${biscuitCards ? `
@@ -329,7 +342,7 @@ window.pages.home = async function() {
                 <div>
                     <h2 class="font-headline-md text-lg sm:text-xl font-bold text-on-surface flex items-center gap-2">
                         <span>🍪 Crunchy Biscuits & Cookies</span>
-                        <span class="text-[10px] bg-amber-500/10 text-amber-600 font-bold px-2 py-0.5 rounded-full">${biscuits.length} Available</span>
+                        <span class="text-[10px] bg-amber-500/10 text-amber-600 font-bold px-2 py-0.5 rounded-full">${biscuits.length} In-Stock</span>
                     </h2>
                 </div>
                 <a class="text-xs font-semibold text-emerald hover:text-primary transition-colors flex items-center gap-0.5" href="#/categories">
@@ -347,7 +360,7 @@ window.pages.home = async function() {
                 <div>
                     <h2 class="font-headline-md text-lg sm:text-xl font-bold text-on-surface flex items-center gap-2">
                         <span>🍿 Trending Hostel Munchies</span>
-                        <span class="text-[10px] bg-amber-500/10 text-amber-500 font-bold px-2 py-0.5 rounded-full">${trendingSnacks.length} Snacks</span>
+                        <span class="text-[10px] bg-amber-500/10 text-amber-500 font-bold px-2 py-0.5 rounded-full">${trendingSnacks.length} In-Stock</span>
                     </h2>
                 </div>
                 <a class="text-xs font-semibold text-emerald hover:text-primary transition-colors flex items-center gap-0.5" href="#/categories">
@@ -365,7 +378,7 @@ window.pages.home = async function() {
                 <div>
                     <h2 class="font-headline-md text-lg sm:text-xl font-bold text-on-surface flex items-center gap-2">
                         <span>🍫 Chocolates & Sweet Bites</span>
-                        <span class="text-[10px] bg-rose-500/10 text-rose-500 font-bold px-2 py-0.5 rounded-full">${chocolates.length} Items</span>
+                        <span class="text-[10px] bg-rose-500/10 text-rose-500 font-bold px-2 py-0.5 rounded-full">${chocolates.length} In-Stock</span>
                     </h2>
                 </div>
                 <a class="text-xs font-semibold text-emerald hover:text-primary transition-colors flex items-center gap-0.5" href="#/categories">
@@ -395,7 +408,7 @@ window.pages.home = async function() {
         ` : ''}
 
         <!-- 7. Promotional Bento Banners -->
-        <section class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-16">
+        <section class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
             <a href="#/flow-assist" class="bg-royal-purple/10 border border-royal-purple/20 rounded-[2rem] p-5 sm:p-7 flex items-center justify-between overflow-hidden relative group cursor-pointer hover:bg-royal-purple/15 transition-all shadow-sm">
                 <div class="z-10 w-3/4">
                     <span class="inline-flex items-center gap-1 text-[10px] font-bold text-royal-purple bg-white/70 px-2.5 py-0.5 rounded-full mb-1.5">AI ASSISTANT</span>
@@ -424,6 +437,22 @@ window.pages.home = async function() {
                 </div>
             </a>
         </section>
+
+        <!-- 8. Out of Stock Items (Segregated at bottom if any) -->
+        ${outOfStockProducts.length > 0 ? `
+        <section class="opacity-75 pt-4 border-t border-surface-variant/40">
+            <div class="flex justify-between items-center mb-3">
+                <div>
+                    <h3 class="font-bold text-sm text-on-surface-variant flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-base">inventory_2</span>
+                        <span>Temporarily Out of Stock (${outOfStockProducts.length})</span>
+                    </h3>
+                    <p class="text-[11px] text-on-surface-variant/70">Restocking in the next delivery batch</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">${outOfStockCards}</div>
+        </section>
+        ` : ''}
     </main>
 
     <!-- BottomNavBar -->
