@@ -1396,12 +1396,12 @@ function renderCustomersTable(customers) {
         return `
             <tr class="hover:bg-[#f7fafd] transition-colors ${isBlocked ? 'bg-[#fff8f7]' : ''}">
                 <td class="p-4 font-bold text-xs text-[#181c1f] flex items-center gap-2.5">
-                    <div class="w-8 h-8 rounded-full ${isBlocked ? 'bg-[#ba1a1a]' : 'bg-[#3c4043]'} text-white flex items-center justify-center text-xs font-bold">
+                    <div class="w-8 h-8 rounded-full ${isBlocked ? 'bg-[#ba1a1a]' : 'bg-[#3c4043]'} text-white flex items-center justify-center text-xs font-bold shrink-0">
                         ${(c.name || 'S')[0].toUpperCase()}
                     </div>
                     <div>
                         <p class="font-bold text-[#181c1f]">${c.name || 'Student'}</p>
-                        <p class="text-[10px] text-[#74777a] font-mono">${c.id || ''}</p>
+                        <p class="text-[10px] text-[#5c5f60] font-medium">${c.address ? `🏠 ${c.address}` : (c.id || '')}</p>
                     </div>
                 </td>
                 <td class="p-4 text-xs">${phoneHtml}</td>
@@ -1413,6 +1413,7 @@ function renderCustomersTable(customers) {
                 <td class="p-4 text-right">${actionBtn}</td>
             </tr>
         `;
+
     }).join('');
 }
 

@@ -588,15 +588,41 @@ const supabaseDb = {
 
         async getAllCustomersWithMetrics() {
             const supabase = getSupabaseClient();
-            const [usersRes, ordersRes, blacklistRes] = await Promise.all([
-                supabase.from('users').select('id, name, email, phone, role, account_status, blocked_at, blocked_by, block_reason, created_at'),
-                supabase.from('orders').select('user_id, total, created_at'),
-                supabase.from('blacklisted_users').select('user_id, reason, status, blocked_by, blocked_at').eq('status', 'BLOCKED')
-            ]);
+            if (!supabase) return [];
 
-            const users = usersRes.data || [];
-            const orders = ordersRes.data || [];
-            const blacklistMap = new Map((blacklistRes.data || []).map(b => [b.user_id, b]));
+            let users = [];
+            try {
+                const { data, error } = await supabase.from('users').select('*').order('created_at', { ascending: false });
+                if (!error && data) users = data;
+                else if (error) console.warn('[Supabase users fetch warning]:', error.message);
+            } catch (err) {
+                console.warn('[Supabase Users Query Warning]:', err.message);
+            }
+
+            let orders = [];
+            try {
+                const { data, error } = await supabase.from('orders').select('user_id, total, created_at');
+                if (!error && data) orders = data;
+            } catch (err) {
+                console.warn('[Supabase Orders Query Warning]:', err.message);
+            }
+
+            let blacklistMap = new Map();
+            try {
+                const { data, error } = await supabase.from('blacklisted_users').select('*').eq('status', 'BLOCKED');
+                if (!error && data) {
+                    data.forEach(b => blacklistMap.set(b.user_id, b));
+                }
+            } catch (err) {}
+
+            // Also check memory blacklist fallback
+            if (supabaseDb.blacklist && supabaseDb.blacklist._memoryBlacklist) {
+                for (const [uid, b] of supabaseDb.blacklist._memoryBlacklist.entries()) {
+                    if (b.status === 'BLOCKED' && !blacklistMap.has(uid)) {
+                        blacklistMap.set(uid, b);
+                    }
+                }
+            }
 
             const customerStats = {};
             orders.forEach(o => {
@@ -620,7 +646,8 @@ const supabaseDb = {
                     name: u.name || 'Student',
                     email: u.email || '',
                     phone: u.phone || '',
-                    role: u.role || 'student',
+                    address: u.dob || '',
+                    role: u.role || (u.email?.includes('admin') ? 'admin' : 'student'),
                     account_status: isBlocked ? 'BLOCKED' : 'ACTIVE',
                     blocked_at: u.blocked_at || blRecord?.blocked_at || null,
                     blocked_by: u.blocked_by || blRecord?.blocked_by || null,
