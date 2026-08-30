@@ -3,20 +3,16 @@ window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
 // Version-controlled session cache buster (Ensures new visits or deployments start completely clean)
-const LPUQUICK_BUILD_VERSION = 'v2026.08.29.rel6';
+const LPUQUICK_BUILD_VERSION = 'v2026.08.30.rel10';
 if (localStorage.getItem('lpuquick_build_v') !== LPUQUICK_BUILD_VERSION) {
-    localStorage.removeItem('lpuquick_user');
-    localStorage.removeItem('lpuquick_address_configured');
-    localStorage.removeItem('lpuquick_room');
-    localStorage.removeItem('lpuquick_block');
-    localStorage.removeItem('lpuquick_phone');
-    localStorage.removeItem('lpuquick_address_detail');
-    localStorage.removeItem('lpuquick_guest_cart_id');
+    localStorage.clear();
     localStorage.setItem('lpuquick_build_v', LPUQUICK_BUILD_VERSION);
     window.CURRENT_USER_ID = null;
     window.CURRENT_USER_NAME = null;
     window.CURRENT_USER_EMAIL = null;
     window.CURRENT_USER_PICTURE = null;
+    window.currentRoom = '';
+    window.currentAddressDetail = '';
 }
 
 // Auth User state (Strict real user session - no hardcoded fake fallback)
