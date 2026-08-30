@@ -35,14 +35,15 @@ router.post('/client-lock', async (req, res) => {
         let isLocked = true;
 
         if (finalType === 'DURATION' || (finalType === 'IMMEDIATE' && duration_minutes)) {
-            const mins = parseInt(duration_minutes, 10);
+            const mins = parseInt(duration_minutes, 10) || (finalType === 'DURATION' ? 30 : null);
             if (mins && mins > 0) {
                 const startNow = new Date();
                 finalStart = startNow.toISOString();
                 finalEnd = new Date(startNow.getTime() + (mins * 60 * 1000)).toISOString();
             }
             isLocked = true;
-        } else if (finalType === 'SCHEDULED') {
+        }
+ else if (finalType === 'SCHEDULED') {
             if (!finalStart || !finalEnd) {
                 return res.status(400).json({ error: 'Start time and End time are required for scheduled lock.' });
             }

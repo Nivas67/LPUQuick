@@ -760,7 +760,7 @@ const supabaseDb = {
             const raw = await this.getRawRecord();
             const now = Date.now();
             let effectiveLocked = Boolean(raw.is_locked);
-            let lockStatus = 'AVAILABLE';
+            let lockStatus = effectiveLocked ? 'LOCKED' : 'AVAILABLE';
             let remainingSeconds = null;
             let reopenAt = raw.end_at || null;
             let displayReopen = null;
@@ -785,18 +785,24 @@ const supabaseDb = {
                     effectiveLocked = false;
                 } else {
                     lockStatus = raw.is_locked ? 'LOCKED' : 'AVAILABLE';
+                    effectiveLocked = Boolean(raw.is_locked);
                 }
             } else if (raw.lock_type === 'DURATION') {
                 const endTime = raw.end_at ? new Date(raw.end_at).getTime() : 0;
-                if (endTime > 0 && now < endTime) {
-                    lockStatus = 'LOCKED';
-                    effectiveLocked = true;
-                    remainingSeconds = Math.max(0, Math.floor((endTime - now) / 1000));
-                    displayReopen = this.formatReopeningTime(raw.end_at);
+                if (endTime > 0) {
+                    if (now < endTime) {
+                        lockStatus = 'LOCKED';
+                        effectiveLocked = true;
+                        remainingSeconds = Math.max(0, Math.floor((endTime - now) / 1000));
+                        displayReopen = this.formatReopeningTime(raw.end_at);
+                    } else {
+                        // Duration expired -> automatically available!
+                        lockStatus = 'AVAILABLE';
+                        effectiveLocked = false;
+                    }
                 } else {
-                    // Duration expired -> automatically available!
-                    lockStatus = 'AVAILABLE';
-                    effectiveLocked = false;
+                    lockStatus = raw.is_locked ? 'LOCKED' : 'AVAILABLE';
+                    effectiveLocked = Boolean(raw.is_locked);
                 }
             } else if (raw.lock_type === 'IMMEDIATE' || raw.lock_type === 'MANUAL') {
                 if (raw.is_locked) {
@@ -820,6 +826,7 @@ const supabaseDb = {
             } else {
                 lockStatus = effectiveLocked ? 'LOCKED' : 'AVAILABLE';
             }
+
 
             return {
                 is_locked: effectiveLocked,
