@@ -300,25 +300,35 @@ const api = {
 
     // Cart (Instant 0ms SWR Memory Cache)
     async getCart(userId) {
-        if (cartMemoryCache && (Date.now() - cartMemoryCacheTime < 8000)) {
+        if (cartMemoryCache && Array.isArray(cartMemoryCache.items) && (Date.now() - cartMemoryCacheTime < 8000)) {
             return cartMemoryCache;
         }
-        const res = await fetch(`${API_BASE}/cart/${userId}`);
-        const data = await res.json();
-        cartMemoryCache = data;
-        cartMemoryCacheTime = Date.now();
-        if (data && Array.isArray(data.items)) {
-            data.items.forEach(item => {
-                if (item.product_id && item.stock_left !== undefined) {
-                    if (window.__cachedProducts && window.__cachedProducts.has(item.product_id)) {
-                        const cp = window.__cachedProducts.get(item.product_id);
-                        cp.stock_left = item.stock_left;
+        try {
+            const res = await fetch(`${API_BASE}/cart/${userId}`);
+            if (!res.ok) {
+                if (cartMemoryCache && Array.isArray(cartMemoryCache.items)) return cartMemoryCache;
+                return { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 } };
+            }
+            const data = await res.json();
+            if (data && Array.isArray(data.items)) {
+                cartMemoryCache = data;
+                cartMemoryCacheTime = Date.now();
+                data.items.forEach(item => {
+                    if (item.product_id && item.stock_left !== undefined) {
+                        if (window.__cachedProducts && window.__cachedProducts.has(item.product_id)) {
+                            const cp = window.__cachedProducts.get(item.product_id);
+                            cp.stock_left = item.stock_left;
+                        }
                     }
-                }
-            });
+                });
+                updateLocalCartState(data);
+            }
+            return data && Array.isArray(data.items) ? data : { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 } };
+        } catch (err) {
+            console.error('[getCart Error]', err);
+            if (cartMemoryCache && Array.isArray(cartMemoryCache.items)) return cartMemoryCache;
+            return { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 } };
         }
-        updateLocalCartState(data);
-        return data;
     },
     async addToCart(userId, productId, quantity = 1) {
         const res = await fetch(`${API_BASE}/cart`, {
@@ -326,9 +336,14 @@ const api = {
             body: JSON.stringify({ userId, productId, quantity })
         });
         const result = await res.json();
-        cartMemoryCache = result;
-        cartMemoryCacheTime = Date.now();
-        updateLocalCartState(result);
+        if (!res.ok || result.error) {
+            throw new Error(result.error || 'Failed to add item to cart');
+        }
+        if (result && Array.isArray(result.items)) {
+            cartMemoryCache = result;
+            cartMemoryCacheTime = Date.now();
+            updateLocalCartState(result);
+        }
         return result;
     },
     async updateCartItem(cartId, quantity, userId) {
@@ -337,23 +352,52 @@ const api = {
             body: JSON.stringify({ quantity, userId })
         });
         const result = await res.json();
-        cartMemoryCache = result;
-        cartMemoryCacheTime = Date.now();
-        updateLocalCartState(result);
+        if (!res.ok || result.error) {
+            throw new Error(result.error || 'Failed to update item quantity');
+        }
+        if (result && Array.isArray(result.items)) {
+            cartMemoryCache = result;
+            cartMemoryCacheTime = Date.now();
+            updateLocalCartState(result);
+        }
         return result;
     },
     async removeCartItem(cartId) {
-        const userId = window.getEffectiveUserId();
+        const userId = typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : window.CURRENT_USER_ID;
         const res = await fetch(`${API_BASE}/cart/${cartId}`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId })
         });
         const result = await res.json();
-        cartMemoryCache = result;
-        cartMemoryCacheTime = Date.now();
-        updateLocalCartState(result);
+        if (!res.ok || result.error) {
+            throw new Error(result.error || 'Failed to remove item from cart');
+        }
+        if (result && Array.isArray(result.items)) {
+            cartMemoryCache = result;
+            cartMemoryCacheTime = Date.now();
+            updateLocalCartState(result);
+        }
         return result;
+    },
+    async mergeCart(guestUserId, targetUserId) {
+        if (!guestUserId || !targetUserId || guestUserId === targetUserId) return;
+        try {
+            const res = await fetch(`${API_BASE}/cart/merge`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ guestUserId, targetUserId })
+            });
+            const result = await res.json();
+            if (result && Array.isArray(result.items)) {
+                cartMemoryCache = result;
+                cartMemoryCacheTime = Date.now();
+                updateLocalCartState(result);
+            }
+            return result;
+        } catch (e) {
+            console.error('[Merge Cart Error]', e);
+        }
     },
 
     // Checkout

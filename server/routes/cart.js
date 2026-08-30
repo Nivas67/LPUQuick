@@ -89,4 +89,18 @@ router.delete('/user/:userId', async (req, res) => {
     }
 });
 
+// POST /api/cart/merge (Migrate guest cart items to logged in user)
+router.post('/merge', async (req, res) => {
+    const { guestUserId, targetUserId } = req.body;
+    if (!guestUserId || !targetUserId) {
+        return res.status(400).json({ error: 'guestUserId and targetUserId are required' });
+    }
+    try {
+        const cart = await supabaseDb.cart.mergeCart(guestUserId, targetUserId);
+        res.json(cart);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;

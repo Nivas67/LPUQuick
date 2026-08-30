@@ -152,6 +152,14 @@ window.pageInits.signin = function() {
                 localStorage.setItem('lpuquick_user', JSON.stringify(res.user));
                 localStorage.setItem('lpuquick_last_active', Date.now().toString());
                 if (typeof window.refreshUserActivity === 'function') window.refreshUserActivity();
+
+                // Merge guest cart items into authenticated user account
+                const guestId = localStorage.getItem('lpuquick_guest_cart_id');
+                if (guestId && typeof window.api?.mergeCart === 'function') {
+                    window.api.mergeCart(guestId, res.user.id).catch(() => {});
+                    localStorage.removeItem('lpuquick_guest_cart_id');
+                }
+
                 const redirectTarget = window.postLoginRedirect || localStorage.getItem('lpuquick_redirect') || '#/';
                 localStorage.removeItem('lpuquick_redirect');
                 window.postLoginRedirect = null;

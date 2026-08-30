@@ -170,31 +170,36 @@ const supabaseDb = {
                 .select(`
                     id, quantity, created_at,
                     products (
-                        id, name, price, mrp, unit, size, image_url, image_alt, category, in_stock, stock_left
+                        id, name, price, mrp, unit, size, image_url, image_alt, category, in_stock, tags
                     )
                 `)
                 .eq('user_id', userId)
                 .order('created_at', { ascending: false });
 
             if (error || !cartItems) {
+                if (error) console.error('[Supabase getCart Error]:', error.message);
                 return { items: [], pricing: this.calculatePricing([]) };
             }
 
-            const items = cartItems.map(ci => ({
-                cart_id: ci.id,
-                product_id: ci.products?.id,
-                name: ci.products?.name,
-                price: ci.products?.price || 0,
-                mrp: ci.products?.mrp || ci.products?.price || 0,
-                unit: ci.products?.unit,
-                size: ci.products?.size,
-                image_url: ci.products?.image_url,
-                image_alt: ci.products?.image_alt,
-                category: ci.products?.category,
-                quantity: ci.quantity,
-                in_stock: ci.products?.in_stock ? 1 : 0,
-                stock_left: ci.products?.stock_left !== undefined && ci.products?.stock_left !== null ? Number(ci.products?.stock_left) : (ci.products?.in_stock ? 50 : 0)
-            })).filter(i => i.product_id);
+            const items = cartItems.map(ci => {
+                const match = (ci.products?.tags || '').match(/stock:(\d+)/);
+                const stockLeft = match ? parseInt(match[1], 10) : (ci.products?.in_stock ? 50 : 0);
+                return {
+                    cart_id: ci.id,
+                    product_id: ci.products?.id,
+                    name: ci.products?.name,
+                    price: ci.products?.price || 0,
+                    mrp: ci.products?.mrp || ci.products?.price || 0,
+                    unit: ci.products?.unit,
+                    size: ci.products?.size,
+                    image_url: ci.products?.image_url,
+                    image_alt: ci.products?.image_alt,
+                    category: ci.products?.category,
+                    quantity: ci.quantity,
+                    in_stock: ci.products?.in_stock ? 1 : 0,
+                    stock_left: stockLeft
+                };
+            }).filter(i => i.product_id);
 
             const pricing = this.calculatePricing(items);
             return {
@@ -307,6 +312,29 @@ const supabaseDb = {
             const supabase = getSupabaseClient();
             await supabase.from('cart_items').delete().eq('user_id', userId);
             return true;
+        },
+
+        async mergeCart(guestUserId, targetUserId) {
+            if (!guestUserId || !targetUserId || guestUserId === targetUserId) {
+                return this.getCart(targetUserId);
+            }
+            const supabase = getSupabaseClient();
+            const { data: guestItems } = await supabase
+                .from('cart_items')
+                .select('id, product_id, quantity')
+                .eq('user_id', guestUserId);
+
+            if (guestItems && guestItems.length > 0) {
+                for (const gItem of guestItems) {
+                    try {
+                        await this.addItem(targetUserId, gItem.product_id, gItem.quantity);
+                    } catch (e) {
+                        // ignore stock overflow during merge
+                    }
+                }
+                await supabase.from('cart_items').delete().eq('user_id', guestUserId);
+            }
+            return this.getCart(targetUserId);
         }
     },
 
