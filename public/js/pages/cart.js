@@ -239,14 +239,6 @@ window.pages.cart = async function() {
 window.pageInits.cart = function() {
     const userId = window.getEffectiveUserId();
 
-    async function reRenderCart() {
-        if (window.router) {
-            await window.router();
-        } else {
-            window.location.reload();
-        }
-    }
-
     const proceedBtn = document.getElementById('proceed-to-checkout-btn');
     if (proceedBtn) {
         proceedBtn.onclick = (e) => {
@@ -258,25 +250,71 @@ window.pageInits.cart = function() {
         };
     }
 
+    // Helper to refresh calculations instantly
+    function refreshCartBill() {
+        if (window.router) {
+            window.router();
+        }
+    }
+
     document.querySelectorAll('.qty-inc-btn').forEach(btn => {
-        btn.onclick = async () => {
+        btn.onclick = async (e) => {
+            e.stopPropagation();
             const id = btn.dataset.id;
-            const currentQty = parseInt(btn.dataset.qty) || 1;
-            await window.api.updateCartItem(id, currentQty + 1, userId);
-            await reRenderCart();
+            const row = btn.closest('.cart-row');
+            const qtyNum = row?.querySelector('.qty-num');
+            const currentQty = parseInt(qtyNum?.textContent || btn.dataset.qty) || 1;
+            const nextQty = currentQty + 1;
+
+            // Instant UI update (0ms)
+            if (qtyNum) qtyNum.textContent = nextQty;
+            btn.dataset.qty = nextQty;
+            const decBtn = row?.querySelector('.qty-dec-btn');
+            if (decBtn) decBtn.dataset.qty = nextQty;
+
+            try {
+                await window.api.updateCartItem(id, nextQty, userId);
+                refreshCartBill();
+            } catch(err) {
+                if (qtyNum) qtyNum.textContent = currentQty;
+            }
         };
     });
 
     document.querySelectorAll('.qty-dec-btn').forEach(btn => {
-        btn.onclick = async () => {
+        btn.onclick = async (e) => {
+            e.stopPropagation();
             const id = btn.dataset.id;
-            const currentQty = parseInt(btn.dataset.qty) || 1;
+            const row = btn.closest('.cart-row');
+            const qtyNum = row?.querySelector('.qty-num');
+            const currentQty = parseInt(qtyNum?.textContent || btn.dataset.qty) || 1;
+
             if (currentQty <= 1) {
+                // Instant Row Removal (0ms)
+                if (row) {
+                    row.style.opacity = '0';
+                    row.style.transform = 'scale(0.95)';
+                    row.style.transition = 'all 0.15s ease-out';
+                    setTimeout(() => {
+                        row.remove();
+                        refreshCartBill();
+                    }, 150);
+                }
                 await window.api.removeCartItem(id);
             } else {
-                await window.api.updateCartItem(id, currentQty - 1, userId);
+                const nextQty = currentQty - 1;
+                if (qtyNum) qtyNum.textContent = nextQty;
+                btn.dataset.qty = nextQty;
+                const incBtn = row?.querySelector('.qty-inc-btn');
+                if (incBtn) incBtn.dataset.qty = nextQty;
+
+                try {
+                    await window.api.updateCartItem(id, nextQty, userId);
+                    refreshCartBill();
+                } catch(err) {
+                    if (qtyNum) qtyNum.textContent = currentQty;
+                }
             }
-            await reRenderCart();
         };
     });
 
@@ -284,10 +322,11 @@ window.pageInits.cart = function() {
     if (clearBtn) {
         clearBtn.onclick = async () => {
             const rows = document.querySelectorAll('.cart-row');
+            rows.forEach(r => r.remove());
+            refreshCartBill();
             for (const row of rows) {
                 if (row.dataset.cartId) await window.api.removeCartItem(row.dataset.cartId);
             }
-            await reRenderCart();
         };
     }
 };

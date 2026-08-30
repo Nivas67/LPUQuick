@@ -35,6 +35,13 @@ function updateLocalCartState(cartData) {
     }
 }
 
+let cartMemoryCache = null;
+let cartMemoryCacheTime = 0;
+let ordersMemoryCache = null;
+let ordersMemoryCacheTime = 0;
+let activeOrderMemoryCache = null;
+let activeOrderMemoryCacheTime = 0;
+
 const api = {
     // Auth
     async signin(email, password) {
@@ -183,10 +190,15 @@ const api = {
         return res.json();
     },
 
-    // Cart (Single Roundtrip with Direct State Sync)
+    // Cart (Instant 0ms SWR Memory Cache)
     async getCart(userId) {
+        if (cartMemoryCache && (Date.now() - cartMemoryCacheTime < 8000)) {
+            return cartMemoryCache;
+        }
         const res = await fetch(`${API_BASE}/cart/${userId}`);
         const data = await res.json();
+        cartMemoryCache = data;
+        cartMemoryCacheTime = Date.now();
         updateLocalCartState(data);
         return data;
     },
@@ -196,6 +208,8 @@ const api = {
             body: JSON.stringify({ userId, productId, quantity })
         });
         const result = await res.json();
+        cartMemoryCache = result;
+        cartMemoryCacheTime = Date.now();
         updateLocalCartState(result);
         return result;
     },
@@ -205,6 +219,8 @@ const api = {
             body: JSON.stringify({ quantity, userId })
         });
         const result = await res.json();
+        cartMemoryCache = result;
+        cartMemoryCacheTime = Date.now();
         updateLocalCartState(result);
         return result;
     },
@@ -216,6 +232,8 @@ const api = {
             body: JSON.stringify({ userId })
         });
         const result = await res.json();
+        cartMemoryCache = result;
+        cartMemoryCacheTime = Date.now();
         updateLocalCartState(result);
         return result;
     },
@@ -226,6 +244,9 @@ const api = {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, paymentMethod, deliveryAddress })
         });
+        cartMemoryCache = null;
+        ordersMemoryCache = null;
+        activeOrderMemoryCache = null;
         return res.json();
     },
     async paymentCallback(orderId, status) {
@@ -236,14 +257,26 @@ const api = {
         return res.json();
     },
 
-    // Orders
+    // Orders (Instant 0ms SWR Memory Cache)
     async getOrders(userId) {
+        if (ordersMemoryCache && (Date.now() - ordersMemoryCacheTime < 8000)) {
+            return ordersMemoryCache;
+        }
         const res = await fetch(`${API_BASE}/orders/${userId}`);
-        return res.json();
+        const data = await res.json();
+        ordersMemoryCache = data;
+        ordersMemoryCacheTime = Date.now();
+        return data;
     },
     async getActiveOrder(userId) {
+        if (activeOrderMemoryCache && (Date.now() - activeOrderMemoryCacheTime < 8000)) {
+            return activeOrderMemoryCache;
+        }
         const res = await fetch(`${API_BASE}/orders/${userId}/active`);
-        return res.json();
+        const data = await res.json();
+        activeOrderMemoryCache = data;
+        activeOrderMemoryCacheTime = Date.now();
+        return data;
     },
     async getOrderDetail(orderId) {
         const res = await fetch(`${API_BASE}/orders/detail/${orderId}`);
