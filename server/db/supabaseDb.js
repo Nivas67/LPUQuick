@@ -16,10 +16,6 @@ const supabaseDb = {
             const supabase = getSupabaseClient();
             let query = supabase.from('products').select('*');
 
-            if (!includeInactive) {
-                query = query.eq('in_stock', true);
-            }
-
             if (category && category !== 'All') {
                 query = query.ilike('category', `%${category}%`);
             }
@@ -242,6 +238,15 @@ const supabaseDb = {
 
         async addItem(userId, productId, quantity = 1) {
             const supabase = getSupabaseClient();
+
+            // Validate product stock status before adding
+            if (quantity > 0) {
+                const product = await this.getById(productId);
+                if (product && (!product.in_stock || (product.stock_left !== undefined && product.stock_left <= 0))) {
+                    throw new Error('This item is currently out of stock');
+                }
+            }
+
             const { data: existing } = await supabase
                 .from('cart_items')
                 .select('id, quantity')

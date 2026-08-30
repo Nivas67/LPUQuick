@@ -705,7 +705,11 @@ window.openProductModal = async function(productId) {
 
                 <!-- Action Button inside Modal -->
                 <div class="pt-2" id="modal-action-container">
-                    ${qty === 0 ? `
+                    ${(!p.in_stock || (p.stock_left !== undefined && p.stock_left <= 0)) ? `
+                    <button type="button" class="w-full bg-rose-500/10 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60 rounded-full py-3 text-xs font-bold shadow-none cursor-not-allowed flex items-center justify-center gap-1.5" disabled>
+                        <span class="material-symbols-outlined text-sm">block</span> Out of Stock
+                    </button>
+                    ` : (qty === 0 ? `
                     <button type="button" class="w-full bg-emerald text-white rounded-full py-3 text-xs font-semibold shadow-md hover:bg-primary transition-all flex items-center justify-center gap-1.5 cursor-pointer" id="modal-add-btn">
                         <span class="material-symbols-outlined text-sm">add_shopping_cart</span> Add to Cart · ₹${p.price}
                     </button>
@@ -722,7 +726,7 @@ window.openProductModal = async function(productId) {
                             </button>
                         </div>
                     </div>
-                    `}
+                    `)}
                 </div>
             </div>
         `;

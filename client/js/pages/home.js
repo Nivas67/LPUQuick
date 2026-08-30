@@ -117,10 +117,17 @@ window.pages.home = async function() {
     const drinkCards = buildProductCardsHTML(drinks);
     const instantFoodCards = buildProductCardsHTML(instantFood);
 
-    const buyAgainCards = buyAgain.map(p => `
+    const buyAgainCards = buyAgain.map(p => {
+        const isOutOfStock = !p.in_stock || (p.stock_left !== undefined && p.stock_left <= 0);
+        return `
         <div class="flex-none w-36 sm:w-44 snap-start bg-surface rounded-[2rem] p-3 sm:p-4 shadow-sm border border-surface-variant/30 hover:border-emerald transition-all product-detail-trigger cursor-pointer flex flex-col justify-between" data-product-id="${p.id}">
             <div>
                 <div class="h-24 sm:h-28 bg-surface-container-high rounded-[1.5rem] mb-2.5 relative overflow-hidden flex items-center justify-center p-2">
+                    ${isOutOfStock ? `
+                    <div class="absolute top-2 left-2 z-10 stock-badge bg-rose-600 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-full shadow-sm" data-id="${p.id}">
+                        Out of Stock
+                    </div>
+                    ` : ''}
                     <img class="object-contain w-full h-full" 
                          src="${p.image_url}" 
                          alt="${p.name}" 
@@ -136,13 +143,19 @@ window.pages.home = async function() {
             <div class="flex justify-between items-center mt-2 pt-1 border-t border-surface-variant/20">
                 <p class="text-xs text-on-surface font-extrabold">₹${p.price}</p>
                 <div class="product-action-slot" data-id="${p.id}">
+                    ${isOutOfStock ? `
+                    <span class="text-[9px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-lg border border-rose-200 dark:border-rose-800">
+                        Out
+                    </span>
+                    ` : `
                     <button type="button" class="bg-emerald text-white rounded-full p-1 shadow-sm hover:opacity-90 active:scale-90 transition-all add-to-cart-btn" data-id="${p.id}">
                         <span class="material-symbols-outlined text-xs" style="font-variation-settings: 'FILL' 1;">add</span>
                     </button>
+                    `}
                 </div>
             </div>
         </div>
-    `).join('');
+    `;}).join('');
 
     return `
 <div class="bg-background text-on-background font-body-md min-h-screen pb-32">
