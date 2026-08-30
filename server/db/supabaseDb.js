@@ -651,31 +651,47 @@ const supabaseDb = {
             updated_at: new Date().toISOString()
         },
 
-        formatReopeningTime(endAtDate) {
+        formatReopeningTime(endAtDate, timeZone = 'Asia/Kolkata') {
             if (!endAtDate) return null;
             const end = new Date(endAtDate);
             if (isNaN(end.getTime())) return null;
 
             const now = new Date();
-            const isToday = end.getDate() === now.getDate() && end.getMonth() === now.getMonth() && end.getFullYear() === now.getFullYear();
-            
-            const tomorrow = new Date(now);
-            tomorrow.setDate(now.getDate() + 1);
-            const isTomorrow = end.getDate() === tomorrow.getDate() && end.getMonth() === tomorrow.getMonth() && end.getFullYear() === tomorrow.getFullYear();
 
-            // Format time e.g. 6:00 am or 8:30 am
-            let hours = end.getHours();
-            const minutes = end.getMinutes();
-            const ampm = hours >= 12 ? 'pm' : 'am';
-            hours = hours % 12;
-            hours = hours ? hours : 12; // 0 becomes 12
-            const minutesStr = minutes < 10 ? (minutes === 0 ? '' : `:${minutes < 10 ? '0' + minutes : minutes}`) : `:${minutes}`;
-            const timeStr = `${hours}${minutesStr} ${ampm}`;
+            // Date comparison in target campus timezone (Asia/Kolkata)
+            const dateOpts = { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' };
+            const nowDateStr = new Intl.DateTimeFormat('en-CA', dateOpts).format(now);
+            const endDateStr = new Intl.DateTimeFormat('en-CA', dateOpts).format(end);
+
+            const tomorrow = new Date(now.getTime() + (24 * 60 * 60 * 1000));
+            const tomorrowDateStr = new Intl.DateTimeFormat('en-CA', dateOpts).format(tomorrow);
+
+            const isToday = (endDateStr === nowDateStr);
+            const isTomorrow = (endDateStr === tomorrowDateStr);
+
+            // Format 12-hour time in Asia/Kolkata (e.g. 6:00 pm, 6:11 pm, 6:00 am)
+            const timeFormatter = new Intl.DateTimeFormat('en-US', {
+                timeZone,
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+            const timeStr = timeFormatter.format(end).toLowerCase();
 
             let dayWording = 'today';
-            if (isToday) dayWording = 'today';
-            else if (isTomorrow) dayWording = 'tomorrow';
-            else dayWording = `on ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+            if (isToday) {
+                dayWording = 'today';
+            } else if (isTomorrow) {
+                dayWording = 'tomorrow';
+            } else {
+                const dayFormatter = new Intl.DateTimeFormat('en-US', {
+                    timeZone,
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric'
+                });
+                dayWording = `on ${dayFormatter.format(end)}`;
+            }
 
             return {
                 timeStr,
@@ -683,6 +699,7 @@ const supabaseDb = {
                 fullHeadline: `We'll reopen at ${timeStr}, ${dayWording}`
             };
         },
+
 
         async getRawRecord() {
             try {

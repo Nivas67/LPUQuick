@@ -763,6 +763,34 @@ window.syncStoreAvailability = async function() {
     }
 };
 
+function formatClientReopenHeadline(avail) {
+    if (!avail) return "We'll reopen soon";
+    if (avail.end_at) {
+        const end = new Date(avail.end_at);
+        if (!isNaN(end.getTime())) {
+            const now = new Date();
+            const isToday = end.toDateString() === now.toDateString();
+            const tomorrow = new Date(now.getTime() + 86400000);
+            const isTomorrow = end.toDateString() === tomorrow.toDateString();
+
+            let hours = end.getHours();
+            const minutes = end.getMinutes();
+            const ampm = hours >= 12 ? 'pm' : 'am';
+            hours = hours % 12 || 12;
+            const minStr = String(minutes).padStart(2, '0');
+            const timeStr = `${hours}:${minStr} ${ampm}`;
+
+            let dayWording = 'today';
+            if (isToday) dayWording = 'today';
+            else if (isTomorrow) dayWording = 'tomorrow';
+            else dayWording = `on ${end.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}`;
+
+            return `We'll reopen at ${timeStr}, ${dayWording}`;
+        }
+    }
+    return avail.display_reopen?.fullHeadline || (avail.message ? avail.message : "We'll reopen soon");
+}
+
 window.renderStoreClosedBannerOrOverlay = function() {
     const avail = window.__storeAvailability;
     if (!avail) return;
@@ -772,7 +800,7 @@ window.renderStoreClosedBannerOrOverlay = function() {
     
     if (isLocked) {
         // Build reference design visual component
-        const reopenHeadline = avail.display_reopen?.fullHeadline || (avail.reopen_at ? `We'll reopen at ${new Date(avail.reopen_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}` : "We'll reopen soon");
+        const reopenHeadline = formatClientReopenHeadline(avail);
         const secondaryText = avail.message || "You can still add items and order when the store re-opens";
 
         const closedCardHtml = `
@@ -793,6 +821,7 @@ window.renderStoreClosedBannerOrOverlay = function() {
                         <h1 class="text-2xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight" id="client-closed-headline">
                             ${reopenHeadline}
                         </h1>
+
 
                         <p class="text-sm sm:text-base text-[#a0a5aa] font-medium leading-relaxed max-w-xl">
                             ${secondaryText}

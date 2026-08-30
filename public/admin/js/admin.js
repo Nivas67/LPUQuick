@@ -516,6 +516,34 @@ function refreshClientLockState() {
     loadClientLockState();
 }
 
+function formatClientReopenHeadline(avail) {
+    if (!avail) return "We'll reopen soon";
+    if (avail.end_at) {
+        const end = new Date(avail.end_at);
+        if (!isNaN(end.getTime())) {
+            const now = new Date();
+            const isToday = end.toDateString() === now.toDateString();
+            const tomorrow = new Date(now.getTime() + 86400000);
+            const isTomorrow = end.toDateString() === tomorrow.toDateString();
+
+            let hours = end.getHours();
+            const minutes = end.getMinutes();
+            const ampm = hours >= 12 ? 'pm' : 'am';
+            hours = hours % 12 || 12;
+            const minStr = String(minutes).padStart(2, '0');
+            const timeStr = `${hours}:${minStr} ${ampm}`;
+
+            let dayWording = 'today';
+            if (isToday) dayWording = 'today';
+            else if (isTomorrow) dayWording = 'tomorrow';
+            else dayWording = `on ${end.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}`;
+
+            return `We'll reopen at ${timeStr}, ${dayWording}`;
+        }
+    }
+    return avail.display_reopen?.fullHeadline || (avail.message ? avail.message : "Store is currently CLOSED for orders");
+}
+
 function updateClientLockUI(avail) {
     clientLockState = avail;
     const isLocked = Boolean(avail.is_locked);
@@ -567,9 +595,10 @@ function updateClientLockUI(avail) {
         heroCard.className = 'glass-panel p-6 border-l-4 border-l-[#ba1a1a] bg-[#ffdad6]/20';
         stateBadge.className = 'px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wide bg-[#ffdad6] text-[#ba1a1a] border border-[#ffb4ab]';
         stateBadge.textContent = 'STORE LOCKED';
-        headline.textContent = avail.display_reopen?.fullHeadline || (avail.message ? avail.message : "Store is currently CLOSED for orders");
+        headline.textContent = formatClientReopenHeadline(avail);
         sub.textContent = avail.message ? `Admin message: "${avail.message}"` : "Students cannot submit checkout orders. Cart building is preserved.";
         quickUnlockBtn?.classList.remove('hidden');
+
 
         if (avail.remaining_seconds !== null && avail.remaining_seconds > 0) {
             timerBox?.classList.remove('hidden');
