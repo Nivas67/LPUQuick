@@ -392,7 +392,7 @@ window.pageInits.home = function() {
                     return `
                     <div class="flex items-center justify-between p-2 hover:bg-surface-container-high rounded-xl cursor-pointer search-item-row ${isOutOfStock ? 'opacity-75' : ''}" data-id="${p.id}">
                         <div class="flex items-center gap-2.5 min-w-0">
-                            <img class="w-9 h-9 object-contain rounded-lg bg-surface-container-high" src="${p.image_url}" alt="${p.name}">
+                            <img class="w-9 h-9 object-contain rounded-lg bg-surface-container-high" src="${p.image_url}" alt="${p.name}" width="36" height="36" loading="lazy" decoding="async">
                             <div class="min-w-0">
                                 <p class="text-xs font-semibold text-on-surface truncate">${p.name}</p>
                                 <p class="text-[10px] text-on-surface-variant">₹${p.price} · ${p.size || p.unit}</p>
@@ -419,13 +419,16 @@ window.pageInits.home = function() {
                 dropdown.querySelectorAll('.quick-add-btn').forEach(btn => {
                     btn.onclick = async (e) => {
                         e.stopPropagation();
-                        const uid = window.getEffectiveUserId();
-                        await window.api.addToCart(uid, btn.dataset.id, 1);
+                        const pid = btn.dataset.id;
                         btn.textContent = '✓';
-                        window.syncCardSteppers();
+                        window.cartState = window.cartState || {};
+                        window.cartState[pid] = { quantity: 1, cart_id: window.cartState[pid]?.cart_id || `temp_${pid}` };
+                        if (typeof window.updateSingleProductSlot === 'function') window.updateSingleProductSlot(pid);
+                        const uid = window.getEffectiveUserId();
+                        await window.api.addToCart(uid, pid, 1);
                     };
                 });
-            }, 180);
+            }, 40);
         });
 
         // Hide dropdown when clicking outside

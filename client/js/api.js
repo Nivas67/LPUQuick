@@ -4,6 +4,20 @@ const API_BASE = (typeof window !== 'undefined' && window.location && window.loc
 const searchCache = new Map();
 let categoriesCache = null;
 let categoriesCacheTime = 0;
+let homeFeedCache = null;
+let homeFeedCacheTime = 0;
+let homeFeedCacheUserId = null;
+
+window.__cachedProducts = window.__cachedProducts || new Map();
+
+function indexProducts(items) {
+    if (!Array.isArray(items)) return;
+    items.forEach(p => {
+        if (p && p.id) {
+            window.__cachedProducts.set(p.id, p);
+        }
+    });
+}
 
 function updateLocalCartState(cartData) {
     window.cartState = window.cartState || {};
@@ -59,20 +73,63 @@ const api = {
         return res.json();
     },
 
-    // Home
+    // Home with Intelligent SWR Memory Cache (0ms instant page loads)
     async fetchHome(userId = null) {
         const uid = userId || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : window.CURRENT_USER_ID) || '';
         const tz = new Date().getTimezoneOffset();
         const url = uid ? `${API_BASE}/home?tz=${tz}&userId=${encodeURIComponent(uid)}` : `${API_BASE}/home?tz=${tz}`;
+
+        // Return cached home feed in 0ms if recent (< 15s)
+        if (homeFeedCache && homeFeedCacheUserId === uid && (Date.now() - homeFeedCacheTime < 15000)) {
+            return homeFeedCache;
+        }
+
         const res = await fetch(url);
-        return res.json();
+        const data = await res.json();
+        
+        // Index all loaded products for instant modal & search lookups
+        if (data) {
+            indexProducts(data.deals);
+            indexProducts(data.bestSellers);
+            indexProducts(data.recommended);
+            indexProducts(data.quickBreakfast);
+            indexProducts(data.midnightSnacks);
+            indexProducts(data.studyEssentials);
+            indexProducts(data.dormBeverages);
+            indexProducts(data.buy_again);
+            homeFeedCache = data;
+            homeFeedCacheTime = Date.now();
+            homeFeedCacheUserId = uid;
+        }
+        return data;
     },
 
-    // Search with client-side 60s memory caching
+    // Search with 0ms In-Memory Fast-Path + 60s Query Cache
     async searchProducts(query) {
         const q = (query || '').trim().toLowerCase();
         if (!q) return { results: [], suggestions: [] };
-        
+
+        // Fast-path: Search local memory cache instantly
+        if (window.__cachedProducts && window.__cachedProducts.size > 0) {
+            const localMatches = [];
+            for (const product of window.__cachedProducts.values()) {
+                const name = (product.name || '').toLowerCase();
+                const cat = (product.category || '').toLowerCase();
+                const brand = (product.brand || '').toLowerCase();
+                if (name.includes(q) || cat.includes(q) || brand.includes(q)) {
+                    localMatches.push(product);
+                    if (localMatches.length >= 8) break;
+                }
+            }
+            if (localMatches.length > 0) {
+                return {
+                    results: localMatches,
+                    suggestions: localMatches.slice(0, 3).map(p => p.name),
+                    fromMemory: true
+                };
+            }
+        }
+
         const cached = searchCache.get(q);
         if (cached && (Date.now() - cached.time < 60000)) {
             return cached.data;
@@ -80,6 +137,9 @@ const api = {
 
         const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(q)}`);
         const data = await res.json();
+        if (data && Array.isArray(data.results)) {
+            indexProducts(data.results);
+        }
         searchCache.set(q, { time: Date.now(), data });
         if (searchCache.size > 50) {
             searchCache.delete(searchCache.keys().next().value);
@@ -91,16 +151,27 @@ const api = {
     async getProducts(category = null) {
         const url = category ? `${API_BASE}/products?category=${encodeURIComponent(category)}` : `${API_BASE}/products`;
         const res = await fetch(url);
-        return res.json();
+        const data = await res.json();
+        if (data && Array.isArray(data.products)) {
+            indexProducts(data.products);
+        }
+        return data;
     },
     async fetchProducts(category = null) {
         return this.getProducts(category);
     },
 
-    // Single Product Details
+    // Single Product Details (0ms in-memory fast path)
     async getProduct(id) {
+        if (window.__cachedProducts && window.__cachedProducts.has(id)) {
+            return { product: window.__cachedProducts.get(id) };
+        }
         const res = await fetch(`${API_BASE}/products/${id}`);
-        return res.json();
+        const data = await res.json();
+        if (data && data.product) {
+            indexProducts([data.product]);
+        }
+        return data;
     },
 
     // Flow Assist

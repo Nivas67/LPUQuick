@@ -1162,21 +1162,63 @@ button:active,
     }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (pointer: coarse) {
+    /* Fast touch action & zero tap delay across all interactive elements */
+    button, a, input, select, textarea, .product-detail-trigger, .card-qty-btn, .add-to-cart-btn, .stepper-btn {
+        touch-action: manipulation !important;
+        -webkit-tap-highlight-color: transparent !important;
+    }
+
+    /* Replace heavy backdrop-filter blur on repetitive product cards with hardware-accelerated translucent glass */
+    .glass-card,
+    .glass-panel,
+    .glass-overlay,
+    .bg-surface,
+    .product-detail-trigger {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        background: rgba(255, 255, 255, 0.94) !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05) !important;
+        transform: translateZ(0);
+        will-change: auto;
+    }
+
+    .dark .glass-card,
+    .dark .glass-panel,
+    .dark .glass-overlay,
+    .dark .bg-surface,
+    .dark .product-detail-trigger {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        background: rgba(18, 24, 20, 0.95) !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+        transform: translateZ(0);
+    }
+
+    /* Keep subtle blur only on floating navigation, top header & active modals where only 1 instance exists */
+    header, nav, .modal-overlay, #global-delivery-bar {
+        backdrop-filter: blur(16px) !important;
+        -webkit-backdrop-filter: blur(16px) !important;
+    }
+
+    /* Streamline ambient background to static radiant mesh on mobile (Zero continuous GPU repaint loops) */
     .ambient-orb {
-        filter: blur(60px);
-        opacity: 0.28;
+        animation: none !important;
+        filter: blur(40px) !important;
+        opacity: 0.22 !important;
+        will-change: auto !important;
     }
-    .ambient-lineart {
-        display: none !important;
-    }
-    .particle-5, .particle-6, .particle-7, .particle-8,
-    .leaf-mid-right, .leaf-mid-left {
+    .ambient-delivery-trails,
+    .ambient-lineart,
+    .ambient-leaf,
+    .ambient-particle,
+    .ambient-sparkle,
+    .ambient-cursor-torch {
         display: none !important;
     }
     .product-detail-trigger:hover {
         transform: none !important;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04) !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05) !important;
     }
 }
 

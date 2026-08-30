@@ -773,133 +773,161 @@ window.openProductModal = async function(productId) {
     }
 };
 
-// Global Card Stepper Synchronizer (Turns Add button into [- qty +], and keeps Out of Stock blocked)
+// Render slot markup for a single product without rebuilding everything
+function renderSlotContent(productId, slotEl) {
+    if (!slotEl) return;
+    const isOutOfStock = slotEl.dataset.outOfStock === 'true' || slotEl.getAttribute('data-out-of-stock') === 'true';
+    if (isOutOfStock) {
+        slotEl.innerHTML = `
+            <span class="text-[10px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-2.5 py-1 rounded-xl border border-rose-200 dark:border-rose-800 cursor-not-allowed select-none">
+                Out of Stock
+            </span>
+        `;
+        return;
+    }
+
+    const cartInfo = window.cartState[productId];
+    const qty = cartInfo ? cartInfo.quantity : 0;
+
+    if (qty > 0) {
+        slotEl.innerHTML = `
+            <div class="card-qty-stepper">
+                <button type="button" class="card-qty-btn card-dec-btn" data-id="${productId}">
+                    <span class="material-symbols-outlined text-[13px]">remove</span>
+                </button>
+                <span class="card-qty-val">${qty}</span>
+                <button type="button" class="card-qty-btn card-inc-btn" data-id="${productId}">
+                    <span class="material-symbols-outlined text-[13px]">add</span>
+                </button>
+            </div>
+        `;
+    } else {
+        slotEl.innerHTML = `
+            <button type="button" class="bg-emerald text-white rounded-full px-3.5 py-1 text-xs font-semibold shadow-sm hover:opacity-90 active:scale-95 transition-all add-to-cart-btn" data-id="${productId}">Add</button>
+        `;
+    }
+}
+
+// Targeted Instant Update for a Single Product (< 1ms DOM execution)
+window.updateSingleProductSlot = function(productId) {
+    document.querySelectorAll(`.product-action-slot[data-id="${productId}"]`).forEach(slot => {
+        renderSlotContent(productId, slot);
+    });
+};
+
+// Global Card Stepper Synchronizer (Fast batch render)
 window.syncCardSteppers = function() {
     document.querySelectorAll('.product-action-slot').forEach(slot => {
-        const productId = slot.dataset.id;
-        const isOutOfStock = slot.dataset.outOfStock === 'true' || slot.getAttribute('data-out-of-stock') === 'true';
-
-        // 1. If product is out of stock, block until stock is updated by admin
-        if (isOutOfStock) {
-            slot.innerHTML = `
-                <span class="text-[10px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-2.5 py-1 rounded-xl border border-rose-200 dark:border-rose-800 cursor-not-allowed select-none">
-                    Out of Stock
-                </span>
-            `;
-            return;
-        }
-
-        const cartInfo = window.cartState[productId];
-        const qty = cartInfo ? cartInfo.quantity : 0;
-
-        if (qty > 0) {
-            slot.innerHTML = `
-                <div class="card-qty-stepper">
-                    <button type="button" class="card-qty-btn card-dec-btn" data-id="${productId}">
-                        <span class="material-symbols-outlined text-[13px]">remove</span>
-                    </button>
-                    <span class="card-qty-val">${qty}</span>
-                    <button type="button" class="card-qty-btn card-inc-btn" data-id="${productId}">
-                        <span class="material-symbols-outlined text-[13px]">add</span>
-                    </button>
-                </div>
-            `;
-        } else {
-            slot.innerHTML = `
-                <button type="button" class="bg-emerald text-white rounded-full px-3.5 py-1 text-xs font-semibold shadow-sm hover:opacity-90 active:scale-95 transition-all add-to-cart-btn" data-id="${productId}">Add</button>
-            `;
-        }
+        const id = slot.dataset.id;
+        if (id) renderSlotContent(id, slot);
     });
+};
 
-    // Rebind newly created buttons with Instant Optimistic UI
-    document.querySelectorAll('.add-to-cart-btn').forEach(btn => {
-        btn.onclick = async (e) => {
+// Setup Single Global Event Delegation for all Cart Actions & Product Modals (0ms rebind overhead)
+let isGlobalCartDelegationBound = false;
+function initGlobalEventDelegation() {
+    if (isGlobalCartDelegationBound) return;
+    isGlobalCartDelegationBound = true;
+
+    document.addEventListener('click', async (e) => {
+        // 1. Add to Cart Button Click
+        const addBtn = e.target.closest('.add-to-cart-btn');
+        if (addBtn) {
+            e.preventDefault();
             e.stopPropagation();
-            const id = btn.dataset.id;
+            const id = addBtn.dataset.id;
+            if (!id) return;
             const uid = window.getEffectiveUserId();
 
-            // Optimistic instant state update
+            // Instant Optimistic UI Update (< 1ms)
             window.cartState = window.cartState || {};
             window.cartState[id] = { quantity: 1, cart_id: window.cartState[id]?.cart_id || `temp_${id}` };
-            window.syncCardSteppers();
+            window.updateSingleProductSlot(id);
 
             try {
                 const res = await window.api.addToCart(uid, id, 1);
-                if (res && res.cart_id) {
+                if (res && res.cart_id && window.cartState[id]) {
                     window.cartState[id].cart_id = res.cart_id;
                 }
             } catch(err) {
-                // Revert on error
                 delete window.cartState[id];
-                window.syncCardSteppers();
+                window.updateSingleProductSlot(id);
                 if (typeof window.showClientToast === 'function') {
                     window.showClientToast('Could not update cart', 'error');
                 }
             }
-        };
-    });
+            return;
+        }
 
-    document.querySelectorAll('.card-inc-btn').forEach(btn => {
-        btn.onclick = async (e) => {
+        // 2. Increment Quantity (+) Click
+        const incBtn = e.target.closest('.card-inc-btn');
+        if (incBtn) {
+            e.preventDefault();
             e.stopPropagation();
-            const id = btn.dataset.id;
+            const id = incBtn.dataset.id;
+            if (!id) return;
             const uid = window.getEffectiveUserId();
-            const item = window.cartState[id];
+            const item = window.cartState?.[id];
             if (item) {
                 const prevQty = item.quantity;
                 item.quantity += 1;
-                window.syncCardSteppers();
+                window.updateSingleProductSlot(id);
 
                 try {
                     await window.api.updateCartItem(item.cart_id, item.quantity, uid);
                 } catch(err) {
                     item.quantity = prevQty;
-                    window.syncCardSteppers();
+                    window.updateSingleProductSlot(id);
                 }
             }
-        };
-    });
+            return;
+        }
 
-    document.querySelectorAll('.card-dec-btn').forEach(btn => {
-        btn.onclick = async (e) => {
+        // 3. Decrement Quantity (-) Click
+        const decBtn = e.target.closest('.card-dec-btn');
+        if (decBtn) {
+            e.preventDefault();
             e.stopPropagation();
-            const id = btn.dataset.id;
+            const id = decBtn.dataset.id;
+            if (!id) return;
             const uid = window.getEffectiveUserId();
-            const item = window.cartState[id];
+            const item = window.cartState?.[id];
             if (item) {
                 const prevQty = item.quantity;
                 if (item.quantity <= 1) {
                     delete window.cartState[id];
-                    window.syncCardSteppers();
+                    window.updateSingleProductSlot(id);
                     try {
                         await window.api.removeCartItem(item.cart_id);
                     } catch(err) {
                         window.cartState[id] = { quantity: prevQty, cart_id: item.cart_id };
-                        window.syncCardSteppers();
+                        window.updateSingleProductSlot(id);
                     }
                 } else {
                     item.quantity -= 1;
-                    window.syncCardSteppers();
+                    window.updateSingleProductSlot(id);
                     try {
                         await window.api.updateCartItem(item.cart_id, item.quantity, uid);
                     } catch(err) {
                         item.quantity = prevQty;
-                        window.syncCardSteppers();
+                        window.updateSingleProductSlot(id);
                     }
                 }
             }
-        };
-    });
+            return;
+        }
 
-    // Product card click to open details modal
-    document.querySelectorAll('.product-detail-trigger').forEach(el => {
-        el.onclick = (e) => {
-            if (e.target.closest('.product-action-slot')) return;
-            const id = el.dataset.productId;
-            if (id) window.openProductModal(id);
-        };
+        // 4. Product Card Click (Open Modal)
+        const productCard = e.target.closest('.product-detail-trigger');
+        if (productCard && !e.target.closest('.product-action-slot') && !e.target.closest('button')) {
+            const id = productCard.dataset.productId;
+            if (id && typeof window.openProductModal === 'function') {
+                window.openProductModal(id);
+            }
+        }
     });
-};
+}
+initGlobalEventDelegation();
 
 // Router Main Function
 // Router Main Function - Instant Zero-Blocking Navigation
