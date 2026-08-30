@@ -121,13 +121,14 @@
                 <!-- Sound Theme Selector Dropdown -->
                 <select id="sound-theme-select" onchange="changeSoundTheme(this.value)" class="bg-[#f1f4f7] hover:bg-[#e0e3e6] border border-[#DADCE0] rounded-full px-2.5 py-1.5 text-xs font-semibold text-[#3c4043] outline-none cursor-pointer" title="Choose order notification sound">
                     <option value="cash_register">💰 Cha-Ching / Cash</option>
+                    <option value="urgent_alarm">🚨 Urgent Alarm (Loud)</option>
                     <option value="swiggy_pop">🛍️ Quick Pop (3-Tone)</option>
                     <option value="express_beep">🛵 Courier Chirp</option>
                     <option value="arcade_ding">🎮 Level-Up Ding</option>
                     <option value="crystal_bell">🔔 Crystal Bell</option>
                 </select>
 
-                <button onclick="testCampusSound()" class="bg-[#f1f4f7] hover:bg-[#e0e3e6] text-[#3c4043] border border-[#DADCE0] px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-all" title="Test notification sound">
+                <button onclick="unlockAudioEngine(); testCampusSound();" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition-all shadow-sm active:scale-95" title="Test notification sound">
                     <span class="material-symbols-outlined text-[16px]">play_circle</span>
                     <span class="hidden sm:inline">Test Sound</span>
                 </button>
@@ -142,6 +143,15 @@
                 </a>
             </div>
         </header>
+
+        <!-- Audio Permission Unlock Banner (Auto-dismisses on first click) -->
+        <div id="audio-unlock-banner" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 flex items-center justify-between shadow-md cursor-pointer transition-colors shrink-0" onclick="unlockAudioEngine(); testCampusSound();">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-sm animate-pulse">volume_up</span>
+                <span>🔊 Live Order Sound Alerts Active — Click here or anywhere to unlock browser sound alerts</span>
+            </div>
+            <span class="bg-white/20 hover:bg-white/30 px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider">Tap to Test ❯</span>
+        </div>
 
         <!-- Dynamic Views Container -->
         <main class="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#F1F3F4]" id="main-content">

@@ -1,4 +1,4 @@
-// Multi-Theme Web Audio Synthesizer Engine (Cha-Ching, QuickCommerce Pop, Courier Chirp, Arcade, Crystal Bell)
+// Multi-Theme High-Volume Web Audio Synthesizer Engine (Cha-Ching, QuickCommerce Pop, Courier Chirp, Arcade, Crystal Bell, Urgent Alarm)
 let audioCtx = null;
 let soundEnabled = localStorage.getItem('lpuquick_admin_sound') !== 'false';
 let currentSoundTheme = localStorage.getItem('lpuquick_order_sound_theme') || 'cash_register';
@@ -11,21 +11,45 @@ function getAudioContext() {
         }
     }
     if (audioCtx && audioCtx.state === 'suspended') {
-        audioCtx.resume();
+        audioCtx.resume().catch(() => {});
     }
     return audioCtx;
 }
 
+// Full interactive audio unlocker to bypass strict browser autoplay policies
+function unlockAudioEngine() {
+    const ctx = getAudioContext();
+    if (ctx) {
+        if (ctx.state === 'suspended') {
+            ctx.resume().catch(() => {});
+        }
+        try {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            gain.gain.value = 0.0001; // Micro inaudible burst to unlock browser policy
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(0);
+            osc.stop(ctx.currentTime + 0.01);
+        } catch(e) {}
+    }
+    const banner = document.getElementById('audio-unlock-banner');
+    if (banner) banner.classList.add('hidden');
+}
+
 // Automatically unlock AudioContext on user's first interaction
-['click', 'touchstart', 'keydown', 'mousedown'].forEach(evt => {
-    document.addEventListener(evt, () => {
-        getAudioContext();
-    }, { once: false, passive: true });
+['click', 'touchstart', 'keydown', 'mousedown', 'pointerdown'].forEach(evt => {
+    document.addEventListener(evt, unlockAudioEngine, { passive: true });
 });
 
-// Master Sound Synthesizer
+// Master Sound Synthesizer (High Volume, Dual Oscillator)
 function playCampusChime(theme = currentSoundTheme) {
     if (!soundEnabled) return;
+
+    // Haptic vibration feedback on mobile/tablets
+    try {
+        if (navigator.vibrate) navigator.vibrate([250, 100, 250]);
+    } catch(e) {}
 
     // Trigger HTML5 Audio Element fallback
     const fallbackAudio = document.getElementById('order-chime');
@@ -41,25 +65,25 @@ function playCampusChime(theme = currentSoundTheme) {
         if (!ctx) return;
 
         if (ctx.state === 'suspended') {
-            ctx.resume();
+            ctx.resume().catch(() => {});
         }
 
         const now = ctx.currentTime;
 
         if (theme === 'cash_register') {
-            // Theme 1: Cash Register "Cha-Ching" + Metallic Shimmer
-            // Metallic lever click
+            // Theme 1: High Volume Cash Register "Cha-Ching" + Metallic Shimmer
+            // Lever Click
             const osc0 = ctx.createOscillator();
             const gain0 = ctx.createGain();
             osc0.type = 'triangle';
-            osc0.frequency.setValueAtTime(350, now);
-            osc0.frequency.exponentialRampToValueAtTime(1400, now + 0.04);
-            gain0.gain.setValueAtTime(0.35, now);
-            gain0.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+            osc0.frequency.setValueAtTime(400, now);
+            osc0.frequency.exponentialRampToValueAtTime(1600, now + 0.05);
+            gain0.gain.setValueAtTime(0.7, now);
+            gain0.gain.exponentialRampToValueAtTime(0.01, now + 0.06);
             osc0.connect(gain0);
             gain0.connect(ctx.destination);
             osc0.start(now);
-            osc0.stop(now + 0.05);
+            osc0.stop(now + 0.06);
 
             // Cha-Ching Ring Note (B5 -> E6)
             const osc1 = ctx.createOscillator();
@@ -68,12 +92,12 @@ function playCampusChime(theme = currentSoundTheme) {
             osc1.frequency.setValueAtTime(987.77, now + 0.05);
             osc1.frequency.exponentialRampToValueAtTime(1318.51, now + 0.12);
             gain1.gain.setValueAtTime(0, now + 0.05);
-            gain1.gain.linearRampToValueAtTime(0.5, now + 0.08);
-            gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+            gain1.gain.linearRampToValueAtTime(0.9, now + 0.08);
+            gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
             osc1.connect(gain1);
             gain1.connect(ctx.destination);
             osc1.start(now + 0.05);
-            osc1.stop(now + 0.7);
+            osc1.stop(now + 0.8);
 
             // High Coin Harmonic Ring (1975Hz - B6)
             const osc2 = ctx.createOscillator();
@@ -81,65 +105,82 @@ function playCampusChime(theme = currentSoundTheme) {
             osc2.type = 'sine';
             osc2.frequency.setValueAtTime(1975.53, now + 0.09);
             gain2.gain.setValueAtTime(0, now + 0.09);
-            gain2.gain.linearRampToValueAtTime(0.35, now + 0.12);
-            gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+            gain2.gain.linearRampToValueAtTime(0.75, now + 0.12);
+            gain2.gain.exponentialRampToValueAtTime(0.001, now + 1.1);
             osc2.connect(gain2);
             gain2.connect(ctx.destination);
             osc2.start(now + 0.09);
-            osc2.stop(now + 0.9);
+            osc2.stop(now + 1.1);
 
         } else if (theme === 'swiggy_pop') {
             // Theme 2: QuickCommerce Pop (C5 -> E5 -> G5 -> C6)
             const notes = [523.25, 659.25, 783.99, 1046.50];
             notes.forEach((f, idx) => {
-                const t = now + (idx * 0.065);
+                const t = now + (idx * 0.07);
                 const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
                 osc.type = 'sine';
                 osc.frequency.setValueAtTime(f, t);
                 gain.gain.setValueAtTime(0, t);
-                gain.gain.linearRampToValueAtTime(0.45, t + 0.015);
-                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+                gain.gain.linearRampToValueAtTime(0.85, t + 0.015);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
                 osc.connect(gain);
                 gain.connect(ctx.destination);
                 osc.start(t);
-                osc.stop(t + 0.22);
+                osc.stop(t + 0.28);
             });
 
         } else if (theme === 'express_beep') {
             // Theme 3: Courier Delivery Double-Chirp (1760Hz -> 2093Hz)
-            [0, 0.11].forEach(offset => {
+            [0, 0.12].forEach(offset => {
                 const t = now + offset;
                 const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
                 osc.type = 'sawtooth';
                 osc.frequency.setValueAtTime(1760, t);
-                osc.frequency.exponentialRampToValueAtTime(2093, t + 0.05);
+                osc.frequency.exponentialRampToValueAtTime(2093, t + 0.06);
                 gain.gain.setValueAtTime(0, t);
-                gain.gain.linearRampToValueAtTime(0.3, t + 0.01);
-                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+                gain.gain.linearRampToValueAtTime(0.8, t + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
                 osc.connect(gain);
                 gain.connect(ctx.destination);
                 osc.start(t);
-                osc.stop(t + 0.07);
+                osc.stop(t + 0.1);
             });
 
         } else if (theme === 'arcade_ding') {
             // Theme 4: Arcade Level-Up Victory Ding (A4 -> C#5 -> E5 -> A5)
             const notes = [440, 554.37, 659.25, 880];
             notes.forEach((f, idx) => {
-                const t = now + (idx * 0.055);
+                const t = now + (idx * 0.06);
                 const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
                 osc.type = 'triangle';
                 osc.frequency.setValueAtTime(f, t);
                 gain.gain.setValueAtTime(0, t);
-                gain.gain.linearRampToValueAtTime(0.4, t + 0.01);
-                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+                gain.gain.linearRampToValueAtTime(0.85, t + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
                 osc.connect(gain);
                 gain.connect(ctx.destination);
                 osc.start(t);
-                osc.stop(t + 0.3);
+                osc.stop(t + 0.35);
+            });
+
+        } else if (theme === 'urgent_alarm') {
+            // Theme 6: Urgent Delivery Triple Alert (High Siren Pulsing)
+            [0, 0.15, 0.30].forEach(offset => {
+                const t = now + offset;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(880, t);
+                osc.frequency.setValueAtTime(1320, t + 0.06);
+                gain.gain.setValueAtTime(0.6, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(t);
+                osc.stop(t + 0.12);
             });
 
         } else {
@@ -150,12 +191,12 @@ function playCampusChime(theme = currentSoundTheme) {
             osc1.frequency.setValueAtTime(659.25, now);
             osc1.frequency.exponentialRampToValueAtTime(880.0, now + 0.08);
             gain1.gain.setValueAtTime(0, now);
-            gain1.gain.linearRampToValueAtTime(0.35, now + 0.02);
-            gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+            gain1.gain.linearRampToValueAtTime(0.8, now + 0.02);
+            gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
             osc1.connect(gain1);
             gain1.connect(ctx.destination);
             osc1.start(now);
-            osc1.stop(now + 0.6);
+            osc1.stop(now + 0.7);
 
             const osc2 = ctx.createOscillator();
             const gain2 = ctx.createGain();
@@ -163,12 +204,12 @@ function playCampusChime(theme = currentSoundTheme) {
             osc2.frequency.setValueAtTime(1108.73, now + 0.1);
             osc2.frequency.exponentialRampToValueAtTime(1318.51, now + 0.2);
             gain2.gain.setValueAtTime(0, now + 0.1);
-            gain2.gain.linearRampToValueAtTime(0.4, now + 0.13);
-            gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+            gain2.gain.linearRampToValueAtTime(0.85, now + 0.13);
+            gain2.gain.exponentialRampToValueAtTime(0.001, now + 1.1);
             osc2.connect(gain2);
             gain2.connect(ctx.destination);
             osc2.start(now + 0.1);
-            osc2.stop(now + 0.9);
+            osc2.stop(now + 1.1);
         }
 
     } catch (e) {
@@ -1215,10 +1256,13 @@ function handleRealtimeNewOrder(order) {
                 </tr>
             `;
             // Prepend new row
-            if (tbody.innerHTML.includes('No orders found') || tbody.innerHTML.includes('Loading')) {
+            const existingContent = tbody.innerHTML || '';
+            if (existingContent.includes('No orders found') || existingContent.includes('Loading')) {
                 tbody.innerHTML = rowHtml;
-            } else {
+            } else if (typeof tbody.insertAdjacentHTML === 'function') {
                 tbody.insertAdjacentHTML('afterbegin', rowHtml);
+            } else {
+                tbody.innerHTML = rowHtml + existingContent;
             }
         }
     } else if (activeView === 'orders') {
