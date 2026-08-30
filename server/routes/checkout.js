@@ -17,9 +17,17 @@ async function handlePlaceOrder(req, res) {
         return res.status(401).json({ error: 'Authentication required. Please sign in with Google or Student Email to place your order.' });
     }
 
-    // Strict Address Check: Room address must be specified
-    if (!deliveryAddress || typeof deliveryAddress !== 'string' || deliveryAddress.trim().length < 4 || deliveryAddress.includes('Please set')) {
-        return res.status(400).json({ error: 'Hostel room delivery address is required. Please set your hostel room number.' });
+    // Strict Address Check: Must be non-empty and explicitly contain a room number
+    if (!deliveryAddress || typeof deliveryAddress !== 'string' || deliveryAddress.trim().length < 5 || 
+        deliveryAddress.includes('Please set') || 
+        deliveryAddress.includes('Room null') || 
+        deliveryAddress.includes('Room undefined')) {
+        return res.status(400).json({ error: 'Hostel delivery address is required. Please set your hostel room number before placing an order.' });
+    }
+
+    const hasRoomNumber = /Room\s*[a-zA-Z0-9\-]+/i.test(deliveryAddress) || /Flat\s*[a-zA-Z0-9\-]+/i.test(deliveryAddress);
+    if (!hasRoomNumber) {
+        return res.status(400).json({ error: 'Valid hostel room number is required (e.g., BH13 (Block A), Room 304).' });
     }
 
     try {
@@ -37,7 +45,7 @@ async function handlePlaceOrder(req, res) {
         const initialStatus = 'Order Placed';
         const rider = 'Alex';
         const method = paymentMethod || 'Cash on Delivery';
-        const address = deliveryAddress || 'BH13 (Block A), Room 304';
+        const address = deliveryAddress.trim();
 
         const orderPayload = {
             id: orderId,

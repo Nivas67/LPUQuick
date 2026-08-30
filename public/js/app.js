@@ -96,7 +96,10 @@ function getPageName(path) {
 
 // Address Configuration State Helper
 window.hasUserConfiguredAddress = function() {
-    return localStorage.getItem('lpuquick_address_configured') === 'true' && Boolean(localStorage.getItem('lpuquick_room'));
+    const isConfigured = localStorage.getItem('lpuquick_address_configured') === 'true';
+    const room = (localStorage.getItem('lpuquick_room') || '').trim();
+    const phone = (localStorage.getItem('lpuquick_phone') || '').trim();
+    return isConfigured && room.length > 0 && room !== 'null' && room !== 'undefined' && phone.length >= 10;
 };
 
 // Global Address Selection Modal (BH13 Express Live, BH1-BH12 Coming Soon, Block A/B, Room No, Phone)

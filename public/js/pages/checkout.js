@@ -313,6 +313,12 @@ window.pages.checkout = async function() {
 
             <!-- Slide to Pay Interaction Component -->
             <div class="pt-2">
+                ${!window.hasUserConfiguredAddress() ? `
+                <button type="button" onclick="window.openAddressModal(true, () => { if (typeof window.router === 'function') window.router(); })" class="w-full py-4 px-6 rounded-2xl bg-emerald hover:bg-primary text-white font-bold text-sm shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98]">
+                    <span class="material-symbols-outlined text-lg">home_pin</span>
+                    <span>Set Hostel Room Address to Complete Order (₹${exactTotal})</span>
+                </button>
+                ` : `
                 <div class="slider-track select-none" id="pay-slider-track">
                     <div class="slider-progress" id="pay-slider-progress"></div>
                     <div class="slider-thumb flex items-center justify-center select-none" id="pay-slider-thumb">
@@ -331,6 +337,7 @@ window.pages.checkout = async function() {
                         <span class="material-symbols-outlined text-sm">verified</span> Verified Campus Dispatch
                     </span>
                 </div>
+                `}
             </div>
         </div>
 
@@ -776,8 +783,20 @@ window.pageInits.checkout = function() {
             thumbIcon.classList.add('animate-spin');
         }
 
-        const savedRoom = localStorage.getItem('lpuquick_room') || window.currentRoom || '304';
-        const savedBlock = localStorage.getItem('lpuquick_block') || window.currentBlock || 'Block A';
+        const savedRoom = (localStorage.getItem('lpuquick_room') || '').trim();
+        const savedBlock = (localStorage.getItem('lpuquick_block') || 'Block A').trim();
+        const savedPhone = (localStorage.getItem('lpuquick_phone') || '').trim();
+
+        if (!window.hasUserConfiguredAddress() || !savedRoom || savedRoom === 'null' || savedRoom === 'undefined' || !savedPhone || savedPhone.length < 10) {
+            isSubmitting = false;
+            resetSlider();
+            showPaymentToast('📍 Room Address Required: Please set your hostel room number to order.');
+            window.openAddressModal(true, () => {
+                if (typeof window.router === 'function') window.router();
+            });
+            return;
+        }
+
         const deliveryAddress = `BH13 (${savedBlock}), Room ${savedRoom}`;
         const selectedPaymentMethod = 'Cash on Delivery';
 
