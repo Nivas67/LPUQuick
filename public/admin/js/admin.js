@@ -698,7 +698,54 @@ function setDurationMins(mins) {
             chip.className = 'duration-chip px-4 py-2 rounded-lg border border-[#DADCE0] bg-white font-semibold hover:border-[#3c4043]';
         }
     });
+
+    updateDurationPreview();
 }
+
+function setDurationUntil(targetHour) {
+    const now = new Date();
+    const target = new Date(now);
+    target.setHours(targetHour, 0, 0, 0);
+    if (target.getTime() <= now.getTime()) {
+        target.setDate(target.getDate() + 1); // Tomorrow morning
+    }
+    const diffMins = Math.max(1, Math.round((target.getTime() - now.getTime()) / 60000));
+    
+    const input = document.getElementById('input-custom-duration');
+    if (input) input.value = diffMins;
+
+    document.querySelectorAll('.duration-chip').forEach(chip => {
+        const match = chip.textContent.includes(`Until ${targetHour}:00`);
+        if (match) {
+            chip.className = 'duration-chip active px-4 py-2 rounded-lg border-2 border-[#3c4043] bg-[#3c4043] text-white font-semibold';
+        } else {
+            chip.className = 'duration-chip px-4 py-2 rounded-lg border border-[#DADCE0] bg-white font-semibold hover:border-[#3c4043]';
+        }
+    });
+
+    updateDurationPreview();
+}
+
+function updateDurationPreview() {
+    const mins = parseInt(document.getElementById('input-custom-duration')?.value, 10);
+    const previewEl = document.getElementById('duration-reopen-preview');
+    if (!mins || isNaN(mins) || mins <= 0) {
+        if (previewEl) previewEl.textContent = '';
+        return;
+    }
+    const end = new Date(Date.now() + (mins * 60000));
+    let hours = end.getHours();
+    const minutes = end.getMinutes();
+    const ampm = hours >= 12 ? 'pm' : 'am';
+    hours = hours % 12 || 12;
+    const minStr = String(minutes).padStart(2, '0');
+    const isToday = end.toDateString() === (new Date()).toDateString();
+    const day = isToday ? 'today' : 'tomorrow';
+    if (previewEl) {
+        previewEl.textContent = `(Reopens at ${hours}:${minStr} ${ampm}, ${day})`;
+    }
+}
+
 
 async function handleApplyLock(e) {
     if (e) e.preventDefault();

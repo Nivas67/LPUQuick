@@ -420,14 +420,18 @@
                                 <button type="button" onclick="setDurationMins(30)" class="duration-chip active px-4 py-2 rounded-lg border-2 border-[#3c4043] bg-[#3c4043] text-white font-semibold">30 Minutes</button>
                                 <button type="button" onclick="setDurationMins(60)" class="duration-chip px-4 py-2 rounded-lg border border-[#DADCE0] bg-white font-semibold hover:border-[#3c4043]">1 Hour</button>
                                 <button type="button" onclick="setDurationMins(120)" class="duration-chip px-4 py-2 rounded-lg border border-[#DADCE0] bg-white font-semibold hover:border-[#3c4043]">2 Hours</button>
-                                <button type="button" onclick="setDurationMins(480)" class="duration-chip px-4 py-2 rounded-lg border border-[#DADCE0] bg-white font-semibold hover:border-[#3c4043]">Overnight (8 Hours)</button>
+                                <button type="button" onclick="setDurationUntil(6)" class="duration-chip px-4 py-2 rounded-lg border border-[#DADCE0] bg-white font-semibold hover:border-[#3c4043]">Until 6:00 AM</button>
+                                <button type="button" onclick="setDurationUntil(8)" class="duration-chip px-4 py-2 rounded-lg border border-[#DADCE0] bg-white font-semibold hover:border-[#3c4043]">Until 8:00 AM</button>
+                                <button type="button" onclick="setDurationMins(480)" class="duration-chip px-4 py-2 rounded-lg border border-[#DADCE0] bg-white font-semibold hover:border-[#3c4043]">8 Hours</button>
                             </div>
-                            <div class="flex items-center gap-2 pt-2">
+                            <div class="flex items-center gap-2 pt-2 flex-wrap">
                                 <span class="text-xs text-[#5c5f60]">Or custom minutes:</span>
-                                <input type="number" id="input-custom-duration" min="1" max="1440" value="30" class="w-24 border border-[#DADCE0] rounded-lg p-2 font-semibold">
+                                <input type="number" id="input-custom-duration" min="1" max="2880" value="30" oninput="updateDurationPreview()" class="w-24 border border-[#DADCE0] rounded-lg p-2 font-semibold">
                                 <span class="text-xs text-[#5c5f60]">minutes</span>
+                                <span id="duration-reopen-preview" class="text-xs font-bold text-[#137333]"></span>
                             </div>
                         </div>
+
 
                         <!-- Schedule Pickers (Shown when SCHEDULED selected) -->
                         <div id="section-schedule-picker" class="hidden space-y-3 p-4 bg-[#f8f9fa] rounded-xl border border-[#DADCE0]">

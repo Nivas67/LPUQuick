@@ -798,69 +798,91 @@ window.renderStoreClosedBannerOrOverlay = function() {
     const isLocked = Boolean(avail.is_locked);
     const homeHeroContainer = document.getElementById('store-closed-banner-slot');
     
+    // 1. Manage Global Sticky Announcement Bar (Visible across ALL pages)
+    let globalBar = document.getElementById('global-store-lock-bar');
     if (isLocked) {
-        // Build reference design visual component
         const reopenHeadline = formatClientReopenHeadline(avail);
         const secondaryText = avail.message || "You can still add items and order when the store re-opens";
 
-        const closedCardHtml = `
-            <div id="store-closed-hero-card" class="relative overflow-hidden rounded-3xl bg-[#1a1d20] text-white p-6 sm:p-8 shadow-2xl border border-white/10 my-4 animate-fade-in">
-                <!-- Ambient glow -->
-                <div class="absolute -top-24 -left-24 w-72 h-72 bg-red-600/10 rounded-full blur-3xl pointer-events-none"></div>
-                <div class="absolute -bottom-24 -right-24 w-72 h-72 bg-amber-600/10 rounded-full blur-3xl pointer-events-none"></div>
+        if (!globalBar) {
+            globalBar = document.createElement('div');
+            globalBar.id = 'global-store-lock-bar';
+            globalBar.className = 'fixed top-0 left-0 right-0 z-[100] bg-[#1a1d20] text-white py-2 px-3 sm:px-4 text-xs font-semibold flex items-center justify-between shadow-lg border-b border-red-500/30 animate-fade-in';
+            document.body.prepend(globalBar);
+        }
 
-                <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
-                    
-                    <!-- Left Column: Dynamic Typography & Live Countdown -->
-                    <div class="flex-1 space-y-3 text-left">
-                        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-white/10 text-white/90 border border-white/10">
-                            <span class="w-2 h-2 rounded-full bg-[#ea4335] animate-ping"></span>
-                            <span>Temporary Store Restock</span>
-                        </div>
-
-                        <h1 class="text-2xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight" id="client-closed-headline">
-                            ${reopenHeadline}
-                        </h1>
-
-
-                        <p class="text-sm sm:text-base text-[#a0a5aa] font-medium leading-relaxed max-w-xl">
-                            ${secondaryText}
-                        </p>
-
-                        <!-- Live Ticking Countdown -->
-                        <div id="client-countdown-wrapper" class="pt-2 ${avail.remaining_seconds ? '' : 'hidden'}">
-                            <div class="inline-flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-white/10 border border-white/15 text-white font-mono text-sm shadow-inner">
-                                <span class="material-symbols-outlined text-base text-[#ea4335] animate-pulse">timer</span>
-                                <span class="text-xs font-semibold text-white/80">Time remaining:</span>
-                                <span class="font-bold text-white font-mono text-base tracking-widest" id="client-countdown-display">00:00:00</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Right Column: Hanging Red CLOSED Sign (Visual Reference Match) -->
-                    <div class="shrink-0 flex flex-col items-center select-none pt-2 sm:pt-0">
-                        <!-- Top Chains / Strings -->
-                        <div class="flex justify-between w-36 px-4 mb-[-2px] relative z-0">
-                            <div class="w-[2px] h-8 bg-gradient-to-b from-[#80868b] to-[#5f6368] shadow-sm"></div>
-                            <div class="w-[2px] h-8 bg-gradient-to-b from-[#80868b] to-[#5f6368] shadow-sm"></div>
-                        </div>
-
-                        <!-- Red Board -->
-                        <div class="relative z-10 w-44 sm:w-48 bg-gradient-to-b from-[#d93025] to-[#b3261e] border-2 border-[#ff8a80] rounded-2xl p-4 text-center shadow-[0_15px_35px_rgba(0,0,0,0.6)] transform hover:rotate-1 transition-transform duration-300">
-                            <!-- Metal Grommets -->
-                            <div class="absolute top-2 left-3 w-2.5 h-2.5 rounded-full bg-[#3c4043] border border-white/40 shadow-inner"></div>
-                            <div class="absolute top-2 right-3 w-2.5 h-2.5 rounded-full bg-[#3c4043] border border-white/40 shadow-inner"></div>
-                            
-                            <p class="text-[11px] font-extrabold uppercase tracking-widest text-white/90 drop-shadow-sm">Sorry, we are</p>
-                            <h2 class="text-3xl font-black uppercase tracking-wider text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)] mt-0.5">CLOSED</h2>
-                        </div>
-                    </div>
-
+        globalBar.innerHTML = `
+            <div class="flex items-center gap-2 max-w-5xl mx-auto w-full justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-[#ea4335] animate-ping"></span>
+                    <span class="font-bold text-[#ea4335] uppercase text-[10px] tracking-wider">Store Closed:</span>
+                    <span class="font-medium truncate max-w-[200px] sm:max-w-md">${reopenHeadline}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-sm text-[#ea4335]">timer</span>
+                    <span class="font-mono font-bold text-white text-xs" id="global-lock-timer-display">--:--:--</span>
                 </div>
             </div>
         `;
+        globalBar.classList.remove('hidden');
+        document.body.style.paddingTop = '32px';
 
+        // 2. Render Reference Design Card on Homepage
         if (homeHeroContainer) {
+            const closedCardHtml = `
+                <div id="store-closed-hero-card" class="relative overflow-hidden rounded-3xl bg-[#1a1d20] text-white p-6 sm:p-8 shadow-2xl border border-white/10 my-4 animate-fade-in">
+                    <!-- Ambient glow -->
+                    <div class="absolute -top-24 -left-24 w-72 h-72 bg-red-600/10 rounded-full blur-3xl pointer-events-none"></div>
+                    <div class="absolute -bottom-24 -right-24 w-72 h-72 bg-amber-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                    <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+                        
+                        <!-- Left Column: Dynamic Typography & Live Countdown -->
+                        <div class="flex-1 space-y-3 text-left">
+                            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-white/10 text-white/90 border border-white/10">
+                                <span class="w-2 h-2 rounded-full bg-[#ea4335] animate-ping"></span>
+                                <span>Temporary Store Restock</span>
+                            </div>
+
+                            <h1 class="text-2xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight" id="client-closed-headline">
+                                ${reopenHeadline}
+                            </h1>
+
+                            <p class="text-sm sm:text-base text-[#a0a5aa] font-medium leading-relaxed max-w-xl">
+                                ${secondaryText}
+                            </p>
+
+                            <!-- Live Ticking Countdown -->
+                            <div id="client-countdown-wrapper" class="pt-2 ${avail.remaining_seconds ? '' : 'hidden'}">
+                                <div class="inline-flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-white/10 border border-white/15 text-white font-mono text-sm shadow-inner">
+                                    <span class="material-symbols-outlined text-base text-[#ea4335] animate-pulse">timer</span>
+                                    <span class="text-xs font-semibold text-white/80">Time remaining:</span>
+                                    <span class="font-bold text-white font-mono text-base tracking-widest" id="client-countdown-display">00:00:00</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column: Hanging Red CLOSED Sign (Visual Reference Match) -->
+                        <div class="shrink-0 flex flex-col items-center select-none pt-2 sm:pt-0">
+                            <!-- Top Chains / Strings -->
+                            <div class="flex justify-between w-36 px-4 mb-[-2px] relative z-0">
+                                <div class="w-[2px] h-8 bg-gradient-to-b from-[#80868b] to-[#5f6368] shadow-sm"></div>
+                                <div class="w-[2px] h-8 bg-gradient-to-b from-[#80868b] to-[#5f6368] shadow-sm"></div>
+                            </div>
+
+                            <!-- Red Board -->
+                            <div class="relative z-10 w-44 sm:w-48 bg-gradient-to-b from-[#d93025] to-[#b3261e] border-2 border-[#ff8a80] rounded-2xl p-4 text-center shadow-[0_15px_35px_rgba(0,0,0,0.6)] transform hover:rotate-1 transition-transform duration-300">
+                                <div class="absolute top-2 left-3 w-2.5 h-2.5 rounded-full bg-[#3c4043] border border-white/40 shadow-inner"></div>
+                                <div class="absolute top-2 right-3 w-2.5 h-2.5 rounded-full bg-[#3c4043] border border-white/40 shadow-inner"></div>
+                                
+                                <p class="text-[11px] font-extrabold uppercase tracking-widest text-white/90 drop-shadow-sm">Sorry, we are</p>
+                                <h2 class="text-3xl font-black uppercase tracking-wider text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)] mt-0.5">CLOSED</h2>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            `;
             homeHeroContainer.innerHTML = closedCardHtml;
             homeHeroContainer.classList.remove('hidden');
         }
@@ -873,6 +895,11 @@ window.renderStoreClosedBannerOrOverlay = function() {
         // Update any checkout submit button if visible
         updateCheckoutButtonsForLock(true, reopenHeadline);
     } else {
+        if (globalBar) {
+            globalBar.classList.add('hidden');
+        }
+        document.body.style.paddingTop = '0px';
+
         if (homeHeroContainer) {
             homeHeroContainer.innerHTML = '';
             homeHeroContainer.classList.add('hidden');
@@ -897,14 +924,21 @@ function startClientCountdown(seconds, endAt) {
         const h = String(Math.floor(diff / 3600)).padStart(2, '0');
         const m = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
         const s = String(diff % 60).padStart(2, '0');
+        const timeStr = `${h}:${m}:${s}`;
 
         const displayEl = document.getElementById('client-countdown-display');
         if (displayEl) {
-            displayEl.textContent = `${h}:${m}:${s}`;
+            displayEl.textContent = timeStr;
+        }
+
+        const globalDisplayEl = document.getElementById('global-lock-timer-display');
+        if (globalDisplayEl) {
+            globalDisplayEl.textContent = timeStr;
         }
 
         if (diff <= 0) {
             clearInterval(window.__clientLockTicker);
+            window.__clientLockTicker = null;
             window.syncStoreAvailability(); // Automatically unlock and re-enable store when timer ends!
         }
     };
@@ -918,17 +952,16 @@ function updateCheckoutButtonsForLock(isLocked, reopenText = 'Soon') {
     checkoutBtns.forEach(btn => {
         if (isLocked) {
             btn.dataset.locked = 'true';
-            btn.classList.add('opacity-60', 'cursor-not-allowed');
-            if (btn.tagName === 'A') {
-                btn.onclick = (e) => {
-                    e.preventDefault();
-                    showClientToast('🏪 Store is currently closed for orders. Items stay safe in your cart!', 'warning', 'lock');
-                };
-            }
+            btn.classList.add('opacity-75', 'cursor-not-allowed', 'bg-gray-600');
+            btn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                showClientToast(`🏪 Store is temporarily closed (${reopenText}). Your cart is safely preserved!`, 'warning', 'lock');
+            };
         } else {
             btn.dataset.locked = 'false';
-            btn.classList.remove('opacity-60', 'cursor-not-allowed');
-            if (btn.tagName === 'A') btn.onclick = null;
+            btn.classList.remove('opacity-75', 'cursor-not-allowed', 'bg-gray-600');
+            btn.onclick = null;
         }
     });
 }
