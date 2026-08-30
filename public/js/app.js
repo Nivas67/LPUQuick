@@ -158,9 +158,9 @@ function getPageName(path) {
 // Address Configuration State Helper
 window.hasUserConfiguredAddress = function() {
     const isConfigured = localStorage.getItem('lpuquick_address_configured') === 'true';
-    const room = (localStorage.getItem('lpuquick_room') || '').trim();
-    const phone = (localStorage.getItem('lpuquick_phone') || '').trim();
-    return isConfigured && room.length > 0 && room !== 'null' && room !== 'undefined' && phone.length >= 10;
+    const room = (localStorage.getItem('lpuquick_room') || '').replace(/\D/g, '');
+    const phone = (localStorage.getItem('lpuquick_phone') || '').replace(/\D/g, '');
+    return isConfigured && room.length > 0 && phone.length === 10;
 };
 
 // Global Address Selection Modal (BH13 Express Live, BH1-BH12 Coming Soon, Block A/B, Room No, Phone)
@@ -272,15 +272,15 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
                 </div>
             </div>
 
-            <!-- Room & Floor Input -->
+            <!-- Room & Floor Input (Strictly Numeric) -->
             <div class="grid grid-cols-2 gap-2.5">
                 <div class="space-y-1">
-                    <label class="block text-xs font-semibold text-on-surface-variant" for="room-input">Room Number *</label>
-                    <input type="text" id="room-input" required class="w-full px-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface font-semibold focus:outline-none focus:border-emerald" placeholder="e.g. 304" value="${savedRoom}">
+                    <label class="block text-xs font-semibold text-on-surface-variant" for="room-input">Room Number (Digits only) *</label>
+                    <input type="tel" inputmode="numeric" pattern="[0-9]*" id="room-input" required class="w-full px-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface font-semibold focus:outline-none focus:border-emerald" placeholder="e.g. 304" value="${savedRoom.replace(/\D/g, '')}">
                 </div>
                 <div class="space-y-1">
-                    <label class="block text-xs font-semibold text-on-surface-variant" for="floor-input">Floor</label>
-                    <input type="text" id="floor-input" class="w-full px-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface focus:outline-none focus:border-emerald" placeholder="e.g. 3rd Floor" value="${savedFloor}">
+                    <label class="block text-xs font-semibold text-on-surface-variant" for="floor-input">Floor (Digits only) *</label>
+                    <input type="tel" inputmode="numeric" pattern="[0-9]*" id="floor-input" required class="w-full px-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface font-semibold focus:outline-none focus:border-emerald" placeholder="e.g. 3" value="${savedFloor.replace(/\D/g, '') || '3'}">
                 </div>
             </div>
 
@@ -289,7 +289,7 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
                 <label class="block text-xs font-semibold text-on-surface-variant" for="phone-input">Contact Phone Number (For delivery runner) *</label>
                 <div class="relative">
                     <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant">+91</span>
-                    <input type="tel" id="phone-input" maxlength="10" required class="w-full pl-12 pr-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface font-semibold focus:outline-none focus:border-emerald" placeholder="XXXXXXXXXX" value="${savedPhone}">
+                    <input type="tel" inputmode="numeric" pattern="[0-9]*" id="phone-input" maxlength="10" required class="w-full pl-12 pr-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface font-semibold focus:outline-none focus:border-emerald" placeholder="XXXXXXXXXX" value="${savedPhone.replace(/\D/g, '')}">
                 </div>
                 <p class="text-[10px] text-on-surface-variant/70">10-digit mobile number required so delivery runner can contact you upon arrival.</p>
             </div>
@@ -317,6 +317,28 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
         modal.onclick = () => modal.remove();
     }
     document.body.appendChild(modal);
+
+    // Enforce strictly numeric input in real-time
+    const roomInput = modal.querySelector('#room-input');
+    if (roomInput) {
+        roomInput.oninput = () => {
+            roomInput.value = roomInput.value.replace(/\D/g, '');
+        };
+    }
+
+    const floorInput = modal.querySelector('#floor-input');
+    if (floorInput) {
+        floorInput.oninput = () => {
+            floorInput.value = floorInput.value.replace(/\D/g, '');
+        };
+    }
+
+    const phoneInput = modal.querySelector('#phone-input');
+    if (phoneInput) {
+        phoneInput.oninput = () => {
+            phoneInput.value = phoneInput.value.replace(/\D/g, '');
+        };
+    }
 
     // Block selection handler
     modal.querySelectorAll('.block-btn').forEach(btn => {
@@ -386,17 +408,28 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
     if (saveAddressBtn) {
         saveAddressBtn.onclick = async () => {
             const room = modal.querySelector('#room-input')?.value?.trim();
-            const floor = modal.querySelector('#floor-input')?.value?.trim() || '3rd Floor';
+            const floor = modal.querySelector('#floor-input')?.value?.trim();
             const phone = modal.querySelector('#phone-input')?.value?.trim();
             const alertBox = modal.querySelector('#address-validation-alert');
             const alertMsg = modal.querySelector('#address-validation-msg');
 
-            if (!room) {
+            const cleanRoom = (room || '').replace(/\D/g, '');
+            if (!cleanRoom) {
                 if (alertBox && alertMsg) {
                     alertBox.classList.remove('hidden');
-                    alertMsg.textContent = 'Please enter your Room Number (e.g. 304).';
+                    alertMsg.textContent = 'Please enter a valid numeric Room Number (e.g. 304).';
                 }
                 modal.querySelector('#room-input')?.focus();
+                return;
+            }
+
+            const cleanFloor = (floor || '').replace(/\D/g, '');
+            if (!cleanFloor) {
+                if (alertBox && alertMsg) {
+                    alertBox.classList.remove('hidden');
+                    alertMsg.textContent = 'Please enter a valid numeric Floor Number (e.g. 3).';
+                }
+                modal.querySelector('#floor-input')?.focus();
                 return;
             }
 
@@ -412,8 +445,10 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
 
             if (alertBox) alertBox.classList.add('hidden');
 
-            // Finalize address and phone saving directly (No OTP verification required)
-            finalizeAddressSave(room, floor, cleanPhone);
+            const formattedFloor = cleanFloor === '0' ? 'Ground Floor' : `Floor ${cleanFloor}`;
+
+            // Finalize address and phone saving directly
+            finalizeAddressSave(cleanRoom, formattedFloor, cleanPhone);
         };
     }
 };
