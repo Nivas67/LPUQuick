@@ -41,7 +41,12 @@ window.pages.cart = async function() {
         const itemPrice = Number(item.price) || 0;
         const hasItemDiscount = itemMrp > itemPrice;
         const discPercent = hasItemDiscount ? Math.round(((itemMrp - itemPrice) / itemMrp) * 100) : 0;
-        const stockLeft = item.stock_left !== undefined && item.stock_left !== null ? Number(item.stock_left) : 50;
+        const cachedProd = window.__cachedProducts?.get(item.product_id);
+        const stockLeft = (item.stock_left !== undefined && item.stock_left !== null) 
+            ? Number(item.stock_left) 
+            : (cachedProd?.stock_left !== undefined && cachedProd?.stock_left !== null 
+                ? Number(cachedProd.stock_left) 
+                : (item.in_stock ? 50 : 0));
         const isMaxStockReached = item.quantity >= stockLeft;
 
         return `
@@ -72,7 +77,7 @@ window.pages.cart = async function() {
                     <span class="material-symbols-outlined text-base">remove</span>
                 </button>
                 <span class="font-bold text-xs w-4 text-center qty-num">${item.quantity}</span>
-                <button class="w-7 h-7 rounded-full flex items-center justify-center active:scale-90 transition-all qty-inc-btn ${isMaxStockReached ? 'opacity-40 cursor-not-allowed' : ''}" data-id="${item.cart_id}" data-product-id="${item.product_id}" data-qty="${item.quantity}" data-stock-left="${stockLeft}" title="${isMaxStockReached ? `Max stock limit reached (${stockLeft})` : 'Add one more'}">
+                <button class="w-7 h-7 rounded-full flex items-center justify-center active:scale-90 transition-all qty-inc-btn ${isMaxStockReached ? 'opacity-40 cursor-not-allowed' : ''}" data-id="${item.cart_id}" data-product-id="${item.product_id}" data-qty="${item.quantity}" data-stock-left="${stockLeft}" title="${isMaxStockReached ? `Max stock limit reached (${stockLeft})` : 'Add one more'}" ${isMaxStockReached ? 'disabled' : ''}>
                     <span class="material-symbols-outlined text-base">add</span>
                 </button>
             </div>
@@ -271,11 +276,19 @@ window.pageInits.cart = function() {
             const productId = btn.dataset.productId || row?.dataset?.productId;
             if (!productId) return;
 
+            const cachedProd = window.__cachedProducts?.get(productId);
+            const stockLeftAttr = btn.dataset.stockLeft || row?.dataset?.stockLeft;
+            const stockLeft = (cachedProd?.stock_left !== undefined && cachedProd?.stock_left !== null)
+                ? Number(cachedProd.stock_left)
+                : (stockLeftAttr !== undefined && stockLeftAttr !== '' && stockLeftAttr !== null ? Number(stockLeftAttr) : 50);
+
             const qtyNum = row?.querySelector('.qty-num');
             const currentQty = parseInt(qtyNum?.textContent || btn.dataset.qty) || 1;
-            const stockLeft = parseInt(btn.dataset.stockLeft) || 50;
 
             if (currentQty >= stockLeft) {
+                btn.classList.add('opacity-40', 'cursor-not-allowed');
+                btn.setAttribute('title', `Max stock limit reached (${stockLeft})`);
+                btn.disabled = true;
                 if (typeof window.showClientToast === 'function') {
                     window.showClientToast(`⚠️ Only ${stockLeft} unit${stockLeft === 1 ? '' : 's'} available in stock!`, 'warning', 'inventory_2');
                 }
@@ -289,6 +302,12 @@ window.pageInits.cart = function() {
             btn.dataset.qty = nextQty;
             const decBtn = row?.querySelector('.qty-dec-btn');
             if (decBtn) decBtn.dataset.qty = nextQty;
+
+            if (nextQty >= stockLeft) {
+                btn.classList.add('opacity-40', 'cursor-not-allowed');
+                btn.setAttribute('title', `Max stock limit reached (${stockLeft})`);
+                btn.disabled = true;
+            }
 
             // Atomic sync batches multiple rapid clicks accurately
             window.setOptimisticCartQuantity(productId, nextQty, stockLeft, () => {
@@ -304,9 +323,14 @@ window.pageInits.cart = function() {
             const productId = btn.dataset.productId || row?.dataset?.productId;
             if (!productId) return;
 
+            const cachedProd = window.__cachedProducts?.get(productId);
+            const stockLeftAttr = btn.dataset.stockLeft || row?.dataset?.stockLeft;
+            const stockLeft = (cachedProd?.stock_left !== undefined && cachedProd?.stock_left !== null)
+                ? Number(cachedProd.stock_left)
+                : (stockLeftAttr !== undefined && stockLeftAttr !== '' && stockLeftAttr !== null ? Number(stockLeftAttr) : 50);
+
             const qtyNum = row?.querySelector('.qty-num');
             const currentQty = parseInt(qtyNum?.textContent || btn.dataset.qty) || 1;
-            const stockLeft = parseInt(btn.dataset.stockLeft) || 50;
 
             if (currentQty <= 1) {
                 // Instant Row Removal (0ms)
@@ -327,7 +351,14 @@ window.pageInits.cart = function() {
                 if (qtyNum) qtyNum.textContent = nextQty;
                 btn.dataset.qty = nextQty;
                 const incBtn = row?.querySelector('.qty-inc-btn');
-                if (incBtn) incBtn.dataset.qty = nextQty;
+                if (incBtn) {
+                    incBtn.dataset.qty = nextQty;
+                    if (nextQty < stockLeft) {
+                        incBtn.classList.remove('opacity-40', 'cursor-not-allowed');
+                        incBtn.setAttribute('title', 'Add one more');
+                        incBtn.disabled = false;
+                    }
+                }
 
                 window.setOptimisticCartQuantity(productId, nextQty, stockLeft, () => {
                     refreshCartBill();

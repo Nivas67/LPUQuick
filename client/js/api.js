@@ -53,8 +53,16 @@ window.setOptimisticCartQuantity = function(productId, targetQty, maxStock = 50,
     
     // Track original confirmed quantity for rollback on network failure
     if (!window.__pendingCartSync[productId]) {
+        let existingConfirmed = window.cartState[productId]?.quantity;
+        if (existingConfirmed === undefined && typeof document !== 'undefined') {
+            const domCartRow = document.querySelector(`.cart-row[data-product-id="${productId}"]`);
+            if (domCartRow) {
+                const domQty = parseInt(domCartRow.querySelector('.qty-num')?.textContent || '0');
+                if (domQty > 0) existingConfirmed = domQty;
+            }
+        }
         window.__pendingCartSync[productId] = {
-            confirmedQty: window.cartState[productId]?.quantity || 0,
+            confirmedQty: existingConfirmed !== undefined ? existingConfirmed : 0,
             cartId: window.cartState[productId]?.cart_id || null,
             targetQty: clampedQty
         };
@@ -299,6 +307,16 @@ const api = {
         const data = await res.json();
         cartMemoryCache = data;
         cartMemoryCacheTime = Date.now();
+        if (data && Array.isArray(data.items)) {
+            data.items.forEach(item => {
+                if (item.product_id && item.stock_left !== undefined) {
+                    if (window.__cachedProducts && window.__cachedProducts.has(item.product_id)) {
+                        const cp = window.__cachedProducts.get(item.product_id);
+                        cp.stock_left = item.stock_left;
+                    }
+                }
+            });
+        }
         updateLocalCartState(data);
         return data;
     },

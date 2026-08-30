@@ -170,7 +170,7 @@ const supabaseDb = {
                 .select(`
                     id, quantity, created_at,
                     products (
-                        id, name, price, mrp, unit, size, image_url, image_alt, category, in_stock
+                        id, name, price, mrp, unit, size, image_url, image_alt, category, in_stock, stock_left
                     )
                 `)
                 .eq('user_id', userId)
@@ -192,7 +192,8 @@ const supabaseDb = {
                 image_alt: ci.products?.image_alt,
                 category: ci.products?.category,
                 quantity: ci.quantity,
-                in_stock: ci.products?.in_stock ? 1 : 0
+                in_stock: ci.products?.in_stock ? 1 : 0,
+                stock_left: ci.products?.stock_left !== undefined && ci.products?.stock_left !== null ? Number(ci.products?.stock_left) : (ci.products?.in_stock ? 50 : 0)
             })).filter(i => i.product_id);
 
             const pricing = this.calculatePricing(items);
