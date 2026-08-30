@@ -1,5 +1,5 @@
 // LPUQuick High-Speed API Client with Intelligent Request Caching
-const API_BASE = '/api';
+const API_BASE = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null') ? `${window.location.origin}/api` : '/api';
 
 const searchCache = new Map();
 let categoriesCache = null;
@@ -83,6 +83,16 @@ const api = {
             searchCache.delete(searchCache.keys().next().value);
         }
         return data;
+    },
+
+    // Products List
+    async getProducts(category = null) {
+        const url = category ? `${API_BASE}/products?category=${encodeURIComponent(category)}` : `${API_BASE}/products`;
+        const res = await fetch(url);
+        return res.json();
+    },
+    async fetchProducts(category = null) {
+        return this.getProducts(category);
     },
 
     // Single Product Details
