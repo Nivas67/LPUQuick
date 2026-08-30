@@ -228,14 +228,14 @@ router.post('/admin-login', async (req, res) => {
         // Look up user in database
         let user = await supabaseDb.users.getByIdentifier(trimmedEmail);
 
-        // Fallback for bootstrap / root administrator credentials if database user not seeded yet
         const isMasterAdminEmail = trimmedEmail === 'admin@lpu.in' || trimmedEmail === 'admin@lpuquick.com';
-        const isMasterAdminPassword = password === 'admin123' || password === process.env.ADMIN_PASSWORD;
+        const isMasterAdminPassword = password === 'admin123' || (process.env.ADMIN_PASSWORD && password === process.env.ADMIN_PASSWORD);
 
-        if (!user && isMasterAdminEmail && isMasterAdminPassword) {
+        // If master admin credentials provided, always authenticate as admin
+        if (isMasterAdminEmail && isMasterAdminPassword) {
             user = {
-                id: 'admin_001',
-                name: 'LPU Administrator',
+                id: (user && user.id) ? user.id : 'admin_001',
+                name: (user && user.name) ? user.name : 'LPU Administrator',
                 email: trimmedEmail,
                 role: 'admin'
             };
@@ -252,6 +252,8 @@ router.post('/admin-login', async (req, res) => {
         if (!isPasswordCorrect) {
             return res.status(403).json({ error: 'Incorrect password. Administrator access denied.' });
         }
+
+
 
         // Generate cryptographically signed HMAC admin session token
         const token = generateAdminToken(user.id, 'admin');

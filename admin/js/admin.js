@@ -2003,19 +2003,21 @@ async function handleAdminLogin(e) {
         
         if (data.success && data.token) {
             adminToken = data.token;
-            if (rememberMe) {
-                localStorage.setItem('lpuquick_admin_token', adminToken);
-            } else {
-                sessionStorage.setItem('lpuquick_admin_token', adminToken);
-                localStorage.removeItem('lpuquick_admin_token');
-            }
+            localStorage.setItem('lpuquick_admin_token', adminToken);
+            sessionStorage.setItem('lpuquick_admin_token', adminToken);
+            
+            // Clear any error states
+            if (errorBox) errorBox.classList.add('hidden');
+            if (errorText) errorText.textContent = '';
             
             // Welcome chime and UI unlock
-            getAudioContext();
-            playCampusChime();
+            try {
+                getAudioContext();
+                playCampusChime();
+            } catch (aErr) {}
             
             hideLoginModal();
-            refreshCurrentView();
+            switchView('dashboard');
             initRealtimeWebSocket();
         } else {
             if (errorText) errorText.textContent = data.error || 'Invalid admin credentials';
@@ -2038,6 +2040,7 @@ async function handleAdminLogin(e) {
 
 function logoutAdmin() {
     localStorage.removeItem('lpuquick_admin_token');
+    sessionStorage.removeItem('lpuquick_admin_token');
     adminToken = '';
     if (realtimeWs) {
         try { realtimeWs.close(); } catch(e){}
@@ -2081,9 +2084,11 @@ function showToast(message, type = 'info') {
 }
 
 // Initial Boot Check
-if (!localStorage.getItem('lpuquick_admin_token')) {
+const savedAdminToken = localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token');
+if (!savedAdminToken) {
     showLoginModal();
 } else {
+    adminToken = savedAdminToken;
     hideLoginModal();
     switchView('dashboard');
     initRealtimeWebSocket();
@@ -2099,3 +2104,4 @@ setInterval(() => {
     else if (activeView === 'inventory') loadInventory();
     else if (activeView === 'products') loadProducts();
 }, 60000);
+
