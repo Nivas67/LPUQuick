@@ -23,11 +23,14 @@ function getTimeSection(hour) {
     return TIME_SECTIONS[3];
 }
 
+const { getSupabaseClient } = require('../supabase');
+
 // GET /api/home
 router.get('/', async (req, res) => {
     try {
         const tzOffset = req.query.tz || 'default';
-        const cacheKey = `home:${tzOffset}`;
+        const userId = req.query.userId || req.headers['x-user-id'] || null;
+        const cacheKey = `home:${tzOffset}:${userId || 'anon'}`;
 
         const payload = await cache.wrap(cacheKey, async () => {
             let hour;
@@ -48,7 +51,49 @@ router.get('/', async (req, res) => {
 
             // Filter products for curated sections
             const products = allProducts.slice(0, 12);
-            const buyAgain = allProducts.slice(0, 10);
+            
+            // Personalized Buy Again computation for this specific user
+            let buyAgain = [];
+            let isPersonalizedBuyAgain = false;
+
+            if (userId && !userId.startsWith('guest_') && userId !== 'null' && userId !== 'undefined') {
+                try {
+                    const supabase = getSupabaseClient();
+                    if (supabase) {
+                        const { data: userOrders } = await supabase
+                            .from('orders')
+                            .select('id, created_at, order_items(product_id, quantity, products(*))')
+                            .eq('user_id', userId)
+                            .order('created_at', { ascending: false });
+
+                        if (userOrders && userOrders.length > 0) {
+                            const productMap = new Map();
+                            for (const ord of userOrders) {
+                                if (ord.order_items) {
+                                    for (const item of ord.order_items) {
+                                        if (item.products && item.products.id && !productMap.has(item.products.id)) {
+                                            productMap.set(item.products.id, item.products);
+                                        }
+                                    }
+                                }
+                            }
+                            const orderedItems = Array.from(productMap.values());
+                            if (orderedItems.length > 0) {
+                                buyAgain = orderedItems;
+                                isPersonalizedBuyAgain = true;
+                            }
+                        }
+                    }
+                } catch (userErr) {
+                    console.warn('[Home Feed Buy Again Warn]:', userErr.message);
+                }
+            }
+
+            // Fallback to top student essentials if user has no past order history yet
+            if (buyAgain.length === 0) {
+                buyAgain = allProducts.slice(0, 10);
+            }
+
             const trendingSnacks = allProducts.filter(p => (p.category || '').toLowerCase().includes('snack') || (p.tags || '').toLowerCase().includes('snack')).slice(0, 8);
             const drinks = allProducts.filter(p => (p.category || '').toLowerCase().includes('beverage') || (p.category || '').toLowerCase().includes('drink')).slice(0, 8);
             const instantFood = allProducts.filter(p => (p.category || '').toLowerCase().includes('instant') || (p.tags || '').toLowerCase().includes('noodle')).slice(0, 8);
@@ -80,6 +125,7 @@ router.get('/', async (req, res) => {
                 delivery_location: 'BH13',
                 products,
                 buy_again: buyAgain,
+                is_personalized_buy_again: isPersonalizedBuyAgain,
                 trending_snacks: trendingSnacks.length > 0 ? trendingSnacks : products.slice(0, 4),
                 drinks: drinks.length > 0 ? drinks : products.slice(2, 6),
                 instant_food: instantFood.length > 0 ? instantFood : products.slice(0, 4),
@@ -90,7 +136,7 @@ router.get('/', async (req, res) => {
                     tag: 'INSTANT_FREE'
                 }
             };
-        }, 45000); // 45s TTL
+        }, userId ? 10000 : 45000); // 10s TTL for personalized user feed, 45s for anonymous
 
         res.json(payload);
     } catch (err) {

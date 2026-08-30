@@ -49,7 +49,8 @@ class MemoryCache {
     invalidateOrders() {
         this.clearByPrefix('orders:');
         this.clearByPrefix('analytics:');
-        console.log('[Cache Engine] ⚡ Orders & Admin Analytics cache invalidated.');
+        this.clearByPrefix('home:');
+        console.log('[Cache Engine] ⚡ Orders, Admin Analytics & Home feed cache invalidated.');
     }
 
     async wrap(key, fetcher, ttlMs = 60000) {

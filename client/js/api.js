@@ -60,9 +60,11 @@ const api = {
     },
 
     // Home
-    async fetchHome() {
+    async fetchHome(userId = null) {
+        const uid = userId || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : window.CURRENT_USER_ID) || '';
         const tz = new Date().getTimezoneOffset();
-        const res = await fetch(`${API_BASE}/home?tz=${tz}`);
+        const url = uid ? `${API_BASE}/home?tz=${tz}&userId=${encodeURIComponent(uid)}` : `${API_BASE}/home?tz=${tz}`;
+        const res = await fetch(url);
         return res.json();
     },
 

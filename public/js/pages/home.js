@@ -99,12 +99,14 @@ function buildProductCardsHTML(items, isAboveFold = false) {
 }
 
 window.pages.home = async function() {
+    const effectiveUserId = (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : window.CURRENT_USER_ID) || null;
     let data;
-    try { data = await window.api.fetchHome(); } catch(e) { data = null; }
+    try { data = await window.api.fetchHome(effectiveUserId); } catch(e) { data = null; }
 
     const sectionTitle = data?.section_title || 'Afternoon Pick-Me-Up';
     const products = data?.products || [];
     const buyAgain = data?.buy_again || [];
+    const isPersonalizedBuyAgain = Boolean(data?.is_personalized_buy_again);
     const trendingSnacks = data?.trending_snacks || [];
     const drinks = data?.drinks || [];
     const instantFood = data?.instant_food || [];
@@ -240,8 +242,14 @@ window.pages.home = async function() {
         <!-- 2. Buy Again Horizontal Snap Carousel -->
         <section>
             <div class="flex justify-between items-center mb-2.5">
-                <h2 class="font-headline-md text-base sm:text-lg font-bold text-on-surface">Buy Again & Student Favorites</h2>
-                <span class="text-xs text-on-surface-variant">Swipe for more</span>
+                <div>
+                    <h2 class="font-headline-md text-base sm:text-lg font-bold text-on-surface flex items-center gap-1.5">
+                        <span>⚡ Buy Again</span>
+                        ${isPersonalizedBuyAgain ? `<span class="text-[10px] bg-emerald/15 text-emerald font-bold px-2 py-0.5 rounded-full">Your Past Orders</span>` : `<span class="text-[10px] bg-surface-container-high text-on-surface-variant font-bold px-2 py-0.5 rounded-full">Student Picks</span>`}
+                    </h2>
+                    <p class="text-[11px] text-on-surface-variant">${isPersonalizedBuyAgain ? 'Items you ordered previously • Reorder in 1-tap' : 'Campus favorites & trending hostel essentials'}</p>
+                </div>
+                <span class="text-xs text-on-surface-variant font-medium">Swipe →</span>
             </div>
             <div class="flex overflow-x-auto gap-3 sm:gap-4 no-scrollbar pb-2 snap-x">${buyAgainCards}</div>
         </section>
