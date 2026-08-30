@@ -1106,17 +1106,178 @@ function updateGlobalDeliveryBar(status, riderName) {
 window.router = router;
 window.navigate = navigate;
 
+// ============================================================
+// Mobile Pull-to-Refresh & Live Page Reload Engine
+// ============================================================
+window.refreshLiveApp = async function(isFullReload = false) {
+    if (window.__cachedProducts) {
+        window.__cachedProducts.clear();
+    }
+    if (typeof window.api?.clearCartCache === 'function') {
+        window.api.clearCartCache();
+    }
+
+    if (isFullReload) {
+        try {
+            sessionStorage.setItem('lpuquick_just_reloaded', 'true');
+        } catch (e) {}
+        window.location.reload();
+        return;
+    }
+
+    try {
+        if (typeof window.router === 'function') {
+            await window.router();
+        } else if (typeof router === 'function') {
+            await router();
+        }
+        if (typeof window.syncCardSteppers === 'function') {
+            window.syncCardSteppers();
+        }
+        if (typeof window.showClientToast === 'function') {
+            window.showClientToast('✓ Live campus feed updated!', 'success', 'sync');
+        }
+    } catch (err) {
+        console.warn('Live refresh error:', err);
+    }
+};
+
+function initPullToRefresh() {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+    let indicator = document.getElementById('pull-to-refresh-indicator');
+    if (!indicator && document.body) {
+        indicator = document.createElement('div');
+        indicator.id = 'pull-to-refresh-indicator';
+        indicator.innerHTML = `
+            <span class="material-symbols-outlined ptr-icon">arrow_downward</span>
+            <span class="ptr-text">Pull down to refresh</span>
+        `;
+        document.body.appendChild(indicator);
+    }
+
+    const iconEl = indicator?.querySelector('.ptr-icon');
+    const textEl = indicator?.querySelector('.ptr-text');
+
+    let startY = 0;
+    let currentY = 0;
+    let isDragging = false;
+    let hasVibrated = false;
+    const PULL_THRESHOLD = 68;
+    const MAX_PULL = 110;
+
+    window.addEventListener('touchstart', (e) => {
+        if ((window.scrollY || document.documentElement.scrollTop || 0) <= 2 && e.touches.length === 1) {
+            startY = e.touches[0].clientY;
+            isDragging = true;
+            hasVibrated = false;
+        } else {
+            isDragging = false;
+        }
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (e) => {
+        if (!isDragging || e.touches.length !== 1 || !indicator) return;
+        currentY = e.touches[0].clientY;
+        const delta = currentY - startY;
+
+        if (delta > 0 && (window.scrollY || document.documentElement.scrollTop || 0) <= 2) {
+            const pullDistance = Math.min(MAX_PULL, delta * 0.45);
+            
+            indicator.classList.add('dragging');
+            indicator.style.opacity = `${Math.min(1, pullDistance / 40)}`;
+            indicator.style.transform = `translate3d(-50%, ${pullDistance - 45}px, 0)`;
+
+            if (pullDistance >= PULL_THRESHOLD) {
+                if (!indicator.classList.contains('can-release')) {
+                    indicator.classList.add('can-release');
+                    if (textEl) textEl.textContent = 'Release to reload';
+                    if (!hasVibrated) {
+                        try {
+                            if (navigator.vibrate) navigator.vibrate(25);
+                        } catch(vErr) {}
+                        hasVibrated = true;
+                    }
+                }
+            } else {
+                if (indicator.classList.contains('can-release')) {
+                    indicator.classList.remove('can-release');
+                    if (textEl) textEl.textContent = 'Pull down to refresh';
+                }
+            }
+        } else {
+            resetIndicator();
+        }
+    }, { passive: true });
+
+    window.addEventListener('touchend', async () => {
+        if (!isDragging || !indicator) return;
+        isDragging = false;
+
+        const delta = currentY - startY;
+        const pullDistance = delta * 0.45;
+
+        if (pullDistance >= PULL_THRESHOLD && (window.scrollY || document.documentElement.scrollTop || 0) <= 2) {
+            indicator.classList.remove('dragging', 'can-release');
+            indicator.classList.add('refreshing');
+            if (iconEl) iconEl.textContent = 'sync';
+            if (textEl) textEl.textContent = 'Reloading campus feed...';
+            indicator.style.transform = `translate3d(-50%, 20px, 0)`;
+            indicator.style.opacity = '1';
+
+            try {
+                if (navigator.vibrate) navigator.vibrate([20, 50, 20]);
+            } catch(e) {}
+
+            setTimeout(async () => {
+                await window.refreshLiveApp(true);
+                setTimeout(resetIndicator, 400);
+            }, 450);
+        } else {
+            resetIndicator();
+        }
+        startY = 0;
+        currentY = 0;
+    }, { passive: true });
+
+    function resetIndicator() {
+        if (!indicator) return;
+        indicator.classList.remove('dragging', 'can-release', 'refreshing');
+        if (iconEl) iconEl.textContent = 'arrow_downward';
+        if (textEl) textEl.textContent = 'Pull down to refresh';
+        indicator.style.transform = 'translate3d(-50%, -120%, 0)';
+        indicator.style.opacity = '0';
+    }
+}
+
+function handlePostReloadToast() {
+    try {
+        if (sessionStorage.getItem('lpuquick_just_reloaded') === 'true') {
+            sessionStorage.removeItem('lpuquick_just_reloaded');
+            setTimeout(() => {
+                if (typeof window.showClientToast === 'function') {
+                    window.showClientToast('✓ Refreshed with latest campus updates!', 'success', 'check_circle');
+                }
+            }, 350);
+        }
+    } catch (e) {}
+}
+
 window.addEventListener('hashchange', router);
 window.addEventListener('DOMContentLoaded', () => {
     router();
     initGlobalClientWebSocket();
     checkAndConnectGlobalOrderTracking();
+    initPullToRefresh();
+    handlePostReloadToast();
 });
 
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
     router();
     initGlobalClientWebSocket();
     checkAndConnectGlobalOrderTracking();
+    initPullToRefresh();
+    handlePostReloadToast();
 }
 
 // Background sync interval (every 10 seconds)

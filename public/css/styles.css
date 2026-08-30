@@ -1345,13 +1345,74 @@ button:active,
 }
 
 /* ============================================================
+   MOBILE PULL-TO-REFRESH & LIVE RELOAD INDICATOR
+   ============================================================ */
+
+#pull-to-refresh-indicator {
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translate3d(-50%, -120%, 0);
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(16, 185, 129, 0.18);
+    color: #064e3b;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    pointer-events: none;
+    opacity: 0;
+    transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s ease;
+    will-change: transform, opacity;
+}
+
+body.dark #pull-to-refresh-indicator {
+    background: rgba(18, 30, 24, 0.96);
+    border-color: rgba(16, 185, 129, 0.4);
+    color: #60dcab;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(16, 185, 129, 0.25);
+}
+
+#pull-to-refresh-indicator.dragging {
+    transition: none; /* Instant 1:1 touch response */
+}
+
+#pull-to-refresh-indicator .ptr-icon {
+    font-size: 16px;
+    transition: transform 0.2s ease;
+    color: #10B981;
+}
+
+#pull-to-refresh-indicator.can-release .ptr-icon {
+    transform: rotate(180deg);
+}
+
+#pull-to-refresh-indicator.refreshing .ptr-icon {
+    animation: ptr-spin 0.7s linear infinite;
+}
+
+@keyframes ptr-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* ============================================================
    MOBILE & TOUCH DEVICE 120 FPS PERFORMANCE OPTIMIZATION
    ============================================================ */
 
 @media (max-width: 768px), (pointer: coarse) {
-    /* 1. Hardware scrolling & overscroll containment */
+    /* 1. Hardware scrolling & natural overscroll for smooth reload */
     html, body {
-        overscroll-behavior-y: none;
+        overscroll-behavior-y: auto;
         -webkit-overflow-scrolling: touch;
     }
 
