@@ -1017,9 +1017,8 @@ function startClientCountdown(seconds, endAt) {
     window.__clientLockTicker = setInterval(update, 1000);
 }
 
-}
-
 function updateCheckoutButtonsForLock(isLocked, reopenText = 'Soon') {
+
     const checkoutBtns = document.querySelectorAll('#proceed-to-checkout-btn, #btn-place-order, .btn-checkout-submit, #checkout-submit-btn');
     checkoutBtns.forEach(btn => {
         if (isLocked) {
@@ -1760,9 +1759,10 @@ setInterval(checkAndConnectGlobalOrderTracking, 10000);
 // ============================================================
 (function initInteractiveAtmosphere() {
     // Only run cursor torch & mouse parallax on desktop screens with fine pointer to avoid mobile scroll lag
-    if (window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 768) {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function' || window.matchMedia('(pointer: coarse)').matches || (window.innerWidth && window.innerWidth < 768)) {
         return;
     }
+
 
     let mouseX = window.innerWidth / 2;
     let mouseY = window.innerHeight / 2;
