@@ -169,7 +169,10 @@ router.post('/admin-login', async (req, res) => {
             return res.status(403).json({ error: 'Access denied. Valid administrator credentials required.' });
         }
 
-        if (user.password_hash && user.password_hash !== password && user.password_hash !== `hash_${password}` && password !== 'admin123') {
+        const isPasswordCorrect = (user.password_hash && (user.password_hash === password || user.password_hash === `hash_${password}`)) ||
+                                  (user.id === 'admin_001' && password === 'admin123');
+
+        if (!isPasswordCorrect) {
             return res.status(403).json({ error: 'Incorrect password. Administrator access denied.' });
         }
 
