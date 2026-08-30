@@ -64,76 +64,91 @@ function parseIntent(query) {
     return result;
 }
 
+const supabaseDb = require('../db/supabaseDb');
+const cache = require('../cache');
+
 // POST /api/flow-assist
-router.post('/', (req, res) => {
-    const db = req.app.locals.db;
+router.post('/', async (req, res) => {
     const { query } = req.body;
 
     if (!query || query.trim().length === 0) {
         return res.status(400).json({ error: 'Query is required' });
     }
 
-    const intent = parseIntent(query);
+    try {
+        const intent = parseIntent(query);
 
-    // Build SQL conditions
-    const categoryPlaceholders = intent.categories.map(() => '?').join(',');
-    let sql = `SELECT * FROM products WHERE category IN (${categoryPlaceholders}) AND in_stock = 1`;
-    const params = [...intent.categories];
+        // Fetch all in-stock products from cache / Supabase
+        const allProducts = await cache.wrap('flowassist:products', async () => {
+            return await supabaseDb.products.getAll({ includeInactive: false });
+        }, 60000);
 
-    // Fetch matching products (batch query, no N+1)
-    let products = db.prepare(sql).all(...params);
+        // Filter by intent categories
+        const catSet = new Set(intent.categories.map(c => c.toLowerCase()));
+        let products = allProducts.filter(p => {
+            const cat = (p.category || '').toLowerCase();
+            return catSet.has(cat) || intent.categories.some(c => cat.includes(c.toLowerCase()));
+        });
 
-    // Score products by keyword relevance
-    products = products.map(p => {
-        let score = 0;
-        const pName = p.name.toLowerCase();
-        const pTags = (p.tags || '').toLowerCase();
-        for (const kw of intent.keywords) {
-            if (pName.includes(kw)) score += 10;
-            if (pTags.includes(kw)) score += 5;
+        if (products.length === 0) {
+            products = allProducts;
         }
-        if (p.bestseller) score += 3;
-        if (p.is_new) score += 2;
-        return { ...p, _score: score };
-    }).sort((a, b) => b._score - a._score);
 
-    // Select items within budget
-    let bundle = [];
-    let total = 0;
-    const maxItems = intent.headcount ? Math.min(intent.headcount, 6) : 4;
-    const budget = intent.budget || 999999;
+        // Score products by keyword relevance
+        products = products.map(p => {
+            let score = 0;
+            const pName = p.name.toLowerCase();
+            const pTags = (p.tags || '').toLowerCase();
+            for (const kw of intent.keywords) {
+                if (pName.includes(kw)) score += 10;
+                if (pTags.includes(kw)) score += 5;
+            }
+            if (p.bestseller) score += 3;
+            if (p.is_new) score += 2;
+            return { ...p, _score: score };
+        }).sort((a, b) => b._score - a._score);
 
-    for (const p of products) {
-        if (bundle.length >= maxItems) break;
-        if (total + p.price <= budget) {
-            bundle.push(p);
-            total += p.price;
+        // Select items within budget
+        let bundle = [];
+        let total = 0;
+        const maxItems = intent.headcount ? Math.min(intent.headcount, 6) : 4;
+        const budget = intent.budget || 999999;
+
+        for (const p of products) {
+            if (bundle.length >= maxItems) break;
+            if (total + p.price <= budget) {
+                bundle.push(p);
+                total += p.price;
+            }
         }
+
+        // Calculate savings
+        const mrpTotal = bundle.reduce((sum, p) => sum + (p.mrp || p.price), 0);
+        const savings = mrpTotal - total;
+
+        // Generate bundle name
+        const bundleName = intent.occasion
+            ? `${intent.occasion} ${bundle.length > 2 ? 'Bundle' : 'Pack'}`
+            : 'Custom Bundle';
+
+        const response = {
+            bundle_name: bundleName,
+            tag: intent.occasion || 'Custom',
+            items: bundle.map(({ _score, ...p }) => p),
+            total_price: total,
+            mrp_total: mrpTotal,
+            savings: savings,
+            headcount: intent.headcount,
+            budget: intent.budget,
+            intent: intent,
+            ai_message: `I've put together a "${bundleName}" for you${intent.headcount ? ` that's perfect for ${intent.headcount} people` : ''}. ${bundle.length} items totaling ₹${total}${savings > 0 ? ` (saving ₹${savings})` : ''}.`
+        };
+
+        res.json(response);
+    } catch (err) {
+        console.error('[Flow Assist Error]:', err.message);
+        res.status(500).json({ error: err.message });
     }
-
-    // Calculate savings
-    const mrpTotal = bundle.reduce((sum, p) => sum + (p.mrp || p.price), 0);
-    const savings = mrpTotal - total;
-
-    // Generate bundle name
-    const bundleName = intent.occasion
-        ? `${intent.occasion} ${bundle.length > 2 ? 'Bundle' : 'Pack'}`
-        : 'Custom Bundle';
-
-    const response = {
-        bundle_name: bundleName,
-        tag: intent.occasion || 'Custom',
-        items: bundle.map(({ _score, ...p }) => p),
-        total_price: total,
-        mrp_total: mrpTotal,
-        savings: savings,
-        headcount: intent.headcount,
-        budget: intent.budget,
-        intent: intent,
-        ai_message: `I've put together a "${bundleName}" for you${intent.headcount ? ` that's perfect for ${intent.headcount} people` : ''}. ${bundle.length} items totaling ₹${total}${savings > 0 ? ` (saving ₹${savings})` : ''}.`
-    };
-
-    res.json(response);
 });
 
 module.exports = router;

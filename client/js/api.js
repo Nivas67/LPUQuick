@@ -1,5 +1,25 @@
-// LPUQuick API Client
+// LPUQuick High-Speed API Client with Intelligent Request Caching
 const API_BASE = '/api';
+
+const searchCache = new Map();
+let categoriesCache = null;
+let categoriesCacheTime = 0;
+
+function updateLocalCartState(cartData) {
+    window.cartState = window.cartState || {};
+    if (cartData && Array.isArray(cartData.items)) {
+        const nextState = {};
+        cartData.items.forEach(i => {
+            if (i.product_id) {
+                nextState[i.product_id] = {
+                    cart_id: i.cart_id,
+                    quantity: i.quantity
+                };
+            }
+        });
+        window.cartState = nextState;
+    }
+}
 
 const api = {
     // Auth
@@ -46,10 +66,23 @@ const api = {
         return res.json();
     },
 
-    // Search
+    // Search with client-side 60s memory caching
     async searchProducts(query) {
-        const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}`);
-        return res.json();
+        const q = (query || '').trim().toLowerCase();
+        if (!q) return { results: [], suggestions: [] };
+        
+        const cached = searchCache.get(q);
+        if (cached && (Date.now() - cached.time < 60000)) {
+            return cached.data;
+        }
+
+        const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        searchCache.set(q, { time: Date.now(), data });
+        if (searchCache.size > 50) {
+            searchCache.delete(searchCache.keys().next().value);
+        }
+        return data;
     },
 
     // Single Product Details
@@ -67,20 +100,11 @@ const api = {
         return res.json();
     },
 
-    // Cart
+    // Cart (Single Roundtrip with Direct State Sync)
     async getCart(userId) {
         const res = await fetch(`${API_BASE}/cart/${userId}`);
         const data = await res.json();
-        // Update global cart state for instant card steppers
-        window.cartState = {};
-        if (data && data.items) {
-            data.items.forEach(i => {
-                window.cartState[i.product_id] = {
-                    cart_id: i.cart_id,
-                    quantity: i.quantity
-                };
-            });
-        }
+        updateLocalCartState(data);
         return data;
     },
     async addToCart(userId, productId, quantity = 1) {
@@ -89,7 +113,7 @@ const api = {
             body: JSON.stringify({ userId, productId, quantity })
         });
         const result = await res.json();
-        await this.getCart(userId); // Refresh cart state
+        updateLocalCartState(result);
         return result;
     },
     async updateCartItem(cartId, quantity, userId) {
@@ -98,14 +122,18 @@ const api = {
             body: JSON.stringify({ quantity, userId })
         });
         const result = await res.json();
-        await this.getCart(userId); // Refresh cart state
+        updateLocalCartState(result);
         return result;
     },
     async removeCartItem(cartId) {
-        const res = await fetch(`${API_BASE}/cart/${cartId}`, { method: 'DELETE' });
-        const result = await res.json();
         const userId = window.getEffectiveUserId();
-        await this.getCart(userId); // Refresh cart state
+        const res = await fetch(`${API_BASE}/cart/${cartId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId })
+        });
+        const result = await res.json();
+        updateLocalCartState(result);
         return result;
     },
 
@@ -145,7 +173,9 @@ const api = {
             body: JSON.stringify({ userId })
         });
         const result = await res.json();
-        await this.getCart(userId);
+        if (result && result.cart) {
+            updateLocalCartState(result.cart);
+        }
         return result;
     },
 
@@ -166,10 +196,15 @@ const api = {
         return res.json();
     },
 
-    // Categories
+    // Categories with 60s memory caching
     async getCategories() {
+        if (categoriesCache && (Date.now() - categoriesCacheTime < 60000)) {
+            return categoriesCache;
+        }
         const res = await fetch(`${API_BASE}/categories`);
-        return res.json();
+        categoriesCache = await res.json();
+        categoriesCacheTime = Date.now();
+        return categoriesCache;
     },
     async getCategoryProducts(name) {
         const res = await fetch(`${API_BASE}/categories/${encodeURIComponent(name)}`);

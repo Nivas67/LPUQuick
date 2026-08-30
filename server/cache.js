@@ -1,4 +1,4 @@
-﻿/**
+/**
  * LPUQuick High-Speed In-Memory Cache Engine
  * Provides sub-millisecond data retrieval with auto-invalidation on database mutations.
  */
@@ -44,6 +44,12 @@ class MemoryCache {
         this.clearByPrefix('categories:');
         this.clearByPrefix('search:');
         console.log('[Cache Engine] ⚡ Product, Home & Category cache invalidated.');
+    }
+
+    invalidateOrders() {
+        this.clearByPrefix('orders:');
+        this.clearByPrefix('analytics:');
+        console.log('[Cache Engine] ⚡ Orders & Admin Analytics cache invalidated.');
     }
 
     async wrap(key, fetcher, ttlMs = 60000) {

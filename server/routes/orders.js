@@ -4,147 +4,201 @@ const supabaseDb = require('../db/supabaseDb');
 const { broadcastStatusUpdate } = require('../realtime');
 const { getSupabaseClient } = require('../supabase');
 const requireAdmin = require('../middleware/adminAuth');
+const cache = require('../cache');
 
 const ACTIVE_STATUSES = ['Order Placed', 'Order Confirmed', 'Preparing', 'Out for Delivery', 'pending', 'confirmed', 'accepted', 'packed', 'en_route'];
 
 // ===== ADMIN ROUTES (must be before /:userId catch-all) =====
 
-// GET /api/orders/admin/all (All orders for admin dashboard)
+// GET /api/orders/admin/all (All orders for admin dashboard - Optimized Single PostgREST Join + Batch Users)
 router.get('/admin/all', requireAdmin, async (req, res) => {
     try {
-        const orders = await supabaseDb.orders.getAllOrders();
-        // Enrich with item summaries
-        const supabase = getSupabaseClient();
-        const enriched = await Promise.all(orders.map(async (order) => {
-            const { data: items } = await supabase
-                .from('order_items')
-                .select('quantity, unit_price, products(name)')
-                .eq('order_id', order.id)
-                .limit(5);
+        const payload = await cache.wrap('orders:admin:all', async () => {
+            const supabase = getSupabaseClient();
             
-            const itemNames = (items || []).map(i => i.products?.name).filter(Boolean);
-            const itemSummary = itemNames.length > 0 ? itemNames.join(', ') : 'Campus items';
-            
-            // Get customer info
-            const { data: user } = await supabase
-                .from('users')
-                .select('name, phone, email')
-                .eq('id', order.user_id)
-                .single();
-            
-            return {
-                ...order,
-                customer_name: user?.name || 'Student',
-                customer_phone: user?.phone || '',
-                customer_email: user?.email || '',
-                item_summary: itemSummary
-            };
-        }));
-        
-        res.json({ orders: enriched });
+            // 1. Single database query with PostgREST join for order items and product names
+            const { data: orders, error: ordersErr } = await supabase
+                .from('orders')
+                .select('*, order_items(quantity, unit_price, products(name))')
+                .order('created_at', { ascending: false });
+
+            if (ordersErr) throw ordersErr;
+            if (!orders || orders.length === 0) return { orders: [] };
+
+            // 2. Single batch lookup for all distinct customer IDs in parallel
+            const userIds = [...new Set(orders.map(o => o.user_id).filter(Boolean))];
+            let userMap = new Map();
+
+            if (userIds.length > 0) {
+                const { data: users } = await supabase
+                    .from('users')
+                    .select('id, name, phone, email')
+                    .in('id', userIds);
+                if (users) {
+                    users.forEach(u => userMap.set(u.id, u));
+                }
+            }
+
+            // 3. Fast in-memory assembly (0 extra round trips)
+            const enriched = orders.map(order => {
+                const user = userMap.get(order.user_id);
+                const itemNames = (order.order_items || []).map(i => i.products?.name).filter(Boolean);
+                const itemSummary = itemNames.length > 0 ? itemNames.join(', ') : 'Campus items';
+
+                return {
+                    id: order.id,
+                    user_id: order.user_id,
+                    status: order.status,
+                    subtotal: order.subtotal,
+                    delivery_fee: order.delivery_fee,
+                    platform_fee: order.platform_fee,
+                    tax: order.tax,
+                    total: order.total,
+                    payment_method: order.payment_method,
+                    payment_status: order.payment_status,
+                    rider_name: order.rider_name,
+                    rider_lat: order.rider_lat,
+                    rider_lng: order.rider_lng,
+                    delivery_address: order.delivery_address,
+                    created_at: order.created_at,
+                    customer_name: user?.name || 'Student',
+                    customer_phone: user?.phone || '',
+                    customer_email: user?.email || '',
+                    item_summary: itemSummary
+                };
+            });
+
+            return { orders: enriched };
+        }, 15000); // 15s TTL with auto-invalidation on status updates
+
+        res.json(payload);
     } catch (err) {
+        console.error('[Admin Orders Error]:', err.message);
         res.status(500).json({ error: err.message });
     }
 });
 
-// GET /api/orders/admin/analytics (Dashboard KPIs & metrics)
+// GET /api/orders/admin/analytics (Dashboard KPIs & metrics - Parallel Execution + Column Projection)
 router.get('/admin/analytics', requireAdmin, async (req, res) => {
     try {
-        const supabase = getSupabaseClient();
-        const orders = await supabaseDb.orders.getAllOrders();
-        const products = await supabaseDb.products.getAll({ includeInactive: true });
-        
-        const deliveredOrders = orders.filter(o => ['Delivered', 'delivered'].includes(o.status));
-        const deliveredOrderIds = new Set(deliveredOrders.map(o => o.id));
-        const pendingOrders = orders.filter(o => ACTIVE_STATUSES.includes(o.status));
-        
-        // Revenue is calculated strictly from Delivered orders only
-        const totalRevenue = deliveredOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-        const avgOrderValue = deliveredOrders.length > 0 ? Math.round(totalRevenue / deliveredOrders.length) : 0;
-        
-        const totalStock = products.reduce((sum, p) => sum + (p.stock_left || 0), 0);
-        const lowStockProducts = products.filter(p => p.stock_left > 0 && p.stock_left <= 4);
-        const outOfStockProducts = products.filter(p => !p.in_stock || p.stock_left === 0);
-        
-        // Top selling products calculated strictly from Delivered orders
-        const { data: topItems } = await supabase
-            .from('order_items')
-            .select('order_id, product_id, quantity, unit_price, products(id, name, category, image_url)');
-        
-        const productSales = {};
-        (topItems || []).forEach(item => {
-            // Only count items from successfully delivered orders
-            if (!deliveredOrderIds.has(item.order_id)) return;
+        const payload = await cache.wrap('analytics:admin:summary', async () => {
+            const supabase = getSupabaseClient();
 
-            const pid = item.product_id;
-            if (!productSales[pid]) {
-                productSales[pid] = {
-                    name: item.products?.name || 'Unknown',
-                    category: item.products?.category || '',
-                    image_url: item.products?.image_url || '',
-                    total_sold: 0,
-                    revenue: 0
-                };
-            }
-            productSales[pid].total_sold += item.quantity;
-            productSales[pid].revenue += item.quantity * item.unit_price;
-        });
-        
-        const topProducts = Object.values(productSales)
-            .sort((a, b) => b.revenue - a.revenue)
-            .slice(0, 10);
+            // Run independent queries concurrently via Promise.all
+            const [ordersRes, productsRes, topItemsRes] = await Promise.all([
+                supabase.from('orders').select('id, status, total'),
+                supabase.from('products').select('id, name, category, image_url, in_stock, tags'),
+                supabase.from('order_items').select('order_id, product_id, quantity, unit_price, products(id, name, category, image_url)')
+            ]);
 
-        res.json({
-            metrics: {
-                totalProducts: products.length,
-                totalStock: totalStock,
-                lowStockCount: lowStockProducts.length,
-                outOfStockCount: outOfStockProducts.length,
-                totalOrdersCount: orders.length,
-                pendingOrdersCount: pendingOrders.length,
-                deliveredOrdersCount: deliveredOrders.length,
-                totalRevenue: Math.round(totalRevenue),
-                avgOrderValue: avgOrderValue
-            },
-            lowStockItems: lowStockProducts.slice(0, 10),
-            topProducts
-        });
+            const orders = ordersRes.data || [];
+            const products = (productsRes.data || []).map(p => {
+                const match = (p.tags || '').match(/stock:(\d+)/);
+                const stock_left = match ? parseInt(match[1], 10) : (p.in_stock ? 50 : 0);
+                return { ...p, stock_left };
+            });
+
+            const deliveredOrders = orders.filter(o => ['Delivered', 'delivered'].includes(o.status));
+            const deliveredOrderIds = new Set(deliveredOrders.map(o => o.id));
+            const pendingOrders = orders.filter(o => ACTIVE_STATUSES.includes(o.status));
+
+            const totalRevenue = deliveredOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+            const avgOrderValue = deliveredOrders.length > 0 ? Math.round(totalRevenue / deliveredOrders.length) : 0;
+
+            const totalStock = products.reduce((sum, p) => sum + (p.stock_left || 0), 0);
+            const lowStockProducts = products.filter(p => p.stock_left > 0 && p.stock_left <= 4);
+            const outOfStockProducts = products.filter(p => !p.in_stock || p.stock_left === 0);
+
+            // Aggregate top selling items strictly from delivered orders
+            const productSales = {};
+            (topItemsRes.data || []).forEach(item => {
+                if (!deliveredOrderIds.has(item.order_id)) return;
+
+                const pid = item.product_id;
+                if (!pid) return;
+
+                if (!productSales[pid]) {
+                    productSales[pid] = {
+                        name: item.products?.name || 'Unknown',
+                        category: item.products?.category || '',
+                        image_url: item.products?.image_url || '',
+                        total_sold: 0,
+                        revenue: 0
+                    };
+                }
+                productSales[pid].total_sold += item.quantity;
+                productSales[pid].revenue += item.quantity * item.unit_price;
+            });
+
+            const topProducts = Object.values(productSales)
+                .sort((a, b) => b.revenue - a.revenue)
+                .slice(0, 10);
+
+            return {
+                metrics: {
+                    totalProducts: products.length,
+                    totalStock: totalStock,
+                    lowStockCount: lowStockProducts.length,
+                    outOfStockCount: outOfStockProducts.length,
+                    totalOrdersCount: orders.length,
+                    pendingOrdersCount: pendingOrders.length,
+                    deliveredOrdersCount: deliveredOrders.length,
+                    totalRevenue: Math.round(totalRevenue),
+                    avgOrderValue: avgOrderValue
+                },
+                lowStockItems: lowStockProducts.slice(0, 10),
+                topProducts
+            };
+        }, 15000);
+
+        res.json(payload);
     } catch (err) {
+        console.error('[Admin Analytics Error]:', err.message);
         res.status(500).json({ error: err.message });
     }
 });
 
-// GET /api/orders/admin/customers (Customers list for admin)
+// GET /api/orders/admin/customers (Customers list with aggregated metrics)
 router.get('/admin/customers', requireAdmin, async (req, res) => {
     try {
-        const supabase = getSupabaseClient();
-        const { data: users, error } = await supabase.from('users').select('id, name, email, phone, created_at');
-        if (error) throw error;
-        
-        // Enrich with order stats
-        const orders = await supabaseDb.orders.getAllOrders();
-        const customerStats = {};
-        orders.forEach(o => {
-            if (!customerStats[o.user_id]) {
-                customerStats[o.user_id] = { order_count: 0, total_spent: 0, last_order_date: null };
-            }
-            customerStats[o.user_id].order_count++;
-            customerStats[o.user_id].total_spent += Number(o.total) || 0;
-            const orderDate = new Date(o.created_at);
-            if (!customerStats[o.user_id].last_order_date || orderDate > new Date(customerStats[o.user_id].last_order_date)) {
-                customerStats[o.user_id].last_order_date = o.created_at;
-            }
-        });
-        
-        const enrichedCustomers = (users || []).map(u => ({
-            ...u,
-            order_count: customerStats[u.id]?.order_count || 0,
-            total_spent: Math.round(customerStats[u.id]?.total_spent || 0),
-            last_order_date: customerStats[u.id]?.last_order_date || null
-        }));
-        
-        res.json({ customers: enrichedCustomers });
+        const payload = await cache.wrap('orders:admin:customers', async () => {
+            const supabase = getSupabaseClient();
+
+            // Fetch users and lightweight order summary in parallel
+            const [usersRes, ordersRes] = await Promise.all([
+                supabase.from('users').select('id, name, email, phone, created_at'),
+                supabase.from('orders').select('user_id, total, created_at')
+            ]);
+
+            const users = usersRes.data || [];
+            const orders = ordersRes.data || [];
+
+            const customerStats = {};
+            orders.forEach(o => {
+                if (!customerStats[o.user_id]) {
+                    customerStats[o.user_id] = { order_count: 0, total_spent: 0, last_order_date: null };
+                }
+                customerStats[o.user_id].order_count++;
+                customerStats[o.user_id].total_spent += Number(o.total) || 0;
+                const orderDate = new Date(o.created_at);
+                if (!customerStats[o.user_id].last_order_date || orderDate > new Date(customerStats[o.user_id].last_order_date)) {
+                    customerStats[o.user_id].last_order_date = o.created_at;
+                }
+            });
+
+            const enrichedCustomers = users.map(u => ({
+                ...u,
+                order_count: customerStats[u.id]?.order_count || 0,
+                total_spent: Math.round(customerStats[u.id]?.total_spent || 0),
+                last_order_date: customerStats[u.id]?.last_order_date || null
+            }));
+
+            return { customers: enrichedCustomers };
+        }, 20000);
+
+        res.json(payload);
     } catch (err) {
+        console.error('[Admin Customers Error]:', err.message);
         res.status(500).json({ error: err.message });
     }
 });
@@ -193,6 +247,7 @@ router.post('/admin/status', requireAdmin, async (req, res) => {
     
     try {
         const updated = await supabaseDb.orders.updateStatus(orderId, status);
+        cache.invalidateOrders();
         broadcastStatusUpdate(orderId, status);
         res.json({ success: true, order: updated });
     } catch (err) {
@@ -214,20 +269,24 @@ router.get('/admin/live', requireAdmin, async (req, res) => {
 // GET /api/orders/admin/metrics
 router.get('/admin/metrics', requireAdmin, async (req, res) => {
     try {
-        const orders = await supabaseDb.orders.getAllOrders();
-        const deliveredOrders = orders.filter(o => ['Delivered', 'delivered'].includes(o.status));
-        const totalRevenue = deliveredOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-        const activeOrders = orders.filter(o => ACTIVE_STATUSES.includes(o.status)).length;
+        const payload = await cache.wrap('orders:admin:metrics', async () => {
+            const orders = await supabaseDb.orders.getAllOrders();
+            const deliveredOrders = orders.filter(o => ['Delivered', 'delivered'].includes(o.status));
+            const totalRevenue = deliveredOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+            const activeOrders = orders.filter(o => ACTIVE_STATUSES.includes(o.status)).length;
 
-        res.json({
-            metrics: {
-                total_orders: orders.length,
-                active_orders: activeOrders,
-                delivered_orders: deliveredOrders.length,
-                total_revenue: totalRevenue,
-                avg_delivery_time_mins: 3.2
-            }
-        });
+            return {
+                metrics: {
+                    total_orders: orders.length,
+                    active_orders: activeOrders,
+                    delivered_orders: deliveredOrders.length,
+                    total_revenue: totalRevenue,
+                    avg_delivery_time_mins: 3.2
+                }
+            };
+        }, 10000);
+
+        res.json(payload);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -292,6 +351,7 @@ router.post('/:orderId/status', async (req, res) => {
 
     try {
         const updated = await supabaseDb.orders.updateStatus(orderId, status);
+        cache.invalidateOrders();
         broadcastStatusUpdate(orderId, status);
         res.json({ success: true, order: updated });
     } catch (err) {
@@ -306,6 +366,7 @@ router.post('/:orderId/cancel', async (req, res) => {
 
     try {
         const updated = await supabaseDb.orders.updateStatus(orderId, 'Cancelled');
+        cache.invalidateOrders();
         broadcastStatusUpdate(orderId, 'Cancelled');
         res.json({ success: true, message: 'Order cancelled successfully', reason: reason || 'User requested cancellation' });
     } catch (err) {

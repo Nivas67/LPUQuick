@@ -3,6 +3,7 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const supabaseDb = require('../db/supabaseDb');
 const { broadcastOrderPlaced } = require('../realtime');
+const cache = require('../cache');
 
 // POST /api/checkout and /api/checkout/place
 async function handlePlaceOrder(req, res) {
@@ -54,6 +55,7 @@ async function handlePlaceOrder(req, res) {
         };
 
         const createdOrder = await supabaseDb.orders.createOrder(orderPayload, cart.items);
+        cache.invalidateOrders();
 
         // Broadcast to live Admin and Tracking WebSockets
         try {

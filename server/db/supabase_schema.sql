@@ -76,5 +76,11 @@ CREATE TABLE IF NOT EXISTS order_items (
 CREATE INDEX IF NOT EXISTS idx_supabase_products_category ON products(category);
 CREATE INDEX IF NOT EXISTS idx_supabase_products_in_stock ON products(in_stock);
 CREATE INDEX IF NOT EXISTS idx_supabase_cart_user ON cart_items(user_id);
+CREATE INDEX IF NOT EXISTS idx_supabase_cart_user_product ON cart_items(user_id, product_id);
 CREATE INDEX IF NOT EXISTS idx_supabase_orders_user ON orders(user_id);
+CREATE INDEX IF NOT EXISTS idx_supabase_orders_status ON orders(status);
+CREATE INDEX IF NOT EXISTS idx_supabase_orders_created_at ON orders(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_supabase_order_items_order ON order_items(order_id);
+CREATE INDEX IF NOT EXISTS idx_supabase_order_items_product ON order_items(product_id);
+CREATE INDEX IF NOT EXISTS idx_supabase_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_supabase_users_phone ON users(phone);

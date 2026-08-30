@@ -887,6 +887,8 @@ window.syncCardSteppers = function() {
 };
 
 // Router Main Function
+// Router Main Function - Instant Zero-Blocking Navigation
+let cartSyncInProgress = false;
 async function router() {
     const path = getCurrentRoute();
     
@@ -905,9 +907,17 @@ async function router() {
     if (!appRoot) return;
 
     try {
-        // Pre-fetch cart so steppers have exact state immediately
+        // Non-blocking background cart revalidation with SWR
         const effectiveUid = window.getEffectiveUserId();
-        await window.api.getCart(effectiveUid);
+        if (!cartSyncInProgress) {
+            cartSyncInProgress = true;
+            window.api.getCart(effectiveUid)
+                .then(() => {
+                    cartSyncInProgress = false;
+                    if (typeof window.syncCardSteppers === 'function') window.syncCardSteppers();
+                })
+                .catch(() => { cartSyncInProgress = false; });
+        }
 
         const renderFn = window.pages[pageName];
         if (renderFn) {

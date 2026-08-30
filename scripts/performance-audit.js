@@ -4,7 +4,7 @@ const zlib = require('zlib');
 async function measureEndpoint(path, headers = { 'accept-encoding': 'gzip, deflate, br' }) {
     const start = performance.now();
     return new Promise((resolve) => {
-        const req = http.get('http://localhost:3000' + path, { headers }, (res) => {
+        const req = http.get('http://127.0.0.1:3000' + path, { headers }, (res) => {
             const chunks = [];
             res.on('data', chunk => chunks.push(chunk));
             res.on('end', () => {
@@ -50,6 +50,31 @@ async function runAudit() {
         console.log('Endpoint: ' + ep.padEnd(42) + ' | Avg Latency: ' + (avg + 'ms').padEnd(8) + ' | Wire Size: ' + (res.bytesTransferred + 'B').padEnd(8) + ' | Compression: ' + res.encoding + ' | Cache: ' + res.cacheControl);
     }
 
+    console.log('\n--- 1b. Admin API Endpoints Latency & Caching ---');
+    const adminEndpoints = [
+        '/api/orders/admin/all',
+        '/api/orders/admin/analytics',
+        '/api/orders/admin/customers',
+        '/api/orders/admin/metrics'
+    ];
+
+    const adminHeaders = {
+        'accept-encoding': 'gzip, deflate, br',
+        'x-admin-key': 'lpuquick_admin_secret_2026',
+        'x-admin-token': 'adm_sec_master_2026'
+    };
+
+    for (const ep of adminEndpoints) {
+        await measureEndpoint(ep, adminHeaders);
+        const runs = [];
+        for (let i = 0; i < 5; i++) {
+            runs.push(await measureEndpoint(ep, adminHeaders));
+        }
+        const avg = Math.round(runs.reduce((s, r) => s + r.durationMs, 0) / runs.length * 10) / 10;
+        const res = runs[0];
+        console.log('Admin EP: ' + ep.padEnd(42) + ' | Avg Latency: ' + (avg + 'ms').padEnd(8) + ' | Wire Size: ' + (res.bytesTransferred + 'B').padEnd(8) + ' | Compression: ' + res.encoding);
+    }
+
     console.log('\n--- 2. Static Asset Wire Sizes (Gzip Compressed) & Caching ---');
     const staticAssets = [
         '/',
@@ -60,6 +85,8 @@ async function runAudit() {
         '/js/pages/categories.js',
         '/js/pages/cart.js',
         '/js/pages/orders.js',
+        '/favicon.png',
+        '/logo.png',
         '/admin',
         '/admin/js/admin.js'
     ];
@@ -81,7 +108,7 @@ async function runAudit() {
             if (data) reqHeaders['Content-Length'] = Buffer.byteLength(bodyStr);
 
             const req = http.request({
-                hostname: 'localhost',
+                hostname: '127.0.0.1',
                 port: 3000,
                 path,
                 method,

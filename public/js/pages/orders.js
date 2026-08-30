@@ -56,11 +56,13 @@ window.pages.orders = async function() {
     }
 
     const userId = window.CURRENT_USER_ID;
-    let ordersData;
-    try { ordersData = await window.api.getOrders(userId); } catch(e) { ordersData = { active: [], past: [] }; }
-    
-    let activeData;
-    try { activeData = await window.api.getActiveOrder(userId); } catch(e) { activeData = { active: null }; }
+    const [ordersDataRes, activeDataRes] = await Promise.allSettled([
+        window.api.getOrders(userId),
+        window.api.getActiveOrder(userId)
+    ]);
+
+    const ordersData = ordersDataRes.status === 'fulfilled' ? ordersDataRes.value : { active: [], past: [] };
+    const activeData = activeDataRes.status === 'fulfilled' ? activeDataRes.value : { active: null };
 
     const activeOrder = activeData?.active || (ordersData?.active && ordersData.active[0]) || null;
     const pastOrders = ordersData?.past || [];

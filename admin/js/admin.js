@@ -1391,6 +1391,107 @@ function showToast(message, type = 'info') {
     setTimeout(() => { dismissToast(id); }, 4000);
 }
 
+// ================= REAL-TIME ADMIN WEBSOCKET COORDINATION =================
+let adminWsReconnectTimer = null;
+let adminWsReconnectAttempts = 0;
+let adminWsPingInterval = null;
+
+function initRealtimeWebSocket() {
+    if (realtimeWs && (realtimeWs.readyState === WebSocket.OPEN || realtimeWs.readyState === WebSocket.CONNECTING)) {
+        return;
+    }
+
+    if (adminWsReconnectTimer) {
+        clearTimeout(adminWsReconnectTimer);
+        adminWsReconnectTimer = null;
+    }
+
+    if (adminWsPingInterval) {
+        clearInterval(adminWsPingInterval);
+        adminWsPingInterval = null;
+    }
+
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${location.host}/ws/admin`;
+
+    try {
+        realtimeWs = new WebSocket(wsUrl);
+
+        realtimeWs.onopen = () => {
+            console.log('[Admin WS] ⚡ Operations channel connected (Supabase Real-Time)');
+            adminWsReconnectAttempts = 0;
+
+            adminWsPingInterval = setInterval(() => {
+                if (realtimeWs && realtimeWs.readyState === WebSocket.OPEN) {
+                    realtimeWs.send(JSON.stringify({ type: 'PING' }));
+                }
+            }, 20000);
+        };
+
+        realtimeWs.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+
+                // 1. New live order placed
+                if (data.type === 'NEW_ORDER' && data.order) {
+                    playCampusChime();
+                    showToast(`⚡ New Order #${(data.order.id || '').replace('order_', '').toUpperCase()} received from ${data.order.customer_name || 'Student'}!`, 'success');
+                    
+                    // Increment pending badge
+                    const badge = document.getElementById('nav-pending-badge');
+                    if (badge) {
+                        const current = parseInt(badge.textContent || '0', 10);
+                        badge.textContent = current + 1;
+                        badge.classList.remove('hidden');
+                    }
+
+                    // Refresh active view
+                    if (activeView === 'dashboard') loadDashboard();
+                    else if (activeView === 'orders') loadOrders();
+                }
+
+                // 2. Status update
+                else if (data.type === 'STATUS_UPDATE' || data.type === 'ORDER_STATUS_UPDATE') {
+                    const orderId = data.order_id || data.orderId;
+                    const status = data.status;
+                    
+                    // Update pill in current DOM without full refresh
+                    const pills = document.querySelectorAll(`[data-status-pill-id="${orderId}"]`);
+                    pills.forEach(p => { p.innerHTML = getStatusPill(status); });
+
+                    if (activeView === 'dashboard') loadDashboard();
+                    else if (activeView === 'orders') loadOrders();
+                }
+
+                // 3. Inventory update
+                else if (data.type === 'INVENTORY_UPDATE') {
+                    if (activeView === 'inventory') loadInventory();
+                    else if (activeView === 'products') loadProducts();
+                }
+            } catch (err) {
+                console.error('[Admin WS Parse Error]:', err);
+            }
+        };
+
+        realtimeWs.onclose = () => {
+            realtimeWs = null;
+            if (adminWsPingInterval) { clearInterval(adminWsPingInterval); adminWsPingInterval = null; }
+
+            const delay = Math.min(1000 * Math.pow(2, adminWsReconnectAttempts), 15000);
+            adminWsReconnectAttempts++;
+            adminWsReconnectTimer = setTimeout(initRealtimeWebSocket, delay);
+        };
+
+        realtimeWs.onerror = () => {
+            try { realtimeWs.close(); } catch(e) {}
+        };
+    } catch(e) {
+        if (!adminWsReconnectTimer) {
+            adminWsReconnectTimer = setTimeout(initRealtimeWebSocket, 3000);
+        }
+    }
+}
+
 // Initial Boot Check
 if (!localStorage.getItem('lpuquick_admin_token')) {
     showLoginModal();
@@ -1402,11 +1503,11 @@ if (!localStorage.getItem('lpuquick_admin_token')) {
 
 updateSoundUI();
 
-// Periodic background sync fallback (every 15 seconds when authenticated)
+// Periodic background sync fallback (every 60 seconds when authenticated)
 setInterval(() => {
     if (!adminToken) return;
     if (activeView === 'dashboard') loadDashboard();
     else if (activeView === 'orders') loadOrders();
     else if (activeView === 'inventory') loadInventory();
     else if (activeView === 'products') loadProducts();
-}, 15000);
+}, 60000);
