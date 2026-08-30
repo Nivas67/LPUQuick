@@ -241,7 +241,7 @@ const supabaseDb = {
 
             // Validate product stock status before adding
             if (quantity > 0) {
-                const product = await this.getById(productId);
+                const product = await module.exports.products.getById(productId);
                 if (product && (!product.in_stock || (product.stock_left !== undefined && product.stock_left <= 0))) {
                     throw new Error('This item is currently out of stock');
                 }
