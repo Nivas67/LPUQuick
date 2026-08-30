@@ -772,6 +772,8 @@ window.openProductModal = async function(productId) {
             </div>
         `;
     }
+};
+
 // Global Card Stepper Synchronizer (Turns Add button into [- qty +], and keeps Out of Stock blocked)
 window.syncCardSteppers = function() {
     document.querySelectorAll('.product-action-slot').forEach(slot => {
