@@ -800,11 +800,26 @@ window.pageInits.checkout = function() {
         const deliveryAddress = `BH13 (${savedBlock}), Room ${savedRoom}`;
         const selectedPaymentMethod = 'Cash on Delivery';
 
+        let currentUserName = window.CURRENT_USER_NAME;
+        let currentUserEmail = window.CURRENT_USER_EMAIL;
+        let currentUserPhone = savedPhone || localStorage.getItem('lpuquick_phone');
+
+        if (!currentUserName || !currentUserEmail) {
+            try {
+                const savedUser = JSON.parse(localStorage.getItem('lpuquick_user') || '{}');
+                if (savedUser) {
+                    currentUserName = currentUserName || savedUser.name;
+                    currentUserEmail = currentUserEmail || savedUser.email;
+                    currentUserPhone = currentUserPhone || savedUser.phone;
+                }
+            } catch(e) {}
+        }
+
         try {
             const res = await window.api.checkout(userId, selectedPaymentMethod, deliveryAddress, {
-                phone: savedPhone,
-                name: window.CURRENT_USER_NAME,
-                email: window.CURRENT_USER_EMAIL
+                phone: currentUserPhone,
+                name: currentUserName,
+                email: currentUserEmail
             });
 
             if (res && res.success && res.order) {

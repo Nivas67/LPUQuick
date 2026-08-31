@@ -45,9 +45,16 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
                 const itemNames = (order.order_items || []).map(i => i.products?.name).filter(Boolean);
                 const itemSummary = itemNames.length > 0 ? itemNames.join(', ') : 'Campus items';
 
-                const customerName = order.customer_name || user?.name || (order.user_id ? 'Customer' : 'Legacy Order');
+                let customerName = order.customer_name;
+                if (!customerName || customerName.toLowerCase().startsWith('user_') || customerName === 'Customer' || customerName === 'Campus Resident') {
+                    if (user?.name && !user.name.toLowerCase().startsWith('user_')) {
+                        customerName = user.name;
+                    } else {
+                        customerName = customerName || user?.name || (order.user_id ? 'Campus Student' : 'Legacy Order');
+                    }
+                }
                 const customerPhone = order.customer_phone || user?.phone || '';
-                const customerEmail = order.customer_email || user?.email || '';
+                const customerEmail = (order.customer_email && !order.customer_email.endsWith('@lpu.in')) ? order.customer_email : (user?.email || order.customer_email || '');
 
                 return {
                     id: order.id,
@@ -193,9 +200,16 @@ router.get('/admin/detail/:orderId', requireAdmin, async (req, res) => {
             } catch (uErr) {}
         }
 
-        const customerName = order.customer_name || user?.name || (order.user_id ? 'Customer' : 'Customer info unavailable (Legacy Order)');
+        let customerName = order.customer_name;
+        if (!customerName || customerName.toLowerCase().startsWith('user_') || customerName === 'Customer' || customerName === 'Campus Resident') {
+            if (user?.name && !user.name.toLowerCase().startsWith('user_')) {
+                customerName = user.name;
+            } else {
+                customerName = customerName || user?.name || (order.user_id ? 'Campus Student' : 'Customer info unavailable (Legacy Order)');
+            }
+        }
         const customerPhone = order.customer_phone || user?.phone || '';
-        const customerEmail = order.customer_email || user?.email || '';
+        const customerEmail = (order.customer_email && !order.customer_email.endsWith('@lpu.in')) ? order.customer_email : (user?.email || order.customer_email || '');
         const deliveryAddress = order.delivery_address || 'Not provided';
         
         // Map items with unit_price field that the drawer expects

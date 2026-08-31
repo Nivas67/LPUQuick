@@ -98,19 +98,42 @@ async function handlePlaceOrder(req, res) {
         const address = deliveryAddress.trim();
 
         // 3. SECURE AUTHENTICATED CUSTOMER PROFILE RESOLUTION & SNAPSHOT
+        const submittedPhone = (req.body.customerPhone || req.body.phone || '').trim();
+        const submittedName = (req.body.customerName || req.body.name || '').trim();
+        const submittedEmail = (req.body.customerEmail || req.body.email || '').trim().toLowerCase();
+
         let user = null;
         try {
             user = await supabaseDb.users.getById(userId);
-            if (!user && (req.body.customerEmail || req.body.email)) {
-                user = await supabaseDb.users.getByIdentifier(req.body.customerEmail || req.body.email);
+            if (!user && submittedEmail) {
+                user = await supabaseDb.users.getByIdentifier(submittedEmail);
+            }
+            if (!user && submittedPhone && submittedPhone.length >= 10) {
+                user = await supabaseDb.users.getByIdentifier(submittedPhone);
             }
         } catch (uErr) {
             console.warn('[Checkout User Lookup Warning]:', uErr.message);
         }
 
-        const submittedPhone = (req.body.customerPhone || req.body.phone || '').trim();
-        const submittedName = (req.body.customerName || req.body.name || '').trim();
-        const submittedEmail = (req.body.customerEmail || req.body.email || '').trim().toLowerCase();
+        // Update customer name in database if user has placeholder or generic name
+        if (user && submittedName && submittedName.length > 1) {
+            const currentName = user.name || '';
+            const isGenericName = !currentName || 
+                                  currentName.toLowerCase().startsWith('user_') || 
+                                  currentName === 'Customer' || 
+                                  currentName === 'Student' || 
+                                  currentName === 'LPU Student' ||
+                                  currentName === 'Campus Resident';
+            if (isGenericName) {
+                try {
+                    const supabase = getSupabaseClient();
+                    if (supabase) {
+                        await supabase.from('users').update({ name: submittedName }).eq('id', user.id);
+                        user.name = submittedName;
+                    }
+                } catch (nErr) {}
+            }
+        }
 
         // Update customer phone in database if not previously set
         if (user && submittedPhone && submittedPhone.length >= 10 && (!user.phone || user.phone !== submittedPhone)) {
@@ -123,7 +146,7 @@ async function handlePlaceOrder(req, res) {
         // If user record does not yet exist in users table, persist now
         if (!user) {
             const userEmail = submittedEmail || `${userId}@lpu.in`;
-            const rawName = submittedName || userEmail.split('@')[0];
+            const rawName = submittedName || (submittedEmail ? submittedEmail.split('@')[0].replace(/[._]/g, ' ') : userId);
             const cleanName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
             try {
                 user = await supabaseDb.users.createUser({
@@ -134,18 +157,28 @@ async function handlePlaceOrder(req, res) {
                     role: 'student'
                 });
             } catch (createErr) {
-                user = {
-                    id: userId,
-                    name: cleanName,
-                    email: userEmail,
-                    phone: submittedPhone || ''
-                };
+                // If phone duplicate key error, fetch the user who owns this phone
+                if (submittedPhone && submittedPhone.length >= 10) {
+                    try {
+                        user = await supabaseDb.users.getByIdentifier(submittedPhone);
+                    } catch (e) {}
+                }
+                if (!user) {
+                    user = {
+                        id: userId,
+                        name: cleanName,
+                        email: userEmail,
+                        phone: submittedPhone || ''
+                    };
+                }
             }
         }
 
-        const customerName = (user && user.name) ? user.name : (submittedName || 'Customer');
+        const customerName = (submittedName && submittedName.length > 1) 
+            ? submittedName 
+            : ((user && user.name && !user.name.toLowerCase().startsWith('user_')) ? user.name : (user?.name || 'Customer'));
         const customerPhone = (user && user.phone) ? user.phone : submittedPhone;
-        const customerEmail = (user && user.email) ? user.email : submittedEmail;
+        const customerEmail = (user && user.email && !user.email.endsWith('@lpu.in')) ? user.email : (submittedEmail || user?.email || '');
 
         const orderPayload = {
             id: orderId,

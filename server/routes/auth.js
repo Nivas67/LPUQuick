@@ -158,6 +158,23 @@ router.post('/google', async (req, res) => {
                     account_status: 'ACTIVE'
                 };
             }
+        } else if (name && name.length > 1) {
+            // Update name if existing user record has generic name
+            const currentName = user.name || '';
+            const isGeneric = !currentName || 
+                              currentName.toLowerCase().startsWith('user_') || 
+                              currentName === 'Student' || 
+                              currentName === 'Customer' || 
+                              currentName === 'LPU Student';
+            if (isGeneric) {
+                try {
+                    const supabase = getSupabaseClient();
+                    if (supabase) {
+                        await supabase.from('users').update({ name }).eq('id', user.id);
+                        user.name = name;
+                    }
+                } catch (nErr) {}
+            }
         }
 
         // Check if user is blacklisted / blocked

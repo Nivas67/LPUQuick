@@ -597,6 +597,70 @@ const api = {
             console.warn('[Address Update Warning]:', e.message);
             return { success: false };
         }
+    },
+
+    // Authentication & Verification Endpoints
+    async googleAuth(userData) {
+        try {
+            const res = await fetch(`${API_BASE}/auth/google`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(userData)
+            });
+            return await res.json();
+        } catch (err) {
+            console.error('[API googleAuth Error]:', err);
+            return { error: err.message };
+        }
+    },
+
+    async signIn(email, password) {
+        try {
+            const res = await fetch(`${API_BASE}/auth/signin`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            return await res.json();
+        } catch (err) {
+            console.error('[API signIn Error]:', err);
+            return { error: err.message };
+        }
+    },
+
+    async sendOtp(phone, userId) {
+        try {
+            const res = await fetch(`${API_BASE}/auth/send-otp`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone, userId })
+            });
+            return await res.json();
+        } catch (err) {
+            return { error: err.message };
+        }
+    },
+
+    async verifyOtp(phone, otp, userId) {
+        try {
+            const res = await fetch(`${API_BASE}/auth/verify-otp`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone, otp, userId })
+            });
+            return await res.json();
+        } catch (err) {
+            return { error: err.message };
+        }
+    },
+
+    async getUserProfile(userId) {
+        try {
+            const res = await fetch(`${API_BASE}/auth/profile/${userId}`);
+            return await res.json();
+        } catch (err) {
+            return null;
+        }
     }
 };
 
