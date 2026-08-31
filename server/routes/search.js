@@ -27,71 +27,71 @@ router.get('/', async (req, res) => {
     }
 
     try {
-        const allProducts = await cache.wrap('search:all_products', async () => {
-            return await supabaseDb.products.getAll({ includeInactive: true });
+        const payload = await cache.wrap(`search:q:${query}`, async () => {
+            const allProducts = await supabaseDb.products.getAll({ includeInactive: false });
+
+            // Score each product based on name + category + subcategory + tags + typo tolerance
+            const scored = allProducts.map(p => {
+                const name = (p.name || '').toLowerCase();
+                const category = (p.category || '').toLowerCase();
+                const subcategory = (p.subcategory || '').toLowerCase();
+                const tags = (p.tags || '').toLowerCase();
+                const words = query.split(/\s+/).filter(Boolean);
+
+                let score = 0;
+
+                // Exact category or subcategory match
+                if (category === query || subcategory === query) score += 120;
+                if (category.includes(query) || subcategory.includes(query)) score += 80;
+
+                // Exact name substring match
+                if (name.includes(query)) score += 100;
+                if (tags.includes(query)) score += 60;
+
+                // Word-level matching
+                for (const word of words) {
+                    if (name.includes(word)) score += 40;
+                    if (category.includes(word)) score += 30;
+                    if (subcategory.includes(word)) score += 25;
+                    if (tags.includes(word)) score += 20;
+
+                    // Typo tolerance: check Levenshtein distance
+                    const nameWords = [...name.split(/\s+/), ...category.split(/\s+/)];
+                    for (const nw of nameWords) {
+                        if (nw.length >= 3 && Math.abs(nw.length - word.length) <= 2) {
+                            const dist = levenshtein(word, nw);
+                            if (dist === 1) score += 20;
+                            else if (dist === 2 && word.length >= 5) score += 10;
+                        }
+                    }
+                }
+
+                return { ...p, score };
+            });
+
+            const results = scored
+                .filter(p => p.score > 0)
+                .sort((a, b) => b.score - a.score);
+
+            const matchedCategories = [...new Set(results.map(r => r.category).filter(Boolean))];
+            const suggestions = matchedCategories.slice(0, 4).map(cat => ({
+                text: cat,
+                type: 'category'
+            }));
+
+            return {
+                query,
+                total: results.length,
+                results,
+                suggestions
+            };
         }, 60000);
 
-        // Score each product based on name + category + subcategory + tags + typo tolerance
-        const scored = allProducts.map(p => {
-            const name = (p.name || '').toLowerCase();
-            const category = (p.category || '').toLowerCase();
-            const subcategory = (p.subcategory || '').toLowerCase();
-            const tags = (p.tags || '').toLowerCase();
-            const words = query.split(/\s+/).filter(Boolean);
-
-            let score = 0;
-
-            // Exact category or subcategory match
-            if (category === query || subcategory === query) score += 120;
-            if (category.includes(query) || subcategory.includes(query)) score += 80;
-
-            // Exact name substring match
-            if (name.includes(query)) score += 100;
-            if (tags.includes(query)) score += 60;
-
-            // Word-level matching
-            for (const word of words) {
-                if (name.includes(word)) score += 40;
-                if (category.includes(word)) score += 30;
-                if (subcategory.includes(word)) score += 25;
-                if (tags.includes(word)) score += 20;
-
-                // Typo tolerance: check Levenshtein distance
-                const nameWords = [...name.split(/\s+/), ...category.split(/\s+/)];
-                for (const nw of nameWords) {
-                    const dist = levenshtein(word, nw);
-                    if (dist <= 2 && word.length > 2) score += Math.max(0, 25 - dist * 8);
-                }
-            }
-
-            return { ...p, score };
-        });
-
-        // Filter and sort by score
-        const results = scored
-            .filter(p => p.score > 0)
-            .sort((a, b) => b.score - a.score)
-            .slice(0, 20);
-
-        // Generate intelligent suggestions
-        const suggestions = [];
-        if (results.length > 0) {
-            const cats = [...new Set(results.map(r => r.category).filter(Boolean))];
-            const subcats = [...new Set(results.map(r => r.subcategory).filter(Boolean))];
-            cats.slice(0, 2).forEach(c => suggestions.push({ text: c, type: 'category' }));
-            subcats.slice(0, 2).forEach(s => suggestions.push({ text: s, type: 'subcategory' }));
-            results.slice(0, 3).forEach(r => suggestions.push({ text: r.name, type: 'product' }));
-        }
-
-        res.json({
-            query,
-            total: results.length,
-            results,
-            suggestions: suggestions.slice(0, 5)
-        });
+        res.json(payload);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
 module.exports = router;
+

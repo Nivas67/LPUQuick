@@ -25,14 +25,14 @@ function getTimeSection(hour) {
 
 const { getSupabaseClient } = require('../supabase');
 
-// GET /api/home
+// GET /api/home (High-Concurrency Scaled for 6,000+ Users)
 router.get('/', async (req, res) => {
     try {
         const tzOffset = req.query.tz || 'default';
         const userId = req.query.userId || req.headers['x-user-id'] || null;
-        const cacheKey = `home:${tzOffset}:${userId || 'anon'}`;
 
-        const payload = await cache.wrap(cacheKey, async () => {
+        // 1. Fetch or retrieve global catalog & section data from shared micro-cache (< 0.1ms)
+        const baseFeed = await cache.wrap(`home:base:${tzOffset}`, async () => {
             let hour;
             if (tzOffset !== 'default') {
                 const now = new Date();
@@ -48,51 +48,6 @@ router.get('/', async (req, res) => {
 
             const section = getTimeSection(hour);
             const allProducts = await supabaseDb.products.getAll({ includeInactive: false });
-
-            // Ensure all products are available for customer home screen
-            const products = allProducts;
-            
-            // Personalized Buy Again computation for this specific user
-            let buyAgain = [];
-            let isPersonalizedBuyAgain = false;
-
-            if (userId && !userId.startsWith('guest_') && userId !== 'null' && userId !== 'undefined') {
-                try {
-                    const supabase = getSupabaseClient();
-                    if (supabase) {
-                        const { data: userOrders } = await supabase
-                            .from('orders')
-                            .select('id, created_at, order_items(product_id, quantity, products(*))')
-                            .eq('user_id', userId)
-                            .order('created_at', { ascending: false });
-
-                        if (userOrders && userOrders.length > 0) {
-                            const productMap = new Map();
-                            for (const ord of userOrders) {
-                                if (ord.order_items) {
-                                    for (const item of ord.order_items) {
-                                        if (item.products && item.products.id && !productMap.has(item.products.id)) {
-                                            productMap.set(item.products.id, item.products);
-                                        }
-                                    }
-                                }
-                            }
-                            const orderedItems = Array.from(productMap.values());
-                            if (orderedItems.length > 0) {
-                                buyAgain = orderedItems;
-                                isPersonalizedBuyAgain = true;
-                            }
-                        }
-                    }
-                } catch (userErr) {
-                    console.warn('[Home Feed Buy Again Warn]:', userErr.message);
-                }
-            }
-
-            // Fallback to top student essentials if user has no past order history yet
-            if (buyAgain.length === 0) {
-                buyAgain = allProducts.slice(0, 10);
-            }
 
             // Smart keyword categorization for curated trays
             const biscuits = allProducts.filter(p => /biscuit|cookie|wafer|pie|bikis|bourbon|creme|shakti|magic|treat/i.test((p.name || '') + ' ' + (p.category || '') + ' ' + (p.tags || '')));
@@ -129,8 +84,7 @@ router.get('/', async (req, res) => {
                 total_products_count: allProducts.length,
                 all_products: allProducts,
                 products: allProducts,
-                buy_again: buyAgain,
-                is_personalized_buy_again: isPersonalizedBuyAgain,
+                default_buy_again: allProducts.slice(0, 10),
                 biscuits,
                 trending_snacks: trendingSnacks,
                 chocolates,
@@ -143,12 +97,61 @@ router.get('/', async (req, res) => {
                     tag: 'INSTANT_FREE'
                 }
             };
-        }, userId ? 5000 : 15000); // 10s TTL for personalized user feed, 45s for anonymous
+        }, 60000);
 
-        res.json(payload);
+        // 2. Compute personalized buy again with user-level caching
+        let buyAgain = baseFeed.default_buy_again;
+        let isPersonalizedBuyAgain = false;
+
+        if (userId && !userId.startsWith('guest_') && userId !== 'null' && userId !== 'undefined') {
+            const userPersonalized = await cache.wrap(`user_buy_again:${userId}`, async () => {
+                try {
+                    const supabase = getSupabaseClient();
+                    if (supabase) {
+                        const { data: userOrders } = await supabase
+                            .from('orders')
+                            .select('id, created_at, order_items(product_id, quantity, products(*))')
+                            .eq('user_id', userId)
+                            .order('created_at', { ascending: false })
+                            .limit(5);
+
+                        if (userOrders && userOrders.length > 0) {
+                            const productMap = new Map();
+                            for (const ord of userOrders) {
+                                if (ord.order_items) {
+                                    for (const item of ord.order_items) {
+                                        if (item.products && item.products.id && !productMap.has(item.products.id)) {
+                                            productMap.set(item.products.id, item.products);
+                                        }
+                                    }
+                                }
+                            }
+                            const orderedItems = Array.from(productMap.values());
+                            if (orderedItems.length > 0) {
+                                return { items: orderedItems, isPersonalized: true };
+                            }
+                        }
+                    }
+                } catch (userErr) {}
+                return { items: null, isPersonalized: false };
+            }, 60000);
+
+            if (userPersonalized && userPersonalized.items) {
+                buyAgain = userPersonalized.items;
+                isPersonalizedBuyAgain = true;
+            }
+        }
+
+        // 3. Fast shallow merge and send
+        res.json({
+            ...baseFeed,
+            buy_again: buyAgain,
+            is_personalized_buy_again: isPersonalizedBuyAgain
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
 module.exports = router;
+

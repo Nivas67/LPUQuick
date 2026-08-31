@@ -1366,16 +1366,31 @@ async function loadCustomers() {
     }
 }
 
-function renderCustomersTable(customers) {
+let currentCustomerPage = 1;
+const CUSTOMERS_PER_PAGE = 30;
+let currentRenderedCustomers = [];
+
+function renderCustomersTable(customers, page = 1) {
     const tbody = document.getElementById('customers-table-tbody');
     if (!tbody) return;
 
-    if (customers.length === 0) {
+    currentRenderedCustomers = customers || [];
+    currentCustomerPage = page;
+
+    if (currentRenderedCustomers.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-[#5c5f60]">No student customer records found.</td></tr>`;
+        renderCustomerPaginationControls(0, 1);
         return;
     }
 
-    tbody.innerHTML = customers.map(c => {
+    const totalPages = Math.ceil(currentRenderedCustomers.length / CUSTOMERS_PER_PAGE);
+    const validPage = Math.max(1, Math.min(page, totalPages));
+    currentCustomerPage = validPage;
+
+    const startIndex = (validPage - 1) * CUSTOMERS_PER_PAGE;
+    const slice = currentRenderedCustomers.slice(startIndex, startIndex + CUSTOMERS_PER_PAGE);
+
+    tbody.innerHTML = slice.map(c => {
         const isBlocked = c.account_status === 'BLOCKED';
         const phoneHtml = c.phone && c.phone.trim() ? `<span class="font-medium text-[#181c1f]">${c.phone}</span>` : `<span class="text-[#74777a] italic">Not provided</span>`;
         const emailHtml = c.email && c.email.trim() ? `<span class="font-medium text-[#181c1f]">${c.email}</span>` : `<span class="text-[#74777a] italic">Not provided</span>`;
@@ -1416,22 +1431,61 @@ function renderCustomersTable(customers) {
         `;
 
     }).join('');
+
+    renderCustomerPaginationControls(currentRenderedCustomers.length, validPage);
 }
 
-function filterCustomerDirectory() {
-    const q = (document.getElementById('customer-search-input')?.value || '').trim().toLowerCase();
-    if (!q) {
-        renderCustomersTable(customersCache);
+function renderCustomerPaginationControls(totalItems, currentPage) {
+    let paginationContainer = document.getElementById('customers-pagination-controls');
+    const tableWrapper = document.getElementById('customers-table-tbody')?.closest('.bg-white') || document.getElementById('customers-table-tbody')?.parentElement;
+
+    if (!paginationContainer && tableWrapper) {
+        paginationContainer = document.createElement('div');
+        paginationContainer.id = 'customers-pagination-controls';
+        paginationContainer.className = 'flex items-center justify-between px-6 py-4 border-t border-[#e1e3e4] bg-[#f7fafd] text-xs';
+        tableWrapper.parentElement.appendChild(paginationContainer);
+    }
+
+    if (!paginationContainer) return;
+
+    if (totalItems <= CUSTOMERS_PER_PAGE) {
+        paginationContainer.innerHTML = `<span class="text-[#5c5f60]">Showing all ${totalItems} students</span>`;
         return;
     }
-    const filtered = customersCache.filter(c =>
-        (c.name || '').toLowerCase().includes(q) ||
-        (c.email || '').toLowerCase().includes(q) ||
-        (c.phone || '').includes(q) ||
-        (c.id || '').toLowerCase().includes(q)
-    );
-    renderCustomersTable(filtered);
+
+    const totalPages = Math.ceil(totalItems / CUSTOMERS_PER_PAGE);
+    const startNum = (currentPage - 1) * CUSTOMERS_PER_PAGE + 1;
+    const endNum = Math.min(currentPage * CUSTOMERS_PER_PAGE, totalItems);
+
+    paginationContainer.innerHTML = `
+        <span class="text-[#5c5f60] font-medium">Showing <strong class="text-[#181c1f]">${startNum}-${endNum}</strong> of <strong class="text-[#181c1f]">${totalItems}</strong> students</span>
+        <div class="flex items-center gap-2">
+            <button onclick="renderCustomersTable(currentRenderedCustomers, ${currentPage - 1})" ${currentPage <= 1 ? 'disabled class="opacity-40 cursor-not-allowed"' : 'class="hover:bg-white shadow-sm"'} class="px-3 py-1.5 rounded-lg border border-[#e1e3e4] font-bold text-xs transition-all">Previous</button>
+            <span class="font-bold text-[#181c1f] px-2">Page ${currentPage} of ${totalPages}</span>
+            <button onclick="renderCustomersTable(currentRenderedCustomers, ${currentPage + 1})" ${currentPage >= totalPages ? 'disabled class="opacity-40 cursor-not-allowed"' : 'class="hover:bg-white shadow-sm"'} class="px-3 py-1.5 rounded-lg border border-[#e1e3e4] font-bold text-xs transition-all">Next</button>
+        </div>
+    `;
 }
+
+let customerSearchDebounceTimer = null;
+function filterCustomerDirectory() {
+    clearTimeout(customerSearchDebounceTimer);
+    customerSearchDebounceTimer = setTimeout(() => {
+        const q = (document.getElementById('customer-search-input')?.value || '').trim().toLowerCase();
+        if (!q) {
+            renderCustomersTable(customersCache, 1);
+            return;
+        }
+        const filtered = customersCache.filter(c =>
+            (c.name || '').toLowerCase().includes(q) ||
+            (c.email || '').toLowerCase().includes(q) ||
+            (c.phone || '').includes(q) ||
+            (c.id || '').toLowerCase().includes(q)
+        );
+        renderCustomersTable(filtered, 1);
+    }, 150);
+}
+
 
 // ================= BLACKLIST & FRAUD PREVENTION =================
 let currentBlacklistFilter = 'all';

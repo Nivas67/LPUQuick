@@ -13,50 +13,55 @@ const supabaseDb = {
     // ==========================================
     products: {
         async getAll({ includeInactive = false, category, subcategory, sort } = {}) {
-            const supabase = getSupabaseClient();
-            let query = supabase.from('products').select('*');
+            const cacheKey = `products:${category || 'all'}:${subcategory || 'all'}:${sort || 'default'}:${includeInactive}`;
+            return await cache.wrap(cacheKey, async () => {
+                const supabase = getSupabaseClient();
+                let query = supabase.from('products').select('*');
 
-            if (category && category !== 'All') {
-                query = query.ilike('category', `%${category}%`);
-            }
+                if (category && category !== 'All') {
+                    query = query.ilike('category', `%${category}%`);
+                }
 
-            if (subcategory && subcategory !== 'all') {
-                query = query.eq('subcategory', subcategory);
-            }
+                if (subcategory && subcategory !== 'all') {
+                    query = query.eq('subcategory', subcategory);
+                }
 
-            if (sort === 'price_asc') {
-                query = query.order('price', { ascending: true });
-            } else if (sort === 'price_desc') {
-                query = query.order('price', { ascending: false });
-            } else {
-                query = query.order('name', { ascending: true });
-            }
+                if (sort === 'price_asc') {
+                    query = query.order('price', { ascending: true });
+                } else if (sort === 'price_desc') {
+                    query = query.order('price', { ascending: false });
+                } else {
+                    query = query.order('name', { ascending: true });
+                }
 
-            const { data, error } = await query;
-            if (error) {
-                console.error('[Supabase getAllProducts Error]:', error.message);
-                return [];
-            }
-            return (data || []).map(p => {
-                const match = (p.tags || '').match(/stock:(\d+)/);
-                const stock_left = match ? parseInt(match[1], 10) : (p.in_stock ? 50 : 0);
-                return {
-                    ...p,
-                    stock_left
-                };
-            });
+                const { data, error } = await query;
+                if (error) {
+                    console.error('[Supabase getAllProducts Error]:', error.message);
+                    return [];
+                }
+                return (data || []).map(p => {
+                    const match = (p.tags || '').match(/stock:(\d+)/);
+                    const stock_left = match ? parseInt(match[1], 10) : (p.in_stock ? 50 : 0);
+                    return {
+                        ...p,
+                        stock_left
+                    };
+                });
+            }, 60000);
         },
 
         async getById(id) {
-            const supabase = getSupabaseClient();
-            const { data, error } = await supabase.from('products').select('*').eq('id', id).single();
-            if (error || !data) return null;
-            const match = (data.tags || '').match(/stock:(\d+)/);
-            const stock_left = match ? parseInt(match[1], 10) : (data.in_stock ? 50 : 0);
-            return {
-                ...data,
-                stock_left
-            };
+            return await cache.wrap(`product:${id}`, async () => {
+                const supabase = getSupabaseClient();
+                const { data, error } = await supabase.from('products').select('*').eq('id', id).single();
+                if (error || !data) return null;
+                const match = (data.tags || '').match(/stock:(\d+)/);
+                const stock_left = match ? parseInt(match[1], 10) : (data.in_stock ? 50 : 0);
+                return {
+                    ...data,
+                    stock_left
+                };
+            }, 60000);
         },
 
         async create(p) {
@@ -89,6 +94,7 @@ const supabaseDb = {
 
             const { data, error } = await supabase.from('products').insert([newProduct]).select().single();
             if (error) throw error;
+            cache.invalidateProducts();
             return {
                 ...data,
                 stock_left: stock
@@ -125,6 +131,7 @@ const supabaseDb = {
 
             const { data, error } = await supabase.from('products').update(payload).eq('id', id).select().single();
             if (error) throw error;
+            cache.invalidateProducts();
             const match = (data.tags || '').match(/stock:(\d+)/);
             const stock_left = match ? parseInt(match[1], 10) : (data.in_stock ? 50 : 0);
             return {
@@ -137,27 +144,31 @@ const supabaseDb = {
             const supabase = getSupabaseClient();
             const { error } = await supabase.from('products').delete().eq('id', id);
             if (error) throw error;
+            cache.invalidateProducts();
             return true;
         },
 
         async getCategories() {
-            const supabase = getSupabaseClient();
-            const { data, error } = await supabase.from('products').select('category, in_stock');
-            if (error || !data) return [];
+            return await cache.wrap('categories:all', async () => {
+                const supabase = getSupabaseClient();
+                const { data, error } = await supabase.from('products').select('category, in_stock');
+                if (error || !data) return [];
 
-            const categoryMap = {};
-            data.forEach(p => {
-                const cat = p.category || 'General';
-                if (!categoryMap[cat]) {
-                    categoryMap[cat] = { name: cat, product_count: 0, in_stock_count: 0 };
-                }
-                categoryMap[cat].product_count++;
-                if (p.in_stock) categoryMap[cat].in_stock_count++;
-            });
+                const categoryMap = {};
+                data.forEach(p => {
+                    const cat = p.category || 'General';
+                    if (!categoryMap[cat]) {
+                        categoryMap[cat] = { name: cat, product_count: 0, in_stock_count: 0 };
+                    }
+                    categoryMap[cat].product_count++;
+                    if (p.in_stock) categoryMap[cat].in_stock_count++;
+                });
 
-            return Object.values(categoryMap);
+                return Object.values(categoryMap);
+            }, 60000);
         }
     },
+
 
     // ==========================================
     // CART
@@ -733,27 +744,29 @@ const supabaseDb = {
 
 
         async getRawRecord() {
-            try {
-                const supabase = getSupabaseClient();
-                if (supabase) {
-                    const { data, error } = await supabase
-                        .from('users')
-                        .select('*')
-                        .eq('id', '__system_store_availability__')
-                        .single();
+            return await cache.wrap('availability:raw', async () => {
+                try {
+                    const supabase = getSupabaseClient();
+                    if (supabase) {
+                        const { data, error } = await supabase
+                            .from('users')
+                            .select('*')
+                            .eq('id', '__system_store_availability__')
+                            .single();
 
-                    if (!error && data && data.password_hash) {
-                        try {
-                            const parsed = JSON.parse(data.password_hash);
-                            this._memoryState = { ...this._memoryState, ...parsed };
-                            return this._memoryState;
-                        } catch (parseErr) {}
+                        if (!error && data && data.password_hash) {
+                            try {
+                                const parsed = JSON.parse(data.password_hash);
+                                this._memoryState = { ...this._memoryState, ...parsed };
+                                return this._memoryState;
+                            } catch (parseErr) {}
+                        }
                     }
+                } catch (e) {
+                    console.warn('[Availability Fetch Warning]:', e.message);
                 }
-            } catch (e) {
-                console.warn('[Availability Fetch Warning]:', e.message);
-            }
-            return this._memoryState;
+                return this._memoryState;
+            }, 3000);
         },
 
         async getStatus() {
@@ -857,6 +870,7 @@ const supabaseDb = {
             };
 
             this._memoryState = { ...this._memoryState, ...payload };
+            cache.invalidateAvailability();
 
             try {
                 const supabase = getSupabaseClient();
@@ -877,6 +891,7 @@ const supabaseDb = {
         },
 
         async unlock(adminId = null) {
+            cache.invalidateAvailability();
             return this.setLock({
                 is_locked: false,
                 lock_type: 'NONE',
@@ -896,6 +911,7 @@ const supabaseDb = {
             const isLocked = Boolean(locked);
             this._memoryState.profit_locked = isLocked;
             this._memoryState.updated_at = new Date().toISOString();
+            cache.invalidateAvailability();
 
             try {
                 const supabase = getSupabaseClient();
@@ -915,6 +931,7 @@ const supabaseDb = {
             return { profit_locked: isLocked };
         }
     },
+
 
     // ==========================================
     // USER BLACKLIST & FRAUD PREVENTION

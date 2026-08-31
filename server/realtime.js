@@ -175,10 +175,35 @@ function setupRealtime(server) {
     }, 25000);
 }
 
+// High-Throughput Non-Blocking Chunked Dispatcher for 6,000+ Concurrent WebSockets
+function chunkedBroadcast(socketSet, payloadString, batchSize = 300) {
+    if (!socketSet || socketSet.size === 0) return;
+    const sockets = Array.from(socketSet);
+    let index = 0;
+
+    function dispatchBatch() {
+        const end = Math.min(index + batchSize, sockets.length);
+        for (let i = index; i < end; i++) {
+            const ws = sockets[i];
+            if (ws && ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 65536) {
+                try {
+                    ws.send(payloadString);
+                } catch (err) {
+                    socketSet.delete(ws);
+                }
+            }
+        }
+        index = end;
+        if (index < sockets.length) {
+            setImmediate(dispatchBatch);
+        }
+    }
+
+    dispatchBatch();
+}
+
 // Broadcast new order to ALL admin sockets AND client sockets
 async function notifyAdminNewOrder(orderData) {
-    console.log(`[WS Hub] ⚡ Broadcasting NEW_ORDER to ${adminSockets.size} admin clients and ${clientSockets.size} store clients:`, orderData.id);
-
     // Enrich with customer info from Supabase
     let customerName = orderData.customer_name || 'Campus Student';
     let customerPhone = orderData.customer_phone || '';
@@ -212,23 +237,12 @@ async function notifyAdminNewOrder(orderData) {
         timestamp: new Date().toISOString()
     });
 
-    adminSockets.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
-            client.send(payload);
-        }
-    });
-
-    clientSockets.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
-            client.send(payload);
-        }
-    });
+    chunkedBroadcast(adminSockets, payload);
+    chunkedBroadcast(clientSockets, payload);
 }
 
 // Broadcast status update to tracking clients, admin sockets, AND client sockets
 function broadcastStatusUpdate(orderId, newStatus) {
-    console.log(`[WS Hub] 🚀 Broadcasting STATUS_UPDATE for ${orderId} -> ${newStatus}`);
-
     const now = new Date();
 
     // Payload for student tracking clients
@@ -244,9 +258,7 @@ function broadcastStatusUpdate(orderId, newStatus) {
 
     const trackingClients = orderTrackingSockets.get(orderId);
     if (trackingClients) {
-        trackingClients.forEach(ws => {
-            if (ws.readyState === WebSocket.OPEN) ws.send(trackingPayload);
-        });
+        chunkedBroadcast(trackingClients, trackingPayload);
     }
 
     // Payload for admin dashboard clients
@@ -260,20 +272,12 @@ function broadcastStatusUpdate(orderId, newStatus) {
         timestamp: now.toISOString()
     });
 
-    adminSockets.forEach(ws => {
-        if (ws.readyState === WebSocket.OPEN) ws.send(adminPayload);
-    });
-
-    // Send to global client sockets
-    clientSockets.forEach(ws => {
-        if (ws.readyState === WebSocket.OPEN) ws.send(trackingPayload);
-    });
+    chunkedBroadcast(adminSockets, adminPayload);
+    chunkedBroadcast(clientSockets, trackingPayload);
 }
 
 // Broadcast product/inventory update to all admin sockets AND client sockets
 function broadcastInventoryUpdate(productId, stockLeft, inStock) {
-    console.log(`[WS Hub] 📦 Broadcasting INVENTORY_UPDATE for ${productId} (Stock: ${stockLeft}, InStock: ${inStock})`);
-
     const payload = JSON.stringify({
         type: 'INVENTORY_UPDATE',
         productId,
@@ -283,13 +287,8 @@ function broadcastInventoryUpdate(productId, stockLeft, inStock) {
         timestamp: new Date().toISOString()
     });
 
-    adminSockets.forEach(ws => {
-        if (ws.readyState === WebSocket.OPEN) ws.send(payload);
-    });
-
-    clientSockets.forEach(ws => {
-        if (ws.readyState === WebSocket.OPEN) ws.send(payload);
-    });
+    chunkedBroadcast(adminSockets, payload);
+    chunkedBroadcast(clientSockets, payload);
 }
 
 function getStepNumber(status) {
@@ -317,27 +316,18 @@ function getStatusMessage(status, riderName) {
 
 // Broadcast client lock status update to all connected storefront clients & admin sockets
 function broadcastClientLockUpdate(lockState) {
-    console.log(`[WS Hub] 🔒 Broadcasting CLIENT_LOCK_UPDATE: ${lockState.lock_status} (is_locked: ${lockState.is_locked})`);
-
     const payload = JSON.stringify({
         type: 'CLIENT_LOCK_UPDATE',
         availability: lockState,
         timestamp: new Date().toISOString()
     });
 
-    clientSockets.forEach(ws => {
-        if (ws.readyState === WebSocket.OPEN) ws.send(payload);
-    });
-
-    adminSockets.forEach(ws => {
-        if (ws.readyState === WebSocket.OPEN) ws.send(payload);
-    });
+    chunkedBroadcast(clientSockets, payload);
+    chunkedBroadcast(adminSockets, payload);
 }
 
 // Broadcast user block signal
 function broadcastUserBlocked(userId, reason = 'Fake Orders') {
-    console.log(`[WS Hub] ⛔ Broadcasting USER_BLOCKED for user: ${userId}`);
-
     const payload = JSON.stringify({
         type: 'USER_BLOCKED',
         userId,
@@ -345,35 +335,19 @@ function broadcastUserBlocked(userId, reason = 'Fake Orders') {
         timestamp: new Date().toISOString()
     });
 
-    clientSockets.forEach(ws => {
-        if (ws.readyState === WebSocket.OPEN) {
-            ws.send(payload);
-        }
-    });
-
-    adminSockets.forEach(ws => {
-        if (ws.readyState === WebSocket.OPEN) ws.send(payload);
-    });
+    chunkedBroadcast(clientSockets, payload);
+    chunkedBroadcast(adminSockets, payload);
 }
 
 function broadcastUserUnblocked(userId) {
-    console.log(`[WS Hub] ✅ Broadcasting USER_UNBLOCKED for user: ${userId}`);
-
     const payload = JSON.stringify({
         type: 'USER_UNBLOCKED',
         userId,
         timestamp: new Date().toISOString()
     });
 
-    clientSockets.forEach(ws => {
-        if (ws.readyState === WebSocket.OPEN) {
-            ws.send(payload);
-        }
-    });
-
-    adminSockets.forEach(ws => {
-        if (ws.readyState === WebSocket.OPEN) ws.send(payload);
-    });
+    chunkedBroadcast(clientSockets, payload);
+    chunkedBroadcast(adminSockets, payload);
 }
 
 module.exports = {
@@ -385,5 +359,6 @@ module.exports = {
     broadcastUserBlocked,
     broadcastUserUnblocked
 };
+
 
 

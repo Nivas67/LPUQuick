@@ -39,7 +39,36 @@ body::before {
     transform: translateZ(0);
 }
 
+/* ============================================================
+   HIGH-REFRESH-RATE 60-120 FPS HARDWARE ACCELERATION & CONTAINMENT
+   ============================================================ */
+html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+.product-card-item {
+    contain: layout paint style;
+    content-visibility: auto;
+    contain-intrinsic-size: 240px;
+    transform: translateZ(0);
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+}
+
+.tray-scroll-container,
+.overflow-x-auto,
+.overflow-y-auto {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    overscroll-behavior-x: contain;
+    transform: translateZ(0);
+}
+
 /* Store Lock Fixed Header & Nav Offsets */
+
 body.store-locked-active header,
 body.store-locked-active header.fixed,
 body.store-locked-active header[class*="fixed"] {
