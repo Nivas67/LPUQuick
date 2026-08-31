@@ -481,25 +481,46 @@ const supabaseDb = {
 
             if (error || !order) return null;
 
-            const { data: items } = await supabase
-                .from('order_items')
-                .select(`
-                    id, quantity, unit_price,
-                    products (id, name, image_url, image_alt)
-                `)
-                .eq('order_id', orderId);
+            // Fetch order items with fallback
+            let items = [];
+            try {
+                const { data: directItems } = await supabase
+                    .from('order_items')
+                    .select('*')
+                    .eq('order_id', orderId);
+                items = directItems || [];
+            } catch (e) {}
+
+            let enrichedItems = items;
+            if (items.length > 0) {
+                const pids = items.map(i => i.product_id).filter(Boolean);
+                let pMap = new Map();
+                if (pids.length > 0) {
+                    try {
+                        const { data: prods } = await supabase
+                            .from('products')
+                            .select('id, name, image_url, image_alt, price')
+                            .in('id', pids);
+                        if (prods) prods.forEach(p => pMap.set(p.id, p));
+                    } catch (e) {}
+                }
+                enrichedItems = items.map(i => {
+                    const p = pMap.get(i.product_id);
+                    return {
+                        id: i.id,
+                        product_id: i.product_id,
+                        name: p?.name || i.name || 'Product',
+                        image_url: p?.image_url || i.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60',
+                        image_alt: p?.image_alt || '',
+                        unit_price: i.unit_price || p?.price || i.price || 0,
+                        quantity: i.quantity || 1
+                    };
+                });
+            }
 
             return {
                 ...order,
-                items: (items || []).map(i => ({
-                    id: i.id,
-                    product_id: i.products?.id,
-                    name: i.products?.name,
-                    image_url: i.products?.image_url,
-                    image_alt: i.products?.image_alt,
-                    unit_price: i.unit_price,
-                    quantity: i.quantity
-                }))
+                items: enrichedItems
             };
         },
 
