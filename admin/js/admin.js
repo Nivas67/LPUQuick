@@ -3,6 +3,60 @@ let audioCtx = null;
 let soundEnabled = localStorage.getItem('lpuquick_admin_sound') !== 'false';
 let currentSoundTheme = localStorage.getItem('lpuquick_order_sound_theme') || 'cash_register';
 
+// Generate 100% self-contained, offline base64 WAV chime data URI for HTML5 Audio fallback
+function generateChimeWavDataUri() {
+    const sampleRate = 22050;
+    const duration = 0.8;
+    const numSamples = Math.floor(sampleRate * duration);
+    const buffer = new ArrayBuffer(44 + numSamples * 2);
+    const view = new DataView(buffer);
+
+    function writeString(offset, string) {
+        for (let i = 0; i < string.length; i++) {
+            view.setUint8(offset + i, string.charCodeAt(i));
+        }
+    }
+
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + numSamples * 2, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); // PCM format
+    view.setUint16(22, 1, true); // Mono
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeString(36, 'data');
+    view.setUint32(40, numSamples * 2, true);
+
+    for (let i = 0; i < numSamples; i++) {
+        const t = i / sampleRate;
+        const decay = Math.exp(-t * 4.5);
+        const s1 = Math.sin(2 * Math.PI * 987.77 * t);
+        const s2 = Math.sin(2 * Math.PI * 1318.51 * t);
+        const s3 = Math.sin(2 * Math.PI * 1975.53 * t);
+        const sample = Math.max(-1, Math.min(1, (s1 * 0.45 + s2 * 0.35 + s3 * 0.2) * decay));
+        view.setInt16(44 + i * 2, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+    }
+
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return 'data:audio/wav;base64,' + btoa(binary);
+}
+
+// Initialize audio element with zero-latency synthesized sound source
+try {
+    const fallbackAudio = document.getElementById('order-chime');
+    if (fallbackAudio && !fallbackAudio.src) {
+        fallbackAudio.src = generateChimeWavDataUri();
+    }
+} catch(e) {}
+
 function getAudioContext() {
     if (!audioCtx) {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -33,6 +87,13 @@ function unlockAudioEngine() {
             osc.stop(ctx.currentTime + 0.01);
         } catch(e) {}
     }
+    const fallbackAudio = document.getElementById('order-chime');
+    if (fallbackAudio) {
+        try {
+            if (!fallbackAudio.src) fallbackAudio.src = generateChimeWavDataUri();
+            fallbackAudio.volume = 1.0;
+        } catch(e) {}
+    }
     const banner = document.getElementById('audio-unlock-banner');
     if (banner) banner.classList.add('hidden');
 }
@@ -46,31 +107,44 @@ function unlockAudioEngine() {
 function playCampusChime(theme = currentSoundTheme) {
     if (!soundEnabled) return;
 
+    // Visual chime indicator on sound icon
+    const icon = document.getElementById('sound-icon');
+    if (icon) {
+        icon.classList.add('animate-bounce', 'text-emerald-500');
+        setTimeout(() => icon.classList.remove('animate-bounce', 'text-emerald-500'), 1500);
+    }
+
     // Haptic vibration feedback on mobile/tablets
     try {
         if (navigator.vibrate) navigator.vibrate([250, 100, 250]);
     } catch(e) {}
 
     // Trigger HTML5 Audio Element fallback
-    const fallbackAudio = document.getElementById('order-chime');
-    if (fallbackAudio) {
-        try {
-            fallbackAudio.currentTime = 0;
-            fallbackAudio.play().catch(() => {});
-        } catch(e) {}
-    }
+    try {
+        let fallbackAudio = document.getElementById('order-chime');
+        if (!fallbackAudio) {
+            fallbackAudio = document.createElement('audio');
+            fallbackAudio.id = 'order-chime';
+            fallbackAudio.src = generateChimeWavDataUri();
+            document.body.appendChild(fallbackAudio);
+        } else if (!fallbackAudio.src) {
+            fallbackAudio.src = generateChimeWavDataUri();
+        }
+        fallbackAudio.currentTime = 0;
+        fallbackAudio.volume = 1.0;
+        const playPromise = fallbackAudio.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(() => {});
+        }
+    } catch(e) {}
 
     try {
         const ctx = getAudioContext();
         if (!ctx) return;
 
-        if (ctx.state === 'suspended') {
-            ctx.resume().catch(() => {});
-        }
-
-        const now = ctx.currentTime;
-
-        if (theme === 'cash_register') {
+        const playSynthesized = () => {
+            const now = ctx.currentTime;
+            if (theme === 'cash_register') {
             // Theme 1: High Volume Cash Register "Cha-Ching" + Metallic Shimmer
             // Lever Click
             const osc0 = ctx.createOscillator();
@@ -211,6 +285,13 @@ function playCampusChime(theme = currentSoundTheme) {
             osc2.start(now + 0.1);
             osc2.stop(now + 1.1);
         }
+    };
+
+    if (ctx.state === 'suspended') {
+        ctx.resume().then(playSynthesized).catch(playSynthesized);
+    } else {
+        playSynthesized();
+    }
 
     } catch (e) {
         console.warn('[Audio Synthesizer Error]:', e);
