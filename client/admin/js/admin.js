@@ -353,12 +353,20 @@ function updateSoundUI() {
     }
 }
 
-// State & Auth Token
+// State & Auth Token with LocalStorage Resilience
 let activeView = 'dashboard';
 let productsCache = [];
 let ordersCache = [];
 let customersCache = [];
 let blacklistCache = [];
+
+try {
+    const savedOrders = localStorage.getItem('lpuquick_admin_orders_cache');
+    if (savedOrders) ordersCache = JSON.parse(savedOrders);
+    const savedProducts = localStorage.getItem('lpuquick_admin_products_cache');
+    if (savedProducts) productsCache = JSON.parse(savedProducts);
+} catch (e) {}
+
 let clientLockState = null;
 let lockTickerInterval = null;
 let profitLocked = true;
@@ -496,18 +504,12 @@ async function refreshCurrentView() {
     if (mainContent) mainContent.style.opacity = '0.6';
 
     try {
-        // Clear local caches for guaranteed fresh state
-        productsCache = [];
-        ordersCache = [];
-        customersCache = [];
-        blacklistCache = [];
-
         // Burst backend cache so fresh queries run against Supabase
         try {
-            await fetch(`/api/orders/admin/invalidate-cache?_t=${Date.now()}`, {
+            await fetchWithTimeout(`/api/orders/admin/invalidate-cache?_t=${Date.now()}`, {
                 method: 'POST',
                 headers: getAuthHeaders()
-            }).catch(() => {});
+            }, 3000).catch(() => {});
         } catch (e) {}
 
         // Reload data based on active view and refresh global components
@@ -1019,12 +1021,18 @@ async function handleUnlockStore() {
 // ================= 2. PRODUCTS LOAD =================
 async function loadProducts() {
     try {
-        const res = await fetch(`/api/products?includeInactive=true&fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() });
-        const data = await res.json();
-        productsCache = data.products || [];
+        const res = await fetchWithTimeout(`/api/products?includeInactive=true&fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() }, 7000);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.products && Array.isArray(data.products) && data.products.length > 0) {
+                productsCache = data.products;
+                try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) {}
+            }
+        }
         filterProducts();
     } catch (err) {
-        console.error('Failed to load products:', err);
+        console.warn('Network timeout loading products, rendering available cache:', err);
+        filterProducts();
     }
 }
 
@@ -1101,12 +1109,18 @@ function filterProducts() {
 // ================= 3. INVENTORY LOAD =================
 async function loadInventory() {
     try {
-        const res = await fetch(`/api/products?includeInactive=true&fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() });
-        const data = await res.json();
-        productsCache = data.products || [];
+        const res = await fetchWithTimeout(`/api/products?includeInactive=true&fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() }, 7000);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.products && Array.isArray(data.products) && data.products.length > 0) {
+                productsCache = data.products;
+                try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) {}
+            }
+        }
         filterInventory();
     } catch (err) {
-        console.error('Failed to load inventory:', err);
+        console.warn('Network timeout loading inventory, rendering available cache:', err);
+        filterInventory();
     }
 }
 
@@ -1205,6 +1219,7 @@ async function loadOrders() {
             const data = await res.json();
             if (data.orders && Array.isArray(data.orders) && data.orders.length > 0) {
                 ordersCache = data.orders;
+                try { localStorage.setItem('lpuquick_admin_orders_cache', JSON.stringify(ordersCache)); } catch (e) {}
             }
         }
         filterOrders();

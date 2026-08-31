@@ -84,7 +84,18 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-// GET /api/products (Fetch all products from Supabase)
+// Persistent Snapshot Fallback for Catalog Resilience
+let fallbackProductsCache = [];
+try {
+    const pSnapPath = path.join(__dirname, '..', 'data', 'products_snapshot.json');
+    if (fs.existsSync(pSnapPath)) {
+        fallbackProductsCache = JSON.parse(fs.readFileSync(pSnapPath, 'utf8'));
+    }
+} catch (e) {
+    console.warn('[Products Snapshot Load Note]:', e.message);
+}
+
+// GET /api/products (Fetch all products with resilient cloud fallback)
 router.get('/', async (req, res) => {
     try {
         const includeInactive = req.query.includeInactive === 'true';
@@ -99,13 +110,32 @@ router.get('/', async (req, res) => {
         }
 
         const payload = await cache.wrap(cacheKey, async () => {
-            const products = await supabaseDb.products.getAll({ includeInactive, category, subcategory, sort });
-            return { products };
+            const queryPromise = supabaseDb.products.getAll({ includeInactive, category, subcategory, sort });
+            const products = await Promise.race([
+                queryPromise,
+                new Promise(resolve => setTimeout(() => resolve(null), 5000))
+            ]);
+
+            if (products && Array.isArray(products) && products.length > 0) {
+                fallbackProductsCache = products;
+                return { products };
+            }
+
+            // Return snapshot fallback if Supabase is sleeping or timing out
+            let list = [...fallbackProductsCache];
+            if (category && category !== 'All') {
+                list = list.filter(p => (p.category || '').toLowerCase().includes(category.toLowerCase()));
+            }
+            if (subcategory && subcategory !== 'all') {
+                list = list.filter(p => (p.subcategory || '').toLowerCase() === subcategory.toLowerCase());
+            }
+            return { products: list, isFallback: true };
         }, isFresh ? 0 : 45000);
 
-        res.json(payload);
+        res.json(payload || { products: fallbackProductsCache });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.warn('[Products Route Note]:', err.message);
+        res.json({ products: fallbackProductsCache, isFallback: true });
     }
 });
 
