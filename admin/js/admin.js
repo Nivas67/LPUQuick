@@ -377,6 +377,56 @@ async function loadDashboard() {
         // Load and sync store lock state
         loadClientLockState();
 
+function formatCustomerDisplayName(o) {
+    if (!o) return 'Student';
+    const rawName = o.customer_name;
+    if (rawName && typeof rawName === 'string') {
+        const trimmed = rawName.trim();
+        const lower = trimmed.toLowerCase();
+        if (trimmed.length > 1 &&
+            !lower.startsWith('user_') &&
+            !lower.startsWith('order_') &&
+            !lower.startsWith('guest_') &&
+            lower !== 'customer' &&
+            lower !== 'student' &&
+            lower !== 'campus student' &&
+            lower !== 'campus resident' &&
+            lower !== 'lpu student' &&
+            lower !== 'anonymous' &&
+            lower !== 'legacy order') {
+            return trimmed;
+        }
+    }
+
+    const email = (o.customer_email && !o.customer_email.endsWith('@lpu.in')) ? o.customer_email : (o.customer_email || '');
+    if (email && typeof email === 'string' && email.includes('@')) {
+        const emailPrefix = email.split('@')[0].trim();
+        if (emailPrefix && !emailPrefix.toLowerCase().startsWith('user_')) {
+            const formatted = emailPrefix.replace(/[._-]/g, ' ').split(' ')
+                .filter(Boolean)
+                .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+                .join(' ');
+            if (formatted.length > 0) return formatted;
+        }
+    }
+
+    const phone = o.customer_phone;
+    if (phone && typeof phone === 'string' && phone.replace(/\D/g, '').length >= 10) {
+        return `Student (+91 ${phone.replace(/\D/g, '').slice(-10)})`;
+    }
+
+    if (email && typeof email === 'string' && email.includes('@')) {
+        return email.split('@')[0];
+    }
+
+    const uid = o.user_id;
+    if (uid && typeof uid === 'string') {
+        return `Student (${uid.replace('user_', '').slice(0, 8).toUpperCase()})`;
+    }
+
+    return 'Student';
+}
+
         // Cache & Render Recent Orders
         ordersCache = ordersData.orders || [];
         const recentOrders = ordersCache.slice(0, 5);
@@ -387,7 +437,7 @@ async function loadDashboard() {
             tbody.innerHTML = recentOrders.map(o => `
                 <tr class="hover:bg-[#f7fafd] transition-colors cursor-pointer" onclick="openOrderDrawer('${o.id}')" id="order-row-${o.id}">
                     <td class="p-3.5 font-bold font-mono text-[#181c1f]">#${(o.id || '').replace('order_', '').toUpperCase()}</td>
-                    <td class="p-3.5 font-medium text-[#181c1f]">${o.customer_name || 'Customer'}</td>
+                    <td class="p-3.5 font-medium text-[#181c1f]">${formatCustomerDisplayName(o)}</td>
                     <td class="p-3.5 text-[#5c5f60] truncate max-w-[150px]">${o.item_summary || 'Campus items'}</td>
                     <td class="p-3.5 font-bold text-[#137333]">₹${o.total}</td>
                     <td class="p-3.5 text-[#5c5f60]">${o.payment_method || 'COD'}</td>
@@ -1028,11 +1078,12 @@ function filterOrders() {
 
     tbody.innerHTML = filtered.map(o => {
         const contactHtml = o.customer_phone ? o.customer_phone : (o.customer_email || 'Not provided');
+        const displayName = formatCustomerDisplayName(o);
         return `
         <tr class="hover:bg-[#f7fafd] transition-colors cursor-pointer" onclick="openOrderDrawer('${o.id}')" id="order-row-${o.id}">
             <td class="p-4 font-bold font-mono text-[#181c1f]">#${(o.id || '').replace('order_', '').toUpperCase()}</td>
             <td class="p-4">
-                <p class="font-semibold text-[#181c1f]">${o.customer_name || 'Customer'}</p>
+                <p class="font-semibold text-[#181c1f]">${displayName}</p>
                 <p class="text-[11px] text-[#5c5f60]">${contactHtml}</p>
             </td>
             <td class="p-4 text-[#5c5f60]">${o.delivery_address || 'Not provided'}</td>
@@ -1085,7 +1136,7 @@ async function openOrderDrawer(orderId) {
 
         document.getElementById('drawer-order-id').textContent = `Order #${(o.id || '').replace('order_', '').toUpperCase()}`;
         document.getElementById('drawer-order-time').textContent = `Placed: ${new Date(o.created_at || Date.now()).toLocaleString()}`;
-        document.getElementById('drawer-cust-name').textContent = o.customer_name && o.customer_name.trim() ? o.customer_name : 'Customer';
+        document.getElementById('drawer-cust-name').textContent = formatCustomerDisplayName(o);
         document.getElementById('drawer-cust-phone').textContent = o.customer_phone && o.customer_phone.trim() ? o.customer_phone : 'Not provided';
         if (document.getElementById('drawer-cust-email')) {
             document.getElementById('drawer-cust-email').textContent = o.customer_email && o.customer_email.trim() ? o.customer_email : 'Not provided';
@@ -1987,7 +2038,7 @@ function handleRealtimeNewOrder(order) {
             const rowHtml = `
                 <tr class="hover:bg-[#f7fafd] transition-colors cursor-pointer row-new-highlight" onclick="openOrderDrawer('${order.id}')" id="order-row-${order.id}">
                     <td class="p-3.5 font-bold font-mono text-[#181c1f]">#${(order.id || '').replace('order_', '').toUpperCase()}</td>
-                    <td class="p-3.5 font-medium text-[#181c1f]">${order.customer_name || 'Customer'}</td>
+                    <td class="p-3.5 font-medium text-[#181c1f]">${formatCustomerDisplayName(order)}</td>
                     <td class="p-3.5 text-[#5c5f60] truncate max-w-[150px]">${order.item_summary || 'Campus items'}</td>
                     <td class="p-3.5 font-bold text-[#137333]">₹${order.total}</td>
                     <td class="p-3.5 text-[#5c5f60]">${order.payment_method || 'COD'}</td>

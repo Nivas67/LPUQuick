@@ -205,11 +205,11 @@ function chunkedBroadcast(socketSet, payloadString, batchSize = 300) {
 // Broadcast new order to ALL admin sockets AND client sockets
 async function notifyAdminNewOrder(orderData) {
     // Enrich with customer info from Supabase
-    let customerName = orderData.customer_name || 'Campus Student';
+    let customerName = orderData.customer_name || '';
     let customerPhone = orderData.customer_phone || '';
     let customerEmail = orderData.customer_email || '';
 
-    if (orderData.user_id && customerName === 'Campus Resident') {
+    if (orderData.user_id && (!customerName || customerName.toLowerCase().startsWith('user_') || customerName === 'Customer' || customerName === 'Campus Resident' || customerName === 'Campus Student')) {
         try {
             const supabase = getSupabaseClient();
             const { data: user } = await supabase
@@ -223,6 +223,20 @@ async function notifyAdminNewOrder(orderData) {
                 customerEmail = user.email || customerEmail;
             }
         } catch (e) {}
+    }
+
+    // If still missing or generic, derive from email or phone
+    if (!customerName || customerName.toLowerCase().startsWith('user_') || customerName === 'Customer' || customerName === 'Campus Resident' || customerName === 'Campus Student') {
+        if (customerEmail && customerEmail.includes('@') && !customerEmail.endsWith('@lpu.in')) {
+            const emailPrefix = customerEmail.split('@')[0].trim();
+            customerName = emailPrefix.replace(/[._-]/g, ' ').split(' ').filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        } else if (customerPhone && customerPhone.length >= 10) {
+            customerName = `Student (+91 ${customerPhone.slice(-10)})`;
+        } else if (customerEmail && customerEmail.includes('@')) {
+            customerName = customerEmail.split('@')[0];
+        } else {
+            customerName = `Student (${(orderData.user_id || 'Campus').replace('user_', '').slice(0, 8).toUpperCase()})`;
+        }
     }
 
     const payload = JSON.stringify({

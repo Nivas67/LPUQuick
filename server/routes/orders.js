@@ -8,6 +8,56 @@ const cache = require('../cache');
 
 const ACTIVE_STATUSES = ['Order Placed', 'Order Confirmed', 'Preparing', 'Out for Delivery', 'pending', 'confirmed', 'accepted', 'packed', 'en_route'];
 
+// Resolve authentic customer display name (extracts email username or phone if full name is missing)
+function resolveOrderCustomerName(order, user) {
+    const rawName = order?.customer_name || user?.name;
+    if (rawName && typeof rawName === 'string') {
+        const trimmed = rawName.trim();
+        const lower = trimmed.toLowerCase();
+        if (trimmed.length > 1 &&
+            !lower.startsWith('user_') &&
+            !lower.startsWith('order_') &&
+            !lower.startsWith('guest_') &&
+            lower !== 'customer' &&
+            lower !== 'student' &&
+            lower !== 'campus student' &&
+            lower !== 'campus resident' &&
+            lower !== 'lpu student' &&
+            lower !== 'anonymous' &&
+            lower !== 'legacy order') {
+            return trimmed;
+        }
+    }
+
+    const email = (order?.customer_email && !order.customer_email.endsWith('@lpu.in')) ? order.customer_email : (user?.email || order?.customer_email || '');
+    if (email && typeof email === 'string' && email.includes('@')) {
+        const emailPrefix = email.split('@')[0].trim();
+        if (emailPrefix && !emailPrefix.toLowerCase().startsWith('user_')) {
+            const formatted = emailPrefix.replace(/[._-]/g, ' ').split(' ')
+                .filter(Boolean)
+                .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+                .join(' ');
+            if (formatted.length > 0) return formatted;
+        }
+    }
+
+    const phone = order?.customer_phone || user?.phone;
+    if (phone && typeof phone === 'string' && phone.replace(/\D/g, '').length >= 10) {
+        return `Student (+91 ${phone.replace(/\D/g, '').slice(-10)})`;
+    }
+
+    if (email && typeof email === 'string' && email.includes('@')) {
+        return email.split('@')[0];
+    }
+
+    const uid = order?.user_id || user?.id;
+    if (uid && typeof uid === 'string') {
+        return `Student (${uid.replace('user_', '').slice(0, 8).toUpperCase()})`;
+    }
+
+    return 'Student';
+}
+
 // ===== ADMIN ROUTES (must be before /:userId catch-all) =====
 
 // GET /api/orders/admin/all (All orders for admin dashboard - Optimized Single PostgREST Join + Batch Users)
@@ -45,14 +95,7 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
                 const itemNames = (order.order_items || []).map(i => i.products?.name).filter(Boolean);
                 const itemSummary = itemNames.length > 0 ? itemNames.join(', ') : 'Campus items';
 
-                let customerName = order.customer_name;
-                if (!customerName || customerName.toLowerCase().startsWith('user_') || customerName === 'Customer' || customerName === 'Campus Resident') {
-                    if (user?.name && !user.name.toLowerCase().startsWith('user_')) {
-                        customerName = user.name;
-                    } else {
-                        customerName = customerName || user?.name || (order.user_id ? 'Campus Student' : 'Legacy Order');
-                    }
-                }
+                const customerName = resolveOrderCustomerName(order, user);
                 const customerPhone = order.customer_phone || user?.phone || '';
                 const customerEmail = (order.customer_email && !order.customer_email.endsWith('@lpu.in')) ? order.customer_email : (user?.email || order.customer_email || '');
 
@@ -200,14 +243,7 @@ router.get('/admin/detail/:orderId', requireAdmin, async (req, res) => {
             } catch (uErr) {}
         }
 
-        let customerName = order.customer_name;
-        if (!customerName || customerName.toLowerCase().startsWith('user_') || customerName === 'Customer' || customerName === 'Campus Resident') {
-            if (user?.name && !user.name.toLowerCase().startsWith('user_')) {
-                customerName = user.name;
-            } else {
-                customerName = customerName || user?.name || (order.user_id ? 'Campus Student' : 'Customer info unavailable (Legacy Order)');
-            }
-        }
+        const customerName = resolveOrderCustomerName(order, user);
         const customerPhone = order.customer_phone || user?.phone || '';
         const customerEmail = (order.customer_email && !order.customer_email.endsWith('@lpu.in')) ? order.customer_email : (user?.email || order.customer_email || '');
         const deliveryAddress = order.delivery_address || 'Not provided';
