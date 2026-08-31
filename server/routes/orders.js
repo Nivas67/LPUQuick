@@ -69,6 +69,11 @@ router.post('/admin/invalidate-cache', requireAdmin, (req, res) => {
 // GET /api/orders/admin/all (All orders for admin dashboard - Optimized Single PostgREST Join + Batch Users)
 router.get('/admin/all', requireAdmin, async (req, res) => {
     try {
+        const isFresh = req.query.fresh === 'true' || req.query._t || req.headers['cache-control']?.includes('no-cache') || req.headers['pragma'] === 'no-cache';
+        if (isFresh) {
+            cache.delete('orders:admin:all');
+        }
+
         const payload = await cache.wrap('orders:admin:all', async () => {
             const supabase = getSupabaseClient();
             
@@ -129,7 +134,7 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
             });
 
             return { orders: enriched };
-        }, 15000); // 15s TTL with auto-invalidation on status updates
+        }, isFresh ? 0 : 15000);
 
         res.json(payload);
     } catch (err) {
@@ -141,6 +146,11 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
 // GET /api/orders/admin/analytics (Dashboard KPIs & metrics - Parallel Execution + Column Projection)
 router.get('/admin/analytics', requireAdmin, async (req, res) => {
     try {
+        const isFresh = req.query.fresh === 'true' || req.query._t || req.headers['cache-control']?.includes('no-cache') || req.headers['pragma'] === 'no-cache';
+        if (isFresh) {
+            cache.delete('analytics:admin:summary');
+        }
+
         const payload = await cache.wrap('analytics:admin:summary', async () => {
             const supabase = getSupabaseClient();
 

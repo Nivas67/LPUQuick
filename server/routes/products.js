@@ -91,12 +91,17 @@ router.get('/', async (req, res) => {
         const category = req.query.category || '';
         const subcategory = req.query.subcategory || '';
         const sort = req.query.sort || '';
+        const isFresh = req.query.fresh === 'true' || req.query._t || req.headers['cache-control']?.includes('no-cache') || req.headers['pragma'] === 'no-cache';
         const cacheKey = `products:list:${includeInactive}:${category}:${subcategory}:${sort}`;
+
+        if (isFresh) {
+            cache.delete(cacheKey);
+        }
 
         const payload = await cache.wrap(cacheKey, async () => {
             const products = await supabaseDb.products.getAll({ includeInactive, category, subcategory, sort });
             return { products };
-        }, 45000);
+        }, isFresh ? 0 : 45000);
 
         res.json(payload);
     } catch (err) {

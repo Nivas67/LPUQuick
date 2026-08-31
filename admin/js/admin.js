@@ -385,139 +385,7 @@ function getAuthHeaders(extra = {}) {
     return headers;
 }
 
-// View Navigation
-function switchView(viewName) {
-    activeView = viewName;
-    document.querySelectorAll('#main-content > div').forEach(el => el.classList.add('hidden'));
-    
-    const target = document.getElementById(`view-${viewName}`);
-    if (target) target.classList.remove('hidden');
-
-    document.querySelectorAll('.nav-item').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.view === viewName);
-    });
-
-    const titles = {
-        'dashboard': 'Dashboard Overview',
-        'client-lock': 'Client Dashboard Control & Store Availability',
-        'products': 'Product Catalog Management',
-        'inventory': 'Real-Time Inventory & Stock',
-        'orders': 'Campus Orders Queue',
-        'customers': 'Student Customer Directory',
-        'blacklist': 'Blacklist & Fraud Prevention',
-        'analytics': 'Business Analytics & Reports',
-        'settings': 'Store Settings'
-    };
-    document.getElementById('top-title').textContent = titles[viewName] || 'Dashboard';
-
-    if (viewName === 'dashboard') loadDashboard();
-    else if (viewName === 'client-lock') loadClientLockState();
-    else if (viewName === 'products') loadProducts();
-    else if (viewName === 'inventory') loadInventory();
-    else if (viewName === 'orders') loadOrders();
-    else if (viewName === 'customers') loadCustomers();
-    else if (viewName === 'blacklist') loadBlacklistData();
-    else if (viewName === 'analytics') loadAnalytics();
-}
-
-// Master Live Refresh Controller
-async function refreshCurrentView() {
-    const refreshBtn = document.getElementById('btn-header-refresh');
-    const refreshIcon = document.getElementById('btn-header-refresh-icon') || refreshBtn?.querySelector('.material-symbols-outlined');
-
-    if (refreshIcon) refreshIcon.classList.add('animate-spin');
-    if (refreshBtn) refreshBtn.disabled = true;
-
-    try {
-        // Clear local caches for guaranteed fresh state
-        productsCache = [];
-        ordersCache = [];
-        customersCache = [];
-        blacklistCache = [];
-
-        // Burst backend cache so fresh queries run against Supabase
-        try {
-            await fetch('/api/orders/admin/invalidate-cache', {
-                method: 'POST',
-                headers: getAuthHeaders()
-            }).catch(() => {});
-        } catch (e) {}
-
-        // Trigger view refresh and background sync
-        const promises = [
-            loadClientLockState(),
-            syncOrdersLive()
-        ];
-
-        if (activeView === 'dashboard') {
-            promises.push(loadDashboard());
-        } else if (activeView === 'client-lock') {
-            promises.push(loadClientLockState());
-        } else if (activeView === 'products') {
-            promises.push(loadProducts());
-        } else if (activeView === 'inventory') {
-            promises.push(loadInventory());
-        } else if (activeView === 'orders') {
-            promises.push(loadOrders());
-        } else if (activeView === 'customers') {
-            promises.push(loadCustomers());
-        } else if (activeView === 'blacklist') {
-            promises.push(loadBlacklistData());
-        } else if (activeView === 'analytics') {
-            promises.push(loadAnalytics());
-        }
-
-        await Promise.allSettled(promises);
-        showToast('Dashboard data refreshed', 'success');
-    } catch (err) {
-        console.error('[Refresh Error]:', err);
-        showToast('Failed to refresh data: ' + err.message, 'warning');
-    } finally {
-        setTimeout(() => {
-            if (refreshIcon) refreshIcon.classList.remove('animate-spin');
-            if (refreshBtn) refreshBtn.disabled = false;
-        }, 500);
-    }
-}
-
-
-// ================= 1. DASHBOARD LOAD =================
-async function loadDashboard() {
-    try {
-        const [analyticsRes, ordersRes] = await Promise.all([
-            fetch('/api/orders/admin/analytics', { headers: getAuthHeaders() }),
-            fetch('/api/orders/admin/all', { headers: getAuthHeaders() })
-        ]);
-
-        if (analyticsRes.status === 403 || ordersRes.status === 403) {
-            showLoginModal();
-            return;
-        }
-
-        const analyticsData = await analyticsRes.json();
-        const ordersData = await ordersRes.json();
-
-        const m = analyticsData.metrics || {};
-        document.getElementById('dash-total-products').textContent = m.totalProducts || 0;
-        document.getElementById('dash-total-stock').textContent = m.totalStock || 0;
-        document.getElementById('dash-low-stock').textContent = m.lowStockCount || 0;
-        document.getElementById('dash-total-orders').textContent = m.totalOrdersCount || 0;
-        document.getElementById('dash-pending-orders').textContent = m.pendingOrdersCount || 0;
-        document.getElementById('dash-total-revenue').textContent = `₹${m.totalRevenue || 0}`;
-
-        // Update pending badge in sidebar
-        const badge = document.getElementById('nav-pending-badge');
-        if (badge) {
-            badge.textContent = m.pendingOrdersCount || 0;
-            badge.classList.toggle('hidden', !m.pendingOrdersCount);
-        }
-
-        // Load Profit Metrics (Secure & Protected)
-        loadProfitMetrics();
-
-        // Load and sync store lock state
-        loadClientLockState();
-
+// Global Customer Display Name Formatter (Extracts verified names or clean email prefixes)
 function formatCustomerDisplayName(o) {
     if (!o) return 'Student';
     const rawName = o.customer_name;
@@ -567,6 +435,142 @@ function formatCustomerDisplayName(o) {
 
     return 'Student';
 }
+
+// View Navigation
+function switchView(viewName) {
+    activeView = viewName;
+    document.querySelectorAll('#main-content > div').forEach(el => el.classList.add('hidden'));
+    
+    const target = document.getElementById(`view-${viewName}`);
+    if (target) target.classList.remove('hidden');
+
+    document.querySelectorAll('.nav-item').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === viewName);
+    });
+
+    const titles = {
+        'dashboard': 'Dashboard Overview',
+        'client-lock': 'Client Dashboard Control & Store Availability',
+        'products': 'Product Catalog Management',
+        'inventory': 'Real-Time Inventory & Stock',
+        'orders': 'Campus Orders Queue',
+        'customers': 'Student Customer Directory',
+        'blacklist': 'Blacklist & Fraud Prevention',
+        'analytics': 'Business Analytics & Reports',
+        'settings': 'Store Settings'
+    };
+    document.getElementById('top-title').textContent = titles[viewName] || 'Dashboard';
+
+    if (viewName === 'dashboard') loadDashboard();
+    else if (viewName === 'client-lock') loadClientLockState();
+    else if (viewName === 'products') loadProducts();
+    else if (viewName === 'inventory') loadInventory();
+    else if (viewName === 'orders') loadOrders();
+    else if (viewName === 'customers') loadCustomers();
+    else if (viewName === 'blacklist') loadBlacklistData();
+    else if (viewName === 'analytics') loadAnalytics();
+}
+
+// Master Live Real-Time Refresh Controller
+async function refreshCurrentView() {
+    const refreshBtn = document.getElementById('btn-header-refresh');
+    const refreshIcon = document.getElementById('btn-header-refresh-icon') || refreshBtn?.querySelector('.material-symbols-outlined');
+    const mainContent = document.getElementById('main-content');
+
+    if (refreshIcon) refreshIcon.classList.add('animate-spin');
+    if (refreshBtn) refreshBtn.disabled = true;
+    if (mainContent) mainContent.style.opacity = '0.6';
+
+    try {
+        // Clear local caches for guaranteed fresh state
+        productsCache = [];
+        ordersCache = [];
+        customersCache = [];
+        blacklistCache = [];
+
+        // Burst backend cache so fresh queries run against Supabase
+        try {
+            await fetch(`/api/orders/admin/invalidate-cache?_t=${Date.now()}`, {
+                method: 'POST',
+                headers: getAuthHeaders()
+            }).catch(() => {});
+        } catch (e) {}
+
+        // Reload data based on active view and refresh global components
+        const promises = [
+            loadClientLockState(),
+            syncOrdersLive()
+        ];
+
+        if (activeView === 'dashboard') {
+            promises.push(loadDashboard());
+        } else if (activeView === 'client-lock') {
+            promises.push(loadClientLockState());
+        } else if (activeView === 'products') {
+            promises.push(loadProducts());
+        } else if (activeView === 'inventory') {
+            promises.push(loadInventory());
+        } else if (activeView === 'orders') {
+            promises.push(loadOrders());
+        } else if (activeView === 'customers') {
+            promises.push(loadCustomers());
+        } else if (activeView === 'blacklist') {
+            promises.push(loadBlacklistData());
+        } else if (activeView === 'analytics') {
+            promises.push(loadAnalytics());
+        }
+
+        await Promise.allSettled(promises);
+        showToast('✓ Live data refreshed from database', 'success');
+    } catch (err) {
+        console.error('[Refresh Error]:', err);
+        showToast('Failed to refresh data: ' + err.message, 'warning');
+    } finally {
+        if (mainContent) mainContent.style.opacity = '1';
+        setTimeout(() => {
+            if (refreshIcon) refreshIcon.classList.remove('animate-spin');
+            if (refreshBtn) refreshBtn.disabled = false;
+        }, 400);
+    }
+}
+
+
+// ================= 1. DASHBOARD LOAD =================
+async function loadDashboard() {
+    try {
+        const [analyticsRes, ordersRes] = await Promise.all([
+            fetch(`/api/orders/admin/analytics?fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() }),
+            fetch(`/api/orders/admin/all?fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() })
+        ]);
+
+        if (analyticsRes.status === 403 || ordersRes.status === 403) {
+            showLoginModal();
+            return;
+        }
+
+        const analyticsData = await analyticsRes.json();
+        const ordersData = await ordersRes.json();
+
+        const m = analyticsData.metrics || {};
+        document.getElementById('dash-total-products').textContent = m.totalProducts || 0;
+        document.getElementById('dash-total-stock').textContent = m.totalStock || 0;
+        document.getElementById('dash-low-stock').textContent = m.lowStockCount || 0;
+        document.getElementById('dash-total-orders').textContent = m.totalOrdersCount || 0;
+        document.getElementById('dash-pending-orders').textContent = m.pendingOrdersCount || 0;
+        document.getElementById('dash-total-revenue').textContent = `₹${m.totalRevenue || 0}`;
+
+        // Update pending badge in sidebar
+        const badge = document.getElementById('nav-pending-badge');
+        if (badge) {
+            badge.textContent = m.pendingOrdersCount || 0;
+            badge.classList.toggle('hidden', !m.pendingOrdersCount);
+        }
+
+        // Load Profit Metrics (Secure & Protected)
+        loadProfitMetrics();
+
+        // Load and sync store lock state
+        loadClientLockState();
 
         // Cache & Render Recent Orders
         ordersCache = ordersData.orders || [];
@@ -618,7 +622,7 @@ function formatCustomerDisplayName(o) {
 // ================= PROFITS SECURITY & VISIBILITY =================
 async function loadProfitMetrics() {
     try {
-        const res = await fetch('/api/admin/profits', { headers: getAuthHeaders() });
+        const res = await fetch(`/api/admin/profits?fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() });
         const data = await res.json();
         
         profitLocked = Boolean(data.locked);
@@ -693,7 +697,7 @@ async function toggleProfitVisibility() {
 // ================= CLIENT DASHBOARD LOCK CONTROLS =================
 async function loadClientLockState() {
     try {
-        const res = await fetch('/api/admin/client-lock', { headers: getAuthHeaders() });
+        const res = await fetch(`/api/admin/client-lock?fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() });
         const data = await res.json();
         if (data.success && data.availability) {
             updateClientLockUI(data.availability);
@@ -996,7 +1000,7 @@ async function handleUnlockStore() {
 // ================= 2. PRODUCTS LOAD =================
 async function loadProducts() {
     try {
-        const res = await fetch('/api/products?includeInactive=true', { headers: getAuthHeaders() });
+        const res = await fetch(`/api/products?includeInactive=true&fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() });
         const data = await res.json();
         productsCache = data.products || [];
         filterProducts();
@@ -1078,7 +1082,7 @@ function filterProducts() {
 // ================= 3. INVENTORY LOAD =================
 async function loadInventory() {
     try {
-        const res = await fetch('/api/products?includeInactive=true', { headers: getAuthHeaders() });
+        const res = await fetch(`/api/products?includeInactive=true&fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() });
         const data = await res.json();
         productsCache = data.products || [];
         filterInventory();
@@ -1177,7 +1181,7 @@ async function promptCustomStock(productId, current) {
 // ================= 4. ORDERS LOAD =================
 async function loadOrders() {
     try {
-        const res = await fetch('/api/orders/admin/all', { headers: getAuthHeaders() });
+        const res = await fetch(`/api/orders/admin/all?fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() });
         const data = await res.json();
         ordersCache = data.orders || [];
         filterOrders();
@@ -1565,14 +1569,14 @@ async function deleteProductPermanently(id, name) {
 // ================= 7. CUSTOMERS LOAD & FRAUD MANAGEMENT =================
 async function loadCustomers() {
     try {
-        const res = await fetch('/api/admin/users', { headers: getAuthHeaders() });
+        const res = await fetch(`/api/admin/users?fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() });
         let data = {};
         if (res.ok) {
             data = await res.json();
             customersCache = data.users || [];
         } else {
             // Fallback to orders customer endpoint
-            const fallbackRes = await fetch('/api/orders/admin/customers', { headers: getAuthHeaders() });
+            const fallbackRes = await fetch(`/api/orders/admin/customers?fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() });
             data = await fallbackRes.json();
             customersCache = data.customers || [];
         }
@@ -1709,7 +1713,7 @@ let currentBlacklistFilter = 'all';
 
 async function loadBlacklistData() {
     try {
-        const res = await fetch('/api/admin/blacklist', { headers: getAuthHeaders() });
+        const res = await fetch(`/api/admin/blacklist?fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() });
         const data = await res.json();
         blacklistCache = data.blacklist || [];
         
@@ -1909,7 +1913,7 @@ async function handleUnblockUser(userId) {
 // ================= 8. ANALYTICS LOAD =================
 async function loadAnalytics() {
     try {
-        const res = await fetch('/api/orders/admin/analytics', { headers: getAuthHeaders() });
+        const res = await fetch(`/api/orders/admin/analytics?fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() });
         const data = await res.json();
         const m = data.metrics || {};
 
@@ -1973,7 +1977,7 @@ function updateConnectionStatus(connected, mode = 'Live') {
 async function syncOrdersLive() {
     if (!adminToken) return;
     try {
-        const res = await fetch('/api/orders/admin/all', {
+        const res = await fetch(`/api/orders/admin/all?fresh=true&_t=${Date.now()}`, {
             headers: { 'Cache-Control': 'no-cache', ...getAuthHeaders() }
         });
         if (!res.ok) return;
