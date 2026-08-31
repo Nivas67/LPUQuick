@@ -1514,4 +1514,29 @@ body.dark #pull-to-refresh-indicator {
     }
 }
 
+/* ============================================================
+   Custom Day / Night Theme Pill Toggle Switch (Precision Matching)
+   ============================================================ */
+.theme-toggle-switch {
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: background-color 0.25s ease, border-color 0.25s ease, transform 0.15s ease;
+}
+
+.theme-toggle-switch:focus-visible {
+    outline: 2px solid #10b981;
+    outline-offset: 2px;
+}
+
+.theme-toggle-thumb {
+    transition: transform 0.28s cubic-bezier(0.34, 1.45, 0.64, 1), background-color 0.25s ease, border-color 0.25s ease;
+    will-change: transform;
+}
+
+.theme-sun-icon,
+.theme-moon-icon {
+    transition: opacity 0.2s ease, color 0.2s ease;
+}
+
 

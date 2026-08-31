@@ -11,8 +11,8 @@ window.pages.categories = async function() {
     <header class="sticky top-0 z-40 bg-surface/90 backdrop-blur-2xl border-b border-glass-border shadow-sm">
         <div class="px-margin-mobile md:px-margin-desktop py-2.5 flex items-center justify-between gap-3">
             <div class="flex items-center gap-2 min-w-0">
-                <a href="#/" class="p-1.5 hover:bg-surface-variant/50 rounded-full transition-colors shrink-0">
-                    <span class="material-symbols-outlined text-on-surface text-xl">arrow_back</span>
+                <a href="#/" class="w-10 h-10 flex items-center justify-center hover:bg-surface-variant/60 active:scale-90 rounded-full transition-all shrink-0 cursor-pointer text-on-surface" aria-label="Back to Home" title="Back to Home">
+                    <span class="material-symbols-outlined text-2xl">arrow_back</span>
                 </a>
                 <div class="min-w-0">
                     <h1 class="font-headline-md text-base sm:text-lg font-black text-on-surface truncate">
@@ -32,9 +32,26 @@ window.pages.categories = async function() {
                 <span class="material-symbols-outlined absolute left-3 top-2 text-on-surface-variant text-sm">search</span>
             </div>
 
-            <a href="#/cart" class="p-2 text-on-surface-variant hover:text-emerald rounded-full transition-colors relative shrink-0" title="Cart">
-                <span class="material-symbols-outlined text-xl">shopping_cart</span>
-            </a>
+            <div class="flex items-center gap-2 shrink-0">
+                <!-- Theme Toggle Switch -->
+                <button type="button" 
+                        class="theme-toggle-switch relative inline-flex items-center w-[54px] sm:w-[60px] h-[28px] sm:h-[30px] rounded-full p-[2px] sm:p-[3px] transition-all duration-300 ease-in-out cursor-pointer select-none bg-slate-200/90 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 shadow-inner hover:scale-105 active:scale-95 shrink-0" 
+                        role="switch" 
+                        aria-checked="false" 
+                        aria-label="Toggle dark mode" 
+                        title="Toggle Light / Dark Mode"
+                        onclick="window.toggleTheme()">
+                    <div class="theme-toggle-thumb absolute top-[2px] sm:top-[3px] left-[2px] sm:left-[3px] w-[22px] sm:w-[24px] h-[22px] sm:h-[24px] rounded-full bg-white dark:bg-slate-900 shadow-md transition-transform duration-300 ease-in-out pointer-events-none border border-slate-200/60 dark:border-slate-700/60"></div>
+                    <div class="relative w-full flex items-center justify-between px-1 z-10 pointer-events-none">
+                        <span class="theme-sun-icon material-symbols-outlined text-[14px] sm:text-[15px] transition-colors duration-200 text-slate-800 dark:text-slate-400 font-bold">wb_sunny</span>
+                        <span class="theme-moon-icon material-symbols-outlined text-[14px] sm:text-[15px] transition-colors duration-200 text-slate-400 dark:text-slate-100 font-bold">dark_mode</span>
+                    </div>
+                </button>
+
+                <a href="#/cart" class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-emerald hover:bg-surface-variant/40 active:scale-90 rounded-full transition-all relative shrink-0 cursor-pointer" title="Cart">
+                    <span class="material-symbols-outlined text-xl">shopping_cart</span>
+                </a>
+            </div>
         </div>
 
         <!-- Mobile Search Bar (Always Visible on Mobile) -->
@@ -48,7 +65,7 @@ window.pages.categories = async function() {
 
     <!-- Main Dual-Pane Layout: Left Categories Column Rail + Right Products/Coming Soon Content -->
     <div class="flex flex-1 max-w-7xl mx-auto w-full overflow-hidden">
-        <!-- Left Vertical Category Column Rail (Full list of all categories in a column) -->
+        <!-- Left Vertical Category Column Rail -->
         <aside class="w-[96px] sm:w-36 shrink-0 bg-surface/95 dark:bg-slate-900/95 backdrop-blur-2xl border-r border-surface-variant/40 shadow-sm overflow-y-auto max-h-[calc(100vh-120px)] sticky top-[70px] py-3 no-scrollbar z-20" id="left-categories-rail">
             <div class="flex flex-col gap-2 items-center px-1.5" id="category-sidebar-list">
                 
@@ -59,153 +76,152 @@ window.pages.categories = async function() {
                         <img src="https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=120" alt="Snacks & Drinks" class="w-full h-full object-cover rounded-xl">
                         <span class="absolute bottom-0 inset-x-0 bg-emerald text-white text-[8px] font-black text-center py-[1px] tracking-wider uppercase">Live ⚡</span>
                     </div>
-                    <span class="cat-label text-[11px] font-extrabold text-center mt-1.5 leading-snug text-emerald dark:text-emerald-400 break-words w-full px-1">
-                        Snacks & Drinks
-                    </span>
+                    <span class="font-bold text-[11px] sm:text-xs mt-1.5 text-center leading-tight text-emerald dark:text-emerald-400 font-extrabold cat-label">Snacks & Drinks</span>
                 </button>
 
-                <!-- 2. Bakery & Biscuits (COMING SOON) -->
-                <button type="button" class="w-full flex flex-col items-center py-2.5 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn hover:bg-surface-variant/30 border border-transparent" data-category-id="bakery" data-status="blocked" data-name="Bakery & Biscuits">
-                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant bg-surface-container-high relative shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
-                        <img src="https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=120" alt="Bakery & Biscuits" class="w-full h-full object-cover rounded-xl filter grayscale contrast-125">
-                        <span class="absolute bottom-0 inset-x-0 bg-neutral-800/90 text-neutral-200 text-[8px] font-bold text-center py-[1px]">Soon 🔒</span>
+                <!-- 2. Bakery & Biscuits (Coming Soon) -->
+                <button type="button" class="w-full flex flex-col items-center py-2.5 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn opacity-85 hover:opacity-100 hover:bg-surface-variant/30 border border-transparent" data-category-id="bakery" data-status="blocked" data-name="Bakery & Biscuits">
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant/60 shadow-sm bg-surface-container-high relative shrink-0">
+                        <img src="https://images.unsplash.com/photo-1509440159596-0249088772ff?w=120" alt="Bakery & Biscuits" class="w-full h-full object-cover rounded-xl grayscale-[40%] group-hover:grayscale-0 transition-all">
+                        <div class="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
+                            <span class="text-[9px] font-black text-amber-300 bg-black/60 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">Soon 🔒</span>
+                        </div>
                     </div>
-                    <span class="cat-label text-[11px] font-bold text-center mt-1.5 leading-snug text-on-surface dark:text-slate-100 break-words w-full px-1">
-                        Bakery & Biscuits
-                    </span>
+                    <span class="font-bold text-[11px] sm:text-xs mt-1.5 text-center leading-tight text-on-surface dark:text-slate-100 cat-label">Bakery & Biscuits</span>
                 </button>
 
-                <!-- 3. Grocery & Kitchen (COMING SOON) -->
-                <button type="button" class="w-full flex flex-col items-center py-2.5 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn hover:bg-surface-variant/30 border border-transparent" data-category-id="grocery" data-status="blocked" data-name="Grocery & Kitchen">
-                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant bg-surface-container-high relative shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
-                        <img src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=120" alt="Grocery & Kitchen" class="w-full h-full object-cover rounded-xl filter grayscale contrast-125">
-                        <span class="absolute bottom-0 inset-x-0 bg-neutral-800/90 text-neutral-200 text-[8px] font-bold text-center py-[1px]">Soon 🔒</span>
+                <!-- 3. Grocery & Kitchen (Coming Soon) -->
+                <button type="button" class="w-full flex flex-col items-center py-2.5 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn opacity-85 hover:opacity-100 hover:bg-surface-variant/30 border border-transparent" data-category-id="grocery" data-status="blocked" data-name="Grocery & Kitchen">
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant/60 shadow-sm bg-surface-container-high relative shrink-0">
+                        <img src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=120" alt="Grocery & Kitchen" class="w-full h-full object-cover rounded-xl grayscale-[40%] group-hover:grayscale-0 transition-all">
+                        <div class="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
+                            <span class="text-[9px] font-black text-amber-300 bg-black/60 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">Soon 🔒</span>
+                        </div>
                     </div>
-                    <span class="cat-label text-[11px] font-bold text-center mt-1.5 leading-snug text-on-surface dark:text-slate-100 break-words w-full px-1">
-                        Grocery & Kitchen
-                    </span>
+                    <span class="font-bold text-[11px] sm:text-xs mt-1.5 text-center leading-tight text-on-surface dark:text-slate-100 cat-label">Grocery & Kitchen</span>
                 </button>
 
-                <!-- 4. Beauty & Personal Care (COMING SOON) -->
-                <button type="button" class="w-full flex flex-col items-center py-2.5 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn hover:bg-surface-variant/30 border border-transparent" data-category-id="beauty" data-status="blocked" data-name="Beauty & Personal Care">
-                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant bg-surface-container-high relative shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
-                        <img src="https://images.unsplash.com/photo-1556228720-195a672e8a03?w=120" alt="Beauty & Personal Care" class="w-full h-full object-cover rounded-xl filter grayscale contrast-125">
-                        <span class="absolute bottom-0 inset-x-0 bg-neutral-800/90 text-neutral-200 text-[8px] font-bold text-center py-[1px]">Soon 🔒</span>
+                <!-- 4. Beauty & Personal Care (Coming Soon) -->
+                <button type="button" class="w-full flex flex-col items-center py-2.5 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn opacity-85 hover:opacity-100 hover:bg-surface-variant/30 border border-transparent" data-category-id="beauty" data-status="blocked" data-name="Beauty & Personal Care">
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant/60 shadow-sm bg-surface-container-high relative shrink-0">
+                        <img src="https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=120" alt="Beauty & Personal Care" class="w-full h-full object-cover rounded-xl grayscale-[40%] group-hover:grayscale-0 transition-all">
+                        <div class="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
+                            <span class="text-[9px] font-black text-amber-300 bg-black/60 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">Soon 🔒</span>
+                        </div>
                     </div>
-                    <span class="cat-label text-[11px] font-bold text-center mt-1.5 leading-snug text-on-surface dark:text-slate-100 break-words w-full px-1">
-                        Beauty & Care
-                    </span>
+                    <span class="font-bold text-[11px] sm:text-xs mt-1.5 text-center leading-tight text-on-surface dark:text-slate-100 cat-label">Beauty & Care</span>
                 </button>
 
-                <!-- 5. Stationery & Notes (COMING SOON) -->
-                <button type="button" class="w-full flex flex-col items-center py-2.5 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn hover:bg-surface-variant/30 border border-transparent" data-category-id="stationery" data-status="blocked" data-name="Stationery & Notebooks">
-                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant bg-surface-container-high relative shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
-                        <img src="https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=120" alt="Stationery" class="w-full h-full object-cover rounded-xl filter grayscale contrast-125">
-                        <span class="absolute bottom-0 inset-x-0 bg-neutral-800/90 text-neutral-200 text-[8px] font-bold text-center py-[1px]">Soon 🔒</span>
+                <!-- 5. Stationery & Study (Coming Soon) -->
+                <button type="button" class="w-full flex flex-col items-center py-2.5 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn opacity-85 hover:opacity-100 hover:bg-surface-variant/30 border border-transparent" data-category-id="stationery" data-status="blocked" data-name="Stationery & Study">
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant/60 shadow-sm bg-surface-container-high relative shrink-0">
+                        <img src="https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=120" alt="Stationery" class="w-full h-full object-cover rounded-xl grayscale-[40%] group-hover:grayscale-0 transition-all">
+                        <div class="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
+                            <span class="text-[9px] font-black text-amber-300 bg-black/60 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">Soon 🔒</span>
+                        </div>
                     </div>
-                    <span class="cat-label text-[11px] font-bold text-center mt-1.5 leading-snug text-on-surface dark:text-slate-100 break-words w-full px-1">
-                        Stationery
-                    </span>
+                    <span class="font-bold text-[11px] sm:text-xs mt-1.5 text-center leading-tight text-on-surface dark:text-slate-100 cat-label">Stationery</span>
                 </button>
 
-                <!-- 6. Electronics & Tech (COMING SOON) -->
-                <button type="button" class="w-full flex flex-col items-center py-2.5 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn hover:bg-surface-variant/30 border border-transparent" data-category-id="electronics" data-status="blocked" data-name="Electronics & Accessories">
-                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant bg-surface-container-high relative shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
-                        <img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=120" alt="Electronics" class="w-full h-full object-cover rounded-xl filter grayscale contrast-125">
-                        <span class="absolute bottom-0 inset-x-0 bg-neutral-800/90 text-neutral-200 text-[8px] font-bold text-center py-[1px]">Soon 🔒</span>
+                <!-- 6. Electronics & Mobile Accessories (Coming Soon) -->
+                <button type="button" class="w-full flex flex-col items-center py-2.5 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn opacity-85 hover:opacity-100 hover:bg-surface-variant/30 border border-transparent" data-category-id="electronics" data-status="blocked" data-name="Electronics & Accessories">
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant/60 shadow-sm bg-surface-container-high relative shrink-0">
+                        <img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=120" alt="Electronics" class="w-full h-full object-cover rounded-xl grayscale-[40%] group-hover:grayscale-0 transition-all">
+                        <div class="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
+                            <span class="text-[9px] font-black text-amber-300 bg-black/60 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">Soon 🔒</span>
+                        </div>
                     </div>
-                    <span class="cat-label text-[11px] font-bold text-center mt-1.5 leading-snug text-on-surface dark:text-slate-100 break-words w-full px-1">
-                        Electronics
-                    </span>
+                    <span class="font-bold text-[11px] sm:text-xs mt-1.5 text-center leading-tight text-on-surface dark:text-slate-100 cat-label">Electronics</span>
                 </button>
 
-                <!-- 7. Pharmacy & First Aid (COMING SOON) -->
-                <button type="button" class="w-full flex flex-col items-center py-2.5 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn hover:bg-surface-variant/30 border border-transparent" data-category-id="pharmacy" data-status="blocked" data-name="Pharmacy & First Aid">
-                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant bg-surface-container-high relative shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
-                        <img src="https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=120" alt="Pharmacy" class="w-full h-full object-cover rounded-xl filter grayscale contrast-125">
-                        <span class="absolute bottom-0 inset-x-0 bg-neutral-800/90 text-neutral-200 text-[8px] font-bold text-center py-[1px]">Soon 🔒</span>
+                <!-- 7. Pharmacy & First Aid (Coming Soon) -->
+                <button type="button" class="w-full flex flex-col items-center py-2.5 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn opacity-85 hover:opacity-100 hover:bg-surface-variant/30 border border-transparent" data-category-id="pharmacy" data-status="blocked" data-name="Campus Pharmacy & Wellness">
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant/60 shadow-sm bg-surface-container-high relative shrink-0">
+                        <img src="https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=120" alt="Pharmacy" class="w-full h-full object-cover rounded-xl grayscale-[40%] group-hover:grayscale-0 transition-all">
+                        <div class="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
+                            <span class="text-[9px] font-black text-amber-300 bg-black/60 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">Soon 🔒</span>
+                        </div>
                     </div>
-                    <span class="cat-label text-[11px] font-bold text-center mt-1.5 leading-snug text-on-surface dark:text-slate-100 break-words w-full px-1">
-                        Pharmacy
-                    </span>
+                    <span class="font-bold text-[11px] sm:text-xs mt-1.5 text-center leading-tight text-on-surface dark:text-slate-100 cat-label">Pharmacy</span>
                 </button>
 
+                <!-- 8. Fashion & Apparel (Coming Soon) -->
+                <button type="button" class="w-full flex flex-col items-center py-2.5 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn opacity-85 hover:opacity-100 hover:bg-surface-variant/30 border border-transparent" data-category-id="fashion" data-status="blocked" data-name="Fashion & Essentials">
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden p-1 border border-surface-variant/60 shadow-sm bg-surface-container-high relative shrink-0">
+                        <img src="https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=120" alt="Fashion" class="w-full h-full object-cover rounded-xl grayscale-[40%] group-hover:grayscale-0 transition-all">
+                        <div class="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
+                            <span class="text-[9px] font-black text-amber-300 bg-black/60 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">Soon 🔒</span>
+                        </div>
+                    </div>
+                    <span class="font-bold text-[11px] sm:text-xs mt-1.5 text-center leading-tight text-on-surface dark:text-slate-100 cat-label">Apparel</span>
+                </button>
             </div>
         </aside>
 
-        <!-- Right Main Pane -->
-        <main class="flex-1 p-2 sm:p-4 overflow-y-auto max-h-[calc(100vh-120px)]" id="right-content-pane">
+        <!-- Right Content Pane -->
+        <main class="flex-1 min-w-0 overflow-y-auto px-3 sm:px-6 py-4 pb-28" id="right-content-pane">
             
-            <!-- LIVE SNACKS & DRINKS VIEW -->
-            <div id="live-snacks-container" class="space-y-3">
-                <!-- Subcategory Filter Chips -->
-                <div class="flex items-center justify-between gap-2">
-                    <div class="flex gap-1.5 overflow-x-auto no-scrollbar py-1" id="snacks-subcat-chips">
-                        <!-- Chips dynamically rendered -->
-                    </div>
+            <!-- LIVE SNACKS & DRINKS VIEW (Default Active) -->
+            <div id="live-snacks-container" class="space-y-4">
+                
+                <!-- Subcategory Horizontal Filter Chips -->
+                <div class="flex items-center gap-1.5 overflow-x-auto pb-2 no-scrollbar" id="snacks-subcat-chips">
+                    <!-- Injected dynamically in pageInit -->
                 </div>
 
-                <!-- Active Subcategory Heading & Filter Pills Bar -->
-                <div class="flex items-center justify-between pt-1 pb-1 border-b border-surface-variant/40">
-                    <div class="flex items-center gap-1.5">
-                        <span class="font-bold text-xs sm:text-sm text-on-surface" id="snacks-active-heading">All Snacks & Drinks</span>
-                        <span class="text-[10px] bg-emerald/10 text-emerald font-extrabold px-2 py-0.5 rounded-full" id="snacks-item-count">24 items</span>
-                    </div>
-                    
+                <!-- Snacks Header & Filters Bar -->
+                <div class="flex items-center justify-between gap-2 border-b border-surface-variant/30 pb-2.5">
                     <div class="flex items-center gap-2">
+                        <h2 class="font-headline-md text-sm sm:text-base font-black text-on-surface" id="snacks-active-heading">All Snacks & Drinks</h2>
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald/15 text-emerald" id="snacks-item-count">Loading...</span>
+                    </div>
+
+                    <!-- Sort & Veg Toggle Controls -->
+                    <div class="flex items-center gap-2 shrink-0">
                         <!-- Veg Only Toggle -->
-                        <button type="button" id="snacks-veg-toggle" class="flex items-center gap-1 px-2.5 py-1 rounded-full border border-surface-variant bg-surface hover:bg-surface-container-high text-[11px] font-bold text-on-surface cursor-pointer transition-all">
-                            <span class="w-2.5 h-2.5 border border-emerald-600 rounded-sm flex items-center justify-center p-[1px]">
+                        <button type="button" id="snacks-veg-toggle" class="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border border-surface-variant bg-surface hover:border-emerald transition-all cursor-pointer">
+                            <span class="w-2.5 h-2.5 rounded-sm border border-emerald-600 flex items-center justify-center p-[1px]">
                                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
                             </span>
-                            <span>Veg</span>
+                            <span class="text-on-surface-variant text-[10px]">Veg Only</span>
                         </button>
 
                         <!-- Sort dropdown -->
-                        <select id="snacks-sort-select" class="text-[11px] px-2 py-1 rounded-full border border-surface-variant bg-surface text-on-surface font-semibold focus:outline-none focus:border-emerald cursor-pointer">
-                            <option value="relevance">⇅ Sort</option>
-                            <option value="price_asc">Price: Low to High</option>
-                            <option value="price_desc">Price: High to Low</option>
-                            <option value="discount">% Discount</option>
-                            <option value="rating">Top Rated (★)</option>
+                        <select id="snacks-sort-select" class="text-[11px] font-medium bg-surface border border-surface-variant text-on-surface rounded-xl px-2 py-1 focus:outline-none focus:border-emerald cursor-pointer">
+                            <option value="relevance">Sort: Popular</option>
+                            <option value="price-asc">Price: Low to High</option>
+                            <option value="price-desc">Price: High to Low</option>
+                            <option value="name">Name: A to Z</option>
                         </select>
                     </div>
                 </div>
 
-                <!-- Snacks Products Grid (2 columns mobile, 3-4 desktop) -->
-                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3.5" id="snacks-products-grid">
-                    <!-- Cards populated here -->
+                <!-- Snacks Products Grid (Dual-column on mobile, up to 4 columns on desktop) -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4" id="snacks-products-grid">
+                    <!-- Loaded via client JS -->
+                    <div class="col-span-full py-16 text-center text-on-surface-variant text-xs flex flex-col items-center gap-2">
+                        <div class="w-8 h-8 rounded-full border-2 border-emerald border-t-transparent animate-spin"></div>
+                        <p class="font-semibold">Loading fresh snacks & drinks...</p>
+                    </div>
                 </div>
+
             </div>
 
-            <!-- BLOCKED / COMING SOON SPLASH VIEW (Shown when other categories are tapped) -->
-            <div id="blocked-category-splash" class="hidden py-8 px-4 flex flex-col items-center justify-center text-center space-y-4 max-w-md mx-auto">
-                <div class="w-20 h-20 rounded-3xl bg-surface-container-high border border-surface-variant flex items-center justify-center shadow-lg relative">
-                    <span class="material-symbols-outlined text-4xl text-on-surface-variant">lock_clock</span>
-                    <span class="absolute -top-1.5 -right-1.5 bg-amber-500 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-full shadow-sm">Coming Soon</span>
+            <!-- BLOCKED CATEGORY SPLASH VIEW -->
+            <div id="blocked-category-splash" class="hidden py-12 sm:py-20 px-4 text-center max-w-md mx-auto space-y-5">
+                <div class="w-20 h-20 rounded-3xl bg-amber-500/10 border border-amber-500/30 text-amber-500 flex items-center justify-center mx-auto shadow-inner">
+                    <span class="material-symbols-outlined text-4xl">lock_clock</span>
                 </div>
-                
-                <div>
-                    <h2 class="font-headline-md text-lg sm:text-xl font-bold text-on-surface" id="blocked-cat-title">
-                        Category Coming Soon
-                    </h2>
-                    <p class="text-xs text-on-surface-variant mt-1.5 leading-relaxed" id="blocked-cat-desc">
-                        We are actively onboarding vendors and kitchen partners for this category. It will unlock in the next campus rollout phase!
+                <div class="space-y-1.5">
+                    <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                        Expansion in Progress
+                    </span>
+                    <h3 class="font-headline-md text-xl sm:text-2xl font-black text-on-surface" id="blocked-cat-title">Coming Soon</h3>
+                    <p class="text-xs text-on-surface-variant leading-relaxed max-w-sm mx-auto" id="blocked-cat-desc">
+                        This category is undergoing vendor onboarding and quality cataloging. We currently deliver <b>Snacks & Drinks</b> within 3 mins to your campus room!
                     </p>
                 </div>
-
-                <!-- Notification Alert Banner -->
-                <div class="w-full p-3.5 bg-emerald/10 border border-emerald/30 rounded-2xl text-left space-y-1">
-                    <div class="flex items-center gap-1.5 text-emerald font-bold text-xs">
-                        <span class="material-symbols-outlined text-sm">bolt</span>
-                        <span>Snacks & Drinks are Live 24/7!</span>
-                    </div>
-                    <p class="text-[11px] text-on-surface-variant">
-                        Get instant noodles, cold beverages, chips, chocolates, tea & biscuits delivered to BH13 in 3 minutes.
-                    </p>
-                </div>
-
-                <button type="button" id="switch-to-snacks-btn" class="w-full bg-emerald text-white rounded-full py-3 text-xs sm:text-sm font-bold shadow-md hover:bg-primary active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2">
+                <button type="button" id="switch-to-snacks-btn" class="inline-flex items-center gap-2 bg-emerald hover:bg-emerald-600 active:scale-95 text-white text-xs font-bold px-6 py-2.5 rounded-full shadow-md transition-all cursor-pointer">
                     <span class="material-symbols-outlined text-sm">fastfood</span>
                     Browse Live Snacks & Drinks
                 </button>
@@ -214,28 +230,28 @@ window.pages.categories = async function() {
         </main>
     </div>
 
-    <!-- Bottom Toast Alert for Blocked Categories -->
+    <!-- Bottom Toast Alert -->
     <div id="coming-soon-toast" class="fixed top-20 left-1/2 -translate-x-1/2 bg-surface-container-lowest/95 backdrop-blur-xl border border-amber-500/40 text-on-surface px-4 py-2.5 rounded-full shadow-2xl z-50 text-xs font-semibold flex items-center gap-2 transition-all duration-300 opacity-0 pointer-events-none -translate-y-4">
         <span class="material-symbols-outlined text-amber-500 text-sm">info</span>
-        <span id="coming-soon-toast-text">Category is opening soon! Delivering Snacks & Drinks right now.</span>
+        <span id="coming-soon-toast-text">Category is opening soon!</span>
     </div>
 
     <!-- BottomNavBar -->
     <div class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-50">
         <nav class="flex justify-around items-center p-2 mx-auto bg-white/85 dark:bg-[#0e1813]/85 backdrop-blur-2xl shadow-xl border border-glass-border rounded-full">
-            <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-95 duration-200" href="#/">
+            <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-90 duration-200 cursor-pointer" href="#/" title="Home">
                 <span class="material-symbols-outlined">home</span>
                 <span class="font-label-sm text-[11px] mt-0.5 hidden sm:block">Home</span>
             </a>
-            <a class="flex flex-col items-center justify-center bg-emerald text-on-primary rounded-full px-6 py-2 active:scale-95 duration-200 shadow-md" href="#/categories">
+            <a class="flex flex-col items-center justify-center bg-emerald text-on-primary rounded-full px-6 py-2 active:scale-95 duration-200 shadow-md cursor-pointer" href="#/categories" title="Categories">
                 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">category</span>
                 <span class="font-label-sm text-[11px] mt-0.5">Categories</span>
             </a>
-            <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-95 duration-200" href="#/cart">
+            <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-90 duration-200 cursor-pointer" href="#/cart" title="Cart">
                 <span class="material-symbols-outlined">shopping_cart</span>
                 <span class="font-label-sm text-[11px] mt-0.5 hidden sm:block">Cart</span>
             </a>
-            <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-95 duration-200" href="#/orders">
+            <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-90 duration-200 cursor-pointer" href="#/orders" title="Orders">
                 <span class="material-symbols-outlined">receipt_long</span>
                 <span class="font-label-sm text-[11px] mt-0.5 hidden sm:block">Orders</span>
             </a>

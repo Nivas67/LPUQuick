@@ -125,7 +125,57 @@ window.currentBlock = localStorage.getItem('lpuquick_block') || 'Block A';
 window.currentRoom = localStorage.getItem('lpuquick_room') || '';
 window.currentAddressDetail = localStorage.getItem('lpuquick_address_detail') || '';
 
-// Theme state
+// Theme state & global theme toggle manager
+window.toggleTheme = function() {
+    const isCurrentlyDark = document.documentElement.classList.contains('dark') || localStorage.getItem('lpuquick_theme') === 'dark';
+    const newTheme = isCurrentlyDark ? 'light' : 'dark';
+    if (newTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+        document.body.classList.add('dark');
+        localStorage.setItem('lpuquick_theme', 'dark');
+    } else {
+        document.documentElement.classList.remove('dark');
+        document.body.classList.remove('dark');
+        localStorage.setItem('lpuquick_theme', 'light');
+    }
+    window.syncAllThemeToggles();
+};
+
+window.syncAllThemeToggles = function() {
+    const isDark = document.documentElement.classList.contains('dark') || localStorage.getItem('lpuquick_theme') === 'dark';
+    document.querySelectorAll('.theme-toggle-switch').forEach(toggle => {
+        toggle.setAttribute('aria-checked', isDark ? 'true' : 'false');
+        toggle.setAttribute('title', isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode');
+        const thumb = toggle.querySelector('.theme-toggle-thumb');
+        const sunIcon = toggle.querySelector('.theme-sun-icon');
+        const moonIcon = toggle.querySelector('.theme-moon-icon');
+        const isMobile = toggle.classList.contains('w-[54px]');
+        const translateDist = isMobile ? '26px' : '30px';
+
+        if (thumb) {
+            thumb.style.transform = isDark ? `translateX(${translateDist})` : 'translateX(0px)';
+        }
+        if (sunIcon && moonIcon) {
+            if (isDark) {
+                sunIcon.classList.add('opacity-40', 'text-slate-400');
+                sunIcon.classList.remove('opacity-100', 'text-slate-800');
+                moonIcon.classList.add('opacity-100', 'text-slate-100');
+                moonIcon.classList.remove('opacity-40', 'text-slate-400');
+            } else {
+                sunIcon.classList.add('opacity-100', 'text-slate-800');
+                sunIcon.classList.remove('opacity-40', 'text-slate-400');
+                moonIcon.classList.add('opacity-40', 'text-slate-400');
+                moonIcon.classList.remove('opacity-100', 'text-slate-100');
+            }
+        }
+    });
+
+    const settingsToggle = document.getElementById('toggle-darkmode');
+    if (settingsToggle) {
+        settingsToggle.checked = isDark;
+    }
+};
+
 if (localStorage.getItem('lpuquick_theme') === 'dark') {
     document.documentElement.classList.add('dark');
     document.body.classList.add('dark');
@@ -143,8 +193,16 @@ const routes = {
 };
 
 function navigate(path) {
-    window.location.hash = '#' + path;
+    const cleanPath = (path || '/').startsWith('#') ? (path || '/').slice(1) : (path || '/');
+    const targetHash = '#' + (cleanPath.startsWith('/') ? cleanPath : '/' + cleanPath);
+    if (window.location.hash === targetHash) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (typeof router === 'function') router();
+    } else {
+        window.location.hash = targetHash;
+    }
 }
+window.navigate = navigate;
 
 function getCurrentRoute() {
     const hash = window.location.hash.slice(1) || '/';
@@ -1196,6 +1254,11 @@ async function router() {
             // Initialize page-specific JS
             const initFn = window.pageInits[pageName];
             if (initFn) initFn();
+
+            // Synchronize theme toggles
+            if (typeof window.syncAllThemeToggles === 'function') {
+                window.syncAllThemeToggles();
+            }
 
             // Synchronize steppers
             window.syncCardSteppers();

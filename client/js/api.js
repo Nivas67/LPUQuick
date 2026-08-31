@@ -145,6 +145,9 @@ let ordersMemoryCacheTime = 0;
 let activeOrderMemoryCache = null;
 let activeOrderMemoryCacheTime = 0;
 
+let productsMemoryCache = new Map();
+let productsMemoryCacheTime = new Map();
+
 const api = {
     // Auth
     async signin(email, password) {
@@ -188,9 +191,33 @@ const api = {
         const uid = userId || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : window.CURRENT_USER_ID) || '';
         const tz = new Date().getTimezoneOffset();
         const url = uid ? `${API_BASE}/home?tz=${tz}&userId=${encodeURIComponent(uid)}` : `${API_BASE}/home?tz=${tz}`;
+        const now = Date.now();
 
-        // Return cached home feed in 0ms if recent (< 15s)
-        if (homeFeedCache && homeFeedCacheUserId === uid && (Date.now() - homeFeedCacheTime < 15000)) {
+        // 1. Instant 0ms Memory Cache if fresh (< 45s)
+        if (homeFeedCache && homeFeedCacheUserId === uid && (now - homeFeedCacheTime < 45000)) {
+            return homeFeedCache;
+        }
+
+        // 2. If stale cache exists, return it immediately (0ms) and revalidate silently in background
+        if (homeFeedCache && homeFeedCacheUserId === uid) {
+            fetch(url)
+                .then(res => res.json())
+                .then(data => {
+                    if (data) {
+                        indexProducts(data.deals);
+                        indexProducts(data.bestSellers);
+                        indexProducts(data.recommended);
+                        indexProducts(data.quickBreakfast);
+                        indexProducts(data.midnightSnacks);
+                        indexProducts(data.studyEssentials);
+                        indexProducts(data.dormBeverages);
+                        indexProducts(data.buy_again);
+                        homeFeedCache = data;
+                        homeFeedCacheTime = Date.now();
+                        homeFeedCacheUserId = uid;
+                    }
+                })
+                .catch(() => {});
             return homeFeedCache;
         }
 
@@ -257,13 +284,40 @@ const api = {
         return data;
     },
 
-    // Products List
+    // Products List with 0ms SWR Memory Cache (Zero-lag navigation across catalog)
     async getProducts(category = null) {
+        const cacheKey = category || '__all__';
+        const now = Date.now();
+        const cached = productsMemoryCache.get(cacheKey);
+        const cachedTime = productsMemoryCacheTime.get(cacheKey) || 0;
+
+        // Return immediately if fresh (< 45s)
+        if (cached && (now - cachedTime < 45000)) {
+            return cached;
+        }
+
+        // If stale cache exists, return it immediately (0ms) and revalidate in background
+        if (cached) {
+            fetch(category ? `${API_BASE}/products?category=${encodeURIComponent(category)}` : `${API_BASE}/products`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data && Array.isArray(data.products)) {
+                        indexProducts(data.products);
+                        productsMemoryCache.set(cacheKey, data);
+                        productsMemoryCacheTime.set(cacheKey, Date.now());
+                    }
+                })
+                .catch(() => {});
+            return cached;
+        }
+
         const url = category ? `${API_BASE}/products?category=${encodeURIComponent(category)}` : `${API_BASE}/products`;
         const res = await fetch(url);
         const data = await res.json();
         if (data && Array.isArray(data.products)) {
             indexProducts(data.products);
+            productsMemoryCache.set(cacheKey, data);
+            productsMemoryCacheTime.set(cacheKey, Date.now());
         }
         return data;
     },

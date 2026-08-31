@@ -5,7 +5,7 @@ const ADMIN_AUTH_SECRET = process.env.JWT_SECRET || process.env.SUPABASE_SERVICE
 
 /**
  * Generate a cryptographically signed HMAC token for an authenticated administrator.
- * Valid for 24 hours.
+ * Valid for 30 days for seamless admin sessions.
  */
 function generateAdminToken(adminId = 'admin_001', role = 'admin') {
     const header = { alg: 'HS256', typ: 'JWT' };
@@ -13,7 +13,7 @@ function generateAdminToken(adminId = 'admin_001', role = 'admin') {
         sub: adminId,
         role: role,
         iat: Date.now(),
-        exp: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
+        exp: Date.now() + (30 * 24 * 60 * 60 * 1000) // 30 days
     };
 
     const encodedHeader = Buffer.from(JSON.stringify(header)).toString('base64url');

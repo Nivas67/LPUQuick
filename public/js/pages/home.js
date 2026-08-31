@@ -218,13 +218,31 @@ window.pages.home = async function() {
                 <span class="material-symbols-outlined text-xs ml-1 text-emerald">expand_more</span>
             </button>
         </div>
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-3 sm:gap-4">
             <!-- Dedicated Fast Product Search -->
             <div class="relative w-80">
                 <input class="w-full pl-9 pr-8 py-2 rounded-full border border-surface-variant bg-surface focus:outline-none focus:border-emerald focus:ring-1 focus:ring-emerald transition-all font-body-md text-xs shadow-sm" placeholder="Search products (milk, noodles, chips...)" type="text" id="desktop-search" autocomplete="off">
                 <span class="material-symbols-outlined absolute left-3 top-2.5 text-on-surface-variant text-sm">search</span>
                 <div id="desktop-search-dropdown" class="hidden absolute top-11 left-0 w-full bg-surface border border-surface-variant rounded-2xl shadow-xl z-50 max-h-80 overflow-y-auto p-2"></div>
             </div>
+
+            <!-- Sleek Day/Night Theme Pill Switch -->
+            <button type="button" 
+                    class="theme-toggle-switch relative inline-flex items-center w-[60px] h-[30px] rounded-full p-[3px] transition-all duration-300 ease-in-out cursor-pointer select-none bg-slate-200/90 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 shadow-inner hover:scale-105 active:scale-95 shrink-0" 
+                    role="switch" 
+                    aria-checked="false" 
+                    aria-label="Toggle dark mode" 
+                    title="Toggle Light / Dark Mode"
+                    onclick="window.toggleTheme()">
+                <!-- Sliding Circular White Thumb -->
+                <div class="theme-toggle-thumb absolute top-[3px] left-[3px] w-[24px] h-[24px] rounded-full bg-white dark:bg-slate-900 shadow-md transition-transform duration-300 ease-in-out pointer-events-none border border-slate-200/60 dark:border-slate-700/60"></div>
+                <!-- Sun & Moon Icons -->
+                <div class="relative w-full flex items-center justify-between px-1.5 z-10 pointer-events-none">
+                    <span class="theme-sun-icon material-symbols-outlined text-[15px] transition-colors duration-200 text-slate-800 dark:text-slate-400 font-bold">wb_sunny</span>
+                    <span class="theme-moon-icon material-symbols-outlined text-[15px] transition-colors duration-200 text-slate-400 dark:text-slate-100 font-bold">dark_mode</span>
+                </div>
+            </button>
+
             <a href="#/orders" class="p-2 text-on-surface-variant hover:text-emerald transition-colors" title="My Orders"><span class="material-symbols-outlined">receipt_long</span></a>
             <a href="#/cart" class="p-2 text-on-surface-variant hover:text-emerald transition-colors relative" title="Cart">
                 <span class="material-symbols-outlined">shopping_cart</span>
@@ -235,24 +253,41 @@ window.pages.home = async function() {
 
     <!-- TopAppBar (Mobile) -->
     <header class="md:hidden flex justify-between items-center px-margin-mobile py-2.5 w-full z-50 fixed top-0 bg-surface/80 backdrop-blur-3xl border-b border-glass-border">
-        <div class="flex items-center gap-2.5">
+        <div class="flex items-center gap-2.5 min-w-0">
             <a href="#/" class="shrink-0">
                 <img src="/logo.png" alt="LPUQuick" class="w-8 h-8 rounded-full shadow-sm shrink-0 object-contain bg-transparent">
             </a>
             <!-- Address Selector Trigger Mobile -->
-            <button type="button" class="address-selector-trigger flex flex-col text-left cursor-pointer">
-                <div class="flex items-center text-primary font-bold text-sm">
-                    <span>Delivery to ${address}</span>
-                    <span class="material-symbols-outlined ml-0.5 text-xs text-emerald">expand_more</span>
+            <button type="button" class="address-selector-trigger flex flex-col text-left cursor-pointer truncate">
+                <div class="flex items-center text-primary font-bold text-sm truncate">
+                    <span class="truncate">Delivery to ${address}</span>
+                    <span class="material-symbols-outlined ml-0.5 text-xs text-emerald shrink-0">expand_more</span>
                 </div>
                 <span class="text-on-surface-variant text-[10px]">3 mins ETA · Click to Change</span>
             </button>
         </div>
-        <div class="flex items-center gap-1.5">
-            <a href="#/cart" class="p-2 text-on-surface-variant hover:text-emerald transition-colors relative">
+        <div class="flex items-center gap-2 shrink-0">
+            <!-- Mobile Day/Night Theme Pill Switch -->
+            <button type="button" 
+                    class="theme-toggle-switch relative inline-flex items-center w-[54px] h-[28px] rounded-full p-[2px] transition-all duration-300 ease-in-out cursor-pointer select-none bg-slate-200/90 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 shadow-inner hover:scale-105 active:scale-95 shrink-0" 
+                    role="switch" 
+                    aria-checked="false" 
+                    aria-label="Toggle dark mode" 
+                    title="Toggle Light / Dark Mode"
+                    onclick="window.toggleTheme()">
+                <div class="theme-toggle-thumb absolute top-[2px] left-[2px] w-[22px] h-[22px] rounded-full bg-white dark:bg-slate-900 shadow-md transition-transform duration-300 ease-in-out pointer-events-none border border-slate-200/60 dark:border-slate-700/60"></div>
+                <div class="relative w-full flex items-center justify-between px-1 z-10 pointer-events-none">
+                    <span class="theme-sun-icon material-symbols-outlined text-[14px] transition-colors duration-200 text-slate-800 dark:text-slate-400 font-bold">wb_sunny</span>
+                    <span class="theme-moon-icon material-symbols-outlined text-[14px] transition-colors duration-200 text-slate-400 dark:text-slate-100 font-bold">dark_mode</span>
+                </div>
+            </button>
+
+            <a href="#/cart" class="p-2 text-on-surface-variant hover:text-emerald transition-colors relative" title="Cart">
                 <span class="material-symbols-outlined text-xl">shopping_cart</span>
             </a>
-            <a href="#/settings" class="p-2 text-on-surface-variant hover:text-emerald transition-colors"><span class="material-symbols-outlined text-xl">account_circle</span></a>
+            <a href="#/settings" class="p-2 text-on-surface-variant hover:text-emerald transition-colors" title="Settings">
+                <span class="material-symbols-outlined text-xl">account_circle</span>
+            </a>
         </div>
     </header>
 
