@@ -60,6 +60,12 @@ function resolveOrderCustomerName(order, user) {
 
 // ===== ADMIN ROUTES (must be before /:userId catch-all) =====
 
+// POST /api/orders/admin/invalidate-cache (Admin manual refresh cache burst)
+router.post('/admin/invalidate-cache', requireAdmin, (req, res) => {
+    cache.invalidateOrders();
+    res.json({ success: true, message: 'Orders and analytics cache invalidated.' });
+});
+
 // GET /api/orders/admin/all (All orders for admin dashboard - Optimized Single PostgREST Join + Batch Users)
 router.get('/admin/all', requireAdmin, async (req, res) => {
     try {

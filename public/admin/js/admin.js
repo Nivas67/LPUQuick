@@ -369,10 +369,14 @@ let realtimeWs = null;
 let adminToken = localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token') || '';
 
 // Headers for protected API calls
-function getAuthHeaders() {
+function getAuthHeaders(extra = {}) {
     const token = localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token') || adminToken;
     const headers = {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        ...extra
     };
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
@@ -416,8 +420,64 @@ function switchView(viewName) {
     else if (viewName === 'analytics') loadAnalytics();
 }
 
-function refreshCurrentView() {
-    switchView(activeView);
+// Master Live Refresh Controller
+async function refreshCurrentView() {
+    const refreshBtn = document.getElementById('btn-header-refresh');
+    const refreshIcon = document.getElementById('btn-header-refresh-icon') || refreshBtn?.querySelector('.material-symbols-outlined');
+
+    if (refreshIcon) refreshIcon.classList.add('animate-spin');
+    if (refreshBtn) refreshBtn.disabled = true;
+
+    try {
+        // Clear local caches for guaranteed fresh state
+        productsCache = [];
+        ordersCache = [];
+        customersCache = [];
+        blacklistCache = [];
+
+        // Burst backend cache so fresh queries run against Supabase
+        try {
+            await fetch('/api/orders/admin/invalidate-cache', {
+                method: 'POST',
+                headers: getAuthHeaders()
+            }).catch(() => {});
+        } catch (e) {}
+
+        // Trigger view refresh and background sync
+        const promises = [
+            loadClientLockState(),
+            syncOrdersLive()
+        ];
+
+        if (activeView === 'dashboard') {
+            promises.push(loadDashboard());
+        } else if (activeView === 'client-lock') {
+            promises.push(loadClientLockState());
+        } else if (activeView === 'products') {
+            promises.push(loadProducts());
+        } else if (activeView === 'inventory') {
+            promises.push(loadInventory());
+        } else if (activeView === 'orders') {
+            promises.push(loadOrders());
+        } else if (activeView === 'customers') {
+            promises.push(loadCustomers());
+        } else if (activeView === 'blacklist') {
+            promises.push(loadBlacklistData());
+        } else if (activeView === 'analytics') {
+            promises.push(loadAnalytics());
+        }
+
+        await Promise.allSettled(promises);
+        showToast('Dashboard data refreshed', 'success');
+    } catch (err) {
+        console.error('[Refresh Error]:', err);
+        showToast('Failed to refresh data: ' + err.message, 'warning');
+    } finally {
+        setTimeout(() => {
+            if (refreshIcon) refreshIcon.classList.remove('animate-spin');
+            if (refreshBtn) refreshBtn.disabled = false;
+        }, 500);
+    }
 }
 
 
