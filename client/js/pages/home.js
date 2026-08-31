@@ -244,8 +244,9 @@ window.pages.home = async function() {
             </button>
 
             <a href="#/orders" class="p-2 text-on-surface-variant hover:text-emerald transition-colors" title="My Orders"><span class="material-symbols-outlined">receipt_long</span></a>
-            <a href="#/cart" class="p-2 text-on-surface-variant hover:text-emerald transition-colors relative" title="Cart">
+            <a href="#/cart" class="p-2 text-on-surface-variant hover:text-emerald transition-colors relative flex items-center justify-center" title="Cart">
                 <span class="material-symbols-outlined">shopping_cart</span>
+                <span id="desktop-header-cart-count" class="global-cart-count-badge absolute -top-0.5 -right-0.5 bg-emerald text-white text-[10px] font-black min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center shadow-md ring-2 ring-white dark:ring-slate-900 hidden">0</span>
             </a>
             <a href="#/settings" class="p-2 text-on-surface-variant hover:text-emerald transition-colors" title="Settings"><span class="material-symbols-outlined">settings</span></a>
         </div>
@@ -282,8 +283,9 @@ window.pages.home = async function() {
                 </div>
             </button>
 
-            <a href="#/cart" class="p-2 text-on-surface-variant hover:text-emerald transition-colors relative" title="Cart">
+            <a href="#/cart" class="p-2 text-on-surface-variant hover:text-emerald transition-colors relative flex items-center justify-center" title="Cart">
                 <span class="material-symbols-outlined text-xl">shopping_cart</span>
+                <span id="mobile-header-cart-count" class="global-cart-count-badge absolute top-0 right-0 bg-emerald text-white text-[10px] font-black min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center shadow-md ring-2 ring-white dark:ring-slate-900 hidden">0</span>
             </a>
             <a href="#/settings" class="p-2 text-on-surface-variant hover:text-emerald transition-colors" title="Settings">
                 <span class="material-symbols-outlined text-xl">account_circle</span>
@@ -502,8 +504,11 @@ window.pages.home = async function() {
                 <span class="material-symbols-outlined">category</span>
                 <span class="font-label-sm text-[11px] mt-0.5 hidden sm:block">Categories</span>
             </a>
-            <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-95 duration-200" href="#/cart">
-                <span class="material-symbols-outlined">shopping_cart</span>
+            <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-95 duration-200 relative" href="#/cart" id="bottom-nav-cart-btn">
+                <div class="relative flex items-center justify-center">
+                    <span class="material-symbols-outlined">shopping_cart</span>
+                    <span id="bottom-nav-cart-count" class="global-cart-count-badge absolute -top-1.5 -right-2 bg-emerald text-white text-[10px] font-black min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center shadow-md ring-2 ring-white dark:ring-slate-900 hidden">0</span>
+                </div>
                 <span class="font-label-sm text-[11px] mt-0.5 hidden sm:block">Cart</span>
             </a>
             <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-95 duration-200" href="#/orders">

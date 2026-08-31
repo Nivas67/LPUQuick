@@ -38,6 +38,9 @@ function updateLocalCartState(cartData) {
         });
         window.cartState = nextState;
     }
+    if (typeof window.updateGlobalCartBadges === 'function') {
+        window.updateGlobalCartBadges();
+    }
 }
 
 // Atomic Optimistic Cart State & Fast-Tap Debounced Syncer (< 1ms UI response, 100% accurate count)
@@ -461,10 +464,21 @@ const api = {
     },
 
     // Checkout
-    async checkout(userId, paymentMethod = 'Cash on Delivery', deliveryAddress = '') {
+    async checkout(userId, paymentMethod = 'Cash on Delivery', deliveryAddress = '', extraData = {}) {
+        const savedPhone = extraData.phone || localStorage.getItem('lpuquick_phone') || '';
+        const savedName = extraData.name || window.CURRENT_USER_NAME || (JSON.parse(localStorage.getItem('lpuquick_user') || '{}').name) || '';
+        const savedEmail = extraData.email || window.CURRENT_USER_EMAIL || (JSON.parse(localStorage.getItem('lpuquick_user') || '{}').email) || '';
+
         const res = await fetch(`${API_BASE}/checkout`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, paymentMethod, deliveryAddress })
+            body: JSON.stringify({
+                userId,
+                paymentMethod,
+                deliveryAddress,
+                customerPhone: savedPhone,
+                customerName: savedName,
+                customerEmail: savedEmail
+            })
         });
         cartMemoryCache = null;
         ordersMemoryCache = null;

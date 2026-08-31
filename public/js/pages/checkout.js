@@ -801,7 +801,11 @@ window.pageInits.checkout = function() {
         const selectedPaymentMethod = 'Cash on Delivery';
 
         try {
-            const res = await window.api.checkout(userId, selectedPaymentMethod, deliveryAddress);
+            const res = await window.api.checkout(userId, selectedPaymentMethod, deliveryAddress, {
+                phone: savedPhone,
+                name: window.CURRENT_USER_NAME,
+                email: window.CURRENT_USER_EMAIL
+            });
 
             if (res && res.success && res.order) {
                 // Successful confirmation state on slider

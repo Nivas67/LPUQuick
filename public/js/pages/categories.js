@@ -50,6 +50,7 @@ window.pages.categories = async function() {
 
                 <a href="#/cart" class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-emerald hover:bg-surface-variant/40 active:scale-90 rounded-full transition-all relative shrink-0 cursor-pointer" title="Cart">
                     <span class="material-symbols-outlined text-xl">shopping_cart</span>
+                    <span id="mobile-header-cart-count" class="global-cart-count-badge absolute -top-0.5 -right-0.5 bg-emerald text-white text-[10px] font-black min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center shadow-md ring-2 ring-white dark:ring-slate-900 hidden">0</span>
                 </a>
             </div>
         </div>
@@ -65,7 +66,7 @@ window.pages.categories = async function() {
 
     <!-- Main Dual-Pane Layout: Left Categories Column Rail + Right Products/Coming Soon Content -->
     <div class="flex flex-1 max-w-7xl mx-auto w-full overflow-hidden">
-        <!-- Left Vertical Category Column Rail -->
+        <!-- Left Vertical Category Column Rail (Full list of all categories in a column) -->
         <aside class="w-[96px] sm:w-36 shrink-0 bg-surface/95 dark:bg-slate-900/95 backdrop-blur-2xl border-r border-surface-variant/40 shadow-sm overflow-y-auto max-h-[calc(100vh-120px)] sticky top-[70px] py-3 no-scrollbar z-20" id="left-categories-rail">
             <div class="flex flex-col gap-2 items-center px-1.5" id="category-sidebar-list">
                 
@@ -159,7 +160,7 @@ window.pages.categories = async function() {
         </aside>
 
         <!-- Right Content Pane -->
-        <main class="flex-1 min-w-0 overflow-y-auto px-3 sm:px-6 py-4 pb-28" id="right-content-pane">
+        <main class="flex-1 min-w-0 overflow-y-auto px-3 sm:px-6 py-4 pb-28">
             
             <!-- LIVE SNACKS & DRINKS VIEW (Default Active) -->
             <div id="live-snacks-container" class="space-y-4">
@@ -207,7 +208,7 @@ window.pages.categories = async function() {
 
             </div>
 
-            <!-- BLOCKED CATEGORY SPLASH VIEW -->
+            <!-- BLOCKED CATEGORY SPLASH VIEW (Shows when clicking a coming soon category) -->
             <div id="blocked-category-splash" class="hidden py-12 sm:py-20 px-4 text-center max-w-md mx-auto space-y-5">
                 <div class="w-20 h-20 rounded-3xl bg-amber-500/10 border border-amber-500/30 text-amber-500 flex items-center justify-center mx-auto shadow-inner">
                     <span class="material-symbols-outlined text-4xl">lock_clock</span>
@@ -230,10 +231,10 @@ window.pages.categories = async function() {
         </main>
     </div>
 
-    <!-- Bottom Toast Alert -->
+    <!-- Bottom Toast Alert for Blocked Categories -->
     <div id="coming-soon-toast" class="fixed top-20 left-1/2 -translate-x-1/2 bg-surface-container-lowest/95 backdrop-blur-xl border border-amber-500/40 text-on-surface px-4 py-2.5 rounded-full shadow-2xl z-50 text-xs font-semibold flex items-center gap-2 transition-all duration-300 opacity-0 pointer-events-none -translate-y-4">
         <span class="material-symbols-outlined text-amber-500 text-sm">info</span>
-        <span id="coming-soon-toast-text">Category is opening soon!</span>
+        <span id="coming-soon-toast-text">Category is opening soon! Delivering Snacks & Drinks right now.</span>
     </div>
 
     <!-- BottomNavBar -->
@@ -247,8 +248,11 @@ window.pages.categories = async function() {
                 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">category</span>
                 <span class="font-label-sm text-[11px] mt-0.5">Categories</span>
             </a>
-            <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-90 duration-200 cursor-pointer" href="#/cart" title="Cart">
-                <span class="material-symbols-outlined">shopping_cart</span>
+            <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-90 duration-200 cursor-pointer relative" href="#/cart" title="Cart" id="bottom-nav-cart-btn">
+                <div class="relative flex items-center justify-center">
+                    <span class="material-symbols-outlined">shopping_cart</span>
+                    <span id="bottom-nav-cart-count" class="global-cart-count-badge absolute -top-1.5 -right-2 bg-emerald text-white text-[10px] font-black min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center shadow-md ring-2 ring-white dark:ring-slate-900 hidden">0</span>
+                </div>
                 <span class="font-label-sm text-[11px] mt-0.5 hidden sm:block">Cart</span>
             </a>
             <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-90 duration-200 cursor-pointer" href="#/orders" title="Orders">

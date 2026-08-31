@@ -705,6 +705,9 @@ window.updateSingleProductSlot = function(productId) {
     document.querySelectorAll(`.product-action-slot[data-id="${productId}"]`).forEach(slot => {
         renderSlotContent(productId, slot);
     });
+    if (typeof window.updateGlobalCartBadges === 'function') {
+        window.updateGlobalCartBadges();
+    }
 };
 
 // Global Card Stepper Synchronizer (Fast batch render)
@@ -712,6 +715,32 @@ window.syncCardSteppers = function() {
     document.querySelectorAll('.product-action-slot').forEach(slot => {
         const id = slot.dataset.id;
         if (id) renderSlotContent(id, slot);
+    });
+    if (typeof window.updateGlobalCartBadges === 'function') {
+        window.updateGlobalCartBadges();
+    }
+};
+
+// Global Cart Count Badges Synchronizer (Bottom Nav & Header Badges)
+window.updateGlobalCartBadges = function() {
+    let totalItems = 0;
+    if (window.cartState && typeof window.cartState === 'object') {
+        Object.values(window.cartState).forEach(item => {
+            if (item && item.quantity) {
+                totalItems += Number(item.quantity);
+            }
+        });
+    }
+
+    const badgeEls = document.querySelectorAll('#bottom-nav-cart-count, #desktop-header-cart-count, #mobile-header-cart-count, .global-cart-count-badge');
+    badgeEls.forEach(badge => {
+        if (totalItems > 0) {
+            badge.textContent = totalItems > 99 ? '99+' : totalItems;
+            badge.classList.remove('hidden');
+        } else {
+            badge.textContent = '0';
+            badge.classList.add('hidden');
+        }
     });
 };
 
@@ -1240,6 +1269,7 @@ async function router() {
                 .then(() => {
                     cartSyncInProgress = false;
                     if (typeof window.syncCardSteppers === 'function') window.syncCardSteppers();
+                    if (typeof window.updateGlobalCartBadges === 'function') window.updateGlobalCartBadges();
                 })
                 .catch(() => { cartSyncInProgress = false; });
         }
@@ -1260,8 +1290,11 @@ async function router() {
                 window.syncAllThemeToggles();
             }
 
-            // Synchronize steppers
+            // Synchronize steppers & cart badges
             window.syncCardSteppers();
+            if (typeof window.updateGlobalCartBadges === 'function') {
+                window.updateGlobalCartBadges();
+            }
 
             // Check and sync store availability banner
             window.syncStoreAvailability();

@@ -97,9 +97,62 @@ async function handlePlaceOrder(req, res) {
         const method = paymentMethod || 'Cash on Delivery';
         const address = deliveryAddress.trim();
 
+        // 3. SECURE AUTHENTICATED CUSTOMER PROFILE RESOLUTION & SNAPSHOT
+        let user = null;
+        try {
+            user = await supabaseDb.users.getById(userId);
+            if (!user && (req.body.customerEmail || req.body.email)) {
+                user = await supabaseDb.users.getByIdentifier(req.body.customerEmail || req.body.email);
+            }
+        } catch (uErr) {
+            console.warn('[Checkout User Lookup Warning]:', uErr.message);
+        }
+
+        const submittedPhone = (req.body.customerPhone || req.body.phone || '').trim();
+        const submittedName = (req.body.customerName || req.body.name || '').trim();
+        const submittedEmail = (req.body.customerEmail || req.body.email || '').trim().toLowerCase();
+
+        // Update customer phone in database if not previously set
+        if (user && submittedPhone && submittedPhone.length >= 10 && (!user.phone || user.phone !== submittedPhone)) {
+            try {
+                await supabaseDb.users.updatePhone(user.id, submittedPhone);
+                user.phone = submittedPhone;
+            } catch (pErr) {}
+        }
+
+        // If user record does not yet exist in users table, persist now
+        if (!user) {
+            const userEmail = submittedEmail || `${userId}@lpu.in`;
+            const rawName = submittedName || userEmail.split('@')[0];
+            const cleanName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+            try {
+                user = await supabaseDb.users.createUser({
+                    id: userId,
+                    name: cleanName,
+                    email: userEmail,
+                    phone: submittedPhone || null,
+                    role: 'student'
+                });
+            } catch (createErr) {
+                user = {
+                    id: userId,
+                    name: cleanName,
+                    email: userEmail,
+                    phone: submittedPhone || ''
+                };
+            }
+        }
+
+        const customerName = (user && user.name) ? user.name : (submittedName || 'Customer');
+        const customerPhone = (user && user.phone) ? user.phone : submittedPhone;
+        const customerEmail = (user && user.email) ? user.email : submittedEmail;
+
         const orderPayload = {
             id: orderId,
-            user_id: userId,
+            user_id: user ? user.id : userId,
+            customer_name: customerName,
+            customer_phone: customerPhone,
+            customer_email: customerEmail,
             status: initialStatus,
             subtotal,
             delivery_fee: 0,
@@ -117,24 +170,9 @@ async function handlePlaceOrder(req, res) {
 
         // Broadcast to live Admin and Tracking WebSockets
         try {
-            // Lookup real customer info
-            const { getSupabaseClient } = require('../supabase');
-            const supabase = getSupabaseClient();
-            let customerName = 'Campus Student';
-            let customerPhone = '';
-            let customerEmail = '';
-            try {
-                const { data: user } = await supabase.from('users').select('name, phone, email').eq('id', userId).single();
-                if (user) {
-                    customerName = user.name || customerName;
-                    customerPhone = user.phone || customerPhone;
-                    customerEmail = user.email || customerEmail;
-                }
-            } catch (e) {}
-
             broadcastOrderPlaced({
                 id: orderId,
-                user_id: userId,
+                user_id: user ? user.id : userId,
                 customer_name: customerName,
                 customer_phone: customerPhone,
                 customer_email: customerEmail,

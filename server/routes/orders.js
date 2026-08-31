@@ -45,6 +45,10 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
                 const itemNames = (order.order_items || []).map(i => i.products?.name).filter(Boolean);
                 const itemSummary = itemNames.length > 0 ? itemNames.join(', ') : 'Campus items';
 
+                const customerName = order.customer_name || user?.name || (order.user_id ? 'Customer' : 'Legacy Order');
+                const customerPhone = order.customer_phone || user?.phone || '';
+                const customerEmail = order.customer_email || user?.email || '';
+
                 return {
                     id: order.id,
                     user_id: order.user_id,
@@ -59,11 +63,11 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
                     rider_name: order.rider_name,
                     rider_lat: order.rider_lat,
                     rider_lng: order.rider_lng,
-                    delivery_address: order.delivery_address,
+                    delivery_address: order.delivery_address || 'Not provided',
                     created_at: order.created_at,
-                    customer_name: user?.name || 'Student',
-                    customer_phone: user?.phone || '',
-                    customer_email: user?.email || '',
+                    customer_name: customerName,
+                    customer_phone: customerPhone,
+                    customer_email: customerEmail,
                     item_summary: itemSummary
                 };
             });
@@ -182,25 +186,33 @@ router.get('/admin/detail/:orderId', requireAdmin, async (req, res) => {
         if (!order) return res.status(404).json({ error: 'Order not found' });
         
         // Enrich with customer info
-        const supabase = getSupabaseClient();
-        const { data: user } = await supabase
-            .from('users')
-            .select('name, phone, email')
-            .eq('id', order.user_id)
-            .single();
+        let user = null;
+        if (order.user_id) {
+            try {
+                user = await supabaseDb.users.getById(order.user_id);
+            } catch (uErr) {}
+        }
+
+        const customerName = order.customer_name || user?.name || (order.user_id ? 'Customer' : 'Customer info unavailable (Legacy Order)');
+        const customerPhone = order.customer_phone || user?.phone || '';
+        const customerEmail = order.customer_email || user?.email || '';
+        const deliveryAddress = order.delivery_address || 'Not provided';
         
         // Map items with unit_price field that the drawer expects
         const enrichedItems = (order.items || []).map(i => ({
             ...i,
+            name: i.products?.name || i.name || 'Product',
+            image_url: i.products?.image_url || i.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60',
             unit_price: i.price || i.unit_price || 0
         }));
         
         res.json({
             order: {
                 ...order,
-                customer_name: user?.name || 'Student',
-                customer_phone: user?.phone || '',
-                customer_email: user?.email || '',
+                customer_name: customerName,
+                customer_phone: customerPhone,
+                customer_email: customerEmail,
+                delivery_address: deliveryAddress,
                 items: enrichedItems
             }
         });

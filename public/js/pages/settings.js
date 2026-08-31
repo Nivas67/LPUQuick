@@ -298,8 +298,11 @@ window.pages.settings = async function() {
                 <span class="material-symbols-outlined">category</span>
                 <span class="font-label-sm text-[11px] mt-0.5 hidden sm:block">Categories</span>
             </a>
-            <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-95 duration-200" href="#/cart">
-                <span class="material-symbols-outlined">shopping_cart</span>
+            <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-95 duration-200 relative" href="#/cart" id="bottom-nav-cart-btn">
+                <div class="relative flex items-center justify-center">
+                    <span class="material-symbols-outlined">shopping_cart</span>
+                    <span id="bottom-nav-cart-count" class="global-cart-count-badge absolute -top-1.5 -right-2 bg-emerald text-white text-[10px] font-black min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center shadow-md ring-2 ring-white dark:ring-slate-900 hidden">0</span>
+                </div>
                 <span class="font-label-sm text-[11px] mt-0.5 hidden sm:block">Cart</span>
             </a>
             <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-95 duration-200" href="#/orders">

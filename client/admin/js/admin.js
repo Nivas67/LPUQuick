@@ -387,7 +387,7 @@ async function loadDashboard() {
             tbody.innerHTML = recentOrders.map(o => `
                 <tr class="hover:bg-[#f7fafd] transition-colors cursor-pointer" onclick="openOrderDrawer('${o.id}')" id="order-row-${o.id}">
                     <td class="p-3.5 font-bold font-mono text-[#181c1f]">#${(o.id || '').replace('order_', '').toUpperCase()}</td>
-                    <td class="p-3.5 font-medium text-[#181c1f]">${o.customer_name || 'Nivas'}</td>
+                    <td class="p-3.5 font-medium text-[#181c1f]">${o.customer_name || 'Customer'}</td>
                     <td class="p-3.5 text-[#5c5f60] truncate max-w-[150px]">${o.item_summary || 'Campus items'}</td>
                     <td class="p-3.5 font-bold text-[#137333]">₹${o.total}</td>
                     <td class="p-3.5 text-[#5c5f60]">${o.payment_method || 'COD'}</td>
@@ -1026,11 +1026,16 @@ function filterOrders() {
         return;
     }
 
-    tbody.innerHTML = filtered.map(o => `
+    tbody.innerHTML = filtered.map(o => {
+        const contactHtml = o.customer_phone ? o.customer_phone : (o.customer_email || 'Not provided');
+        return `
         <tr class="hover:bg-[#f7fafd] transition-colors cursor-pointer" onclick="openOrderDrawer('${o.id}')" id="order-row-${o.id}">
             <td class="p-4 font-bold font-mono text-[#181c1f]">#${(o.id || '').replace('order_', '').toUpperCase()}</td>
-            <td class="p-4 font-semibold text-[#181c1f]">${o.customer_name || 'Nivas'}</td>
-            <td class="p-4 text-[#5c5f60]">${o.delivery_address || 'BH13 (Block A), Room 304'}</td>
+            <td class="p-4">
+                <p class="font-semibold text-[#181c1f]">${o.customer_name || 'Customer'}</p>
+                <p class="text-[11px] text-[#5c5f60]">${contactHtml}</p>
+            </td>
+            <td class="p-4 text-[#5c5f60]">${o.delivery_address || 'Not provided'}</td>
             <td class="p-4 font-bold text-[#137333]">₹${o.total}</td>
             <td class="p-4 text-[#5c5f60]">${o.payment_method || 'COD'}</td>
             <td class="p-4" id="order-status-pill-${o.id}">${getStatusPill(o.status)}</td>
@@ -1041,7 +1046,7 @@ function filterOrders() {
                 </button>
             </td>
         </tr>
-    `).join('');
+    `}).join('');
 }
 
 function getStatusPill(status) {
@@ -1059,35 +1064,55 @@ async function openOrderDrawer(orderId) {
     currentDrawerOrderId = orderId;
     document.getElementById('order-drawer').classList.remove('hidden');
 
+    // 1. Reset drawer state immediately to prevent stale state from previously opened orders
+    document.getElementById('drawer-order-id').textContent = `Order #${(orderId || '').replace('order_', '').toUpperCase()}`;
+    document.getElementById('drawer-order-time').textContent = 'Loading details...';
+    document.getElementById('drawer-cust-name').textContent = 'Loading...';
+    document.getElementById('drawer-cust-phone').textContent = '--';
+    if (document.getElementById('drawer-cust-email')) {
+        document.getElementById('drawer-cust-email').textContent = '--';
+    }
+    document.getElementById('drawer-cust-address').textContent = '--';
+    document.getElementById('drawer-payment-method').textContent = '--';
+    document.getElementById('drawer-order-total').textContent = '--';
+    document.getElementById('drawer-items-list').innerHTML = '<p class="text-xs text-[#5c5f60] p-3 text-center">Loading items...</p>';
+
     try {
         const res = await fetch(`/api/orders/admin/detail/${orderId}`, { headers: getAuthHeaders() });
         const data = await res.json();
         const o = data.order;
-        if (!o) return;
+        if (!o || currentDrawerOrderId !== orderId) return;
 
         document.getElementById('drawer-order-id').textContent = `Order #${(o.id || '').replace('order_', '').toUpperCase()}`;
         document.getElementById('drawer-order-time').textContent = `Placed: ${new Date(o.created_at || Date.now()).toLocaleString()}`;
-        document.getElementById('drawer-cust-name').textContent = o.customer_name || 'Nivas';
-        document.getElementById('drawer-cust-phone').textContent = o.customer_phone || '7671836211';
-        document.getElementById('drawer-cust-address').textContent = o.delivery_address || 'BH13 (Block A), Room 304';
+        document.getElementById('drawer-cust-name').textContent = o.customer_name && o.customer_name.trim() ? o.customer_name : 'Customer';
+        document.getElementById('drawer-cust-phone').textContent = o.customer_phone && o.customer_phone.trim() ? o.customer_phone : 'Not provided';
+        if (document.getElementById('drawer-cust-email')) {
+            document.getElementById('drawer-cust-email').textContent = o.customer_email && o.customer_email.trim() ? o.customer_email : 'Not provided';
+        }
+        document.getElementById('drawer-cust-address').textContent = o.delivery_address && o.delivery_address.trim() ? o.delivery_address : 'Not provided';
         document.getElementById('drawer-payment-method').textContent = o.payment_method || 'Cash on Delivery';
         document.getElementById('drawer-order-total').textContent = `₹${o.total}`;
         document.getElementById('drawer-status-select').value = o.status;
 
         const itemsList = document.getElementById('drawer-items-list');
         const items = o.items || [];
-        itemsList.innerHTML = items.map(item => `
-            <div class="flex justify-between items-center p-2 rounded-lg border border-[#DADCE0] bg-[#f7fafd]">
-                <div class="flex items-center gap-2">
-                    <img src="${item.image_url}" class="w-8 h-8 rounded object-cover bg-white" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'">
-                    <div>
-                        <p class="font-semibold text-xs text-[#181c1f]">${item.name}</p>
-                        <p class="text-[10px] text-[#5c5f60]">Qty: ${item.quantity} × ₹${item.unit_price}</p>
+        if (items.length === 0) {
+            itemsList.innerHTML = '<p class="text-xs text-[#5c5f60] p-3 text-center">No items recorded</p>';
+        } else {
+            itemsList.innerHTML = items.map(item => `
+                <div class="flex justify-between items-center p-2 rounded-lg border border-[#DADCE0] bg-[#f7fafd]">
+                    <div class="flex items-center gap-2">
+                        <img src="${item.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'}" class="w-8 h-8 rounded object-cover bg-white" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'">
+                        <div>
+                            <p class="font-semibold text-xs text-[#181c1f]">${item.name || 'Item'}</p>
+                            <p class="text-[10px] text-[#5c5f60]">Qty: ${item.quantity} × ₹${item.unit_price || 0}</p>
+                        </div>
                     </div>
+                    <span class="font-bold text-xs text-[#137333]">₹${(item.quantity || 1) * (item.unit_price || 0)}</span>
                 </div>
-                <span class="font-bold text-xs text-[#137333]">₹${item.quantity * item.unit_price}</span>
-            </div>
-        `).join('');
+            `).join('');
+        }
 
     } catch (err) {
         console.error('Failed to load order detail:', err);
@@ -1962,7 +1987,7 @@ function handleRealtimeNewOrder(order) {
             const rowHtml = `
                 <tr class="hover:bg-[#f7fafd] transition-colors cursor-pointer row-new-highlight" onclick="openOrderDrawer('${order.id}')" id="order-row-${order.id}">
                     <td class="p-3.5 font-bold font-mono text-[#181c1f]">#${(order.id || '').replace('order_', '').toUpperCase()}</td>
-                    <td class="p-3.5 font-medium text-[#181c1f]">${order.customer_name || 'Nivas'}</td>
+                    <td class="p-3.5 font-medium text-[#181c1f]">${order.customer_name || 'Customer'}</td>
                     <td class="p-3.5 text-[#5c5f60] truncate max-w-[150px]">${order.item_summary || 'Campus items'}</td>
                     <td class="p-3.5 font-bold text-[#137333]">₹${order.total}</td>
                     <td class="p-3.5 text-[#5c5f60]">${order.payment_method || 'COD'}</td>
@@ -2035,10 +2060,10 @@ function showOrderToast(order) {
             </div>
             <div class="text-xs text-[#181c1f]">
                 <div class="flex justify-between items-center">
-                    <span class="font-bold text-sm text-[#181c1f]">${order.customer_name || 'Nivas'}</span>
+                    <span class="font-bold text-sm text-[#181c1f]">${order.customer_name || 'Customer'}</span>
                     <span class="font-black text-sm text-[#137333]">₹${order.total}</span>
                 </div>
-                <p class="text-[11px] text-[#5c5f60] mt-0.5">📍 ${order.delivery_address || 'BH13 (Block A), Room 304'}</p>
+                <p class="text-[11px] text-[#5c5f60] mt-0.5">📍 ${order.delivery_address || 'Not provided'}</p>
                 <p class="text-[10px] text-[#74777a] italic mt-1 truncate">🛍️ ${order.item_summary || 'Campus essentials'}</p>
             </div>
             <div class="flex items-center justify-between pt-2 border-t border-[#DADCE0] mt-1">

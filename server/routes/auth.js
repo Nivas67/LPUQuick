@@ -123,6 +123,8 @@ router.post('/google', async (req, res) => {
             return res.status(400).json({ error: 'Valid email required from Google Authentication' });
         }
 
+        const trimmedEmail = String(email).trim().toLowerCase();
+
         let user = null;
         try {
             user = await supabaseDb.users.getByIdentifier(trimmedEmail);

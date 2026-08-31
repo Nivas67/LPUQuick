@@ -59,6 +59,9 @@ CREATE TABLE IF NOT EXISTS cart_items (
 CREATE TABLE IF NOT EXISTS orders (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
+    customer_name TEXT,
+    customer_phone TEXT,
+    customer_email TEXT,
     status TEXT NOT NULL DEFAULT 'Order Placed',
     subtotal NUMERIC NOT NULL DEFAULT 0,
     delivery_fee NUMERIC NOT NULL DEFAULT 0,
@@ -73,6 +76,11 @@ CREATE TABLE IF NOT EXISTS orders (
     delivery_address TEXT DEFAULT 'BH13 (Block A), Room 304',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_name TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_phone TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_email TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_address TEXT DEFAULT 'BH13 (Block A), Room 304';
 
 -- 5. ORDER ITEMS TABLE (Matches Order Receipts & Breakdown)
 CREATE TABLE IF NOT EXISTS order_items (
