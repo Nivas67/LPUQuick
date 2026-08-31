@@ -226,6 +226,12 @@ window.pages.home = async function() {
                 <div id="desktop-search-dropdown" class="hidden absolute top-11 left-0 w-full bg-surface border border-surface-variant rounded-2xl shadow-xl z-50 max-h-80 overflow-y-auto p-2"></div>
             </div>
 
+            <!-- Install App Quick Pill (Android / iOS / PC) -->
+            <button type="button" onclick="window.showInstallPrompt()" class="btn-install-app bg-emerald/10 hover:bg-emerald/20 text-emerald border border-emerald/30 rounded-full px-3 py-1.5 text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer shadow-sm" title="Install LPUQuick on Android/iPhone/Desktop">
+                <span class="material-symbols-outlined text-sm">install_mobile</span>
+                <span>Install App</span>
+            </button>
+
             <!-- Sleek Day/Night Theme Pill Switch -->
             <button type="button" 
                     class="theme-toggle-switch relative inline-flex items-center w-[60px] h-[30px] rounded-full p-[3px] transition-all duration-300 ease-in-out cursor-pointer select-none bg-slate-200/90 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 shadow-inner hover:scale-105 active:scale-95 shrink-0" 
@@ -268,6 +274,11 @@ window.pages.home = async function() {
             </button>
         </div>
         <div class="flex items-center gap-2 shrink-0">
+            <!-- Mobile Install App Button -->
+            <button type="button" onclick="window.showInstallPrompt()" class="btn-install-app p-1.5 text-emerald hover:bg-emerald/10 rounded-full transition-colors flex items-center justify-center cursor-pointer" title="Install App">
+                <span class="material-symbols-outlined text-xl">install_mobile</span>
+            </button>
+
             <!-- Mobile Day/Night Theme Pill Switch -->
             <button type="button" 
                     class="theme-toggle-switch relative inline-flex items-center w-[54px] h-[28px] rounded-full p-[2px] transition-all duration-300 ease-in-out cursor-pointer select-none bg-slate-200/90 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 shadow-inner hover:scale-105 active:scale-95 shrink-0" 

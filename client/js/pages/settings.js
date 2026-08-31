@@ -101,6 +101,24 @@ window.pages.settings = async function() {
             </button>
         </div>
 
+        <!-- Install App Banner Card -->
+        <div class="glass-card rounded-3xl p-5 border border-emerald/40 shadow-sm bg-emerald/5 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-3.5 text-center sm:text-left">
+                <img src="/logo.png" alt="LPUQuick" class="w-12 h-12 rounded-2xl shadow-md border border-emerald/30 shrink-0">
+                <div class="space-y-0.5">
+                    <div class="flex items-center justify-center sm:justify-start gap-2">
+                        <h3 class="font-bold text-sm sm:text-base text-on-surface">Install LPUQuick App</h3>
+                        <span id="settings-install-status" class="text-[11px] bg-emerald/15 text-emerald font-bold px-2.5 py-0.5 rounded-full border border-emerald/30">Tap to Install</span>
+                    </div>
+                    <p class="text-[11px] text-on-surface-variant">Instant 3-minute delivery directly to your hostel room on Android & iPhone.</p>
+                </div>
+            </div>
+            <button type="button" onclick="window.showInstallPrompt()" class="bg-emerald text-white font-bold text-xs px-5 py-2.5 rounded-full shadow-md hover:bg-emerald-600 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer shrink-0">
+                <span class="material-symbols-outlined text-base">download</span>
+                <span>Install Now</span>
+            </button>
+        </div>
+
         <!-- Privacy & App Preferences -->
         <div class="glass-card rounded-3xl p-5 sm:p-6 border border-glass-border shadow-sm space-y-4">
             <h3 class="font-bold text-sm sm:text-base text-on-surface">App Preferences</h3>
