@@ -1582,6 +1582,25 @@ function handleLiveOrderStatusChange(data) {
     // 2. If user is currently viewing the Live Orders page, update the interactive HUD/map in real-time
     if (typeof window.applyOrderStatusUI === 'function') {
         window.applyOrderStatusUI(status, riderName);
+    } else {
+        // Play status chime on any page
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtx) {
+                const ctx = new AudioCtx();
+                if (ctx.state === 'suspended') ctx.resume();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(659.25, ctx.currentTime);
+                gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.4);
+            }
+        } catch (e) {}
     }
 
     // 3. Show dynamic client status toast

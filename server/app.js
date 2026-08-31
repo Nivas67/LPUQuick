@@ -10,19 +10,65 @@ const app = express();
 const supabase = getSupabaseClient();
 console.log('[Database] 100% Supabase Cloud PostgreSQL Active (Single Database Mode)');
 
-// Middleware
+// Security Middleware & Response Headers
+app.disable('x-powered-by');
+
+app.use((req, res, next) => {
+    // High-Security Headers
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
+
+    if (process.env.NODE_ENV === 'production' || req.secure) {
+        res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+    }
+
+    // High-Resolution Response Time Measurement
+    const start = process.hrtime();
+    const origWriteHead = res.writeHead;
+    res.writeHead = function (...args) {
+        const diff = process.hrtime(start);
+        const timeInMs = (diff[0] * 1e3 + diff[1] * 1e-6).toFixed(2);
+        res.setHeader('X-Response-Time', `${timeInMs}ms`);
+        return origWriteHead.apply(this, args);
+    };
+
+    next();
+});
+
+// Middleware: Compression with optimal chunk threshold
 const compression = require('compression');
 app.use(compression({
     level: 6,
-    threshold: 1024, // only compress responses above 1KB
+    threshold: 512, // compress responses above 512 bytes for faster mobile loading
     filter: (req, res) => {
         if (req.headers['x-no-compression']) return false;
         return compression.filter(req, res);
     }
 }));
 app.use(cors());
-app.use(express.json({ limit: '25mb' }));
-app.use(express.urlencoded({ extended: true, limit: '25mb' }));
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ extended: true, limit: '15mb' }));
+
+// Input Sanitization & Anti-Injection Guard
+function sanitizeInput(data) {
+    if (!data || typeof data !== 'object') return;
+    for (const key of Object.keys(data)) {
+        if (typeof data[key] === 'string') {
+            data[key] = data[key].replace(/\0/g, '').replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+        } else if (typeof data[key] === 'object' && data[key] !== null) {
+            sanitizeInput(data[key]);
+        }
+    }
+}
+
+app.use((req, res, next) => {
+    if (req.body) sanitizeInput(req.body);
+    if (req.query) sanitizeInput(req.query);
+    next();
+});
 
 // Static files (Client and Admin portals) with ETag and Cache-Control headers
 const staticOptions = {

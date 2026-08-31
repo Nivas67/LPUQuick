@@ -583,11 +583,68 @@ window.pageInits.orders = function() {
         }
     };
 
+    let lastPlayedSoundStatus = null;
+    function playStatusChime(status) {
+        if (!status || lastPlayedSoundStatus === status) return;
+        lastPlayedSoundStatus = status;
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+            const ctx = new AudioCtx();
+            if (ctx.state === 'suspended') ctx.resume();
+
+            const s = (status || '').toLowerCase();
+            if (s.includes('delivered')) {
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((freq, i) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.12);
+                    gain.gain.setValueAtTime(0.2, ctx.currentTime + i * 0.12);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.4);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(ctx.currentTime + i * 0.12);
+                    osc.stop(ctx.currentTime + i * 0.12 + 0.45);
+                });
+            } else if (s.includes('out for delivery') || s.includes('en_route')) {
+                const notes = [587.33, 739.99, 880.00];
+                notes.forEach((freq, i) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.1);
+                    gain.gain.setValueAtTime(0.18, ctx.currentTime + i * 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.1 + 0.3);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(ctx.currentTime + i * 0.1);
+                    osc.stop(ctx.currentTime + i * 0.1 + 0.35);
+                });
+            } else if (s.includes('confirmed') || s.includes('preparing') || s.includes('packed')) {
+                [659.25, 880.00].forEach((freq, i) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.15);
+                    gain.gain.setValueAtTime(0.15, ctx.currentTime + i * 0.15);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.15 + 0.3);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(ctx.currentTime + i * 0.15);
+                    osc.stop(ctx.currentTime + i * 0.15 + 0.35);
+                });
+            }
+        } catch (e) {}
+    }
+
     // Live status UI updater
     window.applyOrderStatusUI = function(status, riderName) {
         if (!status) return;
         currentOrderStatus = status;
         window.CURRENT_ACTIVE_ORDER_STATUS = status;
+        playStatusChime(status);
         if (typeof window.updateHelpModalCancelState === 'function') {
             window.updateHelpModalCancelState(status);
         }
@@ -852,7 +909,7 @@ window.pageInits.orders = function() {
 
     function startPollingStatus() {
         if (ordersPoll) clearInterval(ordersPoll);
-        ordersPoll = setInterval(async () => {
+        const pollFn = async () => {
             try {
                 const res = await window.api.getOrderDetail(activeOrderId);
                 const orderData = res?.order || res;
@@ -865,8 +922,24 @@ window.pageInits.orders = function() {
                     }
                 }
             } catch (err) {}
-        }, 2000);
+        };
+
+        ordersPoll = setInterval(pollFn, 1200); // Fast 1.2s live update rate
     }
+
+    // Instant revalidation when student returns to browser tab
+    const handleVisibilityChange = () => {
+        if (!document.hidden && activeOrderId) {
+            window.api.getOrderDetail(activeOrderId).then(res => {
+                const orderData = res?.order || res;
+                if (orderData && orderData.status && orderData.status !== currentOrderStatus) {
+                    window.applyOrderStatusUI(orderData.status, orderData.rider_name || 'Alex');
+                }
+            }).catch(() => {});
+        }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange, { passive: true });
+    window.addEventListener('focus', handleVisibilityChange, { passive: true });
 
     // Always run active polling in background as dual-assurance for instant admin sync
     startPollingStatus();

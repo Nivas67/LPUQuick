@@ -103,4 +103,24 @@ router.post('/merge', async (req, res) => {
     }
 });
 
+// Pricing Calculation Engine (Zero GST, Free Delivery Offer, Free Handling)
+function calculatePricing(items = []) {
+    const subtotal = (items || []).reduce((sum, item) => sum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
+    const delivery_fee = 0; // Free Campus Delivery
+    const platform_fee = 0; // Free Handling
+    const tax = 0; // No hidden taxes
+    const total = subtotal + delivery_fee + platform_fee + tax;
+    const total_savings = 30; // ₹25 delivery offer + ₹5 handling waived
+
+    return {
+        subtotal,
+        delivery_fee,
+        platform_fee,
+        tax,
+        total,
+        total_savings
+    };
+}
+
 module.exports = router;
+module.exports.calculatePricing = calculatePricing;
