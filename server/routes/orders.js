@@ -221,14 +221,14 @@ router.get('/admin/analytics', requireAdmin, async (req, res) => {
         const payload = await cache.wrap('analytics:admin:summary', async () => {
             const supabase = getSupabaseClient();
 
-            // Run independent queries concurrently with timeout
+            // Run independent queries concurrently with timeout (exclude heavy base64 image_url for fast 200ms response)
             const queryPromise = Promise.all([
                 supabase.from('orders').select('id, status, total'),
-                supabase.from('products').select('id, name, category, image_url, in_stock, tags, price'),
+                supabase.from('products').select('id, name, category, in_stock, tags, price'),
                 supabase.from('order_items').select('order_id, product_id, quantity, unit_price')
             ]);
 
-            const [ordersRes, productsRes, topItemsRes] = await withTimeout(queryPromise, 6000, [
+            const [ordersRes, productsRes, topItemsRes] = await withTimeout(queryPromise, 12000, [
                 { data: null },
                 { data: null },
                 { data: null }
