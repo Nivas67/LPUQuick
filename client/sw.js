@@ -1,5 +1,5 @@
-// LPUQuick High-Performance PWA Service Worker (V2026.09.01)
-const CACHE_NAME = 'lpuquick-pwa-v2';
+// LPUQuick High-Performance Ultra-Fast Service Worker (V2026.09.01-Turbo)
+const CACHE_NAME = 'lpuquick-pwa-v4-turbo';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
@@ -10,33 +10,22 @@ const STATIC_ASSETS = [
     '/icon-192.png',
     '/icon-512.png',
     '/apple-touch-icon.png',
-    '/css/styles.css',
-    '/js/app.js',
-    '/js/api.js',
-    '/js/pwa-install.js',
-    '/js/pages/home.js',
-    '/js/pages/categories.js',
-    '/js/pages/cart.js',
-    '/js/pages/checkout.js',
-    '/js/pages/orders.js',
-    '/js/pages/settings.js',
-    '/js/pages/signin.js',
-    '/js/pages/flowassist.js'
+    '/css/styles.css'
 ];
 
-// Install: Cache critical shell assets
+// Install: Pre-cache core shell
 self.addEventListener('install', (event) => {
     self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
             return cache.addAll(STATIC_ASSETS).catch((err) => {
-                console.warn('[SW] Pre-cache non-fatal note:', err);
+                console.warn('[SW] Core shell cache note:', err);
             });
         })
     );
 });
 
-// Activate: Clean old caches and claim clients immediately
+// Activate: Immediately purge all legacy caches and claim clients
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         Promise.all([
@@ -44,6 +33,7 @@ self.addEventListener('activate', (event) => {
                 return Promise.all(
                     keys.map((key) => {
                         if (key !== CACHE_NAME) {
+                            console.log('[SW] Purging outdated cache:', key);
                             return caches.delete(key);
                         }
                     })
@@ -54,11 +44,14 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// Fetch: Stale-While-Revalidate for UI assets; Network-Only for dynamic APIs and Admin
+// Fetch Strategy:
+// 1. Dynamic APIs, WebSockets, Supabase, and Admin -> Direct Network Only (Never cached)
+// 2. JavaScript Application Code & HTML -> Network-First (Always loads fresh code, offline fallback)
+// 3. Static Media / Images / Fonts -> Cache-First for maximum mobile scrolling speed
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
-    // Skip non-GET requests, API, WebSocket, Supabase, and ALL Admin routes
+    // Skip non-GET requests, dynamic APIs, WebSocket, Supabase, and Admin routes
     if (event.request.method !== 'GET' ||
         url.pathname.startsWith('/api/') ||
         url.pathname.startsWith('/admin') ||
@@ -66,22 +59,34 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Static Assets & Navigation: Stale-While-Revalidate
-    event.respondWith(
-        caches.match(event.request).then((cachedResponse) => {
-            const fetchPromise = fetch(event.request)
+    // 1. Application JavaScript & HTML: NETWORK-FIRST (Guarantees zero stale code on mobile)
+    if (url.pathname.endsWith('.js') || url.pathname === '/' || url.pathname.endsWith('.html')) {
+        event.respondWith(
+            fetch(event.request, { cache: 'no-cache' })
                 .then((networkResponse) => {
-                    if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+                    if (networkResponse && networkResponse.status === 200) {
                         const responseClone = networkResponse.clone();
-                        caches.open(CACHE_NAME).then((cache) => {
-                            cache.put(event.request, responseClone);
-                        });
+                        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
                     }
                     return networkResponse;
                 })
-                .catch(() => cachedResponse);
+                .catch(() => caches.match(event.request))
+        );
+        return;
+    }
 
-            return cachedResponse || fetchPromise;
+    // 2. Static Media, Images, Fonts, Icons: Cache-First for instant 60fps mobile scrolling
+    event.respondWith(
+        caches.match(event.request).then((cachedResponse) => {
+            if (cachedResponse) return cachedResponse;
+
+            return fetch(event.request).then((networkResponse) => {
+                if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+                    const responseClone = networkResponse.clone();
+                    caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+                }
+                return networkResponse;
+            });
         })
     );
 });

@@ -469,43 +469,51 @@ const api = {
         const savedName = extraData.name || window.CURRENT_USER_NAME || (JSON.parse(localStorage.getItem('lpuquick_user') || '{}').name) || '';
         const savedEmail = extraData.email || window.CURRENT_USER_EMAIL || (JSON.parse(localStorage.getItem('lpuquick_user') || '{}').email) || '';
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 12000); // 12-second safety timeout
+        // Resilient 2-attempt fetch execution for flaky campus cellular networks
+        for (let attempt = 1; attempt <= 2; attempt++) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10-second per attempt
 
-        try {
-            const res = await fetch(`${API_BASE}/checkout`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                signal: controller.signal,
-                body: JSON.stringify({
-                    userId,
-                    paymentMethod,
-                    deliveryAddress,
-                    customerPhone: savedPhone,
-                    customerName: savedName,
-                    customerEmail: savedEmail
-                })
-            });
-            clearTimeout(timeoutId);
-            cartMemoryCache = null;
-            ordersMemoryCache = null;
-            activeOrderMemoryCache = null;
-
-            const text = await res.text();
             try {
-                return JSON.parse(text);
-            } catch (parseErr) {
-                return { 
-                    error: 'SERVER_RESPONSE_ERROR', 
-                    message: res.status >= 500 ? 'Server is busy. Please tap retry.' : 'Unexpected server response. Please retry.' 
-                };
+                const res = await fetch(`${API_BASE}/checkout`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    signal: controller.signal,
+                    body: JSON.stringify({
+                        userId,
+                        paymentMethod,
+                        deliveryAddress,
+                        customerPhone: savedPhone,
+                        customerName: savedName,
+                        customerEmail: savedEmail
+                    })
+                });
+                clearTimeout(timeoutId);
+                cartMemoryCache = null;
+                ordersMemoryCache = null;
+                activeOrderMemoryCache = null;
+
+                const text = await res.text();
+                try {
+                    return JSON.parse(text);
+                } catch (parseErr) {
+                    if (attempt < 2) continue;
+                    return { 
+                        error: 'SERVER_RESPONSE_ERROR', 
+                        message: res.status >= 500 ? 'Server is busy. Please tap retry.' : 'Unexpected server response. Please retry.' 
+                    };
+                }
+            } catch (fetchErr) {
+                clearTimeout(timeoutId);
+                if (attempt < 2 && fetchErr.name !== 'AbortError') {
+                    await new Promise(r => setTimeout(r, 400));
+                    continue;
+                }
+                if (fetchErr.name === 'AbortError') {
+                    return { error: 'NETWORK_TIMEOUT', message: 'Connection timed out. Please tap retry to place order.' };
+                }
+                if (attempt >= 2) throw fetchErr;
             }
-        } catch (fetchErr) {
-            clearTimeout(timeoutId);
-            if (fetchErr.name === 'AbortError') {
-                return { error: 'NETWORK_TIMEOUT', message: 'Connection timed out. Please tap retry to place order.' };
-            }
-            throw fetchErr;
         }
     },
     async paymentCallback(orderId, status) {

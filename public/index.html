@@ -5,23 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover">
     <title>LPUQuick — Calm Commerce</title>
     
-    <!-- Mobile Zero-Zoom Engine & Gestures Lock -->
+    <!-- Mobile Smooth Touch & Zero-Zoom Engine -->
     <script>
         (function() {
             document.addEventListener('gesturestart', function(e) { e.preventDefault(); }, { passive: false });
             document.addEventListener('gesturechange', function(e) { e.preventDefault(); }, { passive: false });
             document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { passive: false });
-            
-            let lastTouchTime = 0;
-            document.addEventListener('touchend', function(e) {
-                const now = Date.now();
-                if (now - lastTouchTime <= 300) {
-                    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'SELECT') {
-                        e.preventDefault();
-                    }
-                }
-                lastTouchTime = now;
-            }, { passive: false });
         })();
     </script>
     
@@ -59,17 +48,35 @@
         })();
     </script>
     
-    <!-- Hard Client Storage & Cache Purge -->
+    <!-- Hard Client Storage & Cache Purge (Preserving Auth & Address) -->
     <script>
         (function() {
-            const PURGE_TAG = 'LPUQUICK_FORCE_PURGE_V2026_08_29_FINAL';
+            const PURGE_TAG = 'LPUQUICK_TURBO_PURGE_2026_09_01_V4';
             if (localStorage.getItem('LPUQUICK_PURGE_KEY') !== PURGE_TAG) {
                 try {
-                    localStorage.clear();
+                    const user = localStorage.getItem('lpuquick_user');
+                    const phone = localStorage.getItem('lpuquick_phone');
+                    const room = localStorage.getItem('lpuquick_room');
+                    const block = localStorage.getItem('lpuquick_block');
+                    const addr = localStorage.getItem('lpuquick_address');
+                    const addrDetail = localStorage.getItem('lpuquick_address_detail');
+
                     sessionStorage.clear();
                     if (window.caches) {
                         caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
                     }
+                    if (navigator.serviceWorker) {
+                        navigator.serviceWorker.getRegistrations().then(regs => {
+                            regs.forEach(r => r.update());
+                        });
+                    }
+
+                    if (user) localStorage.setItem('lpuquick_user', user);
+                    if (phone) localStorage.setItem('lpuquick_phone', phone);
+                    if (room) localStorage.setItem('lpuquick_room', room);
+                    if (block) localStorage.setItem('lpuquick_block', block);
+                    if (addr) localStorage.setItem('lpuquick_address', addr);
+                    if (addrDetail) localStorage.setItem('lpuquick_address_detail', addrDetail);
                 } catch(e){}
                 localStorage.setItem('LPUQUICK_PURGE_KEY', PURGE_TAG);
             }
@@ -493,24 +500,24 @@
     </script>
 
     <!-- API Client -->
-    <script src="/js/api.js?v=20260831r35"></script>
+    <script src="/js/api.js?v=20260901r70"></script>
 
     <!-- Page Templates -->
-    <script src="/js/pages/signin.js?v=20260831r35"></script>
-    <script src="/js/pages/home.js?v=20260831r35"></script>
-    <script src="/js/pages/categories.js?v=20260831r35"></script>
-    <script src="/js/pages/cart.js?v=20260831r35"></script>
-    <script src="/js/pages/checkout.js?v=20260831r35"></script>
-    <script src="/js/pages/flowassist.js?v=20260831r35"></script>
-    <script src="/js/pages/orders.js?v=20260831r35"></script>
-    <script src="/js/pages/settings.js?v=20260831r35"></script>
-    <script src="/js/pages/blocked.js?v=20260831r35"></script>
+    <script src="/js/pages/signin.js?v=20260901r70"></script>
+    <script src="/js/pages/home.js?v=20260901r70"></script>
+    <script src="/js/pages/categories.js?v=20260901r70"></script>
+    <script src="/js/pages/cart.js?v=20260901r70"></script>
+    <script src="/js/pages/checkout.js?v=20260901r70"></script>
+    <script src="/js/pages/flowassist.js?v=20260901r70"></script>
+    <script src="/js/pages/orders.js?v=20260901r70"></script>
+    <script src="/js/pages/settings.js?v=20260901r70"></script>
+    <script src="/js/pages/blocked.js?v=20260901r70"></script>
 
     <!-- PWA Install Engine for Android & Apple iOS -->
-    <script src="/js/pwa-install.js?v=20260901r1"></script>
+    <script src="/js/pwa-install.js?v=20260901r70"></script>
 
     <!-- App Router & Real-Time Sync Hub -->
-    <script src="/js/app.js?v=20260831r35"></script>
+    <script src="/js/app.js?v=20260901r70"></script>
 
 </body>
 </html>

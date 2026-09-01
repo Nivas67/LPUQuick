@@ -338,13 +338,15 @@ window.pages.checkout = async function() {
                     </div>
                 </div>
                 
-                <div class="flex items-center justify-between mt-3 text-xs text-on-surface-variant">
-                    <button type="button" class="text-primary font-semibold hover:underline cursor-pointer" id="tap-to-pay-btn">
-                        Or Click Here to Place COD Order (₹${exactTotal})
+                <div class="mt-3.5 flex flex-col gap-2">
+                    <button type="button" class="w-full py-3.5 px-4 rounded-2xl bg-emerald/15 hover:bg-emerald/25 border border-emerald/40 text-emerald font-bold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all active:scale-[0.98]" id="tap-to-pay-btn">
+                        <span class="material-symbols-outlined text-lg">bolt</span>
+                        <span>⚡ 1-Tap Quick Place: Cash on Delivery (₹${exactTotal})</span>
                     </button>
-                    <span class="flex items-center gap-1 text-emerald font-medium">
-                        <span class="material-symbols-outlined text-sm">verified</span> Verified Campus Dispatch
-                    </span>
+                    <div class="flex items-center justify-center gap-1.5 text-[11px] text-on-surface-variant/70">
+                        <span class="material-symbols-outlined text-xs text-emerald">verified</span>
+                        <span>3-Minute Corridor Dispatch • Pay cash/UPI on room delivery</span>
+                    </div>
                 </div>
                 `}
             </div>
@@ -846,6 +848,12 @@ window.pageInits.checkout = function() {
             }
         }, 13000);
 
+        let progressTimer = setTimeout(() => {
+            if (isSubmitting && text) {
+                text.textContent = 'Contacting BH13 Dark Store...';
+            }
+        }, 2200);
+
         try {
             const res = await window.api.checkout(userId, selectedPaymentMethod, deliveryAddress, {
                 phone: currentUserPhone,
@@ -907,6 +915,7 @@ window.pageInits.checkout = function() {
             }
         } finally {
             clearTimeout(safetyTimeout);
+            clearTimeout(progressTimer);
         }
     }
 

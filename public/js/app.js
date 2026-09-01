@@ -1840,6 +1840,8 @@ window.refreshLiveApp = async function(isFullReload = false) {
 
 function initPullToRefresh() {
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    if (window.__ptrInitialized) return;
+    window.__ptrInitialized = true;
 
     let indicator = document.getElementById('pull-to-refresh-indicator');
     if (!indicator && document.body) {
@@ -1960,15 +1962,11 @@ function handlePostReloadToast() {
 }
 
 window.addEventListener('hashchange', router);
-window.addEventListener('DOMContentLoaded', () => {
-    router();
-    initGlobalClientWebSocket();
-    checkAndConnectGlobalOrderTracking();
-    initPullToRefresh();
-    handlePostReloadToast();
-});
 
-if (document.readyState === 'complete' || document.readyState === 'interactive') {
+let isAppInitialized = false;
+function bootstrapApp() {
+    if (isAppInitialized) return;
+    isAppInitialized = true;
     router();
     initGlobalClientWebSocket();
     checkAndConnectGlobalOrderTracking();
@@ -1976,8 +1974,29 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
     handlePostReloadToast();
 }
 
-// Background sync interval (every 10 seconds)
-setInterval(checkAndConnectGlobalOrderTracking, 10000);
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    bootstrapApp();
+} else {
+    window.addEventListener('DOMContentLoaded', bootstrapApp);
+}
+
+// Smart Background Sync (Only runs when tab is active to preserve mobile CPU/network)
+setInterval(() => {
+    if (!document.hidden && window.isUserLoggedIn()) {
+        checkAndConnectGlobalOrderTracking();
+    }
+}, 20000);
+
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+        if (window.isUserLoggedIn()) {
+            checkAndConnectGlobalOrderTracking();
+        }
+        if (typeof window.syncStoreAvailability === 'function') {
+            window.syncStoreAvailability();
+        }
+    }
+});
 
 // ============================================================
 // Interactive Magnetic Cursor Torch & Dynamic Ambient Parallax (Desktop Only)
