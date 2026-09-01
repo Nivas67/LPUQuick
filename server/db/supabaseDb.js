@@ -121,12 +121,15 @@ const supabaseDb = {
                 const baseTags = ((updates.tags !== undefined ? updates.tags : (currentProduct?.tags || ''))).replace(/stock:\d+,?/g, '').trim();
                 payload.tags = `stock:${stock}${baseTags ? ',' + baseTags : ''}`;
                 payload.in_stock = stock > 0;
+            } else if (updates.in_stock !== undefined) {
+                const currentProduct = await this.getById(id);
+                const isNowInStock = Boolean(updates.in_stock);
+                payload.in_stock = isNowInStock;
+                const baseTags = ((updates.tags !== undefined ? updates.tags : (currentProduct?.tags || ''))).replace(/stock:\d+,?/g, '').trim();
+                const stock = isNowInStock ? Math.max(50, Number(currentProduct?.stock_left || 50)) : 0;
+                payload.tags = `stock:${stock}${baseTags ? ',' + baseTags : ''}`;
             } else if (updates.tags !== undefined) {
                 payload.tags = updates.tags;
-            }
-
-            if (updates.in_stock !== undefined && updates.stock_left === undefined) {
-                payload.in_stock = Boolean(updates.in_stock);
             }
 
             const { data, error } = await supabase.from('products').update(payload).eq('id', id).select().single();

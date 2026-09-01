@@ -338,6 +338,22 @@ async function runExhaustiveClientTest() {
     // -------------------------------------------------------------
     if (createdOrderId) {
         console.log('\n--- Cleaning up test order ---');
+        if (targetProduct) {
+            try {
+                const { data: p } = await supabase.from('products').select('*').eq('id', targetProduct.id).single();
+                if (p) {
+                    const m = (p.tags || '').match(/stock:(\d+)/);
+                    const curStock = m ? parseInt(m[1], 10) : 50;
+                    const restocked = curStock + 2;
+                    const cleanTags = (p.tags || '').replace(/stock:\d+,?/g, '').trim();
+                    await supabase.from('products').update({
+                        in_stock: true,
+                        tags: `stock:${restocked}${cleanTags ? ',' + cleanTags : ''}`
+                    }).eq('id', targetProduct.id);
+                    console.log(`✓ Restored +2 inventory units to ${targetProduct.name} (Now: ${restocked})`);
+                }
+            } catch(e) {}
+        }
         await supabase.from('order_items').delete().eq('order_id', createdOrderId);
         await supabase.from('orders').delete().eq('id', createdOrderId);
         console.log('✓ Purged test order ' + createdOrderId + ' from Supabase.');

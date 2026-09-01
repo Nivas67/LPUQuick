@@ -1097,12 +1097,12 @@ function filterProducts() {
     }
 
     tbody.innerHTML = filtered.map(p => {
-        const stock = p.stock_left !== undefined ? p.stock_left : (p.in_stock ? 40 : 0);
+        const stock = p.stock_left !== undefined ? p.stock_left : (p.in_stock ? 50 : 0);
         const statusBadge = stock > 4 
-            ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold badge-in-stock">In Stock</span>'
+            ? `<button onclick="toggleProductStock('${p.id}', false)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold badge-in-stock cursor-pointer hover:opacity-80 transition-all" title="Click to mark Out of Stock">In Stock</button>`
             : (stock > 0 
-                ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold badge-low-stock">Low Stock (${stock} left)</span>`
-                : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold badge-out-of-stock">Out of Stock</span>');
+                ? `<button onclick="toggleProductStock('${p.id}', false)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold badge-low-stock cursor-pointer hover:opacity-80 transition-all" title="Click to mark Out of Stock">Low Stock (${stock} left)</button>`
+                : `<button onclick="toggleProductStock('${p.id}', true)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold badge-out-of-stock cursor-pointer hover:opacity-80 transition-all" title="Click to Restock (50 units)">Out of Stock ↻</button>`);
 
         return `
             <tr class="hover:bg-[#f7fafd] transition-colors">
@@ -1122,13 +1122,17 @@ function filterProducts() {
                 <td class="p-4">${statusBadge}</td>
                 <td class="p-4 text-right">
                     <div class="flex items-center justify-end gap-1.5">
-                        <button onclick="editProduct('${p.id}')" class="p-1.5 text-[#5c5f60] hover:text-[#3c4043] hover:bg-[#ebeef2] rounded-md transition-all" title="Edit Product">
+                        <button onclick="quickRestock('${p.id}', 25)" class="px-2 py-1 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-md transition-all font-bold text-[11px] flex items-center gap-1 cursor-pointer" title="+25 Quick Restock">
+                            <span class="material-symbols-outlined text-[15px]">add_circle</span>
+                            <span>+25</span>
+                        </button>
+                        <button onclick="editProduct('${p.id}')" class="p-1.5 text-[#5c5f60] hover:text-[#3c4043] hover:bg-[#ebeef2] rounded-md transition-all cursor-pointer" title="Edit Product">
                             <span class="material-symbols-outlined text-[18px]">edit</span>
                         </button>
-                        <button onclick="deactivateProduct('${p.id}', '${p.name.replace(/'/g, "\\'")}')" class="p-1.5 text-[#f59e0b] hover:bg-[#fef3c7] rounded-md transition-all" title="Deactivate (Out of Stock)">
+                        <button onclick="deactivateProduct('${p.id}', '${p.name.replace(/'/g, "\\'")}')" class="p-1.5 text-[#f59e0b] hover:bg-[#fef3c7] rounded-md transition-all cursor-pointer" title="Deactivate (Out of Stock)">
                             <span class="material-symbols-outlined text-[18px]">block</span>
                         </button>
-                        <button onclick="deleteProductPermanently('${p.id}', '${p.name.replace(/'/g, "\\'")}')" class="p-1.5 text-[#ba1a1a] hover:bg-[#ffdad6] rounded-md transition-all" title="Delete Completely From Database">
+                        <button onclick="deleteProductPermanently('${p.id}', '${p.name.replace(/'/g, "\\'")}')" class="p-1.5 text-[#ba1a1a] hover:bg-[#ffdad6] rounded-md transition-all cursor-pointer" title="Delete Completely From Database">
                             <span class="material-symbols-outlined text-[18px]">delete_forever</span>
                         </button>
                     </div>
@@ -1240,6 +1244,61 @@ async function promptCustomStock(productId, current) {
         }
     } catch (err) {
         alert('Stock update failed: ' + err.message);
+    }
+}
+
+async function toggleProductStock(productId, inStock) {
+    const p = productsCache.find(x => x.id === productId);
+    const newStock = inStock ? 50 : 0;
+    if (p) {
+        p.in_stock = inStock;
+        p.stock_left = newStock;
+    }
+    filterProducts();
+    if (typeof filterInventory === 'function') filterInventory();
+
+    try {
+        const res = await fetch('/api/products/admin/adjust-stock', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ productId, stock: newStock })
+        });
+        const data = await res.json();
+        if (data.success && p) {
+            p.stock_left = data.stock_left;
+            p.in_stock = data.in_stock;
+            filterProducts();
+            showToast(inStock ? `Restocked to ${newStock} units.` : 'Marked Out of Stock.', 'success');
+        }
+    } catch (err) {
+        console.error('Toggle stock error:', err);
+    }
+}
+
+async function quickRestock(productId, qty = 25) {
+    const p = productsCache.find(x => x.id === productId);
+    if (p) {
+        p.stock_left = (p.stock_left || 0) + qty;
+        p.in_stock = true;
+    }
+    filterProducts();
+    if (typeof filterInventory === 'function') filterInventory();
+
+    try {
+        const res = await fetch('/api/products/admin/adjust-stock', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ productId, delta: qty })
+        });
+        const data = await res.json();
+        if (data.success && p) {
+            p.stock_left = data.stock_left;
+            p.in_stock = data.in_stock;
+            filterProducts();
+            showToast(`Added +${qty} units. Total: ${data.stock_left}`, 'success');
+        }
+    } catch (err) {
+        console.error('Quick restock error:', err);
     }
 }
 
@@ -1523,7 +1582,7 @@ function openProductModal(product = null) {
         document.getElementById('form-product-subcategory').value = product.subcategory || '';
         document.getElementById('form-product-price').value = product.price;
         document.getElementById('form-product-mrp').value = product.mrp || product.price;
-        document.getElementById('form-product-stock').value = product.stock_left !== undefined ? product.stock_left : 10;
+        document.getElementById('form-product-stock').value = product.stock_left !== undefined ? product.stock_left : 50;
         document.getElementById('form-product-image').value = product.image_url || '';
         if (preview) preview.src = product.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200';
         document.getElementById('form-product-desc').value = product.description || '';
@@ -1536,7 +1595,7 @@ function openProductModal(product = null) {
         document.getElementById('modal-product-title').textContent = 'Add New Campus Product';
         document.getElementById('product-form').reset();
         document.getElementById('form-product-id').value = '';
-        document.getElementById('form-product-stock').value = '10';
+        document.getElementById('form-product-stock').value = '50';
         clearProductImage();
         if (deleteBtn) {
             deleteBtn.classList.add('hidden');
