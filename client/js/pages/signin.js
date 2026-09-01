@@ -175,6 +175,14 @@ window.pageInits.signin = function() {
                 localStorage.setItem('lpuquick_last_active', Date.now().toString());
                 if (typeof window.refreshUserActivity === 'function') window.refreshUserActivity();
 
+                // Automatically activate Night Mode upon login
+                document.documentElement.classList.add('dark');
+                if (document.body) document.body.classList.add('dark');
+                localStorage.setItem('lpuquick_theme', 'dark');
+                if (typeof window.syncAllThemeToggles === 'function') {
+                    window.syncAllThemeToggles();
+                }
+
                 // Merge guest cart items into authenticated user account
                 const guestId = localStorage.getItem('lpuquick_guest_cart_id');
                 if (guestId && typeof window.api?.mergeCart === 'function') {
@@ -218,6 +226,15 @@ window.pageInits.signin = function() {
                 window.CURRENT_USER_PICTURE = localUser.picture;
                 localStorage.setItem('lpuquick_user', JSON.stringify(localUser));
                 localStorage.setItem('lpuquick_last_active', Date.now().toString());
+
+                // Automatically activate Night Mode upon login
+                document.documentElement.classList.add('dark');
+                if (document.body) document.body.classList.add('dark');
+                localStorage.setItem('lpuquick_theme', 'dark');
+                if (typeof window.syncAllThemeToggles === 'function') {
+                    window.syncAllThemeToggles();
+                }
+
                 window.location.hash = '#/';
                 return;
             }

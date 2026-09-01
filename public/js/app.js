@@ -65,6 +65,11 @@ window.logoutUser = function() {
                 window.currentRoom = localStorage.getItem('lpuquick_room') || '';
                 window.currentAddressDetail = localStorage.getItem('lpuquick_address_detail') || '';
                 localStorage.setItem('lpuquick_last_active', now.toString());
+
+                // Whenever user is logged in, ensure Night Mode is activated
+                document.documentElement.classList.add('dark');
+                if (document.body) document.body.classList.add('dark');
+                localStorage.setItem('lpuquick_theme', 'dark');
             }
         }
     } catch (e) {
@@ -126,19 +131,27 @@ window.currentRoom = localStorage.getItem('lpuquick_room') || '';
 window.currentAddressDetail = localStorage.getItem('lpuquick_address_detail') || '';
 
 // Theme state & global theme toggle manager
+window.setNightMode = function() {
+    document.documentElement.classList.add('dark');
+    if (document.body) document.body.classList.add('dark');
+    localStorage.setItem('lpuquick_theme', 'dark');
+    window.syncAllThemeToggles();
+};
+
+window.setLightMode = function() {
+    document.documentElement.classList.remove('dark');
+    if (document.body) document.body.classList.remove('dark');
+    localStorage.setItem('lpuquick_theme', 'light');
+    window.syncAllThemeToggles();
+};
+
 window.toggleTheme = function() {
     const isCurrentlyDark = document.documentElement.classList.contains('dark') || localStorage.getItem('lpuquick_theme') === 'dark';
-    const newTheme = isCurrentlyDark ? 'light' : 'dark';
-    if (newTheme === 'dark') {
-        document.documentElement.classList.add('dark');
-        document.body.classList.add('dark');
-        localStorage.setItem('lpuquick_theme', 'dark');
+    if (isCurrentlyDark) {
+        window.setLightMode();
     } else {
-        document.documentElement.classList.remove('dark');
-        document.body.classList.remove('dark');
-        localStorage.setItem('lpuquick_theme', 'light');
+        window.setNightMode();
     }
-    window.syncAllThemeToggles();
 };
 
 window.syncAllThemeToggles = function() {
@@ -176,9 +189,11 @@ window.syncAllThemeToggles = function() {
     }
 };
 
-if (localStorage.getItem('lpuquick_theme') === 'dark') {
+// Whenever user is logged in or theme is dark, ensure night mode is active
+if (localStorage.getItem('lpuquick_theme') === 'dark' || window.isUserLoggedIn()) {
     document.documentElement.classList.add('dark');
-    document.body.classList.add('dark');
+    if (document.body) document.body.classList.add('dark');
+    localStorage.setItem('lpuquick_theme', 'dark');
 }
 
 const routes = {

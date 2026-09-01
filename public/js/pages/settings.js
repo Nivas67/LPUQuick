@@ -360,15 +360,19 @@ window.pageInits.settings = function() {
         darkToggle.checked = isDark;
         darkToggle.onchange = () => {
             if (darkToggle.checked) {
-                document.documentElement.classList.add('dark');
-                document.body.classList.add('dark');
-                document.body.style.filter = 'none';
-                localStorage.setItem('lpuquick_theme', 'dark');
+                if (typeof window.setNightMode === 'function') window.setNightMode();
+                else {
+                    document.documentElement.classList.add('dark');
+                    document.body?.classList.add('dark');
+                    localStorage.setItem('lpuquick_theme', 'dark');
+                }
             } else {
-                document.documentElement.classList.remove('dark');
-                document.body.classList.remove('dark');
-                document.body.style.filter = 'none';
-                localStorage.setItem('lpuquick_theme', 'light');
+                if (typeof window.setLightMode === 'function') window.setLightMode();
+                else {
+                    document.documentElement.classList.remove('dark');
+                    document.body?.classList.remove('dark');
+                    localStorage.setItem('lpuquick_theme', 'light');
+                }
             }
         };
     }

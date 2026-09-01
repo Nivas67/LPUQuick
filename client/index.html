@@ -44,6 +44,21 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="LPUQuick">
 
+    <!-- Immediate Night Mode Initializer (Zero Flash) -->
+    <script>
+        (function() {
+            try {
+                const user = localStorage.getItem('lpuquick_user');
+                const theme = localStorage.getItem('lpuquick_theme');
+                // Automatically activate Night Mode if user is logged in or theme is dark
+                if (user || theme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                    localStorage.setItem('lpuquick_theme', 'dark');
+                }
+            } catch(e) {}
+        })();
+    </script>
+    
     <!-- Hard Client Storage & Cache Purge -->
     <script>
         (function() {
@@ -436,6 +451,11 @@
                             window.CURRENT_USER_EMAIL = savedUser.email || '';
                             window.CURRENT_USER_PICTURE = savedUser.picture || '';
                             localStorage.setItem('lpuquick_last_active', now.toString());
+                            
+                            // Whenever user is logged in, ensure Night Mode is activated
+                            document.documentElement.classList.add('dark');
+                            if (document.body) document.body.classList.add('dark');
+                            localStorage.setItem('lpuquick_theme', 'dark');
                         }
                     }
                 } else {
