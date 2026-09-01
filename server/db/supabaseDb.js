@@ -126,7 +126,7 @@ const supabaseDb = {
                 const isNowInStock = Boolean(updates.in_stock);
                 payload.in_stock = isNowInStock;
                 const baseTags = ((updates.tags !== undefined ? updates.tags : (currentProduct?.tags || ''))).replace(/stock:\d+,?/g, '').trim();
-                const stock = isNowInStock ? Math.max(50, Number(currentProduct?.stock_left || 50)) : 0;
+                const stock = isNowInStock ? Math.max(1, Number(currentProduct?.stock_left || 1)) : 0;
                 payload.tags = `stock:${stock}${baseTags ? ',' + baseTags : ''}`;
             } else if (updates.tags !== undefined) {
                 payload.tags = updates.tags;
