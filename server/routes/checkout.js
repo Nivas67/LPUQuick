@@ -7,14 +7,31 @@ const cache = require('../cache');
 
 // POST /api/checkout and /api/checkout/place
 async function handlePlaceOrder(req, res) {
-    const userId = req.body.userId || req.body.user_id;
+    let userId = req.body.userId || req.body.user_id;
+    const guestUserId = req.body.guestUserId || req.body.guest_id;
     const paymentMethod = req.body.paymentMethod || req.body.payment_method;
     const deliveryAddress = req.body.deliveryAddress || req.body.delivery_address;
     const customOrderId = req.body.orderId || req.body.order_id;
+    const clientItems = Array.isArray(req.body.items) && req.body.items.length > 0 ? req.body.items : null;
 
-    // Strict Auth Check: User MUST be signed in
+    // Extract & validate mandatory 10-digit mobile number
+    const checkPhone = (req.body.customerPhone || req.body.phone || '').replace(/\D/g, '');
+    if (!checkPhone || checkPhone.length !== 10) {
+        let existingUserPhone = '';
+        if (userId && !userId.startsWith('guest_')) {
+            try {
+                const u = await supabaseDb.users.getById(userId);
+                if (u && u.phone) existingUserPhone = u.phone.replace(/\D/g, '');
+            } catch (e) {}
+        }
+        if (!existingUserPhone || existingUserPhone.length !== 10) {
+            return res.status(400).json({ error: 'Valid 10-digit mobile number is mandatory so our runner can call your room on arrival.' });
+        }
+    }
+
+    // Seamless Student Account Bridge: If guest or unassigned, auto-resolve user by 10-digit phone
     if (!userId || userId === 'null' || userId === 'undefined' || userId.startsWith('guest_') || userId === 'anonymous') {
-        return res.status(401).json({ error: 'Authentication required. Please sign in with Google or Student Email to place your order.' });
+        userId = `user_phone_${checkPhone}`;
     }
 
     // 1. SERVER-SIDE STORE AVAILABILITY CHECK (Client Lock Protection)
@@ -52,7 +69,6 @@ async function handlePlaceOrder(req, res) {
         console.warn('[Checkout Blacklist Check Warning]:', blErr.message);
     }
 
-
     // Strict Address Check: Must be non-empty and explicitly contain a room number
     if (!deliveryAddress || typeof deliveryAddress !== 'string' || deliveryAddress.trim().length < 5 || 
         deliveryAddress.includes('Please set') || 
@@ -66,39 +82,32 @@ async function handlePlaceOrder(req, res) {
         return res.status(400).json({ error: 'Valid hostel room number is required (e.g., BH13 (Block A), Room 304).' });
     }
 
-    // Strict Mobile Number Check: Mobile is strictly mandatory for every user
-    const checkPhone = (req.body.customerPhone || req.body.phone || '').replace(/\D/g, '');
-    if (!checkPhone || checkPhone.length !== 10) {
-        let existingUserPhone = '';
-        try {
-            const u = await supabaseDb.users.getById(userId);
-            if (u && u.phone) existingUserPhone = u.phone.replace(/\D/g, '');
-        } catch (e) {}
-
-        if (!existingUserPhone || existingUserPhone.length !== 10) {
-            return res.status(400).json({ error: 'Valid 10-digit mobile number is mandatory for delivery so our runner can contact you upon arrival.' });
-        }
-    }
-
     try {
-        // Fetch cart items directly from Supabase
-        const cart = await supabaseDb.cart.getCart(userId);
-        if (!cart.items || cart.items.length === 0) {
+        // Fetch cart items: check primary user cart, then guest cart, then fallback to submitted client items
+        let cart = await supabaseDb.cart.getCart(userId);
+        if ((!cart.items || cart.items.length === 0) && guestUserId) {
+            cart = await supabaseDb.cart.getCart(guestUserId);
+        }
+
+        let orderItems = (cart.items && cart.items.length > 0) ? cart.items : clientItems;
+
+        if (!orderItems || orderItems.length === 0) {
             return res.status(400).json({ error: 'Cart is empty. Please add items before checking out.' });
         }
 
-        // Validate stock limits directly from cart items without sequential DB roundtrips
-        for (const item of cart.items) {
-            const availableStock = item.stock_left !== undefined && item.stock_left !== null ? Number(item.stock_left) : (item.in_stock ? 50 : 0);
-            if (!item.in_stock || availableStock <= 0) {
-                return res.status(400).json({ error: `"${item.name}" is currently out of stock. Please remove it from your cart to proceed.` });
+        // Validate stock limits directly from items without sequential DB roundtrips
+        for (const item of orderItems) {
+            const hasExplicitStock = item.stock_left !== undefined && item.stock_left !== null;
+            const availableStock = hasExplicitStock ? Number(item.stock_left) : 50;
+            if (item.in_stock === false || (hasExplicitStock && availableStock <= 0)) {
+                return res.status(400).json({ error: `"${item.name || 'Item'}" is currently out of stock. Please remove it from your cart to proceed.` });
             }
-            if (item.quantity > availableStock) {
+            if (hasExplicitStock && item.quantity > availableStock) {
                 return res.status(400).json({ error: `Only ${availableStock} units of "${item.name}" left in stock (you have ${item.quantity} in cart). Please adjust quantity.` });
             }
         }
 
-        const subtotal = cart.pricing.subtotal;
+        const subtotal = orderItems.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 1)), 0);
         const discount5 = subtotal >= 350 ? Math.round(subtotal * 0.05) : 0;
         const total = Math.max(0, subtotal - discount5);
 
@@ -164,7 +173,7 @@ async function handlePlaceOrder(req, res) {
             delivery_address: address
         };
 
-        const createdOrder = await supabaseDb.orders.createOrder(orderPayload, cart.items);
+        const createdOrder = await supabaseDb.orders.createOrder(orderPayload, orderItems);
         cache.invalidateOrders();
 
         // Broadcast to live Admin and Tracking WebSockets
@@ -177,7 +186,7 @@ async function handlePlaceOrder(req, res) {
                 customer_email: customerEmail,
                 status: initialStatus,
                 total,
-                item_summary: cart.items.map(i => `${i.name} (x${i.quantity})`).join(', '),
+                item_summary: orderItems.map(i => `${i.name} (x${i.quantity})`).join(', '),
                 delivery_address: address,
                 payment_method: method,
                 created_at: new Date().toISOString()

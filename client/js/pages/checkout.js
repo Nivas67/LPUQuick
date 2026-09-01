@@ -731,9 +731,10 @@ window.pageInits.checkout = function() {
     });
 
     function resetSlider() {
-        if (!thumb || !track) return;
-        thumb.style.transition = 'transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-        thumb.style.transform = 'translateX(0px)';
+        if (thumb && track) {
+            thumb.style.transition = 'transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            thumb.style.transform = 'translateX(0px)';
+        }
         if (progress) {
             progress.style.transition = 'width 0.35s ease';
             progress.style.width = '0px';
@@ -741,41 +742,53 @@ window.pageInits.checkout = function() {
         if (text) {
             text.style.transition = 'opacity 0.3s ease';
             text.style.opacity = '1';
-            text.textContent = `Slide to Confirm Order ₹${window.cartTotalCache || 65}`;
+            text.textContent = `Slide to Confirm Order ₹${window.cartTotalCache || 40}`;
         }
         if (thumbIcon) {
             thumbIcon.textContent = 'arrow_forward';
             thumbIcon.classList.remove('animate-spin');
         }
+        if (tapToPayBtn) {
+            tapToPayBtn.classList.remove('opacity-75', 'pointer-events-none');
+            const amt = window.cartTotalCache ? ` (₹${window.cartTotalCache})` : '';
+            tapToPayBtn.innerHTML = `
+                <span class="material-symbols-outlined text-lg">bolt</span>
+                <span>⚡ 1-Tap Quick Place: Cash on Delivery${amt}</span>
+            `;
+        }
     }
 
-    // 2. REAL ORDER PLACEMENT TO BACKEND
+    // 2. REAL ORDER PLACEMENT TO BACKEND (Ultra Fast & Reactive)
     async function handleOrderPlacement() {
-        if (!window.isUserLoggedIn()) {
-            resetSlider();
-            localStorage.setItem('lpuquick_redirect', '#/checkout');
-            showPaymentToast('🔐 Sign In Required: Please sign in to confirm your room delivery order.');
-            setTimeout(() => {
-                window.location.hash = '#/signin';
-            }, 800);
-            return;
-        }
+        if (isSubmitting) return;
 
-        if (!window.hasUserConfiguredAddress()) {
+        const savedRoom = (localStorage.getItem('lpuquick_room') || '').trim();
+        const savedBlock = (localStorage.getItem('lpuquick_block') || 'Block A').trim();
+        const cleanPhone = (localStorage.getItem('lpuquick_phone') || '').replace(/\D/g, '');
+
+        // Address & 10-Digit Mobile Validation
+        if (!window.hasUserConfiguredAddress() || !savedRoom || savedRoom === 'null' || savedRoom === 'undefined') {
             resetSlider();
-            showPaymentToast('📍 Room Address Required: Please confirm your hostel room number.');
+            showPaymentToast('📍 Room Address Required: Please set your hostel room number.');
             window.openAddressModal(true, () => {
-                if (window.router) window.router();
+                if (typeof window.router === 'function') window.router();
             });
             return;
         }
 
-        if (isSubmitting) return;
-        isSubmitting = true;
+        if (!cleanPhone || cleanPhone.length !== 10) {
+            resetSlider();
+            showPaymentToast('📞 Mobile Number Mandatory: 10-digit mobile is required so our runner can call you.');
+            window.openAddressModal(true, () => {
+                if (typeof window.router === 'function') window.router();
+            });
+            return;
+        }
 
+        isSubmitting = true;
         if (errorBanner) errorBanner.classList.add('hidden');
 
-        // Loading State on Slider
+        // Immediate Visual Feedback on Slider
         if (thumb && track) {
             const finalX = track.offsetWidth - thumb.offsetWidth - 16;
             thumb.style.transition = 'transform 0.2s ease';
@@ -794,28 +807,13 @@ window.pageInits.checkout = function() {
             thumbIcon.classList.add('animate-spin');
         }
 
-        const savedRoom = (localStorage.getItem('lpuquick_room') || '').trim();
-        const savedBlock = (localStorage.getItem('lpuquick_block') || 'Block A').trim();
-        const cleanPhone = (localStorage.getItem('lpuquick_phone') || '').replace(/\D/g, '');
-
-        if (!window.hasUserConfiguredAddress() || !savedRoom || savedRoom === 'null' || savedRoom === 'undefined') {
-            isSubmitting = false;
-            resetSlider();
-            showPaymentToast('📍 Room Address Required: Please set your hostel room number.');
-            window.openAddressModal(true, () => {
-                if (typeof window.router === 'function') window.router();
-            });
-            return;
-        }
-
-        if (!cleanPhone || cleanPhone.length !== 10) {
-            isSubmitting = false;
-            resetSlider();
-            showPaymentToast('📞 Mobile Number Mandatory: 10-digit mobile number is required so our delivery runner can contact you.');
-            window.openAddressModal(true, () => {
-                if (typeof window.router === 'function') window.router();
-            });
-            return;
+        // Immediate Visual Feedback on 1-Tap Button
+        if (tapToPayBtn) {
+            tapToPayBtn.classList.add('opacity-75', 'pointer-events-none');
+            tapToPayBtn.innerHTML = `
+                <span class="material-symbols-outlined text-lg animate-spin">progress_activity</span>
+                <span>Placing your order...</span>
+            `;
         }
 
         const deliveryAddress = `BH13 (${savedBlock}), Room ${savedRoom}`;
@@ -823,7 +821,7 @@ window.pageInits.checkout = function() {
 
         let currentUserName = window.CURRENT_USER_NAME;
         let currentUserEmail = window.CURRENT_USER_EMAIL;
-        let currentUserPhone = savedPhone || localStorage.getItem('lpuquick_phone');
+        let currentUserPhone = cleanPhone;
 
         if (!currentUserName || !currentUserEmail) {
             try {
@@ -831,39 +829,67 @@ window.pageInits.checkout = function() {
                 if (savedUser) {
                     currentUserName = currentUserName || savedUser.name;
                     currentUserEmail = currentUserEmail || savedUser.email;
-                    currentUserPhone = currentUserPhone || savedUser.phone;
+                    currentUserPhone = cleanPhone || savedUser.phone;
                 }
             } catch(e) {}
         }
+
+        const effectiveUserId = window.CURRENT_USER_ID || 
+            (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : null) || 
+            (`user_phone_${cleanPhone}`);
+        const guestCartId = localStorage.getItem('lpuquick_guest_cart_id') || '';
+        const clientCartItems = (window.cartState && Array.isArray(window.cartState.items)) ? window.cartState.items : [];
 
         let safetyTimeout = setTimeout(() => {
             if (isSubmitting) {
                 console.warn('[Checkout Safety Timeout Triggered]');
                 isSubmitting = false;
                 resetSlider();
+                const timeoutMsg = 'Network is slow. Please tap retry to confirm.';
+                showPaymentToast(timeoutMsg);
                 if (errorBanner) {
                     errorBanner.classList.remove('hidden');
-                    if (errorMsg) errorMsg.textContent = 'Network is slow. Please tap retry to place your order.';
+                    if (errorMsg) errorMsg.textContent = timeoutMsg;
                 }
             }
-        }, 13000);
+        }, 12000);
 
         let progressTimer = setTimeout(() => {
             if (isSubmitting && text) {
-                text.textContent = 'Contacting BH13 Dark Store...';
+                text.textContent = 'Connecting Dark Store...';
             }
         }, 2200);
 
         try {
-            const res = await window.api.checkout(userId, selectedPaymentMethod, deliveryAddress, {
+            const res = await window.api.checkout(effectiveUserId, selectedPaymentMethod, deliveryAddress, {
                 phone: currentUserPhone,
-                name: currentUserName,
-                email: currentUserEmail
+                name: currentUserName || 'LPU Student',
+                email: currentUserEmail || '',
+                guestUserId: guestCartId,
+                items: clientCartItems
             });
 
             if (res && res.success && res.order) {
                 clearTimeout(safetyTimeout);
-                // Successful confirmation state on slider
+                clearTimeout(progressTimer);
+
+                // Auto-persist permanent user session if guest
+                try {
+                    const existingUser = JSON.parse(localStorage.getItem('lpuquick_user') || '{}');
+                    if (!existingUser.id) {
+                        const newSession = {
+                            id: res.order.user_id,
+                            name: res.order.customer_name || currentUserName || 'LPU Student',
+                            phone: cleanPhone,
+                            email: currentUserEmail || ''
+                        };
+                        localStorage.setItem('lpuquick_user', JSON.stringify(newSession));
+                        window.CURRENT_USER_ID = res.order.user_id;
+                        window.CURRENT_USER_NAME = newSession.name;
+                    }
+                } catch(e) {}
+
+                // Successful confirmation state
                 if (text) text.textContent = 'Order Placed! ✓';
                 if (thumbIcon) {
                     thumbIcon.classList.remove('animate-spin');
@@ -877,41 +903,52 @@ window.pageInits.checkout = function() {
                 // Render in-place Success Screen with real data
                 setTimeout(() => {
                     renderSuccessScreen(res.order);
-                }, 250);
+                }, 200);
             } else if (res && res.error === 'STORE_CLOSED') {
                 clearTimeout(safetyTimeout);
+                clearTimeout(progressTimer);
                 isSubmitting = false;
                 resetSlider();
                 if (typeof window.syncStoreAvailability === 'function') {
                     window.syncStoreAvailability();
                 }
                 const msg = res.message || (res.availability?.display_reopen?.fullHeadline ? `Store is closed. ${res.availability.display_reopen.fullHeadline}` : 'Dark store is temporarily closed for orders.');
-                alert(`🏪 Store is Closed:\n\n${msg}\n\nYour items will remain in your cart until the store re-opens.`);
-                window.location.hash = '#/';
+                showPaymentToast(msg);
+                if (errorBanner) {
+                    errorBanner.classList.remove('hidden');
+                    if (errorMsg) errorMsg.textContent = msg;
+                }
                 return;
             } else if (res && res.error === 'ACCOUNT_BLOCKED') {
                 clearTimeout(safetyTimeout);
+                clearTimeout(progressTimer);
                 isSubmitting = false;
                 resetSlider();
                 window.__isUserBlocked = true;
                 window.__userBlockReason = res.reason || 'Fake Orders';
-                alert(`⚠️ Account Suspended:\n\n${res.message || 'You are blocked due to fake orders.'}\n\nPlease contact BH13 Campus Hub.`);
+                showPaymentToast(res.message || 'You are blocked due to suspicious activity.');
                 if (typeof window.renderBlockedPage === 'function') {
                     window.location.hash = '#/blocked';
                 }
                 return;
             } else {
-                throw new Error(res?.message || res?.error || 'Failed to place order.');
+                throw new Error(res?.message || res?.error || 'Failed to place order. Please retry.');
             }
         } catch (err) {
             clearTimeout(safetyTimeout);
+            clearTimeout(progressTimer);
             console.error('Order placement failed:', err);
             isSubmitting = false;
             resetSlider();
 
+            const displayErr = err.message || 'Please check your connection and tap to retry.';
+            showPaymentToast(displayErr);
+            if (typeof window.showClientToast === 'function') {
+                window.showClientToast(displayErr, 'error', 'error');
+            }
             if (errorBanner) {
                 errorBanner.classList.remove('hidden');
-                if (errorMsg) errorMsg.textContent = err.message || 'Please check your connection and try again.';
+                if (errorMsg) errorMsg.textContent = displayErr;
             }
         } finally {
             clearTimeout(safetyTimeout);

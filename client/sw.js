@@ -1,5 +1,5 @@
-// LPUQuick High-Performance Ultra-Fast Service Worker (V2026.09.01-Turbo)
-const CACHE_NAME = 'lpuquick-pwa-v4-turbo';
+// LPUQuick High-Performance Ultra-Fast Service Worker (V2026.09.01-TurboV5)
+const CACHE_NAME = 'lpuquick-pwa-v5-turbo';
 const STATIC_ASSETS = [
     '/',
     '/index.html',

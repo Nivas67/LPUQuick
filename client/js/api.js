@@ -466,8 +466,10 @@ const api = {
     // Checkout with resilient timeout to prevent UI hang on weak campus networks
     async checkout(userId, paymentMethod = 'Cash on Delivery', deliveryAddress = '', extraData = {}) {
         const savedPhone = extraData.phone || localStorage.getItem('lpuquick_phone') || '';
-        const savedName = extraData.name || window.CURRENT_USER_NAME || (JSON.parse(localStorage.getItem('lpuquick_user') || '{}').name) || '';
+        const savedName = extraData.name || window.CURRENT_USER_NAME || (JSON.parse(localStorage.getItem('lpuquick_user') || '{}').name) || 'LPU Student';
         const savedEmail = extraData.email || window.CURRENT_USER_EMAIL || (JSON.parse(localStorage.getItem('lpuquick_user') || '{}').email) || '';
+        const guestUserId = extraData.guestUserId || localStorage.getItem('lpuquick_guest_cart_id') || '';
+        const items = extraData.items || (window.cartState && window.cartState.items) || [];
 
         // Resilient 2-attempt fetch execution for flaky campus cellular networks
         for (let attempt = 1; attempt <= 2; attempt++) {
@@ -481,11 +483,13 @@ const api = {
                     signal: controller.signal,
                     body: JSON.stringify({
                         userId,
+                        guestUserId,
                         paymentMethod,
                         deliveryAddress,
                         customerPhone: savedPhone,
                         customerName: savedName,
-                        customerEmail: savedEmail
+                        customerEmail: savedEmail,
+                        items
                     })
                 });
                 clearTimeout(timeoutId);

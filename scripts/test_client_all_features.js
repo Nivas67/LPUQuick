@@ -147,7 +147,7 @@ async function runExhaustiveClientTest() {
     let targetProduct = null;
     try {
         const prodData = await window.api.getProducts();
-        targetProduct = (prodData.products || []).find(p => p.in_stock) || prodData.products[0];
+        targetProduct = (prodData.products || []).find(p => p.in_stock && (p.stock_left === null || p.stock_left === undefined || p.stock_left > 5)) || prodData.products[0];
 
         // 3a: Add product to cart
         const addRes = await window.api.addToCart(testUser.id, targetProduct.id, 2);

@@ -2,7 +2,16 @@
   "version": 2,
   "headers": [
     {
-      "source": "/(css|js|assets|uploads)/(.*)",
+      "source": "/(css|js)/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/(assets|uploads)/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
