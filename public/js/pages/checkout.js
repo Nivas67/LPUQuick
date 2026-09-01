@@ -32,7 +32,10 @@ window.pages.checkout = async function() {
 
     const savedRoom = localStorage.getItem('lpuquick_room') || window.currentRoom;
     const savedBlock = localStorage.getItem('lpuquick_block') || window.currentBlock || 'Block A';
-    const address = savedRoom ? `BH13 (${savedBlock}), Room ${savedRoom}` : 'Please set your hostel room number';
+    const savedPhone = (localStorage.getItem('lpuquick_phone') || window.currentPhone || '').replace(/\D/g, '');
+    const address = (savedRoom && savedPhone.length === 10) 
+        ? `BH13 (${savedBlock}), Room ${savedRoom} • 📞 +91 ${savedPhone}` 
+        : (savedRoom ? `BH13 (${savedBlock}), Room ${savedRoom} • ⚠️ Mobile Number Mandatory` : 'Please set your hostel room & mobile number');
 
     const itemRows = items.map(item => {
         const itemMrp = Number(item.mrp) || Number(item.price) || 0;
@@ -128,19 +131,19 @@ window.pages.checkout = async function() {
                 </a>
             </div>
             ` : !window.hasUserConfiguredAddress() ? `
-            <!-- Room Address Required Banner -->
-            <div class="glass-card rounded-3xl p-4 border border-emerald/40 bg-emerald/10 flex items-center justify-between shadow-sm">
+            <!-- Room Address & Mobile Required Banner -->
+            <div class="glass-card rounded-3xl p-4 border border-rose-500/40 bg-rose-500/10 flex items-center justify-between shadow-sm">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-2xl bg-emerald/20 text-emerald flex items-center justify-center flex-shrink-0">
-                        <span class="material-symbols-outlined text-xl">home_pin</span>
+                    <div class="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-500 flex items-center justify-center flex-shrink-0">
+                        <span class="material-symbols-outlined text-xl">contact_phone</span>
                     </div>
                     <div>
-                        <p class="font-bold text-xs sm:text-sm text-on-surface">Room Address Required</p>
-                        <p class="text-[11px] text-on-surface-variant">Add your hostel room number to order.</p>
+                        <p class="font-bold text-xs sm:text-sm text-on-surface">Delivery Address & Mobile Required</p>
+                        <p class="text-[11px] text-on-surface-variant">Hostel room and 10-digit mobile are mandatory for delivery runner.</p>
                     </div>
                 </div>
                 <button type="button" onclick="window.openAddressModal(true, () => window.router())" class="bg-emerald text-white px-4 py-2 rounded-full text-xs font-bold shadow-md hover:bg-primary transition-all active:scale-95 flex items-center gap-1 cursor-pointer">
-                    <span>Add Address</span>
+                    <span>Add Now</span>
                     <span class="material-symbols-outlined text-xs">arrow_forward</span>
                 </button>
             </div>
@@ -159,12 +162,18 @@ window.pages.checkout = async function() {
                                 <span class="text-[10px] bg-emerald/20 text-emerald px-2 py-0.5 rounded font-bold">Express 3m</span>
                             </div>
                             <p class="text-xs text-on-surface-variant mt-0.5" id="checkout-address-text">${address}</p>
-                            <p class="text-[11px] text-emerald font-semibold mt-1 flex items-center gap-1">
-                                <span class="w-1.5 h-1.5 rounded-full bg-emerald"></span> Priority Campus Express Dispatch (3 Mins)
+                            ${(!savedPhone || savedPhone.length !== 10) ? `
+                            <p class="text-[11px] text-rose-500 font-bold mt-1 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-xs">warning</span> Mobile number missing! Required for delivery runner.
                             </p>
+                            ` : `
+                            <p class="text-[11px] text-emerald font-semibold mt-1 flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald"></span> Verified Contact for Runner Delivery (3 Mins)
+                            </p>
+                            `}
                         </div>
                     </div>
-                    <button type="button" class="text-xs font-semibold text-emerald hover:underline address-selector-trigger" onclick="window.openAddressModal()">Change</button>
+                    <button type="button" class="text-xs font-semibold text-emerald hover:underline address-selector-trigger" onclick="window.openAddressModal(true)">Change</button>
                 </div>
             </div>
 
@@ -785,12 +794,22 @@ window.pageInits.checkout = function() {
 
         const savedRoom = (localStorage.getItem('lpuquick_room') || '').trim();
         const savedBlock = (localStorage.getItem('lpuquick_block') || 'Block A').trim();
-        const savedPhone = (localStorage.getItem('lpuquick_phone') || '').trim();
+        const cleanPhone = (localStorage.getItem('lpuquick_phone') || '').replace(/\D/g, '');
 
-        if (!window.hasUserConfiguredAddress() || !savedRoom || savedRoom === 'null' || savedRoom === 'undefined' || !savedPhone || savedPhone.length < 10) {
+        if (!window.hasUserConfiguredAddress() || !savedRoom || savedRoom === 'null' || savedRoom === 'undefined') {
             isSubmitting = false;
             resetSlider();
-            showPaymentToast('📍 Room Address Required: Please set your hostel room number to order.');
+            showPaymentToast('📍 Room Address Required: Please set your hostel room number.');
+            window.openAddressModal(true, () => {
+                if (typeof window.router === 'function') window.router();
+            });
+            return;
+        }
+
+        if (!cleanPhone || cleanPhone.length !== 10) {
+            isSubmitting = false;
+            resetSlider();
+            showPaymentToast('📞 Mobile Number Mandatory: 10-digit mobile number is required so our delivery runner can contact you.');
             window.openAddressModal(true, () => {
                 if (typeof window.router === 'function') window.router();
             });

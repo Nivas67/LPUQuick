@@ -525,7 +525,7 @@ window.pageInits.categories = async function() {
                                     Out of Stock
                                 </span>
                                 ` : `
-                                <button type="button" class="bg-emerald text-white text-xs px-4 py-1.5 rounded-xl font-bold hover:bg-primary active:scale-95 shadow-sm transition-all add-to-cart-btn" data-id="${p.id}" data-stock-left="${stockLeft}">
+                                <button type="button" class="add-to-cart-btn bg-emerald-950/20 dark:bg-emerald-950/40 border border-emerald-600 text-emerald-600 dark:text-emerald-400 font-extrabold text-xs px-3.5 py-1 rounded-xl shadow-sm hover:bg-emerald-600 hover:text-white active:scale-95 transition-all tracking-wider uppercase" data-id="${p.id}" data-stock-left="${stockLeft}">
                                     ADD
                                 </button>
                                 `}

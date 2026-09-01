@@ -412,6 +412,29 @@
         </a>
     </div>
 
+    <!-- Global Floating Quick-Commerce View Cart Bar (Zepto / Blinkit Style) -->
+    <div id="global-floating-cart-bar" class="fixed bottom-24 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 hidden transition-all duration-300 transform translate-y-12 opacity-0 pointer-events-none">
+        <a href="#/cart" id="floating-cart-inner" class="w-full bg-[#16a34a] hover:bg-[#15803d] text-white rounded-full py-2 px-3 sm:px-3.5 shadow-2xl flex items-center justify-between gap-3 border border-emerald-400/40 active:scale-[0.98] transition-all group cursor-pointer">
+            <!-- Left: Stacked Overlapping Product Images (up to 3 items) -->
+            <div id="floating-cart-thumbnails" class="flex items-center -space-x-3.5 mr-1 overflow-visible flex-shrink-0">
+                <!-- Dynamically populated up to 3 thumbnails -->
+            </div>
+
+            <!-- Center: View Cart & Items / Subtotal -->
+            <div class="flex flex-col text-left flex-1 min-w-0">
+                <span class="text-sm sm:text-base font-extrabold text-white tracking-tight leading-tight">View cart</span>
+                <span id="floating-cart-subtitle" class="text-xs text-white/90 font-semibold leading-tight truncate">
+                    0 items
+                </span>
+            </div>
+
+            <!-- Right: Circular Arrow Action -->
+            <div class="w-8 h-8 rounded-full bg-emerald-800/60 dark:bg-black/30 border border-white/25 flex items-center justify-center text-white flex-shrink-0 shadow-inner group-hover:translate-x-1 transition-transform">
+                <span class="material-symbols-outlined text-xl">chevron_right</span>
+            </div>
+        </a>
+    </div>
+
     <!-- Client Live Notifications Container -->
     <div id="client-toast-container" class="fixed top-4 right-4 sm:right-6 z-50 flex flex-col gap-2 max-w-sm w-[90%] pointer-events-none"></div>
 
@@ -421,42 +444,23 @@
         window.pageInits = window.pageInits || {};
         window.GOOGLE_CLIENT_ID = '632433440395-4ph6ghe311niied8h423ki98slbse8d2.apps.googleusercontent.com';
         
-        // 1-Hour Inactivity Session Management (3,600,000 ms = 1 Hour)
-        const SESSION_LIMIT_MS = 60 * 60 * 1000;
-        
+        // Permanent User Session Hydration (User stays logged in until explicit Sign Out)
         (function hydrateUserSession() {
             try {
                 const savedUserStr = localStorage.getItem('lpuquick_user');
-                const lastActiveStr = localStorage.getItem('lpuquick_last_active');
-                
                 if (savedUserStr) {
-                    const lastActive = Number(lastActiveStr) || 0;
-                    const now = Date.now();
-                    
-                    // Only expire if explicitly inactive for more than 1 hour
-                    if (lastActive > 0 && (now - lastActive) > SESSION_LIMIT_MS) {
-                        console.log('[Auth] 1-hour inactivity limit reached. Expiring session.');
-                        localStorage.removeItem('lpuquick_user');
-                        localStorage.removeItem('lpuquick_last_active');
-                        window.CURRENT_USER_ID = null;
-                        window.CURRENT_USER_NAME = null;
-                        window.CURRENT_USER_EMAIL = null;
-                        window.CURRENT_USER_PICTURE = null;
-                    } else {
-                        const savedUser = JSON.parse(savedUserStr);
-                        const uid = savedUser?.id || savedUser?.user_id || savedUser?.uid;
-                        if (uid) {
-                            window.CURRENT_USER_ID = uid;
-                            window.CURRENT_USER_NAME = savedUser.name || 'LPU Student';
-                            window.CURRENT_USER_EMAIL = savedUser.email || '';
-                            window.CURRENT_USER_PICTURE = savedUser.picture || '';
-                            localStorage.setItem('lpuquick_last_active', now.toString());
-                            
-                            // Whenever user is logged in, ensure Night Mode is activated
-                            document.documentElement.classList.add('dark');
-                            if (document.body) document.body.classList.add('dark');
-                            localStorage.setItem('lpuquick_theme', 'dark');
-                        }
+                    const savedUser = JSON.parse(savedUserStr);
+                    const uid = savedUser?.id || savedUser?.user_id || savedUser?.uid;
+                    if (uid) {
+                        window.CURRENT_USER_ID = uid;
+                        window.CURRENT_USER_NAME = savedUser.name || 'LPU Student';
+                        window.CURRENT_USER_EMAIL = savedUser.email || '';
+                        window.CURRENT_USER_PICTURE = savedUser.picture || '';
+                        
+                        // Whenever user is logged in, ensure Night Mode is activated
+                        document.documentElement.classList.add('dark');
+                        if (document.body) document.body.classList.add('dark');
+                        localStorage.setItem('lpuquick_theme', 'dark');
                     }
                 } else {
                     window.CURRENT_USER_ID = null;
@@ -474,8 +478,6 @@
             try {
                 const savedUserStr = localStorage.getItem('lpuquick_user');
                 if (!savedUserStr) return false;
-                const lastActive = Number(localStorage.getItem('lpuquick_last_active')) || 0;
-                if (lastActive > 0 && (Date.now() - lastActive) > SESSION_LIMIT_MS) return false;
                 const savedUser = JSON.parse(savedUserStr);
                 const uid = savedUser?.id || savedUser?.user_id || savedUser?.uid;
                 if (uid) {

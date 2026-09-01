@@ -126,6 +126,10 @@ router.post('/admin/invalidate-cache', requireAdmin, (req, res) => {
 // GET /api/orders/admin/all (All orders for admin dashboard)
 router.get('/admin/all', requireAdmin, async (req, res) => {
     try {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+
         const isFresh = req.query.fresh === 'true' || req.query._t || req.headers['cache-control']?.includes('no-cache') || req.headers['pragma'] === 'no-cache';
         if (isFresh) {
             cache.delete('orders:admin:all');
@@ -134,13 +138,13 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
         const payload = await cache.wrap('orders:admin:all', async () => {
             const supabase = getSupabaseClient();
             
-            // 1. Direct query with timeout protection
+            // 1. Direct query with generous 15s timeout protection against cold starts
             const queryPromise = supabase
                 .from('orders')
                 .select('*')
                 .order('created_at', { ascending: false });
 
-            const ordersRes = await withTimeout(queryPromise, 6000, { data: null, error: new Error('Timeout') });
+            const ordersRes = await withTimeout(queryPromise, 15000, { data: null, error: new Error('Timeout') });
             const orders = ordersRes?.data;
 
             if (!orders || orders.length === 0) {
@@ -158,7 +162,7 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
                 try {
                     const usersRes = await withTimeout(
                         supabase.from('users').select('id, name, phone, email').in('id', userIds),
-                        4000,
+                        8000,
                         { data: null }
                     );
                     if (usersRes?.data) {
@@ -213,6 +217,10 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
 // GET /api/orders/admin/analytics (Dashboard KPIs & metrics)
 router.get('/admin/analytics', requireAdmin, async (req, res) => {
     try {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+
         const isFresh = req.query.fresh === 'true' || req.query._t || req.headers['cache-control']?.includes('no-cache') || req.headers['pragma'] === 'no-cache';
         if (isFresh) {
             cache.delete('analytics:admin:summary');

@@ -12,7 +12,7 @@
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-    <link rel="stylesheet" href="/admin/css/admin.css?v=20260901r15">
+    <link rel="stylesheet" href="/admin/css/admin.css?v=20260901r20">
     <script>
         // Proactively unregister any stale service worker for /admin and clear PWA cache
         if ('caches' in window) {
@@ -157,6 +157,11 @@
                 <button onclick="unlockAudioEngine(); testCampusSound();" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition-all shadow-sm active:scale-95" title="Test notification sound">
                     <span class="material-symbols-outlined text-[16px]">play_circle</span>
                     <span class="hidden sm:inline">Test Sound</span>
+                </button>
+
+                <button id="btn-force-sync" onclick="forceLiveDbSync()" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-xs" title="Force Direct Supabase Cloud Sync (Laptop & Mobile)">
+                    <span class="material-symbols-outlined text-[16px]">cloud_sync</span>
+                    <span class="hidden sm:inline">Sync Live Orders</span>
                 </button>
 
                 <button id="btn-header-refresh" onclick="refreshCurrentView()" class="bg-[#ebeef2] hover:bg-[#e0e3e6] text-[#262a2d] px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-xs" title="Refresh all dashboard data">
@@ -1122,7 +1127,7 @@
     </div>
 
     <!-- Application Script Reference -->
-    <script src="/admin/js/admin.js?v=20260901r15"></script>
+    <script src="/admin/js/admin.js?v=20260901r20"></script>
 </body>
 </html>
 

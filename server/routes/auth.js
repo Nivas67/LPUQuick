@@ -257,11 +257,16 @@ router.post('/update-address', async (req, res) => {
         });
     }
 
+    // Mobile number is mandatory for every user
+    const cleanPhone = (phone || '').replace(/\D/g, '');
+    if (!cleanPhone || cleanPhone.length !== 10) {
+        return res.status(400).json({ error: 'Valid 10-digit mobile number is mandatory for hostel room delivery so our runner can contact you.' });
+    }
+
     try {
         const supabase = getSupabaseClient();
         if (supabase) {
-            const payload = {};
-            if (phone) payload.phone = phone;
+            const payload = { phone: cleanPhone };
             if (room) payload.dob = `${hostel || 'BH13'}, ${block || 'Block A'}, Room ${room}`;
             await supabase.from('users').update(payload).eq('id', userId);
         }

@@ -12,7 +12,10 @@ window.pages.settings = async function() {
     const currentHostel = localStorage.getItem('lpuquick_address') || 'BH13';
     const currentBlock = localStorage.getItem('lpuquick_block') || 'Block A';
     const currentRoom = localStorage.getItem('lpuquick_room') || '';
-    const currentDetail = currentRoom ? `BH13 (${currentBlock}), Room ${currentRoom}` : 'No room address configured yet';
+    const currentPhone = (localStorage.getItem('lpuquick_phone') || '').replace(/\D/g, '');
+    const currentDetail = (currentRoom && currentPhone.length === 10) 
+        ? `BH13 (${currentBlock}), Room ${currentRoom} • 📞 +91 ${currentPhone}` 
+        : (currentRoom ? `BH13 (${currentBlock}), Room ${currentRoom} (⚠️ Mobile Mandatory)` : 'No address configured yet');
 
     return `
 <div class="bg-background text-on-background font-body-md min-h-screen pb-32">

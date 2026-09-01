@@ -574,36 +574,58 @@ body.dark .slider-text {
     z-index: 0;
 }
 
-/* Card Quantity Stepper [- qty +] */
+/* Card Quantity Stepper [- qty +] Matching Quick-Commerce (Zepto / Blinkit) */
 .card-qty-stepper {
     display: inline-flex;
     align-items: center;
-    background: #10B981;
-    color: #ffffff;
-    border-radius: 9999px;
-    padding: 2px 4px;
-    box-shadow: 0 3px 10px rgba(16, 185, 129, 0.4);
+    justify-content: space-between;
+    background: #16a34a !important;
+    color: #ffffff !important;
+    border-radius: 12px;
+    padding: 2px 6px;
+    min-width: 76px;
+    height: 30px;
+    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.45);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    user-select: none;
+}
+.card-qty-stepper:active {
+    transform: scale(0.97);
 }
 .card-qty-btn {
     width: 22px;
     height: 22px;
-    border-radius: 50%;
+    border-radius: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
+    color: #ffffff;
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background 0.15s, transform 0.1s;
+    user-select: none;
 }
 .card-qty-btn:hover {
     background: rgba(255, 255, 255, 0.25);
 }
+.card-qty-btn:active {
+    transform: scale(0.9);
+}
 .card-qty-val {
-    font-size: 12px;
-    font-weight: 700;
+    font-size: 13px;
+    font-weight: 800;
     min-width: 18px;
     text-align: center;
     padding: 0 2px;
+    color: #ffffff !important;
+    user-select: none;
+}
+
+/* Floating View Cart Bar Quick-Commerce Glow & Transition */
+#global-floating-cart-bar {
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease, bottom 0.3s ease;
+}
+#global-floating-cart-bar #floating-cart-inner {
+    box-shadow: 0 12px 32px -4px rgba(22, 163, 74, 0.55), 0 4px 12px -2px rgba(0, 0, 0, 0.35);
 }
 
 /* Cart Page Quantity Stepper [- qty +] (Light Mode default) */

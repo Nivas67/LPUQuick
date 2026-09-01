@@ -2,8 +2,8 @@
 window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
-// 1-Hour Inactivity Session Management (3,600,000 ms = 1 Hour)
-const SESSION_INACTIVITY_LIMIT_MS = 60 * 60 * 1000; // 1 hour
+// Persistent Student Session Management (Permanent Login — Never auto-logout once logged in)
+// The student will remain securely logged in until they explicitly click "Log Out"
 
 window.refreshUserActivity = function() {
     if (window.isUserLoggedIn()) {
@@ -31,40 +31,23 @@ window.logoutUser = function() {
     window.location.hash = '#/signin';
 };
 
-// Initialize User Session from localStorage with 1-Hour Inactivity Guard
+// Initialize User Session from localStorage (Persistent across restarts/days)
 (function initUserSession() {
     try {
         const savedUserStr = localStorage.getItem('lpuquick_user');
-        const lastActiveStr = localStorage.getItem('lpuquick_last_active');
         
         if (savedUserStr) {
-            const lastActive = Number(lastActiveStr) || 0;
-            const now = Date.now();
-            const elapsed = now - lastActive;
-
-            // ONLY expire if user was inactive for more than 1 hour (3600000ms)
-            if (lastActive > 0 && elapsed > SESSION_INACTIVITY_LIMIT_MS) {
-                console.log(`[Auth] Session expired due to 1 hour of inactivity (${Math.round(elapsed / 60000)} mins inactive)`);
-                localStorage.removeItem('lpuquick_user');
-                localStorage.removeItem('lpuquick_last_active');
-                window.CURRENT_USER_ID = null;
-                window.CURRENT_USER_NAME = null;
-                window.CURRENT_USER_EMAIL = null;
-                window.CURRENT_USER_PICTURE = null;
-                return;
-            }
-
             const savedUser = JSON.parse(savedUserStr);
             const uid = savedUser?.id || savedUser?.user_id || savedUser?.uid;
             if (uid) {
-                // Session is VALID & ACTIVE - Keep logged in on reload!
+                // Session is VALID & PERMANENT - User stays logged in on all visits!
                 window.CURRENT_USER_ID = uid;
                 window.CURRENT_USER_NAME = savedUser.name || 'LPU Student';
                 window.CURRENT_USER_EMAIL = savedUser.email || '';
                 window.CURRENT_USER_PICTURE = savedUser.picture || '';
                 window.currentRoom = localStorage.getItem('lpuquick_room') || '';
                 window.currentAddressDetail = localStorage.getItem('lpuquick_address_detail') || '';
-                localStorage.setItem('lpuquick_last_active', now.toString());
+                localStorage.setItem('lpuquick_last_active', Date.now().toString());
 
                 // Whenever user is logged in, ensure Night Mode is activated
                 document.documentElement.classList.add('dark');
@@ -77,7 +60,7 @@ window.logoutUser = function() {
     }
 })();
 
-// Attach throttled global user activity listeners to continuously refresh the 1-hour session
+// Attach throttled global user activity listener
 let lastActivityTouch = 0;
 function handleUserInteraction() {
     const now = Date.now();
@@ -97,8 +80,6 @@ window.isUserLoggedIn = function() {
     try {
         const savedUserStr = localStorage.getItem('lpuquick_user');
         if (!savedUserStr) return false;
-        const lastActive = Number(localStorage.getItem('lpuquick_last_active')) || 0;
-        if (lastActive > 0 && (Date.now() - lastActive) > SESSION_INACTIVITY_LIMIT_MS) return false;
         const savedUser = JSON.parse(savedUserStr);
         const uid = savedUser?.id || savedUser?.user_id || savedUser?.uid;
         if (uid) {
@@ -353,14 +334,20 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
                 </div>
             </div>
 
-            <!-- Contact Phone Number (Mandatory for Delivery Runner) -->
+            <!-- Contact Phone Number (Strictly Mandatory for Every User) -->
             <div class="space-y-1.5">
-                <label class="block text-xs font-semibold text-on-surface-variant" for="phone-input">Contact Phone Number (For delivery runner) *</label>
+                <div class="flex justify-between items-center">
+                    <label class="block text-xs font-bold text-on-surface" for="phone-input">Mobile Phone Number <span class="text-rose-500">* (Mandatory)</span></label>
+                    <span class="text-[10px] bg-rose-500/10 text-rose-600 font-bold px-2 py-0.5 rounded-full border border-rose-500/20">Required for Runner</span>
+                </div>
                 <div class="relative">
                     <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant">+91</span>
-                    <input type="tel" inputmode="numeric" pattern="[0-9]*" id="phone-input" maxlength="10" required class="w-full pl-12 pr-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface font-semibold focus:outline-none focus:border-emerald" placeholder="XXXXXXXXXX" value="${savedPhone.replace(/\D/g, '')}">
+                    <input type="tel" inputmode="numeric" pattern="[0-9]*" id="phone-input" maxlength="10" required class="w-full pl-12 pr-3.5 py-2.5 rounded-xl border-2 border-surface-variant bg-surface text-xs text-on-surface font-semibold focus:outline-none focus:border-emerald" placeholder="Enter 10-digit mobile" value="${savedPhone.replace(/\D/g, '')}">
                 </div>
-                <p class="text-[10px] text-on-surface-variant/70">10-digit mobile number required so delivery runner can contact you upon arrival.</p>
+                <p class="text-[10px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
+                    <span class="material-symbols-outlined text-xs">call</span>
+                    <span>10-digit mobile is strictly required so our runner can call you upon reaching your room.</span>
+                </p>
             </div>
 
             <!-- Inline Validation Alert -->
@@ -487,7 +474,7 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
             if (!cleanPhone || cleanPhone.length !== 10) {
                 if (alertBox && alertMsg) {
                     alertBox.classList.remove('hidden');
-                    alertMsg.textContent = 'Please enter a valid 10-digit mobile number (e.g. 9876543210).';
+                    alertMsg.textContent = 'Mobile Number is strictly mandatory! Please enter a valid 10-digit phone number (e.g. 9876543210).';
                 }
                 modal.querySelector('#phone-input')?.focus();
                 return;
@@ -699,18 +686,18 @@ function renderSlotContent(productId, slotEl) {
         const isMaxReached = qty >= stockLeft;
         slotEl.innerHTML = `
             <div class="card-qty-stepper">
-                <button type="button" class="card-qty-btn card-dec-btn" data-id="${productId}" data-stock-left="${stockLeft}">
-                    <span class="material-symbols-outlined text-[13px]">remove</span>
+                <button type="button" class="card-qty-btn card-dec-btn" data-id="${productId}" data-stock-left="${stockLeft}" title="Decrease">
+                    <span class="material-symbols-outlined text-[15px] font-bold">remove</span>
                 </button>
-                <span class="card-qty-val">${qty}</span>
+                <span class="card-qty-val select-none">${qty}</span>
                 <button type="button" class="card-qty-btn card-inc-btn ${isMaxReached ? 'opacity-40 cursor-not-allowed' : ''}" data-id="${productId}" data-stock-left="${stockLeft}" title="${isMaxReached ? `Only ${stockLeft} left in stock` : 'Add one more'}">
-                    <span class="material-symbols-outlined text-[13px]">add</span>
+                    <span class="material-symbols-outlined text-[15px] font-bold">add</span>
                 </button>
             </div>
         `;
     } else {
         slotEl.innerHTML = `
-            <button type="button" class="bg-emerald text-white rounded-full px-3.5 py-1 text-xs font-semibold shadow-sm hover:opacity-90 active:scale-95 transition-all add-to-cart-btn" data-id="${productId}" data-stock-left="${stockLeft}">Add</button>
+            <button type="button" class="add-to-cart-btn bg-emerald-950/20 dark:bg-emerald-950/40 border border-emerald-600 text-emerald-600 dark:text-emerald-400 font-extrabold text-xs px-3.5 py-1 rounded-xl shadow-sm hover:bg-emerald-600 hover:text-white active:scale-95 transition-all tracking-wider uppercase" data-id="${productId}" data-stock-left="${stockLeft}">ADD</button>
         `;
     }
 }
@@ -736,7 +723,104 @@ window.syncCardSteppers = function() {
     }
 };
 
-// Global Cart Count Badges Synchronizer (Bottom Nav & Header Badges)
+// Global Floating "View cart" Bar Synchronizer (Zepto / Blinkit Quick-Commerce Pill)
+window.updateFloatingCartBar = function() {
+    const floatingBar = document.getElementById('global-floating-cart-bar');
+    if (!floatingBar) return;
+
+    // Check route: Hide on cart, checkout, signin, or blocked pages
+    const currentHash = (window.location.hash || '#/').toLowerCase();
+    if (currentHash.startsWith('#/cart') || 
+        currentHash.startsWith('#/checkout') || 
+        currentHash.startsWith('#/signin') || 
+        currentHash.startsWith('#/blocked')) {
+        floatingBar.classList.add('translate-y-12', 'opacity-0', 'pointer-events-none');
+        setTimeout(() => {
+            const h = (window.location.hash || '#/').toLowerCase();
+            if (h.startsWith('#/cart') || h.startsWith('#/checkout') || h.startsWith('#/signin') || h.startsWith('#/blocked')) {
+                floatingBar.classList.add('hidden');
+            }
+        }, 250);
+        return;
+    }
+
+    let totalItems = 0;
+    let totalPrice = 0;
+    const distinctProductIds = [];
+
+    if (window.cartState && typeof window.cartState === 'object') {
+        Object.entries(window.cartState).forEach(([productId, item]) => {
+            if (item && item.quantity > 0) {
+                const qty = Number(item.quantity);
+                totalItems += qty;
+                distinctProductIds.push(productId);
+
+                const cachedProd = window.__cachedProducts?.get(productId);
+                if (cachedProd && cachedProd.price) {
+                    totalPrice += Number(cachedProd.price) * qty;
+                }
+            }
+        });
+    }
+
+    if (totalItems === 0) {
+        floatingBar.classList.add('translate-y-12', 'opacity-0', 'pointer-events-none');
+        setTimeout(() => {
+            let curTotal = 0;
+            if (window.cartState) {
+                Object.values(window.cartState).forEach(i => { if (i?.quantity) curTotal += Number(i.quantity); });
+            }
+            if (curTotal === 0 && floatingBar) floatingBar.classList.add('hidden');
+        }, 250);
+        return;
+    }
+
+    // Render up to 3 overlapping product thumbnails (Zepto / Blinkit style)
+    const thumbnailsContainer = document.getElementById('floating-cart-thumbnails');
+    if (thumbnailsContainer) {
+        const topProducts = distinctProductIds.slice(-3).reverse();
+        let thumbsHTML = '';
+        topProducts.forEach((pid, index) => {
+            const p = window.__cachedProducts?.get(pid);
+            let imgUrl = p?.image_url;
+            if (!imgUrl) {
+                const cardImg = document.querySelector(`.product-card-item[data-product-id="${pid}"] img`);
+                if (cardImg && cardImg.src) imgUrl = cardImg.src;
+            }
+            if (!imgUrl) imgUrl = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=120';
+            const pName = p?.name || 'Item';
+            thumbsHTML += `
+                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-white dark:border-slate-800 bg-white shadow-md overflow-hidden flex-shrink-0 flex items-center justify-center relative transition-transform" style="z-index: ${10 - index};">
+                    <img src="${imgUrl}" alt="${pName}" class="w-full h-full object-contain p-0.5" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=120'">
+                </div>
+            `;
+        });
+        thumbnailsContainer.innerHTML = thumbsHTML;
+    }
+
+    // Update subtitle text
+    const subtitleEl = document.getElementById('floating-cart-subtitle');
+    if (subtitleEl) {
+        subtitleEl.textContent = `${totalItems} item${totalItems === 1 ? '' : 's'}${totalPrice > 0 ? ` • ₹${totalPrice}` : ''}`;
+    }
+
+    // Position above bottom navigation bar if present
+    const liveDeliveryBar = document.getElementById('global-live-delivery-bar');
+    const isLiveDeliveryActive = liveDeliveryBar && !liveDeliveryBar.classList.contains('hidden');
+    if (isLiveDeliveryActive) {
+        floatingBar.style.bottom = '9.5rem';
+    } else {
+        floatingBar.style.bottom = '6rem';
+    }
+
+    // Animate into view
+    floatingBar.classList.remove('hidden');
+    requestAnimationFrame(() => {
+        floatingBar.classList.remove('translate-y-12', 'opacity-0', 'pointer-events-none');
+    });
+};
+
+// Global Cart Count Badges Synchronizer (Bottom Nav, Header Badges & Floating Cart Bar)
 window.updateGlobalCartBadges = function() {
     let totalItems = 0;
     if (window.cartState && typeof window.cartState === 'object') {
@@ -757,6 +841,11 @@ window.updateGlobalCartBadges = function() {
             badge.classList.add('hidden');
         }
     });
+
+    // Also synchronize the floating quick-commerce View Cart bar
+    if (typeof window.updateFloatingCartBar === 'function') {
+        window.updateFloatingCartBar();
+    }
 };
 
 // Setup Single Global Event Delegation for all Cart Actions & Product Modals (0ms rebind overhead)
@@ -1249,12 +1338,18 @@ let cartSyncInProgress = false;
 async function router() {
     const path = getCurrentRoute();
     
-    // Mandatory unauthenticated check: Require sign in before entering store
-    if (!window.isUserLoggedIn() && path !== '/signin') {
-        if (path !== '/') {
-            localStorage.setItem('lpuquick_redirect', '#' + path);
+    // Mandatory unauthenticated check: Require sign in with Google before entering store
+    if (!window.isUserLoggedIn()) {
+        if (path !== '/signin') {
+            if (path !== '/') {
+                localStorage.setItem('lpuquick_redirect', '#' + path);
+            }
+            window.location.hash = '#/signin';
+            return;
         }
-        window.location.hash = '#/signin';
+    } else if (path === '/signin') {
+        // Once logged in, student never needs to see sign-in page again
+        window.location.hash = '#/';
         return;
     }
 

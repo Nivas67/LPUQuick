@@ -66,6 +66,20 @@ async function handlePlaceOrder(req, res) {
         return res.status(400).json({ error: 'Valid hostel room number is required (e.g., BH13 (Block A), Room 304).' });
     }
 
+    // Strict Mobile Number Check: Mobile is strictly mandatory for every user
+    const checkPhone = (req.body.customerPhone || req.body.phone || '').replace(/\D/g, '');
+    if (!checkPhone || checkPhone.length !== 10) {
+        let existingUserPhone = '';
+        try {
+            const u = await supabaseDb.users.getById(userId);
+            if (u && u.phone) existingUserPhone = u.phone.replace(/\D/g, '');
+        } catch (e) {}
+
+        if (!existingUserPhone || existingUserPhone.length !== 10) {
+            return res.status(400).json({ error: 'Valid 10-digit mobile number is mandatory for delivery so our runner can contact you upon arrival.' });
+        }
+    }
+
     try {
         // Fetch cart items directly from Supabase
         const cart = await supabaseDb.cart.getCart(userId);

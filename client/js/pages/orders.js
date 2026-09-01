@@ -924,7 +924,7 @@ window.pageInits.orders = function() {
             } catch (err) {}
         };
 
-        ordersPoll = setInterval(pollFn, 1200); // Fast 1.2s live update rate
+        ordersPoll = setInterval(pollFn, 3500); // Optimized 3.5s live update rate (Vercel Free Tier compliant)
     }
 
     // Instant revalidation when student returns to browser tab

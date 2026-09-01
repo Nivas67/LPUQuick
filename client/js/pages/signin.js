@@ -102,6 +102,12 @@ window.pages.signin = async function() {
 };
 
 window.pageInits.signin = function() {
+    // If user is already logged in, redirect immediately to store
+    if (window.isUserLoggedIn()) {
+        window.location.hash = '#/';
+        return;
+    }
+
     const clientId = window.GOOGLE_CLIENT_ID || '632433440395-4ph6ghe311niied8h423ki98slbse8d2.apps.googleusercontent.com';
 
     function resetGoogleButton() {

@@ -389,17 +389,38 @@ function getAuthHeaders(extra = {}) {
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
         headers['x-admin-token'] = token;
+        headers['x-admin-key'] = token;
     }
     return headers;
 }
 
-// Resilient fetch wrapper with timeout prevention
-async function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
+let isHandlingAuthError = false;
+function handleAdminAuthError(res) {
+    if (isHandlingAuthError) return;
+    isHandlingAuthError = true;
+    console.warn('[Admin Auth] Session invalid or expired (401/403). Prompting re-login.');
+    updateConnectionStatus(false, 'Auth Required');
+    showToast('⚠️ Admin session authorization required. Please sign in.', 'error');
+    setTimeout(() => {
+        showLoginModal();
+        const errBox = document.getElementById('login-error-box');
+        const errTxt = document.getElementById('login-error-text');
+        if (errBox) errBox.classList.remove('hidden');
+        if (errTxt) errTxt.textContent = 'Session authorization expired. Please enter password to reconnect live orders.';
+        isHandlingAuthError = false;
+    }, 400);
+}
+
+// Resilient fetch wrapper with timeout prevention and auth error detection
+async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
         const res = await fetch(url, { ...options, signal: controller.signal });
         clearTimeout(timer);
+        if (res.status === 401 || res.status === 403) {
+            handleAdminAuthError(res);
+        }
         return res;
     } catch (err) {
         clearTimeout(timer);
@@ -537,7 +558,8 @@ async function refreshCurrentView() {
         }
 
         await Promise.allSettled(promises);
-        showToast('✓ Live data refreshed from database', 'success');
+        const orderCount = ordersCache.length || 0;
+        showToast(`✓ Synced ${orderCount} live orders from database`, 'success');
     } catch (err) {
         console.error('[Refresh Error]:', err);
         showToast('Failed to refresh data: ' + err.message, 'warning');
@@ -555,8 +577,8 @@ async function refreshCurrentView() {
 async function loadDashboard() {
     try {
         const [analyticsRes, ordersRes] = await Promise.allSettled([
-            fetchWithTimeout(`/api/orders/admin/analytics?fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() }, 12000),
-            fetchWithTimeout(`/api/orders/admin/all?fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() }, 12000)
+            fetchWithTimeout(`/api/orders/admin/analytics?fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() }, 15000),
+            fetchWithTimeout(`/api/orders/admin/all?fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() }, 15000)
         ]);
 
         let analyticsData = {};
@@ -564,13 +586,20 @@ async function loadDashboard() {
 
         if (analyticsRes.status === 'fulfilled' && analyticsRes.value.ok) {
             analyticsData = await analyticsRes.value.json().catch(() => ({}));
+        } else if (analyticsRes.status === 'fulfilled' && (analyticsRes.value.status === 401 || analyticsRes.value.status === 403)) {
+            handleAdminAuthError(analyticsRes.value);
+            return;
         }
+
         if (ordersRes.status === 'fulfilled' && ordersRes.value.ok) {
             ordersData = await ordersRes.value.json().catch(() => ({}));
+        } else if (ordersRes.status === 'fulfilled' && (ordersRes.value.status === 401 || ordersRes.value.status === 403)) {
+            handleAdminAuthError(ordersRes.value);
+            return;
         }
 
         // Cache orders immediately
-        if (ordersData.orders && Array.isArray(ordersData.orders) && ordersData.orders.length > 0) {
+        if (ordersData.orders && Array.isArray(ordersData.orders)) {
             ordersCache = ordersData.orders;
             try { localStorage.setItem('lpuquick_admin_orders_cache', JSON.stringify(ordersCache)); } catch(e){}
         }
@@ -1217,13 +1246,16 @@ async function promptCustomStock(productId, current) {
 // ================= 4. ORDERS LOAD =================
 async function loadOrders() {
     try {
-        const res = await fetchWithTimeout(`/api/orders/admin/all?fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() }, 7000);
+        const res = await fetchWithTimeout(`/api/orders/admin/all?fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() }, 15000);
         if (res.ok) {
             const data = await res.json();
-            if (data.orders && Array.isArray(data.orders) && data.orders.length > 0) {
+            if (data.orders && Array.isArray(data.orders)) {
                 ordersCache = data.orders;
                 try { localStorage.setItem('lpuquick_admin_orders_cache', JSON.stringify(ordersCache)); } catch (e) {}
             }
+        } else if (res.status === 401 || res.status === 403) {
+            handleAdminAuthError(res);
+            return;
         }
         filterOrders();
     } catch (err) {
@@ -2096,18 +2128,65 @@ function updateKpiCountersFromCache() {
     }
 }
 
+// Render function alias so activeView === 'orders' never throws ReferenceError
+function renderOrdersTable(orders) {
+    if (orders && Array.isArray(orders)) {
+        ordersCache = orders;
+    }
+    filterOrders();
+}
+
+// Force Direct Supabase Cloud DB Sync (Bypasses any stale laptop/mobile local cache)
+async function forceLiveDbSync() {
+    const btn = document.getElementById('btn-force-sync');
+    const icon = btn?.querySelector('.material-symbols-outlined');
+    if (icon) icon.classList.add('animate-spin');
+    showToast('⚡ Syncing live orders from Supabase Cloud...', 'info');
+
+    try {
+        localStorage.removeItem('lpuquick_admin_orders_cache');
+        localStorage.removeItem('lpuquick_admin_products_cache');
+        ordersCache = [];
+        knownOrderMap.clear();
+        isInitialOrderPoll = true;
+
+        await fetch(`/api/orders/admin/invalidate-cache?_t=${Date.now()}`, {
+            method: 'POST',
+            headers: getAuthHeaders()
+        }).catch(() => {});
+
+        await loadDashboard();
+        if (activeView === 'orders') await loadOrders();
+
+        updateConnectionStatus(true, 'Live');
+        showToast(`✓ Synced ${ordersCache.length} live orders from database!`, 'success');
+    } catch (err) {
+        console.error('[Force Sync Error]:', err);
+        showToast('Sync error: ' + err.message, 'warning');
+    } finally {
+        if (icon) icon.classList.remove('animate-spin');
+    }
+}
+window.forceLiveDbSync = forceLiveDbSync;
+
 // Smart Continuous Live Order Sync (Works 100% reliably on Vercel Serverless and Localhost)
 async function syncOrdersLive() {
     const token = adminToken || localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token');
-    if (!token) return;
+    if (!token) {
+        updateConnectionStatus(false, 'Auth Required');
+        return;
+    }
     try {
         const res = await fetch(`/api/orders/admin/all?fresh=true&_t=${Date.now()}`, {
-            headers: { 'Cache-Control': 'no-cache', ...getAuthHeaders() }
+            headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', ...getAuthHeaders() }
         });
+        if (res.status === 401 || res.status === 403) {
+            handleAdminAuthError(res);
+            return;
+        }
         if (!res.ok) return;
         const data = await res.json();
         const orders = data.orders || [];
-        if (!orders.length) return;
 
         // Keep local cache fresh at all times
         ordersCache = orders;
