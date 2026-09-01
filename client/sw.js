@@ -1,5 +1,5 @@
 // LPUQuick High-Performance PWA Service Worker (V2026.09.01)
-const CACHE_NAME = 'lpuquick-pwa-v1';
+const CACHE_NAME = 'lpuquick-pwa-v2';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
@@ -54,12 +54,15 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// Fetch: Stale-While-Revalidate for UI assets; Network-Only for dynamic APIs
+// Fetch: Stale-While-Revalidate for UI assets; Network-Only for dynamic APIs and Admin
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
-    // Skip non-GET requests and API / WebSocket calls
-    if (event.request.method !== 'GET' || url.pathname.startsWith('/api/') || url.hostname.includes('supabase.co')) {
+    // Skip non-GET requests, API, WebSocket, Supabase, and ALL Admin routes
+    if (event.request.method !== 'GET' ||
+        url.pathname.startsWith('/api/') ||
+        url.pathname.startsWith('/admin') ||
+        url.hostname.includes('supabase.co')) {
         return;
     }
 

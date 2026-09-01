@@ -616,25 +616,7 @@ async function loadDashboard() {
         if (ordersData.orders && Array.isArray(ordersData.orders) && ordersData.orders.length > 0) {
             ordersCache = ordersData.orders;
         }
-        const recentOrders = ordersCache.slice(0, 5);
-        const tbody = document.getElementById('dash-recent-orders-tbody');
-        if (recentOrders.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-[#5c5f60]">No orders found in database.</td></tr>`;
-        } else {
-            tbody.innerHTML = recentOrders.map(o => `
-                <tr class="hover:bg-[#f7fafd] transition-colors cursor-pointer" onclick="openOrderDrawer('${o.id}')" id="order-row-${o.id}">
-                    <td class="p-3.5 font-bold font-mono text-[#181c1f]">#${(o.id || '').replace('order_', '').toUpperCase()}</td>
-                    <td class="p-3.5 font-medium text-[#181c1f]">${formatCustomerDisplayName(o)}</td>
-                    <td class="p-3.5 text-[#5c5f60] truncate max-w-[150px]">${o.item_summary || 'Campus items'}</td>
-                    <td class="p-3.5 font-bold text-[#137333]">₹${o.total}</td>
-                    <td class="p-3.5 text-[#5c5f60]">${o.payment_method || 'COD'}</td>
-                    <td class="p-3.5" id="dash-status-pill-${o.id}" data-status-pill-id="${o.id}">${getStatusPill(o.status)}</td>
-                    <td class="p-3.5">
-                        <button onclick="event.stopPropagation(); openOrderDrawer('${o.id}')" class="text-xs font-semibold text-[#3c4043] hover:underline">View</button>
-                    </td>
-                </tr>
-            `).join('');
-        }
+        renderRecentOrdersTable(ordersCache);
 
         // Render Low Stock Containers
         const lowContainer = document.getElementById('dash-low-stock-container');
@@ -2068,9 +2050,56 @@ function updateConnectionStatus(connected, mode = 'Live') {
     }
 }
 
+// Render function for Recent Orders Table in Dashboard
+function renderRecentOrdersTable(ordersList) {
+    const list = (ordersList && ordersList.length > 0) ? ordersList : (ordersCache || []);
+    const recentOrders = list.slice(0, 5);
+    const tbody = document.getElementById('dash-recent-orders-tbody');
+    if (!tbody) return;
+
+    if (recentOrders.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-[#5c5f60]">No orders found in database.</td></tr>`;
+    } else {
+        tbody.innerHTML = recentOrders.map(o => `
+            <tr class="hover:bg-[#f7fafd] transition-colors cursor-pointer" onclick="openOrderDrawer('${o.id}')" id="order-row-${o.id}">
+                <td class="p-3.5 font-bold font-mono text-[#181c1f]">#${(o.id || '').replace('order_', '').toUpperCase()}</td>
+                <td class="p-3.5 font-medium text-[#181c1f]">${formatCustomerDisplayName(o)}</td>
+                <td class="p-3.5 text-[#5c5f60] truncate max-w-[150px]">${o.item_summary || 'Campus items'}</td>
+                <td class="p-3.5 font-bold text-[#137333]">₹${o.total}</td>
+                <td class="p-3.5 text-[#5c5f60]">${o.payment_method || 'COD'}</td>
+                <td class="p-3.5" id="dash-status-pill-${o.id}" data-status-pill-id="${o.id}">${getStatusPill(o.status)}</td>
+                <td class="p-3.5">
+                    <button onclick="event.stopPropagation(); openOrderDrawer('${o.id}')" class="text-xs font-semibold text-[#3c4043] hover:underline">View</button>
+                </td>
+            </tr>
+        `).join('');
+    }
+}
+
+// Update KPI counters dynamically from ordersCache
+function updateKpiCountersFromCache() {
+    const totalOrdersEl = document.getElementById('dash-total-orders');
+    const pendingOrdersEl = document.getElementById('dash-pending-orders');
+    const totalRevEl = document.getElementById('dash-total-revenue');
+    const badgeEl = document.getElementById('nav-pending-badge');
+
+    const totalOrdersVal = ordersCache.length || 0;
+    const pendingCountVal = ordersCache.filter(o => ['Order Placed', 'Preparing', 'Out for Delivery', 'pending', 'confirmed', 'accepted'].includes(o.status)).length;
+    const totalRevVal = ordersCache.filter(o => ['Delivered', 'delivered'].includes(o.status)).reduce((s, o) => s + (Number(o.total) || 0), 0);
+
+    if (totalOrdersEl) totalOrdersEl.textContent = totalOrdersVal;
+    if (pendingOrdersEl) pendingOrdersEl.textContent = pendingCountVal;
+    if (totalRevEl) totalRevEl.textContent = `₹${totalRevVal}`;
+    if (badgeEl) {
+        badgeEl.textContent = pendingCountVal;
+        badgeEl.classList.toggle('hidden', !pendingCountVal);
+    }
+}
+
 // Smart Continuous Live Order Sync (Works 100% reliably on Vercel Serverless and Localhost)
 async function syncOrdersLive() {
-    if (!adminToken) return;
+    const token = adminToken || localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token');
+    if (!token) return;
     try {
         const res = await fetch(`/api/orders/admin/all?fresh=true&_t=${Date.now()}`, {
             headers: { 'Cache-Control': 'no-cache', ...getAuthHeaders() }
@@ -2078,6 +2107,11 @@ async function syncOrdersLive() {
         if (!res.ok) return;
         const data = await res.json();
         const orders = data.orders || [];
+        if (!orders.length) return;
+
+        // Keep local cache fresh at all times
+        ordersCache = orders;
+        try { localStorage.setItem('lpuquick_admin_orders_cache', JSON.stringify(orders)); } catch(e){}
 
         if (isInitialOrderPoll) {
             orders.forEach(o => {
@@ -2085,6 +2119,10 @@ async function syncOrdersLive() {
             });
             isInitialOrderPoll = false;
             updateConnectionStatus(true, 'Live');
+            if (activeView === 'dashboard') {
+                renderRecentOrdersTable(orders);
+                updateKpiCountersFromCache();
+            }
             return;
         }
 
@@ -2102,6 +2140,15 @@ async function syncOrdersLive() {
                 handleRealtimeStatusUpdate({ orderId: order.id, status: order.status });
             }
         }
+
+        // Keep UI updated seamlessly
+        if (activeView === 'dashboard') {
+            renderRecentOrdersTable(orders);
+            updateKpiCountersFromCache();
+        } else if (activeView === 'orders') {
+            renderOrdersTable(orders);
+        }
+
         updateConnectionStatus(true, 'Live');
     } catch (err) {
         console.warn('[Admin Live Sync Note]:', err.message);

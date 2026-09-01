@@ -12,7 +12,24 @@
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-    <link rel="stylesheet" href="/admin/css/admin.css?v=20260901r10">
+    <link rel="stylesheet" href="/admin/css/admin.css?v=20260901r15">
+    <script>
+        // Proactively unregister any stale service worker for /admin and clear PWA cache
+        if ('caches' in window) {
+            caches.keys().then(function(names) {
+                names.forEach(function(n) {
+                    if (n.startsWith('lpuquick-pwa-v1')) caches.delete(n);
+                });
+            });
+        }
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(regs) {
+                regs.forEach(function(r) {
+                    if (r.scope && r.scope.includes('/admin')) r.unregister();
+                });
+            });
+        }
+    </script>
 </head>
 <body class="antialiased flex h-screen overflow-hidden">
 
@@ -1105,7 +1122,7 @@
     </div>
 
     <!-- Application Script Reference -->
-    <script src="/admin/js/admin.js?v=20260901r10"></script>
+    <script src="/admin/js/admin.js?v=20260901r15"></script>
 </body>
 </html>
 
