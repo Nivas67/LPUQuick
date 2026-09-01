@@ -83,6 +83,14 @@ window.pages.signin = async function() {
                 </button>
             </div>
 
+            <!-- Instant Store Access Link -->
+            <div class="pt-1">
+                <a href="#/" class="w-full py-3 px-4 rounded-2xl text-xs sm:text-sm font-bold bg-surface-container-low/80 hover:bg-surface-container text-on-surface border border-outline-variant/40 transition-all flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-base text-emerald">storefront</span>
+                    <span>Browse Campus Store Directly</span>
+                </a>
+            </div>
+
             <!-- Single Sign-On Security Note -->
             <p class="text-[11px] text-on-surface-variant/70">
                 By signing in, you agree to LPUQuick Campus Commerce Terms & BH13 Express Guidelines.
@@ -290,6 +298,10 @@ window.pageInits.signin = function() {
             btn.innerHTML = `<span class="w-5 h-5 rounded-full border-2 border-emerald border-t-transparent animate-spin mr-2"></span> Connecting to Google...`;
         }
 
+        const popupSafetyTimer = setTimeout(() => {
+            resetGoogleButton();
+        }, 10000);
+
         // Method 1: Google OAuth 2.0 Token Client (Popup Account Picker)
         if (window.google && window.google.accounts && window.google.accounts.oauth2) {
             try {
@@ -297,6 +309,7 @@ window.pageInits.signin = function() {
                     client_id: clientId,
                     scope: 'email profile openid',
                     callback: async (tokenResponse) => {
+                        clearTimeout(popupSafetyTimer);
                         if (tokenResponse && tokenResponse.access_token) {
                             try {
                                 let profile = null;
@@ -331,6 +344,7 @@ window.pageInits.signin = function() {
                         resetGoogleButton();
                     },
                     error_callback: (err) => {
+                        clearTimeout(popupSafetyTimer);
                         console.warn('[Google OAuth Error Callback]:', err);
                         resetGoogleButton();
                     }
@@ -339,6 +353,7 @@ window.pageInits.signin = function() {
                 tokenClient.requestAccessToken({ prompt: 'select_account' });
                 return;
             } catch (err) {
+                clearTimeout(popupSafetyTimer);
                 console.warn('[TokenClient Init Error]:', err);
                 resetGoogleButton();
             }

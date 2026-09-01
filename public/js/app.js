@@ -1338,18 +1338,18 @@ let cartSyncInProgress = false;
 async function router() {
     const path = getCurrentRoute();
     
-    // Mandatory unauthenticated check: Require sign in with Google before entering store
+    // Only prompt login on checkout if unauthenticated; allow free store browsing
     if (!window.isUserLoggedIn()) {
-        if (path !== '/signin') {
-            if (path !== '/') {
-                localStorage.setItem('lpuquick_redirect', '#' + path);
-            }
+        if (path === '/checkout') {
+            localStorage.setItem('lpuquick_redirect', '#/checkout');
             window.location.hash = '#/signin';
             return;
         }
     } else if (path === '/signin') {
         // Once logged in, student never needs to see sign-in page again
-        window.location.hash = '#/';
+        const target = localStorage.getItem('lpuquick_redirect') || '#/';
+        localStorage.removeItem('lpuquick_redirect');
+        window.location.hash = target;
         return;
     }
 

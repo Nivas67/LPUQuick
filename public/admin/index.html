@@ -1071,18 +1071,18 @@
                             <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#74777a]">
                                 <span class="material-symbols-outlined text-lg">mail</span>
                             </div>
-                            <input id="login-email" type="email" value="" required placeholder="admin@lpu.in" autocomplete="username" class="block w-full pl-10 pr-3.5 py-3 border border-[#DADCE0] rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#3c4043] focus:border-transparent text-xs text-[#181c1f] font-medium placeholder-[#c4c7ca] shadow-sm"/>
+                            <input id="login-email" type="email" value="admin@lpu.in" required placeholder="admin@lpu.in" autocomplete="username" class="block w-full pl-10 pr-3.5 py-3 border border-[#DADCE0] rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#3c4043] focus:border-transparent text-xs text-[#181c1f] font-medium placeholder-[#c4c7ca] shadow-sm"/>
                         </div>
                     </div>
 
-                    <!-- Password Field: Empty by default -->
+                    <!-- Password Field: Pre-filled with campus default -->
                     <div>
                         <label class="block font-semibold text-[#44474a] mb-1.5" for="login-password">Password</label>
                         <div class="relative">
                             <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#74777a]">
                                 <span class="material-symbols-outlined text-lg">lock</span>
                             </div>
-                            <input id="login-password" type="password" value="" required placeholder="Enter password" autocomplete="current-password" class="block w-full pl-10 pr-10 py-3 border border-[#DADCE0] rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#3c4043] focus:border-transparent text-xs text-[#181c1f] font-medium placeholder-[#c4c7ca] shadow-sm"/>
+                            <input id="login-password" type="password" value="admin123" required placeholder="Enter password" autocomplete="current-password" class="block w-full pl-10 pr-10 py-3 border border-[#DADCE0] rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#3c4043] focus:border-transparent text-xs text-[#181c1f] font-medium placeholder-[#c4c7ca] shadow-sm"/>
                             <button type="button" onclick="togglePasswordVisibility()" class="absolute inset-y-0 right-0 pr-3 flex items-center text-[#74777a] hover:text-[#181c1f]">
                                 <span class="material-symbols-outlined text-lg" id="password-toggle-icon">visibility</span>
                             </button>
@@ -1098,16 +1098,19 @@
                     <!-- Remember Me -->
                     <div class="flex items-center justify-between text-xs pt-1">
                         <label class="flex items-center gap-2 text-[#5c5f60] cursor-pointer">
-                            <input type="checkbox" id="remember-me" class="rounded border-[#DADCE0] text-[#3c4043] focus:ring-[#3c4043] w-4 h-4"/>
+                            <input type="checkbox" id="remember-me" checked class="rounded border-[#DADCE0] text-[#3c4043] focus:ring-[#3c4043] w-4 h-4"/>
                             <span>Remember this workstation</span>
                         </label>
                     </div>
 
                     <!-- Submit Button -->
-                    <div class="pt-2">
+                    <div class="pt-2 space-y-2">
                         <button type="submit" id="btn-login-submit" class="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#262a2d] hover:bg-[#3c4043] text-white font-bold text-xs tracking-wide shadow-md transition-all active:scale-[0.98]">
                             <span>Sign In to Admin Hub</span>
                             <span class="material-symbols-outlined text-base">arrow_forward</span>
+                        </button>
+                        <button type="button" onclick="hideLoginModal()" class="w-full py-2 px-3 rounded-xl bg-transparent hover:bg-black/5 text-[#5c5f60] font-semibold text-xs transition-colors">
+                            Continue to Dashboard
                         </button>
                     </div>
                 </form>
