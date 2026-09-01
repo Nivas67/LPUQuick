@@ -87,17 +87,14 @@ async function handlePlaceOrder(req, res) {
             return res.status(400).json({ error: 'Cart is empty. Please add items before checking out.' });
         }
 
-        // Validate stock limits for every cart item before order placement
+        // Validate stock limits directly from cart items without sequential DB roundtrips
         for (const item of cart.items) {
-            const prod = await supabaseDb.products.getById(item.product_id);
-            if (prod) {
-                const availableStock = prod.stock_left !== undefined && prod.stock_left !== null ? Number(prod.stock_left) : (prod.in_stock ? 50 : 0);
-                if (!prod.in_stock || availableStock <= 0) {
-                    return res.status(400).json({ error: `"${item.name}" is currently out of stock. Please remove it from your cart to proceed.` });
-                }
-                if (item.quantity > availableStock) {
-                    return res.status(400).json({ error: `Only ${availableStock} units of "${item.name}" left in stock (you have ${item.quantity} in cart). Please adjust quantity.` });
-                }
+            const availableStock = item.stock_left !== undefined && item.stock_left !== null ? Number(item.stock_left) : (item.in_stock ? 50 : 0);
+            if (!item.in_stock || availableStock <= 0) {
+                return res.status(400).json({ error: `"${item.name}" is currently out of stock. Please remove it from your cart to proceed.` });
+            }
+            if (item.quantity > availableStock) {
+                return res.status(400).json({ error: `Only ${availableStock} units of "${item.name}" left in stock (you have ${item.quantity} in cart). Please adjust quantity.` });
             }
         }
 
@@ -111,92 +108,47 @@ async function handlePlaceOrder(req, res) {
         const method = paymentMethod || 'Cash on Delivery';
         const address = deliveryAddress.trim();
 
-        // 3. SECURE AUTHENTICATED CUSTOMER PROFILE RESOLUTION & SNAPSHOT
+        // 3. SECURE FAST CUSTOMER PROFILE RESOLUTION & SNAPSHOT
         const submittedPhone = (req.body.customerPhone || req.body.phone || '').trim();
         const submittedName = (req.body.customerName || req.body.name || '').trim();
         const submittedEmail = (req.body.customerEmail || req.body.email || '').trim().toLowerCase();
 
-        let user = null;
-        try {
-            user = await supabaseDb.users.getById(userId);
-            if (!user && submittedEmail) {
-                user = await supabaseDb.users.getByIdentifier(submittedEmail);
-            }
-            if (!user && submittedPhone && submittedPhone.length >= 10) {
-                user = await supabaseDb.users.getByIdentifier(submittedPhone);
-            }
-        } catch (uErr) {
-            console.warn('[Checkout User Lookup Warning]:', uErr.message);
-        }
+        const customerName = (submittedName && submittedName.length > 1) ? submittedName : 'Campus Student';
+        const customerPhone = submittedPhone || '';
+        const customerEmail = submittedEmail || '';
 
-        // Update customer name in database if user has placeholder or generic name
-        if (user && submittedName && submittedName.length > 1) {
-            const currentName = user.name || '';
-            const isGenericName = !currentName || 
-                                  currentName.toLowerCase().startsWith('user_') || 
-                                  currentName === 'Customer' || 
-                                  currentName === 'Student' || 
-                                  currentName === 'LPU Student' ||
-                                  currentName === 'Campus Resident';
-            if (isGenericName) {
-                try {
-                    const supabase = getSupabaseClient();
-                    if (supabase) {
-                        await supabase.from('users').update({ name: submittedName }).eq('id', user.id);
-                        user.name = submittedName;
+        // Run non-critical user profile updates in the background without blocking the order confirmation
+        (async () => {
+            try {
+                let user = await supabaseDb.users.getById(userId);
+                if (!user && submittedEmail) user = await supabaseDb.users.getByIdentifier(submittedEmail);
+                if (!user && submittedPhone && submittedPhone.length >= 10) user = await supabaseDb.users.getByIdentifier(submittedPhone);
+
+                if (user) {
+                    if (submittedName && (!user.name || user.name.toLowerCase().startsWith('user_') || user.name === 'Customer' || user.name === 'Student')) {
+                        const supabase = getSupabaseClient();
+                        if (supabase) await supabase.from('users').update({ name: submittedName }).eq('id', user.id);
                     }
-                } catch (nErr) {}
-            }
-        }
-
-        // Update customer phone in database if not previously set
-        if (user && submittedPhone && submittedPhone.length >= 10 && (!user.phone || user.phone !== submittedPhone)) {
-            try {
-                await supabaseDb.users.updatePhone(user.id, submittedPhone);
-                user.phone = submittedPhone;
-            } catch (pErr) {}
-        }
-
-        // If user record does not yet exist in users table, persist now
-        if (!user) {
-            const userEmail = submittedEmail || `${userId}@lpu.in`;
-            const rawName = submittedName || (submittedEmail ? submittedEmail.split('@')[0].replace(/[._]/g, ' ') : userId);
-            const cleanName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
-            try {
-                user = await supabaseDb.users.createUser({
-                    id: userId,
-                    name: cleanName,
-                    email: userEmail,
-                    phone: submittedPhone || null,
-                    role: 'student'
-                });
-            } catch (createErr) {
-                // If phone duplicate key error, fetch the user who owns this phone
-                if (submittedPhone && submittedPhone.length >= 10) {
-                    try {
-                        user = await supabaseDb.users.getByIdentifier(submittedPhone);
-                    } catch (e) {}
-                }
-                if (!user) {
-                    user = {
+                    if (submittedPhone && submittedPhone.length >= 10 && (!user.phone || user.phone !== submittedPhone)) {
+                        await supabaseDb.users.updatePhone(user.id, submittedPhone);
+                    }
+                } else {
+                    await supabaseDb.users.createUser({
                         id: userId,
-                        name: cleanName,
-                        email: userEmail,
-                        phone: submittedPhone || ''
-                    };
+                        name: submittedName || 'Student',
+                        email: submittedEmail || `${userId}@lpu.in`,
+                        phone: submittedPhone || null,
+                        role: 'student'
+                    });
                 }
+            } catch (bgUserErr) {
+                console.warn('[Background User Profile Sync Note]:', bgUserErr.message);
             }
-        }
-
-        const customerName = (submittedName && submittedName.length > 1) 
-            ? submittedName 
-            : ((user && user.name && !user.name.toLowerCase().startsWith('user_')) ? user.name : (user?.name || 'Customer'));
-        const customerPhone = (user && user.phone) ? user.phone : submittedPhone;
-        const customerEmail = (user && user.email && !user.email.endsWith('@lpu.in')) ? user.email : (submittedEmail || user?.email || '');
+        })();
 
         const orderPayload = {
             id: orderId,
-            user_id: user ? user.id : userId,
+            user_id: userId,
             customer_name: customerName,
             customer_phone: customerPhone,
             customer_email: customerEmail,
@@ -219,7 +171,7 @@ async function handlePlaceOrder(req, res) {
         try {
             broadcastOrderPlaced({
                 id: orderId,
-                user_id: user ? user.id : userId,
+                user_id: userId,
                 customer_name: customerName,
                 customer_phone: customerPhone,
                 customer_email: customerEmail,

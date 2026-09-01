@@ -463,27 +463,50 @@ const api = {
         }
     },
 
-    // Checkout
+    // Checkout with resilient timeout to prevent UI hang on weak campus networks
     async checkout(userId, paymentMethod = 'Cash on Delivery', deliveryAddress = '', extraData = {}) {
         const savedPhone = extraData.phone || localStorage.getItem('lpuquick_phone') || '';
         const savedName = extraData.name || window.CURRENT_USER_NAME || (JSON.parse(localStorage.getItem('lpuquick_user') || '{}').name) || '';
         const savedEmail = extraData.email || window.CURRENT_USER_EMAIL || (JSON.parse(localStorage.getItem('lpuquick_user') || '{}').email) || '';
 
-        const res = await fetch(`${API_BASE}/checkout`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                userId,
-                paymentMethod,
-                deliveryAddress,
-                customerPhone: savedPhone,
-                customerName: savedName,
-                customerEmail: savedEmail
-            })
-        });
-        cartMemoryCache = null;
-        ordersMemoryCache = null;
-        activeOrderMemoryCache = null;
-        return res.json();
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000); // 12-second safety timeout
+
+        try {
+            const res = await fetch(`${API_BASE}/checkout`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                signal: controller.signal,
+                body: JSON.stringify({
+                    userId,
+                    paymentMethod,
+                    deliveryAddress,
+                    customerPhone: savedPhone,
+                    customerName: savedName,
+                    customerEmail: savedEmail
+                })
+            });
+            clearTimeout(timeoutId);
+            cartMemoryCache = null;
+            ordersMemoryCache = null;
+            activeOrderMemoryCache = null;
+
+            const text = await res.text();
+            try {
+                return JSON.parse(text);
+            } catch (parseErr) {
+                return { 
+                    error: 'SERVER_RESPONSE_ERROR', 
+                    message: res.status >= 500 ? 'Server is busy. Please tap retry.' : 'Unexpected server response. Please retry.' 
+                };
+            }
+        } catch (fetchErr) {
+            clearTimeout(timeoutId);
+            if (fetchErr.name === 'AbortError') {
+                return { error: 'NETWORK_TIMEOUT', message: 'Connection timed out. Please tap retry to place order.' };
+            }
+            throw fetchErr;
+        }
     },
     async paymentCallback(orderId, status) {
         const res = await fetch(`${API_BASE}/checkout/payment-callback`, {

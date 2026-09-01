@@ -834,6 +834,18 @@ window.pageInits.checkout = function() {
             } catch(e) {}
         }
 
+        let safetyTimeout = setTimeout(() => {
+            if (isSubmitting) {
+                console.warn('[Checkout Safety Timeout Triggered]');
+                isSubmitting = false;
+                resetSlider();
+                if (errorBanner) {
+                    errorBanner.classList.remove('hidden');
+                    if (errorMsg) errorMsg.textContent = 'Network is slow. Please tap retry to place your order.';
+                }
+            }
+        }, 13000);
+
         try {
             const res = await window.api.checkout(userId, selectedPaymentMethod, deliveryAddress, {
                 phone: currentUserPhone,
@@ -842,6 +854,7 @@ window.pageInits.checkout = function() {
             });
 
             if (res && res.success && res.order) {
+                clearTimeout(safetyTimeout);
                 // Successful confirmation state on slider
                 if (text) text.textContent = 'Order Placed! ✓';
                 if (thumbIcon) {
@@ -856,8 +869,9 @@ window.pageInits.checkout = function() {
                 // Render in-place Success Screen with real data
                 setTimeout(() => {
                     renderSuccessScreen(res.order);
-                }, 300);
+                }, 250);
             } else if (res && res.error === 'STORE_CLOSED') {
+                clearTimeout(safetyTimeout);
                 isSubmitting = false;
                 resetSlider();
                 if (typeof window.syncStoreAvailability === 'function') {
@@ -868,6 +882,7 @@ window.pageInits.checkout = function() {
                 window.location.hash = '#/';
                 return;
             } else if (res && res.error === 'ACCOUNT_BLOCKED') {
+                clearTimeout(safetyTimeout);
                 isSubmitting = false;
                 resetSlider();
                 window.__isUserBlocked = true;
@@ -881,6 +896,7 @@ window.pageInits.checkout = function() {
                 throw new Error(res?.message || res?.error || 'Failed to place order.');
             }
         } catch (err) {
+            clearTimeout(safetyTimeout);
             console.error('Order placement failed:', err);
             isSubmitting = false;
             resetSlider();
@@ -889,6 +905,8 @@ window.pageInits.checkout = function() {
                 errorBanner.classList.remove('hidden');
                 if (errorMsg) errorMsg.textContent = err.message || 'Please check your connection and try again.';
             }
+        } finally {
+            clearTimeout(safetyTimeout);
         }
     }
 
