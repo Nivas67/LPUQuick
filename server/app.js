@@ -95,6 +95,7 @@ app.use(express.static(path.join(__dirname, '..', 'public'), staticOptions));
 // API Routes (All backed 100% by Supabase Cloud)
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/admin/financial', require('./routes/financial'));
 app.use('/api/client/status', require('./routes/client-status'));
 app.use('/api/home', require('./routes/home'));
 app.use('/api/search', require('./routes/search'));

@@ -633,6 +633,7 @@ async function loadDashboard() {
 
         // Load and sync store lock state
         loadClientLockState();
+        checkFinancialStatus();
 
         // Cache & Render Recent Orders (preserve if network had temporary hiccup)
         if (ordersData.orders && Array.isArray(ordersData.orders) && ordersData.orders.length > 0) {
@@ -2665,4 +2666,342 @@ setInterval(() => {
     else if (activeView === 'inventory') loadInventory();
     else if (activeView === 'products') loadProducts();
 }, 60000);
+
+// ==========================================
+// FINANCIAL INTELLIGENCE & PIN SECURITY CONTROLLER
+// ==========================================
+let financialToken = null;
+let financialTimerInterval = null;
+let isFinancialConfigured = false;
+
+async function checkFinancialStatus() {
+    if (!adminToken) return;
+    try {
+        const res = await fetch('/api/admin/financial/status', {
+            headers: {
+                'Authorization': `Bearer ${adminToken}`,
+                'x-admin-token': adminToken,
+                ...(financialToken ? { 'X-Financial-Token': financialToken } : {})
+            }
+        });
+        const data = await res.json();
+        if (data.success) {
+            isFinancialConfigured = data.configured;
+            updateFinancialUI(data);
+            if (data.is_unlocked && financialToken) {
+                fetchFinancialData();
+            }
+        }
+    } catch (e) {
+        console.error('Error checking financial status:', e);
+    }
+}
+
+function updateFinancialUI(status) {
+    const badge = document.getElementById('fin-badge');
+    const desc = document.getElementById('fin-status-desc');
+    const icon = document.getElementById('fin-status-icon');
+    const valRev = document.getElementById('fin-val-revenue');
+    const valProf = document.getElementById('fin-val-profit');
+    const timerLabel = document.getElementById('fin-timer-label');
+    const btnRelock = document.getElementById('btn-manual-relock');
+    const btnUnlock = document.getElementById('btn-unlock-fin');
+    const btnUnlockText = document.getElementById('btn-unlock-fin-text');
+
+    if (!badge || !valRev || !valProf) return;
+
+    if (status.is_unlocked && financialToken) {
+        badge.textContent = '🔓 UNLOCKED';
+        badge.className = 'text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald/10 text-emerald border border-emerald/20';
+        if (icon) {
+            icon.innerHTML = '<span class="material-symbols-outlined text-xl">lock_open</span>';
+            icon.className = 'w-10 h-10 rounded-2xl bg-emerald/10 text-emerald flex items-center justify-center font-bold';
+        }
+        if (desc) desc.textContent = 'Revenue & Profit decrypted for authorized active session.';
+        if (btnUnlock) btnUnlock.classList.add('hidden');
+        if (btnRelock) btnRelock.classList.remove('hidden');
+
+        startFinancialTimer(status.expires_in_seconds);
+    } else {
+        badge.textContent = '🔒 LOCKED';
+        badge.className = 'text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 border border-rose-500/20';
+        if (icon) {
+            icon.innerHTML = '<span class="material-symbols-outlined text-xl">lock</span>';
+            icon.className = 'w-10 h-10 rounded-2xl bg-rose-500/10 text-rose-600 flex items-center justify-center font-bold';
+        }
+        if (desc) {
+            desc.textContent = isFinancialConfigured 
+                ? 'Revenue & Profit figures are encrypted with PIN security.'
+                : 'Financial PIN not configured. Tap PIN Setup to create one.';
+        }
+        valRev.textContent = '🔒 ••••••';
+        valProf.textContent = '🔒 ••••••';
+        if (timerLabel) timerLabel.textContent = 'Auto-lock active (Locked)';
+        if (btnRelock) btnRelock.classList.add('hidden');
+        if (btnUnlock) {
+            btnUnlock.classList.remove('hidden');
+            if (btnUnlockText) btnUnlockText.textContent = isFinancialConfigured ? 'Unlock with PIN' : 'Set Up PIN';
+        }
+        stopFinancialTimer();
+    }
+}
+
+async function fetchFinancialData() {
+    if (!adminToken || !financialToken) return;
+    try {
+        const res = await fetch('/api/admin/financial/data', {
+            headers: {
+                'Authorization': `Bearer ${adminToken}`,
+                'x-admin-token': adminToken,
+                'X-Financial-Token': financialToken
+            }
+        });
+        const data = await res.json();
+        if (data.success && data.metrics) {
+            const valRev = document.getElementById('fin-val-revenue');
+            const valProf = document.getElementById('fin-val-profit');
+            const subRev = document.getElementById('fin-sub-revenue');
+            const subProf = document.getElementById('fin-sub-profit');
+
+            if (valRev) valRev.textContent = `₹${(data.metrics.total_revenue || 0).toLocaleString('en-IN')}`;
+            if (valProf) valProf.textContent = `₹${(data.metrics.total_profit || 0).toLocaleString('en-IN')}`;
+            if (subRev) subRev.classList.remove('hidden');
+            if (subProf) subProf.classList.remove('hidden');
+        } else if (data.locked) {
+            financialToken = null;
+            checkFinancialStatus();
+        }
+    } catch (e) {
+        console.error('Error fetching financial data:', e);
+    }
+}
+
+function startFinancialTimer(seconds) {
+    stopFinancialTimer();
+    let remaining = seconds || 900;
+    const timerLabel = document.getElementById('fin-timer-label');
+
+    function updateLabel() {
+        if (!timerLabel) return;
+        const mins = Math.floor(remaining / 60);
+        const secs = remaining % 60;
+        timerLabel.textContent = `Expires in ${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    }
+
+    updateLabel();
+    financialTimerInterval = setInterval(() => {
+        remaining--;
+        if (remaining <= 0) {
+            stopFinancialTimer();
+            financialToken = null;
+            showToast('Financial session expired. Data relocked.', 'warning');
+            checkFinancialStatus();
+        } else {
+            updateLabel();
+        }
+    }, 1000);
+}
+
+function stopFinancialTimer() {
+    if (financialTimerInterval) {
+        clearInterval(financialTimerInterval);
+        financialTimerInterval = null;
+    }
+}
+
+// Modal open/close handlers
+window.openFinancialUnlockModal = function() {
+    if (!isFinancialConfigured) {
+        openFinancialSetupModal();
+        return;
+    }
+    const modal = document.getElementById('modal-fin-unlock');
+    const input = document.getElementById('input-fin-pin');
+    const err = document.getElementById('fin-unlock-error');
+    if (err) err.classList.add('hidden');
+    if (input) {
+        input.value = '';
+        setTimeout(() => input.focus(), 100);
+    }
+    if (modal) modal.classList.remove('hidden');
+};
+
+window.closeFinancialUnlockModal = function() {
+    const modal = document.getElementById('modal-fin-unlock');
+    if (modal) modal.classList.add('hidden');
+};
+
+window.openFinancialSetupModal = function() {
+    const modal = document.getElementById('modal-fin-setup');
+    const currentGroup = document.getElementById('fin-setup-current-group');
+    const title = document.getElementById('fin-setup-modal-title');
+    const err = document.getElementById('fin-setup-error');
+    const succ = document.getElementById('fin-setup-success');
+
+    if (err) err.classList.add('hidden');
+    if (succ) succ.classList.add('hidden');
+
+    if (currentGroup) {
+        if (isFinancialConfigured) {
+            currentGroup.classList.remove('hidden');
+            if (title) title.textContent = 'Change Financial PIN';
+        } else {
+            currentGroup.classList.add('hidden');
+            if (title) title.textContent = 'Set Up Financial PIN';
+        }
+    }
+
+    const newPinEl = document.getElementById('input-fin-new-pin');
+    const confPinEl = document.getElementById('input-fin-confirm-pin');
+    const curPin = document.getElementById('input-fin-current-pin');
+
+    if (newPinEl) newPinEl.value = '';
+    if (confPinEl) confPinEl.value = '';
+    if (curPin) curPin.value = '';
+
+    if (modal) modal.classList.remove('hidden');
+};
+
+window.closeFinancialSetupModal = function() {
+    const modal = document.getElementById('modal-fin-setup');
+    if (modal) modal.classList.add('hidden');
+};
+
+window.submitFinancialUnlock = async function(e) {
+    if (e) e.preventDefault();
+    const pin = document.getElementById('input-fin-pin')?.value?.trim();
+    const err = document.getElementById('fin-unlock-error');
+    const btn = document.getElementById('btn-submit-fin-unlock');
+
+    if (!pin) {
+        if (err) {
+            err.textContent = 'Please enter your 4-6 digit PIN';
+            err.classList.remove('hidden');
+        }
+        return;
+    }
+
+    if (btn) btn.disabled = true;
+    try {
+        const res = await fetch('/api/admin/financial/unlock', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${adminToken}`,
+                'x-admin-token': adminToken
+            },
+            body: JSON.stringify({ pin })
+        });
+        const data = await res.json();
+        if (data.success && data.financial_token) {
+            financialToken = data.financial_token;
+            closeFinancialUnlockModal();
+            showToast('✓ Financial metrics unlocked successfully', 'success');
+            checkFinancialStatus();
+        } else {
+            if (err) {
+                err.textContent = data.error || 'Incorrect PIN';
+                err.classList.remove('hidden');
+            }
+        }
+    } catch (err2) {
+        if (err) {
+            err.textContent = 'Failed to connect to security server';
+            err.classList.remove('hidden');
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+};
+
+window.submitFinancialSetup = async function(e) {
+    if (e) e.preventDefault();
+    const curPin = document.getElementById('input-fin-current-pin')?.value?.trim();
+    const newPin = document.getElementById('input-fin-new-pin')?.value?.trim();
+    const confirmPin = document.getElementById('input-fin-confirm-pin')?.value?.trim();
+    const err = document.getElementById('fin-setup-error');
+    const succ = document.getElementById('fin-setup-success');
+    const btn = document.getElementById('btn-submit-fin-setup');
+
+    if (!newPin || !confirmPin) {
+        if (err) {
+            err.textContent = 'Both New PIN and Confirm PIN are required';
+            err.classList.remove('hidden');
+        }
+        return;
+    }
+
+    if (newPin !== confirmPin) {
+        if (err) {
+            err.textContent = 'New PIN and Confirm PIN do not match';
+            err.classList.remove('hidden');
+        }
+        return;
+    }
+
+    if (btn) btn.disabled = true;
+    try {
+        const res = await fetch('/api/admin/financial/setup-pin', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${adminToken}`,
+                'x-admin-token': adminToken
+            },
+            body: JSON.stringify({
+                current_pin: curPin,
+                new_pin: newPin,
+                confirm_pin: confirmPin
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            isFinancialConfigured = true;
+            if (succ) {
+                succ.textContent = 'PIN configured successfully!';
+                succ.classList.remove('hidden');
+            }
+            setTimeout(() => {
+                closeFinancialSetupModal();
+                showToast('✓ Financial PIN updated and secured', 'success');
+                checkFinancialStatus();
+            }, 1000);
+        } else {
+            if (err) {
+                err.textContent = data.error || 'Failed to update PIN';
+                err.classList.remove('hidden');
+            }
+        }
+    } catch (err2) {
+        if (err) {
+            err.textContent = 'Server connection error';
+            err.classList.remove('hidden');
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+};
+
+window.lockFinancialData = async function() {
+    if (!adminToken) return;
+    try {
+        await fetch('/api/admin/financial/lock', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${adminToken}`,
+                'x-admin-token': adminToken,
+                ...(financialToken ? { 'X-Financial-Token': financialToken } : {})
+            }
+        });
+    } catch (e) {}
+    financialToken = null;
+    showToast('Financial data locked', 'info');
+    checkFinancialStatus();
+};
+
+// Event Listeners for Financial Controls
+document.getElementById('btn-unlock-fin')?.addEventListener('click', () => window.openFinancialUnlockModal());
+document.getElementById('btn-configure-fin-pin')?.addEventListener('click', () => window.openFinancialSetupModal());
+document.getElementById('btn-manual-relock')?.addEventListener('click', () => window.lockFinancialData());
+
 

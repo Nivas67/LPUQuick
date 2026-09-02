@@ -256,7 +256,73 @@
                     </div>
                 </div>
 
+                <!-- Financial Information & PIN Security Banner -->
+                <div class="glass-panel p-5 mb-6 border border-emerald-500/20 bg-gradient-to-r from-emerald-500/5 via-white to-white dark:via-slate-900 dark:to-slate-900 relative overflow-hidden shadow-sm" id="financial-security-card">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-emerald/10 text-emerald flex items-center justify-center font-bold" id="fin-status-icon">
+                                <span class="material-symbols-outlined text-xl">lock</span>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <h3 class="text-sm font-bold text-on-surface">Financial Intelligence</h3>
+                                    <span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 border border-rose-500/20" id="fin-badge">🔒 LOCKED</span>
+                                </div>
+                                <p class="text-xs text-[#5c5f60]" id="fin-status-desc">Revenue & Profit figures are encrypted with PIN security.</p>
+                            </div>
+                        </div>
 
+                        <!-- Action controls -->
+                        <div class="flex items-center gap-2 w-full sm:w-auto" id="fin-controls-container">
+                            <button type="button" class="btn btn-sm btn-primary flex-1 sm:flex-initial flex items-center justify-center gap-1.5 shadow-sm py-2 px-3.5 bg-emerald text-white rounded-xl text-xs font-bold hover:bg-primary transition-all active:scale-95" id="btn-unlock-fin">
+                                <span class="material-symbols-outlined text-sm">key</span>
+                                <span id="btn-unlock-fin-text">Unlock with PIN</span>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline flex items-center justify-center gap-1 py-2 px-3 border border-[#DADCE0] rounded-xl text-xs font-semibold text-[#3c4043] hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" id="btn-configure-fin-pin" title="Change or Set Financial PIN">
+                                <span class="material-symbols-outlined text-sm">settings</span>
+                                <span>PIN Setup</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Dual Financial Tiles: Revenue & Profit -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4 pt-4 border-t border-[#DADCE0]">
+                        <div class="bg-white/80 dark:bg-slate-800/80 rounded-2xl p-3.5 border border-[#DADCE0] flex flex-col justify-between shadow-xs">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-[10px] font-extrabold uppercase tracking-wider text-[#5c5f60]">Campus Gross Revenue</span>
+                                <span class="material-symbols-outlined text-sm text-emerald">payments</span>
+                            </div>
+                            <div class="flex items-baseline gap-2">
+                                <p class="text-2xl font-black text-[#181c1f] tracking-tight" id="fin-val-revenue">🔒 ••••••</p>
+                                <span class="text-[10px] font-bold text-[#5c5f60] hidden" id="fin-sub-revenue">From completed orders</span>
+                            </div>
+                        </div>
+
+                        <div class="bg-white/80 dark:bg-slate-800/80 rounded-2xl p-3.5 border border-[#DADCE0] flex flex-col justify-between shadow-xs">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-[10px] font-extrabold uppercase tracking-wider text-[#5c5f60]">Estimated Net Profit</span>
+                                <span class="material-symbols-outlined text-sm text-emerald">trending_up</span>
+                            </div>
+                            <div class="flex items-baseline gap-2">
+                                <p class="text-2xl font-black text-emerald tracking-tight" id="fin-val-profit">🔒 ••••••</p>
+                                <span class="text-[10px] font-bold text-emerald/80 hidden" id="fin-sub-profit">22% Net platform margin</span>
+                            </div>
+                        </div>
+
+                        <div class="bg-white/80 dark:bg-slate-800/80 rounded-2xl p-3.5 border border-[#DADCE0] flex flex-col justify-between shadow-xs col-span-1 sm:col-span-2 lg:col-span-1">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-[10px] font-extrabold uppercase tracking-wider text-[#5c5f60]">Security Session</span>
+                                <span class="material-symbols-outlined text-sm text-[#5c5f60]">timer</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <p class="text-xs font-bold text-[#181c1f]" id="fin-timer-label">Auto-lock active (Locked)</p>
+                                <button type="button" class="text-xs font-extrabold text-rose-600 hover:text-rose-700 hidden" id="btn-manual-relock">
+                                    🔒 Lock Now
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Main Grid: Recent Orders (2/3) + Low Stock (1/3) -->
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1075,8 +1141,100 @@
         </main>
     </div>
 
+    <!-- ================= MODAL: FINANCIAL PIN UNLOCK ================= -->
+    <div id="modal-fin-unlock" class="modal-overlay hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-sm p-6 bg-white dark:bg-slate-900 border border-glass-border shadow-2xl rounded-3xl relative animate-in fade-in duration-200">
+            <button type="button" class="absolute top-4 right-4 text-on-surface-variant hover:text-on-surface p-1 rounded-full" onclick="closeFinancialUnlockModal()">
+                <span class="material-symbols-outlined text-lg">close</span>
+            </button>
+
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-2xl bg-emerald/10 text-emerald flex items-center justify-center">
+                    <span class="material-symbols-outlined text-xl">key</span>
+                </div>
+                <div>
+                    <h3 class="font-bold text-base text-on-surface">Unlock Financial Data</h3>
+                    <p class="text-xs text-on-surface-variant">Enter your 4-6 digit administrator PIN</p>
+                </div>
+            </div>
+
+            <form id="form-fin-unlock" onsubmit="submitFinancialUnlock(event)" class="space-y-4">
+                <div>
+                    <div class="relative">
+                        <input type="password" id="input-fin-pin" maxlength="6" inputmode="numeric" pattern="[0-9]*" placeholder="••••" required autofocus
+                               class="w-full text-center text-2xl font-mono tracking-[0.5em] py-3.5 px-4 rounded-2xl border border-[#DADCE0] bg-surface-container-low text-on-surface focus:outline-none focus:ring-2 focus:ring-emerald shadow-inner" />
+                    </div>
+                </div>
+
+                <div id="fin-unlock-error" class="hidden p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 text-xs font-semibold text-center"></div>
+
+                <div class="flex gap-2 pt-2">
+                    <button type="button" onclick="closeFinancialUnlockModal()" class="w-1/2 py-2.5 px-4 rounded-xl border border-[#DADCE0] text-xs font-semibold text-on-surface-variant hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+                        Cancel
+                    </button>
+                    <button type="submit" id="btn-submit-fin-unlock" class="w-1/2 py-2.5 px-4 rounded-xl bg-emerald text-white text-xs font-bold hover:bg-primary transition-all shadow-md active:scale-95 flex items-center justify-center gap-1">
+                        <span>Unlock</span>
+                        <span class="material-symbols-outlined text-sm">lock_open</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= MODAL: FINANCIAL PIN SETUP & CHANGE ================= -->
+    <div id="modal-fin-setup" class="modal-overlay hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-sm p-6 bg-white dark:bg-slate-900 border border-glass-border shadow-2xl rounded-3xl relative animate-in fade-in duration-200">
+            <button type="button" class="absolute top-4 right-4 text-on-surface-variant hover:text-on-surface p-1 rounded-full" onclick="closeFinancialSetupModal()">
+                <span class="material-symbols-outlined text-lg">close</span>
+            </button>
+
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-2xl bg-emerald/10 text-emerald flex items-center justify-center">
+                    <span class="material-symbols-outlined text-xl">pin</span>
+                </div>
+                <div>
+                    <h3 class="font-bold text-base text-on-surface" id="fin-setup-modal-title">Configure Financial PIN</h3>
+                    <p class="text-xs text-on-surface-variant">4 to 6 numeric digits, salted & PBKDF2 hashed</p>
+                </div>
+            </div>
+
+            <form id="form-fin-setup" onsubmit="submitFinancialSetup(event)" class="space-y-3">
+                <div id="fin-setup-current-group" class="hidden">
+                    <label class="block text-xs font-semibold text-on-surface-variant mb-1">Current PIN</label>
+                    <input type="password" id="input-fin-current-pin" maxlength="6" inputmode="numeric" placeholder="Enter current PIN"
+                           class="w-full text-center text-lg font-mono tracking-widest py-2.5 px-3 rounded-xl border border-[#DADCE0] bg-surface-container-low text-on-surface focus:outline-none focus:ring-2 focus:ring-emerald" />
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-on-surface-variant mb-1">New PIN (4-6 digits)</label>
+                    <input type="password" id="input-fin-new-pin" maxlength="6" inputmode="numeric" placeholder="Enter new PIN" required
+                           class="w-full text-center text-lg font-mono tracking-widest py-2.5 px-3 rounded-xl border border-[#DADCE0] bg-surface-container-low text-on-surface focus:outline-none focus:ring-2 focus:ring-emerald" />
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-on-surface-variant mb-1">Confirm New PIN</label>
+                    <input type="password" id="input-fin-confirm-pin" maxlength="6" inputmode="numeric" placeholder="Confirm new PIN" required
+                           class="w-full text-center text-lg font-mono tracking-widest py-2.5 px-3 rounded-xl border border-[#DADCE0] bg-surface-container-low text-on-surface focus:outline-none focus:ring-2 focus:ring-emerald" />
+                </div>
+
+                <div id="fin-setup-error" class="hidden p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 text-xs font-semibold text-center"></div>
+                <div id="fin-setup-success" class="hidden p-2.5 rounded-xl bg-emerald/10 border border-emerald/30 text-emerald text-xs font-semibold text-center"></div>
+
+                <div class="flex gap-2 pt-2">
+                    <button type="button" onclick="closeFinancialSetupModal()" class="w-1/2 py-2.5 px-4 rounded-xl border border-[#DADCE0] text-xs font-semibold text-on-surface-variant hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+                        Cancel
+                    </button>
+                    <button type="submit" id="btn-submit-fin-setup" class="w-1/2 py-2.5 px-4 rounded-xl bg-emerald text-white text-xs font-bold hover:bg-primary transition-all shadow-md active:scale-95 flex items-center justify-center gap-1">
+                        <span>Save PIN</span>
+                        <span class="material-symbols-outlined text-sm">check</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Application Script Reference -->
-    <script src="/admin/js/admin.js?v=20260901r20"></script>
+    <script src="/admin/js/admin.js?v=20260901r21"></script>
 </body>
 </html>
 
