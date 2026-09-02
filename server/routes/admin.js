@@ -9,6 +9,20 @@ const cache = require('../cache');
 // All routes in this file require Administrator Authorization
 router.use(requireAdmin);
 
+// GET /api/admin/verify (Cryptographic & Database-validated admin session verification)
+router.get('/verify', (req, res) => {
+    res.json({
+        success: true,
+        authenticated: true,
+        admin: {
+            id: req.admin.id,
+            name: req.admin.name,
+            email: req.admin.email,
+            role: req.admin.role
+        }
+    });
+});
+
 // ============================================================
 // 1. CLIENT DASHBOARD LOCK / STORE AVAILABILITY CONTROLS
 // ============================================================

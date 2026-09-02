@@ -14,6 +14,7 @@ server.listen(PORT, () => {
     console.log(`[Server] LPUQuick running at http://localhost:${PORT}`);
     console.log(`[Server] API available at http://localhost:${PORT}/api`);
     console.log(`[Server] WebSocket tracking at ws://localhost:${PORT}/ws/track`);
+    console.log(`[Database] 100% PostgreSQL Active (Production Cloud)`);
 });
 
 module.exports = { app, server };

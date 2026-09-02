@@ -445,10 +445,10 @@ router.get('/admin/metrics', requireAdmin, async (req, res) => {
     }
 });
 
-// ===== USER ROUTES (after admin routes to avoid catch-all conflict) =====
+// ===== USER / ADMIN PROTECTED ROUTES =====
 
-// GET /api/orders (Fetch all orders)
-router.get('/', async (req, res) => {
+// GET /api/orders (Fetch all orders - ADMIN ONLY)
+router.get('/', requireAdmin, async (req, res) => {
     try {
         const orders = await supabaseDb.orders.getAllOrders();
         res.json({ orders });
@@ -495,8 +495,8 @@ router.get('/:userId/active', async (req, res) => {
     }
 });
 
-// POST /api/orders/:orderId/status (Update order status)
-router.post('/:orderId/status', async (req, res) => {
+// POST /api/orders/:orderId/status (Update order status - ADMIN ONLY)
+router.post('/:orderId/status', requireAdmin, async (req, res) => {
     const { orderId } = req.params;
     const { status } = req.body;
 

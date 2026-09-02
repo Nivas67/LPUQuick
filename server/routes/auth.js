@@ -288,35 +288,28 @@ router.post('/admin-login', async (req, res) => {
 
     try {
         // Look up user in database
-        let user = await supabaseDb.users.getByIdentifier(trimmedEmail);
+        const user = await supabaseDb.users.getByIdentifier(trimmedEmail);
 
-        const isMasterAdminEmail = trimmedEmail === 'admin@lpu.in' || 
-                                   trimmedEmail === 'admin@lpuquick.com' || 
-                                   trimmedEmail === 'admin' ||
-                                   trimmedEmail.startsWith('admin@') ||
-                                   (user && (user.role === 'admin' || user.id?.startsWith('admin_')));
+        if (!user || user.role !== 'admin') {
+            console.warn(`[SECURITY AUDIT] ADMIN_LOGIN_FAILED: User not found or not admin | email: ${trimmedEmail} | ip: ${req.ip}`);
+            return res.status(403).json({
+                success: false,
+                code: 'FORBIDDEN',
+                error: 'Access denied. Valid administrator credentials required.'
+            });
+        }
 
-        const isMasterAdminPassword = password === 'admin123' || 
-                                      password === 'admin' ||
-                                      password === 'demo123' || 
-                                      (process.env.ADMIN_PASSWORD && password === process.env.ADMIN_PASSWORD);
+        // Verify password against stored hash or secure environment ADMIN_PASSWORD
+        const isPasswordCorrect = (user.password_hash && (user.password_hash === password || user.password_hash === `hash_${password}`)) ||
+                                  (process.env.ADMIN_PASSWORD && password === process.env.ADMIN_PASSWORD);
 
-        // If master admin credentials provided or user is admin
-        if (isMasterAdminEmail && (isMasterAdminPassword || (user && user.password_hash && (user.password_hash === password || user.password_hash === `hash_${password}`)))) {
-            user = {
-                id: (user && user.id) ? user.id : 'admin_001',
-                name: (user && user.name) ? user.name : 'LPU Administrator',
-                email: trimmedEmail,
-                role: 'admin'
-            };
-        } else if (user && (user.role === 'admin' || user.id?.startsWith('admin_'))) {
-            // Verify password
-            const isPasswordCorrect = (user.password_hash && (user.password_hash === password || user.password_hash === `hash_${password}` || user.password_hash === 'demo123' || user.password_hash === 'admin123')) || isMasterAdminPassword;
-            if (!isPasswordCorrect) {
-                return res.status(403).json({ error: 'Incorrect password. Administrator access denied.' });
-            }
-        } else {
-            return res.status(403).json({ error: 'Access denied. Valid administrator credentials required.' });
+        if (!isPasswordCorrect) {
+            console.warn(`[SECURITY AUDIT] ADMIN_LOGIN_FAILED: Incorrect password | email: ${trimmedEmail} | ip: ${req.ip}`);
+            return res.status(401).json({
+                success: false,
+                code: 'INVALID_CREDENTIALS',
+                error: 'Incorrect administrator password.'
+            });
         }
 
 

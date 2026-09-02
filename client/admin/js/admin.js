@@ -2322,7 +2322,7 @@ function initRealtimeWebSocket() {
     }
 
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${location.host}/ws/admin`;
+    const wsUrl = `${protocol}//${location.host}/ws/admin?token=${encodeURIComponent(adminToken)}`;
 
     try {
         realtimeWs = new WebSocket(wsUrl);
@@ -2716,16 +2716,35 @@ function showToast(message, type = 'info') {
     setTimeout(() => { dismissToast(id); }, 4000);
 }
 
-// Initial Boot Check
-const savedAdminToken = localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token');
-if (!savedAdminToken) {
-    showLoginModal();
-} else {
-    adminToken = savedAdminToken;
-    hideLoginModal();
-    switchView('dashboard');
-    initRealtimeWebSocket();
+// Initial Boot Check: Verify token with server before unlocking UI
+async function initAdminAuth() {
+    const savedToken = localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token');
+    if (!savedToken) {
+        showLoginModal();
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/admin/verify', {
+            headers: {
+                'Authorization': `Bearer ${savedToken}`,
+                'x-admin-token': savedToken
+            }
+        });
+        const data = await res.json();
+        if (data.success && data.authenticated && data.admin?.role === 'admin') {
+            adminToken = savedToken;
+            hideLoginModal();
+            switchView('dashboard');
+            initRealtimeWebSocket();
+        } else {
+            logoutAdmin();
+        }
+    } catch (err) {
+        showLoginModal();
+    }
 }
+initAdminAuth();
 
 updateSoundUI();
 

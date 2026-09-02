@@ -104,6 +104,7 @@ app.use('/api/checkout', require('./routes/checkout'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/categories', require('./routes/categories'));
 app.use('/api/products', require('./routes/products'));
+app.use('/api/admin/sync', require('./routes/sync'));
 app.use('/api/test-supabase', require('./routes/test-supabase'));
 
 

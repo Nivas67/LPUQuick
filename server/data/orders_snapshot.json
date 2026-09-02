@@ -14,11 +14,11 @@
     "payment_method": "Cash on Delivery",
     "payment_status": "pending",
     "rider_name": "Alex",
-    "rider_lat": 31.2560,
-    "rider_lng": 75.7030,
+    "rider_lat": 31.256,
+    "rider_lng": 75.703,
     "delivery_address": "BH13 (Block A), Room 304",
     "created_at": "2026-08-31T15:20:00.000Z",
-    "item_summary": "Maggi 2-Minute Instant Noodles, Lay's Magic Masala, Sting Berry"
+    "item_summary": "Maggi 2-Minute Instant Noodles, Lay's Magic Masala"
   },
   {
     "id": "order_783df829",
@@ -35,8 +35,8 @@
     "payment_method": "UPI / QR Pay",
     "payment_status": "completed",
     "rider_name": "Alex",
-    "rider_lat": 31.2560,
-    "rider_lng": 75.7030,
+    "rider_lat": 31.256,
+    "rider_lng": 75.703,
     "delivery_address": "BH13 Hostels, Room 201",
     "created_at": "2026-08-31T14:45:00.000Z",
     "item_summary": "Cadbury Dairy Milk Silk, Red Bull Energy Drink"
@@ -56,8 +56,8 @@
     "payment_method": "Cash on Delivery",
     "payment_status": "completed",
     "rider_name": "Alex",
-    "rider_lat": 31.2560,
-    "rider_lng": 75.7030,
+    "rider_lat": 31.256,
+    "rider_lng": 75.703,
     "delivery_address": "BH13 (Block A), Room 304",
     "created_at": "2026-08-31T12:10:00.000Z",
     "item_summary": "Sunfeast Dark Fantasy, Thums Up Can, Haldiram Bhujia"
@@ -77,8 +77,8 @@
     "payment_method": "UPI / QR Pay",
     "payment_status": "completed",
     "rider_name": "Alex",
-    "rider_lat": 31.2560,
-    "rider_lng": 75.7030,
+    "rider_lat": 31.256,
+    "rider_lng": 75.703,
     "delivery_address": "BH14 Hostels, Room 102",
     "created_at": "2026-08-31T10:05:00.000Z",
     "item_summary": "Nescafe Classic, Parle-G Gold, Good Day Cookies"
@@ -98,8 +98,8 @@
     "payment_method": "Cash on Delivery",
     "payment_status": "completed",
     "rider_name": "Alex",
-    "rider_lat": 31.2560,
-    "rider_lng": 75.7030,
+    "rider_lat": 31.256,
+    "rider_lng": 75.703,
     "delivery_address": "BH13 Hostels, Room 410",
     "created_at": "2026-08-31T09:30:00.000Z",
     "item_summary": "Classmate Spiral Notebook, Dettol Hand Sanitizer"

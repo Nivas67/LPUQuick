@@ -1,8 +1,8 @@
 const { createClient } = require('@supabase/supabase-js');
 
-// Production default credentials for resilient cloud serverless execution
-const DEFAULT_SUPABASE_URL = 'https://dzygsmgdzvroxepwyjyz.supabase.co';
-const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR6eWdzbWdkenZyb3hlcHd5anl6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4Nzk3Njk1MiwiZXhwIjoyMTAzNTUyOTUyfQ.3YQaJ_pNPQBHV8wttOet6lHOMGtV1YCHQhDOheQQHuk';
+// Production default credentials for resilient cloud serverless execution (New Supabase Project)
+const DEFAULT_SUPABASE_URL = 'https://yojndzstlilzlkxonmvd.supabase.co';
+const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlvam5kenN0bGlsemxreG9ubXZkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODM1NjYwMywiZXhwIjoyMTAzOTMyNjAzfQ.UiD72830z3goX1uk-lOKmdnikNNgkQ2dywnXrW3OTYg';
 
 if (!process.env.SUPABASE_URL) {
     process.env.SUPABASE_URL = DEFAULT_SUPABASE_URL;

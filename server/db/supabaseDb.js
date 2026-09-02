@@ -3,29 +3,42 @@ const { v4: uuidv4 } = require('uuid');
 const cache = require('../cache');
 
 /**
- * Single-Database Cloud Layer: Supabase (PostgreSQL)
- * Direct, centralized data access layer for all LPUQuick operations
+ * Pure PostgreSQL Database Repository for LPUQuick
+ * Backed 100% by PostgreSQL via Supabase PostgREST (Serverless-compatible, zero SQLite dependencies).
  */
-
 const supabaseDb = {
     // ==========================================
     // PRODUCTS
     // ==========================================
     products: {
+        _formatProduct(p) {
+            if (!p) return null;
+            const match = (p.tags || '').match(/stock:(\d+)/);
+            const stock_left = match ? parseInt(match[1], 10) : (p.in_stock ? 50 : 0);
+            return {
+                ...p,
+                description: p.size || p.name,
+                badge: p.bestseller ? 'Bestseller' : (p.is_new ? 'New' : ''),
+                rating: 4.5,
+                is_active: true,
+                stock_left
+            };
+        },
+
         async getAll({ includeInactive = false, category, subcategory, sort } = {}) {
             const cacheKey = `products:${category || 'all'}:${subcategory || 'all'}:${sort || 'default'}:${includeInactive}`;
             return await cache.wrap(cacheKey, async () => {
                 const supabase = getSupabaseClient();
+                if (!supabase) throw new Error('PostgreSQL client unavailable. Verify SUPABASE_URL and credentials.');
+
                 let query = supabase.from('products').select('*');
 
                 if (category && category !== 'All') {
                     query = query.ilike('category', `%${category}%`);
                 }
-
                 if (subcategory && subcategory !== 'all') {
                     query = query.eq('subcategory', subcategory);
                 }
-
                 if (sort === 'price_asc') {
                     query = query.order('price', { ascending: true });
                 } else if (sort === 'price_desc') {
@@ -35,143 +48,211 @@ const supabaseDb = {
                 }
 
                 const { data, error } = await query;
-                if (error) {
-                    console.error('[Supabase getAllProducts Error]:', error.message);
-                    return [];
-                }
-                return (data || []).map(p => {
-                    const match = (p.tags || '').match(/stock:(\d+)/);
-                    const stock_left = match ? parseInt(match[1], 10) : (p.in_stock ? 50 : 0);
-                    return {
-                        ...p,
-                        stock_left
-                    };
-                });
-            }, 60000);
+                if (error) throw new Error(`PostgreSQL query error: ${error.message}`);
+
+                return (data || []).map(p => this._formatProduct(p));
+            }, 300);
         },
 
         async getById(id) {
-            return await cache.wrap(`product:${id}`, async () => {
-                const supabase = getSupabaseClient();
-                const { data, error } = await supabase.from('products').select('*').eq('id', id).single();
-                if (error || !data) return null;
-                const match = (data.tags || '').match(/stock:(\d+)/);
-                const stock_left = match ? parseInt(match[1], 10) : (data.in_stock ? 50 : 0);
-                return {
-                    ...data,
-                    stock_left
-                };
-            }, 60000);
+            const supabase = getSupabaseClient();
+            if (!supabase) throw new Error('PostgreSQL client unavailable');
+
+            const { data, error } = await supabase
+                .from('products')
+                .select('*')
+                .eq('id', id)
+                .maybeSingle();
+
+            if (error) throw new Error(`PostgreSQL product fetch error: ${error.message}`);
+            if (!data) return null;
+
+            return this._formatProduct(data);
         },
 
-        async create(p) {
+        async getByIds(ids) {
+            if (!ids || ids.length === 0) return [];
             const supabase = getSupabaseClient();
-            const id = p.id || `prod_cust_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
-            const price = Number(p.price);
-            const mrp = p.mrp ? Number(p.mrp) : price;
-            const stock = p.stock_left !== undefined ? Math.max(0, Number(p.stock_left)) : 50;
-            const inStock = p.in_stock !== undefined ? Boolean(p.in_stock) : stock > 0;
+            if (!supabase) return [];
 
-            const baseTags = (p.tags || '').replace(/stock:\d+,?/g, '').trim();
-            const finalTags = `stock:${stock}${baseTags ? ',' + baseTags : ''}`;
+            const { data, error } = await supabase
+                .from('products')
+                .select('*')
+                .in('id', ids);
 
-            const newProduct = {
+            if (error) return [];
+            return (data || []).map(p => this._formatProduct(p));
+        },
+
+        async getCategories() {
+            const supabase = getSupabaseClient();
+            if (!supabase) return [];
+
+            const { data, error } = await supabase
+                .from('products')
+                .select('category');
+
+            if (error || !data) return [];
+            return Array.from(new Set(data.map(p => p.category).filter(Boolean)));
+        },
+
+        async search(queryText) {
+            if (!queryText) return [];
+            const supabase = getSupabaseClient();
+            if (!supabase) return [];
+
+            const clean = queryText.trim();
+            const { data, error } = await supabase
+                .from('products')
+                .select('*')
+                .or(`name.ilike.%${clean}%,category.ilike.%${clean}%,tags.ilike.%${clean}%`)
+                .limit(50);
+
+            if (error || !data) return [];
+            return data.map(p => this._formatProduct(p));
+        },
+
+        async getRandom(limit = 10) {
+            const supabase = getSupabaseClient();
+            if (!supabase) return [];
+
+            const { data, error } = await supabase
+                .from('products')
+                .select('*')
+                .eq('in_stock', true)
+                .limit(50);
+
+            if (error || !data) return [];
+            const shuffled = [...data].sort(() => 0.5 - Math.random());
+            return shuffled.slice(0, limit).map(p => this._formatProduct(p));
+        },
+
+        async create(productData) {
+            const supabase = getSupabaseClient();
+            if (!supabase) throw new Error('PostgreSQL client unavailable');
+
+            const id = productData.id || `prod_${uuidv4().slice(0, 8)}`;
+            const stockNum = productData.stock_left !== undefined ? parseInt(productData.stock_left, 10) : 50;
+            const inStock = stockNum > 0 && productData.in_stock !== false;
+
+            const existingTags = (productData.tags || '')
+                .split(',')
+                .map(t => t.trim())
+                .filter(t => t && !t.startsWith('stock:'));
+            existingTags.push(`stock:${stockNum}`);
+            const finalTags = existingTags.join(', ');
+
+            const record = {
                 id,
-                name: p.name,
-                category: p.category,
-                subcategory: p.subcategory || '',
-                price,
-                mrp,
-                unit: p.unit || 'piece',
-                size: p.size || 'Standard',
-                image_url: p.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300',
-                image_alt: p.image_alt || p.name,
-                tags: finalTags,
+                name: productData.name,
+                category: productData.category || 'Snacks & Drinks',
+                subcategory: productData.subcategory || '',
+                price: Number(productData.price) || 0,
+                mrp: Number(productData.mrp || productData.price) || 0,
+                cost_price: Number(productData.cost_price) || 0,
+                unit: productData.unit || 'piece',
+                size: productData.size || productData.description || '',
+                image_url: productData.image_url || '',
+                image_alt: productData.image_alt || productData.name || '',
                 in_stock: inStock,
-                bestseller: Boolean(p.bestseller),
-                is_new: Boolean(p.is_new)
+                bestseller: Boolean(productData.bestseller),
+                is_new: Boolean(productData.is_new),
+                tags: finalTags
             };
 
-            const { data, error } = await supabase.from('products').insert([newProduct]).select().single();
-            if (error) throw error;
+            const { data, error } = await supabase
+                .from('products')
+                .insert([record])
+                .select()
+                .single();
+
+            if (error) throw new Error(`PostgreSQL product insert error: ${error.message}`);
             cache.invalidateProducts();
-            return {
-                ...data,
-                stock_left: stock
-            };
+            return this._formatProduct(data);
         },
 
         async update(id, updates) {
             const supabase = getSupabaseClient();
-            const payload = {};
+            if (!supabase) throw new Error('PostgreSQL client unavailable');
 
-            if (updates.name !== undefined) payload.name = updates.name;
-            if (updates.category !== undefined) payload.category = updates.category;
-            if (updates.subcategory !== undefined) payload.subcategory = updates.subcategory;
-            if (updates.price !== undefined) payload.price = Number(updates.price);
-            if (updates.mrp !== undefined) payload.mrp = Number(updates.mrp);
-            if (updates.unit !== undefined) payload.unit = updates.unit;
-            if (updates.size !== undefined) payload.size = updates.size;
-            if (updates.image_url !== undefined) payload.image_url = updates.image_url;
-            if (updates.bestseller !== undefined) payload.bestseller = Boolean(updates.bestseller);
+            const updateFields = {};
+            if (updates.name !== undefined) updateFields.name = updates.name;
+            if (updates.category !== undefined) updateFields.category = updates.category;
+            if (updates.subcategory !== undefined) updateFields.subcategory = updates.subcategory;
+            if (updates.price !== undefined) updateFields.price = Number(updates.price);
+            if (updates.mrp !== undefined) updateFields.mrp = Number(updates.mrp);
+            if (updates.cost_price !== undefined) updateFields.cost_price = Number(updates.cost_price);
+            if (updates.unit !== undefined) updateFields.unit = updates.unit;
+            if (updates.size !== undefined) updateFields.size = updates.size;
+            if (updates.image_url !== undefined) updateFields.image_url = updates.image_url;
+            if (updates.image_alt !== undefined) updateFields.image_alt = updates.image_alt;
+            if (updates.in_stock !== undefined) updateFields.in_stock = Boolean(updates.in_stock);
+            if (updates.bestseller !== undefined) updateFields.bestseller = Boolean(updates.bestseller);
+            if (updates.is_new !== undefined) updateFields.is_new = Boolean(updates.is_new);
+            if (updates.tags !== undefined) updateFields.tags = updates.tags;
 
             if (updates.stock_left !== undefined) {
-                const stock = Math.max(0, Number(updates.stock_left));
-                const currentProduct = await this.getById(id);
-                const baseTags = ((updates.tags !== undefined ? updates.tags : (currentProduct?.tags || ''))).replace(/stock:\d+,?/g, '').trim();
-                payload.tags = `stock:${stock}${baseTags ? ',' + baseTags : ''}`;
-                payload.in_stock = stock > 0;
-            } else if (updates.in_stock !== undefined) {
-                const currentProduct = await this.getById(id);
-                const isNowInStock = Boolean(updates.in_stock);
-                payload.in_stock = isNowInStock;
-                const baseTags = ((updates.tags !== undefined ? updates.tags : (currentProduct?.tags || ''))).replace(/stock:\d+,?/g, '').trim();
-                const stock = isNowInStock ? Math.max(1, Number(currentProduct?.stock_left || 1)) : 0;
-                payload.tags = `stock:${stock}${baseTags ? ',' + baseTags : ''}`;
-            } else if (updates.tags !== undefined) {
-                payload.tags = updates.tags;
+                const stockNum = parseInt(updates.stock_left, 10) || 0;
+                const existing = await this.getById(id);
+                const currentTags = (existing?.tags || '')
+                    .split(',')
+                    .map(t => t.trim())
+                    .filter(t => t && !t.startsWith('stock:'));
+                currentTags.push(`stock:${stockNum}`);
+                updateFields.tags = currentTags.join(', ');
+                updateFields.in_stock = stockNum > 0;
             }
 
-            const { data, error } = await supabase.from('products').update(payload).eq('id', id).select().single();
-            if (error) throw error;
+            const { data, error } = await supabase
+                .from('products')
+                .update(updateFields)
+                .eq('id', id)
+                .select()
+                .single();
+
+            if (error) throw new Error(`PostgreSQL product update error: ${error.message}`);
             cache.invalidateProducts();
-            const match = (data.tags || '').match(/stock:(\d+)/);
-            const stock_left = match ? parseInt(match[1], 10) : (data.in_stock ? 50 : 0);
-            return {
-                ...data,
-                stock_left
-            };
+
+            return this._formatProduct(data);
+        },
+
+        async adjustStock(id, delta) {
+            const supabase = getSupabaseClient();
+            if (!supabase) throw new Error('PostgreSQL client unavailable');
+
+            const product = await this.getById(id);
+            if (!product) throw new Error('Product not found');
+
+            const newStock = Math.max(0, (product.stock_left || 0) + delta);
+            return await this.update(id, { stock_left: newStock });
+        },
+
+        async toggleStock(id) {
+            const product = await this.getById(id);
+            if (!product) throw new Error('Product not found');
+            const newInStock = !product.in_stock;
+            const newStock = newInStock ? 50 : 0;
+            return await this.update(id, { in_stock: newInStock, stock_left: newStock });
+        },
+
+        async deactivate(id) {
+            return await this.update(id, { in_stock: false, stock_left: 0 });
         },
 
         async delete(id) {
             const supabase = getSupabaseClient();
-            const { error } = await supabase.from('products').delete().eq('id', id);
-            if (error) throw error;
+            if (!supabase) throw new Error('PostgreSQL client unavailable');
+
+            const { error } = await supabase
+                .from('products')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw new Error(`PostgreSQL product delete error: ${error.message}`);
             cache.invalidateProducts();
-            return true;
-        },
-
-        async getCategories() {
-            return await cache.wrap('categories:all', async () => {
-                const supabase = getSupabaseClient();
-                const { data, error } = await supabase.from('products').select('category, in_stock');
-                if (error || !data) return [];
-
-                const categoryMap = {};
-                data.forEach(p => {
-                    const cat = p.category || 'General';
-                    if (!categoryMap[cat]) {
-                        categoryMap[cat] = { name: cat, product_count: 0, in_stock_count: 0 };
-                    }
-                    categoryMap[cat].product_count++;
-                    if (p.in_stock) categoryMap[cat].in_stock_count++;
-                });
-
-                return Object.values(categoryMap);
-            }, 60000);
+            return { success: true };
         }
     },
-
 
     // ==========================================
     // CART
@@ -179,117 +260,66 @@ const supabaseDb = {
     cart: {
         async getCart(userId) {
             const supabase = getSupabaseClient();
-            const { data: cartItems, error } = await supabase
+            if (!supabase) return { items: [], pricing: { subtotal: 0, deliveryFee: 0, platformFee: 0, tax: 0, total: 0 } };
+
+            const { data, error } = await supabase
                 .from('cart_items')
-                .select(`
-                    id, quantity, created_at,
-                    products (
-                        id, name, price, mrp, unit, size, image_url, image_alt, category, in_stock, tags
-                    )
-                `)
-                .eq('user_id', userId)
-                .order('created_at', { ascending: false });
+                .select('id, user_id, product_id, quantity, products(*)')
+                .eq('user_id', userId);
 
-            if (error || !cartItems) {
-                if (error) console.error('[Supabase getCart Error]:', error.message);
-                return { items: [], pricing: this.calculatePricing([]) };
-            }
+            if (error || !data) return { items: [], pricing: { subtotal: 0, deliveryFee: 0, platformFee: 0, tax: 0, total: 0 } };
 
-            const items = cartItems.map(ci => {
-                const match = (ci.products?.tags || '').match(/stock:(\d+)/);
-                const stockLeft = match ? parseInt(match[1], 10) : (ci.products?.in_stock ? 50 : 0);
+            const items = data.map(item => {
+                const prod = item.products || {};
+                const match = (prod.tags || '').match(/stock:(\d+)/);
+                const stock_left = match ? parseInt(match[1], 10) : (prod.in_stock ? 50 : 0);
                 return {
-                    cart_id: ci.id,
-                    product_id: ci.products?.id,
-                    name: ci.products?.name,
-                    price: ci.products?.price || 0,
-                    mrp: ci.products?.mrp || ci.products?.price || 0,
-                    unit: ci.products?.unit,
-                    size: ci.products?.size,
-                    image_url: ci.products?.image_url,
-                    image_alt: ci.products?.image_alt,
-                    category: ci.products?.category,
-                    quantity: ci.quantity,
-                    in_stock: ci.products?.in_stock ? 1 : 0,
-                    stock_left: stockLeft
+                    id: item.id,
+                    user_id: item.user_id,
+                    product_id: item.product_id,
+                    quantity: item.quantity,
+                    name: prod.name || 'Item',
+                    price: Number(prod.price) || 0,
+                    mrp: Number(prod.mrp) || Number(prod.price) || 0,
+                    image_url: prod.image_url || '',
+                    in_stock: prod.in_stock,
+                    stock_left,
+                    category: prod.category || ''
                 };
-            }).filter(i => i.product_id);
+            });
 
-            const pricing = this.calculatePricing(items);
+            const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const deliveryFee = subtotal >= 99 || subtotal === 0 ? 0 : 15;
+            const platformFee = subtotal > 0 ? 2 : 0;
+            const tax = Math.round(subtotal * 0.05);
+            const total = subtotal + deliveryFee + platformFee + tax;
+
             return {
                 items,
-                pricing,
-                item_count: items.reduce((sum, i) => sum + i.quantity, 0)
-            };
-        },
-
-        calculatePricing(items) {
-            const totalMrp = items.reduce((sum, item) => sum + ((Number(item.mrp) || Number(item.price) || 0) * item.quantity), 0);
-            const subtotal = items.reduce((sum, item) => sum + (Number(item.price || 0) * item.quantity), 0);
-            const mrpSavings = Math.max(0, totalMrp - subtotal);
-
-            // 5% Extra Flat Offer for orders >= 350
-            const has5PercentOffer = subtotal >= 350;
-            const extraDiscount = has5PercentOffer ? Math.round(subtotal * 0.05) : 0;
-            const finalToPay = Math.max(0, subtotal - extraDiscount);
-
-            const deliverySavings = subtotal > 0 ? 25 : 0;
-            const handlingSavings = subtotal > 0 ? 5 : 0;
-            const totalSavings = mrpSavings + extraDiscount + deliverySavings + handlingSavings;
-
-            return {
-                total_mrp: totalMrp,
-                mrp_savings: mrpSavings,
-                subtotal,
-                has_5_percent_offer: has5PercentOffer,
-                extra_discount: extraDiscount,
-                original_delivery_fee: subtotal > 0 ? 25 : 0,
-                delivery_discount: deliverySavings,
-                delivery_fee: 0,
-                original_platform_fee: subtotal > 0 ? 5 : 0,
-                platform_discount: handlingSavings,
-                platform_fee: 0,
-                tax: 0,
-                total: finalToPay,
-                total_savings: totalSavings,
-                free_delivery_remaining: 0
+                pricing: { subtotal, deliveryFee, platformFee, tax, total }
             };
         },
 
         async addItem(userId, productId, quantity = 1) {
             const supabase = getSupabaseClient();
-
-            // Validate product stock status and quantity limits before adding
-            const product = await module.exports.products.getById(productId);
-            if (!product) throw new Error('Product not found');
-
-            const stockLimit = product.stock_left !== undefined && product.stock_left !== null ? Number(product.stock_left) : (product.in_stock ? 50 : 0);
-            if (!product.in_stock || stockLimit <= 0) {
-                throw new Error('This item is currently out of stock');
-            }
+            if (!supabase) throw new Error('PostgreSQL client unavailable');
 
             const { data: existing } = await supabase
                 .from('cart_items')
                 .select('id, quantity')
                 .eq('user_id', userId)
                 .eq('product_id', productId)
-                .single();
+                .maybeSingle();
 
             if (existing) {
                 const newQty = existing.quantity + quantity;
-                if (newQty > stockLimit) {
-                    throw new Error(`Only ${stockLimit} units available in stock`);
-                }
                 if (newQty <= 0) {
                     await supabase.from('cart_items').delete().eq('id', existing.id);
                 } else {
                     await supabase.from('cart_items').update({ quantity: newQty }).eq('id', existing.id);
                 }
             } else if (quantity > 0) {
-                if (quantity > stockLimit) {
-                    throw new Error(`Only ${stockLimit} units available in stock`);
-                }
-                const id = `cart_${uuidv4().slice(0, 8)}`;
+                const id = `cart_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
                 await supabase.from('cart_items').insert([{
                     id,
                     user_id: userId,
@@ -298,57 +328,48 @@ const supabaseDb = {
                 }]);
             }
 
-            return this.getCart(userId);
+            return await this.getCart(userId);
         },
 
-        async updateItem(cartId, quantity, userId) {
+        async updateQuantity(cartId, quantity) {
             const supabase = getSupabaseClient();
+            if (!supabase) return;
+
             if (quantity <= 0) {
                 await supabase.from('cart_items').delete().eq('id', cartId);
             } else {
-                // Enforce stock limit on quantity update
-                const { data: cartItem } = await supabase.from('cart_items').select('product_id').eq('id', cartId).single();
-                if (cartItem && cartItem.product_id) {
-                    const product = await module.exports.products.getById(cartItem.product_id);
-                    if (product) {
-                        const stockLimit = product.stock_left !== undefined && product.stock_left !== null ? Number(product.stock_left) : (product.in_stock ? 50 : 0);
-                        if (quantity > stockLimit) {
-                            throw new Error(`Only ${stockLimit} units available in stock`);
-                        }
-                    }
-                }
                 await supabase.from('cart_items').update({ quantity }).eq('id', cartId);
             }
-            return this.getCart(userId);
+        },
+
+        async removeItem(cartId) {
+            const supabase = getSupabaseClient();
+            if (!supabase) return;
+            await supabase.from('cart_items').delete().eq('id', cartId);
         },
 
         async clearCart(userId) {
             const supabase = getSupabaseClient();
+            if (!supabase) return;
             await supabase.from('cart_items').delete().eq('user_id', userId);
-            return true;
         },
 
-        async mergeCart(guestUserId, targetUserId) {
-            if (!guestUserId || !targetUserId || guestUserId === targetUserId) {
-                return this.getCart(targetUserId);
-            }
+        async mergeGuestCart(guestUserId, targetUserId) {
+            if (!guestUserId || !targetUserId || guestUserId === targetUserId) return;
             const supabase = getSupabaseClient();
+            if (!supabase) return;
+
             const { data: guestItems } = await supabase
                 .from('cart_items')
-                .select('id, product_id, quantity')
+                .select('product_id, quantity')
                 .eq('user_id', guestUserId);
 
             if (guestItems && guestItems.length > 0) {
-                for (const gItem of guestItems) {
-                    try {
-                        await this.addItem(targetUserId, gItem.product_id, gItem.quantity);
-                    } catch (e) {
-                        // ignore stock overflow during merge
-                    }
+                for (const item of guestItems) {
+                    await this.addItem(targetUserId, item.product_id, item.quantity);
                 }
-                await supabase.from('cart_items').delete().eq('user_id', guestUserId);
+                await this.clearCart(guestUserId);
             }
-            return this.getCart(targetUserId);
         }
     },
 
@@ -358,11 +379,15 @@ const supabaseDb = {
     orders: {
         async createOrder(orderPayload, items) {
             const supabase = getSupabaseClient();
-            
-            // 1. Direct insert using exact known Supabase schema columns (eliminates 1000ms failed attempt)
+            if (!supabase) throw new Error('PostgreSQL client unavailable');
+
+            const orderId = orderPayload.id || `order_${uuidv4().slice(0, 8)}`;
             const coreOrderPayload = {
-                id: orderPayload.id,
+                id: orderId,
                 user_id: orderPayload.user_id,
+                customer_name: orderPayload.customer_name || 'Student',
+                customer_phone: orderPayload.customer_phone || '',
+                customer_email: orderPayload.customer_email || '',
                 status: orderPayload.status || 'Order Placed',
                 subtotal: Number(orderPayload.subtotal) || 0,
                 delivery_fee: Number(orderPayload.delivery_fee) || 0,
@@ -377,165 +402,115 @@ const supabaseDb = {
                 delivery_address: orderPayload.delivery_address || 'BH13 (Block A), Room 304'
             };
 
-            let createdOrder = null;
-            try {
-                const { data, error } = await supabase
-                    .from('orders')
-                    .insert([coreOrderPayload])
-                    .select()
-                    .single();
-
-                if (error) throw error;
-                createdOrder = {
-                    ...data,
-                    customer_name: orderPayload.customer_name || 'Student',
-                    customer_phone: orderPayload.customer_phone || '',
-                    customer_email: orderPayload.customer_email || ''
-                };
-            } catch (orderErr) {
-                console.error('[Supabase createOrder Error]:', orderErr.message);
-                throw orderErr;
-            }
-
-            // 2. Insert order items & clear cart concurrently (saves 500-1000ms)
-            const parallelOps = [];
-            if (items && items.length > 0) {
-                const orderItems = items.map(item => ({
-                    id: `oi_${uuidv4().slice(0, 8)}`,
-                    order_id: orderPayload.id,
-                    product_id: item.product_id,
-                    quantity: item.quantity,
-                    unit_price: item.price
-                }));
-                parallelOps.push(supabase.from('order_items').insert(orderItems));
-            }
-            parallelOps.push(supabase.from('cart_items').delete().eq('user_id', orderPayload.user_id));
-
-            try {
-                await Promise.allSettled(parallelOps);
-            } catch (err) {
-                console.warn('[Parallel order tasks note]:', err.message);
-            }
-
-            // 3. Deduct stock from products table concurrently without blocking the instant order response
-            if (items && items.length > 0) {
-                (async () => {
-                    try {
-                        const { broadcastInventoryUpdate } = require('../realtime');
-                        await Promise.allSettled(items.map(async (item) => {
-                            const pid = item.product_id;
-                            if (!pid) return;
-                            try {
-                                const prod = await module.exports.products.getById(pid);
-                                if (prod) {
-                                    const currentStock = Number(prod.stock_left !== undefined && prod.stock_left !== null ? prod.stock_left : 50);
-                                    const qty = Number(item.quantity || 1);
-                                    const newStock = Math.max(0, currentStock - qty);
-                                    const newInStock = newStock > 0;
-                                    await module.exports.products.update(pid, { stock_left: newStock, in_stock: newInStock });
-                                    cache.invalidateProducts();
-                                    try { broadcastInventoryUpdate(pid, newStock, newInStock); } catch (e) {}
-                                }
-                            } catch (e) {}
-                        }));
-                    } catch (stockErr) {
-                        console.error('[Stock Deduction Error]:', stockErr.message);
-                    }
-                })();
-            }
-
-            return createdOrder;
-        },
-
-        async getOrdersByUser(userId) {
-            const supabase = getSupabaseClient();
-            const { data, error } = await supabase
+            // 1. Insert core order record
+            const { data: orderData, error: orderErr } = await supabase
                 .from('orders')
-                .select('*')
-                .eq('user_id', userId)
-                .order('created_at', { ascending: false });
+                .insert([coreOrderPayload])
+                .select()
+                .single();
 
-            if (error || !data) return { active: [], past: [] };
+            if (orderErr) throw new Error(`PostgreSQL order creation failed: ${orderErr.message}`);
 
-            const activeStatuses = ['Order Placed', 'Order Confirmed', 'Preparing', 'Out for Delivery', 'pending', 'confirmed', 'accepted', 'packed', 'en_route'];
-            const active = data.filter(o => activeStatuses.includes(o.status));
-            const past = data.filter(o => !activeStatuses.includes(o.status));
+            // 2. Insert line items atomically using exact PostgreSQL schema (unit_price)
+            const formattedItems = (items || []).map(item => ({
+                id: item.id || `item_${uuidv4().slice(0, 8)}`,
+                order_id: orderId,
+                product_id: item.product_id || null,
+                quantity: item.quantity || 1,
+                unit_price: Number(item.price || item.unit_price) || 0
+            }));
 
-            return { active, past };
+            if (formattedItems.length > 0) {
+                const { error: itemsErr } = await supabase
+                    .from('order_items')
+                    .insert(formattedItems);
+
+                if (itemsErr) {
+                    // Rollback order to prevent orphan records
+                    await supabase.from('orders').delete().eq('id', orderId);
+                    throw new Error(`PostgreSQL order items creation failed: ${itemsErr.message}`);
+                }
+            }
+
+            cache.invalidateOrders();
+            return {
+                ...orderData,
+                items: formattedItems.map(it => ({ ...it, price: it.unit_price }))
+            };
         },
 
         async getOrderById(orderId) {
             const supabase = getSupabaseClient();
-            const { data: order, error } = await supabase
+            if (!supabase) return null;
+
+            const { data: order, error: orderErr } = await supabase
                 .from('orders')
                 .select('*')
                 .eq('id', orderId)
-                .single();
+                .maybeSingle();
 
-            if (error || !order) return null;
+            if (orderErr || !order) return null;
 
-            // Fetch order items with fallback
-            let items = [];
-            try {
-                const { data: directItems } = await supabase
-                    .from('order_items')
-                    .select('*')
-                    .eq('order_id', orderId);
-                items = directItems || [];
-            } catch (e) {}
-
-            let enrichedItems = items;
-            if (items.length > 0) {
-                const pids = items.map(i => i.product_id).filter(Boolean);
-                let pMap = new Map();
-                if (pids.length > 0) {
-                    try {
-                        const { data: prods } = await supabase
-                            .from('products')
-                            .select('id, name, image_url, image_alt, price')
-                            .in('id', pids);
-                        if (prods) prods.forEach(p => pMap.set(p.id, p));
-                    } catch (e) {}
-                }
-                enrichedItems = items.map(i => {
-                    const p = pMap.get(i.product_id);
-                    return {
-                        id: i.id,
-                        product_id: i.product_id,
-                        name: p?.name || i.name || 'Product',
-                        image_url: p?.image_url || i.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60',
-                        image_alt: p?.image_alt || '',
-                        unit_price: i.unit_price || p?.price || i.price || 0,
-                        quantity: i.quantity || 1
-                    };
-                });
-            }
+            const { data: items } = await supabase
+                .from('order_items')
+                .select('*')
+                .eq('order_id', orderId);
 
             return {
                 ...order,
-                items: enrichedItems
+                items: (items || []).map(it => ({ ...it, price: Number(it.unit_price) }))
             };
+        },
+
+        async getOrdersByUser(userId) {
+            const supabase = getSupabaseClient();
+            if (!supabase) return { active: [], past: [] };
+
+            const { data: orders, error } = await supabase
+                .from('orders')
+                .select('*, order_items(*)')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false });
+
+            if (error || !orders) return { active: [], past: [] };
+
+            const active = [];
+            const past = [];
+
+            for (const o of orders) {
+                const full = {
+                    ...o,
+                    items: (o.order_items || []).map(it => ({ ...it, price: Number(it.unit_price) }))
+                };
+                if (['Delivered', 'Cancelled'].includes(o.status)) {
+                    past.push(full);
+                } else {
+                    active.push(full);
+                }
+            }
+
+            return { active, past };
         },
 
         async getAllOrders() {
             const supabase = getSupabaseClient();
-            const { data, error } = await supabase
+            if (!supabase) return [];
+
+            const { data: orders, error } = await supabase
                 .from('orders')
-                .select('*')
+                .select('*, order_items(*)')
                 .order('created_at', { ascending: false });
 
-            return data || [];
+            if (error || !orders) return [];
+            return orders.map(o => ({
+                ...o,
+                items: (o.order_items || []).map(it => ({ ...it, price: Number(it.unit_price) }))
+            }));
         },
 
         async updateStatus(orderId, status) {
             const supabase = getSupabaseClient();
-            
-            // Get previous status
-            const { data: prevOrder } = await supabase
-                .from('orders')
-                .select('id, status')
-                .eq('id', orderId)
-                .single();
+            if (!supabase) throw new Error('PostgreSQL client unavailable');
 
             const { data, error } = await supabase
                 .from('orders')
@@ -544,799 +519,324 @@ const supabaseDb = {
                 .select()
                 .single();
 
-            if (error) throw error;
-
-            // If transitioned to Cancelled, replenish stock back into inventory!
-            if (status === 'Cancelled' && prevOrder && prevOrder.status !== 'Cancelled') {
-                try {
-                    const { broadcastInventoryUpdate } = require('../realtime');
-                    const { data: items } = await supabase
-                        .from('order_items')
-                        .select('product_id, quantity')
-                        .eq('order_id', orderId);
-
-                    if (items && items.length > 0) {
-                        for (const item of items) {
-                            const pid = item.product_id;
-                            if (!pid) continue;
-                            const prod = await supabaseDb.products.getById(pid);
-
-                            if (prod) {
-                                const currentStock = Number(prod.stock_left !== undefined && prod.stock_left !== null ? prod.stock_left : 0);
-                                const qty = Number(item.quantity || 1);
-                                const newStock = currentStock + qty;
-                                const newInStock = true;
-                                await supabaseDb.products.update(pid, { stock_left: newStock, in_stock: newInStock });
-
-                                cache.invalidateProducts();
-
-                                try {
-                                    broadcastInventoryUpdate(pid, newStock, newInStock);
-                                } catch (e) {}
-                            }
-                        }
-                    }
-                } catch (replenishErr) {
-                    console.error('[Stock Replenish Error]:', replenishErr.message);
-                }
-            }
-
+            if (error) throw new Error(`PostgreSQL order status update failed: ${error.message}`);
+            cache.invalidateOrders();
             return data;
         }
     },
 
     // ==========================================
-    // USERS / AUTH
+    // USERS
     // ==========================================
     users: {
         async getById(id) {
             const supabase = getSupabaseClient();
-            if (!supabase || !id) return null;
-            try {
-                const { data, error } = await supabase.from('users').select('*').eq('id', id).single();
-                if (error || !data) return null;
-                return {
-                    ...data,
-                    role: data.role || 'student',
-                    account_status: data.account_status || 'ACTIVE'
-                };
-            } catch (e) {
-                console.warn('[Supabase getById Warning]:', e.message);
-                return null;
-            }
+            if (!supabase) return null;
+
+            const { data, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', id)
+                .maybeSingle();
+
+            if (error || !data) return null;
+            return data;
+        },
+
+        async getUserById(id) {
+            return this.getById(id);
         },
 
         async getByIdentifier(identifier) {
+            if (!identifier) return null;
             const supabase = getSupabaseClient();
-            if (!supabase || !identifier) return null;
-            const trimmed = identifier.trim().toLowerCase();
-            try {
-                const { data, error } = await supabase
-                    .from('users')
-                    .select('*')
-                    .or(`email.ilike.${trimmed},phone.eq.${identifier.trim()}`)
-                    .limit(1);
+            if (!supabase) return null;
 
-                if (error || !data || data.length === 0) return null;
-                const user = data[0];
-                return {
-                    ...user,
-                    role: user.role || 'student',
-                    account_status: user.account_status || 'ACTIVE'
-                };
-            } catch (e) {
-                console.warn('[Supabase getByIdentifier Warning]:', e.message);
-                return null;
-            }
+            const clean = identifier.trim().toLowerCase();
+            const { data, error } = await supabase
+                .from('users')
+                .select('*')
+                .or(`email.ilike.${clean},phone.eq.${identifier.trim()}`)
+                .limit(1);
+
+            if (error || !data || data.length === 0) return null;
+            return data[0];
         },
 
         async createUser(userData) {
             const supabase = getSupabaseClient();
-            if (!supabase) throw new Error('Supabase client not initialized');
-            const payload = { ...userData };
-            if (!payload.phone || payload.phone.trim() === '') {
-                payload.phone = null;
-            }
+            if (!supabase) throw new Error('PostgreSQL client unavailable');
 
-            // Always ensure standard role & status
-            const targetRole = payload.role || 'student';
-            const targetStatus = payload.account_status || 'ACTIVE';
-
-            // 1. Build sanitized core payload that matches standard users table
-            const corePayload = {
-                id: payload.id,
-                name: payload.name || 'LPU Student',
-                email: payload.email ? payload.email.trim().toLowerCase() : null,
-                phone: payload.phone || null,
-                password_hash: payload.password_hash || 'google_oauth',
-                role: targetRole
+            const record = {
+                id: userData.id || `user_${uuidv4().slice(0, 8)}`,
+                name: userData.name || 'LPU Student',
+                email: userData.email ? userData.email.trim().toLowerCase() : null,
+                phone: userData.phone ? userData.phone.trim() : null,
+                password_hash: userData.password_hash || 'none',
+                dob: userData.dob || null,
+                role: userData.role || 'student',
+                account_status: userData.account_status || 'ACTIVE'
             };
 
-            // Attempt 1: Standard core insert
-            try {
-                const { data, error } = await supabase.from('users').insert([corePayload]).select().single();
-                if (!error && data) {
-                    return {
-                        ...data,
-                        role: data.role || targetRole,
-                        account_status: data.account_status || targetStatus
-                    };
-                }
+            const { data, error } = await supabase
+                .from('users')
+                .upsert([record])
+                .select()
+                .single();
 
-                // If error is schema cache or missing column, fallback to minimal payload
-                if (error && (error.message?.includes('column') || error.code === 'PGRST204' || error.message?.includes('schema cache'))) {
-                    console.warn('[Supabase createUser fallback to minimal columns]:', error.message);
-                    const minimalPayload = {
-                        id: payload.id,
-                        name: payload.name || 'LPU Student',
-                        email: payload.email ? payload.email.trim().toLowerCase() : null
-                    };
-                    if (payload.phone) minimalPayload.phone = payload.phone;
-                    if (payload.password_hash) minimalPayload.password_hash = payload.password_hash;
-
-                    const minRes = await supabase.from('users').insert([minimalPayload]).select().single();
-                    if (!minRes.error && minRes.data) {
-                        return {
-                            ...minRes.data,
-                            role: targetRole,
-                            account_status: targetStatus
-                        };
-                    }
-
-                    // Fallback to absolute base { id, name, email }
-                    const ultraMin = { id: payload.id, name: payload.name || 'LPU Student', email: payload.email };
-                    const ultraRes = await supabase.from('users').insert([ultraMin]).select().single();
-                    if (!ultraRes.error && ultraRes.data) {
-                        return {
-                            ...ultraRes.data,
-                            role: targetRole,
-                            account_status: targetStatus
-                        };
-                    }
-                    if (ultraRes.error) throw ultraRes.error;
-                }
-
-                if (error) throw error;
-            } catch (err) {
-                // Defensive fallback: check if user was already created during concurrent requests
-                if (err.message?.includes('duplicate key') || err.message?.includes('users_pkey') || err.message?.includes('users_email_key') || err.message?.includes('users_phone_key')) {
-                    const existing = await this.getByIdentifier(payload.email || payload.phone || payload.id);
-                    if (existing) return existing;
-                }
-                console.error('[Supabase createUser Error]:', err.message);
-                throw err;
-            }
+            if (error) throw new Error(`PostgreSQL user upsert failed: ${error.message}`);
+            return data;
         },
 
         async updatePhone(userId, phone) {
             const supabase = getSupabaseClient();
-            if (!supabase || !userId) return null;
-            try {
-                const { data, error } = await supabase
-                    .from('users')
-                    .update({ phone: phone ? phone.trim() : null })
-                    .eq('id', userId)
-                    .select()
-                    .single();
-                if (error) {
-                    console.warn('[Supabase updatePhone Warning]:', error.message);
-                }
-                return data;
-            } catch (e) {
-                console.warn('[Supabase updatePhone Error]:', e.message);
-                return null;
-            }
-        },
+            if (!supabase) throw new Error('PostgreSQL client unavailable');
 
-        async updateAccountStatus(userId, status, blockedBy = null, reason = null) {
-            const supabase = getSupabaseClient();
-            if (!supabase || !userId) return null;
-            const payload = {
-                account_status: status,
-                blocked_at: status === 'BLOCKED' ? new Date().toISOString() : null,
-                blocked_by: status === 'BLOCKED' ? blockedBy : null,
-                block_reason: status === 'BLOCKED' ? reason : null
-            };
-            try {
-                const { data, error } = await supabase
-                    .from('users')
-                    .update(payload)
-                    .eq('id', userId)
-                    .select()
-                    .single();
-                if (!error && data) return data;
+            const { data, error } = await supabase
+                .from('users')
+                .update({ phone: phone.trim() })
+                .eq('id', userId)
+                .select()
+                .single();
 
-                // If column doesn't exist in users table, fallback via password_hash encoding
-                if (error && (error.message?.includes('column') || error.message?.includes('schema cache'))) {
-                    console.warn('[Supabase updateAccountStatus fallback via password_hash]:', error.message);
-                    if (status === 'BLOCKED') {
-                        const blockedHash = `BLOCKED:${reason || 'Fake Orders'}::google_oauth`;
-                        await supabase.from('users').update({ password_hash: blockedHash }).eq('id', userId);
-                    } else {
-                        await supabase.from('users').update({ password_hash: 'google_oauth' }).eq('id', userId);
-                    }
-                    return { id: userId, account_status: status };
-                }
-            } catch (e) {
-                console.warn('[Supabase updateAccountStatus Warning]:', e.message);
-            }
-            return { id: userId, account_status: status };
+            if (error) throw new Error(`PostgreSQL phone update failed: ${error.message}`);
+            return data;
         },
 
         async getAllCustomersWithMetrics() {
             const supabase = getSupabaseClient();
             if (!supabase) return [];
 
-            let users = [];
-            try {
-                const { data, error } = await supabase.from('users').select('*').order('created_at', { ascending: false });
-                if (!error && data) {
-                    users = data.filter(u => !u.id?.startsWith('__system_') && !u.email?.includes('@lpuquick.internal'));
-                } else if (error) {
-                    console.warn('[Supabase users fetch warning]:', error.message);
-                }
-            } catch (err) {
+            const { data: users, error } = await supabase
+                .from('users')
+                .select('*')
+                .neq('role', 'admin')
+                .order('created_at', { ascending: false });
 
-                console.warn('[Supabase Users Query Warning]:', err.message);
-            }
+            if (error || !users) return [];
 
-            let orders = [];
-            try {
-                const { data, error } = await supabase.from('orders').select('user_id, total, created_at');
-                if (!error && data) orders = data;
-            } catch (err) {
-                console.warn('[Supabase Orders Query Warning]:', err.message);
-            }
-
-            let blacklistMap = new Map();
-            try {
-                const { data, error } = await supabase.from('blacklisted_users').select('*').eq('status', 'BLOCKED');
-                if (!error && data) {
-                    data.forEach(b => blacklistMap.set(b.user_id, b));
-                }
-            } catch (err) {}
-
-            // Also check memory blacklist fallback
-            if (supabaseDb.blacklist && supabaseDb.blacklist._memoryBlacklist) {
-                for (const [uid, b] of supabaseDb.blacklist._memoryBlacklist.entries()) {
-                    if (b.status === 'BLOCKED' && !blacklistMap.has(uid)) {
-                        blacklistMap.set(uid, b);
-                    }
-                }
-            }
-
-            const customerStats = {};
-            orders.forEach(o => {
-                if (!o.user_id) return;
-                if (!customerStats[o.user_id]) {
-                    customerStats[o.user_id] = { order_count: 0, total_spent: 0, last_order_date: null };
-                }
-                customerStats[o.user_id].order_count++;
-                customerStats[o.user_id].total_spent += Number(o.total) || 0;
-                const orderDate = new Date(o.created_at);
-                if (!customerStats[o.user_id].last_order_date || orderDate > new Date(customerStats[o.user_id].last_order_date)) {
-                    customerStats[o.user_id].last_order_date = o.created_at;
-                }
-            });
+            const { data: allOrders } = await supabase
+                .from('orders')
+                .select('user_id, total, status');
 
             return users.map(u => {
-                const isBlocked = u.account_status === 'BLOCKED' || blacklistMap.has(u.id);
-                const blRecord = blacklistMap.get(u.id);
+                const userOrders = (allOrders || []).filter(o => o.user_id === u.id);
+                const delivered = userOrders.filter(o => o.status === 'Delivered');
+                const totalSpent = delivered.reduce((sum, o) => sum + Number(o.total || 0), 0);
                 return {
-                    id: u.id,
-                    name: u.name || 'Student',
-                    email: u.email || '',
-                    phone: u.phone || '',
-                    address: u.dob || '',
-                    role: u.role || (u.email?.includes('admin') ? 'admin' : 'student'),
-                    account_status: isBlocked ? 'BLOCKED' : 'ACTIVE',
-                    blocked_at: u.blocked_at || blRecord?.blocked_at || null,
-                    blocked_by: u.blocked_by || blRecord?.blocked_by || null,
-                    block_reason: u.block_reason || blRecord?.reason || (isBlocked ? 'Fake Orders' : null),
-                    order_count: customerStats[u.id]?.order_count || 0,
-                    total_spent: Math.round(customerStats[u.id]?.total_spent || 0),
-                    last_order_date: customerStats[u.id]?.last_order_date || null,
-                    created_at: u.created_at
+                    ...u,
+                    orders_count: userOrders.length,
+                    total_spent: totalSpent
                 };
             });
         }
     },
 
     // ==========================================
-    // APP AVAILABILITY & STORE LOCK
+    // STORE AVAILABILITY & LOCK CONTROLS
     // ==========================================
     availability: {
-        // In-memory persistent fallback if table being created
-        _memoryState: {
-            id: 'store_main',
-            is_locked: false,
-            lock_type: 'NONE',
-            message: null,
-            start_at: null,
-            end_at: null,
-            profit_locked: true,
-            created_by: null,
-            updated_at: new Date().toISOString()
-        },
-
-        formatReopeningTime(endAtDate, timeZone = 'Asia/Kolkata') {
-            if (!endAtDate) return null;
-            const end = new Date(endAtDate);
-            if (isNaN(end.getTime())) return null;
-
-            const now = new Date();
-
-            // Date comparison in target campus timezone (Asia/Kolkata)
-            const dateOpts = { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' };
-            const nowDateStr = new Intl.DateTimeFormat('en-CA', dateOpts).format(now);
-            const endDateStr = new Intl.DateTimeFormat('en-CA', dateOpts).format(end);
-
-            const tomorrow = new Date(now.getTime() + (24 * 60 * 60 * 1000));
-            const tomorrowDateStr = new Intl.DateTimeFormat('en-CA', dateOpts).format(tomorrow);
-
-            const isToday = (endDateStr === nowDateStr);
-            const isTomorrow = (endDateStr === tomorrowDateStr);
-
-            // Format 12-hour time in Asia/Kolkata (e.g. 6:00 pm, 6:11 pm, 6:00 am)
-            const timeFormatter = new Intl.DateTimeFormat('en-US', {
-                timeZone,
-                hour: 'numeric',
-                minute: '2-digit',
-                hour12: true
-            });
-            const timeStr = timeFormatter.format(end).toLowerCase();
-
-            let dayWording = 'today';
-            if (isToday) {
-                dayWording = 'today';
-            } else if (isTomorrow) {
-                dayWording = 'tomorrow';
-            } else {
-                const dayFormatter = new Intl.DateTimeFormat('en-US', {
-                    timeZone,
-                    weekday: 'short',
-                    month: 'short',
-                    day: 'numeric'
-                });
-                dayWording = `on ${dayFormatter.format(end)}`;
-            }
-
-            return {
-                timeStr,
-                dayWording,
-                fullHeadline: `We'll reopen at ${timeStr}, ${dayWording}`
-            };
-        },
-
-
-        async getRawRecord() {
-            return await cache.wrap('availability:raw', async () => {
-                try {
-                    const supabase = getSupabaseClient();
-                    if (supabase) {
-                        const { data, error } = await supabase
-                            .from('users')
-                            .select('*')
-                            .eq('id', '__system_store_availability__')
-                            .single();
-
-                        if (!error && data && data.password_hash) {
-                            try {
-                                const parsed = JSON.parse(data.password_hash);
-                                this._memoryState = { ...this._memoryState, ...parsed };
-                                return this._memoryState;
-                            } catch (parseErr) {}
-                        }
-                    }
-                } catch (e) {
-                    console.warn('[Availability Fetch Warning]:', e.message);
-                }
-                return this._memoryState;
-            }, 3000);
-        },
-
         async getStatus() {
-            const raw = await this.getRawRecord();
-            const now = Date.now();
-            let effectiveLocked = Boolean(raw.is_locked);
-            let lockStatus = effectiveLocked ? 'LOCKED' : 'AVAILABLE';
-            let remainingSeconds = null;
-            let reopenAt = raw.end_at || null;
-            let displayReopen = null;
+            const supabase = getSupabaseClient();
+            if (!supabase) return { is_locked: false, lock_type: 'NONE', message: null };
 
-            if (raw.lock_type === 'SCHEDULED') {
-                const startTime = raw.start_at ? new Date(raw.start_at).getTime() : 0;
-                const endTime = raw.end_at ? new Date(raw.end_at).getTime() : 0;
+            const { data } = await supabase
+                .from('app_availability')
+                .select('*')
+                .eq('id', 'store_main')
+                .maybeSingle();
 
-                if (startTime > 0 && now < startTime) {
-                    // Scheduled for the future, currently available
-                    lockStatus = 'SCHEDULED';
-                    effectiveLocked = false;
-                } else if (startTime > 0 && endTime > 0 && now >= startTime && now < endTime) {
-                    // Active scheduled lock
-                    lockStatus = 'LOCKED';
-                    effectiveLocked = true;
-                    remainingSeconds = Math.max(0, Math.floor((endTime - now) / 1000));
-                    displayReopen = this.formatReopeningTime(raw.end_at);
-                } else if (endTime > 0 && now >= endTime) {
-                    // Schedule expired -> automatically available!
-                    lockStatus = 'AVAILABLE';
-                    effectiveLocked = false;
-                } else {
-                    lockStatus = raw.is_locked ? 'LOCKED' : 'AVAILABLE';
-                    effectiveLocked = Boolean(raw.is_locked);
+            if (!data) return { is_locked: false, lock_type: 'NONE', message: null };
+
+            // Check if duration lock has expired
+            if (data.is_locked && data.end_at) {
+                const now = new Date();
+                const end = new Date(data.end_at);
+                if (now > end) {
+                    await this.unlock('SYSTEM_EXPIRY');
+                    return { is_locked: false, lock_type: 'NONE', message: null };
                 }
-            } else if (raw.lock_type === 'DURATION') {
-                const endTime = raw.end_at ? new Date(raw.end_at).getTime() : 0;
-                if (endTime > 0) {
-                    if (now < endTime) {
-                        lockStatus = 'LOCKED';
-                        effectiveLocked = true;
-                        remainingSeconds = Math.max(0, Math.floor((endTime - now) / 1000));
-                        displayReopen = this.formatReopeningTime(raw.end_at);
-                    } else {
-                        // Duration expired -> automatically available!
-                        lockStatus = 'AVAILABLE';
-                        effectiveLocked = false;
-                    }
-                } else {
-                    lockStatus = raw.is_locked ? 'LOCKED' : 'AVAILABLE';
-                    effectiveLocked = Boolean(raw.is_locked);
-                }
-            } else if (raw.lock_type === 'IMMEDIATE' || raw.lock_type === 'MANUAL') {
-                if (raw.is_locked) {
-                    lockStatus = 'LOCKED';
-                    effectiveLocked = true;
-                    if (raw.end_at) {
-                        const endTime = new Date(raw.end_at).getTime();
-                        if (endTime > now) {
-                            remainingSeconds = Math.max(0, Math.floor((endTime - now) / 1000));
-                            displayReopen = this.formatReopeningTime(raw.end_at);
-                        } else {
-                            // Expired
-                            lockStatus = 'AVAILABLE';
-                            effectiveLocked = false;
-                        }
-                    }
-                } else {
-                    lockStatus = 'AVAILABLE';
-                    effectiveLocked = false;
-                }
-            } else {
-                lockStatus = effectiveLocked ? 'LOCKED' : 'AVAILABLE';
             }
 
-
-            return {
-                is_locked: effectiveLocked,
-                lock_status: lockStatus,
-                lock_type: raw.lock_type || 'NONE',
-                message: raw.message || null,
-                start_at: raw.start_at || null,
-                end_at: raw.end_at || null,
-                reopen_at: reopenAt,
-                remaining_seconds: remainingSeconds,
-                display_reopen: displayReopen,
-                profit_locked: raw.profit_locked !== undefined ? Boolean(raw.profit_locked) : true,
-                server_time: new Date().toISOString()
-            };
+            return data;
         },
 
-        async setLock({ is_locked, lock_type = 'IMMEDIATE', message = null, start_at = null, end_at = null, created_by = null }) {
-            const payload = {
+        async setLock(lockData) {
+            const supabase = getSupabaseClient();
+            if (!supabase) throw new Error('PostgreSQL client unavailable');
+
+            const record = {
                 id: 'store_main',
-                is_locked: Boolean(is_locked),
-                lock_type,
-                message: message ? message.trim() : null,
-                start_at: start_at ? new Date(start_at).toISOString() : null,
-                end_at: end_at ? new Date(end_at).toISOString() : null,
-                created_by,
-                profit_locked: this._memoryState.profit_locked !== undefined ? this._memoryState.profit_locked : true,
+                is_locked: true,
+                lock_type: lockData.lock_type || 'IMMEDIATE',
+                message: lockData.message || 'Store is temporarily unavailable.',
+                start_at: lockData.start_at || new Date().toISOString(),
+                end_at: lockData.end_at || null,
+                profit_locked: true,
+                created_by: lockData.created_by || 'admin',
                 updated_at: new Date().toISOString()
             };
 
-            this._memoryState = { ...this._memoryState, ...payload };
-            cache.invalidateAvailability();
+            const { data, error } = await supabase
+                .from('app_availability')
+                .upsert([record])
+                .select()
+                .single();
 
-            try {
-                const supabase = getSupabaseClient();
-                if (supabase) {
-                    await supabase.from('users').upsert({
-                        id: '__system_store_availability__',
-                        name: 'System Store State',
-                        email: 'system_availability@lpuquick.internal',
-                        password_hash: JSON.stringify(this._memoryState),
-                        dob: 'System Config'
-                    });
-                }
-            } catch (e) {
-                console.warn('[Supabase setLock Upsert Warning]:', e.message);
-            }
-
-            return this.getStatus();
+            if (error) throw new Error(`PostgreSQL store lock failed: ${error.message}`);
+            return data;
         },
 
-        async unlock(adminId = null) {
-            cache.invalidateAvailability();
-            return this.setLock({
+        async unlock(adminId = 'admin') {
+            const supabase = getSupabaseClient();
+            if (!supabase) return { is_locked: false };
+
+            const record = {
+                id: 'store_main',
                 is_locked: false,
                 lock_type: 'NONE',
                 message: null,
                 start_at: null,
                 end_at: null,
-                created_by: adminId
-            });
-        },
+                profit_locked: true,
+                created_by: adminId,
+                updated_at: new Date().toISOString()
+            };
 
-        async getProfitVisibility() {
-            const raw = await this.getRawRecord();
-            return raw.profit_locked !== undefined ? Boolean(raw.profit_locked) : true;
-        },
+            const { data } = await supabase
+                .from('app_availability')
+                .upsert([record])
+                .select()
+                .single();
 
-        async setProfitVisibility(locked, adminId = null) {
-            const isLocked = Boolean(locked);
-            this._memoryState.profit_locked = isLocked;
-            this._memoryState.updated_at = new Date().toISOString();
-            cache.invalidateAvailability();
-
-            try {
-                const supabase = getSupabaseClient();
-                if (supabase) {
-                    await supabase.from('users').upsert({
-                        id: '__system_store_availability__',
-                        name: 'System Store State',
-                        email: 'system_availability@lpuquick.internal',
-                        password_hash: JSON.stringify(this._memoryState),
-                        dob: 'System Config'
-                    });
-                }
-            } catch (e) {
-                console.warn('[Supabase setProfitVisibility Upsert Warning]:', e.message);
-            }
-
-            return { profit_locked: isLocked };
+            return data || { is_locked: false };
         }
     },
 
-
     // ==========================================
-    // USER BLACKLIST & FRAUD PREVENTION
+    // SECURITY BLACKLIST
     // ==========================================
     blacklist: {
-        _memoryBlacklist: new Map(),
-
         async isUserBlacklisted(userId) {
-            if (!userId) return { isBlacklisted: false };
-            
-            // 1. Check memory cache
-            if (this._memoryBlacklist.has(userId)) {
-                const rec = this._memoryBlacklist.get(userId);
-                return { isBlacklisted: true, record: rec, reason: rec.reason || 'Fake Orders' };
-            }
+            const supabase = getSupabaseClient();
+            if (!supabase) return { isBlacklisted: false };
 
-            // 2. Check Supabase users table
-            try {
-                const supabase = getSupabaseClient();
-                if (supabase) {
-                    const { data: user } = await supabase.from('users').select('id, name, email, phone, password_hash').eq('id', userId).single();
-                    if (user && user.password_hash && user.password_hash.startsWith('BLOCKED:')) {
-                        const reason = user.password_hash.split('BLOCKED:')[1].split('::')[0] || 'Fake Orders';
-                        const rec = { user_id: userId, reason, status: 'BLOCKED' };
-                        this._memoryBlacklist.set(userId, rec);
-                        return {
-                            isBlacklisted: true,
-                            reason,
-                            record: rec
-                        };
-                    }
-                }
-            } catch (e) {
-                console.warn('[Blacklist Check Warning]:', e.message);
-            }
+            const { data } = await supabase
+                .from('blacklisted_users')
+                .select('*')
+                .eq('user_id', userId)
+                .eq('status', 'BLOCKED')
+                .maybeSingle();
 
-            return { isBlacklisted: false };
-        },
-
-        async getAll() {
-            const memoryList = Array.from(this._memoryBlacklist.values());
-            try {
-                const supabase = getSupabaseClient();
-                if (supabase) {
-                    const { data: users } = await supabase.from('users').select('*');
-                    if (users) {
-                        const blockedUsers = users.filter(u => u.password_hash && u.password_hash.startsWith('BLOCKED:'));
-                        const dbList = blockedUsers.map(u => {
-                            const reason = u.password_hash.split('BLOCKED:')[1].split('::')[0] || 'Fake Orders';
-                            return {
-                                id: `bl_${u.id}`,
-                                user_id: u.id,
-                                customer_name: u.name || 'Student',
-                                customer_email: u.email || '',
-                                customer_phone: u.phone || '',
-                                reason: reason,
-                                status: 'BLOCKED',
-                                blocked_by: 'Admin',
-                                blocked_at: u.created_at,
-                                notes: ''
-                            };
-                        });
-                        const combinedMap = new Map();
-                        dbList.forEach(b => combinedMap.set(b.user_id, b));
-                        memoryList.forEach(b => {
-                            if (b.status === 'BLOCKED') combinedMap.set(b.user_id, b);
-                        });
-                        return Array.from(combinedMap.values());
-                    }
-                }
-            } catch (e) {
-                console.warn('[Blacklist GetAll Warning]:', e.message);
-            }
-
-            return memoryList;
-        },
-
-
-        async blockUser({ userId, reason = 'Fake Orders', notes = '', blockedBy = 'Admin' }) {
-            if (!userId) throw new Error('userId is required');
-
-            const id = `bl_${uuidv4().slice(0, 8)}`;
-            const blockedAt = new Date().toISOString();
-
-            const record = {
-                id,
-                user_id: userId,
-                reason,
-                status: 'BLOCKED',
-                blocked_by: blockedBy,
-                blocked_at: blockedAt,
-                notes,
-                created_at: blockedAt,
-                updated_at: blockedAt
+            return {
+                isBlacklisted: Boolean(data),
+                reason: data ? data.reason : null,
+                blocked_at: data ? data.created_at : null
             };
-
-            this._memoryBlacklist.set(userId, record);
-
-            // Update database permanently in PostgreSQL
-            try {
-                const supabase = getSupabaseClient();
-                if (supabase) {
-                    const { data: user } = await supabase.from('users').select('*').eq('id', userId).single();
-                    if (user) {
-                        const currentHash = user.password_hash || 'google_oauth';
-                        const cleanHash = currentHash.startsWith('BLOCKED:') ? (currentHash.includes('::') ? currentHash.split('::')[1] : 'google_oauth') : currentHash;
-                        const blockedHash = `BLOCKED:${reason}::${cleanHash}`;
-                        await supabase.from('users').update({ password_hash: blockedHash }).eq('id', userId);
-                    }
-                }
-            } catch (e) {
-                console.warn('[Supabase Block User DB Warning]:', e.message);
-            }
-
-            return record;
         },
 
-        async unblockUser({ userId, unblockedBy = 'Admin' }) {
-            if (!userId) throw new Error('userId is required');
+        async blacklistUser(userId, reason = 'Administrative Action', adminId = 'admin') {
+            const supabase = getSupabaseClient();
+            if (!supabase) throw new Error('PostgreSQL client unavailable');
 
-            this._memoryBlacklist.delete(userId);
+            await supabase
+                .from('blacklisted_users')
+                .upsert([{
+                    id: `bl_${userId}`,
+                    user_id: userId,
+                    reason,
+                    status: 'BLOCKED',
+                    blocked_by: adminId,
+                    blocked_at: new Date().toISOString()
+                }]);
 
-            try {
-                const supabase = getSupabaseClient();
-                if (supabase) {
-                    const { data: user } = await supabase.from('users').select('*').eq('id', userId).single();
-                    if (user && user.password_hash && user.password_hash.startsWith('BLOCKED:')) {
-                        const restoredHash = user.password_hash.includes('::') ? user.password_hash.split('::')[1] : 'google_oauth';
-                        await supabase.from('users').update({ password_hash: restoredHash }).eq('id', userId);
-                    }
-                }
-            } catch (e) {
-                console.warn('[Supabase Unblock User DB Warning]:', e.message);
-            }
+            await supabase
+                .from('users')
+                .update({
+                    account_status: 'BLOCKED',
+                    block_reason: reason,
+                    blocked_at: new Date().toISOString(),
+                    blocked_by: adminId
+                })
+                .eq('id', userId);
 
-            return { success: true, userId, status: 'ACTIVE' };
+            return { success: true };
+        },
+
+        async unblacklistUser(userId) {
+            const supabase = getSupabaseClient();
+            if (!supabase) throw new Error('PostgreSQL client unavailable');
+
+            await supabase
+                .from('blacklisted_users')
+                .delete()
+                .eq('user_id', userId);
+
+            await supabase
+                .from('users')
+                .update({
+                    account_status: 'ACTIVE',
+                    block_reason: null,
+                    blocked_at: null,
+                    blocked_by: null
+                })
+                .eq('id', userId);
+
+            return { success: true };
+        },
+
+        async getAllBlacklisted() {
+            const supabase = getSupabaseClient();
+            if (!supabase) return [];
+
+            const { data } = await supabase
+                .from('blacklisted_users')
+                .select('*, users(name, email, phone)')
+                .order('created_at', { ascending: false });
+
+            return (data || []).map(b => ({
+                user_id: b.user_id,
+                reason: b.reason,
+                blocked_by: b.blocked_by,
+                created_at: b.created_at,
+                name: b.users?.name || 'Unknown',
+                email: b.users?.email || '',
+                phone: b.users?.phone || ''
+            }));
         }
-
     },
 
     // ==========================================
     // AUDIT LOGS
     // ==========================================
     audit: {
-        _memoryLogs: [],
-
-        async logAction({ adminId, targetUserId = null, action, reason = null, metadata = null }) {
-            const id = `audit_${uuidv4().slice(0, 8)}`;
-            const payload = {
-                id,
-                admin_id: adminId || 'admin_system',
-                target_user_id: targetUserId,
-                action,
-                reason,
-                metadata: metadata ? JSON.parse(JSON.stringify(metadata)) : null,
-                created_at: new Date().toISOString()
-            };
-
-            this._memoryLogs.unshift(payload);
+        async logAction({ adminId, action, metadata = {} }) {
+            const supabase = getSupabaseClient();
+            if (!supabase) return;
 
             try {
-                const supabase = getSupabaseClient();
-                if (supabase) {
-                    await supabase.from('audit_logs').insert([payload]);
-                }
-            } catch (e) {
-                console.warn('[Audit Log Insert Warning]:', e.message);
-            }
-
-            return payload;
+                await supabase.from('audit_logs').insert([{
+                    id: `audit_${uuidv4().slice(0, 8)}`,
+                    admin_id: adminId || 'admin',
+                    action,
+                    metadata
+                }]);
+            } catch (e) {}
         },
 
         async getLogs(limit = 50) {
-            try {
-                const supabase = getSupabaseClient();
-                if (supabase) {
-                    const { data, error } = await supabase
-                        .from('audit_logs')
-                        .select('*')
-                        .order('created_at', { ascending: false })
-                        .limit(limit);
-                    if (!error && data && data.length > 0) return data;
-                }
-            } catch (e) {
-                console.warn('[Audit Log Fetch Warning]:', e.message);
-            }
-            return this._memoryLogs.slice(0, limit);
-        }
-    },
-
-
-    // ==========================================
-    // PROFIT SECURITY & FINANCIAL CALCULATION
-    // ==========================================
-    profits: {
-        async calculateDeliveredProfits() {
             const supabase = getSupabaseClient();
-            if (!supabase) return { revenue: 0, total_costs: 0, net_profit: 0, margin_percent: 0, delivered_orders_count: 0 };
+            if (!supabase) return [];
 
-            // Fetch delivered orders and order items
-            const [ordersRes, orderItemsRes, productsRes] = await Promise.all([
-                supabase.from('orders').select('id, total, status').in('status', ['Delivered', 'delivered']),
-                supabase.from('order_items').select('order_id, product_id, quantity, unit_price'),
-                supabase.from('products').select('id, price, cost_price')
-            ]);
+            const { data } = await supabase
+                .from('audit_logs')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(limit);
 
-            const deliveredOrders = ordersRes.data || [];
-            const deliveredOrderIds = new Set(deliveredOrders.map(o => o.id));
-            const products = productsRes.data || [];
-            const productCostMap = new Map(products.map(p => [p.id, Number(p.cost_price || Math.round(Number(p.price || 0) * 0.70))]));
-
-            const totalRevenue = deliveredOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-
-            let totalProductCosts = 0;
-            (orderItemsRes.data || []).forEach(item => {
-                if (deliveredOrderIds.has(item.order_id)) {
-                    const unitCost = productCostMap.get(item.product_id) || Math.round(Number(item.unit_price || 0) * 0.70);
-                    totalProductCosts += unitCost * (Number(item.quantity) || 1);
-                }
-            });
-
-            // If no individual item breakdown, calculate standard retail cost
-            if (totalProductCosts === 0 && totalRevenue > 0) {
-                totalProductCosts = Math.round(totalRevenue * 0.70);
-            }
-
-            const netProfit = Math.max(0, Math.round(totalRevenue - totalProductCosts));
-            const marginPercent = totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 100) : 0;
-
-            return {
-                revenue: Math.round(totalRevenue),
-                total_costs: Math.round(totalProductCosts),
-                net_profit: netProfit,
-                margin_percent: marginPercent,
-                delivered_orders_count: deliveredOrders.length
-            };
+            return data || [];
         }
     }
 };
 
 module.exports = supabaseDb;
-

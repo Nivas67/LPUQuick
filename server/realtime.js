@@ -10,11 +10,40 @@ const orderTrackingSockets = new Map(); // orderId -> Set of ws
 function setupRealtime(server) {
     const wss = new WebSocket.Server({ noServer: true });
 
-    server.on('upgrade', (request, socket, head) => {
+    server.on('upgrade', async (request, socket, head) => {
         const parsedUrl = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
         const pathname = parsedUrl.pathname;
 
-        if (pathname.startsWith('/ws/admin') || pathname.startsWith('/ws/track') || pathname.startsWith('/ws/client') || pathname.startsWith('/ws/store')) {
+        if (pathname.startsWith('/ws/admin')) {
+            const token = parsedUrl.searchParams.get('token') || request.headers['x-admin-token'] || '';
+            const { verifyAdminToken } = require('./middleware/adminAuth');
+            const verified = verifyAdminToken(token);
+            let authorizedAdmin = null;
+
+            if (verified && verified.sub) {
+                try {
+                    const user = await supabaseDb.users.getUserById(verified.sub);
+                    if (user && user.role === 'admin') {
+                        authorizedAdmin = user;
+                    }
+                } catch (e) {}
+            }
+
+            if (!authorizedAdmin) {
+                console.warn(`[SECURITY AUDIT] WS_ADMIN_UPGRADE_REJECTED | ip: ${socket.remoteAddress}`);
+                socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
+                socket.destroy();
+                return;
+            }
+
+            request.admin = authorizedAdmin;
+            wss.handleUpgrade(request, socket, head, (ws) => {
+                wss.emit('connection', ws, request);
+            });
+            return;
+        }
+
+        if (pathname.startsWith('/ws/track') || pathname.startsWith('/ws/client') || pathname.startsWith('/ws/store')) {
             wss.handleUpgrade(request, socket, head, (ws) => {
                 wss.emit('connection', ws, request);
             });
@@ -32,13 +61,39 @@ function setupRealtime(server) {
 
         // 1. Admin Dashboard Real-time connection (/ws/admin)
         if (pathname.startsWith('/ws/admin')) {
+            const token = parsedUrl.searchParams.get('token') || request.headers['x-admin-token'] || '';
+            const { verifyAdminToken } = require('./middleware/adminAuth');
+            const verified = verifyAdminToken(token);
+            let authorizedAdmin = null;
+
+            if (verified && verified.sub) {
+                try {
+                    const user = await supabaseDb.users.getUserById(verified.sub);
+                    if (user && user.role === 'admin') {
+                        authorizedAdmin = user;
+                    }
+                } catch (dbErr) {}
+            }
+
+            if (!authorizedAdmin) {
+                console.warn(`[SECURITY AUDIT] WS_ADMIN_DENIED | ip: ${request.socket.remoteAddress} | reason: Unauthenticated`);
+                ws.send(JSON.stringify({
+                    type: 'ERROR',
+                    code: 'FORBIDDEN',
+                    message: 'Forbidden. Valid administrator authorization required.'
+                }));
+                ws.close(4403, 'Forbidden');
+                return;
+            }
+
+            ws.admin = authorizedAdmin;
             adminSockets.add(ws);
-            console.log(`[WS Hub] 🛡️ Admin connected. Total admin sockets: ${adminSockets.size}`);
+            console.log(`[WS Hub] 🛡️ Admin authenticated (${authorizedAdmin.name}). Total admin sockets: ${adminSockets.size}`);
 
             ws.send(JSON.stringify({
                 type: 'CONNECTED',
                 role: 'admin',
-                message: 'Admin real-time operations channel connected (Supabase Cloud)',
+                message: 'Admin real-time operations channel connected (Authenticated)',
                 adminCount: adminSockets.size,
                 timestamp: new Date().toISOString()
             }));
