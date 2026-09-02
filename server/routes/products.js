@@ -116,13 +116,13 @@ router.get('/', async (req, res) => {
                 new Promise(resolve => setTimeout(() => resolve(null), 5000))
             ]);
 
-            if (products && Array.isArray(products) && products.length > 0) {
+            if (products && Array.isArray(products)) {
                 fallbackProductsCache = products;
                 return { products };
             }
 
             // Return snapshot fallback if Supabase is sleeping or timing out
-            let list = [...fallbackProductsCache];
+            let list = Array.isArray(fallbackProductsCache) ? [...fallbackProductsCache] : [];
             if (category && category !== 'All') {
                 list = list.filter(p => (p.category || '').toLowerCase().includes(category.toLowerCase()));
             }
@@ -132,7 +132,7 @@ router.get('/', async (req, res) => {
             return { products: list, isFallback: true };
         }, isFresh ? 0 : 45000);
 
-        res.json(payload || { products: fallbackProductsCache });
+        res.json(payload || { products: fallbackProductsCache || [] });
     } catch (err) {
         console.warn('[Products Route Note]:', err.message);
         res.json({ products: fallbackProductsCache, isFallback: true });

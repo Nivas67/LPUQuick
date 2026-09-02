@@ -367,7 +367,15 @@ window.pages.home = async function() {
             </div>
 
             <!-- In-Stock Product Grid -->
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4" id="home-main-products-grid">${inStockProductCards}</div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4" id="home-main-products-grid">
+                ${inStockProductCards || `
+                <div class="col-span-full py-14 text-center flex flex-col items-center justify-center bg-surface rounded-2xl border border-surface-variant/30 p-6">
+                    <span class="material-symbols-outlined text-4xl text-emerald mb-2">storefront</span>
+                    <h3 class="text-sm font-bold text-on-surface">Store Restocking Soon</h3>
+                    <p class="text-xs text-on-surface-variant mt-1 max-w-sm">No products listed right now. Fresh campus items will be added shortly!</p>
+                </div>
+                `}
+            </div>
         </section>
 
         <!-- 2. Buy Again Horizontal Snap Carousel -->

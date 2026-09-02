@@ -83,21 +83,16 @@ try {
     const delivered = fallbackOrdersCache.filter(o => ['Delivered', 'delivered'].includes(o.status));
     fallbackAnalyticsCache = {
         metrics: {
-            totalProducts: seedProducts.length || 15,
-            totalStock: seedProducts.reduce((s, p) => s + (p.stock_left || 0), 0) || 450,
+            totalProducts: seedProducts.length || 0,
+            totalStock: seedProducts.reduce((s, p) => s + (p.stock_left || 0), 0) || 0,
             lowStockCount: seedProducts.filter(p => p.stock_left > 0 && p.stock_left <= 4).length,
             outOfStockCount: seedProducts.filter(p => !p.in_stock || p.stock_left === 0).length,
-            totalOrdersCount: fallbackOrdersCache.length || 5,
-            pendingOrdersCount: fallbackOrdersCache.filter(o => ACTIVE_STATUSES.includes(o.status)).length || 1,
-            deliveredOrdersCount: delivered.length || 4
+            totalOrdersCount: fallbackOrdersCache.length || 0,
+            pendingOrdersCount: fallbackOrdersCache.filter(o => ACTIVE_STATUSES.includes(o.status)).length || 0,
+            deliveredOrdersCount: delivered.length || 0
         },
         lowStockItems: seedProducts.filter(p => p.stock_left > 0 && p.stock_left <= 4).slice(0, 5),
-        topProducts: seedProducts.slice(0, 5).map(p => ({
-            name: p.name,
-            category: p.category,
-            image_url: p.image_url,
-            total_sold: 12
-        }))
+        topProducts: []
     };
 } catch (e) {}
 
@@ -144,9 +139,7 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
             const orders = ordersRes?.data;
 
             if (!orders || orders.length === 0) {
-                if (fallbackOrdersCache.length > 0) {
-                    return { orders: fallbackOrdersCache, isFallback: true };
-                }
+                fallbackOrdersCache = [];
                 return { orders: [] };
             }
 
@@ -245,8 +238,20 @@ router.get('/admin/analytics', requireAdmin, async (req, res) => {
                 return { ...p, stock_left };
             });
 
-            if (orders.length === 0 && products.length === 0 && fallbackAnalyticsCache) {
-                return fallbackAnalyticsCache;
+            if (orders.length === 0 && products.length === 0) {
+                return {
+                    metrics: {
+                        totalProducts: 0,
+                        totalStock: 0,
+                        lowStockCount: 0,
+                        outOfStockCount: 0,
+                        totalOrdersCount: 0,
+                        pendingOrdersCount: 0,
+                        deliveredOrdersCount: 0
+                    },
+                    lowStockItems: [],
+                    topProducts: []
+                };
             }
 
             const productMap = new Map();

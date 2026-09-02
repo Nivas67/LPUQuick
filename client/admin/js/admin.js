@@ -609,9 +609,9 @@ async function loadDashboard() {
         // Compute metrics with instant fallback from cached orders & products (never display '--')
         const totalOrdersVal = m.totalOrdersCount !== undefined ? m.totalOrdersCount : (ordersCache.length || 0);
         const pendingCountVal = m.pendingOrdersCount !== undefined ? m.pendingOrdersCount : (ordersCache.filter(o => ['Order Placed', 'Preparing', 'Out for Delivery', 'pending', 'confirmed', 'accepted'].includes(o.status)).length);
-        const totalProdVal = m.totalProducts !== undefined ? m.totalProducts : (productsCache.length || 44);
-        const totalStockVal = m.totalStock !== undefined ? m.totalStock : (productsCache.reduce((s, p) => s + (Number(p.stock_left) || 0), 0) || 132);
-        const lowStockVal = m.lowStockCount !== undefined ? m.lowStockCount : (productsCache.filter(p => p.stock_left > 0 && p.stock_left <= 4).length || 23);
+        const totalProdVal = m.totalProducts !== undefined ? m.totalProducts : (productsCache.length || 0);
+        const totalStockVal = m.totalStock !== undefined ? m.totalStock : (productsCache.reduce((s, p) => s + (Number(p.stock_left) || 0), 0) || 0);
+        const lowStockVal = m.lowStockCount !== undefined ? m.lowStockCount : (productsCache.filter(p => p.stock_left > 0 && p.stock_left <= 4).length || 0);
 
         const elTotalProd = document.getElementById('dash-total-products');
         const elTotalStock = document.getElementById('dash-total-stock');
