@@ -379,6 +379,60 @@ const supabaseDb = {
             const supabase = getSupabaseClient();
             if (!supabase) throw new Error('PostgreSQL client unavailable');
 
+            if (!items || items.length === 0) {
+                throw new Error('Cart is empty. Please add items before checking out.');
+            }
+
+            // 1. Authoritatively verify products & stock from PostgreSQL
+            const productIds = items.map(i => i.product_id).filter(Boolean);
+            const { data: dbProducts, error: prodFetchErr } = await supabase
+                .from('products')
+                .select('id, name, price, cost_price, tags, in_stock')
+                .in('id', productIds);
+
+            if (prodFetchErr) throw new Error(`Failed to verify products: ${prodFetchErr.message}`);
+            const prodMap = new Map((dbProducts || []).map(p => [p.id, p]));
+
+            const stockUpdates = [];
+            for (const item of items) {
+                const p = prodMap.get(item.product_id);
+                if (!p) {
+                    throw new Error(`Product "${item.name || item.product_id}" is no longer available in the campus store.`);
+                }
+                const match = (p.tags || '').match(/stock:(\d+)/);
+                const currentStock = match ? parseInt(match[1], 10) : (p.in_stock ? 50 : 0);
+                const reqQty = Math.max(1, Number(item.quantity) || 1);
+
+                if (!p.in_stock || currentStock <= 0) {
+                    throw new Error(`"${p.name}" is currently out of stock.`);
+                }
+                if (reqQty > currentStock) {
+                    throw new Error(`Only ${currentStock} unit(s) of "${p.name}" available. Please adjust quantity.`);
+                }
+
+                const newStock = Math.max(0, currentStock - reqQty);
+                const newInStock = newStock > 0;
+                const currentTags = (p.tags || '')
+                    .split(',')
+                    .map(t => t.trim())
+                    .filter(t => t && !t.startsWith('stock:'));
+                currentTags.push(`stock:${newStock}`);
+                const updatedTags = currentTags.join(', ');
+
+                stockUpdates.push({
+                    productId: p.id,
+                    name: p.name,
+                    previousStock: currentStock,
+                    originalTags: p.tags || '',
+                    newStock,
+                    newInStock,
+                    updatedTags,
+                    costPrice: Number(p.cost_price) || 0,
+                    sellingPrice: Number(p.price) || 0,
+                    quantity: reqQty
+                });
+            }
+
             const orderId = orderPayload.id || `order_${uuidv4().slice(0, 8)}`;
             const coreOrderPayload = {
                 id: orderId,
@@ -400,7 +454,7 @@ const supabaseDb = {
                 delivery_address: orderPayload.delivery_address || 'BH13 (Block A), Room 304'
             };
 
-            // 1. Insert core order record
+            // 2. Insert core order record
             const { data: orderData, error: orderErr } = await supabase
                 .from('orders')
                 .insert([coreOrderPayload])
@@ -409,14 +463,17 @@ const supabaseDb = {
 
             if (orderErr) throw new Error(`PostgreSQL order creation failed: ${orderErr.message}`);
 
-            // 2. Insert line items atomically using exact PostgreSQL schema (unit_price)
-            const formattedItems = (items || []).map(item => ({
-                id: item.id || `item_${uuidv4().slice(0, 8)}`,
-                order_id: orderId,
-                product_id: item.product_id || null,
-                quantity: item.quantity || 1,
-                unit_price: Number(item.price || item.unit_price) || 0
-            }));
+            // 3. Insert line items
+            const formattedItems = items.map(item => {
+                const matched = stockUpdates.find(s => s.productId === item.product_id);
+                return {
+                    id: item.id || `item_${uuidv4().slice(0, 8)}`,
+                    order_id: orderId,
+                    product_id: item.product_id || null,
+                    quantity: matched ? matched.quantity : (Number(item.quantity) || 1),
+                    unit_price: matched ? matched.sellingPrice : (Number(item.price || item.unit_price) || 0)
+                };
+            });
 
             if (formattedItems.length > 0) {
                 const { error: itemsErr } = await supabase
@@ -424,16 +481,61 @@ const supabaseDb = {
                     .insert(formattedItems);
 
                 if (itemsErr) {
-                    // Rollback order to prevent orphan records
+                    // Rollback order
                     await supabase.from('orders').delete().eq('id', orderId);
                     throw new Error(`PostgreSQL order items creation failed: ${itemsErr.message}`);
                 }
             }
 
+            // 4. Atomically decrement stock in PostgreSQL using Concurrent Compare-and-Swap (CAS) Guard
+            const appliedStockUpdates = [];
+            try {
+                await Promise.all(stockUpdates.map(async su => {
+                    let updateQuery = supabase
+                        .from('products')
+                        .update({
+                            tags: su.updatedTags,
+                            in_stock: su.newInStock
+                        })
+                        .eq('id', su.productId);
+
+                    // If tags were previously defined, enforce optimistic concurrency check
+                    if (su.originalTags) {
+                        updateQuery = updateQuery.eq('tags', su.originalTags);
+                    }
+
+                    const { data: updatedRows, error: stockErr } = await updateQuery.select('id');
+
+                    if (stockErr) throw stockErr;
+                    if (su.originalTags && (!updatedRows || updatedRows.length === 0)) {
+                        throw new Error(`Item "${su.name}" was just purchased by another student. Stock is no longer available.`);
+                    }
+                    appliedStockUpdates.push(su);
+                }));
+            } catch (stockUpdateErr) {
+                // Rollback order items & order
+                await supabase.from('order_items').delete().eq('order_id', orderId);
+                await supabase.from('orders').delete().eq('id', orderId);
+
+                // Rollback any partially applied stock decrements
+                for (const revert of appliedStockUpdates) {
+                    const revertTags = revert.updatedTags.replace(`stock:${revert.newStock}`, `stock:${revert.previousStock}`);
+                    await supabase.from('products').update({
+                        tags: revertTags,
+                        in_stock: revert.previousStock > 0
+                    }).eq('id', revert.productId).catch(() => {});
+                }
+
+                throw new Error(stockUpdateErr.message);
+            }
+
             cache.invalidateOrders();
+            cache.invalidateProducts();
+
             return {
                 ...orderData,
-                items: formattedItems.map(it => ({ ...it, price: it.unit_price }))
+                items: formattedItems.map(it => ({ ...it, price: it.unit_price })),
+                stockUpdates
             };
         },
 

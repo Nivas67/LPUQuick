@@ -1333,10 +1333,28 @@ window.pages.blocked = async function() {
     `;
 };
 
-// Router Main Function - Instant Zero-Blocking Navigation
+// Router Main Function - Instant Zero-Blocking Navigation & Race-Proof Transitions
 let cartSyncInProgress = false;
+let currentNavGeneration = 0;
+let currentNavAbortController = null;
+let lastActiveRoute = null;
+const routeScrollPositions = new Map();
+
 async function router() {
     const path = getCurrentRoute();
+    
+    // Save previous scroll position before transition
+    if (lastActiveRoute) {
+        routeScrollPositions.set(lastActiveRoute, window.scrollY || 0);
+    }
+    lastActiveRoute = path;
+
+    // Track navigation generation & abort obsolete in-flight requests
+    const thisNavGen = ++currentNavGeneration;
+    if (currentNavAbortController) {
+        try { currentNavAbortController.abort(); } catch (e) {}
+    }
+    currentNavAbortController = new AbortController();
     
     // Only prompt login on checkout if unauthenticated; allow free store browsing
     if (!window.isUserLoggedIn()) {
@@ -1364,7 +1382,6 @@ async function router() {
         return;
     }
 
-
     const pageName = getPageName(path);
     const appRoot = document.getElementById('app');
     
@@ -1387,6 +1404,12 @@ async function router() {
         const renderFn = window.pages[pageName];
         if (renderFn) {
             const html = await renderFn();
+            
+            // 🛡️ RACE CONDITION GUARD: Discard response if user navigated away while loading
+            if (thisNavGen !== currentNavGeneration) {
+                return;
+            }
+
             appRoot.innerHTML = html;
             appRoot.classList.add('page-enter');
             setTimeout(() => appRoot.classList.remove('page-enter'), 200);
@@ -1417,7 +1440,13 @@ async function router() {
                 };
             });
 
-            window.scrollTo(0, 0);
+            // Intelligent Scroll Restoration
+            const savedScroll = routeScrollPositions.get(path);
+            if (savedScroll !== undefined && path !== '/checkout' && path !== '/orders') {
+                window.scrollTo({ top: savedScroll, behavior: 'instant' });
+            } else {
+                window.scrollTo({ top: 0, behavior: 'instant' });
+            }
 
             // Check active order delivery bar
             checkAndConnectGlobalOrderTracking();

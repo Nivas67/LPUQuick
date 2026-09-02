@@ -2317,10 +2317,17 @@ function handleRealtimeInventoryUpdate(data) {
         p.stock_left = stock_left;
         p.in_stock = in_stock;
     }
-    // Refresh current view if on inventory or products
+
+    // Surgically recalculate total stock KPI without full network reload
+    const elTotalStock = document.getElementById('dash-total-stock');
+    if (elTotalStock && productsCache.length > 0) {
+        const sumStock = productsCache.reduce((s, x) => s + (Number(x.stock_left) || 0), 0);
+        elTotalStock.textContent = sumStock;
+    }
+
+    // Refresh current view in-place
     if (activeView === 'inventory') filterInventory();
     else if (activeView === 'products') filterProducts();
-    else if (activeView === 'dashboard') loadDashboard();
 }
 
 // Handle Incoming Order in Real-Time (Strict Single Alert Deduplication)
@@ -2415,10 +2422,18 @@ function handleRealtimeStatusUpdate(data) {
         if (select) select.value = status;
     }
 
-    // Refresh KPI metrics dynamically if status changed
-    if (activeView === 'dashboard') {
-        loadDashboard();
-    } else if (activeView === 'orders') {
+    // Refresh KPI metrics in-place without jarring page reloads
+    const pendingOrdersEl = document.getElementById('dash-pending-orders');
+    const badgeEl = document.getElementById('nav-pending-badge');
+    const pCount = ordersCache.filter(x => ['Order Placed', 'Preparing', 'Out for Delivery', 'pending', 'confirmed', 'accepted'].includes(x.status)).length;
+    if (pendingOrdersEl) pendingOrdersEl.textContent = pCount;
+    if (badgeEl) {
+        badgeEl.textContent = pCount;
+        if (pCount > 0) badgeEl.classList.remove('hidden');
+        else badgeEl.classList.add('hidden');
+    }
+
+    if (activeView === 'orders') {
         filterOrders();
     }
 }

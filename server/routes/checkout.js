@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const supabaseDb = require('../db/supabaseDb');
-const { broadcastOrderPlaced } = require('../realtime');
+const { broadcastOrderPlaced, broadcastInventoryUpdate } = require('../realtime');
 const cache = require('../cache');
 
 // POST /api/checkout and /api/checkout/place
@@ -34,9 +34,13 @@ async function handlePlaceOrder(req, res) {
         userId = `user_phone_${checkPhone}`;
     }
 
-    // 1. SERVER-SIDE STORE AVAILABILITY CHECK (Client Lock Protection)
+    // 1 & 2. HIGH-PERFORMANCE CONCURRENT STORE AVAILABILITY & BLACKLIST VERIFICATION
     try {
-        const storeStatus = await supabaseDb.availability.getStatus();
+        const [storeStatus, blacklistCheck] = await Promise.all([
+            supabaseDb.availability.getStatus().catch(() => null),
+            supabaseDb.blacklist.isUserBlacklisted(userId).catch(() => null)
+        ]);
+
         if (storeStatus && storeStatus.is_locked) {
             return res.status(400).json({
                 success: false,
@@ -48,13 +52,7 @@ async function handlePlaceOrder(req, res) {
                 availability: storeStatus
             });
         }
-    } catch (lockErr) {
-        console.warn('[Checkout Availability Check Warning]:', lockErr.message);
-    }
 
-    // 2. SERVER-SIDE USER BLACKLIST & FRAUD CHECK
-    try {
-        const blacklistCheck = await supabaseDb.blacklist.isUserBlacklisted(userId);
         if (blacklistCheck && blacklistCheck.isBlacklisted) {
             const reason = blacklistCheck.reason || 'Fake Orders';
             return res.status(403).json({
@@ -65,8 +63,8 @@ async function handlePlaceOrder(req, res) {
                 reason: reason
             });
         }
-    } catch (blErr) {
-        console.warn('[Checkout Blacklist Check Warning]:', blErr.message);
+    } catch (guardErr) {
+        console.warn('[Checkout Guard Warning]:', guardErr.message);
     }
 
     // Strict Address Check: Must be non-empty and explicitly contain a room number
@@ -83,13 +81,15 @@ async function handlePlaceOrder(req, res) {
     }
 
     try {
-        // Fetch cart items: check primary user cart, then guest cart, then fallback to submitted client items
-        let cart = await supabaseDb.cart.getCart(userId);
-        if ((!cart.items || cart.items.length === 0) && guestUserId) {
-            cart = await supabaseDb.cart.getCart(guestUserId);
+        // Prioritize explicit client items (e.g. Fast-Track Buy Now / Instant Checkout) to avoid unnecessary DB roundtrips
+        let orderItems = clientItems;
+        if (!orderItems || orderItems.length === 0) {
+            let cart = await supabaseDb.cart.getCart(userId);
+            if ((!cart.items || cart.items.length === 0) && guestUserId) {
+                cart = await supabaseDb.cart.getCart(guestUserId);
+            }
+            orderItems = cart.items;
         }
-
-        let orderItems = (cart.items && cart.items.length > 0) ? cart.items : clientItems;
 
         if (!orderItems || orderItems.length === 0) {
             return res.status(400).json({ error: 'Cart is empty. Please add items before checking out.' });
@@ -175,8 +175,26 @@ async function handlePlaceOrder(req, res) {
 
         const createdOrder = await supabaseDb.orders.createOrder(orderPayload, orderItems);
         cache.invalidateOrders();
+        cache.invalidateProducts();
 
-        // Broadcast to live Admin and Tracking WebSockets
+        // Clear cart for ordering student in background
+        supabaseDb.cart.clearCart(userId).catch(() => {});
+        if (guestUserId && guestUserId !== userId) {
+            supabaseDb.cart.clearCart(guestUserId).catch(() => {});
+        }
+
+        // 1. Broadcast Real-Time Stock Updates to ALL Connected Clients & Admin Dashboards
+        if (Array.isArray(createdOrder.stockUpdates)) {
+            for (const su of createdOrder.stockUpdates) {
+                try {
+                    broadcastInventoryUpdate(su.productId, su.newStock, su.newInStock);
+                } catch (wsErr) {
+                    console.warn('[WS Stock Broadcast Note]:', wsErr.message);
+                }
+            }
+        }
+
+        // 2. Broadcast to live Admin and Tracking WebSockets
         try {
             broadcastOrderPlaced({
                 id: orderId,
@@ -211,7 +229,12 @@ async function handlePlaceOrder(req, res) {
         });
     } catch (err) {
         console.error('[Checkout Error]:', err.message);
-        res.status(500).json({ error: err.message });
+        const isClientError = /out of stock|available|Cart is empty|no longer available|insufficient/i.test(err.message);
+        res.status(isClientError ? 400 : 500).json({
+            success: false,
+            error: err.message,
+            code: isClientError ? 'STOCK_ERROR' : 'CHECKOUT_ERROR'
+        });
     }
 }
 

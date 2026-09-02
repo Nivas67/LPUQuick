@@ -314,25 +314,56 @@ router.get('/data', requireAdmin, async (req, res) => {
             });
         }
 
-        // Query real-time orders from Supabase PostgreSQL
+        // Query completed orders from Supabase PostgreSQL
         const supabase = getSupabaseClient();
-        const { data: orders, error } = await supabase
+        const { data: orders, error: ordersErr } = await supabase
             .from('orders')
-            .select('id, total, status, created_at');
+            .select('id, total, status, created_at')
+            .in('status', ['Delivered', 'delivered', 'Completed']);
 
-        if (error) {
-            console.error('Error querying financial orders:', error);
+        if (ordersErr) {
+            console.error('Error querying financial orders:', ordersErr);
             return res.status(500).json({ success: false, error: 'Database inquiry failed.' });
         }
 
-        const completedOrders = (orders || []).filter(o => 
-            o.status === 'Delivered' || o.status === 'Completed' || o.status === 'Out for Delivery' || o.status === 'Order Placed'
-        );
+        const completedOrders = orders || [];
+        const completedOrderIds = completedOrders.map(o => o.id);
 
-        const totalRevenue = completedOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-        // Estimated campus operational gross margin (22% net platform margin)
-        const totalProfit = Math.round(totalRevenue * 0.22);
-        const aov = completedOrders.length > 0 ? Math.round(totalRevenue / completedOrders.length) : 0;
+        let totalRevenue = 0;
+        let totalCost = 0;
+        let totalProfit = 0;
+        let profitMargin = 0;
+
+        if (completedOrderIds.length > 0) {
+            // Join order_items with products to retrieve unit selling prices & authoritative purchase cost prices
+            const { data: items, error: itemsErr } = await supabase
+                .from('order_items')
+                .select('order_id, product_id, quantity, unit_price, products(cost_price)')
+                .in('order_id', completedOrderIds);
+
+            if (!itemsErr && items && items.length > 0) {
+                for (const it of items) {
+                    const qty = Number(it.quantity) || 1;
+                    const unitPrice = Number(it.unit_price) || 0;
+                    const costPrice = Number(it.products?.cost_price) || 0;
+
+                    const itemRev = Math.round(unitPrice * qty * 100) / 100;
+                    const itemCost = Math.round(costPrice * qty * 100) / 100;
+
+                    totalRevenue += itemRev;
+                    totalCost += itemCost;
+                }
+            } else {
+                totalRevenue = completedOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+            }
+
+            totalRevenue = Math.round(totalRevenue * 100) / 100;
+            totalCost = Math.round(totalCost * 100) / 100;
+            totalProfit = Math.max(0, Math.round((totalRevenue - totalCost) * 100) / 100);
+            profitMargin = totalRevenue > 0 ? Math.round((totalProfit / totalRevenue) * 1000) / 10 : 0;
+        }
+
+        const aov = completedOrders.length > 0 ? Math.round((totalRevenue / completedOrders.length) * 100) / 100 : 0;
 
         return res.json({
             success: true,
@@ -340,7 +371,9 @@ router.get('/data', requireAdmin, async (req, res) => {
             expires_in_seconds: session.remainingSeconds,
             metrics: {
                 total_revenue: totalRevenue,
+                total_cost: totalCost,
                 total_profit: totalProfit,
+                profit_margin: profitMargin,
                 average_order_value: aov,
                 completed_orders_count: completedOrders.length
             }
