@@ -4,10 +4,10 @@ const { createClient } = require('@supabase/supabase-js');
 const DEFAULT_SUPABASE_URL = 'https://yojndzstlilzlkxonmvd.supabase.co';
 const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlvam5kenN0bGlsemxreG9ubXZkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODM1NjYwMywiZXhwIjoyMTAzOTMyNjAzfQ.UiD72830z3goX1uk-lOKmdnikNNgkQ2dywnXrW3OTYg';
 
-if (!process.env.SUPABASE_URL) {
+if (!process.env.SUPABASE_URL || process.env.SUPABASE_URL.includes('dzygsmgdzvroxepwyjyz')) {
     process.env.SUPABASE_URL = DEFAULT_SUPABASE_URL;
 }
-if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_URL === DEFAULT_SUPABASE_URL) {
     process.env.SUPABASE_SERVICE_ROLE_KEY = DEFAULT_SUPABASE_KEY;
 }
 if (!process.env.JWT_SECRET) {
@@ -15,8 +15,8 @@ if (!process.env.JWT_SECRET) {
 }
 
 // Load Supabase environment variables from process.env (populated via dotenv or defaults)
-const supabaseUrl = process.env.SUPABASE_URL || DEFAULT_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || DEFAULT_SUPABASE_KEY;
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || DEFAULT_SUPABASE_KEY;
 
 let supabase = null;
 
