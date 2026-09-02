@@ -1325,6 +1325,24 @@ async function openOrderDrawer(orderId) {
         document.getElementById('drawer-payment-method').textContent = cachedOrder.payment_method || 'Cash on Delivery';
         document.getElementById('drawer-order-total').textContent = `₹${cachedOrder.total || 0}`;
         document.getElementById('drawer-status-select').value = cachedOrder.status;
+
+        const itemsList = document.getElementById('drawer-items-list');
+        if (cachedOrder.items && cachedOrder.items.length > 0) {
+            itemsList.innerHTML = cachedOrder.items.map(item => `
+                <div class="flex justify-between items-center p-2 rounded-lg border border-[#DADCE0] bg-[#f7fafd]">
+                    <div class="flex items-center gap-2">
+                        <img src="${item.image_url || item.products?.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'}" class="w-8 h-8 rounded object-cover bg-white shrink-0" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'">
+                        <div>
+                            <p class="font-semibold text-xs text-[#181c1f]">${item.name || item.products?.name || 'Item'}</p>
+                            <p class="text-[10px] text-[#5c5f60]">Qty: ${item.quantity} × ₹${item.unit_price || item.price || 0}</p>
+                        </div>
+                    </div>
+                    <span class="font-bold text-xs text-[#137333]">₹${(item.quantity || 1) * (item.unit_price || item.price || 0)}</span>
+                </div>
+            `).join('');
+        } else {
+            itemsList.innerHTML = '<p class="text-xs text-[#5c5f60] p-3 text-center">Loading items breakdown...</p>';
+        }
     } else {
         document.getElementById('drawer-order-id').textContent = `Order #${(orderId || '').replace('order_', '').toUpperCase()}`;
         document.getElementById('drawer-order-time').textContent = 'Fetching order details...';
@@ -1336,8 +1354,8 @@ async function openOrderDrawer(orderId) {
         document.getElementById('drawer-cust-address').textContent = '--';
         document.getElementById('drawer-payment-method').textContent = '--';
         document.getElementById('drawer-order-total').textContent = '--';
+        document.getElementById('drawer-items-list').innerHTML = '<p class="text-xs text-[#5c5f60] p-3 text-center">Loading items breakdown...</p>';
     }
-    document.getElementById('drawer-items-list').innerHTML = '<p class="text-xs text-[#5c5f60] p-3 text-center">Loading items breakdown...</p>';
 
     try {
         const res = await fetchWithTimeout(`/api/orders/admin/detail/${orderId}?fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() }, 6000);
@@ -1366,13 +1384,13 @@ async function openOrderDrawer(orderId) {
             itemsList.innerHTML = items.map(item => `
                 <div class="flex justify-between items-center p-2 rounded-lg border border-[#DADCE0] bg-[#f7fafd]">
                     <div class="flex items-center gap-2">
-                        <img src="${item.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'}" class="w-8 h-8 rounded object-cover bg-white" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'">
+                        <img src="${item.image_url || item.products?.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'}" class="w-8 h-8 rounded object-cover bg-white shrink-0" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'">
                         <div>
-                            <p class="font-semibold text-xs text-[#181c1f]">${item.name || 'Item'}</p>
-                            <p class="text-[10px] text-[#5c5f60]">Qty: ${item.quantity} × ₹${item.unit_price || 0}</p>
+                            <p class="font-semibold text-xs text-[#181c1f]">${item.name || item.products?.name || 'Item'}</p>
+                            <p class="text-[10px] text-[#5c5f60]">Qty: ${item.quantity} × ₹${item.unit_price || item.price || 0}</p>
                         </div>
                     </div>
-                    <span class="font-bold text-xs text-[#137333]">₹${(item.quantity || 1) * (item.unit_price || 0)}</span>
+                    <span class="font-bold text-xs text-[#137333]">₹${(item.quantity || 1) * (item.unit_price || item.price || 0)}</span>
                 </div>
             `).join('');
         }

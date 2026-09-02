@@ -350,12 +350,13 @@ router.get('/admin/detail/:orderId', requireAdmin, async (req, res) => {
         const customerEmail = (order.customer_email && !order.customer_email.endsWith('@lpu.in')) ? order.customer_email : (user?.email || order.customer_email || '');
         const deliveryAddress = order.delivery_address || 'Not provided';
         
-        // Map items with unit_price field that the drawer expects
+        // Map items with authoritative name, image_url, and unit_price
         const enrichedItems = (order.items || []).map(i => ({
             ...i,
-            name: i.products?.name || i.name || 'Product',
+            name: i.products?.name || i.name || 'Campus Item',
             image_url: i.products?.image_url || i.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60',
-            unit_price: i.price || i.unit_price || 0
+            unit_price: Number(i.unit_price || i.price || i.products?.price || 0),
+            quantity: Number(i.quantity) || 1
         }));
         
         res.json({

@@ -553,12 +553,22 @@ const supabaseDb = {
 
             const { data: items } = await supabase
                 .from('order_items')
-                .select('*')
+                .select('*, products(*)')
                 .eq('order_id', orderId);
 
             return {
                 ...order,
-                items: (items || []).map(it => ({ ...it, price: Number(it.unit_price) }))
+                items: (items || []).map(it => ({
+                    id: it.id,
+                    order_id: it.order_id,
+                    product_id: it.product_id,
+                    quantity: Number(it.quantity) || 1,
+                    price: Number(it.unit_price || it.products?.price || 0),
+                    unit_price: Number(it.unit_price || it.products?.price || 0),
+                    name: it.products?.name || it.name || 'Campus Item',
+                    image_url: it.products?.image_url || it.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60',
+                    products: it.products || null
+                }))
             };
         },
 
@@ -568,7 +578,7 @@ const supabaseDb = {
 
             const { data: orders, error } = await supabase
                 .from('orders')
-                .select('*, order_items(*)')
+                .select('*, order_items(*, products(*))')
                 .eq('user_id', userId)
                 .order('created_at', { ascending: false });
 
@@ -578,9 +588,22 @@ const supabaseDb = {
             const past = [];
 
             for (const o of orders) {
+                const formattedItems = (o.order_items || []).map(it => ({
+                    id: it.id,
+                    order_id: it.order_id,
+                    product_id: it.product_id,
+                    quantity: Number(it.quantity) || 1,
+                    price: Number(it.unit_price || it.products?.price || 0),
+                    unit_price: Number(it.unit_price || it.products?.price || 0),
+                    name: it.products?.name || it.name || 'Campus Item',
+                    image_url: it.products?.image_url || it.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60',
+                    products: it.products || null
+                }));
+                const itemNames = formattedItems.map(it => `${it.name} (x${it.quantity})`).join(', ');
                 const full = {
                     ...o,
-                    items: (o.order_items || []).map(it => ({ ...it, price: Number(it.unit_price) }))
+                    items: formattedItems,
+                    item_names: itemNames || o.item_names || 'Campus Groceries & Essentials'
                 };
                 if (['Delivered', 'Cancelled'].includes(o.status)) {
                     past.push(full);
@@ -598,14 +621,29 @@ const supabaseDb = {
 
             const { data: orders, error } = await supabase
                 .from('orders')
-                .select('*, order_items(*)')
+                .select('*, order_items(*, products(*))')
                 .order('created_at', { ascending: false });
 
             if (error || !orders) return [];
-            return orders.map(o => ({
-                ...o,
-                items: (o.order_items || []).map(it => ({ ...it, price: Number(it.unit_price) }))
-            }));
+            return orders.map(o => {
+                const formattedItems = (o.order_items || []).map(it => ({
+                    id: it.id,
+                    order_id: it.order_id,
+                    product_id: it.product_id,
+                    quantity: Number(it.quantity) || 1,
+                    price: Number(it.unit_price || it.products?.price || 0),
+                    unit_price: Number(it.unit_price || it.products?.price || 0),
+                    name: it.products?.name || it.name || 'Campus Item',
+                    image_url: it.products?.image_url || it.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60',
+                    products: it.products || null
+                }));
+                const itemNames = formattedItems.map(it => `${it.name} (x${it.quantity})`).join(', ');
+                return {
+                    ...o,
+                    items: formattedItems,
+                    item_names: itemNames || o.item_names || 'Campus Groceries & Essentials'
+                };
+            });
         },
 
         async updateStatus(orderId, status) {
