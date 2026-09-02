@@ -4,13 +4,13 @@ const crypto = require('crypto');
 const requireAdmin = require('../middleware/adminAuth');
 const { getSupabaseClient } = require('../supabase');
 
-const FINANCIAL_SECRET = process.env.ADMIN_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'lpuquick_financial_pin_secure_secret_2026';
+const FINANCIAL_SECRET = process.env.JWT_SECRET || process.env.ADMIN_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'lpuquick_financial_pin_secure_secret_2026';
 const SESSION_DURATION_MS = 15 * 60 * 1000; // 15 minutes auto-lock timeout
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes lockout after 5 consecutive failures
 
-// In-memory active financial unlock sessions (keyed by token for instant manual revocation)
-const activeFinancialSessions = new Map();
+// Set of manually revoked financial tokens
+const revokedFinancialTokens = new Set();
 
 /**
  * Helper: Hash a 4-6 digit numeric PIN using PBKDF2
@@ -40,13 +40,11 @@ function issueFinancialToken(adminId) {
     const signature = crypto.createHmac('sha256', FINANCIAL_SECRET).update(payload).digest('hex');
     const token = `${Buffer.from(payload).toString('base64url')}.${signature}`;
     
-    // Register in active session tracking
-    activeFinancialSessions.set(token, { adminId, expiresAt });
     return { token, expiresAt, expiresInSeconds: Math.floor(SESSION_DURATION_MS / 1000) };
 }
 
 /**
- * Helper: Verify financial token
+ * Helper: Verify financial token (Stateless HMAC verification)
  */
 function verifyFinancialToken(token) {
     if (!token || typeof token !== 'string') return null;
@@ -64,12 +62,11 @@ function verifyFinancialToken(token) {
     const expiresAt = parseInt(expiresAtStr, 10);
 
     if (Date.now() > expiresAt) {
-        activeFinancialSessions.delete(token);
         return null;
     }
 
-    // Check if manually invalidated
-    if (!activeFinancialSessions.has(token)) {
+    // Check if manually revoked
+    if (revokedFinancialTokens.has(token)) {
         return null;
     }
 
@@ -202,7 +199,7 @@ router.post('/setup-pin', requireAdmin, async (req, res) => {
         });
     } catch (err) {
         console.error('Setup PIN error:', err);
-        return res.status(500).json({ success: false, error: 'Failed to configure financial PIN.' });
+        return res.status(500).json({ success: false, error: err.message || 'Failed to configure financial PIN.' });
     }
 });
 
@@ -279,7 +276,7 @@ router.post('/unlock', requireAdmin, async (req, res) => {
         });
     } catch (err) {
         console.error('Unlock error:', err);
-        return res.status(500).json({ success: false, error: 'Failed to verify financial PIN.' });
+        return res.status(500).json({ success: false, error: err.message || 'Failed to verify financial PIN.' });
     }
 });
 
@@ -290,7 +287,7 @@ router.post('/unlock', requireAdmin, async (req, res) => {
 router.post('/lock', requireAdmin, async (req, res) => {
     const financialToken = req.headers['x-financial-token'];
     if (financialToken) {
-        activeFinancialSessions.delete(financialToken);
+        revokedFinancialTokens.add(financialToken);
     }
     return res.json({
         success: true,
