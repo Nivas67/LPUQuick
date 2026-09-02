@@ -83,13 +83,6 @@ window.pages.signin = async function() {
                 </button>
             </div>
 
-            <!-- Instant Store Access Link -->
-            <div class="pt-1">
-                <a href="#/" class="w-full py-3 px-4 rounded-2xl text-xs sm:text-sm font-bold bg-surface-container-low/80 hover:bg-surface-container text-on-surface border border-outline-variant/40 transition-all flex items-center justify-center gap-2">
-                    <span class="material-symbols-outlined text-base text-emerald">storefront</span>
-                    <span>Browse Campus Store Directly</span>
-                </a>
-            </div>
 
             <!-- Single Sign-On Security Note -->
             <p class="text-[11px] text-on-surface-variant/70">
