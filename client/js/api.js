@@ -31,8 +31,8 @@ function updateLocalCartState(cartData) {
             if (i.product_id) {
                 const isPending = window.__pendingCartSync[i.product_id];
                 nextState[i.product_id] = {
-                    cart_id: i.cart_id,
-                    quantity: isPending ? isPending.targetQty : i.quantity
+                    cart_id: i.cart_id || i.id,
+                    quantity: isPending ? isPending.targetQty : (Number(i.quantity) || 0)
                 };
             }
         });
@@ -55,7 +55,6 @@ window.setOptimisticCartQuantity = function(productId, targetQty, maxStock = 50,
     window.cartState = window.cartState || {};
     window.__pendingCartSync = window.__pendingCartSync || {};
     window.__cartSyncDebounceTimers = window.__cartSyncDebounceTimers || {};
-
 
     // 1. Clamp target quantity to [0, maxStock]
     const clampedQty = Math.max(0, Math.min(Number(targetQty), Number(maxStock)));
@@ -115,8 +114,10 @@ window.setOptimisticCartQuantity = function(productId, targetQty, maxStock = 50,
                 }
             } else if (!knownCartId || knownCartId.startsWith('temp_')) {
                 const res = await window.api.addToCart(uid, productId, finalQty);
-                if (res && res.cart_id && window.cartState[productId]) {
-                    window.cartState[productId].cart_id = res.cart_id;
+                const serverItem = res?.items?.find(it => it.product_id === productId);
+                const actualCartId = serverItem?.cart_id || serverItem?.id || res?.cart_id;
+                if (actualCartId && window.cartState[productId]) {
+                    window.cartState[productId].cart_id = actualCartId;
                 }
             } else {
                 await window.api.updateCartItem(knownCartId, finalQty, uid);

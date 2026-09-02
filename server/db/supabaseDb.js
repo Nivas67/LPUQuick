@@ -258,49 +258,65 @@ const supabaseDb = {
     cart: {
         async getCart(userId) {
             const supabase = getSupabaseClient();
-            if (!supabase) return { items: [], pricing: { subtotal: 0, deliveryFee: 0, platformFee: 0, tax: 0, total: 0 } };
+            if (!supabase || !userId) return { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0, total_savings: 0, deliveryFee: 0, platformFee: 0 } };
 
             const { data, error } = await supabase
                 .from('cart_items')
                 .select('id, user_id, product_id, quantity, products(*)')
                 .eq('user_id', userId);
 
-            if (error || !data) return { items: [], pricing: { subtotal: 0, deliveryFee: 0, platformFee: 0, tax: 0, total: 0 } };
+            if (error || !data) return { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0, total_savings: 0, deliveryFee: 0, platformFee: 0 } };
 
             const items = data.map(item => {
                 const prod = item.products || {};
                 const match = (prod.tags || '').match(/stock:(\d+)/);
-                const stock_left = match ? parseInt(match[1], 10) : (prod.in_stock ? 50 : 0);
+                const stock_left = match ? parseInt(match[1], 10) : (prod.in_stock !== false ? 50 : 0);
                 return {
                     id: item.id,
+                    cart_id: item.id,
                     user_id: item.user_id,
                     product_id: item.product_id,
-                    quantity: item.quantity,
-                    name: prod.name || 'Item',
+                    quantity: Number(item.quantity) || 1,
+                    name: prod.name || 'Campus Item',
                     price: Number(prod.price) || 0,
                     mrp: Number(prod.mrp) || Number(prod.price) || 0,
                     image_url: prod.image_url || '',
-                    in_stock: prod.in_stock,
+                    in_stock: prod.in_stock !== false,
                     stock_left,
+                    unit: prod.unit || '',
+                    size: prod.size || '',
                     category: prod.category || ''
                 };
             });
 
             const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            const deliveryFee = subtotal >= 99 || subtotal === 0 ? 0 : 15;
-            const platformFee = subtotal > 0 ? 2 : 0;
-            const tax = Math.round(subtotal * 0.05);
-            const total = subtotal + deliveryFee + platformFee + tax;
+            const delivery_fee = 0;
+            const platform_fee = 0;
+            const tax = 0;
+            const total = subtotal + delivery_fee + platform_fee + tax;
+            const total_savings = subtotal > 0 ? 30 : 0;
 
             return {
                 items,
-                pricing: { subtotal, deliveryFee, platformFee, tax, total }
+                pricing: {
+                    subtotal,
+                    delivery_fee,
+                    platform_fee,
+                    tax,
+                    total,
+                    total_savings,
+                    deliveryFee: delivery_fee,
+                    platformFee: platform_fee
+                }
             };
         },
 
         async addItem(userId, productId, quantity = 1) {
             const supabase = getSupabaseClient();
             if (!supabase) throw new Error('PostgreSQL client unavailable');
+            if (!userId || !productId) throw new Error('userId and productId are required');
+
+            const reqQty = Number(quantity) || 1;
 
             const { data: existing } = await supabase
                 .from('cart_items')
@@ -310,52 +326,78 @@ const supabaseDb = {
                 .maybeSingle();
 
             if (existing) {
-                const newQty = existing.quantity + quantity;
+                const newQty = existing.quantity + reqQty;
                 if (newQty <= 0) {
                     await supabase.from('cart_items').delete().eq('id', existing.id);
                 } else {
                     await supabase.from('cart_items').update({ quantity: newQty }).eq('id', existing.id);
                 }
-            } else if (quantity > 0) {
+            } else if (reqQty > 0) {
                 const id = `cart_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
                 await supabase.from('cart_items').insert([{
                     id,
                     user_id: userId,
                     product_id: productId,
-                    quantity
+                    quantity: reqQty
                 }]);
             }
 
             return await this.getCart(userId);
         },
 
-        async updateQuantity(cartId, quantity) {
+        async updateItem(cartId, quantity, userId) {
             const supabase = getSupabaseClient();
-            if (!supabase) return;
+            if (!supabase) throw new Error('PostgreSQL client unavailable');
+            if (!cartId) throw new Error('cartId is required');
 
-            if (quantity <= 0) {
+            const targetQty = Number(quantity);
+            let effectiveUserId = userId;
+
+            if (!effectiveUserId || effectiveUserId === 'guest_cart') {
+                const { data: item } = await supabase
+                    .from('cart_items')
+                    .select('user_id')
+                    .eq('id', cartId)
+                    .maybeSingle();
+                if (item?.user_id) effectiveUserId = item.user_id;
+            }
+
+            if (targetQty <= 0) {
                 await supabase.from('cart_items').delete().eq('id', cartId);
             } else {
-                await supabase.from('cart_items').update({ quantity }).eq('id', cartId);
+                await supabase.from('cart_items').update({ quantity: targetQty }).eq('id', cartId);
             }
+
+            if (effectiveUserId && effectiveUserId !== 'guest_cart') {
+                return await this.getCart(effectiveUserId);
+            }
+            return { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 } };
         },
 
-        async removeItem(cartId) {
-            const supabase = getSupabaseClient();
-            if (!supabase) return;
-            await supabase.from('cart_items').delete().eq('id', cartId);
+        async updateQuantity(cartId, quantity, userId) {
+            return await this.updateItem(cartId, quantity, userId);
+        },
+
+        async removeItem(cartId, userId) {
+            return await this.updateItem(cartId, 0, userId);
         },
 
         async clearCart(userId) {
             const supabase = getSupabaseClient();
-            if (!supabase) return;
+            if (!supabase || !userId) return;
             await supabase.from('cart_items').delete().eq('user_id', userId);
         },
 
+        async mergeCart(guestUserId, targetUserId) {
+            return await this.mergeGuestCart(guestUserId, targetUserId);
+        },
+
         async mergeGuestCart(guestUserId, targetUserId) {
-            if (!guestUserId || !targetUserId || guestUserId === targetUserId) return;
+            if (!guestUserId || !targetUserId || guestUserId === targetUserId) {
+                return await this.getCart(targetUserId || guestUserId);
+            }
             const supabase = getSupabaseClient();
-            if (!supabase) return;
+            if (!supabase) return { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 } };
 
             const { data: guestItems } = await supabase
                 .from('cart_items')
@@ -368,6 +410,8 @@ const supabaseDb = {
                 }
                 await this.clearCart(guestUserId);
             }
+
+            return await this.getCart(targetUserId);
         }
     },
 
