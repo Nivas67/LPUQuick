@@ -609,8 +609,6 @@ async function loadDashboard() {
         // Compute metrics with instant fallback from cached orders & products (never display '--')
         const totalOrdersVal = m.totalOrdersCount !== undefined ? m.totalOrdersCount : (ordersCache.length || 0);
         const pendingCountVal = m.pendingOrdersCount !== undefined ? m.pendingOrdersCount : (ordersCache.filter(o => ['Order Placed', 'Preparing', 'Out for Delivery', 'pending', 'confirmed', 'accepted'].includes(o.status)).length);
-        const totalRevVal = m.totalRevenue !== undefined ? m.totalRevenue : (ordersCache.filter(o => ['Delivered', 'delivered'].includes(o.status)).reduce((s, o) => s + (Number(o.total) || 0), 0));
-
         const totalProdVal = m.totalProducts !== undefined ? m.totalProducts : (productsCache.length || 44);
         const totalStockVal = m.totalStock !== undefined ? m.totalStock : (productsCache.reduce((s, p) => s + (Number(p.stock_left) || 0), 0) || 132);
         const lowStockVal = m.lowStockCount !== undefined ? m.lowStockCount : (productsCache.filter(p => p.stock_left > 0 && p.stock_left <= 4).length || 23);
@@ -620,23 +618,18 @@ async function loadDashboard() {
         const elLowStock = document.getElementById('dash-low-stock');
         const elTotalOrders = document.getElementById('dash-total-orders');
         const elPendingOrders = document.getElementById('dash-pending-orders');
-        const elTotalRev = document.getElementById('dash-total-revenue');
 
         if (elTotalProd) elTotalProd.textContent = totalProdVal;
         if (elTotalStock) elTotalStock.textContent = totalStockVal;
         if (elLowStock) elLowStock.textContent = lowStockVal;
         if (elTotalOrders) elTotalOrders.textContent = totalOrdersVal;
         if (elPendingOrders) elPendingOrders.textContent = pendingCountVal;
-        if (elTotalRev) elTotalRev.textContent = `₹${totalRevVal}`;
 
         const badge = document.getElementById('nav-pending-badge');
         if (badge) {
             badge.textContent = pendingCountVal;
             badge.classList.toggle('hidden', !pendingCountVal);
         }
-
-        // Load Profit Metrics (Secure & Protected)
-        loadProfitMetrics();
 
         // Load and sync store lock state
         loadClientLockState();
@@ -672,80 +665,6 @@ async function loadDashboard() {
     }
 }
 
-// ================= PROFITS SECURITY & VISIBILITY =================
-async function loadProfitMetrics() {
-    try {
-        const res = await fetch(`/api/admin/profits?fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() });
-        const data = await res.json();
-        
-        profitLocked = Boolean(data.locked);
-        const netProfitEl = document.getElementById('dash-net-profit');
-        const subEl = document.getElementById('dash-profit-sub');
-        const badgeEl = document.getElementById('profit-badge');
-        const iconEl = document.getElementById('icon-profit-lock');
-
-        const aNetProfitEl = document.getElementById('analytics-net-profit');
-        const aSubEl = document.getElementById('analytics-profit-sub');
-        const aBadgeEl = document.getElementById('analytics-profit-badge');
-        const aIconEl = document.getElementById('analytics-icon-profit-lock');
-
-        if (profitLocked) {
-            if (netProfitEl) netProfitEl.textContent = '••••••';
-            if (subEl) subEl.textContent = 'Click lock to view';
-            if (badgeEl) {
-                badgeEl.textContent = 'LOCKED';
-                badgeEl.className = 'text-[9px] bg-[#b06000]/15 text-[#b06000] px-1.5 py-0.2 rounded font-bold';
-            }
-            if (iconEl) iconEl.textContent = 'lock';
-
-            if (aNetProfitEl) aNetProfitEl.textContent = '••••••';
-            if (aSubEl) aSubEl.textContent = 'Click lock icon to decrypt';
-            if (aBadgeEl) {
-                aBadgeEl.textContent = 'LOCKED';
-                aBadgeEl.className = 'text-[10px] bg-[#b06000]/15 text-[#b06000] px-1.5 py-0.5 rounded font-bold';
-            }
-            if (aIconEl) aIconEl.textContent = 'lock';
-        } else {
-            if (netProfitEl) netProfitEl.textContent = `₹${data.net_profit || 0}`;
-            if (subEl) subEl.textContent = `Margin: ${data.margin_percent || 0}% (${data.delivered_orders_count || 0} delivered)`;
-            if (badgeEl) {
-                badgeEl.textContent = 'UNLOCKED';
-                badgeEl.className = 'text-[9px] bg-[#137333]/15 text-[#137333] px-1.5 py-0.2 rounded font-bold';
-            }
-            if (iconEl) iconEl.textContent = 'lock_open';
-
-            if (aNetProfitEl) aNetProfitEl.textContent = `₹${data.net_profit || 0}`;
-            if (aSubEl) aSubEl.textContent = `Net Margin: ${data.margin_percent || 0}% (${data.delivered_orders_count || 0} delivered)`;
-            if (aBadgeEl) {
-                aBadgeEl.textContent = 'UNLOCKED';
-                aBadgeEl.className = 'text-[10px] bg-[#137333]/15 text-[#137333] px-1.5 py-0.5 rounded font-bold';
-            }
-            if (aIconEl) aIconEl.textContent = 'lock_open';
-        }
-    } catch (err) {
-        console.warn('Error loading profit metrics:', err);
-    }
-}
-
-
-async function toggleProfitVisibility() {
-    const nextLocked = !profitLocked;
-    try {
-        const res = await fetch('/api/admin/profit-visibility', {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ locked: nextLocked })
-        });
-        const data = await res.json();
-        if (data.success) {
-            profitLocked = nextLocked;
-            await loadProfitMetrics();
-            showToast(nextLocked ? 'Profit metrics are now LOCKED.' : 'Profit metrics UNLOCKED.', 'info');
-        }
-    } catch (err) {
-        alert('Failed to update profit visibility: ' + err.message);
-    }
-}
 
 // ================= CLIENT DASHBOARD LOCK CONTROLS =================
 async function loadClientLockState() {
@@ -2083,21 +2002,20 @@ async function loadAnalytics() {
         const data = await res.json();
         const m = data.metrics || {};
 
-        document.getElementById('analytics-rev').textContent = `₹${m.totalRevenue || 0}`;
-        document.getElementById('analytics-aov').textContent = `₹${m.avgOrderValue || 0}`;
-        document.getElementById('analytics-orders').textContent = `${m.totalOrdersCount || 0}`;
+        const ordersEl = document.getElementById('analytics-orders');
+        const activeOrdersEl = document.getElementById('analytics-active-orders');
+        const stockRateEl = document.getElementById('analytics-stock-rate');
+
+        if (ordersEl) ordersEl.textContent = `${m.deliveredOrdersCount || m.totalOrdersCount || 0}`;
+        if (activeOrdersEl) activeOrdersEl.textContent = `${m.pendingOrdersCount || 0}`;
         
         const rate = m.totalProducts > 0 ? Math.round(((m.totalProducts - (m.outOfStockCount || 0)) / m.totalProducts) * 100) : 100;
-        document.getElementById('analytics-stock-rate').textContent = `${rate}%`;
-
-        // Sync profit tile in Analytics view
-        loadProfitMetrics();
-
+        if (stockRateEl) stockRateEl.textContent = `${rate}%`;
 
         const tbody = document.getElementById('analytics-top-products-tbody');
         const top = data.topProducts || [];
         if (top.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-[#5c5f60]">No sales data recorded yet.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="3" class="py-4 text-center text-[#5c5f60]">No sales data recorded yet.</td></tr>`;
             return;
         }
 
@@ -2108,8 +2026,7 @@ async function loadAnalytics() {
                     <span>${p.name}</span>
                 </td>
                 <td class="py-3 text-[#5c5f60]">${p.category}</td>
-                <td class="py-3 font-bold text-[#181c1f]">${p.total_sold || 0}</td>
-                <td class="py-3 text-right font-black text-[#137333]">₹${p.revenue || 0}</td>
+                <td class="py-3 text-right font-bold text-[#181c1f]">${p.total_sold || 0}</td>
             </tr>
         `).join('');
 
@@ -2169,16 +2086,13 @@ function renderRecentOrdersTable(ordersList) {
 function updateKpiCountersFromCache() {
     const totalOrdersEl = document.getElementById('dash-total-orders');
     const pendingOrdersEl = document.getElementById('dash-pending-orders');
-    const totalRevEl = document.getElementById('dash-total-revenue');
     const badgeEl = document.getElementById('nav-pending-badge');
 
     const totalOrdersVal = ordersCache.length || 0;
     const pendingCountVal = ordersCache.filter(o => ['Order Placed', 'Preparing', 'Out for Delivery', 'pending', 'confirmed', 'accepted'].includes(o.status)).length;
-    const totalRevVal = ordersCache.filter(o => ['Delivered', 'delivered'].includes(o.status)).reduce((s, o) => s + (Number(o.total) || 0), 0);
 
     if (totalOrdersEl) totalOrdersEl.textContent = totalOrdersVal;
     if (pendingOrdersEl) pendingOrdersEl.textContent = pendingCountVal;
-    if (totalRevEl) totalRevEl.textContent = `₹${totalRevVal}`;
     if (badgeEl) {
         badgeEl.textContent = pendingCountVal;
         badgeEl.classList.toggle('hidden', !pendingCountVal);
@@ -2435,7 +2349,6 @@ function handleRealtimeNewOrder(order) {
     // 4. Update KPI Metrics Dynamically
     const totalOrdersEl = document.getElementById('dash-total-orders');
     const pendingOrdersEl = document.getElementById('dash-pending-orders');
-    const totalRevEl = document.getElementById('dash-total-revenue');
     const badgeEl = document.getElementById('nav-pending-badge');
 
     if (totalOrdersEl) {
@@ -2450,10 +2363,6 @@ function handleRealtimeNewOrder(order) {
             badgeEl.textContent = pCount;
             badgeEl.classList.remove('hidden');
         }
-    }
-    if (totalRevEl && ['Delivered', 'delivered'].includes(order.status)) {
-        const currentRev = parseFloat(totalRevEl.textContent.replace('₹', '')) || 0;
-        totalRevEl.textContent = `₹${currentRev + Number(order.total || 0)}`;
     }
 
     // 5. Update Current View

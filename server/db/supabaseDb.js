@@ -149,7 +149,6 @@ const supabaseDb = {
                 subcategory: productData.subcategory || '',
                 price: Number(productData.price) || 0,
                 mrp: Number(productData.mrp || productData.price) || 0,
-                cost_price: Number(productData.cost_price) || 0,
                 unit: productData.unit || 'piece',
                 size: productData.size || productData.description || '',
                 image_url: productData.image_url || '',
@@ -181,7 +180,6 @@ const supabaseDb = {
             if (updates.subcategory !== undefined) updateFields.subcategory = updates.subcategory;
             if (updates.price !== undefined) updateFields.price = Number(updates.price);
             if (updates.mrp !== undefined) updateFields.mrp = Number(updates.mrp);
-            if (updates.cost_price !== undefined) updateFields.cost_price = Number(updates.cost_price);
             if (updates.unit !== undefined) updateFields.unit = updates.unit;
             if (updates.size !== undefined) updateFields.size = updates.size;
             if (updates.image_url !== undefined) updateFields.image_url = updates.image_url;
@@ -643,7 +641,6 @@ const supabaseDb = {
             message: null,
             start_at: null,
             end_at: null,
-            profit_locked: true,
             created_by: null,
             updated_at: new Date().toISOString()
         },
@@ -706,7 +703,6 @@ const supabaseDb = {
                 message: lockData.message || 'Store is temporarily unavailable.',
                 start_at: lockData.start_at || new Date().toISOString(),
                 end_at: lockData.end_at || null,
-                profit_locked: true,
                 created_by: lockData.created_by || 'admin',
                 updated_at: new Date().toISOString()
             };
@@ -756,7 +752,6 @@ const supabaseDb = {
                 message: null,
                 start_at: null,
                 end_at: null,
-                profit_locked: true,
                 created_by: adminId,
                 updated_at: new Date().toISOString()
             };

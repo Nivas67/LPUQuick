@@ -237,6 +237,22 @@ window.pages.cart = async function() {
         </div>
     </main>
 
+    <!-- Mobile Sticky One-Handed Checkout Bar (Thumb Zone) -->
+    ${items.length > 0 && !window.__isUserBlocked ? `
+    <div class="lg:hidden fixed bottom-[calc(4.4rem+max(0.6rem,env(safe-area-inset-bottom,0.6rem)))] left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40">
+        <a href="#/checkout" class="w-full bg-emerald text-white rounded-2xl py-3 px-4 shadow-2xl flex items-center justify-between font-bold text-sm border border-emerald-400/40 active:scale-[0.98] transition-all hover:bg-primary">
+            <div class="flex flex-col text-left">
+                <span class="text-[11px] text-white/90 font-medium">${cartData.item_count || items.length} items in cart</span>
+                <span class="text-base font-black tracking-tight">To Pay: ₹${exactTotal}</span>
+            </div>
+            <div class="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 px-3.5 py-1.5 rounded-xl text-xs font-extrabold shadow-sm">
+                <span>Checkout</span>
+                <span class="material-symbols-outlined text-base">arrow_forward</span>
+            </div>
+        </a>
+    </div>
+    ` : ''}
+
     <!-- BottomNavBar -->
     <div class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-50">
         <nav class="flex justify-around items-center p-2 mx-auto bg-white/80 backdrop-blur-2xl shadow-xl border border-glass-border rounded-full">

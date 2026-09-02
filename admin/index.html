@@ -207,8 +207,8 @@
                     </div>
                 </div>
 
-                <!-- 7 KPI Bento Cards (Including Profits KPI Card) -->
-                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px;">
+                <!-- 5 Operational KPI Bento Cards -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
                     <div class="glass-panel p-3.5 flex flex-col justify-between hover:-translate-y-0.5 transition-transform">
                         <div class="flex justify-between items-start mb-2">
                             <span class="material-symbols-outlined text-[#3c4043] text-lg">inventory_2</span>
@@ -252,35 +252,6 @@
                         <div>
                             <p class="text-[10px] font-semibold text-[#5c5f60] uppercase tracking-wider mb-0.5">Pending</p>
                             <p class="text-xl font-bold text-[#b06000]" id="dash-pending-orders">--</p>
-                        </div>
-                    </div>
-                    <div class="glass-panel p-3.5 flex flex-col justify-between hover:-translate-y-0.5 transition-transform">
-                        <div class="flex justify-between items-start mb-2">
-                            <span class="material-symbols-outlined text-[#137333] text-lg">payments</span>
-                        </div>
-                        <div>
-                            <p class="text-[10px] font-semibold text-[#5c5f60] uppercase tracking-wider mb-0.5">Revenue</p>
-                            <p class="text-xl font-bold text-[#137333]" id="dash-total-revenue">--</p>
-                        </div>
-                    </div>
-
-                    <!-- 7. SECURE PROFITS KPI CARD (Default: LOCKED) -->
-                    <div class="glass-panel p-3.5 flex flex-col justify-between hover:-translate-y-0.5 transition-transform bg-[#fef7e0]/40 border-[#fce8b2] relative overflow-hidden" id="dash-profit-card">
-                        <div class="flex justify-between items-start mb-1">
-                            <span class="material-symbols-outlined text-[#b06000] text-lg">monetization_on</span>
-                            <button onclick="toggleProfitVisibility()" id="btn-profit-lock-toggle" class="p-1 rounded hover:bg-black/5 text-[#b06000]" title="Toggle Profit Visibility">
-                                <span class="material-symbols-outlined text-[16px]" id="icon-profit-lock">lock</span>
-                            </button>
-                        </div>
-                        <div>
-                            <p class="text-[10px] font-bold text-[#b06000] uppercase tracking-wider mb-0.5 flex items-center gap-1">
-                                <span>Profits</span>
-                                <span id="profit-badge" class="text-[9px] bg-[#b06000]/15 text-[#b06000] px-1.5 py-0.2 rounded font-bold">LOCKED</span>
-                            </p>
-                            <div id="dash-profit-content">
-                                <p class="text-lg font-bold text-[#5c5f60] tracking-widest" id="dash-net-profit">••••••</p>
-                                <p class="text-[9px] text-[#74777a]" id="dash-profit-sub">Click lock to view</p>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -728,66 +699,44 @@
             <!-- ================= VIEW 6: ANALYTICS ================= -->
             <div id="view-analytics" class="space-y-6 max-w-[1440px] mx-auto hidden">
                 <div>
-                    <h2 class="text-2xl font-bold text-[#181c1f]">Business Analytics</h2>
-                    <p class="text-sm text-[#5c5f60]">Live revenue metrics, average order value, and top campus products</p>
+                    <h2 class="text-2xl font-bold text-[#181c1f]">Operational Analytics</h2>
+                    <p class="text-sm text-[#5c5f60]">Live fulfillment performance, stock health, and campus order distribution</p>
                 </div>
 
-                <!-- Metric Tiles (Including Protected Profits) -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                    <div class="glass-panel p-5">
-                        <p class="text-xs text-[#5c5f60] font-medium uppercase">Total Campus Revenue</p>
-                        <h3 class="text-3xl font-black text-[#137333] mt-1" id="analytics-rev">--</h3>
-                        <p class="text-[11px] text-[#5c5f60] mt-1">From real orders in Supabase Cloud</p>
-                    </div>
-
-                    <!-- Protected Net Profits Card -->
-                    <div class="glass-panel p-5 bg-[#fef7e0]/30 border-[#fce8b2] flex flex-col justify-between" id="analytics-profit-card">
-                        <div class="flex justify-between items-start">
-                            <p class="text-xs text-[#b06000] font-bold uppercase flex items-center gap-1.5">
-                                <span>Net Profits</span>
-                                <span id="analytics-profit-badge" class="text-[10px] bg-[#b06000]/15 text-[#b06000] px-1.5 py-0.5 rounded font-bold">LOCKED</span>
-                            </p>
-                            <button onclick="toggleProfitVisibility()" class="p-1 rounded hover:bg-black/5 text-[#b06000]" title="Toggle Profit Visibility">
-                                <span class="material-symbols-outlined text-[18px]" id="analytics-icon-profit-lock">lock</span>
-                            </button>
-                        </div>
-                        <h3 class="text-3xl font-black text-[#5c5f60] mt-1 tracking-wider" id="analytics-net-profit">••••••</h3>
-                        <p class="text-[11px] text-[#74777a] mt-1" id="analytics-profit-sub">Click lock icon to decrypt</p>
-                    </div>
-
-                    <div class="glass-panel p-5">
-                        <p class="text-xs text-[#5c5f60] font-medium uppercase">Average Order Value (AOV)</p>
-                        <h3 class="text-3xl font-black text-[#181c1f] mt-1" id="analytics-aov">--</h3>
-                        <p class="text-[11px] text-[#5c5f60] mt-1">Average student checkout ticket</p>
-                    </div>
+                <!-- Operational Metric Tiles -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div class="glass-panel p-5">
                         <p class="text-xs text-[#5c5f60] font-medium uppercase">Total Orders Fulfilled</p>
                         <h3 class="text-3xl font-black text-[#3c4043] mt-1" id="analytics-orders">--</h3>
-                        <p class="text-[11px] text-[#5c5f60] mt-1">Across all hostel blocks</p>
+                        <p class="text-[11px] text-[#5c5f60] mt-1">Delivered across all hostel blocks</p>
+                    </div>
+                    <div class="glass-panel p-5">
+                        <p class="text-xs text-[#5c5f60] font-medium uppercase">Active Campus Orders</p>
+                        <h3 class="text-3xl font-black text-[#b06000] mt-1" id="analytics-active-orders">--</h3>
+                        <p class="text-[11px] text-[#5c5f60] mt-1">Currently in preparation or corridor transit</p>
                     </div>
                     <div class="glass-panel p-5">
                         <p class="text-xs text-[#5c5f60] font-medium uppercase">Inventory In-Stock Rate</p>
                         <h3 class="text-3xl font-black text-[#10B981] mt-1" id="analytics-stock-rate">--</h3>
-                        <p class="text-[11px] text-[#5c5f60] mt-1">Active items ready for dispatch</p>
+                        <p class="text-[11px] text-[#5c5f60] mt-1">Active products ready for immediate dispatch</p>
                     </div>
                 </div>
 
 
                 <!-- Top Selling Products Leaderboard -->
                 <div class="glass-panel p-6">
-                    <h3 class="font-bold text-base text-[#181c1f] mb-4">Top-Selling Campus Products</h3>
+                    <h3 class="font-bold text-base text-[#181c1f] mb-4">Top-Selling Campus Products by Volume</h3>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-xs">
                             <thead>
                                 <tr class="border-b border-[#DADCE0] text-[#5c5f60] font-semibold uppercase text-[11px]">
                                     <th class="pb-3">Product</th>
                                     <th class="pb-3">Category</th>
-                                    <th class="pb-3">Units Sold</th>
-                                    <th class="pb-3 text-right">Revenue Generated</th>
+                                    <th class="pb-3 text-right">Units Sold</th>
                                 </tr>
                             </thead>
                             <tbody id="analytics-top-products-tbody" class="divide-y divide-[#DADCE0]">
-                                <tr><td colspan="4" class="py-4 text-center text-[#5c5f60]">Loading top products...</td></tr>
+                                <tr><td colspan="3" class="py-4 text-center text-[#5c5f60]">Loading top products...</td></tr>
                             </tbody>
                         </table>
                     </div>

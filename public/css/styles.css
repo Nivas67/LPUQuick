@@ -10,6 +10,10 @@
     --card-border: rgba(255, 255, 255, 0.85);
     --surface-high: rgba(240, 244, 241, 0.6);
     --header-bg: rgba(255, 255, 255, 0.75);
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
 }
 
 /* ============================================================
@@ -19,19 +23,27 @@
 html, body {
     width: 100%;
     max-width: 100vw;
-    overflow-x: hidden;
+    overflow-x: hidden !important;
     touch-action: pan-y manipulation;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
     overscroll-behavior-y: none;
+    box-sizing: border-box;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
 }
 
 body {
     background-color: #f6f8f7 !important;
     color: #0f172a !important;
     min-height: 100vh;
+    min-height: 100dvh;
     position: relative;
     -webkit-tap-highlight-color: transparent;
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
 }
 
 /* Prevent iOS Safari / Android Chrome Auto-Zoom on Form Inputs */
@@ -680,17 +692,19 @@ body.dark .card-qty-stepper {
     align-items: flex-end;
     justify-content: center;
     animation: fadeIn 0.2s ease-out;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 @media (min-width: 640px) {
     .modal-overlay {
         align-items: center;
+        padding-bottom: 0;
     }
 }
 
 .modal-content {
     width: 100%;
     max-width: 520px;
-    max-height: 90vh;
+    max-height: min(88vh, calc(100dvh - 3rem));
     overflow-y: auto;
     border-radius: 1.75rem 1.75rem 0 0;
     background: rgba(255, 255, 255, 0.88) !important;
@@ -698,11 +712,14 @@ body.dark .card-qty-stepper {
     -webkit-backdrop-filter: blur(36px) saturate(200%) !important;
     border: 1px solid rgba(255, 255, 255, 0.95) !important;
     box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.12), inset 0 1px 2px rgba(255, 255, 255, 1) !important;
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 1.5rem)) !important;
     animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    -webkit-overflow-scrolling: touch;
 }
 @media (min-width: 640px) {
     .modal-content {
         border-radius: 1.75rem;
+        padding-bottom: 1.5rem !important;
         animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
 }
@@ -1584,6 +1601,102 @@ body.dark #pull-to-refresh-indicator {
 .theme-sun-icon,
 .theme-moon-icon {
     transition: opacity 0.2s ease, color 0.2s ease;
+}
+
+/* ============================================================
+   MOBILE-FIRST ADAPTIVE ARCHITECTURE & SAFE-AREA SYSTEM
+   (320px, 360px, 375px, 390px, 412px, 430px, Tablet & Desktop)
+   ============================================================ */
+
+/* 1. Mobile Safe-Area Header Adaptation */
+@media screen and (max-width: 768px) {
+    header.md\:hidden,
+    header[class*="fixed"],
+    header[class*="sticky"] {
+        padding-top: max(0.625rem, env(safe-area-inset-top, 0.625rem)) !important;
+        padding-left: max(0.875rem, env(safe-area-inset-left, 0.875rem)) !important;
+        padding-right: max(0.875rem, env(safe-area-inset-right, 0.875rem)) !important;
+    }
+}
+
+/* 2. Mobile Bottom Navigation & Action Bars Safe-Area Anchoring */
+.fixed.bottom-6,
+.fixed.bottom-4,
+.mobile-bottom-nav {
+    bottom: max(0.75rem, env(safe-area-inset-bottom, 0.75rem)) !important;
+    max-width: min(94vw, 440px) !important;
+}
+
+#global-floating-cart-bar,
+#global-live-delivery-bar {
+    bottom: calc(4.75rem + max(0.5rem, env(safe-area-inset-bottom, 0.5rem))) !important;
+    max-width: min(92vw, 420px) !important;
+}
+
+/* 3. Ergonomic Touch Targets (Thumb Zone Accessibility) */
+@media (pointer: coarse) {
+    button, a, input, select, .interactive-pill, .product-action-slot button, .cart-qty-stepper button {
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
+}
+
+/* 4. Extra-Small Viewports (320px - 360px Screen Support) */
+@media screen and (max-width: 360px) {
+    .brand-title {
+        font-size: 1.15rem !important;
+    }
+    
+    .product-card-item {
+        padding: 0.4rem !important;
+        border-radius: 0.875rem !important;
+    }
+    
+    .product-card-item .h-32,
+    .product-card-item .h-36 {
+        height: 6.5rem !important;
+    }
+    
+    .stock-badge {
+        font-size: 8.5px !important;
+        padding: 0.125rem 0.35rem !important;
+        top: 0.35rem !important;
+        left: 0.35rem !important;
+    }
+    
+    .add-to-cart-btn {
+        font-size: 10px !important;
+        padding: 0.2rem 0.5rem !important;
+    }
+    
+    #left-categories-rail {
+        width: 76px !important;
+    }
+    
+    #left-categories-rail .cat-label {
+        font-size: 9.5px !important;
+    }
+    
+    #left-categories-rail .w-12 {
+        width: 2.5rem !important;
+        height: 2.5rem !important;
+    }
+    
+    .fixed.bottom-6 nav,
+    .fixed.bottom-4 nav {
+        padding: 0.25rem 0.35rem !important;
+    }
+    
+    .fixed.bottom-6 nav a,
+    .fixed.bottom-4 nav a {
+        padding-left: 0.65rem !important;
+        padding-right: 0.65rem !important;
+    }
+}
+
+/* 5. Universal Horizontal Scroll & Viewport Clipping Lock */
+main, section, header, nav, .glass-card, .glass-panel {
+    max-width: 100vw;
 }
 
 

@@ -330,63 +330,6 @@ router.get('/blacklist', async (req, res) => {
     }
 });
 
-// ============================================================
-// 3. PROFIT SECURITY & SENSITIVE FINANCIAL CONTROLS
-// ============================================================
-
-// GET /api/admin/profits
-router.get('/profits', async (req, res) => {
-    try {
-        const isLocked = await supabaseDb.availability.getProfitVisibility();
-
-        // STRICT FINANCIAL SECURITY: If locked, NEVER send profit numbers over the wire
-        if (isLocked) {
-            return res.json({
-                locked: true,
-                message: 'Profits visibility is currently LOCKED. Unlock from Admin Console to view.'
-            });
-        }
-
-        // When UNLOCKED, calculate from delivered orders and products cost price
-        const profitsData = await supabaseDb.profits.calculateDeliveredProfits();
-        res.json({
-            locked: false,
-            ...profitsData
-        });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
-    }
-});
-
-// POST /api/admin/profit-visibility
-router.post('/profit-visibility', async (req, res) => {
-    const { locked } = req.body;
-    const adminId = req.admin?.id || 'admin_001';
-
-    if (locked === undefined) {
-        return res.status(400).json({ error: 'locked boolean parameter is required' });
-    }
-
-    try {
-        const isLocked = Boolean(locked);
-        await supabaseDb.availability.setProfitVisibility(isLocked, adminId);
-
-        // Audit Logging
-        await supabaseDb.audit.logAction({
-            adminId,
-            action: isLocked ? 'PROFIT_LOCKED' : 'PROFIT_UNLOCKED',
-            reason: `Admin set profit visibility to ${isLocked ? 'LOCKED' : 'UNLOCKED'}`
-        });
-
-        res.json({
-            success: true,
-            profit_locked: isLocked,
-            message: `Profit metrics are now ${isLocked ? 'LOCKED' : 'UNLOCKED'}.`
-        });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
-    }
-});
 
 // ============================================================
 // 4. AUDIT LOGS

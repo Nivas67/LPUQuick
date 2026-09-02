@@ -67,7 +67,7 @@ window.pages.categories = async function() {
     <!-- Main Dual-Pane Layout: Left Categories Column Rail + Right Products/Coming Soon Content -->
     <div class="flex flex-1 max-w-7xl mx-auto w-full overflow-hidden">
         <!-- Left Vertical Category Column Rail (Full list of all categories in a column) -->
-        <aside class="w-[96px] sm:w-36 shrink-0 bg-surface/95 dark:bg-slate-900/95 backdrop-blur-2xl border-r border-surface-variant/40 shadow-sm overflow-y-auto max-h-[calc(100vh-120px)] sticky top-[70px] py-3 no-scrollbar z-20" id="left-categories-rail">
+        <aside class="w-[84px] sm:w-36 shrink-0 bg-surface/95 dark:bg-slate-900/95 backdrop-blur-2xl border-r border-surface-variant/40 shadow-sm overflow-y-auto max-h-[calc(100vh-120px)] sticky top-[70px] py-3 no-scrollbar z-20" id="left-categories-rail">
             <div class="flex flex-col gap-2 items-center px-1.5" id="category-sidebar-list">
                 
                 <!-- 1. Snacks & Drinks (LIVE & ACTIVE) -->
@@ -472,7 +472,7 @@ window.pageInits.categories = async function() {
             const isOutOfStock = !p.in_stock || stockLeft === 0;
 
             return `
-                <div class="bg-surface rounded-2xl overflow-hidden border border-surface-variant/40 shadow-sm hover:shadow-md transition-all p-2.5 flex flex-col justify-between group product-card-container product-detail-trigger cursor-pointer ${isOutOfStock ? 'opacity-85' : ''}" data-product-id="${p.id}" data-out-of-stock="${isOutOfStock}">
+                <div class="bg-surface rounded-2xl overflow-hidden border border-surface-variant/40 shadow-sm hover:shadow-md transition-all p-2 sm:p-2.5 flex flex-col justify-between group product-card-container product-detail-trigger cursor-pointer ${isOutOfStock ? 'opacity-85' : ''}" data-product-id="${p.id}" data-out-of-stock="${isOutOfStock}">
                     <div>
                         <div class="relative bg-surface-container-high rounded-xl overflow-hidden h-36 flex items-center justify-center p-2">
                             <!-- Stock / Urgency Badge -->

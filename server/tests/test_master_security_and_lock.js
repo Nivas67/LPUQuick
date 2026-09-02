@@ -110,30 +110,17 @@ async function runTests() {
         const authHeaders = { 'Authorization': `Bearer ${adminToken}` };
 
         // ----------------------------------------------------
-        // TEST SUITE 2: PROFIT SECURITY & SENSITIVITY GUARD
+        // TEST SUITE 2: PROFIT / FINANCIAL DATA REMOVAL VERIFICATION
         // ----------------------------------------------------
-        console.log('\n--- TEST SUITE 2: Profit Security & Masking ---');
+        console.log('\n--- TEST SUITE 2: Obsolete Profit & Financial Endpoints Decommissioned ---');
 
-        // 2.1: Lock profit visibility
-        await request('POST', '/api/admin/profit-visibility', authHeaders, { locked: true });
+        // 2.1: Verify GET /api/admin/profits returns 404 (obsolete endpoint removed)
+        const profitRes = await request('GET', '/api/admin/profits', authHeaders);
+        assert(profitRes.status === 404, 'Profit endpoint /api/admin/profits is safely decommissioned (404)');
 
-        // 2.2: Verify GET /api/admin/profits returns ONLY { locked: true } and masks metrics
-        const lockedProfitRes = await request('GET', '/api/admin/profits', authHeaders);
-        assert(lockedProfitRes.body.locked === true, 'Profit endpoint returns locked=true');
-        assert(lockedProfitRes.body.net_profit === undefined, 'Profit endpoint does NOT leak net_profit when locked');
-        assert(lockedProfitRes.body.total_costs === undefined, 'Profit endpoint does NOT leak total_costs when locked');
-
-        // 2.3: Unlock profit visibility and verify metrics are returned
-        const unlockProfitRes = await request('POST', '/api/admin/profit-visibility', authHeaders, { locked: false });
-        assert(unlockProfitRes.body.success === true, 'Admin can toggle profit visibility to unlocked');
-
-        const activeProfitRes = await request('GET', '/api/admin/profits', authHeaders);
-        assert(activeProfitRes.body.locked === false, 'Profit endpoint returns unlocked data');
-        assert(activeProfitRes.body.revenue !== undefined, 'Profit endpoint calculates revenue');
-        assert(activeProfitRes.body.net_profit !== undefined, 'Profit endpoint calculates net profit');
-
-        // Re-lock profits to maintain default secure state
-        await request('POST', '/api/admin/profit-visibility', authHeaders, { locked: true });
+        // 2.2: Verify POST /api/admin/profit-visibility returns 404 (obsolete endpoint removed)
+        const profitVisRes = await request('POST', '/api/admin/profit-visibility', authHeaders, { locked: true });
+        assert(profitVisRes.status === 404, 'Profit visibility endpoint is safely decommissioned (404)');
 
         // ----------------------------------------------------
         // TEST SUITE 3: STORE AVAILABILITY & LOCK CONTROLS

@@ -62,7 +62,6 @@ function initSchema(db) {
             subcategory TEXT DEFAULT '',
             price NUMERIC NOT NULL,
             mrp NUMERIC,
-            cost_price NUMERIC DEFAULT 0,
             unit TEXT DEFAULT 'piece',
             size TEXT DEFAULT '',
             image_url TEXT DEFAULT '',
@@ -122,7 +121,6 @@ function initSchema(db) {
             message TEXT DEFAULT NULL,
             start_at TEXT DEFAULT NULL,
             end_at TEXT DEFAULT NULL,
-            profit_locked INTEGER NOT NULL DEFAULT 1,
             created_by TEXT DEFAULT NULL,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -292,16 +290,15 @@ const localDb = {
 
             db.prepare(`
                 INSERT INTO products (
-                    id, name, category, subcategory, price, mrp, cost_price,
+                    id, name, category, subcategory, price, mrp,
                     unit, size, image_url, image_alt, tags, in_stock, bestseller, is_new, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))
                 ON CONFLICT(id) DO UPDATE SET
                     name = excluded.name,
                     category = excluded.category,
                     subcategory = excluded.subcategory,
                     price = excluded.price,
                     mrp = excluded.mrp,
-                    cost_price = excluded.cost_price,
                     unit = excluded.unit,
                     size = excluded.size,
                     image_url = excluded.image_url,
@@ -317,7 +314,6 @@ const localDb = {
                 p.subcategory || '',
                 Number(p.price) || 0,
                 Number(p.mrp) || Number(p.price) || 0,
-                Number(p.cost_price) || 0,
                 p.unit || 'piece',
                 p.size || 'Standard',
                 p.image_url || '',
@@ -658,37 +654,33 @@ const localDb = {
                     lock_type: 'NONE',
                     message: null,
                     start_at: null,
-                    end_at: null,
-                    profit_locked: true
+                    end_at: null
                 };
             }
             return {
                 ...row,
-                is_locked: Boolean(row.is_locked),
-                profit_locked: Boolean(row.profit_locked)
+                is_locked: Boolean(row.is_locked)
             };
         },
 
         updateStatus(payload) {
             const db = getLocalDb();
             db.prepare(`
-                INSERT INTO app_availability (id, is_locked, lock_type, message, start_at, end_at, profit_locked, updated_at)
-                VALUES ('store_main', ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                INSERT INTO app_availability (id, is_locked, lock_type, message, start_at, end_at, updated_at)
+                VALUES ('store_main', ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 ON CONFLICT(id) DO UPDATE SET
                     is_locked = excluded.is_locked,
                     lock_type = excluded.lock_type,
                     message = excluded.message,
                     start_at = excluded.start_at,
                     end_at = excluded.end_at,
-                    profit_locked = excluded.profit_locked,
                     updated_at = CURRENT_TIMESTAMP
             `).run(
                 payload.is_locked ? 1 : 0,
                 payload.lock_type || 'NONE',
                 payload.message || null,
                 payload.start_at || null,
-                payload.end_at || null,
-                payload.profit_locked !== undefined ? (payload.profit_locked ? 1 : 0) : 1
+                payload.end_at || null
             );
             return this.getStatus();
         }

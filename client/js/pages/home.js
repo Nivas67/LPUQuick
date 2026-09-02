@@ -28,7 +28,7 @@ function buildProductCardsHTML(items, isAboveFold = false) {
         }
 
         return `
-        <div class="bg-surface rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group relative border border-surface-variant/30 p-2.5 flex flex-col justify-between product-detail-trigger cursor-pointer product-card-item ${isOutOfStock ? 'opacity-90' : ''}" data-product-id="${p.id}" data-category="${catTag}" data-out-of-stock="${isOutOfStock}">
+        <div class="bg-surface rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group relative border border-surface-variant/30 p-2 sm:p-2.5 flex flex-col justify-between product-detail-trigger cursor-pointer product-card-item ${isOutOfStock ? 'opacity-90' : ''}" data-product-id="${p.id}" data-category="${catTag}" data-out-of-stock="${isOutOfStock}">
             <div>
                 <div class="h-32 sm:h-36 bg-surface-container-high rounded-xl relative overflow-hidden flex items-center justify-center p-2">
                     <!-- Stock / Urgency Badge -->
@@ -457,29 +457,29 @@ window.pages.home = async function() {
         ` : ''}
 
         <!-- 7. Promotional Bento Banners -->
-        <section class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
-            <a href="#/flow-assist" class="bg-royal-purple/10 border border-royal-purple/20 rounded-[2rem] p-5 sm:p-7 flex items-center justify-between overflow-hidden relative group cursor-pointer hover:bg-royal-purple/15 transition-all shadow-sm">
-                <div class="z-10 w-3/4">
-                    <span class="inline-flex items-center gap-1 text-[10px] font-bold text-royal-purple bg-white/70 px-2.5 py-0.5 rounded-full mb-1.5">AI ASSISTANT</span>
-                    <h3 class="font-headline-md text-lg sm:text-xl font-bold text-royal-purple mb-1.5">Need ideas?</h3>
+        <section class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-12">
+            <a href="#/flow-assist" class="bg-royal-purple/10 border border-royal-purple/20 rounded-[2rem] p-4 sm:p-7 flex items-center justify-between overflow-hidden relative group cursor-pointer hover:bg-royal-purple/15 transition-all shadow-sm">
+                <div class="z-10 w-full sm:w-3/4">
+                    <span class="inline-flex items-center gap-1 text-[10px] font-bold text-royal-purple bg-white/70 dark:bg-slate-900/70 px-2.5 py-0.5 rounded-full mb-1.5">AI ASSISTANT</span>
+                    <h3 class="font-headline-md text-base sm:text-xl font-bold text-royal-purple mb-1.5">Need ideas?</h3>
                     <p class="text-xs text-on-surface-variant mb-4">Ask Flow Assist to build your custom snack combo for group studies or matches.</p>
                     <span class="bg-royal-purple text-white rounded-full px-4 py-1.5 text-xs font-semibold shadow-md hover:opacity-90 flex items-center gap-1.5 transition-opacity inline-flex">
                         <span class="material-symbols-outlined text-sm">auto_awesome</span> Try Flow Assist
                     </span>
                 </div>
-                <div class="absolute -right-6 -bottom-6 opacity-20 group-hover:opacity-30 transition-opacity pointer-events-none">
-                    <span class="material-symbols-outlined text-[130px] text-royal-purple" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+                <div class="absolute -right-4 -bottom-4 opacity-15 sm:opacity-20 group-hover:opacity-30 transition-opacity pointer-events-none">
+                    <span class="material-symbols-outlined text-[90px] sm:text-[130px] text-royal-purple" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
                 </div>
             </a>
 
-            <a href="#/categories" class="bg-emerald/10 border border-emerald/20 rounded-[2rem] p-5 sm:p-7 flex flex-col justify-between overflow-hidden relative cursor-pointer hover:bg-emerald/15 transition-all shadow-sm">
+            <a href="#/categories" class="bg-emerald/10 border border-emerald/20 rounded-[2rem] p-4 sm:p-7 flex flex-col justify-between overflow-hidden relative cursor-pointer hover:bg-emerald/15 transition-all shadow-sm">
                 <div class="z-10 w-full">
                     <div class="flex justify-between items-start mb-2">
                         <div>
-                            <span class="inline-flex items-center gap-1 text-[10px] font-bold text-emerald bg-white/70 px-2.5 py-0.5 rounded-full mb-1.5">3-MIN DELIVERY</span>
-                            <h3 class="font-headline-md text-lg sm:text-xl font-bold text-emerald">Campus Night Cravings</h3>
+                            <span class="inline-flex items-center gap-1 text-[10px] font-bold text-emerald bg-white/70 dark:bg-slate-900/70 px-2.5 py-0.5 rounded-full mb-1.5">3-MIN DELIVERY</span>
+                            <h3 class="font-headline-md text-base sm:text-xl font-bold text-emerald">Campus Night Cravings</h3>
                         </div>
-                        <span class="material-symbols-outlined text-emerald bg-emerald/20 p-2 rounded-2xl text-lg" style="font-variation-settings: 'FILL' 1;">local_pizza</span>
+                        <span class="material-symbols-outlined text-emerald bg-emerald/20 p-2 rounded-2xl text-lg shrink-0" style="font-variation-settings: 'FILL' 1;">local_pizza</span>
                     </div>
                     <p class="text-xs text-on-surface-variant mb-3">Open till 2 AM across all LPU Hostels. Get hot noodles, iced beverages & munchies delivered.</p>
                     <span class="text-xs font-semibold text-emerald flex items-center gap-1">Browse All Categories <span class="material-symbols-outlined text-xs">arrow_forward</span></span>

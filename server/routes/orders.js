@@ -81,7 +81,6 @@ try {
         seedProducts = JSON.parse(fs.readFileSync(prodsSnapPath, 'utf8'));
     }
     const delivered = fallbackOrdersCache.filter(o => ['Delivered', 'delivered'].includes(o.status));
-    const totalRev = delivered.reduce((s, o) => s + (Number(o.total) || 0), 0);
     fallbackAnalyticsCache = {
         metrics: {
             totalProducts: seedProducts.length || 15,
@@ -90,17 +89,14 @@ try {
             outOfStockCount: seedProducts.filter(p => !p.in_stock || p.stock_left === 0).length,
             totalOrdersCount: fallbackOrdersCache.length || 5,
             pendingOrdersCount: fallbackOrdersCache.filter(o => ACTIVE_STATUSES.includes(o.status)).length || 1,
-            deliveredOrdersCount: delivered.length || 4,
-            totalRevenue: totalRev || 925,
-            avgOrderValue: delivered.length > 0 ? Math.round(totalRev / delivered.length) : 230
+            deliveredOrdersCount: delivered.length || 4
         },
         lowStockItems: seedProducts.filter(p => p.stock_left > 0 && p.stock_left <= 4).slice(0, 5),
         topProducts: seedProducts.slice(0, 5).map(p => ({
             name: p.name,
             category: p.category,
             image_url: p.image_url,
-            total_sold: 12,
-            revenue: p.price * 12
+            total_sold: 12
         }))
     };
 } catch (e) {}
@@ -260,9 +256,6 @@ router.get('/admin/analytics', requireAdmin, async (req, res) => {
             const deliveredOrderIds = new Set(deliveredOrders.map(o => o.id));
             const pendingOrders = orders.filter(o => ACTIVE_STATUSES.includes(o.status));
 
-            const totalRevenue = deliveredOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-            const avgOrderValue = deliveredOrders.length > 0 ? Math.round(totalRevenue / deliveredOrders.length) : 0;
-
             const totalStock = products.reduce((sum, p) => sum + (p.stock_left || 0), 0);
             const lowStockProducts = products.filter(p => p.stock_left > 0 && p.stock_left <= 4);
             const outOfStockProducts = products.filter(p => !p.in_stock || p.stock_left === 0);
@@ -281,16 +274,14 @@ router.get('/admin/analytics', requireAdmin, async (req, res) => {
                         name: prod?.name || 'Campus Item',
                         category: prod?.category || 'General',
                         image_url: prod?.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60',
-                        total_sold: 0,
-                        revenue: 0
+                        total_sold: 0
                     };
                 }
                 productSales[pid].total_sold += item.quantity || 1;
-                productSales[pid].revenue += (item.quantity || 1) * (item.unit_price || prod?.price || 0);
             });
 
             const topProducts = Object.values(productSales)
-                .sort((a, b) => b.revenue - a.revenue)
+                .sort((a, b) => b.total_sold - a.total_sold)
                 .slice(0, 10);
 
             const result = {
@@ -301,9 +292,7 @@ router.get('/admin/analytics', requireAdmin, async (req, res) => {
                     outOfStockCount: outOfStockProducts.length,
                     totalOrdersCount: orders.length,
                     pendingOrdersCount: pendingOrders.length,
-                    deliveredOrdersCount: deliveredOrders.length,
-                    totalRevenue: Math.round(totalRevenue),
-                    avgOrderValue: avgOrderValue
+                    deliveredOrdersCount: deliveredOrders.length
                 },
                 lowStockItems: lowStockProducts.slice(0, 10),
                 topProducts
@@ -425,7 +414,6 @@ router.get('/admin/metrics', requireAdmin, async (req, res) => {
         const payload = await cache.wrap('orders:admin:metrics', async () => {
             const orders = await supabaseDb.orders.getAllOrders();
             const deliveredOrders = orders.filter(o => ['Delivered', 'delivered'].includes(o.status));
-            const totalRevenue = deliveredOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
             const activeOrders = orders.filter(o => ACTIVE_STATUSES.includes(o.status)).length;
 
             return {
@@ -433,7 +421,6 @@ router.get('/admin/metrics', requireAdmin, async (req, res) => {
                     total_orders: orders.length,
                     active_orders: activeOrders,
                     delivered_orders: deliveredOrders.length,
-                    total_revenue: totalRevenue,
                     avg_delivery_time_mins: 3.2
                 }
             };
