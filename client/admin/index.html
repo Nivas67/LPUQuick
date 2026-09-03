@@ -1,49 +1,57 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover"/>
-    <base href="/admin/"/>
+    <meta charset="utf-8" />
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover" />
+    <base href="/admin/" />
     <title>LPU Quick Admin Dashboard — Campus Operations Console</title>
-    
+
     <link rel="icon" type="image/png" href="/admin/favicon.png">
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <link href="https://fonts.googleapis.com" rel="preconnect"/>
-    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
     <link rel="stylesheet" href="/admin/css/admin.css?v=20260901r20">
     <script>
         // Proactively unregister any stale service worker for /admin and clear PWA cache
         if ('caches' in window) {
-            caches.keys().then(function(names) {
-                names.forEach(function(n) {
+            caches.keys().then(function (names) {
+                names.forEach(function (n) {
                     if (n.startsWith('lpuquick-pwa-v1')) caches.delete(n);
                 });
             });
         }
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function(regs) {
-                regs.forEach(function(r) {
+            navigator.serviceWorker.getRegistrations().then(function (regs) {
+                regs.forEach(function (r) {
                     if (r.scope && r.scope.includes('/admin')) r.unregister();
                 });
             });
         }
     </script>
 </head>
+
 <body class="antialiased flex h-screen overflow-hidden">
 
     <!-- Audio Chime for Real-Time Orders -->
     <audio id="order-chime" preload="auto"></audio>
 
     <!-- Live Real-Time Toast Notifications (Top Right) -->
-    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3 pointer-events-none max-w-sm w-full"></div>
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3 pointer-events-none max-w-sm w-full">
+    </div>
 
     <!-- SideNavBar (Exact Stitch Architecture) -->
-    <aside class="h-screen w-60 bg-white border-r border-[#DADCE0] shadow-sm z-50 flex flex-col hidden md:flex shrink-0">
+    <aside
+        class="h-screen w-60 bg-white border-r border-[#DADCE0] shadow-sm z-50 flex flex-col hidden md:flex shrink-0">
         <div class="p-6 border-b border-[#DADCE0]">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-[#3c4043] flex items-center justify-center text-white font-black text-lg">
+                <div
+                    class="w-10 h-10 rounded-full bg-[#3c4043] flex items-center justify-center text-white font-black text-lg">
                     ⚡
                 </div>
                 <div>
@@ -54,42 +62,54 @@
         </div>
 
         <nav class="flex-1 overflow-y-auto py-4 flex flex-col gap-1 no-scrollbar text-sm" id="desktop-nav">
-            <button onclick="switchView('dashboard')" data-view="dashboard" class="nav-item active flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+            <button onclick="switchView('dashboard')" data-view="dashboard"
+                class="nav-item active flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined">dashboard</span>
                 <span>Dashboard</span>
             </button>
-            <button onclick="switchView('client-lock')" data-view="client-lock" class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+            <button onclick="switchView('client-lock')" data-view="client-lock"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined">lock_clock</span>
                 <span class="flex-1">Client Lock</span>
-                <span id="nav-lock-badge" class="hidden text-[10px] bg-[#ba1a1a] text-white px-2 py-0.5 rounded-full font-bold">LOCKED</span>
+                <span id="nav-lock-badge"
+                    class="hidden text-[10px] bg-[#ba1a1a] text-white px-2 py-0.5 rounded-full font-bold">LOCKED</span>
             </button>
-            <button onclick="switchView('products')" data-view="products" class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+            <button onclick="switchView('products')" data-view="products"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined">shopping_bag</span>
                 <span>Products</span>
             </button>
-            <button onclick="switchView('inventory')" data-view="inventory" class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+            <button onclick="switchView('inventory')" data-view="inventory"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined">inventory_2</span>
                 <span>Inventory</span>
             </button>
-            <button onclick="switchView('orders')" data-view="orders" class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+            <button onclick="switchView('orders')" data-view="orders"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined">receipt_long</span>
                 <span class="flex-1">Orders</span>
-                <span id="nav-pending-badge" class="hidden text-[10px] bg-[#ba1a1a] text-white px-2 py-0.5 rounded-full font-bold">0</span>
+                <span id="nav-pending-badge"
+                    class="hidden text-[10px] bg-[#ba1a1a] text-white px-2 py-0.5 rounded-full font-bold">0</span>
             </button>
-            <button onclick="switchView('customers')" data-view="customers" class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+            <button onclick="switchView('customers')" data-view="customers"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined">group</span>
                 <span>Customers</span>
             </button>
-            <button onclick="switchView('blacklist')" data-view="blacklist" class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+            <button onclick="switchView('blacklist')" data-view="blacklist"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined">block</span>
                 <span class="flex-1">Blacklist</span>
-                <span id="nav-blacklist-badge" class="hidden text-[10px] bg-[#ba1a1a] text-white px-2 py-0.5 rounded-full font-bold">0</span>
+                <span id="nav-blacklist-badge"
+                    class="hidden text-[10px] bg-[#ba1a1a] text-white px-2 py-0.5 rounded-full font-bold">0</span>
             </button>
-            <button onclick="switchView('analytics')" data-view="analytics" class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+            <button onclick="switchView('analytics')" data-view="analytics"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined">analytics</span>
                 <span>Analytics</span>
             </button>
-            <button onclick="switchView('settings')" data-view="settings" class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+            <button onclick="switchView('settings')" data-view="settings"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined">settings</span>
                 <span>Settings</span>
             </button>
@@ -98,7 +118,8 @@
         <div class="p-4 border-t border-[#DADCE0] mt-auto">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-full bg-[#e0e3e6] flex items-center justify-center text-xs font-bold text-[#3c4043]">
+                    <div
+                        class="w-8 h-8 rounded-full bg-[#e0e3e6] flex items-center justify-center text-xs font-bold text-[#3c4043]">
                         AD
                     </div>
                     <div>
@@ -115,9 +136,10 @@
 
     <!-- Main Workspace -->
     <div class="flex-1 flex flex-col h-screen overflow-hidden">
-        
+
         <!-- Top App Bar -->
-        <header class="sticky top-0 z-40 w-full bg-white/80 backdrop-blur-md border-b border-[#DADCE0] flex justify-between items-center px-6 py-3 shrink-0">
+        <header
+            class="sticky top-0 z-40 w-full bg-white/80 backdrop-blur-md border-b border-[#DADCE0] flex justify-between items-center px-6 py-3 shrink-0">
             <div class="flex items-center gap-3 md:hidden">
                 <button onclick="toggleMobileMenu()" class="text-[#262a2d] p-1.5 hover:bg-[#ebeef2] rounded-lg">
                     <span class="material-symbols-outlined">menu</span>
@@ -139,13 +161,17 @@
             <!-- Actions -->
             <div class="flex items-center gap-2.5">
                 <!-- Sound Alert Controls -->
-                <button id="btn-sound-toggle" onclick="toggleSound()" class="bg-[#e6f4ea] hover:bg-[#ceead6] text-[#137333] px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm" title="Toggle audio alert chime">
+                <button id="btn-sound-toggle" onclick="toggleSound()"
+                    class="bg-[#e6f4ea] hover:bg-[#ceead6] text-[#137333] px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
+                    title="Toggle audio alert chime">
                     <span class="material-symbols-outlined text-[16px]" id="sound-icon">volume_up</span>
                     <span id="sound-status-text" class="hidden sm:inline">Sound: ON</span>
                 </button>
-                
+
                 <!-- Sound Theme Selector Dropdown -->
-                <select id="sound-theme-select" onchange="changeSoundTheme(this.value)" class="bg-[#f1f4f7] hover:bg-[#e0e3e6] border border-[#DADCE0] rounded-full px-2.5 py-1.5 text-xs font-semibold text-[#3c4043] outline-none cursor-pointer" title="Choose order notification sound">
+                <select id="sound-theme-select" onchange="changeSoundTheme(this.value)"
+                    class="bg-[#f1f4f7] hover:bg-[#e0e3e6] border border-[#DADCE0] rounded-full px-2.5 py-1.5 text-xs font-semibold text-[#3c4043] outline-none cursor-pointer"
+                    title="Choose order notification sound">
                     <option value="cash_register">💰 Cha-Ching / Cash</option>
                     <option value="urgent_alarm">🚨 Urgent Alarm (Loud)</option>
                     <option value="swiggy_pop">🛍️ Quick Pop (3-Tone)</option>
@@ -154,21 +180,28 @@
                     <option value="crystal_bell">🔔 Crystal Bell</option>
                 </select>
 
-                <button onclick="unlockAudioEngine(); testCampusSound();" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition-all shadow-sm active:scale-95" title="Test notification sound">
+                <button onclick="unlockAudioEngine(); testCampusSound();"
+                    class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition-all shadow-sm active:scale-95"
+                    title="Test notification sound">
                     <span class="material-symbols-outlined text-[16px]">play_circle</span>
                     <span class="hidden sm:inline">Test Sound</span>
                 </button>
 
-                <button id="btn-force-sync" onclick="forceLiveDbSync()" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-xs" title="Force Direct Supabase Cloud Sync (Laptop & Mobile)">
+                <button id="btn-force-sync" onclick="forceLiveDbSync()"
+                    class="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-xs"
+                    title="Force Direct Supabase Cloud Sync (Laptop & Mobile)">
                     <span class="material-symbols-outlined text-[16px]">cloud_sync</span>
                     <span class="hidden sm:inline">Sync Live Orders</span>
                 </button>
 
-                <button id="btn-header-refresh" onclick="refreshCurrentView()" class="bg-[#ebeef2] hover:bg-[#e0e3e6] text-[#262a2d] px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-xs" title="Refresh all dashboard data">
+                <button id="btn-header-refresh" onclick="refreshCurrentView()"
+                    class="bg-[#ebeef2] hover:bg-[#e0e3e6] text-[#262a2d] px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-xs"
+                    title="Refresh all dashboard data">
                     <span id="btn-header-refresh-icon" class="material-symbols-outlined text-[16px]">sync</span>
                     <span id="btn-header-refresh-text" class="hidden sm:inline">Refresh</span>
                 </button>
-                <a href="/" target="_blank" class="bg-[#3c4043] hover:bg-[#262a2d] text-white px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 shadow-sm transition-all">
+                <a href="/" target="_blank"
+                    class="bg-[#3c4043] hover:bg-[#262a2d] text-white px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 shadow-sm transition-all">
                     <span class="material-symbols-outlined text-[16px]">storefront</span>
                     <span>Storefront</span>
                 </a>
@@ -176,12 +209,16 @@
         </header>
 
         <!-- Audio Permission Unlock Banner (Auto-dismisses on first click) -->
-        <div id="audio-unlock-banner" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 flex items-center justify-between shadow-md cursor-pointer transition-colors shrink-0" onclick="unlockAudioEngine(); testCampusSound();">
+        <div id="audio-unlock-banner"
+            class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 flex items-center justify-between shadow-md cursor-pointer transition-colors shrink-0"
+            onclick="unlockAudioEngine(); testCampusSound();">
             <div class="flex items-center gap-2">
                 <span class="material-symbols-outlined text-sm animate-pulse">volume_up</span>
                 <span>🔊 Live Order Sound Alerts Active — Click here or anywhere to unlock browser sound alerts</span>
             </div>
-            <span class="bg-white/20 hover:bg-white/30 px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider">Tap to Test ❯</span>
+            <span
+                class="bg-white/20 hover:bg-white/30 px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider">Tap
+                to Test ❯</span>
         </div>
 
         <!-- Dynamic Views Container -->
@@ -196,11 +233,13 @@
                     </div>
                     <!-- Quick Store Lock Shortcut Button -->
                     <div class="flex items-center gap-2">
-                        <div id="dash-store-status-pill" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-[#e6f4ea] text-[#137333] border border-[#ceead6]">
+                        <div id="dash-store-status-pill"
+                            class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-[#e6f4ea] text-[#137333] border border-[#ceead6]">
                             <span class="w-2 h-2 rounded-full bg-[#137333] animate-pulse"></span>
                             <span id="dash-store-status-text">STORE OPEN</span>
                         </div>
-                        <button onclick="switchView('client-lock')" class="bg-[#3c4043] hover:bg-[#262a2d] text-white text-xs font-bold px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 shadow-sm transition-all">
+                        <button onclick="switchView('client-lock')"
+                            class="bg-[#3c4043] hover:bg-[#262a2d] text-white text-xs font-bold px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 shadow-sm transition-all">
                             <span class="material-symbols-outlined text-[16px]">lock_clock</span>
                             <span>Manage Store Lock</span>
                         </button>
@@ -208,77 +247,97 @@
                 </div>
 
                 <!-- 5 Operational KPI Bento Cards -->
-                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
-                    <div class="glass-panel p-3.5 flex flex-col justify-between hover:-translate-y-0.5 transition-transform">
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3"
+                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
+                    <div
+                        class="glass-panel p-3.5 flex flex-col justify-between hover:-translate-y-0.5 transition-transform">
                         <div class="flex justify-between items-start mb-2">
                             <span class="material-symbols-outlined text-[#3c4043] text-lg">inventory_2</span>
                         </div>
                         <div>
-                            <p class="text-[10px] font-semibold text-[#5c5f60] uppercase tracking-wider mb-0.5">Products</p>
+                            <p class="text-[10px] font-semibold text-[#5c5f60] uppercase tracking-wider mb-0.5">Products
+                            </p>
                             <p class="text-xl font-bold text-[#181c1f]" id="dash-total-products">--</p>
                         </div>
                     </div>
-                    <div class="glass-panel p-3.5 flex flex-col justify-between hover:-translate-y-0.5 transition-transform">
+                    <div
+                        class="glass-panel p-3.5 flex flex-col justify-between hover:-translate-y-0.5 transition-transform">
                         <div class="flex justify-between items-start mb-2">
                             <span class="material-symbols-outlined text-[#3c4043] text-lg">layers</span>
                         </div>
                         <div>
-                            <p class="text-[10px] font-semibold text-[#5c5f60] uppercase tracking-wider mb-0.5">Total Stock</p>
+                            <p class="text-[10px] font-semibold text-[#5c5f60] uppercase tracking-wider mb-0.5">Total
+                                Stock</p>
                             <p class="text-xl font-bold text-[#181c1f]" id="dash-total-stock">--</p>
                         </div>
                     </div>
-                    <div class="glass-panel p-3.5 flex flex-col justify-between hover:-translate-y-0.5 transition-transform bg-[#ffdad6]/20 border-[#ffdad6]">
+                    <div
+                        class="glass-panel p-3.5 flex flex-col justify-between hover:-translate-y-0.5 transition-transform bg-[#ffdad6]/20 border-[#ffdad6]">
                         <div class="flex justify-between items-start mb-2">
                             <span class="material-symbols-outlined text-[#ba1a1a] text-lg">warning</span>
                         </div>
                         <div>
-                            <p class="text-[10px] font-semibold text-[#ba1a1a] uppercase tracking-wider mb-0.5">Low Stock</p>
+                            <p class="text-[10px] font-semibold text-[#ba1a1a] uppercase tracking-wider mb-0.5">Low
+                                Stock</p>
                             <p class="text-xl font-bold text-[#ba1a1a]" id="dash-low-stock">--</p>
                         </div>
                     </div>
-                    <div class="glass-panel p-3.5 flex flex-col justify-between hover:-translate-y-0.5 transition-transform">
+                    <div
+                        class="glass-panel p-3.5 flex flex-col justify-between hover:-translate-y-0.5 transition-transform">
                         <div class="flex justify-between items-start mb-2">
                             <span class="material-symbols-outlined text-[#3c4043] text-lg">shopping_cart</span>
                         </div>
                         <div>
-                            <p class="text-[10px] font-semibold text-[#5c5f60] uppercase tracking-wider mb-0.5">Total Orders</p>
+                            <p class="text-[10px] font-semibold text-[#5c5f60] uppercase tracking-wider mb-0.5">Total
+                                Orders</p>
                             <p class="text-xl font-bold text-[#181c1f]" id="dash-total-orders">--</p>
                         </div>
                     </div>
-                    <div class="glass-panel p-3.5 flex flex-col justify-between hover:-translate-y-0.5 transition-transform">
+                    <div
+                        class="glass-panel p-3.5 flex flex-col justify-between hover:-translate-y-0.5 transition-transform">
                         <div class="flex justify-between items-start mb-2">
                             <span class="material-symbols-outlined text-[#b06000] text-lg">pending_actions</span>
                         </div>
                         <div>
-                            <p class="text-[10px] font-semibold text-[#5c5f60] uppercase tracking-wider mb-0.5">Pending</p>
+                            <p class="text-[10px] font-semibold text-[#5c5f60] uppercase tracking-wider mb-0.5">Pending
+                            </p>
                             <p class="text-xl font-bold text-[#b06000]" id="dash-pending-orders">--</p>
                         </div>
                     </div>
                 </div>
 
                 <!-- Financial Information & PIN Security Banner -->
-                <div class="glass-panel p-5 mb-6 border border-emerald-500/20 bg-gradient-to-r from-emerald-500/5 via-white to-white dark:via-slate-900 dark:to-slate-900 relative overflow-hidden shadow-sm" id="financial-security-card">
+                <div class="glass-panel p-5 mb-6 border border-emerald-500/20 bg-gradient-to-r from-emerald-500/5 via-white to-white dark:via-slate-900 dark:to-slate-900 relative overflow-hidden shadow-sm"
+                    id="financial-security-card">
                     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-2xl bg-emerald/10 text-emerald flex items-center justify-center font-bold" id="fin-status-icon">
+                            <div class="w-10 h-10 rounded-2xl bg-emerald/10 text-emerald flex items-center justify-center font-bold"
+                                id="fin-status-icon">
                                 <span class="material-symbols-outlined text-xl">lock</span>
                             </div>
                             <div>
                                 <div class="flex items-center gap-2">
                                     <h3 class="text-sm font-bold text-on-surface">Financial Intelligence</h3>
-                                    <span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 border border-rose-500/20" id="fin-badge">🔒 LOCKED</span>
+                                    <span
+                                        class="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 border border-rose-500/20"
+                                        id="fin-badge">🔒 LOCKED</span>
                                 </div>
-                                <p class="text-xs text-[#5c5f60]" id="fin-status-desc">Revenue & Profit figures are encrypted with PIN security.</p>
+                                <p class="text-xs text-[#5c5f60]" id="fin-status-desc">Revenue & Profit figures are
+                                    encrypted with PIN security.</p>
                             </div>
                         </div>
 
                         <!-- Action controls -->
                         <div class="flex items-center gap-2 w-full sm:w-auto" id="fin-controls-container">
-                            <button type="button" class="btn btn-sm btn-primary flex-1 sm:flex-initial flex items-center justify-center gap-1.5 shadow-sm py-2 px-3.5 bg-emerald text-white rounded-xl text-xs font-bold hover:bg-primary transition-all active:scale-95" id="btn-unlock-fin">
+                            <button type="button"
+                                class="btn btn-sm btn-primary flex-1 sm:flex-initial flex items-center justify-center gap-1.5 shadow-sm py-2 px-3.5 bg-emerald text-white rounded-xl text-xs font-bold hover:bg-primary transition-all active:scale-95"
+                                id="btn-unlock-fin">
                                 <span class="material-symbols-outlined text-sm">key</span>
                                 <span id="btn-unlock-fin-text">Unlock with PIN</span>
                             </button>
-                            <button type="button" class="btn btn-sm btn-outline flex items-center justify-center gap-1 py-2 px-3 border border-[#DADCE0] rounded-xl text-xs font-semibold text-[#3c4043] hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" id="btn-configure-fin-pin" title="Change or Set Financial PIN">
+                            <button type="button"
+                                class="btn btn-sm btn-outline flex items-center justify-center gap-1 py-2 px-3 border border-[#DADCE0] rounded-xl text-xs font-semibold text-[#3c4043] hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                                id="btn-configure-fin-pin" title="Change or Set Financial PIN">
                                 <span class="material-symbols-outlined text-sm">settings</span>
                                 <span>PIN Setup</span>
                             </button>
@@ -286,37 +345,53 @@
                     </div>
 
                     <!-- Dual Financial Tiles: Revenue & Profit -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4 pt-4 border-t border-[#DADCE0]">
-                        <div class="bg-white/80 dark:bg-slate-800/80 rounded-2xl p-3.5 border border-[#DADCE0] flex flex-col justify-between shadow-xs">
+                    <div
+                        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4 pt-4 border-t border-[#DADCE0]">
+                        <div
+                            class="bg-white/80 dark:bg-slate-800/80 rounded-2xl p-3.5 border border-[#DADCE0] flex flex-col justify-between shadow-xs">
                             <div class="flex justify-between items-center mb-1">
-                                <span class="text-[10px] font-extrabold uppercase tracking-wider text-[#5c5f60]">Campus Gross Revenue</span>
+                                <span class="text-[10px] font-extrabold uppercase tracking-wider text-[#5c5f60]">Campus
+                                    Gross Revenue</span>
                                 <span class="material-symbols-outlined text-sm text-emerald">payments</span>
                             </div>
                             <div class="flex items-baseline gap-2">
-                                <p class="text-2xl font-black text-[#181c1f] tracking-tight" id="fin-val-revenue">🔒 ••••••</p>
-                                <span class="text-[10px] font-bold text-[#5c5f60] hidden" id="fin-sub-revenue">From completed orders</span>
+                                <p class="text-2xl font-black text-[#181c1f] tracking-tight" id="fin-val-revenue">🔒
+                                    ••••••</p>
+                                <span class="text-[10px] font-bold text-[#5c5f60] hidden" id="fin-sub-revenue">From
+                                    completed orders</span>
                             </div>
                         </div>
 
-                        <div class="bg-white/80 dark:bg-slate-800/80 rounded-2xl p-3.5 border border-[#DADCE0] flex flex-col justify-between shadow-xs">
+                        <div
+                            class="bg-white/80 dark:bg-slate-800/80 rounded-2xl p-3.5 border border-[#DADCE0] flex flex-col justify-between shadow-xs">
                             <div class="flex justify-between items-center mb-1">
-                                <span class="text-[10px] font-extrabold uppercase tracking-wider text-[#5c5f60]">Estimated Net Profit</span>
+                                <span
+                                    class="text-[10px] font-extrabold uppercase tracking-wider text-[#5c5f60]">Estimated
+                                    Net Profit</span>
                                 <span class="material-symbols-outlined text-sm text-emerald">trending_up</span>
                             </div>
                             <div class="flex items-baseline gap-2">
-                                <p class="text-2xl font-black text-emerald tracking-tight" id="fin-val-profit">🔒 ••••••</p>
-                                <span class="text-[10px] font-bold text-emerald/80 hidden" id="fin-sub-profit">22% Net platform margin</span>
+                                <p class="text-2xl font-black text-emerald tracking-tight" id="fin-val-profit">🔒 ••••••
+                                </p>
+                                <span class="text-[10px] font-bold text-emerald/80 hidden" id="fin-sub-profit">22% Net
+                                    platform margin</span>
                             </div>
                         </div>
 
-                        <div class="bg-white/80 dark:bg-slate-800/80 rounded-2xl p-3.5 border border-[#DADCE0] flex flex-col justify-between shadow-xs col-span-1 sm:col-span-2 lg:col-span-1">
+                        <div
+                            class="bg-white/80 dark:bg-slate-800/80 rounded-2xl p-3.5 border border-[#DADCE0] flex flex-col justify-between shadow-xs col-span-1 sm:col-span-2 lg:col-span-1">
                             <div class="flex justify-between items-center mb-1">
-                                <span class="text-[10px] font-extrabold uppercase tracking-wider text-[#5c5f60]">Security Session</span>
+                                <span
+                                    class="text-[10px] font-extrabold uppercase tracking-wider text-[#5c5f60]">Security
+                                    Session</span>
                                 <span class="material-symbols-outlined text-sm text-[#5c5f60]">timer</span>
                             </div>
                             <div class="flex items-center justify-between">
-                                <p class="text-xs font-bold text-[#181c1f]" id="fin-timer-label">Auto-lock active (Locked)</p>
-                                <button type="button" class="text-xs font-extrabold text-rose-600 hover:text-rose-700 hidden" id="btn-manual-relock">
+                                <p class="text-xs font-bold text-[#181c1f]" id="fin-timer-label">Auto-lock active
+                                    (Locked)</p>
+                                <button type="button"
+                                    class="text-xs font-extrabold text-rose-600 hover:text-rose-700 hidden"
+                                    id="btn-manual-relock">
                                     🔒 Lock Now
                                 </button>
                             </div>
@@ -330,7 +405,8 @@
                     <div class="lg:col-span-2 glass-panel overflow-hidden flex flex-col">
                         <div class="p-4 border-b border-[#DADCE0] flex justify-between items-center">
                             <h3 class="font-bold text-base text-[#181c1f]">Recent Campus Orders</h3>
-                            <button onclick="switchView('orders')" class="text-xs font-semibold text-[#3c4043] hover:underline flex items-center gap-1">
+                            <button onclick="switchView('orders')"
+                                class="text-xs font-semibold text-[#3c4043] hover:underline flex items-center gap-1">
                                 View All <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
                             </button>
                         </div>
@@ -348,7 +424,9 @@
                                     </tr>
                                 </thead>
                                 <tbody id="dash-recent-orders-tbody" class="divide-y divide-[#DADCE0]">
-                                    <tr><td colspan="7" class="p-6 text-center text-[#5c5f60]">Loading orders...</td></tr>
+                                    <tr>
+                                        <td colspan="7" class="p-6 text-center text-[#5c5f60]">Loading orders...</td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
@@ -365,7 +443,8 @@
                             <div class="text-xs text-center text-[#5c5f60] py-4">Checking inventory...</div>
                         </div>
                         <div class="p-4 border-t border-[#DADCE0] mt-auto">
-                            <button onclick="switchView('inventory')" class="w-full bg-[#3c4043] hover:bg-[#262a2d] text-white font-semibold text-xs py-2.5 rounded-lg transition-all flex items-center justify-center gap-1.5">
+                            <button onclick="switchView('inventory')"
+                                class="w-full bg-[#3c4043] hover:bg-[#262a2d] text-white font-semibold text-xs py-2.5 rounded-lg transition-all flex items-center justify-center gap-1.5">
                                 <span class="material-symbols-outlined text-[16px]">inventory_2</span>
                                 <span>Manage Full Inventory</span>
                             </button>
@@ -382,9 +461,11 @@
                             <span class="material-symbols-outlined text-[#ba1a1a]">lock_clock</span>
                             <span>Client Dashboard Control</span>
                         </h2>
-                        <p class="text-sm text-[#5c5f60] mt-0.5">Control customer storefront access, duration locks, and automated schedules</p>
+                        <p class="text-sm text-[#5c5f60] mt-0.5">Control customer storefront access, duration locks, and
+                            automated schedules</p>
                     </div>
-                    <button onclick="refreshClientLockState()" class="text-xs font-semibold text-[#3c4043] bg-white border border-[#DADCE0] px-3.5 py-2 rounded-lg hover:bg-[#f1f4f7] flex items-center gap-1.5 shadow-sm">
+                    <button onclick="refreshClientLockState()"
+                        class="text-xs font-semibold text-[#3c4043] bg-white border border-[#DADCE0] px-3.5 py-2 rounded-lg hover:bg-[#f1f4f7] flex items-center gap-1.5 shadow-sm">
                         <span class="material-symbols-outlined text-[16px]">refresh</span>
                         <span>Refresh Status</span>
                     </button>
@@ -395,8 +476,10 @@
                     <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                         <div class="space-y-2">
                             <div class="flex items-center gap-3">
-                                <span class="text-xs uppercase font-bold tracking-wider text-[#5c5f60]">Current Storefront State</span>
-                                <span id="lock-state-badge" class="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wide bg-[#e6f4ea] text-[#137333] border border-[#ceead6]">
+                                <span class="text-xs uppercase font-bold tracking-wider text-[#5c5f60]">Current
+                                    Storefront State</span>
+                                <span id="lock-state-badge"
+                                    class="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wide bg-[#e6f4ea] text-[#137333] border border-[#ceead6]">
                                     AVAILABLE
                                 </span>
                             </div>
@@ -404,16 +487,21 @@
                                 Store is OPEN for student orders
                             </h3>
                             <p class="text-xs text-[#5c5f60]" id="lock-sub-display">
-                                Students can browse products, manage their cart, and place orders with 3-minute delivery.
+                                Students can browse products, manage their cart, and place orders with 3-minute
+                                delivery.
                             </p>
                             <div id="lock-timer-box" class="hidden flex items-center gap-2 pt-2">
-                                <span class="material-symbols-outlined text-[#ba1a1a] text-lg animate-pulse">timer</span>
+                                <span
+                                    class="material-symbols-outlined text-[#ba1a1a] text-lg animate-pulse">timer</span>
                                 <span class="text-sm font-bold text-[#ba1a1a]">Time Remaining:</span>
-                                <span class="text-lg font-black font-mono text-[#ba1a1a] bg-[#ffdad6]/40 px-3 py-0.5 rounded-lg" id="lock-timer-countdown">00:00:00</span>
+                                <span
+                                    class="text-lg font-black font-mono text-[#ba1a1a] bg-[#ffdad6]/40 px-3 py-0.5 rounded-lg"
+                                    id="lock-timer-countdown">00:00:00</span>
                             </div>
                         </div>
                         <div class="flex flex-col gap-2 w-full md:w-auto">
-                            <button type="button" id="btn-quick-unlock" onclick="handleUnlockStore()" class="hidden bg-[#137333] hover:bg-[#0f5b28] text-white px-5 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-95">
+                            <button type="button" id="btn-quick-unlock" onclick="handleUnlockStore()"
+                                class="hidden bg-[#137333] hover:bg-[#0f5b28] text-white px-5 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-95">
                                 <span class="material-symbols-outlined text-[18px]">lock_open</span>
                                 <span>Unlock Storefront Now</span>
                             </button>
@@ -429,62 +517,92 @@
                     </h3>
 
                     <form id="client-lock-form" onsubmit="handleApplyLock(event)" class="space-y-6 text-xs">
-                        
+
                         <!-- Mode Selector (Radio Cards) -->
                         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                            <label class="lock-mode-card border-2 border-[#3c4043] bg-[#3c4043]/5 p-4 rounded-xl cursor-pointer flex flex-col gap-2 transition-all">
+                            <label
+                                class="lock-mode-card border-2 border-[#3c4043] bg-[#3c4043]/5 p-4 rounded-xl cursor-pointer flex flex-col gap-2 transition-all">
                                 <div class="flex items-center justify-between">
-                                    <input type="radio" name="lock_mode" value="IMMEDIATE" checked onchange="handleLockModeChange()" class="text-[#3c4043] focus:ring-[#3c4043]">
+                                    <input type="radio" name="lock_mode" value="IMMEDIATE" checked
+                                        onchange="handleLockModeChange()" class="text-[#3c4043] focus:ring-[#3c4043]">
                                     <span class="material-symbols-outlined text-[#ba1a1a]">lock</span>
                                 </div>
                                 <span class="font-bold text-sm text-[#181c1f]">Immediate Lock</span>
-                                <span class="text-[11px] text-[#5c5f60]">Lock the store immediately until manually unlocked or duration ends.</span>
+                                <span class="text-[11px] text-[#5c5f60]">Lock the store immediately until manually
+                                    unlocked or duration ends.</span>
                             </label>
 
-                            <label class="lock-mode-card border border-[#DADCE0] p-4 rounded-xl cursor-pointer flex flex-col gap-2 hover:border-[#3c4043] transition-all">
+                            <label
+                                class="lock-mode-card border border-[#DADCE0] p-4 rounded-xl cursor-pointer flex flex-col gap-2 hover:border-[#3c4043] transition-all">
                                 <div class="flex items-center justify-between">
-                                    <input type="radio" name="lock_mode" value="DURATION" onchange="handleLockModeChange()" class="text-[#3c4043] focus:ring-[#3c4043]">
+                                    <input type="radio" name="lock_mode" value="DURATION"
+                                        onchange="handleLockModeChange()" class="text-[#3c4043] focus:ring-[#3c4043]">
                                     <span class="material-symbols-outlined text-[#b06000]">hourglass_top</span>
                                 </div>
                                 <span class="font-bold text-sm text-[#181c1f]">Duration Timer</span>
-                                <span class="text-[11px] text-[#5c5f60]">Lock for a set duration (e.g. 30m, 1h) with auto-unlock when timer ends.</span>
+                                <span class="text-[11px] text-[#5c5f60]">Lock for a set duration (e.g. 30m, 1h) with
+                                    auto-unlock when timer ends.</span>
                             </label>
 
-                            <label class="lock-mode-card border border-[#DADCE0] p-4 rounded-xl cursor-pointer flex flex-col gap-2 hover:border-[#3c4043] transition-all">
+                            <label
+                                class="lock-mode-card border border-[#DADCE0] p-4 rounded-xl cursor-pointer flex flex-col gap-2 hover:border-[#3c4043] transition-all">
                                 <div class="flex items-center justify-between">
-                                    <input type="radio" name="lock_mode" value="SCHEDULED" onchange="handleLockModeChange()" class="text-[#3c4043] focus:ring-[#3c4043]">
+                                    <input type="radio" name="lock_mode" value="SCHEDULED"
+                                        onchange="handleLockModeChange()" class="text-[#3c4043] focus:ring-[#3c4043]">
                                     <span class="material-symbols-outlined text-[#1a73e8]">event</span>
                                 </div>
                                 <span class="font-bold text-sm text-[#181c1f]">Scheduled Lock</span>
-                                <span class="text-[11px] text-[#5c5f60]">Specify exact start and end date & time for automated lock window.</span>
+                                <span class="text-[11px] text-[#5c5f60]">Specify exact start and end date & time for
+                                    automated lock window.</span>
                             </label>
 
-                            <label class="lock-mode-card border border-[#DADCE0] p-4 rounded-xl cursor-pointer flex flex-col gap-2 hover:border-[#3c4043] transition-all">
+                            <label
+                                class="lock-mode-card border border-[#DADCE0] p-4 rounded-xl cursor-pointer flex flex-col gap-2 hover:border-[#3c4043] transition-all">
                                 <div class="flex items-center justify-between">
-                                    <input type="radio" name="lock_mode" value="MANUAL" onchange="handleLockModeChange()" class="text-[#3c4043] focus:ring-[#3c4043]">
+                                    <input type="radio" name="lock_mode" value="MANUAL"
+                                        onchange="handleLockModeChange()" class="text-[#3c4043] focus:ring-[#3c4043]">
                                     <span class="material-symbols-outlined text-[#74777a]">pan_tool</span>
                                 </div>
                                 <span class="font-bold text-sm text-[#181c1f]">Manual Lock</span>
-                                <span class="text-[11px] text-[#5c5f60]">Lock indefinitely without countdown until an admin manually unlocks.</span>
+                                <span class="text-[11px] text-[#5c5f60]">Lock indefinitely without countdown until an
+                                    admin manually unlocks.</span>
                             </label>
                         </div>
 
                         <!-- Duration Selector (Shown when IMMEDIATE or DURATION selected) -->
-                        <div id="section-duration-picker" class="space-y-3 p-4 bg-[#f8f9fa] rounded-xl border border-[#DADCE0]">
-                            <label class="font-bold text-[#181c1f] block">Select Lock Duration (Auto-Unlock Countdown Timer)</label>
+                        <div id="section-duration-picker"
+                            class="space-y-3 p-4 bg-[#f8f9fa] rounded-xl border border-[#DADCE0]">
+                            <label class="font-bold text-[#181c1f] block">Select Lock Duration (Auto-Unlock Countdown
+                                Timer)</label>
 
                             <div class="flex flex-wrap gap-2">
-                                <button type="button" onclick="setDurationMins(15)" class="duration-chip px-4 py-2 rounded-lg border border-[#DADCE0] bg-white font-semibold hover:border-[#3c4043]">15 Minutes</button>
-                                <button type="button" onclick="setDurationMins(30)" class="duration-chip active px-4 py-2 rounded-lg border-2 border-[#3c4043] bg-[#3c4043] text-white font-semibold">30 Minutes</button>
-                                <button type="button" onclick="setDurationMins(60)" class="duration-chip px-4 py-2 rounded-lg border border-[#DADCE0] bg-white font-semibold hover:border-[#3c4043]">1 Hour</button>
-                                <button type="button" onclick="setDurationMins(120)" class="duration-chip px-4 py-2 rounded-lg border border-[#DADCE0] bg-white font-semibold hover:border-[#3c4043]">2 Hours</button>
-                                <button type="button" onclick="setDurationUntil(6)" class="duration-chip px-4 py-2 rounded-lg border border-[#DADCE0] bg-white font-semibold hover:border-[#3c4043]">Until 6:00 AM</button>
-                                <button type="button" onclick="setDurationUntil(8)" class="duration-chip px-4 py-2 rounded-lg border border-[#DADCE0] bg-white font-semibold hover:border-[#3c4043]">Until 8:00 AM</button>
-                                <button type="button" onclick="setDurationMins(480)" class="duration-chip px-4 py-2 rounded-lg border border-[#DADCE0] bg-white font-semibold hover:border-[#3c4043]">8 Hours</button>
+                                <button type="button" onclick="setDurationMins(15)"
+                                    class="duration-chip px-4 py-2 rounded-lg border border-[#DADCE0] bg-white font-semibold hover:border-[#3c4043]">15
+                                    Minutes</button>
+                                <button type="button" onclick="setDurationMins(30)"
+                                    class="duration-chip active px-4 py-2 rounded-lg border-2 border-[#3c4043] bg-[#3c4043] text-white font-semibold">30
+                                    Minutes</button>
+                                <button type="button" onclick="setDurationMins(60)"
+                                    class="duration-chip px-4 py-2 rounded-lg border border-[#DADCE0] bg-white font-semibold hover:border-[#3c4043]">1
+                                    Hour</button>
+                                <button type="button" onclick="setDurationMins(120)"
+                                    class="duration-chip px-4 py-2 rounded-lg border border-[#DADCE0] bg-white font-semibold hover:border-[#3c4043]">2
+                                    Hours</button>
+                                <button type="button" onclick="setDurationUntil(6)"
+                                    class="duration-chip px-4 py-2 rounded-lg border border-[#DADCE0] bg-white font-semibold hover:border-[#3c4043]">Until
+                                    6:00 AM</button>
+                                <button type="button" onclick="setDurationUntil(8)"
+                                    class="duration-chip px-4 py-2 rounded-lg border border-[#DADCE0] bg-white font-semibold hover:border-[#3c4043]">Until
+                                    8:00 AM</button>
+                                <button type="button" onclick="setDurationMins(480)"
+                                    class="duration-chip px-4 py-2 rounded-lg border border-[#DADCE0] bg-white font-semibold hover:border-[#3c4043]">8
+                                    Hours</button>
                             </div>
                             <div class="flex items-center gap-2 pt-2 flex-wrap">
                                 <span class="text-xs text-[#5c5f60]">Or custom minutes:</span>
-                                <input type="number" id="input-custom-duration" min="1" max="2880" value="30" oninput="updateDurationPreview()" class="w-24 border border-[#DADCE0] rounded-lg p-2 font-semibold">
+                                <input type="number" id="input-custom-duration" min="1" max="2880" value="30"
+                                    oninput="updateDurationPreview()"
+                                    class="w-24 border border-[#DADCE0] rounded-lg p-2 font-semibold">
                                 <span class="text-xs text-[#5c5f60]">minutes</span>
                                 <span id="duration-reopen-preview" class="text-xs font-bold text-[#137333]"></span>
                             </div>
@@ -492,20 +610,25 @@
 
 
                         <!-- Schedule Pickers (Shown when SCHEDULED selected) -->
-                        <div id="section-schedule-picker" class="hidden space-y-3 p-4 bg-[#f8f9fa] rounded-xl border border-[#DADCE0]">
+                        <div id="section-schedule-picker"
+                            class="hidden space-y-3 p-4 bg-[#f8f9fa] rounded-xl border border-[#DADCE0]">
                             <label class="font-bold text-[#181c1f] block">Select Lock Schedule Window</label>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
                                     <label class="font-semibold text-[#5c5f60] block mb-1">Start Date & Time</label>
-                                    <input type="datetime-local" id="input-schedule-start" class="w-full border border-[#DADCE0] rounded-lg p-2.5 bg-white font-medium">
+                                    <input type="datetime-local" id="input-schedule-start"
+                                        class="w-full border border-[#DADCE0] rounded-lg p-2.5 bg-white font-medium">
                                 </div>
                                 <div>
-                                    <label class="font-semibold text-[#5c5f60] block mb-1">End Date & Time (Store Reopens)</label>
-                                    <input type="datetime-local" id="input-schedule-end" class="w-full border border-[#DADCE0] rounded-lg p-2.5 bg-white font-medium">
+                                    <label class="font-semibold text-[#5c5f60] block mb-1">End Date & Time (Store
+                                        Reopens)</label>
+                                    <input type="datetime-local" id="input-schedule-end"
+                                        class="w-full border border-[#DADCE0] rounded-lg p-2.5 bg-white font-medium">
                                 </div>
                             </div>
                             <p class="text-[11px] text-[#5c5f60]">
-                                💡 Tip: Storefront will automatically lock when the start time arrives, show live countdown to reopening time, and automatically reopen at the end time.
+                                💡 Tip: Storefront will automatically lock when the start time arrives, show live
+                                countdown to reopening time, and automatically reopen at the end time.
                             </p>
                         </div>
 
@@ -514,17 +637,22 @@
                             <label class="font-bold text-[#181c1f] block mb-1.5" for="input-lock-message">
                                 Custom Closed Message <span class="font-normal text-[#5c5f60]">(Optional)</span>
                             </label>
-                            <input id="input-lock-message" type="text" placeholder="e.g. We are restocking fresh snacks! Back in a moment." class="w-full border border-[#DADCE0] rounded-xl p-3 bg-white focus:outline-none focus:ring-2 focus:ring-[#3c4043] font-medium text-xs">
-                            <p class="text-[11px] text-[#74777a] mt-1">If provided, this message will be displayed on the customer lock screen.</p>
+                            <input id="input-lock-message" type="text"
+                                placeholder="e.g. We are restocking fresh snacks! Back in a moment."
+                                class="w-full border border-[#DADCE0] rounded-xl p-3 bg-white focus:outline-none focus:ring-2 focus:ring-[#3c4043] font-medium text-xs">
+                            <p class="text-[11px] text-[#74777a] mt-1">If provided, this message will be displayed on
+                                the customer lock screen.</p>
                         </div>
 
                         <!-- Submit Buttons -->
                         <div class="flex items-center gap-3 pt-2">
-                            <button type="submit" id="btn-apply-lock" class="bg-[#ba1a1a] hover:bg-[#93000a] text-white px-6 py-3 rounded-xl font-bold text-xs flex items-center gap-2 shadow-md transition-all active:scale-95">
+                            <button type="submit" id="btn-apply-lock"
+                                class="bg-[#ba1a1a] hover:bg-[#93000a] text-white px-6 py-3 rounded-xl font-bold text-xs flex items-center gap-2 shadow-md transition-all active:scale-95">
                                 <span class="material-symbols-outlined text-[18px]">lock</span>
                                 <span id="btn-apply-lock-text">Lock Client Dashboard Now</span>
                             </button>
-                            <button type="button" onclick="handleUnlockStore()" class="bg-white border border-[#DADCE0] text-[#181c1f] hover:bg-[#f1f4f7] px-5 py-3 rounded-xl font-bold text-xs flex items-center gap-2 transition-all">
+                            <button type="button" onclick="handleUnlockStore()"
+                                class="bg-white border border-[#DADCE0] text-[#181c1f] hover:bg-[#f1f4f7] px-5 py-3 rounded-xl font-bold text-xs flex items-center gap-2 transition-all">
                                 <span class="material-symbols-outlined text-[18px]">lock_open</span>
                                 <span>Unlock / Set Available</span>
                             </button>
@@ -541,7 +669,8 @@
                         <h2 class="text-2xl font-bold text-[#181c1f]">Product Management</h2>
                         <p class="text-sm text-[#5c5f60]">Manage all 78+ campus catalog items</p>
                     </div>
-                    <button onclick="openProductModal()" class="bg-[#3c4043] hover:bg-[#262a2d] text-white px-5 py-2.5 rounded-full font-semibold text-xs flex items-center gap-2 shadow-sm transition-all active:scale-95">
+                    <button onclick="openProductModal()"
+                        class="bg-[#3c4043] hover:bg-[#262a2d] text-white px-5 py-2.5 rounded-full font-semibold text-xs flex items-center gap-2 shadow-sm transition-all active:scale-95">
                         <span class="material-symbols-outlined text-[18px]">add</span>
                         <span>Add New Product</span>
                     </button>
@@ -551,16 +680,26 @@
                 <div class="glass-panel p-4 space-y-3">
                     <div class="flex flex-col lg:flex-row gap-4 items-center justify-between">
                         <div class="relative w-full lg:w-96">
-                            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#74777a]">search</span>
-                            <input id="product-search-input" oninput="filterProducts()" class="w-full bg-[#F1F3F4] border-transparent focus:bg-white focus:border-[#3c4043] rounded-full py-2 pl-10 pr-4 text-xs text-[#181c1f] outline-none" placeholder="Search products by name or category..." type="text"/>
+                            <span
+                                class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#74777a]">search</span>
+                            <input id="product-search-input" oninput="filterProducts()"
+                                class="w-full bg-[#F1F3F4] border-transparent focus:bg-white focus:border-[#3c4043] rounded-full py-2 pl-10 pr-4 text-xs text-[#181c1f] outline-none"
+                                placeholder="Search products by name or category..." type="text" />
                         </div>
 
                         <!-- Status Filter Pills -->
                         <div class="flex overflow-x-auto w-full lg:w-auto no-scrollbar gap-2" id="product-filter-pills">
-                            <button onclick="setProductStatusFilter('all')" data-status="all" class="prod-filter-btn px-4 py-1.5 rounded-full bg-[#3c4043] text-white text-xs font-semibold">All</button>
-                            <button onclick="setProductStatusFilter('active')" data-status="active" class="prod-filter-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium">In Stock</button>
-                            <button onclick="setProductStatusFilter('low')" data-status="low" class="prod-filter-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium">Low Stock</button>
-                            <button onclick="setProductStatusFilter('out')" data-status="out" class="prod-filter-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium">Out of Stock</button>
+                            <button onclick="setProductStatusFilter('all')" data-status="all"
+                                class="prod-filter-btn px-4 py-1.5 rounded-full bg-[#3c4043] text-white text-xs font-semibold">All</button>
+                            <button onclick="setProductStatusFilter('active')" data-status="active"
+                                class="prod-filter-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium">In
+                                Stock</button>
+                            <button onclick="setProductStatusFilter('low')" data-status="low"
+                                class="prod-filter-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium">Low
+                                Stock</button>
+                            <button onclick="setProductStatusFilter('out')" data-status="out"
+                                class="prod-filter-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium">Out
+                                of Stock</button>
                         </div>
                     </div>
                 </div>
@@ -570,7 +709,8 @@
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-xs border-collapse">
                             <thead>
-                                <tr class="border-b border-[#DADCE0] bg-[#f7fafd] text-[#5c5f60] font-semibold uppercase tracking-wider text-[11px]">
+                                <tr
+                                    class="border-b border-[#DADCE0] bg-[#f7fafd] text-[#5c5f60] font-semibold uppercase tracking-wider text-[11px]">
                                     <th class="p-4">Product</th>
                                     <th class="p-4">Category</th>
                                     <th class="p-4">Price</th>
@@ -581,7 +721,10 @@
                                 </tr>
                             </thead>
                             <tbody id="products-table-tbody" class="divide-y divide-[#DADCE0]">
-                                <tr><td colspan="7" class="p-6 text-center text-[#5c5f60]">Loading product catalog...</td></tr>
+                                <tr>
+                                    <td colspan="7" class="p-6 text-center text-[#5c5f60]">Loading product catalog...
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -596,7 +739,9 @@
                         <p class="text-sm text-[#5c5f60]">Real-time stock adjustment with atomic database safety</p>
                     </div>
                     <div class="flex items-center gap-2">
-                        <input id="inventory-search-input" oninput="filterInventory()" class="bg-white border border-[#DADCE0] rounded-full px-4 py-2 text-xs text-[#181c1f] outline-none" placeholder="Search inventory..." type="text"/>
+                        <input id="inventory-search-input" oninput="filterInventory()"
+                            class="bg-white border border-[#DADCE0] rounded-full px-4 py-2 text-xs text-[#181c1f] outline-none"
+                            placeholder="Search inventory..." type="text" />
                     </div>
                 </div>
 
@@ -604,7 +749,8 @@
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-xs border-collapse">
                             <thead>
-                                <tr class="border-b border-[#DADCE0] bg-[#f7fafd] text-[#5c5f60] font-semibold uppercase text-[11px]">
+                                <tr
+                                    class="border-b border-[#DADCE0] bg-[#f7fafd] text-[#5c5f60] font-semibold uppercase text-[11px]">
                                     <th class="p-4">Product</th>
                                     <th class="p-4">Category</th>
                                     <th class="p-4">Current Stock</th>
@@ -614,7 +760,9 @@
                                 </tr>
                             </thead>
                             <tbody id="inventory-table-tbody" class="divide-y divide-[#DADCE0]">
-                                <tr><td colspan="6" class="p-6 text-center text-[#5c5f60]">Loading inventory...</td></tr>
+                                <tr>
+                                    <td colspan="6" class="p-6 text-center text-[#5c5f60]">Loading inventory...</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -633,12 +781,19 @@
                 <!-- Orders Filter Tabs -->
                 <div class="glass-panel p-4 space-y-3">
                     <div class="flex flex-col sm:flex-row gap-3 items-center justify-between">
-                        <input id="orders-search-input" oninput="filterOrders()" class="bg-[#F1F3F4] border-transparent focus:bg-white rounded-full px-4 py-2 text-xs w-full sm:w-80 outline-none" placeholder="Search by Order ID, Customer, Address..." type="text"/>
-                        
+                        <input id="orders-search-input" oninput="filterOrders()"
+                            class="bg-[#F1F3F4] border-transparent focus:bg-white rounded-full px-4 py-2 text-xs w-full sm:w-80 outline-none"
+                            placeholder="Search by Order ID, Customer, Address..." type="text" />
+
                         <div class="flex overflow-x-auto w-full sm:w-auto no-scrollbar gap-2" id="orders-status-tabs">
-                            <button onclick="setOrderStatusFilter('all')" data-status="all" class="order-tab-btn px-4 py-1.5 rounded-full bg-[#3c4043] text-white text-xs font-semibold">All Orders</button>
-                            <button onclick="setOrderStatusFilter('active')" data-status="active" class="order-tab-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] text-xs font-medium">Pending / Active</button>
-                            <button onclick="setOrderStatusFilter('delivered')" data-status="delivered" class="order-tab-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] text-xs font-medium">Delivered</button>
+                            <button onclick="setOrderStatusFilter('all')" data-status="all"
+                                class="order-tab-btn px-4 py-1.5 rounded-full bg-[#3c4043] text-white text-xs font-semibold">All
+                                Orders</button>
+                            <button onclick="setOrderStatusFilter('active')" data-status="active"
+                                class="order-tab-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] text-xs font-medium">Pending
+                                / Active</button>
+                            <button onclick="setOrderStatusFilter('delivered')" data-status="delivered"
+                                class="order-tab-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] text-xs font-medium">Delivered</button>
                         </div>
                     </div>
                 </div>
@@ -648,7 +803,8 @@
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-xs border-collapse">
                             <thead>
-                                <tr class="border-b border-[#DADCE0] bg-[#f7fafd] text-[#5c5f60] font-semibold uppercase text-[11px]">
+                                <tr
+                                    class="border-b border-[#DADCE0] bg-[#f7fafd] text-[#5c5f60] font-semibold uppercase text-[11px]">
                                     <th class="p-4">Order ID</th>
                                     <th class="p-4">Customer</th>
                                     <th class="p-4">Hostel Address</th>
@@ -660,7 +816,9 @@
                                 </tr>
                             </thead>
                             <tbody id="orders-table-tbody" class="divide-y divide-[#DADCE0]">
-                                <tr><td colspan="8" class="p-6 text-center text-[#5c5f60]">Loading orders...</td></tr>
+                                <tr>
+                                    <td colspan="8" class="p-6 text-center text-[#5c5f60]">Loading orders...</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -672,14 +830,20 @@
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                         <h2 class="text-2xl font-bold text-[#181c1f]">Student Customer Directory</h2>
-                        <p class="text-sm text-[#5c5f60]">Aggregated student profiles, contact info, and fraud management</p>
+                        <p class="text-sm text-[#5c5f60]">Aggregated student profiles, contact info, and fraud
+                            management</p>
                     </div>
                     <div class="flex items-center gap-2">
                         <div class="relative w-64">
-                            <span class="material-symbols-outlined absolute left-3 top-2.5 text-[#74777a] text-lg">search</span>
-                            <input type="text" id="customer-search-input" onkeyup="filterCustomerDirectory()" placeholder="Search by name, email, phone..." class="w-full pl-9 pr-3 py-2 border border-[#DADCE0] rounded-xl text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[#3c4043]">
+                            <span
+                                class="material-symbols-outlined absolute left-3 top-2.5 text-[#74777a] text-lg">search</span>
+                            <input type="text" id="customer-search-input" onkeyup="filterCustomerDirectory()"
+                                placeholder="Search by name, email, phone..."
+                                class="w-full pl-9 pr-3 py-2 border border-[#DADCE0] rounded-xl text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[#3c4043]">
                         </div>
-                        <button onclick="loadCustomers()" class="p-2 border border-[#DADCE0] rounded-xl bg-white hover:bg-[#f1f4f7] text-[#3c4043]" title="Reload Customers">
+                        <button onclick="loadCustomers()"
+                            class="p-2 border border-[#DADCE0] rounded-xl bg-white hover:bg-[#f1f4f7] text-[#3c4043]"
+                            title="Reload Customers">
                             <span class="material-symbols-outlined text-lg">refresh</span>
                         </button>
                     </div>
@@ -689,7 +853,8 @@
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-xs border-collapse">
                             <thead>
-                                <tr class="border-b border-[#DADCE0] bg-[#f7fafd] text-[#5c5f60] font-semibold uppercase text-[11px]">
+                                <tr
+                                    class="border-b border-[#DADCE0] bg-[#f7fafd] text-[#5c5f60] font-semibold uppercase text-[11px]">
                                     <th class="p-4">Customer</th>
                                     <th class="p-4">Phone Number</th>
                                     <th class="p-4">Email Address</th>
@@ -701,7 +866,9 @@
                                 </tr>
                             </thead>
                             <tbody id="customers-table-tbody" class="divide-y divide-[#DADCE0]">
-                                <tr><td colspan="8" class="p-6 text-center text-[#5c5f60]">Loading customers...</td></tr>
+                                <tr>
+                                    <td colspan="8" class="p-6 text-center text-[#5c5f60]">Loading customers...</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -716,14 +883,20 @@
                             <span class="material-symbols-outlined text-[#ba1a1a]">block</span>
                             <span>Blacklist & Fraud Prevention</span>
                         </h2>
-                        <p class="text-sm text-[#5c5f60]">Manage blocked accounts, fake order abusers, and blacklist enforcement</p>
+                        <p class="text-sm text-[#5c5f60]">Manage blocked accounts, fake order abusers, and blacklist
+                            enforcement</p>
                     </div>
                     <div class="flex items-center gap-2">
                         <div class="relative w-64">
-                            <span class="material-symbols-outlined absolute left-3 top-2.5 text-[#74777a] text-lg">search</span>
-                            <input type="text" id="blacklist-search-input" onkeyup="filterBlacklistTable()" placeholder="Search blacklist..." class="w-full pl-9 pr-3 py-2 border border-[#DADCE0] rounded-xl text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[#3c4043]">
+                            <span
+                                class="material-symbols-outlined absolute left-3 top-2.5 text-[#74777a] text-lg">search</span>
+                            <input type="text" id="blacklist-search-input" onkeyup="filterBlacklistTable()"
+                                placeholder="Search blacklist..."
+                                class="w-full pl-9 pr-3 py-2 border border-[#DADCE0] rounded-xl text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[#3c4043]">
                         </div>
-                        <button onclick="loadBlacklistData()" class="p-2 border border-[#DADCE0] rounded-xl bg-white hover:bg-[#f1f4f7] text-[#3c4043]" title="Refresh Blacklist">
+                        <button onclick="loadBlacklistData()"
+                            class="p-2 border border-[#DADCE0] rounded-xl bg-white hover:bg-[#f1f4f7] text-[#3c4043]"
+                            title="Refresh Blacklist">
                             <span class="material-symbols-outlined text-lg">refresh</span>
                         </button>
                     </div>
@@ -732,9 +905,15 @@
                 <!-- Filter Pills -->
                 <div class="flex items-center gap-2 text-xs">
                     <span class="font-bold text-[#5c5f60] mr-1">Filter Reason:</span>
-                    <button type="button" onclick="setBlacklistFilter('all')" class="bl-filter-pill active px-3 py-1.5 rounded-full border border-[#3c4043] bg-[#3c4043] text-white font-semibold">All Records</button>
-                    <button type="button" onclick="setBlacklistFilter('fake')" class="bl-filter-pill px-3 py-1.5 rounded-full border border-[#DADCE0] bg-white text-[#5c5f60] hover:border-[#3c4043] font-semibold">Fake Orders</button>
-                    <button type="button" onclick="setBlacklistFilter('other')" class="bl-filter-pill px-3 py-1.5 rounded-full border border-[#DADCE0] bg-white text-[#5c5f60] hover:border-[#3c4043] font-semibold">Other Reasons</button>
+                    <button type="button" onclick="setBlacklistFilter('all')"
+                        class="bl-filter-pill active px-3 py-1.5 rounded-full border border-[#3c4043] bg-[#3c4043] text-white font-semibold">All
+                        Records</button>
+                    <button type="button" onclick="setBlacklistFilter('fake')"
+                        class="bl-filter-pill px-3 py-1.5 rounded-full border border-[#DADCE0] bg-white text-[#5c5f60] hover:border-[#3c4043] font-semibold">Fake
+                        Orders</button>
+                    <button type="button" onclick="setBlacklistFilter('other')"
+                        class="bl-filter-pill px-3 py-1.5 rounded-full border border-[#DADCE0] bg-white text-[#5c5f60] hover:border-[#3c4043] font-semibold">Other
+                        Reasons</button>
                 </div>
 
                 <!-- Blacklist Table -->
@@ -742,7 +921,8 @@
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-xs border-collapse">
                             <thead>
-                                <tr class="border-b border-[#DADCE0] bg-[#f7fafd] text-[#5c5f60] font-semibold uppercase text-[11px]">
+                                <tr
+                                    class="border-b border-[#DADCE0] bg-[#f7fafd] text-[#5c5f60] font-semibold uppercase text-[11px]">
                                     <th class="p-4">Customer</th>
                                     <th class="p-4">Phone Number</th>
                                     <th class="p-4">Email Address</th>
@@ -754,7 +934,10 @@
                                 </tr>
                             </thead>
                             <tbody id="blacklist-table-tbody" class="divide-y divide-[#DADCE0]">
-                                <tr><td colspan="8" class="p-6 text-center text-[#5c5f60]">Loading blacklist records...</td></tr>
+                                <tr>
+                                    <td colspan="8" class="p-6 text-center text-[#5c5f60]">Loading blacklist records...
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -766,7 +949,8 @@
             <div id="view-analytics" class="space-y-6 max-w-[1440px] mx-auto hidden">
                 <div>
                     <h2 class="text-2xl font-bold text-[#181c1f]">Operational Analytics</h2>
-                    <p class="text-sm text-[#5c5f60]">Live fulfillment performance, stock health, and campus order distribution</p>
+                    <p class="text-sm text-[#5c5f60]">Live fulfillment performance, stock health, and campus order
+                        distribution</p>
                 </div>
 
                 <!-- Operational Metric Tiles -->
@@ -795,14 +979,17 @@
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-xs">
                             <thead>
-                                <tr class="border-b border-[#DADCE0] text-[#5c5f60] font-semibold uppercase text-[11px]">
+                                <tr
+                                    class="border-b border-[#DADCE0] text-[#5c5f60] font-semibold uppercase text-[11px]">
                                     <th class="pb-3">Product</th>
                                     <th class="pb-3">Category</th>
                                     <th class="pb-3 text-right">Units Sold</th>
                                 </tr>
                             </thead>
                             <tbody id="analytics-top-products-tbody" class="divide-y divide-[#DADCE0]">
-                                <tr><td colspan="3" class="py-4 text-center text-[#5c5f60]">Loading top products...</td></tr>
+                                <tr>
+                                    <td colspan="3" class="py-4 text-center text-[#5c5f60]">Loading top products...</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -821,19 +1008,23 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                         <div>
                             <label class="font-semibold text-[#5c5f60]">Primary Hub</label>
-                            <input value="BH13 Central Campus Hub" disabled class="w-full bg-[#f1f4f7] border border-[#DADCE0] rounded-lg p-2.5 mt-1 font-semibold text-[#181c1f]"/>
+                            <input value="BH13 Central Campus Hub" disabled
+                                class="w-full bg-[#f1f4f7] border border-[#DADCE0] rounded-lg p-2.5 mt-1 font-semibold text-[#181c1f]" />
                         </div>
                         <div>
                             <label class="font-semibold text-[#5c5f60]">Average Delivery ETA</label>
-                            <input value="3 Minutes (Guaranteed)" disabled class="w-full bg-[#f1f4f7] border border-[#DADCE0] rounded-lg p-2.5 mt-1 font-semibold text-[#181c1f]"/>
+                            <input value="3 Minutes (Guaranteed)" disabled
+                                class="w-full bg-[#f1f4f7] border border-[#DADCE0] rounded-lg p-2.5 mt-1 font-semibold text-[#181c1f]" />
                         </div>
                         <div>
                             <label class="font-semibold text-[#5c5f60]">Cloud Database</label>
-                            <input value="Supabase (PostgreSQL)" disabled class="w-full bg-[#f1f4f7] border border-[#DADCE0] rounded-lg p-2.5 mt-1 font-semibold text-[#181c1f]"/>
+                            <input value="Supabase (PostgreSQL)" disabled
+                                class="w-full bg-[#f1f4f7] border border-[#DADCE0] rounded-lg p-2.5 mt-1 font-semibold text-[#181c1f]" />
                         </div>
                         <div>
                             <label class="font-semibold text-[#5c5f60]">Local Cache DB</label>
-                            <input value="Node.js SQLite (Zero Latency)" disabled class="w-full bg-[#f1f4f7] border border-[#DADCE0] rounded-lg p-2.5 mt-1 font-semibold text-[#181c1f]"/>
+                            <input value="Node.js SQLite (Zero Latency)" disabled
+                                class="w-full bg-[#f1f4f7] border border-[#DADCE0] rounded-lg p-2.5 mt-1 font-semibold text-[#181c1f]" />
                         </div>
                     </div>
                 </div>
@@ -843,8 +1034,10 @@
     </div>
 
     <!-- ================= MODAL: ADD / EDIT PRODUCT ================= -->
-    <div id="product-modal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
-        <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-[#DADCE0] space-y-4 max-h-[90vh] overflow-y-auto">
+    <div id="product-modal"
+        class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div
+            class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-[#DADCE0] space-y-4 max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center border-b border-[#DADCE0] pb-3">
                 <h3 class="font-bold text-base text-[#181c1f]" id="modal-product-title">Add New Product</h3>
                 <button onclick="closeProductModal()" class="text-[#5c5f60] hover:text-[#181c1f]">
@@ -857,13 +1050,15 @@
 
                 <div>
                     <label class="font-semibold text-[#262a2d] block mb-1">Product Name *</label>
-                    <input id="form-product-name" required placeholder="e.g. Maggi 2-Minute Noodles" class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
+                    <input id="form-product-name" required placeholder="e.g. Maggi 2-Minute Noodles"
+                        class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="font-semibold text-[#262a2d] block mb-1">Category *</label>
-                        <select id="form-product-category" required class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
+                        <select id="form-product-category" required
+                            class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
                             <option value="Snacks & Beverages">Snacks & Beverages</option>
                             <option value="Grocery">Grocery</option>
                             <option value="Pharmacy">Pharmacy</option>
@@ -873,22 +1068,26 @@
                     </div>
                     <div>
                         <label class="font-semibold text-[#262a2d] block mb-1">Subcategory</label>
-                        <input id="form-product-subcategory" placeholder="e.g. Snacks / Bakery" class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
+                        <input id="form-product-subcategory" placeholder="e.g. Snacks / Bakery"
+                            class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
                     </div>
                 </div>
 
                 <div class="grid grid-cols-3 gap-3">
                     <div>
                         <label class="font-semibold text-[#262a2d] block mb-1">Price (₹) *</label>
-                        <input id="form-product-price" type="number" step="1" required min="1" placeholder="35" class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
+                        <input id="form-product-price" type="number" step="1" required min="1" placeholder="35"
+                            class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
                     </div>
                     <div>
                         <label class="font-semibold text-[#262a2d] block mb-1">MRP (₹)</label>
-                        <input id="form-product-mrp" type="number" step="1" min="1" placeholder="40" class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
+                        <input id="form-product-mrp" type="number" step="1" min="1" placeholder="40"
+                            class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
                     </div>
                     <div>
                         <label class="font-semibold text-[#262a2d] block mb-1">Initial Stock *</label>
-                        <input id="form-product-stock" type="number" step="1" min="0" value="40" class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
+                        <input id="form-product-stock" type="number" step="1" min="0" value="40"
+                            class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
                     </div>
                 </div>
 
@@ -897,25 +1096,36 @@
                     <label class="font-semibold text-[#262a2d] block text-xs sm:text-sm">Product Photo</label>
                     <div class="flex flex-col sm:flex-row gap-3 items-start">
                         <!-- Live Thumbnail Preview -->
-                        <div id="product-img-preview-box" class="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border-2 border-[#DADCE0] bg-[#f8f9fa] flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm group">
-                            <img id="product-img-preview" src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200" alt="Product Preview" class="w-full h-full object-cover">
-                            <button type="button" id="btn-remove-photo" onclick="clearProductImage()" title="Remove image" class="absolute top-1 right-1 w-6 h-6 bg-black/60 hover:bg-black/80 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div id="product-img-preview-box"
+                            class="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border-2 border-[#DADCE0] bg-[#f8f9fa] flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm group">
+                            <img id="product-img-preview"
+                                src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200"
+                                alt="Product Preview" class="w-full h-full object-cover">
+                            <button type="button" id="btn-remove-photo" onclick="clearProductImage()"
+                                title="Remove image"
+                                class="absolute top-1 right-1 w-6 h-6 bg-black/60 hover:bg-black/80 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                 <span class="material-symbols-outlined text-[14px]">close</span>
                             </button>
                         </div>
 
                         <!-- Upload Zone & File Picker -->
                         <div class="flex-1 w-full space-y-2">
-                            <div id="product-dropzone" onclick="document.getElementById('form-product-file').click()" class="border-2 border-dashed border-[#DADCE0] hover:border-[#10B981] hover:bg-[#10B981]/5 rounded-2xl p-3 sm:p-4 flex flex-col items-center justify-center gap-1 cursor-pointer bg-[#fafbfc] transition-all text-center">
-                                <span class="material-symbols-outlined text-2xl text-[#10B981]">add_photo_alternate</span>
-                                <p class="text-xs font-bold text-[#181c1f]">Click to upload photo <span class="text-[11px] font-normal text-[#5c5f60]">or drag & drop</span></p>
+                            <div id="product-dropzone" onclick="document.getElementById('form-product-file').click()"
+                                class="border-2 border-dashed border-[#DADCE0] hover:border-[#10B981] hover:bg-[#10B981]/5 rounded-2xl p-3 sm:p-4 flex flex-col items-center justify-center gap-1 cursor-pointer bg-[#fafbfc] transition-all text-center">
+                                <span
+                                    class="material-symbols-outlined text-2xl text-[#10B981]">add_photo_alternate</span>
+                                <p class="text-xs font-bold text-[#181c1f]">Click to upload photo <span
+                                        class="text-[11px] font-normal text-[#5c5f60]">or drag & drop</span></p>
                                 <p class="text-[10px] text-[#74777a]">PNG, JPG, WEBP from your phone or PC</p>
                             </div>
-                            <input type="file" id="form-product-file" accept="image/*" class="hidden" onchange="handleProductFileSelect(event)">
-                            
+                            <input type="file" id="form-product-file" accept="image/*" class="hidden"
+                                onchange="handleProductFileSelect(event)">
+
                             <!-- Fallback URL input (collapsible/secondary) -->
                             <div class="flex items-center gap-2">
-                                <input id="form-product-image" placeholder="Or paste image URL (optional)" class="w-full border border-[#DADCE0] rounded-xl px-3 py-1.5 text-xs text-[#5c5f60] focus:border-[#3c4043] outline-none" oninput="handleImageUrlInput(this.value)">
+                                <input id="form-product-image" placeholder="Or paste image URL (optional)"
+                                    class="w-full border border-[#DADCE0] rounded-xl px-3 py-1.5 text-xs text-[#5c5f60] focus:border-[#3c4043] outline-none"
+                                    oninput="handleImageUrlInput(this.value)">
                             </div>
                         </div>
                     </div>
@@ -923,17 +1133,21 @@
 
                 <div>
                     <label class="font-semibold text-[#262a2d] block mb-1">Description</label>
-                    <textarea id="form-product-desc" rows="2" placeholder="Brief details about the product..." class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none"></textarea>
+                    <textarea id="form-product-desc" rows="2" placeholder="Brief details about the product..."
+                        class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none"></textarea>
                 </div>
 
                 <div class="pt-3 border-t border-[#DADCE0] flex justify-between items-center">
-                    <button type="button" id="btn-modal-delete-product" onclick="handleModalDeleteProduct()" class="px-3 py-2 rounded-lg bg-[#ffdad6] text-[#ba1a1a] font-semibold hover:bg-[#ffdad6]/80 flex items-center gap-1 hidden">
+                    <button type="button" id="btn-modal-delete-product" onclick="handleModalDeleteProduct()"
+                        class="px-3 py-2 rounded-lg bg-[#ffdad6] text-[#ba1a1a] font-semibold hover:bg-[#ffdad6]/80 flex items-center gap-1 hidden">
                         <span class="material-symbols-outlined text-[16px]">delete_forever</span>
                         <span>Delete Completely</span>
                     </button>
                     <div class="flex items-center gap-2 ml-auto">
-                        <button type="button" onclick="closeProductModal()" class="px-4 py-2 rounded-lg border border-[#DADCE0] text-[#5c5f60] font-semibold hover:bg-[#f1f4f7]">Cancel</button>
-                        <button type="submit" id="btn-save-product" class="px-5 py-2 rounded-lg bg-[#3c4043] hover:bg-[#262a2d] text-white font-semibold flex items-center gap-1">
+                        <button type="button" onclick="closeProductModal()"
+                            class="px-4 py-2 rounded-lg border border-[#DADCE0] text-[#5c5f60] font-semibold hover:bg-[#f1f4f7]">Cancel</button>
+                        <button type="submit" id="btn-save-product"
+                            class="px-5 py-2 rounded-lg bg-[#3c4043] hover:bg-[#262a2d] text-white font-semibold flex items-center gap-1">
                             <span>Save Product</span>
                         </button>
                     </div>
@@ -957,17 +1171,23 @@
 
             <!-- Customer & Delivery Room Info -->
             <div class="bg-[#f7fafd] border border-[#DADCE0] p-4 rounded-xl text-xs space-y-1.5">
-                <p class="text-[#5c5f60]"><strong class="text-[#181c1f]">Student:</strong> <span id="drawer-cust-name">--</span></p>
-                <p class="text-[#5c5f60]"><strong class="text-[#181c1f]">Contact:</strong> <span id="drawer-cust-phone">--</span></p>
-                <p class="text-[#5c5f60]"><strong class="text-[#181c1f]">Email:</strong> <span id="drawer-cust-email">--</span></p>
-                <p class="text-[#5c5f60]"><strong class="text-[#181c1f]">Hostel Room:</strong> <span id="drawer-cust-address">--</span></p>
-                <p class="text-[#5c5f60]"><strong class="text-[#181c1f]">Payment:</strong> <span id="drawer-payment-method">Cash on Delivery</span></p>
+                <p class="text-[#5c5f60]"><strong class="text-[#181c1f]">Student:</strong> <span
+                        id="drawer-cust-name">--</span></p>
+                <p class="text-[#5c5f60]"><strong class="text-[#181c1f]">Contact:</strong> <span
+                        id="drawer-cust-phone">--</span></p>
+                <p class="text-[#5c5f60]"><strong class="text-[#181c1f]">Email:</strong> <span
+                        id="drawer-cust-email">--</span></p>
+                <p class="text-[#5c5f60]"><strong class="text-[#181c1f]">Hostel Room:</strong> <span
+                        id="drawer-cust-address">--</span></p>
+                <p class="text-[#5c5f60]"><strong class="text-[#181c1f]">Payment:</strong> <span
+                        id="drawer-payment-method">Cash on Delivery</span></p>
             </div>
 
             <!-- Order Status Action -->
             <div class="p-4 rounded-xl border border-[#DADCE0] space-y-2 bg-[#ebeef2]/50">
                 <label class="font-semibold text-xs text-[#181c1f] block">Update Status in Real-Time:</label>
-                <select id="drawer-status-select" class="w-full bg-white border border-[#DADCE0] rounded-lg p-2.5 text-xs font-bold text-[#3c4043] outline-none">
+                <select id="drawer-status-select"
+                    class="w-full bg-white border border-[#DADCE0] rounded-lg p-2.5 text-xs font-bold text-[#3c4043] outline-none">
                     <option value="Order Placed">Order Placed (Incoming)</option>
                     <option value="Order Confirmed">Order Confirmed</option>
                     <option value="Preparing">Preparing (Packing Items)</option>
@@ -975,7 +1195,8 @@
                     <option value="Delivered">Delivered ✓</option>
                     <option value="Cancelled">Cancelled</option>
                 </select>
-                <button onclick="applyDrawerStatusUpdate()" class="w-full bg-[#3c4043] hover:bg-[#262a2d] text-white font-bold py-2 rounded-lg text-xs transition-all">
+                <button onclick="applyDrawerStatusUpdate()"
+                    class="w-full bg-[#3c4043] hover:bg-[#262a2d] text-white font-bold py-2 rounded-lg text-xs transition-all">
                     Update Order Status
                 </button>
             </div>
@@ -989,7 +1210,8 @@
             </div>
 
             <!-- Total Receipt -->
-            <div class="border-t border-[#DADCE0] pt-3 flex justify-between items-center text-sm font-bold text-[#181c1f]">
+            <div
+                class="border-t border-[#DADCE0] pt-3 flex justify-between items-center text-sm font-bold text-[#181c1f]">
                 <span>Total Amount:</span>
                 <span class="text-lg text-[#137333]" id="drawer-order-total">₹0</span>
             </div>
@@ -997,7 +1219,8 @@
     </div>
 
     <!-- ================= MODAL: BLOCK USER / FRAUD PREVENTION ================= -->
-    <div id="block-user-modal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div id="block-user-modal"
+        class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#DADCE0] space-y-4">
             <div class="flex justify-between items-center border-b border-[#DADCE0] pb-3">
                 <div class="flex items-center gap-2 text-[#ba1a1a]">
@@ -1024,7 +1247,8 @@
                 <!-- Block Reason Dropdown -->
                 <div>
                     <label class="font-semibold text-[#262a2d] block mb-1">Reason for Blocking *</label>
-                    <select id="modal-block-reason" required onchange="updateBlockReasonPreview()" class="w-full border border-[#DADCE0] rounded-xl p-2.5 bg-white font-semibold text-xs focus:ring-2 focus:ring-[#ba1a1a] outline-none">
+                    <select id="modal-block-reason" required onchange="updateBlockReasonPreview()"
+                        class="w-full border border-[#DADCE0] rounded-xl p-2.5 bg-white font-semibold text-xs focus:ring-2 focus:ring-[#ba1a1a] outline-none">
                         <option value="Fake Orders" selected>Fake Orders</option>
                         <option value="Suspicious Activity">Suspicious Activity</option>
                         <option value="Payment Fraud / Chargeback">Payment Fraud / Chargeback</option>
@@ -1037,7 +1261,8 @@
                 <!-- Customer Facing Message Preview -->
                 <div>
                     <label class="font-semibold text-[#5c5f60] block mb-1">Customer-Facing Notice Preview</label>
-                    <div class="p-3 bg-[#ffdad6]/40 border border-[#ffdad6] rounded-xl text-[#ba1a1a] font-medium text-xs flex items-center gap-2">
+                    <div
+                        class="p-3 bg-[#ffdad6]/40 border border-[#ffdad6] rounded-xl text-[#ba1a1a] font-medium text-xs flex items-center gap-2">
                         <span class="material-symbols-outlined text-sm">info</span>
                         <span id="modal-block-preview-text">"You are blocked due to fake orders."</span>
                     </div>
@@ -1046,14 +1271,18 @@
                 <!-- Internal Admin Notes -->
                 <div>
                     <label class="font-semibold text-[#262a2d] block mb-1">Internal Admin Notes (Optional)</label>
-                    <textarea id="modal-block-notes" rows="2" placeholder="Record incident details, cancelled order IDs, or notes..." class="w-full border border-[#DADCE0] rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-[#3c4043] outline-none"></textarea>
+                    <textarea id="modal-block-notes" rows="2"
+                        placeholder="Record incident details, cancelled order IDs, or notes..."
+                        class="w-full border border-[#DADCE0] rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-[#3c4043] outline-none"></textarea>
                 </div>
 
                 <div class="flex items-center justify-end gap-2 pt-2 border-t border-[#DADCE0]">
-                    <button type="button" onclick="closeBlockUserModal()" class="px-4 py-2.5 rounded-xl border border-[#DADCE0] bg-white text-[#5c5f60] font-semibold hover:bg-[#f1f4f7]">
+                    <button type="button" onclick="closeBlockUserModal()"
+                        class="px-4 py-2.5 rounded-xl border border-[#DADCE0] bg-white text-[#5c5f60] font-semibold hover:bg-[#f1f4f7]">
                         Cancel
                     </button>
-                    <button type="submit" id="btn-confirm-block" class="px-5 py-2.5 rounded-xl bg-[#ba1a1a] hover:bg-[#93000a] text-white font-bold flex items-center gap-1.5 shadow-md transition-all">
+                    <button type="submit" id="btn-confirm-block"
+                        class="px-5 py-2.5 rounded-xl bg-[#ba1a1a] hover:bg-[#93000a] text-white font-bold flex items-center gap-1.5 shadow-md transition-all">
                         <span class="material-symbols-outlined text-[16px]">block</span>
                         <span>Confirm Block User</span>
                     </button>
@@ -1063,18 +1292,23 @@
     </div>
 
     <!-- ================= DEDICATED SECURE ADMIN SIGN IN SCREEN ================= -->
-    <div id="admin-auth-screen" class="fixed inset-0 z-50 bg-[#F1F3F4] flex flex-col items-center justify-center p-4 antialiased overflow-y-auto hidden">
+    <div id="admin-auth-screen"
+        class="fixed inset-0 z-50 bg-[#F1F3F4] flex flex-col items-center justify-center p-4 antialiased overflow-y-auto hidden">
         <main class="w-full max-w-md my-auto">
             <!-- Glassmorphic Login Card -->
-            <div class="bg-white/85 backdrop-blur-xl rounded-2xl overflow-hidden shadow-2xl border border-white/60 p-8 sm:p-10 transition-all hover:shadow-[0_12px_50px_rgba(60,64,67,0.15)]">
-                
+            <div
+                class="bg-white/85 backdrop-blur-xl rounded-2xl overflow-hidden shadow-2xl border border-white/60 p-8 sm:p-10 transition-all hover:shadow-[0_12px_50px_rgba(60,64,67,0.15)]">
+
                 <!-- Brand Logo & Header -->
                 <div class="flex flex-col items-center mb-8 text-center">
-                    <div class="w-16 h-16 bg-[#3c4043] rounded-2xl flex items-center justify-center shadow-md mb-4 text-white">
-                        <span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">admin_panel_settings</span>
+                    <div
+                        class="w-16 h-16 bg-[#3c4043] rounded-2xl flex items-center justify-center shadow-md mb-4 text-white">
+                        <span class="material-symbols-outlined text-3xl"
+                            style="font-variation-settings: 'FILL' 1;">admin_panel_settings</span>
                     </div>
                     <h1 class="text-2xl font-black text-[#181c1f] tracking-tight">Admin Sign In</h1>
-                    <p class="text-xs text-[#5c5f60] mt-1 font-medium">Access the LPU Quick campus operations console.</p>
+                    <p class="text-xs text-[#5c5f60] mt-1 font-medium">Access the LPU Quick campus operations console.
+                    </p>
                 </div>
 
                 <!-- Sign In Form -->
@@ -1083,10 +1317,13 @@
                     <div>
                         <label class="block font-semibold text-[#44474a] mb-1.5" for="login-email">Email Address</label>
                         <div class="relative">
-                            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#74777a]">
+                            <div
+                                class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#74777a]">
                                 <span class="material-symbols-outlined text-lg">mail</span>
                             </div>
-                            <input id="login-email" type="email" value="admin@lpu.in" required placeholder="admin@lpu.in" autocomplete="username" class="block w-full pl-10 pr-3.5 py-3 border border-[#DADCE0] rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#3c4043] focus:border-transparent text-xs text-[#181c1f] font-medium placeholder-[#c4c7ca] shadow-sm"/>
+                            <input id="login-email" type="email" value="" required placeholder="admin@lpu.in"
+                                autocomplete="username"
+                                class="block w-full pl-10 pr-3.5 py-3 border border-[#DADCE0] rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#3c4043] focus:border-transparent text-xs text-[#181c1f] font-medium placeholder-[#c4c7ca] shadow-sm" />
                         </div>
                     </div>
 
@@ -1094,18 +1331,24 @@
                     <div>
                         <label class="block font-semibold text-[#44474a] mb-1.5" for="login-password">Password</label>
                         <div class="relative">
-                            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#74777a]">
+                            <div
+                                class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#74777a]">
                                 <span class="material-symbols-outlined text-lg">lock</span>
                             </div>
-                            <input id="login-password" type="password" value="admin123" required placeholder="Enter password" autocomplete="current-password" class="block w-full pl-10 pr-10 py-3 border border-[#DADCE0] rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#3c4043] focus:border-transparent text-xs text-[#181c1f] font-medium placeholder-[#c4c7ca] shadow-sm"/>
-                            <button type="button" onclick="togglePasswordVisibility()" class="absolute inset-y-0 right-0 pr-3 flex items-center text-[#74777a] hover:text-[#181c1f]">
-                                <span class="material-symbols-outlined text-lg" id="password-toggle-icon">visibility</span>
+                            <input id="login-password" type="password" value="" required placeholder="Enter password"
+                                autocomplete="current-password"
+                                class="block w-full pl-10 pr-10 py-3 border border-[#DADCE0] rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#3c4043] focus:border-transparent text-xs text-[#181c1f] font-medium placeholder-[#c4c7ca] shadow-sm" />
+                            <button type="button" onclick="togglePasswordVisibility()"
+                                class="absolute inset-y-0 right-0 pr-3 flex items-center text-[#74777a] hover:text-[#181c1f]">
+                                <span class="material-symbols-outlined text-lg"
+                                    id="password-toggle-icon">visibility</span>
                             </button>
                         </div>
                     </div>
 
                     <!-- Error Alert Box -->
-                    <div id="login-error" class="hidden p-3 rounded-xl bg-[#ffdad6] text-[#ba1a1a] text-xs font-semibold flex items-center gap-2">
+                    <div id="login-error"
+                        class="hidden p-3 rounded-xl bg-[#ffdad6] text-[#ba1a1a] text-xs font-semibold flex items-center gap-2">
                         <span class="material-symbols-outlined text-base">error</span>
                         <span id="login-error-text">Invalid administrator credentials</span>
                     </div>
@@ -1113,14 +1356,16 @@
                     <!-- Remember Me -->
                     <div class="flex items-center justify-between text-xs pt-1">
                         <label class="flex items-center gap-2 text-[#5c5f60] cursor-pointer">
-                            <input type="checkbox" id="remember-me" checked class="rounded border-[#DADCE0] text-[#3c4043] focus:ring-[#3c4043] w-4 h-4"/>
+                            <input type="checkbox" id="remember-me" checked
+                                class="rounded border-[#DADCE0] text-[#3c4043] focus:ring-[#3c4043] w-4 h-4" />
                             <span>Remember this workstation</span>
                         </label>
                     </div>
 
                     <!-- Submit Button -->
                     <div class="pt-2">
-                        <button type="submit" id="btn-login-submit" class="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#262a2d] hover:bg-[#3c4043] text-white font-bold text-xs tracking-wide shadow-md transition-all active:scale-[0.98]">
+                        <button type="submit" id="btn-login-submit"
+                            class="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#262a2d] hover:bg-[#3c4043] text-white font-bold text-xs tracking-wide shadow-md transition-all active:scale-[0.98]">
                             <span>Sign In to Admin Hub</span>
                             <span class="material-symbols-outlined text-base">arrow_forward</span>
                         </button>
@@ -1142,9 +1387,13 @@
     </div>
 
     <!-- ================= MODAL: FINANCIAL PIN UNLOCK ================= -->
-    <div id="modal-fin-unlock" class="modal-overlay hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-        <div class="glass-panel w-full max-w-sm p-6 bg-white dark:bg-slate-900 border border-glass-border shadow-2xl rounded-3xl relative animate-in fade-in duration-200">
-            <button type="button" class="absolute top-4 right-4 text-on-surface-variant hover:text-on-surface p-1 rounded-full" onclick="closeFinancialUnlockModal()">
+    <div id="modal-fin-unlock"
+        class="modal-overlay hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div
+            class="glass-panel w-full max-w-sm p-6 bg-white dark:bg-slate-900 border border-glass-border shadow-2xl rounded-3xl relative animate-in fade-in duration-200">
+            <button type="button"
+                class="absolute top-4 right-4 text-on-surface-variant hover:text-on-surface p-1 rounded-full"
+                onclick="closeFinancialUnlockModal()">
                 <span class="material-symbols-outlined text-lg">close</span>
             </button>
 
@@ -1161,18 +1410,23 @@
             <form id="form-fin-unlock" onsubmit="submitFinancialUnlock(event)" class="space-y-4">
                 <div>
                     <div class="relative">
-                        <input type="password" id="input-fin-pin" maxlength="6" inputmode="numeric" pattern="[0-9]*" placeholder="••••" required autofocus
-                               class="w-full text-center text-2xl font-mono tracking-[0.5em] py-3.5 px-4 rounded-2xl border border-[#DADCE0] bg-surface-container-low text-on-surface focus:outline-none focus:ring-2 focus:ring-emerald shadow-inner" />
+                        <input type="password" id="input-fin-pin" maxlength="6" inputmode="numeric" pattern="[0-9]*"
+                            placeholder="••••" required autofocus
+                            class="w-full text-center text-2xl font-mono tracking-[0.5em] py-3.5 px-4 rounded-2xl border border-[#DADCE0] bg-surface-container-low text-on-surface focus:outline-none focus:ring-2 focus:ring-emerald shadow-inner" />
                     </div>
                 </div>
 
-                <div id="fin-unlock-error" class="hidden p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 text-xs font-semibold text-center"></div>
+                <div id="fin-unlock-error"
+                    class="hidden p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 text-xs font-semibold text-center">
+                </div>
 
                 <div class="flex gap-2 pt-2">
-                    <button type="button" onclick="closeFinancialUnlockModal()" class="w-1/2 py-2.5 px-4 rounded-xl border border-[#DADCE0] text-xs font-semibold text-on-surface-variant hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+                    <button type="button" onclick="closeFinancialUnlockModal()"
+                        class="w-1/2 py-2.5 px-4 rounded-xl border border-[#DADCE0] text-xs font-semibold text-on-surface-variant hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
                         Cancel
                     </button>
-                    <button type="submit" id="btn-submit-fin-unlock" class="w-1/2 py-2.5 px-4 rounded-xl bg-emerald text-white text-xs font-bold hover:bg-primary transition-all shadow-md active:scale-95 flex items-center justify-center gap-1">
+                    <button type="submit" id="btn-submit-fin-unlock"
+                        class="w-1/2 py-2.5 px-4 rounded-xl bg-emerald text-white text-xs font-bold hover:bg-primary transition-all shadow-md active:scale-95 flex items-center justify-center gap-1">
                         <span>Unlock</span>
                         <span class="material-symbols-outlined text-sm">lock_open</span>
                     </button>
@@ -1182,9 +1436,13 @@
     </div>
 
     <!-- ================= MODAL: FINANCIAL PIN SETUP & CHANGE ================= -->
-    <div id="modal-fin-setup" class="modal-overlay hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-        <div class="glass-panel w-full max-w-sm p-6 bg-white dark:bg-slate-900 border border-glass-border shadow-2xl rounded-3xl relative animate-in fade-in duration-200">
-            <button type="button" class="absolute top-4 right-4 text-on-surface-variant hover:text-on-surface p-1 rounded-full" onclick="closeFinancialSetupModal()">
+    <div id="modal-fin-setup"
+        class="modal-overlay hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div
+            class="glass-panel w-full max-w-sm p-6 bg-white dark:bg-slate-900 border border-glass-border shadow-2xl rounded-3xl relative animate-in fade-in duration-200">
+            <button type="button"
+                class="absolute top-4 right-4 text-on-surface-variant hover:text-on-surface p-1 rounded-full"
+                onclick="closeFinancialSetupModal()">
                 <span class="material-symbols-outlined text-lg">close</span>
             </button>
 
@@ -1193,7 +1451,8 @@
                     <span class="material-symbols-outlined text-xl">pin</span>
                 </div>
                 <div>
-                    <h3 class="font-bold text-base text-on-surface" id="fin-setup-modal-title">Configure Financial PIN</h3>
+                    <h3 class="font-bold text-base text-on-surface" id="fin-setup-modal-title">Configure Financial PIN
+                    </h3>
                     <p class="text-xs text-on-surface-variant">4 to 6 numeric digits, salted & PBKDF2 hashed</p>
                 </div>
             </div>
@@ -1201,30 +1460,39 @@
             <form id="form-fin-setup" onsubmit="submitFinancialSetup(event)" class="space-y-3">
                 <div id="fin-setup-current-group" class="hidden">
                     <label class="block text-xs font-semibold text-on-surface-variant mb-1">Current PIN</label>
-                    <input type="password" id="input-fin-current-pin" maxlength="6" inputmode="numeric" placeholder="Enter current PIN"
-                           class="w-full text-center text-lg font-mono tracking-widest py-2.5 px-3 rounded-xl border border-[#DADCE0] bg-surface-container-low text-on-surface focus:outline-none focus:ring-2 focus:ring-emerald" />
+                    <input type="password" id="input-fin-current-pin" maxlength="6" inputmode="numeric"
+                        placeholder="Enter current PIN"
+                        class="w-full text-center text-lg font-mono tracking-widest py-2.5 px-3 rounded-xl border border-[#DADCE0] bg-surface-container-low text-on-surface focus:outline-none focus:ring-2 focus:ring-emerald" />
                 </div>
 
                 <div>
                     <label class="block text-xs font-semibold text-on-surface-variant mb-1">New PIN (4-6 digits)</label>
-                    <input type="password" id="input-fin-new-pin" maxlength="6" inputmode="numeric" placeholder="Enter new PIN" required
-                           class="w-full text-center text-lg font-mono tracking-widest py-2.5 px-3 rounded-xl border border-[#DADCE0] bg-surface-container-low text-on-surface focus:outline-none focus:ring-2 focus:ring-emerald" />
+                    <input type="password" id="input-fin-new-pin" maxlength="6" inputmode="numeric"
+                        placeholder="Enter new PIN" required
+                        class="w-full text-center text-lg font-mono tracking-widest py-2.5 px-3 rounded-xl border border-[#DADCE0] bg-surface-container-low text-on-surface focus:outline-none focus:ring-2 focus:ring-emerald" />
                 </div>
 
                 <div>
                     <label class="block text-xs font-semibold text-on-surface-variant mb-1">Confirm New PIN</label>
-                    <input type="password" id="input-fin-confirm-pin" maxlength="6" inputmode="numeric" placeholder="Confirm new PIN" required
-                           class="w-full text-center text-lg font-mono tracking-widest py-2.5 px-3 rounded-xl border border-[#DADCE0] bg-surface-container-low text-on-surface focus:outline-none focus:ring-2 focus:ring-emerald" />
+                    <input type="password" id="input-fin-confirm-pin" maxlength="6" inputmode="numeric"
+                        placeholder="Confirm new PIN" required
+                        class="w-full text-center text-lg font-mono tracking-widest py-2.5 px-3 rounded-xl border border-[#DADCE0] bg-surface-container-low text-on-surface focus:outline-none focus:ring-2 focus:ring-emerald" />
                 </div>
 
-                <div id="fin-setup-error" class="hidden p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 text-xs font-semibold text-center"></div>
-                <div id="fin-setup-success" class="hidden p-2.5 rounded-xl bg-emerald/10 border border-emerald/30 text-emerald text-xs font-semibold text-center"></div>
+                <div id="fin-setup-error"
+                    class="hidden p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 text-xs font-semibold text-center">
+                </div>
+                <div id="fin-setup-success"
+                    class="hidden p-2.5 rounded-xl bg-emerald/10 border border-emerald/30 text-emerald text-xs font-semibold text-center">
+                </div>
 
                 <div class="flex gap-2 pt-2">
-                    <button type="button" onclick="closeFinancialSetupModal()" class="w-1/2 py-2.5 px-4 rounded-xl border border-[#DADCE0] text-xs font-semibold text-on-surface-variant hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+                    <button type="button" onclick="closeFinancialSetupModal()"
+                        class="w-1/2 py-2.5 px-4 rounded-xl border border-[#DADCE0] text-xs font-semibold text-on-surface-variant hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
                         Cancel
                     </button>
-                    <button type="submit" id="btn-submit-fin-setup" class="w-1/2 py-2.5 px-4 rounded-xl bg-emerald text-white text-xs font-bold hover:bg-primary transition-all shadow-md active:scale-95 flex items-center justify-center gap-1">
+                    <button type="submit" id="btn-submit-fin-setup"
+                        class="w-1/2 py-2.5 px-4 rounded-xl bg-emerald text-white text-xs font-bold hover:bg-primary transition-all shadow-md active:scale-95 flex items-center justify-center gap-1">
                         <span>Save PIN</span>
                         <span class="material-symbols-outlined text-sm">check</span>
                     </button>
@@ -1236,5 +1504,5 @@
     <!-- Application Script Reference -->
     <script src="/admin/js/admin.js?v=20260901r21"></script>
 </body>
-</html>
 
+</html>
