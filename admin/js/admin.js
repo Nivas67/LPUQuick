@@ -1336,17 +1336,511 @@ async function loadOrders() {
     }
 }
 
+// ============================================================
+// WEB PUSH NOTIFICATION CLIENT ENGINE (RFC 8291)
+// ============================================================
+let pushSubscription = null;
+let vapidPublicKey = null;
+
+// Listen for background service worker notifications clicking
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'NAVIGATE_ORDER') {
+            switchView('orders');
+            if (event.data.orderId) {
+                setTimeout(() => openOrderDrawer(event.data.orderId), 350);
+            }
+        }
+    });
+}
+
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
+async function getVapidKey() {
+    if (vapidPublicKey) return vapidPublicKey;
+    try {
+        const res = await fetch('/api/notifications/vapid-public-key');
+        const data = await res.json();
+        if (data.success && data.publicKey) {
+            vapidPublicKey = data.publicKey;
+            return vapidPublicKey;
+        }
+    } catch (e) {
+        console.warn('Failed to fetch VAPID key:', e.message);
+    }
+    return null;
+}
+
+async function checkPushStatus() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        updatePushUI(false, 'Unsupported');
+        return false;
+    }
+
+    try {
+        const reg = await navigator.serviceWorker.ready;
+        pushSubscription = await reg.pushManager.getSubscription();
+        const isSubscribed = Boolean(pushSubscription);
+        updatePushUI(isSubscribed);
+
+        const banner = document.getElementById('push-unlock-banner');
+        if (banner) {
+            if (!isSubscribed && Notification.permission !== 'denied' && localStorage.getItem('lpuquick_push_dismissed') !== 'true') {
+                banner.classList.remove('hidden');
+            } else {
+                banner.classList.add('hidden');
+            }
+        }
+        return isSubscribed;
+    } catch (e) {
+        console.warn('Error checking push status:', e);
+        return false;
+    }
+}
+
+function updatePushUI(active, label) {
+    const btn = document.getElementById('btn-push-toggle');
+    const icon = document.getElementById('push-icon');
+    const text = document.getElementById('push-status-text');
+
+    if (!btn || !icon || !text) return;
+
+    if (label === 'Unsupported') {
+        btn.classList.add('hidden');
+        return;
+    }
+
+    if (active) {
+        btn.className = 'bg-emerald-50 hover:bg-emerald-100 text-[#137333] border border-emerald-300 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95';
+        icon.textContent = 'notifications_active';
+        text.textContent = 'Push Alerts: ON';
+        text.className = 'hidden sm:inline text-emerald-800';
+    } else {
+        btn.className = 'bg-blue-50 hover:bg-blue-100 text-[#1a73e8] border border-blue-200 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95';
+        icon.textContent = 'notifications';
+        text.textContent = 'Push Alerts: OFF';
+        text.className = 'hidden sm:inline text-[#1a73e8]';
+    }
+}
+
+async function enablePushNotifications() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        showToast('Push notifications not supported on this browser', 'warning');
+        return false;
+    }
+
+    try {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+            showToast('Push notification permission was denied in browser settings', 'warning');
+            updatePushUI(false);
+            return false;
+        }
+
+        const pubKey = await getVapidKey();
+        if (!pubKey) {
+            showToast('Unable to reach push server. Try again in a moment.', 'error');
+            return false;
+        }
+
+        const reg = await navigator.serviceWorker.ready;
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+            const convertedVapidKey = urlBase64ToUint8Array(pubKey);
+            sub = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: convertedVapidKey
+            });
+        }
+        pushSubscription = sub;
+
+        // Register with server
+        await fetch('/api/notifications/subscribe', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                subscription: sub.toJSON(),
+                adminId: currentAdminProfile?.id || null,
+                adminName: currentAdminProfile?.name || 'Admin',
+                roles: currentAdminProfile?.roles || ['delivery_person']
+            })
+        });
+
+        updatePushUI(true);
+        const banner = document.getElementById('push-unlock-banner');
+        if (banner) banner.classList.add('hidden');
+
+        showToast('✅ Push Notifications Active! Alerts will wake your device even when closed.', 'success');
+
+        // Trigger immediate confirmation alert
+        fetch('/api/notifications/test', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                adminId: currentAdminProfile?.id || null,
+                adminName: currentAdminProfile?.name || 'Admin'
+            })
+        }).catch(() => {});
+
+        return true;
+    } catch (e) {
+        console.error('Error enabling push:', e);
+        showToast('Push setup error: ' + e.message, 'error');
+        return false;
+    }
+}
+
+async function disablePushNotifications() {
+    try {
+        if (pushSubscription) {
+            const endpoint = pushSubscription.endpoint;
+            await pushSubscription.unsubscribe();
+            pushSubscription = null;
+            await fetch('/api/notifications/unsubscribe', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ endpoint })
+            }).catch(() => {});
+        }
+        updatePushUI(false);
+        showToast('Push notifications disabled for this device', 'info');
+    } catch (e) {
+        console.error('Disable push error:', e);
+    }
+}
+
+function togglePushNotifications() {
+    if (pushSubscription) {
+        disablePushNotifications();
+    } else {
+        enablePushNotifications();
+    }
+}
+
+function dismissPushBanner() {
+    localStorage.setItem('lpuquick_push_dismissed', 'true');
+    const banner = document.getElementById('push-unlock-banner');
+    if (banner) banner.classList.add('hidden');
+}
+
+// ============================================================
+// ORDER CLAIMING & DELIVERY TRANSFER HANDSHAKE LOGIC
+// ============================================================
+
+let currentPendingTransferOrder = null;
+
+async function claimOrder(orderId) {
+    if (!orderId) return;
+    try {
+        const res = await fetchWithTimeout(`/api/orders/${orderId}/claim`, {
+            method: 'POST',
+            headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast(data.message || 'Delivery accepted successfully!', 'success');
+            // Update local order cache
+            const idx = ordersCache.findIndex(o => o.id === orderId);
+            if (idx >= 0 && data.order) {
+                ordersCache[idx] = {
+                    ...ordersCache[idx],
+                    ...data.order,
+                    delivery_assignment: data.order.delivery_assignment || {
+                        assigned_to: currentAdminProfile?.id,
+                        assigned_to_name: currentAdminProfile?.name,
+                        is_claimed: true
+                    }
+                };
+            }
+            filterOrders();
+            if (currentDrawerOrderId === orderId) openOrderDrawer(orderId);
+        } else {
+            showToast(data.error || 'Failed to claim order. It may have already been accepted.', 'error');
+            loadOrders();
+        }
+    } catch (err) {
+        showToast('Error claiming order: ' + err.message, 'error');
+    }
+}
+
+async function loadDeliveryStaffForTransfer() {
+    const select = document.getElementById('transfer-target-admin');
+    if (!select) return;
+    select.innerHTML = '<option value="">Loading available staff...</option>';
+
+    try {
+        const res = await fetchWithTimeout('/api/orders/admin/delivery-staff', {
+            headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        if (res.ok && data.staff) {
+            const availableStaff = data.staff.filter(s => s.id !== currentAdminProfile?.id);
+            if (availableStaff.length === 0) {
+                select.innerHTML = '<option value="">No other delivery admins available</option>';
+                return;
+            }
+            select.innerHTML = availableStaff.map(s => {
+                const loadBadge = s.active_deliveries > 0 ? ` (${s.active_deliveries} active orders)` : ' (Available)';
+                const roleBadge = s.is_owner ? ' [Owner]' : (s.roles.includes('store_manager') ? ' [Store Mgr]' : ' [Rider]');
+                return `<option value="${s.id}" data-name="${s.name}">${s.name}${roleBadge}${loadBadge}</option>`;
+            }).join('');
+        } else {
+            select.innerHTML = '<option value="">Failed to load staff list</option>';
+        }
+    } catch (e) {
+        select.innerHTML = `<option value="">Error: ${e.message}</option>`;
+    }
+}
+
+function openTransferModal(orderId) {
+    const order = ordersCache.find(o => o.id === orderId);
+    if (!order) return;
+
+    document.getElementById('transfer-order-id').value = orderId;
+    document.getElementById('transfer-order-label').textContent = `#${(orderId || '').replace('order_', '').toUpperCase()}`;
+    document.getElementById('transfer-order-room').textContent = order.delivery_address || 'Campus Hostel';
+    
+    const currRider = order.delivery_assignment?.assigned_to_name || order.rider_name || 'Unassigned';
+    document.getElementById('transfer-order-curr-rider').textContent = currRider;
+
+    const errorDiv = document.getElementById('transfer-form-error');
+    if (errorDiv) errorDiv.classList.add('hidden');
+
+    loadDeliveryStaffForTransfer();
+    document.getElementById('modal-transfer-order').classList.remove('hidden');
+}
+
+function closeTransferModal() {
+    document.getElementById('modal-transfer-order').classList.add('hidden');
+}
+
+function handleTransferReasonSelect(val) {
+    const custom = document.getElementById('transfer-reason-custom');
+    if (!custom) return;
+    if (val === 'Other') {
+        custom.classList.remove('hidden');
+        custom.focus();
+    } else {
+        custom.classList.add('hidden');
+    }
+}
+
+async function submitOrderTransfer(e) {
+    e.preventDefault();
+    const orderId = document.getElementById('transfer-order-id').value;
+    const targetSelect = document.getElementById('transfer-target-admin');
+    const toAdminId = targetSelect.value;
+    const toAdminName = targetSelect.options[targetSelect.selectedIndex]?.dataset.name || 'Delivery Admin';
+
+    if (!toAdminId) {
+        alert('Please select a recipient admin for the transfer');
+        return;
+    }
+
+    const reasonSelect = document.getElementById('transfer-reason-select').value;
+    const customInput = document.getElementById('transfer-reason-custom').value;
+    const reason = (reasonSelect === 'Other' && customInput) ? customInput : reasonSelect;
+
+    const submitBtn = document.getElementById('btn-submit-transfer');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span>Sending...</span>';
+    }
+
+    try {
+        const res = await fetchWithTimeout(`/api/orders/${orderId}/transfer/request`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ toAdminId, toAdminName, reason })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast(`Transfer request sent to ${toAdminName}!`, 'success');
+            closeTransferModal();
+            const idx = ordersCache.findIndex(o => o.id === orderId);
+            if (idx >= 0 && data.order) {
+                ordersCache[idx] = { ...ordersCache[idx], ...data.order };
+            }
+            filterOrders();
+        } else {
+            const errBox = document.getElementById('transfer-form-error');
+            if (errBox) {
+                errBox.textContent = data.error || 'Failed to initiate transfer';
+                errBox.classList.remove('hidden');
+            }
+        }
+    } catch (err) {
+        alert('Transfer request failed: ' + err.message);
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<span>Send Transfer Request</span><span class="material-symbols-outlined text-sm">send</span>';
+        }
+    }
+}
+
+async function respondToTransfer(orderId, accept) {
+    if (!orderId) return;
+    try {
+        const res = await fetchWithTimeout(`/api/orders/${orderId}/transfer/respond`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ accept })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast(data.message, accept ? 'success' : 'info');
+            const banner = document.getElementById('incoming-transfer-banner');
+            if (banner && currentPendingTransferOrder?.orderId === orderId) {
+                banner.classList.add('hidden');
+                currentPendingTransferOrder = null;
+            }
+            loadOrders();
+        } else {
+            showToast(data.error || 'Failed to respond to transfer', 'error');
+        }
+    } catch (err) {
+        showToast('Error responding to transfer: ' + err.message, 'error');
+    }
+}
+
+function handleBannerTransferResponse(accept) {
+    if (currentPendingTransferOrder && currentPendingTransferOrder.orderId) {
+        respondToTransfer(currentPendingTransferOrder.orderId, accept);
+    }
+}
+
+function showIncomingTransferAlert(transferData) {
+    currentPendingTransferOrder = transferData;
+    const banner = document.getElementById('incoming-transfer-banner');
+    const txt = document.getElementById('incoming-transfer-text');
+    if (banner && txt) {
+        const shortId = (transferData.orderId || '').replace('order_', '').slice(0, 8).toUpperCase();
+        txt.innerHTML = `🛵 <strong>${transferData.fromName}</strong> requested to transfer Order <span class="font-mono underline">#${shortId}</span> to you! (${transferData.reason || 'Assistance requested'})`;
+        banner.classList.remove('hidden');
+        try { playCampusChime(); } catch (e) {}
+    }
+}
+
+function updateDrawerDispatchCard(order) {
+    const da = order.delivery_assignment || {};
+    const isDone = ['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(order.status);
+    const isUnassigned = !da.is_claimed || !da.assigned_to;
+    const myId = currentAdminProfile?.id;
+    const isAssignedToMe = da.assigned_to === myId;
+    const isOwnerOrStoreMgr = currentAdminProfile?.is_owner || (currentAdminProfile?.roles || []).includes('owner') || (currentAdminProfile?.roles || []).includes('store_manager');
+
+    const badge = document.getElementById('drawer-dispatch-status-badge');
+    const nameEl = document.getElementById('drawer-dispatch-runner-name');
+    const timeEl = document.getElementById('drawer-dispatch-claimed-time');
+    const btnClaim = document.getElementById('btn-drawer-claim');
+    const btnTransfer = document.getElementById('btn-drawer-transfer');
+    const transferBanner = document.getElementById('drawer-transfer-banner');
+    const transferTxt = document.getElementById('drawer-transfer-text');
+    const transferActions = document.getElementById('drawer-transfer-actions');
+
+    if (isUnassigned) {
+        if (badge) {
+            badge.textContent = 'Unassigned Pool';
+            badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800';
+        }
+        if (nameEl) nameEl.textContent = 'No delivery person assigned. Any admin can accept delivery.';
+        if (timeEl) timeEl.textContent = 'Waiting for runner acceptance';
+        if (btnClaim) {
+            btnClaim.classList.toggle('hidden', isDone);
+            btnClaim.innerHTML = '<span class="material-symbols-outlined text-sm">electric_bolt</span><span>Accept Delivery</span>';
+        }
+        if (btnTransfer) btnTransfer.classList.add('hidden');
+        if (transferBanner) transferBanner.classList.add('hidden');
+    } else {
+        const riderName = da.assigned_to_name || order.rider_name || 'Delivery Rider';
+        if (badge) {
+            badge.textContent = isAssignedToMe ? 'Assigned to You' : 'Assigned';
+            badge.className = isAssignedToMe 
+                ? 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800'
+                : 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800';
+        }
+        if (nameEl) nameEl.textContent = `Assigned Rider: ${riderName}`;
+        if (timeEl) timeEl.textContent = da.claimed_at ? `Claimed at: ${new Date(da.claimed_at).toLocaleTimeString()}` : '';
+
+        if (btnClaim) btnClaim.classList.add('hidden');
+        if (btnTransfer) btnTransfer.classList.toggle('hidden', isDone || (!isAssignedToMe && !isOwnerOrStoreMgr));
+
+        if (da.transfer && da.transfer.status === 'PENDING') {
+            if (transferBanner) {
+                transferBanner.classList.remove('hidden');
+                const isOfferedToMe = da.transfer.to_id === myId;
+                if (isOfferedToMe) {
+                    transferTxt.textContent = `🛵 ${da.transfer.from_name} wants to transfer this order to you! Reason: ${da.transfer.reason}`;
+                    if (transferActions) transferActions.classList.remove('hidden');
+                } else {
+                    transferTxt.textContent = `⏳ Transfer pending to ${da.transfer.to_name} (Reason: ${da.transfer.reason})`;
+                    if (transferActions) transferActions.classList.add('hidden');
+                }
+            }
+        } else {
+            if (transferBanner) transferBanner.classList.add('hidden');
+        }
+    }
+}
+
 let currentOrderFilter = 'all';
 function setOrderStatusFilter(status) {
     currentOrderFilter = status;
     document.querySelectorAll('.order-tab-btn').forEach(btn => {
         const active = btn.dataset.status === status;
-        btn.className = `order-tab-btn px-4 py-1.5 rounded-full text-xs transition-all ${active ? 'bg-[#3c4043] text-white font-semibold' : 'border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] font-medium'}`;
+        if (active) {
+            btn.className = 'order-tab-btn px-4 py-1.5 rounded-full text-xs transition-all bg-[#3c4043] text-white font-semibold flex items-center gap-1.5';
+        } else {
+            btn.className = 'order-tab-btn px-4 py-1.5 rounded-full text-xs transition-all border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] font-medium flex items-center gap-1.5';
+        }
     });
     filterOrders();
 }
 
 function filterOrders() {
+    const myId = currentAdminProfile?.id;
+    const isOwnerOrStoreMgr = currentAdminProfile?.is_owner || (currentAdminProfile?.roles || []).includes('owner') || (currentAdminProfile?.roles || []).includes('store_manager');
+
+    // Update dispatch tab badges
+    const unassignedCount = ordersCache.filter(o => {
+        const isDone = ['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(o.status);
+        const da = o.delivery_assignment;
+        return !isDone && (!da || !da.is_claimed || !da.assigned_to);
+    }).length;
+
+    const myDeliveriesCount = ordersCache.filter(o => {
+        const isDone = ['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(o.status);
+        const da = o.delivery_assignment;
+        return !isDone && da && da.assigned_to === myId;
+    }).length;
+
+    const transfersCount = ordersCache.filter(o => {
+        const da = o.delivery_assignment;
+        return da && da.transfer && da.transfer.status === 'PENDING' && (da.transfer.to_id === myId || isOwnerOrStoreMgr || da.transfer.from_id === myId);
+    }).length;
+
+    const badgeUnassigned = document.getElementById('badge-unassigned-count');
+    if (badgeUnassigned) badgeUnassigned.textContent = unassignedCount;
+
+    const badgeMyDeliveries = document.getElementById('badge-my-deliveries-count');
+    if (badgeMyDeliveries) badgeMyDeliveries.textContent = myDeliveriesCount;
+
+    const badgeTransfers = document.getElementById('badge-transfers-count');
+    if (badgeTransfers) {
+        badgeTransfers.textContent = transfersCount;
+        badgeTransfers.classList.toggle('hidden', transfersCount === 0);
+    }
+
     const query = (document.getElementById('orders-search-input')?.value || '').toLowerCase();
     let filtered = ordersCache.filter(o => {
         const matchId = (o.id || '').toLowerCase().includes(query);
@@ -1355,7 +1849,24 @@ function filterOrders() {
         return matchId || matchCust || matchAddr;
     });
 
-    if (currentOrderFilter === 'active') {
+    if (currentOrderFilter === 'unassigned') {
+        filtered = filtered.filter(o => {
+            const isDone = ['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(o.status);
+            const da = o.delivery_assignment;
+            return !isDone && (!da || !da.is_claimed || !da.assigned_to);
+        });
+    } else if (currentOrderFilter === 'my_deliveries') {
+        filtered = filtered.filter(o => {
+            const isDone = ['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(o.status);
+            const da = o.delivery_assignment;
+            return !isDone && da && da.assigned_to === myId;
+        });
+    } else if (currentOrderFilter === 'transfers') {
+        filtered = filtered.filter(o => {
+            const da = o.delivery_assignment;
+            return da && da.transfer && da.transfer.status === 'PENDING';
+        });
+    } else if (currentOrderFilter === 'active') {
         filtered = filtered.filter(o => !['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(o.status));
     } else if (currentOrderFilter === 'delivered') {
         filtered = filtered.filter(o => ['Delivered', 'delivered'].includes(o.status));
@@ -1370,6 +1881,74 @@ function filterOrders() {
     tbody.innerHTML = filtered.map(o => {
         const contactHtml = o.customer_phone ? o.customer_phone : (o.customer_email || 'Not provided');
         const displayName = formatCustomerDisplayName(o);
+        const da = o.delivery_assignment || {};
+        const isDone = ['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(o.status);
+        const isPendingTransfer = da.transfer && da.transfer.status === 'PENDING';
+        const isOfferedToMe = isPendingTransfer && da.transfer.to_id === myId;
+        const isAssignedToMe = da.assigned_to === myId;
+        const isUnassigned = !da.is_claimed || !da.assigned_to;
+
+        // Delivery Dispatch badge column
+        let dispatchBadgeHtml = '';
+        if (isUnassigned) {
+            dispatchBadgeHtml = '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300">⚡ Unassigned</span>';
+        } else if (isOfferedToMe) {
+            dispatchBadgeHtml = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-900 border border-purple-300 animate-pulse" title="From ${da.transfer.from_name}">🔄 Offered to You</span>`;
+        } else if (isPendingTransfer) {
+            dispatchBadgeHtml = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">⏳ Transfer Pending (${da.transfer.to_name})</span>`;
+        } else if (isAssignedToMe) {
+            dispatchBadgeHtml = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-blue-100 text-[#1a73e8] border border-blue-300">🛵 You (${da.assigned_to_name || 'Assigned'})</span>`;
+        } else {
+            dispatchBadgeHtml = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700">👤 ${da.assigned_to_name || o.rider_name || 'Rider'}</span>`;
+        }
+
+        // Action / Dispatch buttons column
+        let actionButtonsHtml = '';
+        if (!isDone && isUnassigned) {
+            actionButtonsHtml = `
+                <button onclick="event.stopPropagation(); claimOrder('${o.id}')" 
+                    class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs active:scale-95 transition-all flex items-center gap-1 ml-auto">
+                    <span class="material-symbols-outlined text-sm">electric_bolt</span>
+                    <span>Accept Delivery</span>
+                </button>
+            `;
+        } else if (!isDone && isOfferedToMe) {
+            actionButtonsHtml = `
+                <div class="flex items-center gap-1.5 justify-end">
+                    <button onclick="event.stopPropagation(); respondToTransfer('${o.id}', true)" 
+                        class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-lg shadow-xs">
+                        Accept
+                    </button>
+                    <button onclick="event.stopPropagation(); respondToTransfer('${o.id}', false)" 
+                        class="px-2 py-1 bg-rose-100 hover:bg-rose-200 text-rose-700 font-semibold text-[11px] rounded-lg">
+                        Decline
+                    </button>
+                </div>
+            `;
+        } else if (!isDone && (isAssignedToMe || isOwnerOrStoreMgr)) {
+            actionButtonsHtml = `
+                <div class="flex items-center gap-1.5 justify-end">
+                    <button onclick="event.stopPropagation(); openTransferModal('${o.id}')" 
+                        class="px-2.5 py-1 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-[11px] flex items-center gap-1 shadow-xs transition-all"
+                        title="Transfer this order to another delivery person">
+                        <span>Transfer</span>
+                        <span class="material-symbols-outlined text-sm">swap_horiz</span>
+                    </button>
+                    <button onclick="event.stopPropagation(); openOrderDrawer('${o.id}')" 
+                        class="text-xs font-semibold text-[#3c4043] bg-[#ebeef2] hover:bg-[#e0e3e6] px-2.5 py-1 rounded-lg">
+                        Manage
+                    </button>
+                </div>
+            `;
+        } else {
+            actionButtonsHtml = `
+                <button onclick="event.stopPropagation(); openOrderDrawer('${o.id}')" 
+                    class="text-xs font-semibold text-[#3c4043] bg-[#ebeef2] hover:bg-[#e0e3e6] px-3 py-1 rounded-full">
+                    Manage
+                </button>
+            `;
+        }
+
         return `
         <tr class="hover:bg-[#f7fafd] transition-colors cursor-pointer" onclick="openOrderDrawer('${o.id}')" id="order-row-${o.id}">
             <td class="p-4 font-bold font-mono text-[#181c1f]">#${(o.id || '').replace('order_', '').toUpperCase()}</td>
@@ -1381,12 +1960,8 @@ function filterOrders() {
             <td class="p-4 font-bold text-[#137333]">₹${o.total}</td>
             <td class="p-4 text-[#5c5f60]">${o.payment_method || 'COD'}</td>
             <td class="p-4" id="order-status-pill-${o.id}">${getStatusPill(o.status)}</td>
-            <td class="p-4 text-[#74777a]">${new Date(o.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-            <td class="p-4 text-right">
-                <button onclick="event.stopPropagation(); openOrderDrawer('${o.id}')" class="text-xs font-semibold text-[#3c4043] bg-[#ebeef2] hover:bg-[#e0e3e6] px-3 py-1 rounded-full">
-                    Manage
-                </button>
-            </td>
+            <td class="p-4">${dispatchBadgeHtml}</td>
+            <td class="p-4 text-right">${actionButtonsHtml}</td>
         </tr>
     `}).join('');
 }
@@ -1421,6 +1996,8 @@ async function openOrderDrawer(orderId) {
         document.getElementById('drawer-order-total').textContent = `₹${cachedOrder.total || 0}`;
         document.getElementById('drawer-status-select').value = cachedOrder.status;
 
+        updateDrawerDispatchCard(cachedOrder);
+
         const itemsList = document.getElementById('drawer-items-list');
         if (cachedOrder.items && cachedOrder.items.length > 0) {
             itemsList.innerHTML = cachedOrder.items.map(item => `
@@ -1450,6 +2027,7 @@ async function openOrderDrawer(orderId) {
         document.getElementById('drawer-payment-method').textContent = '--';
         document.getElementById('drawer-order-total').textContent = '--';
         document.getElementById('drawer-items-list').innerHTML = '<p class="text-xs text-[#5c5f60] p-3 text-center">Loading items breakdown...</p>';
+        updateDrawerDispatchCard({ id: orderId, status: 'Loading...', delivery_assignment: null });
     }
 
     try {
@@ -1470,6 +2048,8 @@ async function openOrderDrawer(orderId) {
         document.getElementById('drawer-payment-method').textContent = o.payment_method || 'Cash on Delivery';
         document.getElementById('drawer-order-total').textContent = `₹${o.total}`;
         document.getElementById('drawer-status-select').value = o.status;
+
+        updateDrawerDispatchCard(o);
 
         const itemsList = document.getElementById('drawer-items-list');
         const items = o.items || [];
@@ -2588,6 +3168,12 @@ function initRealtimeWebSocket() {
                     handleRealtimeStatusUpdate(data);
                 } else if (data.type === 'INVENTORY_UPDATE') {
                     handleRealtimeInventoryUpdate(data);
+                } else if (data.type === 'ORDER_CLAIMED') {
+                    handleRealtimeOrderClaimed(data);
+                } else if (data.type === 'TRANSFER_REQUESTED') {
+                    handleRealtimeTransferRequested(data);
+                } else if (data.type === 'TRANSFER_RESOLVED') {
+                    handleRealtimeTransferResolved(data);
                 } else if (data.type === 'CLIENT_LOCK_UPDATE' && data.availability) {
                     updateClientLockUI(data.availability);
                     showToast(`Store availability updated: ${data.availability.lock_status}`, 'info');
@@ -2602,6 +3188,66 @@ function initRealtimeWebSocket() {
                 console.error('[Admin WS Parse Error]:', err);
             }
         };
+
+        function handleRealtimeOrderClaimed(data) {
+            const o = ordersCache.find(x => x.id === data.orderId);
+            if (o) {
+                o.rider_name = data.adminName;
+                o.delivery_assignment = {
+                    assigned_to: data.adminId,
+                    assigned_to_name: data.adminName,
+                    claimed_at: data.claimedAt,
+                    is_claimed: true,
+                    transfer: null
+                };
+            }
+            if (data.adminId !== currentAdminProfile?.id) {
+                showToast(`🛵 ${data.adminName} accepted Order #${(data.orderId || '').replace('order_', '').slice(0, 8)}`, 'info');
+            }
+            filterOrders();
+            if (currentDrawerOrderId === data.orderId) openOrderDrawer(data.orderId);
+        }
+
+        function handleRealtimeTransferRequested(data) {
+            const o = ordersCache.find(x => x.id === data.orderId);
+            if (o) {
+                if (!o.delivery_assignment) o.delivery_assignment = {};
+                o.delivery_assignment.transfer = {
+                    from_id: data.fromId,
+                    from_name: data.fromName,
+                    to_id: data.toId,
+                    to_name: data.toName,
+                    reason: data.reason,
+                    status: 'PENDING'
+                };
+            }
+            if (data.toId === currentAdminProfile?.id) {
+                showIncomingTransferAlert(data);
+            }
+            filterOrders();
+            if (currentDrawerOrderId === data.orderId) openOrderDrawer(data.orderId);
+        }
+
+        function handleRealtimeTransferResolved(data) {
+            const o = ordersCache.find(x => x.id === data.orderId);
+            if (o) {
+                if (data.accepted) {
+                    o.rider_name = data.toName;
+                    o.delivery_assignment = {
+                        assigned_to: data.toId,
+                        assigned_to_name: data.toName,
+                        is_claimed: true,
+                        transfer: null
+                    };
+                } else if (o.delivery_assignment) {
+                    o.delivery_assignment.transfer = null;
+                }
+            }
+            const shortId = (data.orderId || '').replace('order_', '').slice(0, 8).toUpperCase();
+            showToast(`Order #${shortId} transfer ${data.accepted ? 'accepted by ' + data.toName : 'declined'}`, data.accepted ? 'success' : 'warning');
+            filterOrders();
+            if (currentDrawerOrderId === data.orderId) openOrderDrawer(data.orderId);
+        }
 
 
         realtimeWs.onclose = () => {
@@ -3273,8 +3919,8 @@ async function initAdminAuth() {
     }
 }
 initAdminAuth();
-
 updateSoundUI();
+checkPushStatus();
 
 // Periodic background sync fallback (every 60 seconds when authenticated & visible)
 setInterval(() => {

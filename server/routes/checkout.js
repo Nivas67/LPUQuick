@@ -213,6 +213,17 @@ async function handlePlaceOrder(req, res) {
             console.error('[WS Broadcast Warning]:', e.message);
         }
 
+        // 3. Trigger background Web Push to all delivery runners & managers (wakes up closed devices)
+        try {
+            const pushService = require('../notifications/pushService');
+            pushService.notifyNewOrder({
+                id: orderId,
+                total,
+                delivery_address: address,
+                customer_name: customerName
+            }).catch(pErr => console.warn('[Push Service New Order Note]:', pErr.message));
+        } catch (pushErr) {}
+
         res.json({
             success: true,
             orderId,

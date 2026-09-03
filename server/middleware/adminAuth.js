@@ -192,33 +192,34 @@ async function requireAdmin(req, res, next) {
  */
 function requireRole(...allowedRoles) {
     return (req, res, next) => {
+        const verifyRole = (adminUser) => {
+            const userRoles = adminUser.roles || [];
+            const isOwner = userRoles.includes('owner') || adminUser.id === 'user_admin_bh13' || adminUser.email === 'admin@lpu.in';
+
+            if (isOwner) {
+                return next();
+            }
+
+            const hasPermission = allowedRoles.some(role => userRoles.includes(role));
+            if (!hasPermission) {
+                console.warn(`[SECURITY AUDIT] ROLE_ACCESS_DENIED | userId: ${adminUser.id} | required: ${allowedRoles.join(',')} | actual: ${userRoles.join(',')} | path: ${req.originalUrl || req.path}`);
+                return res.status(403).json({
+                    success: false,
+                    code: 'FORBIDDEN_ROLE',
+                    error: `Access denied. Requires one of the following permissions: ${allowedRoles.join(', ')}.`
+                });
+            }
+
+            next();
+        };
+
         if (!req.admin) {
-            return res.status(401).json({
-                success: false,
-                code: 'UNAUTHORIZED',
-                error: 'Administrator authentication required.'
+            return requireAdmin(req, res, () => {
+                verifyRole(req.admin);
             });
         }
 
-        const userRoles = req.admin.roles || [];
-        const isOwner = userRoles.includes('owner') || req.admin.id === 'user_admin_bh13' || req.admin.email === 'admin@lpu.in';
-
-        // Owner has super-admin rights to all roles
-        if (isOwner) {
-            return next();
-        }
-
-        const hasPermission = allowedRoles.some(role => userRoles.includes(role));
-        if (!hasPermission) {
-            console.warn(`[SECURITY AUDIT] ROLE_ACCESS_DENIED | userId: ${req.admin.id} | required: ${allowedRoles.join(',')} | actual: ${userRoles.join(',')} | path: ${req.originalUrl || req.path}`);
-            return res.status(403).json({
-                success: false,
-                code: 'FORBIDDEN_ROLE',
-                error: `Access denied. Requires one of the following permissions: ${allowedRoles.join(', ')}.`
-            });
-        }
-
-        next();
+        verifyRole(req.admin);
     };
 }
 

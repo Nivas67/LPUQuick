@@ -419,6 +419,47 @@ function broadcastUserUnblocked(userId) {
     chunkedBroadcast(adminSockets, payload);
 }
 
+// Broadcast when an admin claims/accepts delivery of an order
+function broadcastOrderClaimed(data) {
+    const payload = JSON.stringify({
+        type: 'ORDER_CLAIMED',
+        orderId: data.orderId,
+        adminId: data.adminId,
+        adminName: data.adminName,
+        claimedAt: data.claimedAt || new Date().toISOString(),
+        timestamp: new Date().toISOString()
+    });
+    chunkedBroadcast(adminSockets, payload);
+}
+
+// Broadcast when a delivery runner initiates an order transfer request
+function broadcastTransferRequested(data) {
+    const payload = JSON.stringify({
+        type: 'TRANSFER_REQUESTED',
+        orderId: data.orderId,
+        fromId: data.fromId,
+        fromName: data.fromName,
+        toId: data.toId,
+        toName: data.toName,
+        reason: data.reason,
+        timestamp: new Date().toISOString()
+    });
+    chunkedBroadcast(adminSockets, payload);
+}
+
+// Broadcast when a transfer is accepted or declined
+function broadcastTransferResolved(data) {
+    const payload = JSON.stringify({
+        type: 'TRANSFER_RESOLVED',
+        orderId: data.orderId,
+        toId: data.toId,
+        toName: data.toName,
+        accepted: data.accepted,
+        timestamp: new Date().toISOString()
+    });
+    chunkedBroadcast(adminSockets, payload);
+}
+
 module.exports = {
     setupRealtime,
     broadcastOrderPlaced: notifyAdminNewOrder,
@@ -426,7 +467,10 @@ module.exports = {
     broadcastInventoryUpdate,
     broadcastClientLockUpdate,
     broadcastUserBlocked,
-    broadcastUserUnblocked
+    broadcastUserUnblocked,
+    broadcastOrderClaimed,
+    broadcastTransferRequested,
+    broadcastTransferResolved
 };
 
 

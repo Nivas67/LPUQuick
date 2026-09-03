@@ -737,6 +737,216 @@ const supabaseDb = {
             if (error) throw new Error(`PostgreSQL order status update failed: ${error.message}`);
             cache.invalidateOrders();
             return data;
+        },
+
+        parseDeliveryMeta(riderName) {
+            if (!riderName) {
+                return {
+                    assigned_to: null,
+                    assigned_to_name: null,
+                    claimed_at: null,
+                    transfer: null,
+                    is_claimed: false
+                };
+            }
+            if (typeof riderName === 'string' && riderName.startsWith('{')) {
+                try {
+                    const meta = JSON.parse(riderName);
+                    return {
+                        assigned_to: meta.admin_id || null,
+                        assigned_to_name: meta.name || null,
+                        claimed_at: meta.claimed_at || null,
+                        transfer: meta.transfer || null,
+                        is_claimed: Boolean(meta.admin_id)
+                    };
+                } catch (e) {}
+            }
+            if (riderName === 'Alex' || riderName === 'Campus Express' || riderName === 'unassigned') {
+                return {
+                    assigned_to: null,
+                    assigned_to_name: null,
+                    claimed_at: null,
+                    transfer: null,
+                    is_claimed: false
+                };
+            }
+            return {
+                assigned_to: null,
+                assigned_to_name: riderName,
+                claimed_at: null,
+                transfer: null,
+                is_claimed: true
+            };
+        },
+
+        async claimOrder(orderId, adminId, adminName) {
+            const supabase = getSupabaseClient();
+            if (!supabase) throw new Error('Database client unavailable');
+
+            const { data: order, error: fetchErr } = await supabase
+                .from('orders')
+                .select('*')
+                .eq('id', orderId)
+                .single();
+
+            if (fetchErr || !order) throw new Error('Order not found');
+
+            const currentInfo = this.parseDeliveryMeta(order.rider_name);
+            if (currentInfo.is_claimed && currentInfo.assigned_to && currentInfo.assigned_to !== adminId) {
+                throw new Error(`Order was already accepted by ${currentInfo.assigned_to_name || 'another delivery admin'}`);
+            }
+
+            const deliveryMeta = {
+                admin_id: adminId,
+                name: adminName || 'Delivery Rider',
+                claimed_at: new Date().toISOString(),
+                transfer: null
+            };
+
+            const updates = {
+                rider_name: JSON.stringify(deliveryMeta)
+            };
+            if (order.status === 'Order Placed' || order.status === 'pending') {
+                updates.status = 'Order Confirmed';
+            }
+
+            const { data, error } = await supabase
+                .from('orders')
+                .update(updates)
+                .eq('id', orderId)
+                .select()
+                .single();
+
+            if (error) throw new Error(`Claim order failed: ${error.message}`);
+            cache.invalidateOrders();
+
+            return {
+                ...data,
+                delivery_assignment: this.parseDeliveryMeta(data.rider_name)
+            };
+        },
+
+        async requestTransfer(orderId, fromAdminId, fromAdminName, toAdminId, toAdminName, reason) {
+            const supabase = getSupabaseClient();
+            if (!supabase) throw new Error('Database client unavailable');
+
+            const { data: order, error: fetchErr } = await supabase
+                .from('orders')
+                .select('*')
+                .eq('id', orderId)
+                .single();
+
+            if (fetchErr || !order) throw new Error('Order not found');
+
+            const currentInfo = this.parseDeliveryMeta(order.rider_name);
+            const deliveryMeta = {
+                admin_id: currentInfo.assigned_to || fromAdminId,
+                name: currentInfo.assigned_to_name || fromAdminName,
+                claimed_at: currentInfo.claimed_at || new Date().toISOString(),
+                transfer: {
+                    from_id: fromAdminId,
+                    from_name: fromAdminName,
+                    to_id: toAdminId,
+                    to_name: toAdminName,
+                    reason: reason || 'Delivery assistance needed',
+                    status: 'PENDING',
+                    requested_at: new Date().toISOString()
+                }
+            };
+
+            const { data, error } = await supabase
+                .from('orders')
+                .update({ rider_name: JSON.stringify(deliveryMeta) })
+                .eq('id', orderId)
+                .select()
+                .single();
+
+            if (error) throw new Error(`Transfer request failed: ${error.message}`);
+            cache.invalidateOrders();
+
+            return {
+                ...data,
+                delivery_assignment: this.parseDeliveryMeta(data.rider_name)
+            };
+        },
+
+        async respondTransfer(orderId, targetAdminId, accept, responderName) {
+            const supabase = getSupabaseClient();
+            if (!supabase) throw new Error('Database client unavailable');
+
+            const { data: order, error: fetchErr } = await supabase
+                .from('orders')
+                .select('*')
+                .eq('id', orderId)
+                .single();
+
+            if (fetchErr || !order) throw new Error('Order not found');
+
+            const currentInfo = this.parseDeliveryMeta(order.rider_name);
+            if (!currentInfo.transfer) {
+                throw new Error('No pending transfer request found for this order');
+            }
+
+            let deliveryMeta;
+            if (accept) {
+                deliveryMeta = {
+                    admin_id: targetAdminId,
+                    name: responderName || currentInfo.transfer.to_name || 'Delivery Rider',
+                    claimed_at: new Date().toISOString(),
+                    transfer: null
+                };
+            } else {
+                deliveryMeta = {
+                    admin_id: currentInfo.assigned_to,
+                    name: currentInfo.assigned_to_name,
+                    claimed_at: currentInfo.claimed_at,
+                    transfer: null
+                };
+            }
+
+            const { data, error } = await supabase
+                .from('orders')
+                .update({ rider_name: JSON.stringify(deliveryMeta) })
+                .eq('id', orderId)
+                .select()
+                .single();
+
+            if (error) throw new Error(`Respond transfer failed: ${error.message}`);
+            cache.invalidateOrders();
+
+            return {
+                ...data,
+                delivery_assignment: this.parseDeliveryMeta(data.rider_name),
+                previous_transfer: currentInfo.transfer
+            };
+        },
+
+        async directAssign(orderId, targetAdminId, targetAdminName, assignedBy) {
+            const supabase = getSupabaseClient();
+            if (!supabase) throw new Error('Database client unavailable');
+
+            const deliveryMeta = {
+                admin_id: targetAdminId,
+                name: targetAdminName || 'Delivery Rider',
+                claimed_at: new Date().toISOString(),
+                assigned_by: assignedBy,
+                transfer: null
+            };
+
+            const { data, error } = await supabase
+                .from('orders')
+                .update({ rider_name: JSON.stringify(deliveryMeta) })
+                .eq('id', orderId)
+                .select()
+                .single();
+
+            if (error) throw new Error(`Direct assign failed: ${error.message}`);
+            cache.invalidateOrders();
+
+            return {
+                ...data,
+                delivery_assignment: this.parseDeliveryMeta(data.rider_name)
+            };
         }
     },
 

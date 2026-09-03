@@ -90,3 +90,70 @@ self.addEventListener('fetch', (event) => {
         })
     );
 });
+
+// ============================================================
+// WEB PUSH NOTIFICATIONS: Background alerts even when closed
+// ============================================================
+self.addEventListener('push', (event) => {
+    let payload = {
+        title: '🛵 LPUQuick Delivery Alert',
+        body: 'New order update available.',
+        icon: '/icon-192.png',
+        badge: '/favicon.png',
+        tag: 'lpuquick-alert-' + Date.now(),
+        data: { url: '/admin#orders' }
+    };
+
+    if (event.data) {
+        try {
+            payload = event.data.json();
+        } catch (e) {
+            payload.body = event.data.text();
+        }
+    }
+
+    const options = {
+        body: payload.body,
+        icon: payload.icon || '/icon-192.png',
+        badge: payload.badge || '/favicon.png',
+        tag: payload.tag || 'lpuquick-notification',
+        renotify: true,
+        data: payload.data || { url: '/admin#orders' },
+        vibrate: [200, 100, 200, 100, 200],
+        actions: payload.actions || [
+            { action: 'open', title: 'Open Hub' }
+        ]
+    };
+
+    event.waitUntil(
+        self.registration.showNotification(payload.title, options)
+    );
+});
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    const notificationData = event.notification.data || {};
+    const targetUrl = notificationData.url || '/admin#orders';
+
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+            // If admin window already open, focus it and notify of order
+            for (const client of windowClients) {
+                if (client.url.includes('/admin') && 'focus' in client) {
+                    if (notificationData.orderId) {
+                        client.postMessage({
+                            type: 'NAVIGATE_ORDER',
+                            orderId: notificationData.orderId,
+                            action: notificationData.action || 'open'
+                        });
+                    }
+                    return client.focus();
+                }
+            }
+            // Otherwise open a new window
+            if (clients.openWindow) {
+                return clients.openWindow(targetUrl);
+            }
+        })
+    );
+});

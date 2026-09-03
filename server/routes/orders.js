@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const supabaseDb = require('../db/supabaseDb');
-const { broadcastStatusUpdate } = require('../realtime');
+const { broadcastStatusUpdate, broadcastOrderClaimed, broadcastTransferRequested, broadcastTransferResolved } = require('../realtime');
 const { getSupabaseClient } = require('../supabase');
 const requireAdmin = require('../middleware/adminAuth');
+const { requireRole } = require('../middleware/adminAuth');
+const pushService = require('../notifications/pushService');
 const cache = require('../cache');
 
 const ACTIVE_STATUSES = ['Order Placed', 'Order Confirmed', 'Preparing', 'Out for Delivery', 'pending', 'confirmed', 'accepted', 'packed', 'en_route'];
@@ -168,6 +170,7 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
                 const customerName = resolveOrderCustomerName(order, user);
                 const customerPhone = order.customer_phone || user?.phone || '';
                 const customerEmail = (order.customer_email && !order.customer_email.endsWith('@lpu.in')) ? order.customer_email : (user?.email || order.customer_email || '');
+                const deliveryInfo = supabaseDb.orders.parseDeliveryMeta(order.rider_name);
 
                 return {
                     id: order.id,
@@ -180,7 +183,8 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
                     total: order.total || 0,
                     payment_method: order.payment_method || 'Cash on Delivery',
                     payment_status: order.payment_status || 'pending',
-                    rider_name: order.rider_name || 'Alex',
+                    rider_name: deliveryInfo.assigned_to_name || (deliveryInfo.is_claimed ? 'Assigned Rider' : 'Unassigned'),
+                    delivery_assignment: deliveryInfo,
                     rider_lat: order.rider_lat || 31.2560,
                     rider_lng: order.rider_lng || 75.7030,
                     delivery_address: order.delivery_address || 'BH13 Hostels',
@@ -348,17 +352,8 @@ router.get('/admin/detail/:orderId', requireAdmin, async (req, res) => {
         const customerName = resolveOrderCustomerName(order, user);
         const customerPhone = order.customer_phone || user?.phone || '';
         const customerEmail = (order.customer_email && !order.customer_email.endsWith('@lpu.in')) ? order.customer_email : (user?.email || order.customer_email || '');
-        const deliveryAddress = order.delivery_address || 'Not provided';
-        
-        // Map items with authoritative name, image_url, and unit_price
-        const enrichedItems = (order.items || []).map(i => ({
-            ...i,
-            name: i.products?.name || i.name || 'Campus Item',
-            image_url: i.products?.image_url || i.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60',
-            unit_price: Number(i.unit_price || i.price || i.products?.price || 0),
-            quantity: Number(i.quantity) || 1
-        }));
-        
+        const deliveryInfo = supabaseDb.orders.parseDeliveryMeta(order.rider_name);
+
         res.json({
             order: {
                 ...order,
@@ -435,6 +430,220 @@ router.get('/admin/metrics', requireAdmin, async (req, res) => {
         res.json(payload);
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+// ============================================================
+// DELIVERY DISPATCH & ORDER TRANSFER ROUTES (ADMIN ONLY)
+// ============================================================
+
+// GET /api/orders/admin/delivery-staff (List all delivery personnel for transfer modal)
+router.get('/admin/delivery-staff', requireAdmin, async (req, res) => {
+    try {
+        const staff = await supabaseDb.staff.getAllStaff();
+        // Filter staff who have delivery_person or owner or store_manager roles
+        const deliveryStaff = staff.filter(s => 
+            s.account_status === 'ACTIVE' && 
+            (s.roles.includes('delivery_person') || s.roles.includes('store_manager') || s.is_owner)
+        );
+
+        // Get currently active orders to calculate active load count per runner
+        const supabase = getSupabaseClient();
+        const { data: activeOrders } = await supabase
+            .from('orders')
+            .select('id, rider_name, status')
+            .in('status', ['Order Placed', 'Order Confirmed', 'Preparing', 'Out for Delivery']);
+
+        const loadMap = {};
+        (activeOrders || []).forEach(o => {
+            const meta = supabaseDb.orders.parseDeliveryMeta(o.rider_name);
+            if (meta.assigned_to) {
+                loadMap[meta.assigned_to] = (loadMap[meta.assigned_to] || 0) + 1;
+            }
+        });
+
+        const enrichedStaff = deliveryStaff.map(s => ({
+            id: s.id,
+            name: s.name,
+            email: s.email,
+            phone: s.phone || '',
+            roles: s.roles,
+            is_owner: s.is_owner,
+            active_deliveries: loadMap[s.id] || 0
+        }));
+
+        res.json({ success: true, staff: enrichedStaff });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// POST /api/orders/:orderId/claim (First-Come-First-Served Delivery Acceptance)
+router.post('/:orderId/claim', requireAdmin, async (req, res) => {
+    const { orderId } = req.params;
+    const adminId = req.admin.id;
+    const adminName = req.admin.name || 'Delivery Rider';
+
+    try {
+        const updated = await supabaseDb.orders.claimOrder(orderId, adminId, adminName);
+        cache.invalidateOrders();
+
+        // Broadcast real-time claim to all open admin dashboards
+        broadcastOrderClaimed({
+            orderId,
+            adminId,
+            adminName,
+            claimedAt: updated.delivery_assignment.claimed_at
+        });
+
+        // Trigger background Push notification to other admins
+        pushService.notifyOrderClaimed(orderId, adminName, adminId).catch(() => {});
+
+        res.json({
+            success: true,
+            message: `Order delivery successfully accepted by ${adminName}`,
+            order: updated
+        });
+    } catch (err) {
+        res.status(409).json({ success: false, error: err.message });
+    }
+});
+
+// POST /api/orders/:orderId/transfer/request (Initiate delivery transfer to another admin)
+router.post('/:orderId/transfer/request', requireAdmin, async (req, res) => {
+    const { orderId } = req.params;
+    const { toAdminId, toAdminName, reason } = req.body;
+    const fromAdminId = req.admin.id;
+    const fromAdminName = req.admin.name || 'Delivery Rider';
+
+    if (!toAdminId) {
+        return res.status(400).json({ success: false, error: 'Recipient admin is required' });
+    }
+
+    if (toAdminId === fromAdminId) {
+        return res.status(400).json({ success: false, error: 'Cannot transfer an order to yourself' });
+    }
+
+    try {
+        const updated = await supabaseDb.orders.requestTransfer(
+            orderId,
+            fromAdminId,
+            fromAdminName,
+            toAdminId,
+            toAdminName,
+            reason
+        );
+        cache.invalidateOrders();
+
+        // Broadcast WebSocket transfer alert
+        broadcastTransferRequested({
+            orderId,
+            fromId: fromAdminId,
+            fromName: fromAdminName,
+            toId: toAdminId,
+            toName: toAdminName,
+            reason
+        });
+
+        // Send high-priority Push Notification to recipient device (wakes up even if closed)
+        pushService.notifyTransferRequest({
+            orderId,
+            fromId: fromAdminId,
+            fromName: fromAdminName,
+            toId: toAdminId,
+            toName: toAdminName,
+            reason
+        }).catch(() => {});
+
+        res.json({
+            success: true,
+            message: `Transfer request sent to ${toAdminName || 'delivery runner'}`,
+            order: updated
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// POST /api/orders/:orderId/transfer/respond (Accept or Decline transfer request)
+router.post('/:orderId/transfer/respond', requireAdmin, async (req, res) => {
+    const { orderId } = req.params;
+    const { accept } = req.body;
+    const adminId = req.admin.id;
+    const adminName = req.admin.name || 'Delivery Rider';
+
+    try {
+        const updated = await supabaseDb.orders.respondTransfer(
+            orderId,
+            adminId,
+            Boolean(accept),
+            adminName
+        );
+        cache.invalidateOrders();
+
+        // Broadcast WebSocket update to all admin sessions
+        broadcastTransferResolved({
+            orderId,
+            toId: adminId,
+            toName: adminName,
+            accepted: Boolean(accept)
+        });
+
+        // Send Push Notification back to original sender
+        if (updated.previous_transfer?.from_id) {
+            pushService.notifyTransferResolved(
+                orderId,
+                adminName,
+                Boolean(accept),
+                updated.previous_transfer.from_id
+            ).catch(() => {});
+        }
+
+        res.json({
+            success: true,
+            message: accept 
+                ? `You have accepted delivery of order #${orderId.replace('order_', '').slice(0, 8)}`
+                : `Transfer declined`,
+            order: updated
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// POST /api/orders/:orderId/transfer/direct (Owner & Store Manager Direct Reassignment)
+router.post('/:orderId/transfer/direct', requireAdmin, requireRole('owner', 'store_manager'), async (req, res) => {
+    const { orderId } = req.params;
+    const { targetAdminId, targetAdminName } = req.body;
+
+    if (!targetAdminId) {
+        return res.status(400).json({ success: false, error: 'Target delivery person is required' });
+    }
+
+    try {
+        const updated = await supabaseDb.orders.directAssign(
+            orderId,
+            targetAdminId,
+            targetAdminName,
+            req.admin.name
+        );
+        cache.invalidateOrders();
+
+        broadcastOrderClaimed({
+            orderId,
+            adminId: targetAdminId,
+            adminName: targetAdminName
+        });
+
+        pushService.notifyOrderClaimed(orderId, targetAdminName).catch(() => {});
+
+        res.json({
+            success: true,
+            message: `Order directly assigned to ${targetAdminName}`,
+            order: updated
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 

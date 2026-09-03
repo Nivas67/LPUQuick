@@ -193,6 +193,14 @@
                     <span class="hidden sm:inline">Test Sound</span>
                 </button>
 
+                <!-- Web Push Notification Toggle Button -->
+                <button id="btn-push-toggle" onclick="togglePushNotifications()"
+                    class="bg-blue-50 hover:bg-blue-100 text-[#1a73e8] border border-blue-200 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+                    title="Enable background push alerts even when browser is closed">
+                    <span class="material-symbols-outlined text-[16px]" id="push-icon">notifications</span>
+                    <span id="push-status-text" class="hidden sm:inline">Push Alerts: OFF</span>
+                </button>
+
                 <button id="btn-force-sync" onclick="forceLiveDbSync()"
                     class="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-xs"
                     title="Force Direct Supabase Cloud Sync (Laptop & Mobile)">
@@ -213,6 +221,39 @@
                 </a>
             </div>
         </header>
+
+        <!-- Push Notification Enable Banner (shown when notifications not yet enabled) -->
+        <div id="push-unlock-banner"
+            class="hidden bg-[#1a73e8] hover:bg-[#1557b0] text-white text-xs font-bold px-4 py-2 flex items-center justify-between shadow-md cursor-pointer transition-colors shrink-0"
+            onclick="enablePushNotifications()">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-base animate-bounce">notifications_active</span>
+                <span>Enable Push Notifications — Receive alerts for new orders & delivery transfers even when browser is closed!</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="bg-white text-[#1a73e8] px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase">Turn On</span>
+                <span class="text-white/80 hover:text-white p-1 text-xs" onclick="event.stopPropagation(); dismissPushBanner();">✕</span>
+            </div>
+        </div>
+
+        <!-- Incoming Transfer Alert Banner (Shown when an order is transferred to active admin) -->
+        <div id="incoming-transfer-banner"
+            class="hidden bg-amber-500 text-white text-xs font-bold px-4 py-2.5 flex items-center justify-between shadow-lg shrink-0">
+            <div class="flex items-center gap-2.5">
+                <span class="material-symbols-outlined text-lg animate-spin">sync</span>
+                <span id="incoming-transfer-text">Incoming Delivery Transfer Request...</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="btn-banner-accept-transfer" onclick="handleBannerTransferResponse(true)"
+                    class="bg-white hover:bg-slate-100 text-emerald-700 px-3 py-1 rounded-lg text-xs font-bold shadow-sm transition-all flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">check</span> Accept Delivery
+                </button>
+                <button id="btn-banner-decline-transfer" onclick="handleBannerTransferResponse(false)"
+                    class="bg-black/20 hover:bg-black/30 text-white px-2.5 py-1 rounded-lg text-xs font-semibold transition-all">
+                    Decline
+                </button>
+            </div>
+        </div>
 
         <!-- Audio Permission Unlock Banner (Auto-dismisses on first click) -->
         <div id="audio-unlock-banner"
@@ -786,15 +827,30 @@
 
                 <!-- Orders Filter Tabs -->
                 <div class="glass-panel p-4 space-y-3">
-                    <div class="flex flex-col sm:flex-row gap-3 items-center justify-between">
+                    <div class="flex flex-col lg:flex-row gap-3 items-center justify-between">
                         <input id="orders-search-input" oninput="filterOrders()"
-                            class="bg-[#F1F3F4] border-transparent focus:bg-white rounded-full px-4 py-2 text-xs w-full sm:w-80 outline-none"
+                            class="bg-[#F1F3F4] border-transparent focus:bg-white rounded-full px-4 py-2 text-xs w-full lg:w-80 outline-none"
                             placeholder="Search by Order ID, Customer, Address..." type="text" />
 
-                        <div class="flex overflow-x-auto w-full sm:w-auto no-scrollbar gap-2" id="orders-status-tabs">
+                        <div class="flex flex-wrap overflow-x-auto w-full lg:w-auto no-scrollbar gap-2" id="orders-status-tabs">
                             <button onclick="setOrderStatusFilter('all')" data-status="all"
                                 class="order-tab-btn px-4 py-1.5 rounded-full bg-[#3c4043] text-white text-xs font-semibold">All
                                 Orders</button>
+                            <button onclick="setOrderStatusFilter('unassigned')" data-status="unassigned"
+                                class="order-tab-btn px-4 py-1.5 rounded-full border border-emerald-300 bg-emerald-50 text-emerald-800 text-xs font-bold flex items-center gap-1.5">
+                                <span>⚡ Unassigned (Claim)</span>
+                                <span id="badge-unassigned-count" class="px-1.5 py-0.2 rounded-full bg-emerald-700 text-white text-[10px]">0</span>
+                            </button>
+                            <button onclick="setOrderStatusFilter('my_deliveries')" data-status="my_deliveries"
+                                class="order-tab-btn px-4 py-1.5 rounded-full border border-blue-300 text-[#1a73e8] hover:bg-blue-50 text-xs font-bold flex items-center gap-1.5">
+                                <span>🛵 My Deliveries</span>
+                                <span id="badge-my-deliveries-count" class="px-1.5 py-0.2 rounded-full bg-[#1a73e8] text-white text-[10px]">0</span>
+                            </button>
+                            <button onclick="setOrderStatusFilter('transfers')" data-status="transfers"
+                                class="order-tab-btn px-4 py-1.5 rounded-full border border-amber-300 text-amber-800 hover:bg-amber-50 text-xs font-bold flex items-center gap-1.5">
+                                <span>🔄 Transfers</span>
+                                <span id="badge-transfers-count" class="hidden px-1.5 py-0.2 rounded-full bg-amber-600 text-white text-[10px]">0</span>
+                            </button>
                             <button onclick="setOrderStatusFilter('active')" data-status="active"
                                 class="order-tab-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] text-xs font-medium">Pending
                                 / Active</button>
@@ -817,8 +873,8 @@
                                     <th class="p-4">Total</th>
                                     <th class="p-4">Payment</th>
                                     <th class="p-4">Status</th>
-                                    <th class="p-4">Time</th>
-                                    <th class="p-4 text-right">Actions</th>
+                                    <th class="p-4">Delivery Dispatch</th>
+                                    <th class="p-4 text-right">Action / Dispatch</th>
                                 </tr>
                             </thead>
                             <tbody id="orders-table-tbody" class="divide-y divide-[#DADCE0]">
@@ -1280,6 +1336,45 @@
                         id="drawer-cust-address">--</span></p>
                 <p class="text-[#5c5f60]"><strong class="text-[#181c1f]">Payment:</strong> <span
                         id="drawer-payment-method">Cash on Delivery</span></p>
+            </div>
+
+            <!-- Delivery Dispatch & Assignment Card -->
+            <div id="drawer-dispatch-card" class="p-4 rounded-xl border border-blue-200 bg-blue-50/50 space-y-2.5 text-xs">
+                <div class="flex justify-between items-center">
+                    <span class="font-bold text-[#181c1f] flex items-center gap-1">
+                        <span class="material-symbols-outlined text-base text-[#1a73e8]">sports_motorsports</span>
+                        <span>Delivery Dispatch</span>
+                    </span>
+                    <span id="drawer-dispatch-status-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">Unassigned</span>
+                </div>
+
+                <div id="drawer-dispatch-runner-details" class="text-[#5c5f60]">
+                    <p id="drawer-dispatch-runner-name" class="font-semibold text-[#181c1f]">No runner assigned yet.</p>
+                    <p id="drawer-dispatch-claimed-time" class="text-[10px] text-[#74777a]"></p>
+                </div>
+
+                <!-- Transfer Pending Banner inside Drawer -->
+                <div id="drawer-transfer-banner" class="hidden p-2.5 rounded-lg bg-amber-100 border border-amber-300 text-amber-900 space-y-1">
+                    <p class="font-bold text-[11px]" id="drawer-transfer-text">Transfer Pending...</p>
+                    <div class="flex gap-2 pt-1" id="drawer-transfer-actions">
+                        <button onclick="respondToTransfer(currentDrawerOrderId, true)" class="px-3 py-1 bg-emerald-600 text-white font-bold text-[10px] rounded-md">Accept</button>
+                        <button onclick="respondToTransfer(currentDrawerOrderId, false)" class="px-2 py-1 bg-slate-200 text-slate-800 font-semibold text-[10px] rounded-md">Decline</button>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex gap-2 pt-1">
+                    <button id="btn-drawer-claim" onclick="claimOrder(currentDrawerOrderId)"
+                        class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg text-xs shadow-xs active:scale-95 transition-all flex items-center justify-center gap-1">
+                        <span class="material-symbols-outlined text-sm">electric_bolt</span>
+                        <span>Accept Delivery</span>
+                    </button>
+                    <button id="btn-drawer-transfer" onclick="openTransferModal(currentDrawerOrderId)"
+                        class="bg-white hover:bg-slate-50 border border-amber-300 text-amber-800 font-bold px-3 py-2 rounded-lg text-xs shadow-xs active:scale-95 transition-all flex items-center gap-1">
+                        <span class="material-symbols-outlined text-sm">swap_horiz</span>
+                        <span>Transfer</span>
+                    </button>
+                </div>
             </div>
 
             <!-- Order Status Action -->
@@ -1805,8 +1900,77 @@
         </div>
     </div>
 
+    <!-- ================= MODAL: TRANSFER ORDER TO ANOTHER ADMIN ================= -->
+    <div id="modal-transfer-order" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#DADCE0] space-y-4">
+            <div class="flex justify-between items-center border-b border-[#DADCE0] pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-amber-600 text-xl">swap_horiz</span>
+                    <h3 class="font-bold text-base text-[#181c1f]">Transfer Delivery Order</h3>
+                </div>
+                <button onclick="closeTransferModal()" class="text-[#5c5f60] hover:text-[#181c1f]">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form id="form-transfer-order" onsubmit="submitOrderTransfer(event)" class="space-y-4 text-xs">
+                <input type="hidden" id="transfer-order-id" value="">
+
+                <!-- Order Context Card -->
+                <div class="bg-[#f7fafd] border border-[#DADCE0] p-3 rounded-xl space-y-1">
+                    <p class="text-[#5c5f60]"><strong class="text-[#181c1f]">Order:</strong> <span id="transfer-order-label" class="font-mono font-bold text-[#1a73e8]">#--</span></p>
+                    <p class="text-[#5c5f60]"><strong class="text-[#181c1f]">Hostel Room:</strong> <span id="transfer-order-room">--</span></p>
+                    <p class="text-[#5c5f60]"><strong class="text-[#181c1f]">Currently Assigned:</strong> <span id="transfer-order-curr-rider" class="font-semibold text-emerald-700">--</span></p>
+                </div>
+
+                <!-- Select Target Admin -->
+                <div>
+                    <label class="font-semibold text-[#262a2d] block mb-1">Select Delivery Person / Admin *</label>
+                    <select id="transfer-target-admin" required
+                        class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#1a73e8] outline-none text-xs bg-white">
+                        <option value="">Loading available staff...</option>
+                    </select>
+                    <p class="text-[10px] text-[#5c5f60] mt-1">Shows active deliveries currently in progress per runner</p>
+                </div>
+
+                <!-- Transfer Reason -->
+                <div>
+                    <label class="font-semibold text-[#262a2d] block mb-1">Reason for Transfer</label>
+                    <select id="transfer-reason-select" onchange="handleTransferReasonSelect(this.value)"
+                        class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#1a73e8] outline-none text-xs bg-white mb-2">
+                        <option value="Vehicle issue / Bike breakdown">🚲 Vehicle issue / Bike breakdown</option>
+                        <option value="High delivery workload">📦 High delivery workload / Multiple orders</option>
+                        <option value="Far from hostel block">📍 Too far from this hostel block</option>
+                        <option value="Shift change / Handover">⏰ Shift change / Duty handover</option>
+                        <option value="Other">✏️ Other reason (specify below)</option>
+                    </select>
+                    <input id="transfer-reason-custom" placeholder="Optional notes for the recipient..."
+                        class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#1a73e8] outline-none text-xs hidden">
+                </div>
+
+                <!-- Handshake Info Banner -->
+                <div class="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-xl text-[11px] flex items-start gap-2">
+                    <span class="material-symbols-outlined text-base shrink-0 text-amber-600 mt-0.5">info</span>
+                    <p>The selected admin will receive a real-time Push Notification. The order will be reassigned once they accept.</p>
+                </div>
+
+                <div id="transfer-form-error" class="hidden p-2.5 rounded-xl bg-rose-50 text-[#ba1a1a] text-xs font-semibold"></div>
+
+                <div class="pt-3 border-t border-[#DADCE0] flex justify-end gap-2">
+                    <button type="button" onclick="closeTransferModal()"
+                        class="px-4 py-2 rounded-xl border border-[#DADCE0] text-[#5c5f60] font-semibold hover:bg-[#f1f4f7]">Cancel</button>
+                    <button type="submit" id="btn-submit-transfer"
+                        class="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold flex items-center gap-1 shadow-sm active:scale-95 transition-all">
+                        <span>Send Transfer Request</span>
+                        <span class="material-symbols-outlined text-sm">send</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Application Script Reference -->
-    <script src="/admin/js/admin.js?v=20260901r22"></script>
+    <script src="/admin/js/admin.js?v=20260901r23"></script>
 </body>
 
 </html>
