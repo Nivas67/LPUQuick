@@ -121,18 +121,18 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
 
-        const isFresh = req.query.fresh === 'true' || req.query._t || req.headers['cache-control']?.includes('no-cache') || req.headers['pragma'] === 'no-cache';
-        if (isFresh) {
+        const forceFresh = req.query.force === 'true';
+        if (forceFresh) {
             cache.delete('orders:admin:all');
         }
 
         const payload = await cache.wrap('orders:admin:all', async () => {
             const supabase = getSupabaseClient();
             
-            // 1. Direct query with generous 15s timeout protection against cold starts
+            // 1. Direct query with selective column projection & timeout protection
             const queryPromise = supabase
                 .from('orders')
-                .select('*')
+                .select('id, user_id, status, subtotal, delivery_fee, platform_fee, tax, total, payment_method, payment_status, rider_name, rider_lat, rider_lng, delivery_address, created_at, customer_name, customer_phone, customer_email')
                 .order('created_at', { ascending: false });
 
             const ordersRes = await withTimeout(queryPromise, 15000, { data: null, error: new Error('Timeout') });
@@ -194,7 +194,7 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
 
             fallbackOrdersCache = enriched;
             return { orders: enriched };
-        }, isFresh ? 0 : 5000);
+        }, forceFresh ? 0 : 4000); // 4-second coalesced micro-cache (coalesces rapid multi-tab polls)
 
         res.json(payload || { orders: fallbackOrdersCache });
     } catch (err) {
@@ -210,19 +210,19 @@ router.get('/admin/analytics', requireAdmin, async (req, res) => {
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
 
-        const isFresh = req.query.fresh === 'true' || req.query._t || req.headers['cache-control']?.includes('no-cache') || req.headers['pragma'] === 'no-cache';
-        if (isFresh) {
+        const forceFresh = req.query.force === 'true';
+        if (forceFresh) {
             cache.delete('analytics:admin:summary');
         }
 
         const payload = await cache.wrap('analytics:admin:summary', async () => {
             const supabase = getSupabaseClient();
 
-            // Run independent queries concurrently with timeout (exclude heavy base64 image_url for fast 200ms response)
+            // Run independent queries concurrently with bounded order_items lookup
             const queryPromise = Promise.all([
-                supabase.from('orders').select('id, status, total'),
+                supabase.from('orders').select('id, status, total').order('created_at', { ascending: false }).limit(500),
                 supabase.from('products').select('id, name, category, in_stock, tags, price'),
-                supabase.from('order_items').select('order_id, product_id, quantity, unit_price')
+                supabase.from('order_items').select('order_id, product_id, quantity, unit_price').limit(500)
             ]);
 
             const [ordersRes, productsRes, topItemsRes] = await withTimeout(queryPromise, 12000, [
@@ -305,7 +305,7 @@ router.get('/admin/analytics', requireAdmin, async (req, res) => {
 
             fallbackAnalyticsCache = result;
             return result;
-        }, isFresh ? 0 : 15000);
+        }, forceFresh ? 0 : 30000); // 30-second analytics micro-cache
 
         res.json(payload || fallbackAnalyticsCache || { metrics: {} });
     } catch (err) {

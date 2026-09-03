@@ -1051,7 +1051,8 @@ window.pageInits.checkout = function() {
 
     function startPollingFallback(orderId) {
         if (pollInterval) clearInterval(pollInterval);
-        pollInterval = setInterval(async () => {
+        const checkOrder = async () => {
+            if (typeof document !== 'undefined' && document.hidden) return;
             try {
                 const res = await window.api.getOrderDetail(orderId);
                 if (res && res.order) {
@@ -1060,11 +1061,18 @@ window.pageInits.checkout = function() {
                     const currentStep = stepMap[status] || 1;
                     const timeStr = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
                     updateTimelineStep(currentStep, timeStr, res.order.rider_name);
-                    if (currentStep >= 5) clearInterval(pollInterval);
+                    if (currentStep >= 5 || status === 'cancelled') clearInterval(pollInterval);
                 }
             } catch (e) {
                 console.error('Polling error:', e);
             }
-        }, 3500);
+        };
+
+        pollInterval = setInterval(checkOrder, 6000);
+        if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden && orderId) checkOrder();
+            }, { passive: true });
+        }
     }
 };

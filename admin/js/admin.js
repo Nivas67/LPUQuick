@@ -577,8 +577,8 @@ async function refreshCurrentView() {
 async function loadDashboard() {
     try {
         const [analyticsRes, ordersRes] = await Promise.allSettled([
-            fetchWithTimeout(`/api/orders/admin/analytics?fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() }, 15000),
-            fetchWithTimeout(`/api/orders/admin/all?fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() }, 15000)
+            fetchWithTimeout(`/api/orders/admin/analytics`, { headers: getAuthHeaders() }, 15000),
+            fetchWithTimeout(`/api/orders/admin/all`, { headers: getAuthHeaders() }, 15000)
         ]);
 
         let analyticsData = {};
@@ -670,7 +670,7 @@ async function loadDashboard() {
 // ================= CLIENT DASHBOARD LOCK CONTROLS =================
 async function loadClientLockState() {
     try {
-        const res = await fetch(`/api/admin/client-lock?fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() });
+        const res = await fetch(`/api/admin/client-lock`, { headers: getAuthHeaders() });
         const data = await res.json();
         if (data.success && data.availability) {
             updateClientLockUI(data.availability);
@@ -973,7 +973,7 @@ async function handleUnlockStore() {
 // ================= 2. PRODUCTS LOAD =================
 async function loadProducts() {
     try {
-        const res = await fetchWithTimeout(`/api/products?includeInactive=true&fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() }, 7000);
+        const res = await fetchWithTimeout(`/api/products?includeInactive=true`, { headers: getAuthHeaders() }, 7000);
         if (res.ok) {
             const data = await res.json();
             if (data.products && Array.isArray(data.products) && data.products.length > 0) {
@@ -1066,7 +1066,7 @@ function filterProducts() {
 // ================= 3. INVENTORY LOAD =================
 async function loadInventory() {
     try {
-        const res = await fetchWithTimeout(`/api/products?includeInactive=true&fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() }, 7000);
+        const res = await fetchWithTimeout(`/api/products?includeInactive=true`, { headers: getAuthHeaders() }, 7000);
         if (res.ok) {
             const data = await res.json();
             if (data.products && Array.isArray(data.products) && data.products.length > 0) {
@@ -1223,7 +1223,7 @@ async function toggleProductStock(productId, inStock) {
 // ================= 4. ORDERS LOAD =================
 async function loadOrders() {
     try {
-        const res = await fetchWithTimeout(`/api/orders/admin/all?fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() }, 15000);
+        const res = await fetchWithTimeout(`/api/orders/admin/all`, { headers: getAuthHeaders() }, 15000);
         if (res.ok) {
             const data = await res.json();
             if (data.orders && Array.isArray(data.orders)) {
@@ -1358,7 +1358,7 @@ async function openOrderDrawer(orderId) {
     }
 
     try {
-        const res = await fetchWithTimeout(`/api/orders/admin/detail/${orderId}?fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() }, 6000);
+        const res = await fetchWithTimeout(`/api/orders/admin/detail/${orderId}`, { headers: getAuthHeaders() }, 6000);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         const o = data.order;
@@ -1479,10 +1479,33 @@ function handleProductFileSelect(event) {
 
     const reader = new FileReader();
     reader.onload = (e) => {
-        const preview = document.getElementById('product-img-preview');
-        const urlInput = document.getElementById('form-product-image');
-        if (preview) preview.src = e.target.result;
-        if (urlInput) urlInput.value = e.target.result;
+        const img = new Image();
+        img.onload = () => {
+            const maxDim = 800;
+            let width = img.width;
+            let height = img.height;
+            if (width > maxDim || height > maxDim) {
+                if (width > height) {
+                    height = Math.round((height * maxDim) / width);
+                    width = maxDim;
+                } else {
+                    width = Math.round((width * maxDim) / height);
+                    height = maxDim;
+                }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressed = canvas.toDataURL('image/jpeg', 0.82);
+
+            const preview = document.getElementById('product-img-preview');
+            const urlInput = document.getElementById('form-product-image');
+            if (preview) preview.src = compressed;
+            if (urlInput) urlInput.value = compressed;
+        };
+        img.src = e.target.result;
     };
     reader.readAsDataURL(file);
 }
@@ -1572,17 +1595,21 @@ async function handleProductSubmit(e) {
         const stockVal = Number(document.getElementById('form-product-stock').value) || 0;
         let imageUrl = document.getElementById('form-product-image').value.trim();
 
-        // If a photo was selected as a local file (base64 Data URL), upload it to server
+        // If a photo was selected as a local file (base64 Data URL), upload it to Supabase Storage
         if (imageUrl.startsWith('data:image/')) {
             try {
                 const uploadRes = await fetch('/api/products/admin/upload-image', {
                     method: 'POST',
                     headers: getAuthHeaders(),
-                    body: JSON.stringify({ image_data: imageUrl })
+                    body: JSON.stringify({ 
+                        image_data: imageUrl,
+                        filename: document.getElementById('form-product-name').value.trim()
+                    })
                 });
                 const uploadData = await uploadRes.json();
                 if (uploadData.success && uploadData.image_url) {
                     imageUrl = uploadData.image_url;
+                    document.getElementById('form-product-image').value = imageUrl;
                 }
             } catch (upErr) {
                 console.warn('[Image Upload Notice]:', upErr);
@@ -1673,14 +1700,14 @@ async function deleteProductPermanently(id, name) {
 // ================= 7. CUSTOMERS LOAD & FRAUD MANAGEMENT =================
 async function loadCustomers() {
     try {
-        const res = await fetch(`/api/admin/users?fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() });
+        const res = await fetch(`/api/admin/users`, { headers: getAuthHeaders() });
         let data = {};
         if (res.ok) {
             data = await res.json();
             customersCache = data.users || [];
         } else {
             // Fallback to orders customer endpoint
-            const fallbackRes = await fetch(`/api/orders/admin/customers?fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() });
+            const fallbackRes = await fetch(`/api/orders/admin/customers`, { headers: getAuthHeaders() });
             data = await fallbackRes.json();
             customersCache = data.customers || [];
         }
@@ -1817,7 +1844,7 @@ let currentBlacklistFilter = 'all';
 
 async function loadBlacklistData() {
     try {
-        const res = await fetch(`/api/admin/blacklist?fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() });
+        const res = await fetch(`/api/admin/blacklist`, { headers: getAuthHeaders() });
         const data = await res.json();
         blacklistCache = data.blacklist || [];
         
@@ -2017,7 +2044,7 @@ async function handleUnblockUser(userId) {
 // ================= 8. ANALYTICS LOAD =================
 async function loadAnalytics() {
     try {
-        const res = await fetch(`/api/orders/admin/analytics?fresh=true&_t=${Date.now()}`, { headers: getAuthHeaders() });
+        const res = await fetch(`/api/orders/admin/analytics`, { headers: getAuthHeaders() });
         const data = await res.json();
         const m = data.metrics || {};
 
@@ -2159,7 +2186,7 @@ async function forceLiveDbSync() {
 }
 window.forceLiveDbSync = forceLiveDbSync;
 
-// Smart Continuous Live Order Sync (Works 100% reliably on Vercel Serverless and Localhost)
+// Smart Continuous Live Order Sync (Adaptive Polling with Page Visibility API)
 async function syncOrdersLive() {
     const token = adminToken || localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token');
     if (!token) {
@@ -2167,8 +2194,8 @@ async function syncOrdersLive() {
         return;
     }
     try {
-        const res = await fetch(`/api/orders/admin/all?fresh=true&_t=${Date.now()}`, {
-            headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', ...getAuthHeaders() }
+        const res = await fetch(`/api/orders/admin/all`, {
+            headers: getAuthHeaders()
         });
         if (res.status === 401 || res.status === 403) {
             handleAdminAuthError(res);
@@ -2195,27 +2222,34 @@ async function syncOrdersLive() {
             return;
         }
 
+        let hasOrderChanges = false;
+        if (orders.length !== knownOrderMap.size) {
+            hasOrderChanges = true;
+        }
+
         // Detect new orders and status updates
         for (const order of orders) {
             if (!order || !order.id) continue;
 
             if (!knownOrderMap.has(order.id)) {
-                // New incoming order detected!
+                hasOrderChanges = true;
                 knownOrderMap.set(order.id, order.status);
                 handleRealtimeNewOrder(order);
             } else if (knownOrderMap.get(order.id) !== order.status) {
-                // Status changed!
+                hasOrderChanges = true;
                 knownOrderMap.set(order.id, order.status);
                 handleRealtimeStatusUpdate({ orderId: order.id, status: order.status });
             }
         }
 
-        // Keep UI updated seamlessly
-        if (activeView === 'dashboard') {
-            renderRecentOrdersTable(orders);
-            updateKpiCountersFromCache();
-        } else if (activeView === 'orders') {
-            renderOrdersTable(orders);
+        // Keep UI updated only when view needs it or real changes occurred
+        if (hasOrderChanges) {
+            if (activeView === 'dashboard') {
+                renderRecentOrdersTable(orders);
+                updateKpiCountersFromCache();
+            } else if (activeView === 'orders') {
+                renderOrdersTable(orders);
+            }
         }
 
         updateConnectionStatus(true, 'Live');
@@ -2224,10 +2258,31 @@ async function syncOrdersLive() {
     }
 }
 
+const ORDER_POLL_ACTIVE_MS = 5000;   // 5s when tab is active and visible
+const ORDER_POLL_HIDDEN_MS = 60000;  // 60s when tab is in background / minimized
+
+function scheduleNextOrderPoll() {
+    if (liveOrderPollInterval) clearTimeout(liveOrderPollInterval);
+    const delay = (typeof document !== 'undefined' && document.hidden) ? ORDER_POLL_HIDDEN_MS : ORDER_POLL_ACTIVE_MS;
+    liveOrderPollInterval = setTimeout(async () => {
+        await syncOrdersLive();
+        scheduleNextOrderPoll();
+    }, delay);
+}
+
 function startLiveOrderPolling() {
-    if (liveOrderPollInterval) clearInterval(liveOrderPollInterval);
-    syncOrdersLive(); // Run immediately
-    liveOrderPollInterval = setInterval(syncOrdersLive, 2500); // Rapid check every 2.5s
+    if (liveOrderPollInterval) clearTimeout(liveOrderPollInterval);
+    syncOrdersLive();
+    scheduleNextOrderPoll();
+}
+
+if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            syncOrdersLive();
+            scheduleNextOrderPoll();
+        }
+    });
 }
 
 function initRealtimeWebSocket() {
@@ -2691,9 +2746,9 @@ initAdminAuth();
 
 updateSoundUI();
 
-// Periodic background sync fallback (every 60 seconds when authenticated)
+// Periodic background sync fallback (every 60 seconds when authenticated & visible)
 setInterval(() => {
-    if (!adminToken) return;
+    if (!adminToken || (typeof document !== 'undefined' && document.hidden)) return;
     if (activeView === 'dashboard') loadDashboard();
     else if (activeView === 'orders') loadOrders();
     else if (activeView === 'inventory') loadInventory();

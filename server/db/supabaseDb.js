@@ -31,7 +31,7 @@ const supabaseDb = {
                 const supabase = getSupabaseClient();
                 if (!supabase) throw new Error('PostgreSQL client unavailable. Verify SUPABASE_URL and credentials.');
 
-                let query = supabase.from('products').select('*');
+                let query = supabase.from('products').select('id, name, category, subcategory, price, mrp, cost_price, unit, size, image_url, image_alt, tags, in_stock, bestseller, is_new, created_at');
 
                 if (category && category !== 'All') {
                     query = query.ilike('category', `%${category}%`);
@@ -51,7 +51,7 @@ const supabaseDb = {
                 if (error) throw new Error(`PostgreSQL query error: ${error.message}`);
 
                 return (data || []).map(p => this._formatProduct(p));
-            }, 300);
+            }, 300000); // 5-minute single-flight micro-cache (drastically reduces DB egress)
         },
 
         async getById(id) {
@@ -830,50 +830,52 @@ const supabaseDb = {
         },
 
         async getStatus() {
-            const supabase = getSupabaseClient();
-            if (!supabase) return this._memoryAvailability;
+            return await cache.wrap('availability:status:store_main', async () => {
+                const supabase = getSupabaseClient();
+                if (!supabase) return this._memoryAvailability;
 
-            let fetched = false;
-            try {
-                const { data, error } = await supabase
-                    .from('app_availability')
-                    .select('*')
-                    .eq('id', 'store_main')
-                    .maybeSingle();
-
-                if (!error && data) {
-                    this._memoryAvailability = { ...this._memoryAvailability, ...data };
-                    fetched = true;
-                }
-            } catch (e) {}
-
-            if (!fetched) {
-                // Fallback to reading from users table system record
+                let fetched = false;
                 try {
-                    const { data: sysUser } = await supabase
-                        .from('users')
-                        .select('password_hash')
-                        .eq('id', '__system_store_availability__')
+                    const { data, error } = await supabase
+                        .from('app_availability')
+                        .select('id, is_locked, lock_type, message, start_at, end_at, created_by, updated_at')
+                        .eq('id', 'store_main')
                         .maybeSingle();
-                    if (sysUser?.password_hash) {
-                        const parsed = JSON.parse(sysUser.password_hash);
-                        this._memoryAvailability = { ...this._memoryAvailability, ...parsed };
+
+                    if (!error && data) {
+                        this._memoryAvailability = { ...this._memoryAvailability, ...data };
+                        fetched = true;
                     }
                 } catch (e) {}
-            }
 
-            const state = this._memoryAvailability;
-            // Check if duration lock has expired
-            if (state.is_locked && state.end_at) {
-                const now = new Date();
-                const end = new Date(state.end_at);
-                if (now > end) {
-                    await this.unlock('SYSTEM_EXPIRY');
-                    return { ...state, is_locked: false, lock_type: 'NONE', message: null };
+                if (!fetched) {
+                    // Fallback to reading from users table system record
+                    try {
+                        const { data: sysUser } = await supabase
+                            .from('users')
+                            .select('password_hash')
+                            .eq('id', '__system_store_availability__')
+                            .maybeSingle();
+                        if (sysUser?.password_hash) {
+                            const parsed = JSON.parse(sysUser.password_hash);
+                            this._memoryAvailability = { ...this._memoryAvailability, ...parsed };
+                        }
+                    } catch (e) {}
                 }
-            }
 
-            return state;
+                const state = this._memoryAvailability;
+                // Check if duration lock has expired
+                if (state.is_locked && state.end_at) {
+                    const now = new Date();
+                    const end = new Date(state.end_at);
+                    if (now > end) {
+                        await this.unlock('SYSTEM_EXPIRY');
+                        return { ...state, is_locked: false, lock_type: 'NONE', message: null };
+                    }
+                }
+
+                return state;
+            }, 15000); // 15-second micro-cache
         },
 
         async setLock(lockData) {
@@ -924,6 +926,7 @@ const supabaseDb = {
                 }
             }
 
+            cache.invalidateAvailability();
             return this._memoryAvailability;
         },
 
@@ -958,9 +961,10 @@ const supabaseDb = {
                         dob: 'System Config',
                         role: 'student'
                     }]);
-                } catch (err) {}
+                } catch (userFallbackErr) {}
             }
 
+            cache.invalidateAvailability();
             return this._memoryAvailability;
         }
     },

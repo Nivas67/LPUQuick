@@ -1472,10 +1472,11 @@ if (typeof document !== 'undefined' && typeof document.addEventListener === 'fun
     });
 }
 
-// Periodic background availability sync (every 30s)
+// Periodic background availability sync (every 60s when active)
 setInterval(() => {
+    if (typeof document !== 'undefined' && document.hidden) return;
     window.syncStoreAvailability();
-}, 30000);
+}, 60000);
 
 // ================= GLOBAL REAL-TIME CLIENT-ADMIN COORDINATION HUB =================
 let globalClientWs = null;

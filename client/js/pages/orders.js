@@ -910,6 +910,7 @@ window.pageInits.orders = function() {
     function startPollingStatus() {
         if (ordersPoll) clearInterval(ordersPoll);
         const pollFn = async () => {
+            if (typeof document !== 'undefined' && document.hidden) return; // Pause polling when tab is inactive
             try {
                 const res = await window.api.getOrderDetail(activeOrderId);
                 const orderData = res?.order || res;
@@ -924,7 +925,7 @@ window.pageInits.orders = function() {
             } catch (err) {}
         };
 
-        ordersPoll = setInterval(pollFn, 3500); // Optimized 3.5s live update rate (Vercel Free Tier compliant)
+        ordersPoll = setInterval(pollFn, 6000); // 6s interval with instant revalidation on tab focus
     }
 
     // Instant revalidation when student returns to browser tab

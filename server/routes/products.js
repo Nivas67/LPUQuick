@@ -7,7 +7,53 @@ const supabaseDb = require('../db/supabaseDb');
 const cache = require('../cache');
 const { broadcastInventoryUpdate } = require('../realtime');
 
-// POST /api/products/admin/upload-image (Save uploaded photo locally and return URL)
+const { getSupabaseClient } = require('../supabase');
+
+/**
+ * Uploads a base64 image data URL directly to Supabase Object Storage ('products' bucket)
+ * and returns the permanent public CDN URL.
+ */
+async function uploadBase64ToSupabaseStorage(base64Data, preferredName = null) {
+    if (!base64Data || typeof base64Data !== 'string') return base64Data;
+    if (!base64Data.startsWith('data:image/')) return base64Data;
+
+    const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) return base64Data;
+
+    const mimeType = matches[1];
+    const buffer = Buffer.from(matches[2], 'base64');
+    let ext = 'jpg';
+    if (mimeType.includes('png')) ext = 'png';
+    else if (mimeType.includes('webp')) ext = 'webp';
+    else if (mimeType.includes('gif')) ext = 'gif';
+    else if (mimeType.includes('svg')) ext = 'svg';
+
+    const cleanFileName = preferredName ? `${preferredName}_${Date.now()}.${ext}` : `prod_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
+
+    const supabase = getSupabaseClient();
+    if (!supabase) return base64Data;
+
+    try {
+        await supabase.storage.createBucket('products', { public: true, fileSizeLimit: 5242880 });
+    } catch (e) {}
+
+    const { error: uploadErr } = await supabase.storage
+        .from('products')
+        .upload(cleanFileName, buffer, {
+            contentType: mimeType,
+            upsert: true
+        });
+
+    if (uploadErr) {
+        console.warn('[Supabase Storage Upload Notice]:', uploadErr.message);
+        return base64Data;
+    }
+
+    const { data: pubData } = supabase.storage.from('products').getPublicUrl(cleanFileName);
+    return pubData?.publicUrl || base64Data;
+}
+
+// POST /api/products/admin/upload-image (Save uploaded photo directly to Supabase Storage CDN)
 router.post('/admin/upload-image', requireAdmin, async (req, res) => {
     try {
         const { image_data, filename } = req.body;
@@ -15,34 +61,13 @@ router.post('/admin/upload-image', requireAdmin, async (req, res) => {
             return res.status(400).json({ error: 'Image data is required' });
         }
 
-        // Handle Base64 Data URL
-        const matches = image_data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-        if (matches && matches.length === 3) {
-            const mimeType = matches[1];
-            const buffer = Buffer.from(matches[2], 'base64');
-            let ext = 'jpg';
-            if (mimeType.includes('png')) ext = 'png';
-            else if (mimeType.includes('webp')) ext = 'webp';
-            else if (mimeType.includes('gif')) ext = 'gif';
-            else if (mimeType.includes('svg')) ext = 'svg';
-
-            const cleanFileName = `prod_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
-            
-            const publicUploads = path.join(__dirname, '..', '..', 'public', 'uploads');
-            const clientUploads = path.join(__dirname, '..', '..', 'client', 'uploads');
-
-            if (!fs.existsSync(publicUploads)) fs.mkdirSync(publicUploads, { recursive: true });
-            if (!fs.existsSync(clientUploads)) fs.mkdirSync(clientUploads, { recursive: true });
-
-            fs.writeFileSync(path.join(publicUploads, cleanFileName), buffer);
-            fs.writeFileSync(path.join(clientUploads, cleanFileName), buffer);
-
-            const publicUrl = `/uploads/${cleanFileName}`;
-            console.log(`[Product Photo Upload] ✅ Saved photo to: ${publicUrl}`);
+        if (image_data.startsWith('data:image/')) {
+            const prefix = filename ? filename.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_') : null;
+            const publicUrl = await uploadBase64ToSupabaseStorage(image_data, prefix);
+            console.log(`[Product Photo Upload] ✅ Saved photo to Supabase Storage: ${publicUrl}`);
             return res.json({ success: true, image_url: publicUrl });
         }
 
-        // Already a valid URL
         return res.json({ success: true, image_url: image_data });
     } catch (err) {
         console.error('[Upload Image Error]:', err);
@@ -98,14 +123,15 @@ try {
 // GET /api/products (Fetch all products with resilient cloud fallback)
 router.get('/', async (req, res) => {
     try {
+        res.setHeader('Cache-Control', 'public, max-age=15, stale-while-revalidate=45');
         const includeInactive = req.query.includeInactive === 'true';
         const category = req.query.category || '';
         const subcategory = req.query.subcategory || '';
         const sort = req.query.sort || '';
-        const isFresh = req.query.fresh === 'true' || req.query._t || req.headers['cache-control']?.includes('no-cache') || req.headers['pragma'] === 'no-cache';
+        const forceFresh = req.query.force === 'true';
         const cacheKey = `products:list:${includeInactive}:${category}:${subcategory}:${sort}`;
 
-        if (isFresh) {
+        if (forceFresh) {
             cache.delete(cacheKey);
         }
 
@@ -130,7 +156,7 @@ router.get('/', async (req, res) => {
                 list = list.filter(p => (p.subcategory || '').toLowerCase() === subcategory.toLowerCase());
             }
             return { products: list, isFallback: true };
-        }, isFresh ? 0 : 45000);
+        }, forceFresh ? 0 : 60000);
 
         res.json(payload || { products: fallbackProductsCache || [] });
     } catch (err) {
@@ -148,6 +174,11 @@ router.post('/admin/create', requireAdmin, async (req, res) => {
     }
 
     try {
+        let finalImageUrl = image_url;
+        if (finalImageUrl && finalImageUrl.startsWith('data:image/')) {
+            finalImageUrl = await uploadBase64ToSupabaseStorage(finalImageUrl, `prod_${name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}`);
+        }
+
         const created = await supabaseDb.products.create({
             name,
             category,
@@ -157,7 +188,7 @@ router.post('/admin/create', requireAdmin, async (req, res) => {
             stock_left: stock_left !== undefined ? Number(stock_left) : 50,
             unit,
             size,
-            image_url,
+            image_url: finalImageUrl,
             description,
             tags,
             bestseller,
@@ -176,7 +207,11 @@ router.post('/admin/create', requireAdmin, async (req, res) => {
 router.put('/admin/update/:id', requireAdmin, async (req, res) => {
     const { id } = req.params;
     try {
-        const updated = await supabaseDb.products.update(id, req.body);
+        const updateData = { ...req.body };
+        if (updateData.image_url && updateData.image_url.startsWith('data:image/')) {
+            updateData.image_url = await uploadBase64ToSupabaseStorage(updateData.image_url, `prod_${id}`);
+        }
+        const updated = await supabaseDb.products.update(id, updateData);
         cache.invalidateProducts();
         if (typeof broadcastInventoryUpdate === 'function') {
             broadcastInventoryUpdate(updated.id, updated.stock_left, updated.in_stock);
