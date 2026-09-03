@@ -352,16 +352,36 @@ router.get('/audit-logs', requireRole('owner'), async (req, res) => {
 // ============================================================
 
 // GET /api/admin/customers/:id/orders
-router.get('/customers/:id/orders', requireRole('owner', 'store_manager'), async (req, res) => {
+router.get('/customers/:id/orders', async (req, res) => {
     const { id } = req.params;
     try {
-        const user = await supabaseDb.users.getById(id);
+        let user = await supabaseDb.users.getById(id);
+        const orders = await supabaseDb.orders.getCustomerOrderHistory(id);
+
         if (!user) {
-            return res.status(404).json({ error: 'Customer not found' });
+            if (orders.length > 0) {
+                const latest = orders[0];
+                user = {
+                    id,
+                    name: latest.customer_name || 'Campus Student',
+                    email: latest.customer_email || '',
+                    phone: latest.customer_phone || '',
+                    dob: latest.delivery_address || 'Campus Hostels',
+                    created_at: latest.created_at
+                };
+            } else {
+                user = {
+                    id,
+                    name: 'Campus Student',
+                    email: '',
+                    phone: '',
+                    dob: 'Campus Hostels',
+                    created_at: new Date().toISOString()
+                };
+            }
         }
 
         const blacklistCheck = await supabaseDb.blacklist.isUserBlacklisted(id);
-        const orders = await supabaseDb.orders.getCustomerOrderHistory(id);
 
         let address = user.dob;
         let lastLogin = null;
@@ -382,7 +402,7 @@ router.get('/customers/:id/orders', requireRole('owner', 'store_manager'), async
             customer: {
                 id: user.id,
                 name: user.name || 'Campus Student',
-                email: user.email,
+                email: user.email || '',
                 phone: user.phone || 'Not provided',
                 address: address || orders[0]?.delivery_address || 'Campus Resident',
                 account_status: (user.account_status === 'BLOCKED' || blacklistCheck.isBlacklisted) ? 'BLOCKED' : 'ACTIVE',
@@ -391,12 +411,14 @@ router.get('/customers/:id/orders', requireRole('owner', 'store_manager'), async
                 last_login: lastLogin || lastOrderDate || user.created_at,
                 last_order_date: lastOrderDate,
                 total_orders: orders.length,
+                order_count: orders.length,
                 delivered_orders: deliveredOrders.length,
                 total_spent: totalSpent
             },
             orders
         });
     } catch (err) {
+        console.error('[Customer Orders Error]:', err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 });

@@ -352,7 +352,16 @@ router.get('/admin/detail/:orderId', requireAdmin, async (req, res) => {
         const customerName = resolveOrderCustomerName(order, user);
         const customerPhone = order.customer_phone || user?.phone || '';
         const customerEmail = (order.customer_email && !order.customer_email.endsWith('@lpu.in')) ? order.customer_email : (user?.email || order.customer_email || '');
+        const deliveryAddress = order.delivery_address || 'Not provided';
         const deliveryInfo = supabaseDb.orders.parseDeliveryMeta(order.rider_name);
+
+        const enrichedItems = (order.items || []).map(i => ({
+            ...i,
+            name: i.products?.name || i.name || 'Campus Item',
+            image_url: i.products?.image_url || i.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60',
+            unit_price: Number(i.unit_price || i.price || i.products?.price || 0),
+            quantity: Number(i.quantity) || 1
+        }));
 
         res.json({
             order: {
@@ -361,6 +370,8 @@ router.get('/admin/detail/:orderId', requireAdmin, async (req, res) => {
                 customer_phone: customerPhone,
                 customer_email: customerEmail,
                 delivery_address: deliveryAddress,
+                rider_name: deliveryInfo.assigned_to_name || (deliveryInfo.is_claimed ? 'Assigned' : 'Unassigned'),
+                delivery_assignment: deliveryInfo,
                 items: enrichedItems
             }
         });

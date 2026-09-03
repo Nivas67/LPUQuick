@@ -663,11 +663,31 @@ const supabaseDb = {
             const supabase = getSupabaseClient();
             if (!supabase || !customerId) return [];
 
-            const { data: orders, error } = await supabase
+            // 1. Fetch user record if exists to get associated email and phone
+            const { data: userRecord } = await supabase
+                .from('users')
+                .select('id, email, phone')
+                .eq('id', customerId)
+                .maybeSingle();
+
+            let query = supabase
                 .from('orders')
-                .select('*, order_items(*, products(*))')
-                .eq('user_id', customerId)
-                .order('created_at', { ascending: false });
+                .select('*, order_items(*, products(*))');
+
+            if (userRecord && (userRecord.email || userRecord.phone)) {
+                const filters = [`user_id.eq.${customerId}`];
+                if (userRecord.email && userRecord.email.length > 3) {
+                    filters.push(`customer_email.eq.${userRecord.email}`);
+                }
+                if (userRecord.phone && userRecord.phone.length >= 10) {
+                    filters.push(`customer_phone.eq.${userRecord.phone}`);
+                }
+                query = query.or(filters.join(','));
+            } else {
+                query = query.or(`user_id.eq.${customerId},customer_email.eq.${customerId},customer_phone.eq.${customerId}`);
+            }
+
+            const { data: orders, error } = await query.order('created_at', { ascending: false });
 
             if (error || !orders) return [];
 
@@ -727,6 +747,15 @@ const supabaseDb = {
             const supabase = getSupabaseClient();
             if (!supabase) throw new Error('PostgreSQL client unavailable');
 
+            // 1. Check previous status to prevent duplicate restocking
+            const { data: prevOrder } = await supabase
+                .from('orders')
+                .select('status')
+                .eq('id', orderId)
+                .maybeSingle();
+
+            const wasNotCancelled = prevOrder && prevOrder.status !== 'Cancelled';
+
             const { data, error } = await supabase
                 .from('orders')
                 .update({ status })
@@ -736,7 +765,50 @@ const supabaseDb = {
 
             if (error) throw new Error(`PostgreSQL order status update failed: ${error.message}`);
             cache.invalidateOrders();
+
+            // 2. Automatically restock inventory if order is transitioned to 'Cancelled'
+            if (status === 'Cancelled' && wasNotCancelled) {
+                try {
+                    await this.restockOrderItems(orderId);
+                } catch (restockErr) {
+                    console.warn(`[Order Restock Warning] Failed to restock items for order #${orderId}:`, restockErr.message);
+                }
+            }
+
             return data;
+        },
+
+        async restockOrderItems(orderId) {
+            const supabase = getSupabaseClient();
+            if (!supabase || !orderId) return;
+
+            const { data: items, error } = await supabase
+                .from('order_items')
+                .select('product_id, quantity')
+                .eq('order_id', orderId);
+
+            if (error || !items || items.length === 0) return;
+
+            let broadcastInventoryUpdate;
+            try {
+                const rt = require('../realtime');
+                broadcastInventoryUpdate = rt.broadcastInventoryUpdate;
+            } catch (e) {}
+
+            for (const item of items) {
+                if (item.product_id && Number(item.quantity) > 0) {
+                    try {
+                        const updated = await supabaseDb.products.adjustStock(item.product_id, Number(item.quantity));
+                        if (typeof broadcastInventoryUpdate === 'function') {
+                            broadcastInventoryUpdate(item.product_id, updated.stock_left, updated.in_stock);
+                        }
+                        console.log(`[Order Restock] Restocked +${item.quantity} units for product ${item.product_id} (New stock: ${updated.stock_left})`);
+                    } catch (pErr) {
+                        console.warn(`[Order Restock Error] Product ${item.product_id}:`, pErr.message);
+                    }
+                }
+            }
+            cache.invalidateProducts();
         },
 
         parseDeliveryMeta(riderName) {
@@ -1071,6 +1143,7 @@ const supabaseDb = {
                     last_login: lastLogin || lastOrderDate || u.created_at,
                     last_order_date: lastOrderDate,
                     orders_count: userOrders.length,
+                    order_count: userOrders.length,
                     total_spent: totalSpent
                 };
             });

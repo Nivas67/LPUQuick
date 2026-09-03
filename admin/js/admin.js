@@ -1977,13 +1977,39 @@ function getStatusPill(status) {
 }
 
 // ================= 5. ORDER DETAILS DRAWER =================
+let currentDrawerOrderUserId = null;
+
+function viewCurrentDrawerCustomerHistory() {
+    if (currentDrawerOrderUserId) {
+        viewCustomerDetails(currentDrawerOrderUserId);
+    } else {
+        const cached = ordersCache.find(o => o.id === currentDrawerOrderId);
+        const fallbackTarget = cached?.customer_email || cached?.customer_phone || cached?.user_id || null;
+        if (fallbackTarget) {
+            viewCustomerDetails(fallbackTarget);
+        } else {
+            showToast('No customer profile identifier found for this order', 'info');
+        }
+    }
+}
+
 async function openOrderDrawer(orderId) {
     currentDrawerOrderId = orderId;
+    currentDrawerOrderUserId = null;
     document.getElementById('order-drawer').classList.remove('hidden');
+
+    // Make customer name clickable
+    const custNameEl = document.getElementById('drawer-cust-name');
+    if (custNameEl) {
+        custNameEl.onclick = viewCurrentDrawerCustomerHistory;
+        custNameEl.classList.add('cursor-pointer', 'hover:underline');
+        custNameEl.title = 'Click to view complete order history & profile';
+    }
 
     // 1. Instant 0ms memory render from local cache if present
     const cachedOrder = ordersCache.find(o => o.id === orderId);
     if (cachedOrder) {
+        currentDrawerOrderUserId = cachedOrder.user_id || null;
         document.getElementById('drawer-order-id').textContent = `Order #${(cachedOrder.id || '').replace('order_', '').toUpperCase()}`;
         document.getElementById('drawer-order-time').textContent = `Placed: ${new Date(cachedOrder.created_at || Date.now()).toLocaleString()}`;
         document.getElementById('drawer-cust-name').textContent = formatCustomerDisplayName(cachedOrder);
@@ -2037,6 +2063,7 @@ async function openOrderDrawer(orderId) {
         const o = data.order;
         if (!o || currentDrawerOrderId !== orderId) return;
 
+        currentDrawerOrderUserId = o.user_id || cachedOrder?.user_id || null;
         document.getElementById('drawer-order-id').textContent = `Order #${(o.id || '').replace('order_', '').toUpperCase()}`;
         document.getElementById('drawer-order-time').textContent = `Placed: ${new Date(o.created_at || Date.now()).toLocaleString()}`;
         document.getElementById('drawer-cust-name').textContent = formatCustomerDisplayName(o);

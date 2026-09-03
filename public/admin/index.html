@@ -1326,8 +1326,13 @@
 
             <!-- Customer & Delivery Room Info -->
             <div class="bg-[#f7fafd] border border-[#DADCE0] p-4 rounded-xl text-xs space-y-1.5">
-                <p class="text-[#5c5f60]"><strong class="text-[#181c1f]">Student:</strong> <span
-                        id="drawer-cust-name">--</span></p>
+                <div class="flex items-center justify-between">
+                    <p class="text-[#5c5f60]"><strong class="text-[#181c1f]">Student:</strong> <span id="drawer-cust-name" class="font-bold text-[#181c1f]">--</span></p>
+                    <button id="btn-drawer-view-history" onclick="viewCurrentDrawerCustomerHistory()" class="px-2 py-0.5 rounded text-[11px] font-bold text-[#1a73e8] hover:bg-[#1a73e8]/10 flex items-center gap-1 transition-colors" title="View Student Order History & Profile">
+                        <span class="material-symbols-outlined text-[14px]">history</span>
+                        <span>History</span>
+                    </button>
+                </div>
                 <p class="text-[#5c5f60]"><strong class="text-[#181c1f]">Contact:</strong> <span
                         id="drawer-cust-phone">--</span></p>
                 <p class="text-[#5c5f60]"><strong class="text-[#181c1f]">Email:</strong> <span
