@@ -67,7 +67,19 @@ window.pages.orders = async function() {
     const ordersData = ordersDataRes.status === 'fulfilled' ? ordersDataRes.value : { active: [], past: [] };
     const activeData = activeDataRes.status === 'fulfilled' ? activeDataRes.value : { active: null };
 
+    function formatClientRiderName(raw) {
+        if (!raw || raw === 'unassigned') return 'Alex';
+        if (typeof raw === 'string' && raw.trim().startsWith('{')) {
+            try {
+                const parsed = JSON.parse(raw);
+                return parsed.name || parsed.assigned_to_name || 'Alex';
+            } catch (e) {}
+        }
+        return raw;
+    }
+
     const activeOrder = activeData?.active || (ordersData?.active && ordersData.active[0]) || null;
+    const activeRiderName = activeOrder ? formatClientRiderName(activeOrder.rider_name) : 'Alex';
     const pastOrders = ordersData?.past || [];
     const savedRoom = localStorage.getItem('lpuquick_room') || window.currentRoom;
     const savedBlock = localStorage.getItem('lpuquick_block') || window.currentBlock || 'Block A';
@@ -233,7 +245,7 @@ window.pages.orders = async function() {
                             <!-- Floating Runner Status Badge -->
                             <div class="mt-1.5 sm:mt-2.5 bg-black/90 backdrop-blur-xl text-white text-[10px] sm:text-[11px] font-black px-2.5 sm:px-3.5 py-0.5 sm:py-1 rounded-full shadow-2xl border border-emerald-400/60 max-w-[130px] sm:max-w-[200px] truncate flex items-center gap-1.5" id="rider-badge">
                                 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
-                                <span class="truncate">${activeOrder.rider_name || 'Alex'} · Walking</span>
+                                <span class="truncate">${activeRiderName} · Walking</span>
                             </div>
                         </div>
                     </div>
@@ -258,16 +270,16 @@ window.pages.orders = async function() {
                         <div>
                             <p class="text-xs text-on-surface-variant font-medium flex items-center gap-1.5" id="tracking-status-msg">
                                 <span class="material-symbols-outlined text-base text-emerald">directions_walk</span>
-                                <span>${activeOrder.rider_name || 'Alex'} picked up your snacks from BH13 Dark Store and is walking to ${activeOrder.delivery_address || hostelAddress}.</span>
+                                <span>${activeRiderName} picked up your snacks from BH13 Dark Store and is walking to ${activeOrder.delivery_address || hostelAddress}.</span>
                             </p>
                             <h3 class="font-bold text-sm sm:text-base text-on-surface mt-1">Order #${activeOrder.id.replace('order_', '').toUpperCase()} · Total ₹${activeOrder.total} (${activeOrder.payment_method || 'Cash on Delivery'})</h3>
                         </div>
                         <div class="flex items-center gap-3 bg-surface-container-high rounded-2xl p-2 px-3.5 border border-surface-variant/40 shadow-sm">
                             <div class="w-9 h-9 rounded-full bg-emerald text-white flex items-center justify-center font-black text-xs shadow-sm" id="rider-avatar">
-                                ${(activeOrder.rider_name || 'A')[0]}
+                                ${(activeRiderName || 'A')[0]}
                             </div>
                             <div>
-                                <p class="font-bold text-xs text-on-surface" id="rider-name-display">${activeOrder.rider_name || 'Alex'}</p>
+                                <p class="font-bold text-xs text-on-surface" id="rider-name-display">${activeRiderName}</p>
                                 <p class="text-[10px] text-emerald font-bold flex items-center gap-0.5">
                                     <span class="material-symbols-outlined text-[13px]">directions_walk</span>
                                     <span>BH13 Express Walker</span>
@@ -649,7 +661,7 @@ window.pageInits.orders = function() {
             window.updateHelpModalCancelState(status);
         }
         
-        const rider = riderName || 'Alex';
+        const rider = formatClientRiderName(riderName);
         const rName = document.getElementById('rider-name-display');
         const rAvatar = document.getElementById('rider-avatar');
         const rBadge = document.getElementById('rider-badge');

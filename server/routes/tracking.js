@@ -38,12 +38,25 @@ function setupTracking(server, db) {
             return;
         }
 
+        function formatRiderName(raw) {
+            if (!raw || raw === 'unassigned') return 'Alex';
+            if (typeof raw === 'string' && raw.trim().startsWith('{')) {
+                try {
+                    const meta = JSON.parse(raw);
+                    return meta.name || meta.assigned_to_name || 'Alex';
+                } catch (e) {}
+            }
+            return raw;
+        }
+
+        const cleanRider = formatRiderName(order.rider_name);
+
         // Timeline Stages
         const stages = [
             { status: 'Order Placed', step: 1, delay: 0, msg: 'Your order has been received and logged.' },
             { status: 'Order Confirmed', step: 2, delay: 4000, msg: 'Dark Store confirmed items are in stock.' },
             { status: 'Preparing', step: 3, delay: 8000, msg: 'Staff is packing your snacks into express bag.' },
-            { status: 'Out for Delivery', step: 4, delay: 13000, msg: `${order.rider_name || 'Alex'} picked up your order and is riding to ${order.delivery_address || 'BH13'}.` },
+            { status: 'Out for Delivery', step: 4, delay: 13000, msg: `${cleanRider} picked up your order and is riding to ${order.delivery_address || 'BH13'}.` },
             { status: 'Delivered', step: 5, delay: 20000, msg: `Order delivered to ${order.delivery_address || 'BH13'} hostel gate!` }
         ];
 
@@ -56,7 +69,7 @@ function setupTracking(server, db) {
             status: order.status || 'Order Placed',
             step: 1,
             timestamp: timeStr,
-            rider_name: order.rider_name || 'Alex',
+            rider_name: cleanRider,
             total: order.total,
             delivery_address: order.delivery_address || 'BH13 (Block A), Room 304',
             message: 'Your order has been placed successfully.'
@@ -81,7 +94,7 @@ function setupTracking(server, db) {
                             status: st.status,
                             step: st.step,
                             timestamp: stepTime,
-                            rider_name: order.rider_name || 'Alex',
+                            rider_name: cleanRider,
                             total: order.total,
                             delivery_address: order.delivery_address || 'BH13 (Block A), Room 304',
                             message: st.msg

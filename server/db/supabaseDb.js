@@ -600,8 +600,13 @@ const supabaseDb = {
                 .select('*, products(*)')
                 .eq('order_id', orderId);
 
+            const deliveryMeta = this.parseDeliveryMeta(order.rider_name);
+            const humanRiderName = this.formatRiderDisplayName(order.rider_name, 'Alex');
+
             return {
                 ...order,
+                rider_name: humanRiderName,
+                delivery_assignment: deliveryMeta,
                 items: (items || []).map(it => ({
                     id: it.id,
                     order_id: it.order_id,
@@ -632,6 +637,9 @@ const supabaseDb = {
             const past = [];
 
             for (const o of orders) {
+                const deliveryMeta = this.parseDeliveryMeta(o.rider_name);
+                const humanRiderName = this.formatRiderDisplayName(o.rider_name, 'Alex');
+
                 const formattedItems = (o.order_items || []).map(it => ({
                     id: it.id,
                     order_id: it.order_id,
@@ -646,6 +654,8 @@ const supabaseDb = {
                 const itemNames = formattedItems.map(it => `${it.name} (x${it.quantity})`).join(', ');
                 const full = {
                     ...o,
+                    rider_name: humanRiderName,
+                    delivery_assignment: deliveryMeta,
                     items: formattedItems,
                     item_names: itemNames || o.item_names || 'Campus Groceries & Essentials'
                 };
@@ -692,6 +702,9 @@ const supabaseDb = {
             if (error || !orders) return [];
 
             return orders.map(o => {
+                const deliveryMeta = this.parseDeliveryMeta(o.rider_name);
+                const humanRiderName = this.formatRiderDisplayName(o.rider_name, 'Alex');
+
                 const formattedItems = (o.order_items || []).map(it => ({
                     id: it.id,
                     order_id: it.order_id,
@@ -705,7 +718,10 @@ const supabaseDb = {
                 const itemSummary = formattedItems.map(it => `${it.name} (x${it.quantity})`).join(', ');
                 return {
                     ...o,
+                    rider_name: humanRiderName,
+                    delivery_assignment: deliveryMeta,
                     items: formattedItems,
+                    items_summary: itemSummary,
                     item_count: formattedItems.reduce((acc, i) => acc + i.quantity, 0),
                     item_names: itemSummary || 'Campus Groceries & Essentials'
                 };
@@ -723,6 +739,9 @@ const supabaseDb = {
 
             if (error || !orders) return [];
             return orders.map(o => {
+                const deliveryMeta = this.parseDeliveryMeta(o.rider_name);
+                const humanRiderName = this.formatRiderDisplayName(o.rider_name, 'Unassigned');
+
                 const formattedItems = (o.order_items || []).map(it => ({
                     id: it.id,
                     order_id: it.order_id,
@@ -737,6 +756,8 @@ const supabaseDb = {
                 const itemNames = formattedItems.map(it => `${it.name} (x${it.quantity})`).join(', ');
                 return {
                     ...o,
+                    rider_name: humanRiderName,
+                    delivery_assignment: deliveryMeta,
                     items: formattedItems,
                     item_names: itemNames || o.item_names || 'Campus Groceries & Essentials'
                 };
@@ -811,11 +832,25 @@ const supabaseDb = {
             cache.invalidateProducts();
         },
 
+        formatRiderDisplayName(riderName, fallback = 'Alex') {
+            if (!riderName || riderName === 'unassigned') return fallback;
+            if (typeof riderName === 'string' && riderName.trim().startsWith('{')) {
+                try {
+                    const meta = JSON.parse(riderName);
+                    return meta.name || meta.assigned_to_name || fallback;
+                } catch (e) {
+                    return fallback;
+                }
+            }
+            return riderName;
+        },
+
         parseDeliveryMeta(riderName) {
             if (!riderName) {
                 return {
                     assigned_to: null,
                     assigned_to_name: null,
+                    name: null,
                     claimed_at: null,
                     transfer: null,
                     is_claimed: false
@@ -827,6 +862,7 @@ const supabaseDb = {
                     return {
                         assigned_to: meta.admin_id || null,
                         assigned_to_name: meta.name || null,
+                        name: meta.name || null,
                         claimed_at: meta.claimed_at || null,
                         transfer: meta.transfer || null,
                         is_claimed: Boolean(meta.admin_id)
@@ -837,6 +873,7 @@ const supabaseDb = {
                 return {
                     assigned_to: null,
                     assigned_to_name: null,
+                    name: null,
                     claimed_at: null,
                     transfer: null,
                     is_claimed: false
@@ -845,6 +882,7 @@ const supabaseDb = {
             return {
                 assigned_to: null,
                 assigned_to_name: riderName,
+                name: riderName,
                 claimed_at: null,
                 transfer: null,
                 is_claimed: true
@@ -1369,64 +1407,87 @@ const supabaseDb = {
             return { isBlacklisted: false };
         },
 
-        async blacklistUser(userId, reason = 'Administrative Action', adminId = 'admin') {
+        async blockUser({ userId, reason = 'Administrative Action', notes = '', blockedBy = 'admin' }) {
             this._memoryBlacklist.add(userId);
             const supabase = getSupabaseClient();
-            if (!supabase) return { success: true };
+            const cleanReason = reason ? reason.trim() : 'Administrative Action';
+            const now = new Date().toISOString();
 
-            try {
-                await supabase
-                    .from('blacklisted_users')
-                    .upsert([{
-                        id: `bl_${userId}`,
-                        user_id: userId,
-                        reason,
-                        status: 'BLOCKED',
-                        blocked_by: adminId,
-                        blocked_at: new Date().toISOString()
-                    }]);
-            } catch (e) {}
+            if (supabase) {
+                try {
+                    await supabase
+                        .from('blacklisted_users')
+                        .upsert([{
+                            id: `bl_${userId}`,
+                            user_id: userId,
+                            reason: cleanReason,
+                            notes: notes || '',
+                            status: 'BLOCKED',
+                            blocked_by: blockedBy,
+                            blocked_at: now
+                        }]);
+                } catch (e) {}
 
-            try {
-                await supabase
-                    .from('users')
-                    .update({
-                        account_status: 'BLOCKED',
-                        block_reason: reason,
-                        blocked_at: new Date().toISOString(),
-                        blocked_by: adminId
-                    })
-                    .eq('id', userId);
-            } catch (e) {}
+                try {
+                    await supabase
+                        .from('users')
+                        .update({
+                            account_status: 'BLOCKED',
+                            block_reason: cleanReason,
+                            blocked_at: now,
+                            blocked_by: blockedBy
+                        })
+                        .eq('id', userId);
+                } catch (e) {}
+            }
 
-            return { success: true };
+            return {
+                user_id: userId,
+                reason: cleanReason,
+                status: 'BLOCKED',
+                blocked_by: blockedBy,
+                blocked_at: now
+            };
+        },
+
+        async unblockUser({ userId, unblockedBy = 'admin' }) {
+            this._memoryBlacklist.delete(userId);
+            const supabase = getSupabaseClient();
+
+            if (supabase) {
+                try {
+                    await supabase
+                        .from('blacklisted_users')
+                        .delete()
+                        .eq('user_id', userId);
+                } catch (e) {}
+
+                try {
+                    await supabase
+                        .from('users')
+                        .update({
+                            account_status: 'ACTIVE',
+                            block_reason: null,
+                            blocked_at: null,
+                            blocked_by: null
+                        })
+                        .eq('id', userId);
+                } catch (e) {}
+            }
+
+            return { success: true, userId, unblockedBy };
+        },
+
+        async blacklistUser(userId, reason = 'Administrative Action', adminId = 'admin') {
+            return this.blockUser({ userId, reason, blockedBy: adminId });
         },
 
         async unblacklistUser(userId) {
-            this._memoryBlacklist.delete(userId);
-            const supabase = getSupabaseClient();
-            if (!supabase) return { success: true };
+            return this.unblockUser({ userId });
+        },
 
-            try {
-                await supabase
-                    .from('blacklisted_users')
-                    .delete()
-                    .eq('user_id', userId);
-            } catch (e) {}
-
-            try {
-                await supabase
-                    .from('users')
-                    .update({
-                        account_status: 'ACTIVE',
-                        block_reason: null,
-                        blocked_at: null,
-                        blocked_by: null
-                    })
-                    .eq('id', userId);
-            } catch (e) {}
-
-            return { success: true };
+        async isBlacklisted(userId) {
+            return this.isUserBlacklisted(userId);
         },
 
         async getAllBlacklisted() {
@@ -1559,23 +1620,68 @@ const supabaseDb = {
             if (!supabase) throw new Error('Database client unavailable');
 
             const cleanEmail = email.trim().toLowerCase();
-            const { data: existing } = await supabase.from('users').select('id').eq('email', cleanEmail).maybeSingle();
-            if (existing) {
-                throw new Error('A user or administrator with this email already exists.');
-            }
-
-            const staffId = `admin_${uuidv4().replace(/-/g, '').slice(0, 10)}`;
+            const cleanPhone = phone ? phone.trim() : null;
             const assignedRoles = Array.isArray(roles) && roles.length > 0 ? roles : ['store_manager'];
             const dobMeta = JSON.stringify({
                 roles: assignedRoles,
                 last_login: null
             });
 
+            // 1. Check if a user with this email OR phone already exists in PostgreSQL
+            let existingUser = null;
+            const { data: byEmail } = await supabase.from('users').select('*').eq('email', cleanEmail).maybeSingle();
+            if (byEmail) {
+                existingUser = byEmail;
+            } else if (cleanPhone) {
+                const { data: byPhone } = await supabase.from('users').select('*').eq('phone', cleanPhone).maybeSingle();
+                if (byPhone) {
+                    existingUser = byPhone;
+                }
+            }
+
+            if (existingUser) {
+                // Protect primary owner account
+                if (existingUser.role === 'owner' || existingUser.id === 'user_admin_bh13') {
+                    throw new Error('Owner account credentials cannot be overwritten via staff creation.');
+                }
+
+                // Seamlessly promote student to admin or update existing staff permissions
+                const updatePayload = {
+                    name: name.trim(),
+                    email: cleanEmail,
+                    phone: cleanPhone,
+                    password_hash: `hash_${password}`,
+                    role: 'admin',
+                    dob: dobMeta,
+                    account_status: 'ACTIVE'
+                };
+
+                const { data, error } = await supabase
+                    .from('users')
+                    .update(updatePayload)
+                    .eq('id', existingUser.id)
+                    .select()
+                    .single();
+
+                if (error) throw new Error(`Staff profile promotion failed: ${error.message}`);
+                return {
+                    id: data.id,
+                    name: data.name,
+                    email: data.email,
+                    phone: data.phone,
+                    roles: assignedRoles,
+                    account_status: data.account_status,
+                    created_at: data.created_at
+                };
+            }
+
+            // 2. Fresh new administrator record
+            const staffId = `admin_${uuidv4().replace(/-/g, '').slice(0, 10)}`;
             const record = {
                 id: staffId,
                 name: name.trim(),
                 email: cleanEmail,
-                phone: phone ? phone.trim() : null,
+                phone: cleanPhone,
                 password_hash: `hash_${password}`,
                 role: 'admin',
                 dob: dobMeta,

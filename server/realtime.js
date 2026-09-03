@@ -189,13 +189,20 @@ function setupRealtime(server) {
             // Send initial order state
             const now = new Date();
             const initialStatus = order.status || 'Order Placed';
+            let riderDisplayName = order.rider_name || 'Alex';
+            if (typeof riderDisplayName === 'string' && riderDisplayName.trim().startsWith('{')) {
+                try {
+                    const parsed = JSON.parse(riderDisplayName);
+                    riderDisplayName = parsed.name || parsed.assigned_to_name || 'Alex';
+                } catch(e) {}
+            }
             ws.send(JSON.stringify({
                 type: 'INITIAL_STATE',
                 order_id: targetOrderId,
                 status: initialStatus,
                 step: getStepNumber(initialStatus),
-                message: getStatusMessage(initialStatus, order.rider_name || 'Alex'),
-                rider_name: order.rider_name || 'Alex',
+                message: getStatusMessage(initialStatus, riderDisplayName),
+                rider_name: riderDisplayName,
                 total: order.total,
                 delivery_address: order.delivery_address || 'BH13 (Block A), Room 304',
                 timestamp: now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
