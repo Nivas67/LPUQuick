@@ -1757,6 +1757,9 @@ function showIncomingTransferAlert(transferData) {
         txt.innerHTML = `🛵 <strong>${transferData.fromName}</strong> requested to transfer Order <span class="font-mono underline">#${shortId}</span> to you! (${transferData.reason || 'Assistance requested'})`;
         banner.classList.remove('hidden');
         try { playCampusChime(); } catch (e) {}
+    }
+}
+
 // ==========================================
 // ORDER EDITING & UNAVAILABLE ITEMS
 // ==========================================
