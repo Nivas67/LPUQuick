@@ -853,19 +853,24 @@ const supabaseDb = {
                     name: null,
                     claimed_at: null,
                     transfer: null,
-                    is_claimed: false
+                    is_claimed: false,
+                    edits: [],
+                    latest_edit: null
                 };
             }
             if (typeof riderName === 'string' && riderName.startsWith('{')) {
                 try {
                     const meta = JSON.parse(riderName);
+                    const editsList = Array.isArray(meta.edits) ? meta.edits : [];
                     return {
                         assigned_to: meta.admin_id || null,
                         assigned_to_name: meta.name || null,
                         name: meta.name || null,
                         claimed_at: meta.claimed_at || null,
                         transfer: meta.transfer || null,
-                        is_claimed: Boolean(meta.admin_id)
+                        is_claimed: Boolean(meta.admin_id),
+                        edits: editsList,
+                        latest_edit: meta.latest_edit || (editsList.length > 0 ? editsList[editsList.length - 1] : null)
                     };
                 } catch (e) {}
             }
@@ -876,7 +881,9 @@ const supabaseDb = {
                     name: null,
                     claimed_at: null,
                     transfer: null,
-                    is_claimed: false
+                    is_claimed: false,
+                    edits: [],
+                    latest_edit: null
                 };
             }
             return {
@@ -885,7 +892,9 @@ const supabaseDb = {
                 name: riderName,
                 claimed_at: null,
                 transfer: null,
-                is_claimed: true
+                is_claimed: true,
+                edits: [],
+                latest_edit: null
             };
         },
 
@@ -1056,6 +1065,191 @@ const supabaseDb = {
             return {
                 ...data,
                 delivery_assignment: this.parseDeliveryMeta(data.rider_name)
+            };
+        },
+
+        async editOrderItems(orderId, { items, reason, notes, restockRemoved = true, editedBy = 'admin', editedByName = 'Store Manager' }) {
+            const supabase = getSupabaseClient();
+            if (!supabase) throw new Error('Database client unavailable');
+
+            // 1. Fetch target order
+            const { data: order, error: orderErr } = await supabase
+                .from('orders')
+                .select('*')
+                .eq('id', orderId)
+                .single();
+
+            if (orderErr || !order) throw new Error('Order not found');
+            if (['Delivered', 'Cancelled'].includes(order.status)) {
+                throw new Error(`Cannot edit an order that is already marked as ${order.status}.`);
+            }
+
+            // 2. Fetch current items with product details
+            const { data: currentItems, error: itemsErr } = await supabase
+                .from('order_items')
+                .select('*, products(*)')
+                .eq('order_id', orderId);
+
+            if (itemsErr || !currentItems || currentItems.length === 0) {
+                throw new Error('No items found for this order.');
+            }
+
+            const changes = [];
+            const remainingOrderItems = [];
+            const itemsToDelete = [];
+            const itemsToUpdate = [];
+
+            for (const curr of currentItems) {
+                const req = (items || []).find(it => (it.id && it.id === curr.id) || (it.product_id && it.product_id === curr.product_id));
+                const oldQty = Number(curr.quantity) || 1;
+                const unitPrice = Number(curr.unit_price || curr.products?.price) || 0;
+                const itemName = curr.products?.name || curr.name || 'Campus Item';
+                const newQty = req ? Math.max(0, parseInt(req.quantity, 10) || 0) : oldQty;
+
+                if (newQty === 0) {
+                    itemsToDelete.push(curr.id);
+                    const qtyDiff = oldQty;
+                    changes.push({
+                        item_id: curr.id,
+                        product_id: curr.product_id,
+                        name: itemName,
+                        action: 'REMOVED',
+                        old_qty: oldQty,
+                        new_qty: 0,
+                        unit_price: unitPrice,
+                        qty_diff: qtyDiff
+                    });
+                    if (restockRemoved && curr.product_id && qtyDiff > 0) {
+                        try {
+                            const updated = await supabaseDb.products.adjustStock(curr.product_id, qtyDiff);
+                            if (typeof broadcastInventoryUpdate === 'function') {
+                                broadcastInventoryUpdate(curr.product_id, updated.stock_left, updated.in_stock);
+                            }
+                        } catch (pErr) {
+                            console.warn(`[EditOrder Restock Error]:`, pErr.message);
+                        }
+                    }
+                } else if (newQty < oldQty) {
+                    itemsToUpdate.push({ id: curr.id, quantity: newQty });
+                    const qtyDiff = oldQty - newQty;
+                    changes.push({
+                        item_id: curr.id,
+                        product_id: curr.product_id,
+                        name: itemName,
+                        action: 'REDUCED_QTY',
+                        old_qty: oldQty,
+                        new_qty: newQty,
+                        unit_price: unitPrice,
+                        qty_diff: qtyDiff
+                    });
+                    remainingOrderItems.push({
+                        ...curr,
+                        quantity: newQty,
+                        unit_price: unitPrice
+                    });
+                    if (restockRemoved && curr.product_id && qtyDiff > 0) {
+                        try {
+                            const updated = await supabaseDb.products.adjustStock(curr.product_id, qtyDiff);
+                            if (typeof broadcastInventoryUpdate === 'function') {
+                                broadcastInventoryUpdate(curr.product_id, updated.stock_left, updated.in_stock);
+                            }
+                        } catch (pErr) {
+                            console.warn(`[EditOrder Restock Error]:`, pErr.message);
+                        }
+                    }
+                } else {
+                    remainingOrderItems.push({
+                        ...curr,
+                        quantity: oldQty,
+                        unit_price: unitPrice
+                    });
+                }
+            }
+
+            if (changes.length === 0) {
+                throw new Error('No modifications were made to the order items.');
+            }
+
+            if (remainingOrderItems.length === 0) {
+                throw new Error('Cannot remove all items from the order. If all items are unavailable, please Cancel the order instead.');
+            }
+
+            // 3. Apply line item changes in PostgreSQL
+            for (const delId of itemsToDelete) {
+                await supabase.from('order_items').delete().eq('id', delId);
+            }
+            for (const upd of itemsToUpdate) {
+                await supabase.from('order_items').update({ quantity: upd.quantity }).eq('id', upd.id);
+            }
+
+            // 4. Recalculate totals
+            const newSubtotal = remainingOrderItems.reduce((acc, it) => acc + (it.quantity * it.unit_price), 0);
+            const deliveryFee = Number(order.delivery_fee) || 0;
+            const platformFee = Number(order.platform_fee) || 0;
+            const tax = Number(order.tax) || 0;
+            const newTotal = newSubtotal + deliveryFee + platformFee + tax;
+
+            // 5. Structure audit trail into order metadata
+            let currentMeta = {};
+            if (order.rider_name && typeof order.rider_name === 'string' && order.rider_name.trim().startsWith('{')) {
+                try { currentMeta = JSON.parse(order.rider_name); } catch (e) {}
+            } else if (order.rider_name && order.rider_name !== 'unassigned') {
+                currentMeta = { name: order.rider_name, assigned_to_name: order.rider_name };
+            }
+
+            const editEntry = {
+                edit_id: `edit_${uuidv4().replace(/-/g, '').slice(0, 8)}`,
+                edited_at: new Date().toISOString(),
+                edited_by_id: editedBy || 'admin',
+                edited_by_name: editedByName || 'Store Manager',
+                reason: reason || 'Item Out of Stock at BH13 Dark Store',
+                notes: notes || '',
+                old_total: Number(order.total) || 0,
+                new_total: newTotal,
+                restocked: Boolean(restockRemoved),
+                changes
+            };
+
+            const existingEdits = Array.isArray(currentMeta.edits) ? currentMeta.edits : [];
+            existingEdits.push(editEntry);
+            currentMeta.edits = existingEdits;
+            currentMeta.latest_edit = editEntry;
+
+            const itemSummary = remainingOrderItems.map(it => `${it.products?.name || it.name || 'Campus Item'} (x${it.quantity})`).join(', ');
+
+            // 6. Update orders record in Supabase
+            const { data: updatedOrder, error: updateErr } = await supabase
+                .from('orders')
+                .update({
+                    subtotal: newSubtotal,
+                    total: newTotal,
+                    rider_name: JSON.stringify(currentMeta)
+                })
+                .eq('id', orderId)
+                .select()
+                .single();
+
+            if (updateErr) throw new Error(`Failed to update order total: ${updateErr.message}`);
+
+            cache.invalidateOrders();
+            cache.invalidateProducts();
+
+            return {
+                ...updatedOrder,
+                rider_name: this.formatRiderDisplayName(updatedOrder.rider_name),
+                delivery_assignment: this.parseDeliveryMeta(updatedOrder.rider_name),
+                items: remainingOrderItems.map(it => ({
+                    id: it.id,
+                    order_id: it.order_id,
+                    product_id: it.product_id,
+                    quantity: Number(it.quantity) || 1,
+                    price: Number(it.unit_price || it.products?.price || 0),
+                    unit_price: Number(it.unit_price || it.products?.price || 0),
+                    name: it.products?.name || it.name || 'Campus Item',
+                    image_url: it.products?.image_url || it.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'
+                })),
+                item_names: itemSummary,
+                latest_edit: editEntry
             };
         }
     },

@@ -80,6 +80,7 @@ window.pages.orders = async function() {
 
     const activeOrder = activeData?.active || (ordersData?.active && ordersData.active[0]) || null;
     const activeRiderName = activeOrder ? formatClientRiderName(activeOrder.rider_name) : 'Alex';
+    const activeEdit = activeOrder?.delivery_assignment?.latest_edit || null;
     const pastOrders = ordersData?.past || [];
     const savedRoom = localStorage.getItem('lpuquick_room') || window.currentRoom;
     const savedBlock = localStorage.getItem('lpuquick_block') || window.currentBlock || 'Block A';
@@ -266,13 +267,29 @@ window.pages.orders = async function() {
 
                 <!-- Order Details & Progress -->
                 <div class="p-5 sm:p-6 space-y-4">
+                    <!-- If order was modified by Dark Store, show real-time notice banner -->
+                    <div id="tracking-order-edited-banner" class="${activeEdit ? '' : 'hidden '}p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-on-surface space-y-1">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-bold text-xs">
+                                <span class="material-symbols-outlined text-base">edit_notifications</span>
+                                <span id="tracking-order-edited-title">Dark Store Notice: ${activeEdit?.reason ? activeEdit.reason : 'Item Unavailable'}</span>
+                            </div>
+                            <span id="tracking-order-edited-total" class="text-[10px] bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold px-2 py-0.5 rounded-full">
+                                Total: ₹<span id="tracking-order-edited-total-val">${activeOrder.total}</span>
+                            </span>
+                        </div>
+                        <p id="tracking-order-edited-desc" class="text-xs text-on-surface-variant font-medium">
+                            ${activeEdit?.notes ? activeEdit.notes : 'One or more unavailable items were removed or adjusted by the Dark Store. Your bill has been updated.'}
+                        </p>
+                    </div>
+
                     <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
                         <div>
                             <p class="text-xs text-on-surface-variant font-medium flex items-center gap-1.5" id="tracking-status-msg">
                                 <span class="material-symbols-outlined text-base text-emerald">directions_walk</span>
                                 <span>${activeRiderName} picked up your snacks from BH13 Dark Store and is walking to ${activeOrder.delivery_address || hostelAddress}.</span>
                             </p>
-                            <h3 class="font-bold text-sm sm:text-base text-on-surface mt-1">Order #${activeOrder.id.replace('order_', '').toUpperCase()} · Total ₹${activeOrder.total} (${activeOrder.payment_method || 'Cash on Delivery'})</h3>
+                            <h3 class="font-bold text-sm sm:text-base text-on-surface mt-1" id="tracking-order-title">Order #${activeOrder.id.replace('order_', '').toUpperCase()} · Total ₹<span id="tracking-active-total">${activeOrder.total}</span> (${activeOrder.payment_method || 'Cash on Delivery'})</h3>
                         </div>
                         <div class="flex items-center gap-3 bg-surface-container-high rounded-2xl p-2 px-3.5 border border-surface-variant/40 shadow-sm">
                             <div class="w-9 h-9 rounded-full bg-emerald text-white flex items-center justify-center font-black text-xs shadow-sm" id="rider-avatar">
@@ -896,11 +913,42 @@ window.pageInits.orders = function() {
             if (liveIndicator) liveIndicator.textContent = 'Live GPS Sync';
         };
 
+        function handleClientOrderEdited(data) {
+            if (!data) return;
+            const banner = document.getElementById('tracking-order-edited-banner');
+            const titleEl = document.getElementById('tracking-order-edited-title');
+            const totalEl = document.getElementById('tracking-order-edited-total-val');
+            const descEl = document.getElementById('tracking-order-edited-desc');
+            const totalText = document.getElementById('tracking-active-total');
+
+            const edit = data.edit || data.order?.delivery_assignment?.latest_edit || {};
+            const newTotal = data.order?.total !== undefined ? data.order.total : edit.new_total;
+
+            if (totalText && newTotal !== undefined) {
+                totalText.textContent = newTotal;
+            }
+            if (totalEl && newTotal !== undefined) {
+                totalEl.textContent = newTotal;
+            }
+            if (titleEl && edit.reason) {
+                titleEl.textContent = `Dark Store Notice: ${edit.reason}`;
+            }
+            if (descEl && (edit.notes || edit.reason)) {
+                descEl.textContent = edit.notes || 'One or more unavailable items were removed or adjusted by the Dark Store. Your bill has been updated.';
+            }
+            if (banner) {
+                banner.classList.remove('hidden');
+            }
+        }
+
         ws.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
                 if (data && data.status) {
                     window.applyOrderStatusUI(data.status, data.rider_name || data.riderName || 'Alex');
+                }
+                if (data && (data.type === 'ORDER_EDITED' || data.type === 'ORDER_MODIFIED')) {
+                    handleClientOrderEdited(data);
                 }
             } catch (e) {
                 console.error('[Orders WS parse error]:', e);
@@ -929,6 +977,9 @@ window.pageInits.orders = function() {
                 if (orderData && orderData.status) {
                     if (orderData.status !== currentOrderStatus) {
                         window.applyOrderStatusUI(orderData.status, orderData.rider_name || 'Alex');
+                    }
+                    if (orderData.delivery_assignment?.latest_edit) {
+                        handleClientOrderEdited({ order: orderData, edit: orderData.delivery_assignment.latest_edit });
                     }
                     if (['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(orderData.status)) {
                         clearInterval(ordersPoll);

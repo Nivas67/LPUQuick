@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const supabaseDb = require('../db/supabaseDb');
-const { broadcastStatusUpdate, broadcastOrderClaimed, broadcastTransferRequested, broadcastTransferResolved } = require('../realtime');
+const { broadcastStatusUpdate, broadcastOrderClaimed, broadcastTransferRequested, broadcastTransferResolved, broadcastOrderEdited } = require('../realtime');
 const { getSupabaseClient } = require('../supabase');
 const requireAdmin = require('../middleware/adminAuth');
 const { requireRole } = require('../middleware/adminAuth');
@@ -655,6 +655,73 @@ router.post('/:orderId/transfer/direct', requireAdmin, requireRole('owner', 'sto
         });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// POST /api/orders/admin/:orderId/edit (Edit Order Items & Manage Unavailable Stock)
+router.post('/admin/:orderId/edit', requireAdmin, async (req, res) => {
+    const { orderId } = req.params;
+    const { items, reason, notes, restockRemoved } = req.body;
+    const adminId = req.admin?.id || 'admin';
+    const adminName = req.admin?.name || 'Store Manager';
+
+    if (!Array.isArray(items)) {
+        return res.status(400).json({ success: false, error: 'Items array is required.' });
+    }
+
+    try {
+        const updatedOrder = await supabaseDb.orders.editOrderItems(orderId, {
+            items,
+            reason: reason || 'Item Out of Stock at BH13 Dark Store',
+            notes: notes || '',
+            restockRemoved: restockRemoved !== false,
+            editedBy: adminId,
+            editedByName: adminName
+        });
+
+        // Broadcast real-time WebSocket update to both admin dashboard and student tracking
+        broadcastOrderEdited(orderId, updatedOrder, updatedOrder.latest_edit);
+
+        res.json({
+            success: true,
+            message: 'Order items updated successfully.',
+            order: updatedOrder
+        });
+    } catch (err) {
+        res.status(400).json({ success: false, error: err.message });
+    }
+});
+
+// Alias for convenience
+router.post('/:orderId/edit', requireAdmin, async (req, res) => {
+    const { orderId } = req.params;
+    const { items, reason, notes, restockRemoved } = req.body;
+    const adminId = req.admin?.id || 'admin';
+    const adminName = req.admin?.name || 'Store Manager';
+
+    if (!Array.isArray(items)) {
+        return res.status(400).json({ success: false, error: 'Items array is required.' });
+    }
+
+    try {
+        const updatedOrder = await supabaseDb.orders.editOrderItems(orderId, {
+            items,
+            reason: reason || 'Item Out of Stock at BH13 Dark Store',
+            notes: notes || '',
+            restockRemoved: restockRemoved !== false,
+            editedBy: adminId,
+            editedByName: adminName
+        });
+
+        broadcastOrderEdited(orderId, updatedOrder, updatedOrder.latest_edit);
+
+        res.json({
+            success: true,
+            message: 'Order items updated successfully.',
+            order: updatedOrder
+        });
+    } catch (err) {
+        res.status(400).json({ success: false, error: err.message });
     }
 });
 

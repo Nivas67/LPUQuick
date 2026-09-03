@@ -792,6 +792,69 @@
                     </div>
                 </div>
 
+                <!-- Inventory Metrics Ribbon -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Primary Requested Tile: Total Inventory Valuation / Stock Price -->
+                    <div class="glass-panel p-5 border-l-4 border-l-emerald-600 bg-gradient-to-br from-white to-emerald-50/40 relative overflow-hidden">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-[#5c5f60] uppercase tracking-wider">Total Stock Value</span>
+                            <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                                <span class="material-symbols-outlined text-[18px]">currency_rupee</span>
+                            </div>
+                        </div>
+                        <div class="mt-2 flex items-baseline gap-2">
+                            <h3 class="text-2xl font-black text-[#181c1f] font-headline" id="inventory-total-value">₹0</h3>
+                            <span class="text-[11px] font-semibold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full">Available</span>
+                        </div>
+                        <p class="text-[11px] text-[#5c5f60] mt-1">Total retail price of all units in dark store</p>
+                    </div>
+
+                    <!-- Total Units Available -->
+                    <div class="glass-panel p-5 border-l-4 border-l-[#1a73e8] bg-gradient-to-br from-white to-blue-50/30">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-[#5c5f60] uppercase tracking-wider">Total Units on Shelf</span>
+                            <div class="w-8 h-8 rounded-xl bg-blue-100 text-[#1a73e8] flex items-center justify-center">
+                                <span class="material-symbols-outlined text-[18px]">inventory_2</span>
+                            </div>
+                        </div>
+                        <div class="mt-2 flex items-baseline gap-2">
+                            <h3 class="text-2xl font-black text-[#181c1f] font-headline" id="inventory-total-units">0</h3>
+                            <span class="text-[11px] text-[#5c5f60]">items</span>
+                        </div>
+                        <p class="text-[11px] text-[#5c5f60] mt-1">Physical inventory count on BH13 shelves</p>
+                    </div>
+
+                    <!-- Active Catalog SKUs -->
+                    <div class="glass-panel p-5 border-l-4 border-l-[#7c3aed] bg-gradient-to-br from-white to-purple-50/30">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-[#5c5f60] uppercase tracking-wider">Active SKUs</span>
+                            <div class="w-8 h-8 rounded-xl bg-purple-100 text-[#7c3aed] flex items-center justify-center">
+                                <span class="material-symbols-outlined text-[18px]">category</span>
+                            </div>
+                        </div>
+                        <div class="mt-2 flex items-baseline gap-2">
+                            <h3 class="text-2xl font-black text-[#181c1f] font-headline" id="inventory-active-skus">0</h3>
+                            <span class="text-[11px] text-[#5c5f60]">products</span>
+                        </div>
+                        <p class="text-[11px] text-[#5c5f60] mt-1">Distinct campus products in catalog</p>
+                    </div>
+
+                    <!-- Stock Alerts / Attention Needed -->
+                    <div class="glass-panel p-5 border-l-4 border-l-amber-500 bg-gradient-to-br from-white to-amber-50/40">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-[#5c5f60] uppercase tracking-wider">Restock Alerts</span>
+                            <div class="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                                <span class="material-symbols-outlined text-[18px]">warning</span>
+                            </div>
+                        </div>
+                        <div class="mt-2 flex items-baseline gap-2">
+                            <h3 class="text-2xl font-black text-[#181c1f] font-headline" id="inventory-stock-alerts">0</h3>
+                            <span class="text-[11px] font-semibold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full" id="inventory-alerts-badge">Low / Out</span>
+                        </div>
+                        <p class="text-[11px] text-[#5c5f60] mt-1">Items out of stock or needing replenishment</p>
+                    </div>
+                </div>
+
                 <div class="glass-panel overflow-hidden">
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-xs border-collapse">
@@ -1400,9 +1463,28 @@
                 </button>
             </div>
 
+            <!-- Order Modified by Store Banner -->
+            <div id="drawer-order-modified-banner" class="hidden p-3 rounded-xl border border-amber-300 bg-amber-50 text-amber-900 space-y-1 text-xs">
+                <div class="flex items-center justify-between font-bold text-amber-800">
+                    <span class="flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-[16px] text-amber-600">edit_note</span>
+                        <span>Order Modified by Store</span>
+                    </span>
+                    <span id="drawer-order-modified-time" class="text-[10px] text-amber-700 font-normal"></span>
+                </div>
+                <p id="drawer-order-modified-reason" class="text-[11px] text-amber-900 font-medium"></p>
+            </div>
+
             <!-- Items List -->
             <div class="space-y-2 flex-1">
-                <h4 class="font-bold text-xs text-[#181c1f] uppercase tracking-wider">Ordered Items</h4>
+                <div class="flex items-center justify-between">
+                    <h4 class="font-bold text-xs text-[#181c1f] uppercase tracking-wider">Ordered Items</h4>
+                    <button type="button" id="btn-drawer-edit-order" onclick="openEditOrderModal(currentDrawerOrderId)"
+                        class="px-2.5 py-1 rounded-lg bg-[#f1f4f7] hover:bg-amber-100 hover:text-amber-900 border border-[#DADCE0] text-[11px] font-bold text-[#3c4043] flex items-center gap-1 transition-all active:scale-95 shadow-xs" title="Modify item quantities or mark out-of-stock items">
+                        <span class="material-symbols-outlined text-[14px] text-amber-600">edit</span>
+                        <span>Edit Items / Stock Issue</span>
+                    </button>
+                </div>
                 <div class="space-y-2" id="drawer-items-list">
                     <div class="text-xs text-[#5c5f60]">Loading items...</div>
                 </div>
@@ -1972,10 +2054,104 @@
                 </div>
             </form>
         </div>
+    <!-- ================= MODAL: EDIT ORDER (UNAVAILABLE ITEMS / STOCK RECONCILIATION) ================= -->
+    <div id="modal-edit-order" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col p-6 shadow-2xl border border-[#DADCE0] space-y-4 overflow-hidden">
+            <div class="flex justify-between items-center border-b border-[#DADCE0] pb-3 shrink-0">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-amber-600 text-2xl">edit_note</span>
+                    <div>
+                        <h3 class="font-bold text-base text-[#181c1f]">Edit Order Items</h3>
+                        <p class="text-[11px] text-[#5c5f60]" id="modal-edit-order-subtitle">Modify unavailable items and record store reason</p>
+                    </div>
+                </div>
+                <button onclick="closeEditOrderModal()" class="text-[#5c5f60] hover:text-[#181c1f]">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form id="form-edit-order" onsubmit="submitOrderEdit(event)" class="space-y-4 text-xs flex flex-col flex-1 overflow-y-auto pr-1">
+                <input type="hidden" id="edit-order-id" value="">
+
+                <!-- Notice banner -->
+                <div class="bg-amber-50 border border-amber-200 text-amber-900 p-3 rounded-xl text-[11px] flex items-start gap-2 shrink-0">
+                    <span class="material-symbols-outlined text-base shrink-0 text-amber-600 mt-0.5">info</span>
+                    <div>
+                        <p class="font-bold">Items Unavailable or Stock Shortage?</p>
+                        <p>Adjust item quantities or mark items unavailable below. The order total will be recalculated automatically and the customer will be notified in real-time.</p>
+                    </div>
+                </div>
+
+                <!-- Editable Items List -->
+                <div class="space-y-2">
+                    <label class="font-bold text-[#181c1f] uppercase tracking-wider text-[11px] block">Order Items & Quantities</label>
+                    <div id="edit-order-items-container" class="space-y-2 max-h-64 overflow-y-auto pr-1">
+                        <!-- Dynamic editable items rendered via JS -->
+                    </div>
+                </div>
+
+                <!-- Live Total Preview Box -->
+                <div class="bg-[#f7fafd] border border-[#DADCE0] p-3 rounded-xl flex items-center justify-between shrink-0">
+                    <div>
+                        <span class="text-[#5c5f60] text-[11px] block">Order Total Preview:</span>
+                        <div class="flex items-baseline gap-2 mt-0.5">
+                            <span class="text-xs line-through text-[#74777a]" id="edit-prev-total">₹0</span>
+                            <span class="text-base font-black text-[#137333]" id="edit-new-total">₹0</span>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800" id="edit-diff-badge">-₹0</span>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-[10px] text-[#5c5f60] block">Remaining Items</span>
+                        <span class="font-bold text-xs text-[#181c1f]" id="edit-items-count">0 items</span>
+                    </div>
+                </div>
+
+                <!-- Reason for edit -->
+                <div class="shrink-0 space-y-1.5">
+                    <label class="font-semibold text-[#262a2d] block">Reason for Modification *</label>
+                    <select id="edit-order-reason" required
+                        class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#1a73e8] outline-none text-xs bg-white">
+                        <option value="Item Out of Stock at BH13 Dark Store">❌ Item Out of Stock at BH13 Dark Store</option>
+                        <option value="Item Damaged / Expired / Quality Issue">⚠️ Item Damaged / Expired / Quality Issue</option>
+                        <option value="Customer Requested Removal via Call">📞 Customer Requested Removal via Call</option>
+                        <option value="Product Substitution / Size Unavailable">🔄 Product Substitution / Size Unavailable</option>
+                        <option value="Other">✏️ Other Reason (specify in notes)</option>
+                    </select>
+                </div>
+
+                <!-- Additional Notes / Customer Message -->
+                <div class="shrink-0 space-y-1">
+                    <label class="font-semibold text-[#262a2d] block">Store Note / Message for Student</label>
+                    <input id="edit-order-notes" placeholder="e.g. Sorry! Item ran out, price deducted from your bill."
+                        class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#1a73e8] outline-none text-xs">
+                </div>
+
+                <!-- Restock Option -->
+                <div class="shrink-0 bg-[#f1f4f7] p-3 rounded-xl flex items-center justify-between">
+                    <div>
+                        <label for="edit-restock-checkbox" class="font-bold text-[#181c1f] text-xs cursor-pointer">Restock Removed Inventory</label>
+                        <p class="text-[10px] text-[#5c5f60]">Add removed/reduced quantities back to Dark Store physical stock</p>
+                    </div>
+                    <input type="checkbox" id="edit-restock-checkbox" checked class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer">
+                </div>
+
+                <div id="edit-order-error" class="hidden p-2.5 rounded-xl bg-rose-50 text-[#ba1a1a] text-xs font-semibold shrink-0"></div>
+
+                <div class="pt-3 border-t border-[#DADCE0] flex justify-end gap-2 shrink-0">
+                    <button type="button" onclick="closeEditOrderModal()"
+                        class="px-4 py-2 rounded-xl border border-[#DADCE0] text-[#5c5f60] font-semibold hover:bg-[#f1f4f7]">Cancel</button>
+                    <button type="submit" id="btn-submit-order-edit"
+                        class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1 shadow-sm active:scale-95 transition-all">
+                        <span>Save & Recalculate Order</span>
+                        <span class="material-symbols-outlined text-sm">check</span>
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <!-- Application Script Reference -->
-    <script src="/admin/js/admin.js?v=20260901r23"></script>
+    <script src="/admin/js/admin.js?v=20260901r24"></script>
 </body>
 
 </html>

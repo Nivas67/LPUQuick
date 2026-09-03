@@ -1176,7 +1176,36 @@ async function loadInventory() {
     }
 }
 
+function updateInventoryKpiTiles() {
+    if (!Array.isArray(productsCache)) return;
+
+    let totalVal = 0;
+    let totalUnits = 0;
+    let inStockSkus = 0;
+    let stockAlerts = 0;
+
+    for (const p of productsCache) {
+        const stock = p.stock_left !== undefined ? Math.max(0, Number(p.stock_left)) : (p.in_stock ? 40 : 0);
+        const price = Number(p.price) || 0;
+        totalVal += (stock * price);
+        totalUnits += stock;
+        if (stock > 0) inStockSkus++;
+        if (stock <= 4) stockAlerts++;
+    }
+
+    const valEl = document.getElementById('inventory-total-value');
+    const unitsEl = document.getElementById('inventory-total-units');
+    const skusEl = document.getElementById('inventory-active-skus');
+    const alertsEl = document.getElementById('inventory-stock-alerts');
+
+    if (valEl) valEl.textContent = '₹' + Math.round(totalVal).toLocaleString('en-IN');
+    if (unitsEl) unitsEl.textContent = totalUnits.toLocaleString('en-IN');
+    if (skusEl) skusEl.textContent = productsCache.length.toLocaleString('en-IN');
+    if (alertsEl) alertsEl.textContent = stockAlerts.toLocaleString('en-IN');
+}
+
 function filterInventory() {
+    updateInventoryKpiTiles();
     const query = (document.getElementById('inventory-search-input')?.value || '').toLowerCase();
     const filtered = productsCache.filter(p => p.name.toLowerCase().includes(query) || p.category.toLowerCase().includes(query));
     const tbody = document.getElementById('inventory-table-tbody');
@@ -1728,6 +1757,275 @@ function showIncomingTransferAlert(transferData) {
         txt.innerHTML = `🛵 <strong>${transferData.fromName}</strong> requested to transfer Order <span class="font-mono underline">#${shortId}</span> to you! (${transferData.reason || 'Assistance requested'})`;
         banner.classList.remove('hidden');
         try { playCampusChime(); } catch (e) {}
+// ==========================================
+// ORDER EDITING & UNAVAILABLE ITEMS
+// ==========================================
+let currentEditOrderData = null;
+let currentEditOrderItems = [];
+
+async function openEditOrderModal(orderId) {
+    if (!orderId) {
+        showToast('No active order selected to edit.', 'warning');
+        return;
+    }
+
+    let order = ordersCache.find(o => o.id === orderId);
+    if (!order || !order.items || order.items.length === 0) {
+        try {
+            const res = await fetchWithTimeout(`/api/orders/admin/detail/${orderId}`, { headers: getAuthHeaders() }, 6000);
+            if (res.ok) {
+                const d = await res.json();
+                if (d.order) order = d.order;
+            }
+        } catch (e) {}
+    }
+
+    if (!order) {
+        showToast('Unable to fetch order details for editing.', 'error');
+        return;
+    }
+
+    if (['Delivered', 'Cancelled'].includes(order.status)) {
+        alert(`Cannot edit an order that is already ${order.status}.`);
+        return;
+    }
+
+    currentEditOrderData = order;
+    currentEditOrderItems = (order.items || []).map(it => ({
+        id: it.id,
+        product_id: it.product_id,
+        name: it.name || it.products?.name || 'Campus Item',
+        image_url: it.image_url || it.products?.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60',
+        unit_price: Number(it.unit_price || it.price || it.products?.price) || 0,
+        original_qty: Number(it.quantity) || 1,
+        quantity: Number(it.quantity) || 1
+    }));
+
+    // Reset modal fields
+    document.getElementById('edit-order-id').value = order.id;
+    const subTitle = document.getElementById('modal-edit-order-subtitle');
+    if (subTitle) {
+        subTitle.textContent = `Order #${order.id.replace('order_', '').toUpperCase()} · ${order.customer_name || 'Student'} (${order.delivery_address || 'Room'})`;
+    }
+
+    const errBox = document.getElementById('edit-order-error');
+    if (errBox) errBox.classList.add('hidden');
+
+    const notesInput = document.getElementById('edit-order-notes');
+    if (notesInput) notesInput.value = '';
+
+    const reasonSelect = document.getElementById('edit-order-reason');
+    if (reasonSelect) reasonSelect.selectedIndex = 0;
+
+    const restockCheck = document.getElementById('edit-restock-checkbox');
+    if (restockCheck) restockCheck.checked = true;
+
+    renderEditOrderItems();
+    calculateEditOrderPreview();
+
+    document.getElementById('modal-edit-order').classList.remove('hidden');
+}
+
+function closeEditOrderModal() {
+    document.getElementById('modal-edit-order').classList.add('hidden');
+    currentEditOrderData = null;
+    currentEditOrderItems = [];
+}
+
+function renderEditOrderItems() {
+    const container = document.getElementById('edit-order-items-container');
+    if (!container) return;
+
+    if (currentEditOrderItems.length === 0) {
+        container.innerHTML = '<p class="text-[#5c5f60] p-4 text-center">No items recorded in this order.</p>';
+        return;
+    }
+
+    container.innerHTML = currentEditOrderItems.map(item => {
+        const isRemoved = item.quantity === 0;
+        const rowClass = isRemoved
+            ? 'bg-rose-50/70 border-rose-200 opacity-75'
+            : 'bg-[#f7fafd] border-[#DADCE0]';
+
+        return `
+            <div class="flex items-center justify-between p-2.5 rounded-xl border ${rowClass} transition-all">
+                <div class="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
+                    <img src="${item.image_url}" class="w-9 h-9 rounded-lg object-cover bg-white shrink-0 border border-[#DADCE0]" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'">
+                    <div class="min-w-0">
+                        <p class="font-bold text-xs text-[#181c1f] truncate ${isRemoved ? 'line-through text-[#74777a]' : ''}">${escapeHtml(item.name)}</p>
+                        <p class="text-[10px] text-[#5c5f60]">₹${item.unit_price} each · Orig: ${item.original_qty}x</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 shrink-0">
+                    ${isRemoved ? `
+                        <span class="text-[10px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full">Unavailable</span>
+                        <button type="button" onclick="restoreEditItem('${item.id || item.product_id}', ${item.original_qty})"
+                            class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-50 border border-[#DADCE0] text-[10px] font-bold text-[#1a73e8] transition-colors shadow-xs">
+                            Restore
+                        </button>
+                    ` : `
+                        <div class="inline-flex items-center gap-1 bg-white border border-[#DADCE0] rounded-lg p-0.5 shadow-xs">
+                            <button type="button" onclick="changeEditItemQty('${item.id || item.product_id}', -1)"
+                                class="w-6 h-6 rounded bg-[#f1f4f7] hover:bg-slate-200 text-xs font-black flex items-center justify-center text-[#181c1f]">-</button>
+                            <span class="px-2 font-mono font-bold text-xs text-[#181c1f]">${item.quantity}</span>
+                            <button type="button" onclick="changeEditItemQty('${item.id || item.product_id}', 1)"
+                                class="w-6 h-6 rounded bg-[#f1f4f7] hover:bg-slate-200 text-xs font-black flex items-center justify-center text-[#181c1f]">+</button>
+                        </div>
+                        <button type="button" onclick="markEditItemUnavailable('${item.id || item.product_id}')"
+                            class="p-1 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors" title="Mark this item as unavailable / remove">
+                            <span class="material-symbols-outlined text-[18px]">delete_outline</span>
+                        </button>
+                    `}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function changeEditItemQty(id, delta) {
+    const it = currentEditOrderItems.find(x => (x.id === id || x.product_id === id));
+    if (!it) return;
+    const next = Math.max(0, it.quantity + delta);
+    it.quantity = next;
+    renderEditOrderItems();
+    calculateEditOrderPreview();
+}
+
+function markEditItemUnavailable(id) {
+    const it = currentEditOrderItems.find(x => (x.id === id || x.product_id === id));
+    if (!it) return;
+    it.quantity = 0;
+    renderEditOrderItems();
+    calculateEditOrderPreview();
+}
+
+function restoreEditItem(id, origQty) {
+    const it = currentEditOrderItems.find(x => (x.id === id || x.product_id === id));
+    if (!it) return;
+    it.quantity = origQty || 1;
+    renderEditOrderItems();
+    calculateEditOrderPreview();
+}
+
+function calculateEditOrderPreview() {
+    const remaining = currentEditOrderItems.filter(x => x.quantity > 0);
+    const newSubtotal = remaining.reduce((acc, it) => acc + (it.quantity * it.unit_price), 0);
+    const deliveryFee = Number(currentEditOrderData?.delivery_fee) || 0;
+    const platformFee = Number(currentEditOrderData?.platform_fee) || 0;
+    const tax = Number(currentEditOrderData?.tax) || 0;
+    const newTotal = newSubtotal + deliveryFee + platformFee + tax;
+    const prevTotal = Number(currentEditOrderData?.total) || 0;
+    const diff = newTotal - prevTotal;
+
+    const prevEl = document.getElementById('edit-prev-total');
+    const newEl = document.getElementById('edit-new-total');
+    const diffBadge = document.getElementById('edit-diff-badge');
+    const countEl = document.getElementById('edit-items-count');
+
+    if (prevEl) prevEl.textContent = '₹' + prevTotal;
+    if (newEl) newEl.textContent = '₹' + newTotal;
+    if (diffBadge) {
+        if (diff < 0) {
+            diffBadge.textContent = `-₹${Math.abs(diff)}`;
+            diffBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800';
+        } else if (diff > 0) {
+            diffBadge.textContent = `+₹${diff}`;
+            diffBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800';
+        } else {
+            diffBadge.textContent = 'No change';
+            diffBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700';
+        }
+    }
+    if (countEl) {
+        countEl.textContent = `${remaining.reduce((a, b) => a + b.quantity, 0)} units`;
+    }
+}
+
+async function submitOrderEdit(event) {
+    if (event) event.preventDefault();
+    if (!currentEditOrderData) return;
+
+    const remaining = currentEditOrderItems.filter(x => x.quantity > 0);
+    const errBox = document.getElementById('edit-order-error');
+
+    if (remaining.length === 0) {
+        if (errBox) {
+            errBox.textContent = 'Cannot remove all items from this order. If all items are unavailable, please Cancel the order instead.';
+            errBox.classList.remove('hidden');
+        }
+        return;
+    }
+
+    const hasChanges = currentEditOrderItems.some(it => it.quantity !== it.original_qty);
+    if (!hasChanges) {
+        if (errBox) {
+            errBox.textContent = 'No changes were detected in the item quantities.';
+            errBox.classList.remove('hidden');
+        }
+        return;
+    }
+
+    const reason = document.getElementById('edit-order-reason')?.value || 'Item Out of Stock at BH13 Dark Store';
+    const notes = document.getElementById('edit-order-notes')?.value || '';
+    const restockRemoved = document.getElementById('edit-restock-checkbox')?.checked !== false;
+
+    const submitBtn = document.getElementById('btn-submit-order-edit');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span>Saving & Recalculating...</span>';
+    }
+
+    try {
+        const res = await fetchWithTimeout(`/api/orders/admin/${currentEditOrderData.id}/edit`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                items: currentEditOrderItems.map(it => ({
+                    id: it.id,
+                    product_id: it.product_id,
+                    quantity: it.quantity,
+                    unit_price: it.unit_price,
+                    name: it.name
+                })),
+                reason,
+                notes,
+                restockRemoved
+            })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast(`Order #${currentEditOrderData.id.replace('order_', '').toUpperCase()} updated! New Total: ₹${data.order.total}`, 'success');
+            
+            // Update local cache
+            const idx = ordersCache.findIndex(o => o.id === currentEditOrderData.id);
+            if (idx >= 0 && data.order) {
+                ordersCache[idx] = { ...ordersCache[idx], ...data.order };
+            }
+
+            closeEditOrderModal();
+
+            // Refresh drawer if open
+            if (currentDrawerOrderId === currentEditOrderData.id) {
+                viewOrderDetails(currentDrawerOrderId);
+            }
+
+            filterOrders();
+            loadInventory();
+        } else {
+            if (errBox) {
+                errBox.textContent = data.error || 'Failed to update order';
+                errBox.classList.remove('hidden');
+            }
+        }
+    } catch (err) {
+        alert('Failed to edit order: ' + err.message);
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<span>Save & Recalculate Order</span><span class="material-symbols-outlined text-sm">check</span>';
+        }
     }
 }
 
@@ -2077,6 +2375,33 @@ async function openOrderDrawer(orderId) {
         document.getElementById('drawer-status-select').value = o.status;
 
         updateDrawerDispatchCard(o);
+
+        // Update Order Modified Banner if modified by store
+        const modBanner = document.getElementById('drawer-order-modified-banner');
+        const modReason = document.getElementById('drawer-order-modified-reason');
+        const modTime = document.getElementById('drawer-order-modified-time');
+        const edit = o.delivery_assignment?.latest_edit;
+        if (modBanner && edit) {
+            modBanner.classList.remove('hidden');
+            if (modReason) {
+                modReason.innerHTML = `<strong>${escapeHtml(edit.reason)}:</strong> ${escapeHtml(edit.notes || 'Items adjusted')} (Prev: ₹${edit.old_total} → Now: ₹${edit.new_total})`;
+            }
+            if (modTime) {
+                modTime.textContent = new Date(edit.edited_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+        } else if (modBanner) {
+            modBanner.classList.add('hidden');
+        }
+
+        // Toggle Edit Order button visibility (hide if Delivered or Cancelled)
+        const btnEditOrder = document.getElementById('btn-drawer-edit-order');
+        if (btnEditOrder) {
+            if (['Delivered', 'Cancelled'].includes(o.status)) {
+                btnEditOrder.classList.add('hidden');
+            } else {
+                btnEditOrder.classList.remove('hidden');
+            }
+        }
 
         const itemsList = document.getElementById('drawer-items-list');
         const items = o.items || [];
@@ -3201,6 +3526,8 @@ function initRealtimeWebSocket() {
                     handleRealtimeTransferRequested(data);
                 } else if (data.type === 'TRANSFER_RESOLVED') {
                     handleRealtimeTransferResolved(data);
+                } else if (data.type === 'ORDER_EDITED') {
+                    handleRealtimeOrderEdited(data);
                 } else if (data.type === 'CLIENT_LOCK_UPDATE' && data.availability) {
                     updateClientLockUI(data.availability);
                     showToast(`Store availability updated: ${data.availability.lock_status}`, 'info');
@@ -3274,6 +3601,20 @@ function initRealtimeWebSocket() {
             showToast(`Order #${shortId} transfer ${data.accepted ? 'accepted by ' + data.toName : 'declined'}`, data.accepted ? 'success' : 'warning');
             filterOrders();
             if (currentDrawerOrderId === data.orderId) openOrderDrawer(data.orderId);
+        }
+
+        function handleRealtimeOrderEdited(data) {
+            if (!data || !data.orderId) return;
+            const idx = ordersCache.findIndex(o => o.id === data.orderId);
+            if (idx >= 0 && data.order) {
+                ordersCache[idx] = { ...ordersCache[idx], ...data.order };
+            }
+            if (currentDrawerOrderId === data.orderId) {
+                viewOrderDetails(currentDrawerOrderId);
+            }
+            filterOrders();
+            loadInventory();
+            showToast(data.message || `Order #${data.orderId.replace('order_', '').toUpperCase()} was updated by dark store.`, 'info');
         }
 
 

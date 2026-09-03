@@ -467,6 +467,30 @@ function broadcastTransferResolved(data) {
     chunkedBroadcast(adminSockets, payload);
 }
 
+// Broadcast when an order is modified (e.g. unavailable item removed or quantity reduced)
+function broadcastOrderEdited(orderId, updatedOrder, editData) {
+    const now = new Date();
+    const payload = JSON.stringify({
+        type: 'ORDER_EDITED',
+        orderId,
+        order_id: orderId,
+        order: updatedOrder,
+        edit: editData,
+        message: `Order updated: ${editData?.reason || 'Unavailable items adjusted'}`,
+        timestamp: now.toISOString()
+    });
+
+    // Send to admin dashboard
+    chunkedBroadcast(adminSockets, payload);
+
+    // Send to student tracking sockets
+    const trackingClients = orderTrackingSockets.get(orderId);
+    if (trackingClients) {
+        chunkedBroadcast(trackingClients, payload);
+    }
+    chunkedBroadcast(clientSockets, payload);
+}
+
 module.exports = {
     setupRealtime,
     broadcastOrderPlaced: notifyAdminNewOrder,
@@ -477,7 +501,8 @@ module.exports = {
     broadcastUserUnblocked,
     broadcastOrderClaimed,
     broadcastTransferRequested,
-    broadcastTransferResolved
+    broadcastTransferResolved,
+    broadcastOrderEdited
 };
 
 
