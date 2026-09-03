@@ -659,6 +659,39 @@ const supabaseDb = {
             return { active, past };
         },
 
+        async getCustomerOrderHistory(customerId) {
+            const supabase = getSupabaseClient();
+            if (!supabase || !customerId) return [];
+
+            const { data: orders, error } = await supabase
+                .from('orders')
+                .select('*, order_items(*, products(*))')
+                .eq('user_id', customerId)
+                .order('created_at', { ascending: false });
+
+            if (error || !orders) return [];
+
+            return orders.map(o => {
+                const formattedItems = (o.order_items || []).map(it => ({
+                    id: it.id,
+                    order_id: it.order_id,
+                    product_id: it.product_id,
+                    quantity: Number(it.quantity) || 1,
+                    price: Number(it.unit_price || it.products?.price || 0),
+                    unit_price: Number(it.unit_price || it.products?.price || 0),
+                    name: it.products?.name || it.name || 'Campus Item',
+                    image_url: it.products?.image_url || it.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'
+                }));
+                const itemSummary = formattedItems.map(it => `${it.name} (x${it.quantity})`).join(', ');
+                return {
+                    ...o,
+                    items: formattedItems,
+                    item_count: formattedItems.reduce((acc, i) => acc + i.quantity, 0),
+                    item_names: itemSummary || 'Campus Groceries & Essentials'
+                };
+            });
+        },
+
         async getAllOrders() {
             const supabase = getSupabaseClient();
             if (!supabase) return [];
@@ -799,18 +832,58 @@ const supabaseDb = {
 
             const { data: allOrders } = await supabase
                 .from('orders')
-                .select('user_id, total, status');
+                .select('user_id, total, status, created_at');
 
             return users.map(u => {
                 const userOrders = (allOrders || []).filter(o => o.user_id === u.id);
                 const delivered = userOrders.filter(o => o.status === 'Delivered');
                 const totalSpent = delivered.reduce((sum, o) => sum + Number(o.total || 0), 0);
+                
+                let lastOrderDate = null;
+                if (userOrders.length > 0) {
+                    const sortedOrders = [...userOrders].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                    lastOrderDate = sortedOrders[0]?.created_at || null;
+                }
+
+                let address = u.dob;
+                let lastLogin = null;
+                if (u.dob && typeof u.dob === 'string' && u.dob.startsWith('{')) {
+                    try {
+                        const parsed = JSON.parse(u.dob);
+                        address = parsed.address || null;
+                        lastLogin = parsed.last_login || null;
+                    } catch(e) {}
+                }
+
                 return {
                     ...u,
+                    address: address || 'Campus Resident',
+                    last_login: lastLogin || lastOrderDate || u.created_at,
+                    last_order_date: lastOrderDate,
                     orders_count: userOrders.length,
                     total_spent: totalSpent
                 };
             });
+        },
+
+        async recordCustomerLogin(userId) {
+            const supabase = getSupabaseClient();
+            if (!supabase || !userId) return;
+            try {
+                const { data: u } = await supabase.from('users').select('dob').eq('id', userId).single();
+                let address = u?.dob || '';
+                if (address.startsWith('{')) {
+                    try {
+                        const parsed = JSON.parse(address);
+                        address = parsed.address || '';
+                    } catch(e) {}
+                }
+                const updatedMeta = JSON.stringify({
+                    address: address,
+                    last_login: new Date().toISOString()
+                });
+                await supabase.from('users').update({ dob: updatedMeta }).eq('id', userId);
+            } catch (e) {}
         }
     },
 
@@ -1146,6 +1219,194 @@ const supabaseDb = {
                 .limit(limit);
 
             return data || [];
+        }
+    },
+
+    // ==========================================
+    // STAFF & MULTI-LEVEL ADMIN MANAGEMENT
+    // ==========================================
+    staff: {
+        async getAllStaff() {
+            const supabase = getSupabaseClient();
+            if (!supabase) return [];
+
+            const { data: admins, error } = await supabase
+                .from('users')
+                .select('id, name, email, phone, role, dob, account_status, created_at')
+                .or('role.eq.admin,role.eq.owner')
+                .order('created_at', { ascending: true });
+
+            if (error || !admins) return [];
+
+            return admins.map(a => {
+                const isOwner = a.id === 'user_admin_bh13' || a.email === 'admin@lpu.in' || a.role === 'owner';
+                let roles = [];
+                let lastLogin = null;
+
+                if (a.dob && typeof a.dob === 'string' && a.dob.startsWith('{')) {
+                    try {
+                        const meta = JSON.parse(a.dob);
+                        if (Array.isArray(meta.roles)) roles = meta.roles;
+                        lastLogin = meta.last_login || null;
+                    } catch (e) {}
+                }
+
+                if (isOwner) {
+                    if (!roles.includes('owner')) roles.unshift('owner');
+                } else if (roles.length === 0) {
+                    roles = ['store_manager'];
+                }
+
+                return {
+                    id: a.id,
+                    name: a.name || 'Staff Member',
+                    email: a.email,
+                    phone: a.phone || '',
+                    roles,
+                    is_owner: isOwner,
+                    account_status: a.account_status || 'ACTIVE',
+                    last_login: lastLogin,
+                    created_at: a.created_at
+                };
+            });
+        },
+
+        async createStaff({ name, email, phone, password, roles }) {
+            const supabase = getSupabaseClient();
+            if (!supabase) throw new Error('Database client unavailable');
+
+            const cleanEmail = email.trim().toLowerCase();
+            const { data: existing } = await supabase.from('users').select('id').eq('email', cleanEmail).maybeSingle();
+            if (existing) {
+                throw new Error('A user or administrator with this email already exists.');
+            }
+
+            const staffId = `admin_${uuidv4().replace(/-/g, '').slice(0, 10)}`;
+            const assignedRoles = Array.isArray(roles) && roles.length > 0 ? roles : ['store_manager'];
+            const dobMeta = JSON.stringify({
+                roles: assignedRoles,
+                last_login: null
+            });
+
+            const record = {
+                id: staffId,
+                name: name.trim(),
+                email: cleanEmail,
+                phone: phone ? phone.trim() : null,
+                password_hash: `hash_${password}`,
+                role: 'admin',
+                dob: dobMeta,
+                account_status: 'ACTIVE'
+            };
+
+            const { data, error } = await supabase
+                .from('users')
+                .insert([record])
+                .select()
+                .single();
+
+            if (error) throw new Error(`Staff creation failed: ${error.message}`);
+            return {
+                id: data.id,
+                name: data.name,
+                email: data.email,
+                phone: data.phone,
+                roles: assignedRoles,
+                account_status: data.account_status,
+                created_at: data.created_at
+            };
+        },
+
+        async updateStaff(id, updates) {
+            const supabase = getSupabaseClient();
+            if (!supabase) throw new Error('Database client unavailable');
+
+            const { data: current, error: fetchErr } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', id)
+                .single();
+
+            if (fetchErr || !current) throw new Error('Staff member not found');
+
+            const isOwner = current.id === 'user_admin_bh13' || current.email === 'admin@lpu.in';
+            const payload = {};
+
+            if (updates.name) payload.name = updates.name.trim();
+            if (updates.phone !== undefined) payload.phone = updates.phone ? updates.phone.trim() : null;
+            if (updates.password) payload.password_hash = `hash_${updates.password}`;
+            if (updates.account_status && !isOwner) payload.account_status = updates.account_status;
+
+            if (updates.roles && Array.isArray(updates.roles)) {
+                let currentMeta = {};
+                if (current.dob && current.dob.startsWith('{')) {
+                    try { currentMeta = JSON.parse(current.dob); } catch (e) {}
+                }
+                const newRoles = [...updates.roles];
+                if (isOwner && !newRoles.includes('owner')) newRoles.unshift('owner');
+                payload.dob = JSON.stringify({
+                    ...currentMeta,
+                    roles: newRoles
+                });
+            }
+
+            const { data, error } = await supabase
+                .from('users')
+                .update(payload)
+                .eq('id', id)
+                .select()
+                .single();
+
+            if (error) throw new Error(`Staff update failed: ${error.message}`);
+
+            let roles = [];
+            if (data.dob && data.dob.startsWith('{')) {
+                try { roles = JSON.parse(data.dob).roles || []; } catch (e) {}
+            }
+            if (isOwner && !roles.includes('owner')) {
+                roles.unshift('owner');
+            }
+
+            return {
+                id: data.id,
+                name: data.name,
+                email: data.email,
+                phone: data.phone,
+                account_status: data.account_status,
+                roles,
+                is_owner: isOwner
+            };
+        },
+
+        async deleteStaff(id) {
+            const supabase = getSupabaseClient();
+            if (!supabase) throw new Error('Database client unavailable');
+
+            if (id === 'user_admin_bh13') {
+                throw new Error('Owner account cannot be deleted or deactivated.');
+            }
+
+            const { error } = await supabase
+                .from('users')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw new Error(`Staff deletion failed: ${error.message}`);
+            return { success: true };
+        },
+
+        async recordAdminLogin(id) {
+            const supabase = getSupabaseClient();
+            if (!supabase || !id) return;
+            try {
+                const { data: u } = await supabase.from('users').select('dob').eq('id', id).single();
+                let meta = {};
+                if (u?.dob && u.dob.startsWith('{')) {
+                    try { meta = JSON.parse(u.dob); } catch (e) {}
+                }
+                meta.last_login = new Date().toISOString();
+                await supabase.from('users').update({ dob: JSON.stringify(meta) }).eq('id', id);
+            } catch (e) {}
         }
     }
 };

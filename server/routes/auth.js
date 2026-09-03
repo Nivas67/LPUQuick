@@ -3,7 +3,7 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const supabaseDb = require('../db/supabaseDb');
 const { getSupabaseClient } = require('../supabase');
-const { generateAdminToken } = require('../middleware/adminAuth');
+const { generateAdminToken, resolveAdminRoles } = require('../middleware/adminAuth');
 
 // POST /api/auth/signin
 router.post('/signin', async (req, res) => {
@@ -56,6 +56,9 @@ router.post('/signin', async (req, res) => {
         const blacklistCheck = await supabaseDb.blacklist.isUserBlacklisted(user.id);
         const isBlocked = user.account_status === 'BLOCKED' || blacklistCheck.isBlacklisted;
         const blockReason = user.block_reason || blacklistCheck.reason || 'Fake Orders';
+
+        // Record active customer login timestamp
+        supabaseDb.users.recordCustomerLogin(user.id).catch(() => {});
 
         res.json({
             success: true,
@@ -177,6 +180,11 @@ router.post('/google', async (req, res) => {
             }
         }
 
+        // Record active customer login timestamp
+        if (user && user.id) {
+            supabaseDb.users.recordCustomerLogin(user.id).catch(() => {});
+        }
+
         // Check if user is blacklisted / blocked
         let isBlocked = false;
         let blockReason = null;
@@ -290,12 +298,20 @@ router.post('/admin-login', async (req, res) => {
         // Look up user in database
         const user = await supabaseDb.users.getByIdentifier(trimmedEmail);
 
-        if (!user || user.role !== 'admin') {
+        if (!user || (user.role !== 'admin' && user.role !== 'owner')) {
             console.warn(`[SECURITY AUDIT] ADMIN_LOGIN_FAILED: User not found or not admin | email: ${trimmedEmail} | ip: ${req.ip}`);
             return res.status(403).json({
                 success: false,
                 code: 'FORBIDDEN',
                 error: 'Access denied. Valid administrator credentials required.'
+            });
+        }
+
+        if (user.account_status === 'DISABLED' || user.account_status === 'BLOCKED') {
+            return res.status(403).json({
+                success: false,
+                code: 'ACCOUNT_DISABLED',
+                error: 'Administrator account is inactive or disabled. Please contact the owner.'
             });
         }
 
@@ -312,7 +328,11 @@ router.post('/admin-login', async (req, res) => {
             });
         }
 
+        const roles = resolveAdminRoles(user);
+        const isOwner = roles.includes('owner');
 
+        // Record admin login in background
+        supabaseDb.staff.recordAdminLogin(user.id).catch(() => {});
 
         // Generate cryptographically signed HMAC admin session token
         const token = generateAdminToken(user.id, 'admin');
@@ -322,7 +342,7 @@ router.post('/admin-login', async (req, res) => {
             await supabaseDb.audit.logAction({
                 adminId: user.id,
                 action: 'ADMIN_LOGIN',
-                metadata: { email: user.email, timestamp: new Date().toISOString() }
+                metadata: { email: user.email, roles, timestamp: new Date().toISOString() }
             });
         } catch (auditErr) {}
 
@@ -333,7 +353,9 @@ router.post('/admin-login', async (req, res) => {
                 id: user.id,
                 name: user.name || 'Administrator',
                 email: user.email,
-                role: 'admin'
+                role: 'admin',
+                roles,
+                is_owner: isOwner
             }
         });
     } catch (err) {

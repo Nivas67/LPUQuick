@@ -2,9 +2,9 @@ const express = require('express');
 const router = express.Router();
 const supabaseDb = require('../db/supabaseDb');
 const requireAdmin = require('../middleware/adminAuth');
+const { requireRole } = require('../middleware/adminAuth');
 const { broadcastClientLockUpdate, broadcastUserBlocked, broadcastUserUnblocked } = require('../realtime');
 const cache = require('../cache');
-
 
 // All routes in this file require Administrator Authorization
 router.use(requireAdmin);
@@ -18,7 +18,9 @@ router.get('/verify', (req, res) => {
             id: req.admin.id,
             name: req.admin.name,
             email: req.admin.email,
-            role: req.admin.role
+            role: req.admin.role,
+            roles: req.admin.roles || [],
+            is_owner: req.admin.is_owner || false
         }
     });
 });
@@ -141,8 +143,8 @@ router.delete('/client-lock', async (req, res) => {
 // 2. USER BLOCKING & BLACKLIST MANAGEMENT
 // ============================================================
 
-// GET /api/admin/users
-router.get('/users', async (req, res) => {
+// GET /api/admin/users (Customers list - Owner & Store Manager)
+router.get('/users', requireRole('owner', 'store_manager'), async (req, res) => {
     try {
         const search = (req.query.search || '').trim().toLowerCase();
         const statusFilter = req.query.status || 'all';
@@ -336,10 +338,138 @@ router.get('/blacklist', async (req, res) => {
 // ============================================================
 
 // GET /api/admin/audit-logs
-router.get('/audit-logs', async (req, res) => {
+router.get('/audit-logs', requireRole('owner'), async (req, res) => {
     try {
         const logs = await supabaseDb.audit.getLogs(50);
         res.json({ success: true, logs });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// ============================================================
+// 5. CUSTOMER PROFILE & COMPLETE ORDER HISTORY (OWNER & STORE MANAGER)
+// ============================================================
+
+// GET /api/admin/customers/:id/orders
+router.get('/customers/:id/orders', requireRole('owner', 'store_manager'), async (req, res) => {
+    const { id } = req.params;
+    try {
+        const user = await supabaseDb.users.getById(id);
+        if (!user) {
+            return res.status(404).json({ error: 'Customer not found' });
+        }
+
+        const blacklistCheck = await supabaseDb.blacklist.isUserBlacklisted(id);
+        const orders = await supabaseDb.orders.getCustomerOrderHistory(id);
+
+        let address = user.dob;
+        let lastLogin = null;
+        if (user.dob && typeof user.dob === 'string' && user.dob.startsWith('{')) {
+            try {
+                const meta = JSON.parse(user.dob);
+                address = meta.address || null;
+                lastLogin = meta.last_login || null;
+            } catch (e) {}
+        }
+
+        const deliveredOrders = orders.filter(o => o.status === 'Delivered');
+        const totalSpent = deliveredOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+        const lastOrderDate = orders[0]?.created_at || null;
+
+        res.json({
+            success: true,
+            customer: {
+                id: user.id,
+                name: user.name || 'Campus Student',
+                email: user.email,
+                phone: user.phone || 'Not provided',
+                address: address || orders[0]?.delivery_address || 'Campus Resident',
+                account_status: (user.account_status === 'BLOCKED' || blacklistCheck.isBlacklisted) ? 'BLOCKED' : 'ACTIVE',
+                block_reason: user.block_reason || blacklistCheck.reason || null,
+                created_at: user.created_at,
+                last_login: lastLogin || lastOrderDate || user.created_at,
+                last_order_date: lastOrderDate,
+                total_orders: orders.length,
+                delivered_orders: deliveredOrders.length,
+                total_spent: totalSpent
+            },
+            orders
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// ============================================================
+// 6. STAFF & ADMIN TEAM MANAGEMENT (OWNER ONLY)
+// ============================================================
+
+// GET /api/admin/staff (List all admin team members)
+router.get('/staff', requireRole('owner'), async (req, res) => {
+    try {
+        const staff = await supabaseDb.staff.getAllStaff();
+        res.json({ success: true, staff });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// POST /api/admin/staff (Create a new admin team member)
+router.post('/staff', requireRole('owner'), async (req, res) => {
+    const { name, email, phone, password, roles } = req.body;
+    if (!name || !email || !password) {
+        return res.status(400).json({ error: 'Name, email, and password are required' });
+    }
+
+    try {
+        const created = await supabaseDb.staff.createStaff({
+            name,
+            email,
+            phone,
+            password,
+            roles: Array.isArray(roles) && roles.length > 0 ? roles : ['store_manager']
+        });
+
+        await supabaseDb.audit.logAction({
+            adminId: req.admin.id,
+            action: 'STAFF_CREATED',
+            metadata: { staffEmail: email, roles }
+        });
+
+        res.json({ success: true, message: 'Admin staff member created successfully', staff: created });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// PUT /api/admin/staff/:id (Update admin roles, status, or details)
+router.put('/staff/:id', requireRole('owner'), async (req, res) => {
+    const { id } = req.params;
+    try {
+        const updated = await supabaseDb.staff.updateStaff(id, req.body);
+        await supabaseDb.audit.logAction({
+            adminId: req.admin.id,
+            action: 'STAFF_UPDATED',
+            metadata: { targetId: id, updates: req.body }
+        });
+        res.json({ success: true, message: 'Staff member updated successfully', staff: updated });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// DELETE /api/admin/staff/:id (Deactivate / Remove admin)
+router.delete('/staff/:id', requireRole('owner'), async (req, res) => {
+    const { id } = req.params;
+    try {
+        await supabaseDb.staff.deleteStaff(id);
+        await supabaseDb.audit.logAction({
+            adminId: req.admin.id,
+            action: 'STAFF_REMOVED',
+            metadata: { targetId: id }
+        });
+        res.json({ success: true, message: 'Staff member removed successfully' });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }

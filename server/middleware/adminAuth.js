@@ -92,12 +92,43 @@ function verifyAdminToken(tokenString) {
 }
 
 /**
+ * Resolves the array of assigned admin roles for a user.
+ * Owner has full super-admin access across all domains.
+ */
+function resolveAdminRoles(user) {
+    if (!user) return [];
+    const isOwner = user.id === 'user_admin_bh13' || 
+                    user.email === 'admin@lpu.in' || 
+                    user.role === 'owner';
+    
+    let roles = [];
+    if (user.dob && typeof user.dob === 'string' && user.dob.startsWith('{')) {
+        try {
+            const meta = JSON.parse(user.dob);
+            if (Array.isArray(meta.roles)) {
+                roles = meta.roles;
+            }
+        } catch (e) {}
+    }
+
+    if (isOwner) {
+        if (!roles.includes('owner')) roles.unshift('owner');
+        if (!roles.includes('store_manager')) roles.push('store_manager');
+        if (!roles.includes('inventory_manager')) roles.push('inventory_manager');
+        if (!roles.includes('delivery_person')) roles.push('delivery_person');
+    } else if (roles.length === 0) {
+        roles = ['store_manager'];
+    }
+
+    return Array.from(new Set(roles));
+}
+
+/**
  * Central Database-Backed Admin Authorization Middleware.
  * 1. Verifies cryptographic token signature & unexpired validity (or returns 401).
  * 2. Loads authenticated user from trusted database using verified subject ID.
  * 3. Verifies user.role === 'admin' strictly from database record (or returns 403).
- * 4. Works seamlessly with PostgreSQL database.
- * 5. NEVER trusts client-supplied roles, headers, query params, or localStorage.
+ * 4. Attaches resolved roles and permission helpers to req.admin.
  */
 async function requireAdmin(req, res, next) {
     const authHeader = req.headers['authorization'] || '';
@@ -127,8 +158,7 @@ async function requireAdmin(req, res, next) {
     try {
         const user = await supabaseDb.users.getUserById(verified.sub);
 
-        if (!user || user.role !== 'admin') {
-            // Security Incident Audit Log (safe: no passwords/keys logged)
+        if (!user || (user.role !== 'admin' && user.role !== 'owner')) {
             console.warn(`[SECURITY AUDIT] ADMIN_AUTH_DENIED | userId: ${verified.sub} | role: ${user?.role || 'NONE'} | path: ${req.originalUrl || req.path} | ip: ${req.ip || 'unknown'}`);
 
             return res.status(403).json({
@@ -137,6 +167,11 @@ async function requireAdmin(req, res, next) {
                 error: 'Forbidden. Valid administrator role required.'
             });
         }
+
+        const roles = resolveAdminRoles(user);
+        user.roles = roles;
+        user.is_owner = roles.includes('owner');
+        user.hasRole = (role) => roles.includes('owner') || roles.includes(role);
 
         // Attach verified user to request
         req.admin = user;
@@ -151,7 +186,46 @@ async function requireAdmin(req, res, next) {
     }
 }
 
+/**
+ * Role-Based Access Control (RBAC) Middleware.
+ * Usage: requireRole('owner') or requireRole('owner', 'store_manager')
+ */
+function requireRole(...allowedRoles) {
+    return (req, res, next) => {
+        if (!req.admin) {
+            return res.status(401).json({
+                success: false,
+                code: 'UNAUTHORIZED',
+                error: 'Administrator authentication required.'
+            });
+        }
+
+        const userRoles = req.admin.roles || [];
+        const isOwner = userRoles.includes('owner') || req.admin.id === 'user_admin_bh13' || req.admin.email === 'admin@lpu.in';
+
+        // Owner has super-admin rights to all roles
+        if (isOwner) {
+            return next();
+        }
+
+        const hasPermission = allowedRoles.some(role => userRoles.includes(role));
+        if (!hasPermission) {
+            console.warn(`[SECURITY AUDIT] ROLE_ACCESS_DENIED | userId: ${req.admin.id} | required: ${allowedRoles.join(',')} | actual: ${userRoles.join(',')} | path: ${req.originalUrl || req.path}`);
+            return res.status(403).json({
+                success: false,
+                code: 'FORBIDDEN_ROLE',
+                error: `Access denied. Requires one of the following permissions: ${allowedRoles.join(', ')}.`
+            });
+        }
+
+        next();
+    };
+}
+
 module.exports = requireAdmin;
 module.exports.requireAdmin = requireAdmin;
+module.exports.requireRole = requireRole;
+module.exports.resolveAdminRoles = resolveAdminRoles;
 module.exports.generateAdminToken = generateAdminToken;
 module.exports.verifyAdminToken = verifyAdminToken;
+

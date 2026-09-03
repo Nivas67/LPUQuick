@@ -62,53 +62,59 @@
         </div>
 
         <nav class="flex-1 overflow-y-auto py-4 flex flex-col gap-1 no-scrollbar text-sm" id="desktop-nav">
-            <button onclick="switchView('dashboard')" data-view="dashboard"
+            <button onclick="switchView('dashboard')" data-view="dashboard" data-required-role="all"
                 class="nav-item active flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined">dashboard</span>
                 <span>Dashboard</span>
             </button>
-            <button onclick="switchView('client-lock')" data-view="client-lock"
+            <button onclick="switchView('client-lock')" data-view="client-lock" data-required-role="owner,store_manager"
                 class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined">lock_clock</span>
                 <span class="flex-1">Client Lock</span>
                 <span id="nav-lock-badge"
                     class="hidden text-[10px] bg-[#ba1a1a] text-white px-2 py-0.5 rounded-full font-bold">LOCKED</span>
             </button>
-            <button onclick="switchView('products')" data-view="products"
+            <button onclick="switchView('products')" data-view="products" data-required-role="owner,store_manager,inventory_manager"
                 class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined">shopping_bag</span>
                 <span>Products</span>
             </button>
-            <button onclick="switchView('inventory')" data-view="inventory"
+            <button onclick="switchView('inventory')" data-view="inventory" data-required-role="owner,store_manager,inventory_manager"
                 class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined">inventory_2</span>
                 <span>Inventory</span>
             </button>
-            <button onclick="switchView('orders')" data-view="orders"
+            <button onclick="switchView('orders')" data-view="orders" data-required-role="owner,store_manager,delivery_person"
                 class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined">receipt_long</span>
                 <span class="flex-1">Orders</span>
                 <span id="nav-pending-badge"
                     class="hidden text-[10px] bg-[#ba1a1a] text-white px-2 py-0.5 rounded-full font-bold">0</span>
             </button>
-            <button onclick="switchView('customers')" data-view="customers"
+            <button onclick="switchView('customers')" data-view="customers" data-required-role="owner,store_manager"
                 class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined">group</span>
                 <span>Customers</span>
             </button>
-            <button onclick="switchView('blacklist')" data-view="blacklist"
+            <button onclick="switchView('blacklist')" data-view="blacklist" data-required-role="owner,store_manager"
                 class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined">block</span>
                 <span class="flex-1">Blacklist</span>
                 <span id="nav-blacklist-badge"
                     class="hidden text-[10px] bg-[#ba1a1a] text-white px-2 py-0.5 rounded-full font-bold">0</span>
             </button>
-            <button onclick="switchView('analytics')" data-view="analytics"
+            <button onclick="switchView('analytics')" data-view="analytics" data-required-role="owner,store_manager"
                 class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined">analytics</span>
                 <span>Analytics</span>
             </button>
-            <button onclick="switchView('settings')" data-view="settings"
+            <button onclick="switchView('staff')" data-view="staff" data-required-role="owner"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+                <span class="material-symbols-outlined text-[#1a73e8]">manage_accounts</span>
+                <span class="flex-1 font-bold text-[#1a73e8]">Manage Admins</span>
+                <span class="text-[9px] bg-[#1a73e8] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Owner</span>
+            </button>
+            <button onclick="switchView('settings')" data-view="settings" data-required-role="owner"
                 class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined">settings</span>
                 <span>Settings</span>
@@ -117,18 +123,18 @@
 
         <div class="p-4 border-t border-[#DADCE0] mt-auto">
             <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                    <div
-                        class="w-8 h-8 rounded-full bg-[#e0e3e6] flex items-center justify-center text-xs font-bold text-[#3c4043]">
-                        AD
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <div id="admin-user-avatar"
+                        class="w-8 h-8 rounded-full bg-[#1a73e8] text-white flex items-center justify-center text-xs font-bold shrink-0">
+                        👑
                     </div>
-                    <div>
-                        <p class="text-xs font-semibold text-[#181c1f]" id="admin-user-display">Admin</p>
-                        <p class="text-[10px] text-[#5c5f60]">BH13 Dark Store</p>
+                    <div class="min-w-0">
+                        <p class="text-xs font-bold text-[#181c1f] truncate" id="admin-user-display">Admin</p>
+                        <p class="text-[10px] text-[#1a73e8] font-semibold truncate" id="admin-role-display">Owner • Super Admin</p>
                     </div>
                 </div>
-                <button onclick="logoutAdmin()" class="text-xs text-[#ba1a1a] hover:underline" title="Logout">
-                    <span class="material-symbols-outlined text-[16px]">logout</span>
+                <button onclick="logoutAdmin()" class="text-xs text-[#ba1a1a] hover:underline p-1 rounded hover:bg-rose-50" title="Logout">
+                    <span class="material-symbols-outlined text-[18px]">logout</span>
                 </button>
             </div>
         </div>
@@ -860,9 +866,9 @@
                                     <th class="p-4">Email Address</th>
                                     <th class="p-4">Orders Placed</th>
                                     <th class="p-4">Total Spent</th>
-                                    <th class="p-4">Last Order</th>
+                                    <th class="p-4">Last Active / Login</th>
                                     <th class="p-4">Account Status</th>
-                                    <th class="p-4 text-right">Actions</th>
+                                    <th class="p-4 text-right">View / Action</th>
                                 </tr>
                             </thead>
                             <tbody id="customers-table-tbody" class="divide-y divide-[#DADCE0]">
@@ -1026,6 +1032,99 @@
                             <input value="Node.js SQLite (Zero Latency)" disabled
                                 class="w-full bg-[#f1f4f7] border border-[#DADCE0] rounded-lg p-2.5 mt-1 font-semibold text-[#181c1f]" />
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW: MANAGE ADMINS (OWNER ONLY) ================= -->
+            <div id="view-staff" class="space-y-6 max-w-[1440px] mx-auto hidden">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 uppercase tracking-wider">
+                                <span class="material-symbols-outlined text-xs">shield_person</span> Owner Privileges
+                            </span>
+                        </div>
+                        <h2 class="text-2xl font-bold text-[#181c1f] flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[#1a73e8]">manage_accounts</span>
+                            <span>Admin Team & Access Levels</span>
+                        </h2>
+                        <p class="text-xs text-[#5c5f60]">Assign multi-level operational roles: Store Managers, Inventory Managers, Delivery Riders, and Owners.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="loadStaffList()"
+                            class="p-2 border border-[#DADCE0] rounded-xl bg-white hover:bg-[#f1f4f7] text-[#3c4043]"
+                            title="Reload Staff List">
+                            <span class="material-symbols-outlined text-lg">refresh</span>
+                        </button>
+                        <button onclick="openStaffModal()"
+                            class="px-4 py-2.5 bg-[#1a73e8] hover:bg-[#1557b0] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all active:scale-95">
+                            <span class="material-symbols-outlined text-base">person_add</span>
+                            <span>Add New Admin</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Quick Role Metrics -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-blue-100 text-[#1a73e8] flex items-center justify-center">
+                            <span class="material-symbols-outlined text-xl">badge</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60]">Total Staff</p>
+                            <h4 class="text-xl font-bold text-[#181c1f]" id="stat-staff-total">0</h4>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-xl">store</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60]">Store Managers</p>
+                            <h4 class="text-xl font-bold text-purple-700" id="stat-staff-store">0</h4>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-xl">inventory</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60]">Inventory Managers</p>
+                            <h4 class="text-xl font-bold text-amber-800" id="stat-staff-inventory">0</h4>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-xl">two_wheeler</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60]">Delivery Persons</p>
+                            <h4 class="text-xl font-bold text-emerald-800" id="stat-staff-riders">0</h4>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Staff Table Panel -->
+                <div class="glass-panel overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="border-b border-[#DADCE0] bg-[#f7fafd] text-[#5c5f60] font-semibold uppercase text-[11px]">
+                                    <th class="p-4">Admin Member</th>
+                                    <th class="p-4">Phone</th>
+                                    <th class="p-4">Assigned Roles & Capabilities</th>
+                                    <th class="p-4">Last Active</th>
+                                    <th class="p-4">Account Status</th>
+                                    <th class="p-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="staff-table-tbody" class="divide-y divide-[#DADCE0]">
+                                <tr>
+                                    <td colspan="6" class="p-6 text-center text-[#5c5f60]">Loading admin staff members...</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -1501,8 +1600,213 @@
         </div>
     </div>
 
+    <!-- ================= MODAL: ADD / EDIT STAFF ================= -->
+    <div id="modal-staff" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#DADCE0] space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-[#DADCE0] pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[#1a73e8] text-xl">manage_accounts</span>
+                    <h3 class="font-bold text-base text-[#181c1f]" id="modal-staff-title">Add New Admin Member</h3>
+                </div>
+                <button onclick="closeStaffModal()" class="text-[#5c5f60] hover:text-[#181c1f]">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form id="form-staff" onsubmit="submitStaffForm(event)" class="space-y-4 text-xs">
+                <input type="hidden" id="form-staff-id" value="">
+
+                <div>
+                    <label class="font-semibold text-[#262a2d] block mb-1">Full Name *</label>
+                    <input id="form-staff-name" required placeholder="e.g. Ramesh Kumar"
+                        class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#1a73e8] outline-none text-xs">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="font-semibold text-[#262a2d] block mb-1">Email / Login ID *</label>
+                        <input id="form-staff-email" type="email" required placeholder="ramesh@lpu.in"
+                            class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#1a73e8] outline-none text-xs">
+                    </div>
+                    <div>
+                        <label class="font-semibold text-[#262a2d] block mb-1">Mobile Phone</label>
+                        <input id="form-staff-phone" type="tel" placeholder="10-digit mobile"
+                            class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#1a73e8] outline-none text-xs">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="font-semibold text-[#262a2d] block mb-1">
+                        <span id="label-staff-password">Password *</span>
+                        <span id="hint-staff-password" class="text-[10px] text-[#5c5f60] font-normal hidden">(Leave blank to keep current)</span>
+                    </label>
+                    <input id="form-staff-password" type="password" placeholder="Create password"
+                        class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#1a73e8] outline-none text-xs">
+                </div>
+
+                <!-- Multi-Level Roles Checkbox Selection -->
+                <div class="bg-[#f7fafd] border border-[#DADCE0] p-4 rounded-xl space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label class="font-bold text-[#181c1f] text-xs">Assigned Roles & Capability Levels *</label>
+                        <span class="text-[10px] text-[#1a73e8] font-bold">Select multiple if needed</span>
+                    </div>
+
+                    <div class="space-y-2.5">
+                        <label class="flex items-start gap-2.5 p-2 rounded-lg hover:bg-white cursor-pointer transition-colors border border-transparent hover:border-[#DADCE0]">
+                            <input type="checkbox" id="role-store-manager" value="store_manager" class="mt-0.5 rounded border-[#DADCE0] text-[#1a73e8] focus:ring-[#1a73e8] w-4 h-4">
+                            <div>
+                                <span class="font-bold text-[#181c1f] flex items-center gap-1.5">
+                                    <span class="text-sm">🏢</span> Store Manager
+                                </span>
+                                <p class="text-[11px] text-[#5c5f60] mt-0.5">Live orders queue, customer directory & order histories, blacklist management, store availability lock, analytics.</p>
+                            </div>
+                        </label>
+
+                        <label class="flex items-start gap-2.5 p-2 rounded-lg hover:bg-white cursor-pointer transition-colors border border-transparent hover:border-[#DADCE0]">
+                            <input type="checkbox" id="role-inventory-manager" value="inventory_manager" class="mt-0.5 rounded border-[#DADCE0] text-[#1a73e8] focus:ring-[#1a73e8] w-4 h-4">
+                            <div>
+                                <span class="font-bold text-[#181c1f] flex items-center gap-1.5">
+                                    <span class="text-sm">📦</span> Inventory Manager
+                                </span>
+                                <p class="text-[11px] text-[#5c5f60] mt-0.5">Product catalog, real-time inventory adjustments, stock in/out toggles, price updates.</p>
+                            </div>
+                        </label>
+
+                        <label class="flex items-start gap-2.5 p-2 rounded-lg hover:bg-white cursor-pointer transition-colors border border-transparent hover:border-[#DADCE0]">
+                            <input type="checkbox" id="role-delivery-person" value="delivery_person" class="mt-0.5 rounded border-[#DADCE0] text-[#1a73e8] focus:ring-[#1a73e8] w-4 h-4">
+                            <div>
+                                <span class="font-bold text-[#181c1f] flex items-center gap-1.5">
+                                    <span class="text-sm">🛵</span> Delivery Person
+                                </span>
+                                <p class="text-[11px] text-[#5c5f60] mt-0.5">Delivery queue dispatch, customer address details, click-to-call, order status fulfillment.</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="staff-form-error" class="hidden p-3 rounded-xl bg-rose-50 text-[#ba1a1a] text-xs font-semibold"></div>
+
+                <div class="pt-3 border-t border-[#DADCE0] flex justify-between items-center">
+                    <button type="button" id="btn-delete-staff" onclick="handleDeleteStaff()"
+                        class="px-3 py-2 rounded-xl bg-rose-100 hover:bg-rose-200 text-[#ba1a1a] font-bold text-xs flex items-center gap-1 hidden">
+                        <span class="material-symbols-outlined text-[16px]">person_remove</span>
+                        <span>Delete Admin</span>
+                    </button>
+                    <div class="flex items-center gap-2 ml-auto">
+                        <button type="button" onclick="closeStaffModal()"
+                            class="px-4 py-2 rounded-xl border border-[#DADCE0] text-[#5c5f60] font-semibold hover:bg-[#f1f4f7]">Cancel</button>
+                        <button type="submit" id="btn-save-staff"
+                            class="px-5 py-2 rounded-xl bg-[#1a73e8] hover:bg-[#1557b0] text-white font-bold flex items-center gap-1 shadow-sm active:scale-95 transition-all">
+                            <span>Save Admin</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= MODAL: CUSTOMER DETAILS & ORDER HISTORY ================= -->
+    <div id="modal-customer-details" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-[#DADCE0] space-y-4 max-h-[92vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-[#DADCE0] pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[#1a73e8] text-xl">account_circle</span>
+                    <h3 class="font-bold text-base text-[#181c1f]">Student Customer Profile & Order History</h3>
+                </div>
+                <button onclick="closeCustomerDetailsModal()" class="text-[#5c5f60] hover:text-[#181c1f]">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <!-- Customer Header Card -->
+            <div class="bg-[#f7fafd] border border-[#DADCE0] p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div class="flex items-center gap-3.5">
+                    <div id="cust-modal-avatar" class="w-12 h-12 rounded-full bg-[#1a73e8] text-white flex items-center justify-center text-lg font-bold shrink-0">
+                        S
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h4 id="cust-modal-name" class="font-bold text-sm text-[#181c1f]">Student Name</h4>
+                            <span id="cust-modal-status-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#e6f4ea] text-[#137333]">ACTIVE</span>
+                        </div>
+                        <p id="cust-modal-room" class="text-xs text-[#5c5f60] font-medium mt-0.5">🏠 BH13, Room --</p>
+                        <div class="flex flex-wrap items-center gap-3 text-xs text-[#5c5f60] mt-1">
+                            <span id="cust-modal-phone" class="flex items-center gap-1 font-semibold text-[#181c1f]">
+                                <span class="material-symbols-outlined text-xs">phone</span>
+                                <span>--</span>
+                            </span>
+                            <span id="cust-modal-email" class="flex items-center gap-1">
+                                <span class="material-symbols-outlined text-xs">mail</span>
+                                <span>--</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div id="cust-modal-actions" class="shrink-0 flex items-center gap-2">
+                    <!-- Dynamic block/unblock button inserted here -->
+                </div>
+            </div>
+
+            <!-- Metrics Chips -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div class="p-3 rounded-xl bg-white border border-[#DADCE0] text-center">
+                    <p class="text-[10px] text-[#5c5f60] uppercase font-bold tracking-wider">Total Orders</p>
+                    <p id="cust-modal-total-orders" class="text-base font-bold text-[#181c1f] mt-0.5">0</p>
+                </div>
+                <div class="p-3 rounded-xl bg-white border border-[#DADCE0] text-center">
+                    <p class="text-[10px] text-[#5c5f60] uppercase font-bold tracking-wider">Delivered</p>
+                    <p id="cust-modal-delivered-orders" class="text-base font-bold text-[#137333] mt-0.5">0</p>
+                </div>
+                <div class="p-3 rounded-xl bg-white border border-[#DADCE0] text-center">
+                    <p class="text-[10px] text-[#5c5f60] uppercase font-bold tracking-wider">Total Spent</p>
+                    <p id="cust-modal-total-spent" class="text-base font-bold text-[#181c1f] mt-0.5">₹0</p>
+                </div>
+                <div class="p-3 rounded-xl bg-white border border-[#DADCE0] text-center">
+                    <p class="text-[10px] text-[#5c5f60] uppercase font-bold tracking-wider">Last Active / Login</p>
+                    <p id="cust-modal-last-active" class="text-xs font-bold text-[#1a73e8] mt-1 truncate">--</p>
+                </div>
+            </div>
+
+            <!-- Complete Order History Section -->
+            <div class="space-y-2">
+                <h4 class="font-bold text-xs text-[#181c1f] uppercase tracking-wider flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-sm text-[#1a73e8]">history</span>
+                    <span>Complete Order History</span>
+                </h4>
+
+                <div class="border border-[#DADCE0] rounded-xl overflow-hidden">
+                    <div class="max-h-60 overflow-y-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead class="bg-[#f7fafd] sticky top-0 border-b border-[#DADCE0] text-[#5c5f60] font-semibold text-[10px] uppercase">
+                                <tr>
+                                    <th class="p-3">Order ID</th>
+                                    <th class="p-3">Date & Time</th>
+                                    <th class="p-3">Items Ordered</th>
+                                    <th class="p-3">Total</th>
+                                    <th class="p-3">Payment</th>
+                                    <th class="p-3">Status</th>
+                                    <th class="p-3 text-right">View</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cust-orders-tbody" class="divide-y divide-[#DADCE0]">
+                                <tr><td colspan="7" class="p-4 text-center text-[#5c5f60]">Loading customer order history...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-2 border-t border-[#DADCE0] flex justify-end">
+                <button type="button" onclick="closeCustomerDetailsModal()"
+                    class="px-5 py-2 rounded-xl bg-[#262a2d] hover:bg-[#3c4043] text-white text-xs font-bold transition-all shadow-sm">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Application Script Reference -->
-    <script src="/admin/js/admin.js?v=20260901r21"></script>
+    <script src="/admin/js/admin.js?v=20260901r22"></script>
 </body>
 
 </html>

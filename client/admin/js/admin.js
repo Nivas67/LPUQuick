@@ -375,6 +375,73 @@ let realtimeWs = null;
 
 // Read token securely from localStorage or sessionStorage
 let adminToken = localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token') || '';
+let currentAdminProfile = null;
+try {
+    const savedProf = localStorage.getItem('lpuquick_admin_profile');
+    if (savedProf) currentAdminProfile = JSON.parse(savedProf);
+} catch (e) {}
+
+function applyAdminRolePermissions(profile) {
+    if (!profile) return 'dashboard';
+    currentAdminProfile = profile;
+    try {
+        localStorage.setItem('lpuquick_admin_profile', JSON.stringify(profile));
+    } catch (e) {}
+
+    const roles = Array.isArray(profile.roles) ? profile.roles : ['store_manager'];
+    const isOwner = profile.is_owner || roles.includes('owner');
+
+    // Update bottom left profile bar
+    const nameEl = document.getElementById('admin-user-display');
+    const roleEl = document.getElementById('admin-role-display');
+    const avatarEl = document.getElementById('admin-user-avatar');
+
+    if (nameEl) nameEl.textContent = profile.name || 'Admin';
+    if (roleEl) {
+        if (isOwner) {
+            roleEl.textContent = 'Owner • Super Admin';
+            roleEl.className = 'text-[10px] text-amber-700 font-bold truncate';
+        } else {
+            const roleLabels = [];
+            if (roles.includes('store_manager')) roleLabels.push('Store Mgr');
+            if (roles.includes('inventory_manager')) roleLabels.push('Inventory');
+            if (roles.includes('delivery_person')) roleLabels.push('Delivery');
+            roleEl.textContent = roleLabels.join(' • ') || 'Staff Member';
+            roleEl.className = 'text-[10px] text-[#1a73e8] font-semibold truncate';
+        }
+    }
+    if (avatarEl) {
+        avatarEl.textContent = isOwner ? '👑' : (profile.name ? profile.name[0].toUpperCase() : 'A');
+        avatarEl.className = `w-8 h-8 rounded-full ${isOwner ? 'bg-amber-500' : 'bg-[#1a73e8]'} text-white flex items-center justify-center text-xs font-bold shrink-0`;
+    }
+
+    // Filter sidebar navigation buttons based on data-required-role
+    document.querySelectorAll('#desktop-nav .nav-item').forEach(btn => {
+        const req = btn.dataset.requiredRole || 'all';
+        if (req === 'all') {
+            btn.classList.remove('hidden');
+        } else if (isOwner) {
+            btn.classList.remove('hidden');
+        } else {
+            const allowed = req.split(',').map(s => s.trim());
+            const hasAccess = allowed.some(r => roles.includes(r));
+            btn.classList.toggle('hidden', !hasAccess);
+        }
+    });
+
+    // Pick appropriate starting view if current activeView is disallowed
+    let initialView = 'dashboard';
+    if (!isOwner) {
+        if (!roles.includes('store_manager')) {
+            if (roles.includes('delivery_person')) {
+                initialView = 'orders';
+            } else if (roles.includes('inventory_manager')) {
+                initialView = 'inventory';
+            }
+        }
+    }
+    return initialView;
+}
 
 // Headers for protected API calls
 function getAuthHeaders(extra = {}) {
@@ -481,6 +548,32 @@ function formatCustomerDisplayName(o) {
 
 // View Navigation
 function switchView(viewName) {
+    // Role-based view protection
+    if (currentAdminProfile && !currentAdminProfile.is_owner) {
+        const roles = currentAdminProfile.roles || [];
+        const viewRoles = {
+            'client-lock': ['owner', 'store_manager'],
+            'products': ['owner', 'store_manager', 'inventory_manager'],
+            'inventory': ['owner', 'store_manager', 'inventory_manager'],
+            'orders': ['owner', 'store_manager', 'delivery_person'],
+            'customers': ['owner', 'store_manager'],
+            'blacklist': ['owner', 'store_manager'],
+            'analytics': ['owner', 'store_manager'],
+            'staff': ['owner'],
+            'settings': ['owner']
+        };
+
+        const required = viewRoles[viewName];
+        if (required && !required.some(r => roles.includes(r))) {
+            showToast('Access restricted for your staff role', 'warning');
+            const fallback = roles.includes('delivery_person') ? 'orders' : (roles.includes('inventory_manager') ? 'inventory' : 'dashboard');
+            if (viewName !== fallback) {
+                switchView(fallback);
+                return;
+            }
+        }
+    }
+
     activeView = viewName;
     document.querySelectorAll('#main-content > div').forEach(el => el.classList.add('hidden'));
     
@@ -500,6 +593,7 @@ function switchView(viewName) {
         'customers': 'Student Customer Directory',
         'blacklist': 'Blacklist & Fraud Prevention',
         'analytics': 'Business Analytics & Reports',
+        'staff': 'Admin Team & Access Levels',
         'settings': 'Store Settings'
     };
     document.getElementById('top-title').textContent = titles[viewName] || 'Dashboard';
@@ -512,6 +606,7 @@ function switchView(viewName) {
     else if (viewName === 'customers') loadCustomers();
     else if (viewName === 'blacklist') loadBlacklistData();
     else if (viewName === 'analytics') loadAnalytics();
+    else if (viewName === 'staff') loadStaffList();
 }
 
 // Master Live Real-Time Refresh Controller
@@ -1751,34 +1846,51 @@ function renderCustomersTable(customers, page = 1) {
             ? `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#ffdad6] text-[#ba1a1a] border border-[#ffb4ab]">BLOCKED (${c.block_reason || 'Fake Orders'})</span>`
             : `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#e6f4ea] text-[#137333] border border-[#ceead6]">Active Student</span>`;
 
+        const lastActiveTime = c.last_login 
+            ? new Date(c.last_login).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) 
+            : (c.last_order_date ? new Date(c.last_order_date).toLocaleDateString() : '<span class="text-[#74777a] italic">Never</span>');
+
         const actionBtn = isBlocked
-            ? `<button onclick="handleUnblockUser('${c.id}')" class="px-3 py-1.5 rounded-lg bg-[#137333]/10 hover:bg-[#137333]/20 text-[#137333] font-bold text-xs transition-colors flex items-center gap-1 ml-auto">
+            ? `<button onclick="handleUnblockUser('${c.id}')" class="px-2.5 py-1.5 rounded-lg bg-[#137333]/10 hover:bg-[#137333]/20 text-[#137333] font-bold text-xs transition-colors flex items-center gap-1">
                  <span class="material-symbols-outlined text-[14px]">lock_open</span>
                  <span>Unblock</span>
                </button>`
-            : `<button onclick="openBlockUserModal('${c.id}', '${encodeURIComponent(c.name || 'Student')}', '${encodeURIComponent(c.phone || '')}', '${encodeURIComponent(c.email || '')}')" class="px-3 py-1.5 rounded-lg bg-[#ba1a1a]/10 hover:bg-[#ba1a1a]/20 text-[#ba1a1a] font-bold text-xs transition-colors flex items-center gap-1 ml-auto">
+            : `<button onclick="openBlockUserModal('${c.id}', '${encodeURIComponent(c.name || 'Student')}', '${encodeURIComponent(c.phone || '')}', '${encodeURIComponent(c.email || '')}')" class="px-2.5 py-1.5 rounded-lg bg-[#ba1a1a]/10 hover:bg-[#ba1a1a]/20 text-[#ba1a1a] font-bold text-xs transition-colors flex items-center gap-1">
                  <span class="material-symbols-outlined text-[14px]">block</span>
-                 <span>Block User</span>
+                 <span>Block</span>
                </button>`;
 
         return `
             <tr class="hover:bg-[#f7fafd] transition-colors ${isBlocked ? 'bg-[#fff8f7]' : ''}">
-                <td class="p-4 font-bold text-xs text-[#181c1f] flex items-center gap-2.5">
-                    <div class="w-8 h-8 rounded-full ${isBlocked ? 'bg-[#ba1a1a]' : 'bg-[#3c4043]'} text-white flex items-center justify-center text-xs font-bold shrink-0">
-                        ${(c.name || 'S')[0].toUpperCase()}
-                    </div>
-                    <div>
-                        <p class="font-bold text-[#181c1f]">${c.name || 'Student'}</p>
-                        <p class="text-[10px] text-[#5c5f60] font-medium">${c.address ? `🏠 ${c.address}` : (c.id || '')}</p>
+                <td class="p-4 font-bold text-xs text-[#181c1f]">
+                    <div class="flex items-center gap-2.5 cursor-pointer group" onclick="viewCustomerDetails('${c.id}')" title="Click to view complete order history">
+                        <div class="w-8 h-8 rounded-full ${isBlocked ? 'bg-[#ba1a1a]' : 'bg-[#3c4043] group-hover:bg-[#1a73e8]'} text-white flex items-center justify-center text-xs font-bold shrink-0 transition-colors">
+                            ${(c.name || 'S')[0].toUpperCase()}
+                        </div>
+                        <div>
+                            <p class="font-bold text-[#181c1f] group-hover:text-[#1a73e8] transition-colors flex items-center gap-1">
+                                <span>${c.name || 'Student'}</span>
+                                <span class="material-symbols-outlined text-xs opacity-0 group-hover:opacity-100 transition-opacity text-[#1a73e8]">open_in_new</span>
+                            </p>
+                            <p class="text-[10px] text-[#5c5f60] font-medium">${c.address ? `🏠 ${c.address}` : (c.id || '')}</p>
+                        </div>
                     </div>
                 </td>
                 <td class="p-4 text-xs">${phoneHtml}</td>
                 <td class="p-4 text-xs">${emailHtml}</td>
                 <td class="p-4 font-bold text-[#181c1f]">${c.order_count || 0}</td>
                 <td class="p-4 font-bold text-[#137333]">₹${c.total_spent || 0}</td>
-                <td class="p-4 text-[#74777a]">${c.last_order_date ? new Date(c.last_order_date).toLocaleDateString() : 'N/A'}</td>
+                <td class="p-4 text-xs font-medium text-[#5c5f60]">${lastActiveTime}</td>
                 <td class="p-4">${statusHtml}</td>
-                <td class="p-4 text-right">${actionBtn}</td>
+                <td class="p-4 text-right">
+                    <div class="flex items-center justify-end gap-1.5">
+                        <button onclick="viewCustomerDetails('${c.id}')" class="px-2.5 py-1.5 rounded-lg bg-[#1a73e8]/10 hover:bg-[#1a73e8]/20 text-[#1a73e8] font-bold text-xs transition-colors flex items-center gap-1 shadow-sm" title="View Customer Orders & Profile">
+                            <span class="material-symbols-outlined text-[14px]">receipt_long</span>
+                            <span>History</span>
+                        </button>
+                        ${actionBtn}
+                    </div>
+                </td>
             </tr>
         `;
 
@@ -1838,6 +1950,142 @@ function filterCustomerDirectory() {
     }, 150);
 }
 
+
+// ================= CUSTOMER DETAILS & ORDER HISTORY MODAL =================
+async function viewCustomerDetails(customerId) {
+    const modal = document.getElementById('modal-customer-details');
+    if (!modal) return;
+
+    modal.classList.remove('hidden');
+    const tbody = document.getElementById('cust-orders-tbody');
+    if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-[#5c5f60] animate-pulse">Loading customer profile and complete order history...</td></tr>`;
+    }
+
+    try {
+        const res = await fetch(`/api/admin/customers/${customerId}/orders`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!data.success || !data.customer) {
+            showToast(data.error || 'Failed to load customer profile', 'error');
+            closeCustomerDetailsModal();
+            return;
+        }
+
+        const c = data.customer;
+        const orders = data.orders || [];
+
+        // Header Card
+        const avatarEl = document.getElementById('cust-modal-avatar');
+        if (avatarEl) avatarEl.textContent = (c.name || 'S')[0].toUpperCase();
+
+        const nameEl = document.getElementById('cust-modal-name');
+        if (nameEl) nameEl.textContent = c.name || 'Student';
+
+        const statusBadge = document.getElementById('cust-modal-status-badge');
+        const isBlocked = c.account_status === 'BLOCKED';
+        if (statusBadge) {
+            statusBadge.textContent = isBlocked ? `BLOCKED (${c.block_reason || 'Fraud'})` : 'ACTIVE STUDENT';
+            statusBadge.className = isBlocked 
+                ? 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#ffdad6] text-[#ba1a1a] border border-[#ffb4ab]'
+                : 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#e6f4ea] text-[#137333] border border-[#ceead6]';
+        }
+
+        const roomEl = document.getElementById('cust-modal-room');
+        if (roomEl) roomEl.textContent = c.address ? `🏠 ${c.address}` : '🏠 Hostel room not provided';
+
+        const phoneEl = document.getElementById('cust-modal-phone');
+        if (phoneEl) {
+            phoneEl.innerHTML = c.phone && c.phone !== 'Not provided'
+                ? `<span class="material-symbols-outlined text-xs text-[#1a73e8]">phone</span><a href="tel:${c.phone}" class="hover:underline text-[#1a73e8]">${c.phone}</a>`
+                : `<span class="text-[#74777a] italic">No phone</span>`;
+        }
+
+        const emailEl = document.getElementById('cust-modal-email');
+        if (emailEl) {
+            emailEl.innerHTML = c.email 
+                ? `<span class="material-symbols-outlined text-xs text-[#5c5f60]">mail</span><span class="text-[#5c5f60]">${c.email}</span>`
+                : '';
+        }
+
+        // Action button (Block / Unblock toggle)
+        const actionsEl = document.getElementById('cust-modal-actions');
+        if (actionsEl) {
+            actionsEl.innerHTML = isBlocked
+                ? `<button onclick="handleUnblockUser('${c.id}'); closeCustomerDetailsModal();" class="px-3 py-1.5 rounded-xl bg-[#137333] hover:bg-[#0f5c29] text-white font-bold text-xs flex items-center gap-1 shadow-sm">
+                     <span class="material-symbols-outlined text-sm">lock_open</span>
+                     <span>Unblock Student</span>
+                   </button>`
+                : `<button onclick="openBlockUserModal('${c.id}', '${encodeURIComponent(c.name || 'Student')}', '${encodeURIComponent(c.phone || '')}', '${encodeURIComponent(c.email || '')}'); closeCustomerDetailsModal();" class="px-3 py-1.5 rounded-xl bg-[#ba1a1a] hover:bg-[#931515] text-white font-bold text-xs flex items-center gap-1 shadow-sm">
+                     <span class="material-symbols-outlined text-sm">block</span>
+                     <span>Block Student</span>
+                   </button>`;
+        }
+
+        // Metrics Chips
+        const totalOrdersEl = document.getElementById('cust-modal-total-orders');
+        const deliveredOrdersEl = document.getElementById('cust-modal-delivered-orders');
+        const totalSpentEl = document.getElementById('cust-modal-total-spent');
+        const lastActiveEl = document.getElementById('cust-modal-last-active');
+
+        if (totalOrdersEl) totalOrdersEl.textContent = c.total_orders || 0;
+        if (deliveredOrdersEl) deliveredOrdersEl.textContent = c.delivered_orders || 0;
+        if (totalSpentEl) totalSpentEl.textContent = `₹${c.total_spent || 0}`;
+        
+        const lastActiveDate = c.last_login ? new Date(c.last_login).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : (c.last_order_date ? new Date(c.last_order_date).toLocaleDateString() : 'N/A');
+        if (lastActiveEl) lastActiveEl.textContent = lastActiveDate;
+
+        // Render Order History Table
+        if (!tbody) return;
+        if (orders.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-[#5c5f60]">This customer has not placed any orders yet.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = orders.map(o => {
+            const dateStr = o.created_at ? new Date(o.created_at).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
+            const statusColors = {
+                'Delivered': 'bg-[#e6f4ea] text-[#137333] border-[#ceead6]',
+                'Out for Delivery': 'bg-[#e8f0fe] text-[#1a73e8] border-[#d2e3fc]',
+                'Confirmed': 'bg-[#fef7e0] text-[#b06000] border-[#feefc3]',
+                'Preparing': 'bg-[#fef7e0] text-[#b06000] border-[#feefc3]',
+                'Cancelled': 'bg-[#ffdad6] text-[#ba1a1a] border-[#ffb4ab]'
+            };
+            const statusClass = statusColors[o.status] || 'bg-slate-100 text-slate-700 border-slate-200';
+            const itemsSummary = o.items_summary || (o.items && o.items.length ? o.items.map(i => `${i.name} (x${i.quantity})`).join(', ') : 'Order items');
+
+            return `
+                <tr class="hover:bg-[#f7fafd] transition-colors">
+                    <td class="p-3 font-mono font-bold text-[#1a73e8]">#${(o.id || '').replace('order_', '').slice(0, 8)}</td>
+                    <td class="p-3 text-[#5c5f60] whitespace-nowrap">${dateStr}</td>
+                    <td class="p-3 max-w-[220px] truncate text-[#181c1f]" title="${itemsSummary}">${itemsSummary}</td>
+                    <td class="p-3 font-bold text-[#181c1f]">₹${o.total || 0}</td>
+                    <td class="p-3">
+                        <span class="inline-flex items-center text-[10px] font-semibold text-[#5c5f60]">
+                            ${(o.payment_method || 'COD').toUpperCase()} • <span class="${o.payment_status === 'PAID' ? 'text-emerald-700 font-bold' : 'text-amber-600 font-bold'} ml-1">${o.payment_status || 'PENDING'}</span>
+                        </span>
+                    </td>
+                    <td class="p-3">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusClass}">${o.status}</span>
+                    </td>
+                    <td class="p-3 text-right">
+                        <button onclick="closeCustomerDetailsModal(); openOrderDrawer('${o.id}');" class="p-1.5 rounded-lg hover:bg-slate-100 text-[#1a73e8]" title="View Order Drawer">
+                            <span class="material-symbols-outlined text-base">visibility</span>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+    } catch (err) {
+        showToast('Network error loading customer details', 'error');
+        closeCustomerDetailsModal();
+    }
+}
+
+function closeCustomerDetailsModal() {
+    const modal = document.getElementById('modal-customer-details');
+    if (modal) modal.classList.add('hidden');
+}
 
 // ================= BLACKLIST & FRAUD PREVENTION =================
 let currentBlacklistFilter = 'all';
@@ -2648,7 +2896,8 @@ async function handleAdminLogin(e) {
             } catch (aErr) {}
             
             hideLoginModal();
-            switchView('dashboard');
+            const initialView = applyAdminRolePermissions(data.admin);
+            switchView(initialView);
             initRealtimeWebSocket();
         } else {
             if (errorText) errorText.textContent = data.error || 'Invalid admin credentials';
@@ -2672,7 +2921,9 @@ async function handleAdminLogin(e) {
 function logoutAdmin() {
     localStorage.removeItem('lpuquick_admin_token');
     sessionStorage.removeItem('lpuquick_admin_token');
+    localStorage.removeItem('lpuquick_admin_profile');
     adminToken = '';
+    currentAdminProfile = null;
     if (realtimeWs) {
         try { realtimeWs.close(); } catch(e){}
     }
@@ -2714,6 +2965,284 @@ function showToast(message, type = 'info') {
     setTimeout(() => { dismissToast(id); }, 4000);
 }
 
+// ================= 9. STAFF & ADMIN TEAM MANAGEMENT (OWNER ONLY) =================
+let staffCache = [];
+
+async function loadStaffList() {
+    const tbody = document.getElementById('staff-table-tbody');
+    if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-[#5c5f60] animate-pulse">Loading admin team members...</td></tr>`;
+    }
+
+    try {
+        const res = await fetch('/api/admin/staff', { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!data.success) {
+            if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-rose-600">Access denied or failed to load staff: ${data.error || 'Unknown'}</td></tr>`;
+            return;
+        }
+
+        staffCache = data.staff || [];
+
+        // Update stats
+        const total = staffCache.length;
+        const storeCount = staffCache.filter(s => s.roles.includes('store_manager') || s.is_owner).length;
+        const invCount = staffCache.filter(s => s.roles.includes('inventory_manager') || s.is_owner).length;
+        const riderCount = staffCache.filter(s => s.roles.includes('delivery_person') || s.is_owner).length;
+
+        const totalEl = document.getElementById('stat-staff-total');
+        const storeEl = document.getElementById('stat-staff-store');
+        const invEl = document.getElementById('stat-staff-inventory');
+        const ridersEl = document.getElementById('stat-staff-riders');
+
+        if (totalEl) totalEl.textContent = total;
+        if (storeEl) storeEl.textContent = storeCount;
+        if (invEl) invEl.textContent = invCount;
+        if (ridersEl) ridersEl.textContent = riderCount;
+
+        renderStaffTable(staffCache);
+    } catch (err) {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-rose-600">Connection error loading staff members.</td></tr>`;
+    }
+}
+
+function renderStaffTable(list) {
+    const tbody = document.getElementById('staff-table-tbody');
+    if (!tbody) return;
+
+    if (!list || list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-[#5c5f60]">No admin members found.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = list.map(s => {
+        const isOwner = s.is_owner;
+        const isActive = s.account_status === 'ACTIVE';
+
+        const roleBadges = [];
+        if (isOwner) {
+            roleBadges.push(`<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">👑 Owner</span>`);
+        }
+        if (s.roles.includes('store_manager')) {
+            roleBadges.push(`<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">🏢 Store Mgr</span>`);
+        }
+        if (s.roles.includes('inventory_manager')) {
+            roleBadges.push(`<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">📦 Inventory</span>`);
+        }
+        if (s.roles.includes('delivery_person')) {
+            roleBadges.push(`<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">🛵 Delivery</span>`);
+        }
+
+        const lastActiveStr = s.last_login 
+            ? new Date(s.last_login).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+            : '<span class="text-[#74777a] italic">Never</span>';
+
+        const statusBadge = isActive
+            ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#e6f4ea] text-[#137333]">Active</span>`
+            : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">Disabled</span>`;
+
+        return `
+            <tr class="hover:bg-[#f7fafd] transition-colors">
+                <td class="p-4 flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-full ${isOwner ? 'bg-amber-500' : 'bg-[#1a73e8]'} text-white flex items-center justify-center text-xs font-bold shrink-0">
+                        ${isOwner ? '👑' : (s.name ? s.name[0].toUpperCase() : 'A')}
+                    </div>
+                    <div>
+                        <p class="font-bold text-xs text-[#181c1f] flex items-center gap-1.5">
+                            <span>${s.name}</span>
+                            ${isOwner ? '<span class="text-[10px] font-extrabold text-amber-700">(Super Admin)</span>' : ''}
+                        </p>
+                        <p class="text-[11px] text-[#5c5f60] font-mono">${s.email}</p>
+                    </div>
+                </td>
+                <td class="p-4 text-xs font-medium text-[#181c1f]">${s.phone || '<span class="text-[#74777a] italic">None</span>'}</td>
+                <td class="p-4">
+                    <div class="flex flex-wrap gap-1.5">
+                        ${roleBadges.join('')}
+                    </div>
+                </td>
+                <td class="p-4 text-xs text-[#5c5f60]">${lastActiveStr}</td>
+                <td class="p-4">${statusBadge}</td>
+                <td class="p-4 text-right">
+                    <div class="flex items-center justify-end gap-1.5">
+                        <button onclick="openStaffModal('${s.id}')" class="px-2.5 py-1.5 rounded-lg border border-[#DADCE0] hover:bg-[#f1f4f7] text-[#181c1f] font-semibold text-xs transition-colors flex items-center gap-1 shadow-sm">
+                            <span class="material-symbols-outlined text-sm">edit</span>
+                            <span>Edit</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function openStaffModal(staffId = null) {
+    const modal = document.getElementById('modal-staff');
+    if (!modal) return;
+
+    const titleEl = document.getElementById('modal-staff-title');
+    const idInput = document.getElementById('form-staff-id');
+    const nameInput = document.getElementById('form-staff-name');
+    const emailInput = document.getElementById('form-staff-email');
+    const phoneInput = document.getElementById('form-staff-phone');
+    const passInput = document.getElementById('form-staff-password');
+    const passHint = document.getElementById('hint-staff-password');
+    const errBox = document.getElementById('staff-form-error');
+    const delBtn = document.getElementById('btn-delete-staff');
+
+    if (errBox) errBox.classList.add('hidden');
+
+    if (staffId) {
+        const staff = staffCache.find(s => s.id === staffId);
+        if (!staff) return;
+
+        if (titleEl) titleEl.textContent = 'Edit Admin Staff Member';
+        if (idInput) idInput.value = staff.id;
+        if (nameInput) nameInput.value = staff.name;
+        if (emailInput) {
+            emailInput.value = staff.email;
+            emailInput.disabled = true; // Email is primary identifier
+        }
+        if (phoneInput) phoneInput.value = staff.phone || '';
+        if (passInput) {
+            passInput.value = '';
+            passInput.required = false;
+        }
+        if (passHint) passHint.classList.remove('hidden');
+
+        document.getElementById('role-store-manager').checked = staff.roles.includes('store_manager');
+        document.getElementById('role-inventory-manager').checked = staff.roles.includes('inventory_manager');
+        document.getElementById('role-delivery-person').checked = staff.roles.includes('delivery_person');
+
+        if (delBtn) {
+            delBtn.classList.toggle('hidden', staff.is_owner);
+        }
+    } else {
+        if (titleEl) titleEl.textContent = 'Add New Admin Member';
+        if (idInput) idInput.value = '';
+        if (nameInput) nameInput.value = '';
+        if (emailInput) {
+            emailInput.value = '';
+            emailInput.disabled = false;
+        }
+        if (phoneInput) phoneInput.value = '';
+        if (passInput) {
+            passInput.value = '';
+            passInput.required = true;
+        }
+        if (passHint) passHint.classList.add('hidden');
+
+        document.getElementById('role-store-manager').checked = true;
+        document.getElementById('role-inventory-manager').checked = false;
+        document.getElementById('role-delivery-person').checked = false;
+
+        if (delBtn) delBtn.classList.add('hidden');
+    }
+
+    modal.classList.remove('hidden');
+}
+
+function closeStaffModal() {
+    const modal = document.getElementById('modal-staff');
+    if (modal) modal.classList.add('hidden');
+}
+
+async function submitStaffForm(e) {
+    e.preventDefault();
+    const id = document.getElementById('form-staff-id').value;
+    const name = document.getElementById('form-staff-name').value.trim();
+    const email = document.getElementById('form-staff-email').value.trim();
+    const phone = document.getElementById('form-staff-phone').value.trim();
+    const password = document.getElementById('form-staff-password').value;
+    const errBox = document.getElementById('staff-form-error');
+
+    const roles = [];
+    if (document.getElementById('role-store-manager').checked) roles.push('store_manager');
+    if (document.getElementById('role-inventory-manager').checked) roles.push('inventory_manager');
+    if (document.getElementById('role-delivery-person').checked) roles.push('delivery_person');
+
+    if (roles.length === 0) {
+        if (errBox) {
+            errBox.textContent = 'Please select at least one role/permission level.';
+            errBox.classList.remove('hidden');
+        }
+        return;
+    }
+
+    const saveBtn = document.getElementById('btn-save-staff');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin">sync</span> Saving...`;
+    }
+
+    try {
+        let res;
+        if (id) {
+            const payload = { name, phone, roles };
+            if (password) payload.password = password;
+            res = await fetch(`/api/admin/staff/${id}`, {
+                method: 'PUT',
+                headers: getAuthHeaders(),
+                body: JSON.stringify(payload)
+            });
+        } else {
+            res = await fetch('/api/admin/staff', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ name, email, phone, password, roles })
+            });
+        }
+
+        const data = await res.json();
+        if (data.success) {
+            closeStaffModal();
+            showToast(id ? 'Staff member updated successfully' : 'Admin staff member created', 'success');
+            await loadStaffList();
+        } else {
+            if (errBox) {
+                errBox.textContent = data.error || 'Failed to save staff member';
+                errBox.classList.remove('hidden');
+            }
+        }
+    } catch (err) {
+        if (errBox) {
+            errBox.textContent = 'Network error: ' + err.message;
+            errBox.classList.remove('hidden');
+        }
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = `<span>Save Admin</span>`;
+        }
+    }
+}
+
+async function handleDeleteStaff() {
+    const id = document.getElementById('form-staff-id').value;
+    if (!id) return;
+
+    if (!confirm('Are you sure you want to remove this admin team member? Their access will be revoked immediately.')) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/admin/staff/${id}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        if (data.success) {
+            closeStaffModal();
+            showToast('Admin member removed', 'info');
+            await loadStaffList();
+        } else {
+            alert(data.error || 'Failed to delete staff member');
+        }
+    } catch (err) {
+        alert('Network error: ' + err.message);
+    }
+}
+
 // Initial Boot Check: Verify token with server before unlocking UI
 async function initAdminAuth() {
     const savedToken = localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token');
@@ -2730,10 +3259,11 @@ async function initAdminAuth() {
             }
         });
         const data = await res.json();
-        if (data.success && data.authenticated && data.admin?.role === 'admin') {
+        if (data.success && data.authenticated && data.admin) {
             adminToken = savedToken;
             hideLoginModal();
-            switchView('dashboard');
+            const initialView = applyAdminRolePermissions(data.admin);
+            switchView(initialView);
             initRealtimeWebSocket();
         } else {
             logoutAdmin();
