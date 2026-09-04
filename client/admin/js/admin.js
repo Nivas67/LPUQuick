@@ -1416,7 +1416,20 @@ async function checkPushStatus() {
     }
 
     try {
-        const reg = await navigator.serviceWorker.ready;
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (!reg) {
+            updatePushUI(false);
+            const banner = document.getElementById('push-unlock-banner');
+            if (banner) {
+                if (Notification.permission !== 'denied' && localStorage.getItem('lpuquick_push_dismissed') !== 'true') {
+                    banner.classList.remove('hidden');
+                } else {
+                    banner.classList.add('hidden');
+                }
+            }
+            return false;
+        }
+
         pushSubscription = await reg.pushManager.getSubscription();
         const isSubscribed = Boolean(pushSubscription);
         updatePushUI(isSubscribed);
@@ -1461,10 +1474,22 @@ function updatePushUI(active, label) {
     }
 }
 
+let isEnablingPush = false;
+
 async function enablePushNotifications() {
+    if (isEnablingPush) return false;
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
         showToast('Push notifications not supported on this browser', 'warning');
         return false;
+    }
+
+    isEnablingPush = true;
+    const banner = document.getElementById('push-unlock-banner');
+    const bannerBtn = banner ? (banner.querySelector('.turn-on-btn') || banner.querySelector('span.bg-white')) : null;
+    const origBtnText = bannerBtn ? bannerBtn.textContent : '';
+    if (bannerBtn) {
+        bannerBtn.textContent = 'Enabling...';
+        bannerBtn.classList.add('opacity-75', 'pointer-events-none');
     }
 
     try {
@@ -1481,18 +1506,40 @@ async function enablePushNotifications() {
             return false;
         }
 
-        const reg = await navigator.serviceWorker.ready;
+        // 1. Ensure Service Worker is registered
+        let reg = await navigator.serviceWorker.getRegistration();
+        if (!reg) {
+            reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+        }
+        await navigator.serviceWorker.ready;
+
+        // 2. Fetch or create subscription with automatic retry/cleanup
         let sub = await reg.pushManager.getSubscription();
+        const convertedVapidKey = urlBase64ToUint8Array(pubKey);
+
         if (!sub) {
-            const convertedVapidKey = urlBase64ToUint8Array(pubKey);
-            sub = await reg.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: convertedVapidKey
-            });
+            try {
+                sub = await reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: convertedVapidKey
+                });
+            } catch (subscribeErr) {
+                console.warn('[Push] Direct subscribe failed, attempting recovery:', subscribeErr.message);
+                // Clear any stale or orphaned subscription state and retry once
+                try {
+                    const stale = await reg.pushManager.getSubscription();
+                    if (stale) await stale.unsubscribe();
+                } catch (_) {}
+
+                sub = await reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: convertedVapidKey
+                });
+            }
         }
         pushSubscription = sub;
 
-        // Register with server
+        // 3. Register with server
         await fetch('/api/notifications/subscribe', {
             method: 'POST',
             headers: getAuthHeaders(),
@@ -1505,7 +1552,6 @@ async function enablePushNotifications() {
         });
 
         updatePushUI(true);
-        const banner = document.getElementById('push-unlock-banner');
         if (banner) banner.classList.add('hidden');
 
         showToast('✅ Push Notifications Active! Alerts will wake your device even when closed.', 'success');
@@ -1523,8 +1569,29 @@ async function enablePushNotifications() {
         return true;
     } catch (e) {
         console.error('Error enabling push:', e);
-        showToast('Push setup error: ' + e.message, 'error');
+        const errMsg = e.message || '';
+        let userFriendlyMsg = 'Push setup error: ' + errMsg;
+
+        const isBrave = (navigator.brave && typeof navigator.brave.isBrave === 'function');
+        let braveDetected = false;
+        if (isBrave) {
+            try { braveDetected = await navigator.brave.isBrave(); } catch (_) {}
+        }
+
+        if (braveDetected) {
+            userFriendlyMsg = 'Brave Browser blocked push. Enable "Use Google services for push messaging" in brave://settings/privacy, then reload.';
+        } else if (errMsg.includes('push service error') || errMsg.includes('Registration failed')) {
+            userFriendlyMsg = 'Push service unreachable. Campus Wi-Fi/firewall, VPN, or Incognito mode is blocking Google FCM. In-app chimes will still alert you!';
+        }
+
+        showToast(userFriendlyMsg, 'error');
         return false;
+    } finally {
+        isEnablingPush = false;
+        if (bannerBtn) {
+            bannerBtn.textContent = origBtnText;
+            bannerBtn.classList.remove('opacity-75', 'pointer-events-none');
+        }
     }
 }
 
@@ -1570,28 +1637,58 @@ let currentPendingTransferOrder = null;
 async function claimOrder(orderId) {
     if (!orderId) return;
     try {
+        const myId = currentAdminProfile?.id;
+        const myName = currentAdminProfile?.name || 'Delivery Rider';
         const res = await fetchWithTimeout(`/api/orders/${orderId}/claim`, {
             method: 'POST',
-            headers: getAuthHeaders()
+            headers: {
+                ...getAuthHeaders(),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                adminId: myId,
+                adminName: myName
+            })
         });
         const data = await res.json();
         if (res.ok && data.success) {
             showToast(data.message || 'Delivery accepted successfully!', 'success');
-            // Update local order cache
+            
+            const returnedOrder = data.order || {};
+            const assignedName = returnedOrder.delivery_assignment?.assigned_to_name || returnedOrder.rider_name || myName;
+            const updatedDa = returnedOrder.delivery_assignment || {
+                assigned_to: myId,
+                assigned_to_name: assignedName,
+                name: assignedName,
+                is_claimed: true,
+                claimed_at: new Date().toISOString()
+            };
+            if (!updatedDa.assigned_to && myId) updatedDa.assigned_to = myId;
+            if (!updatedDa.assigned_to_name) updatedDa.assigned_to_name = assignedName;
+            updatedDa.is_claimed = true;
+
             const idx = ordersCache.findIndex(o => o.id === orderId);
-            if (idx >= 0 && data.order) {
-                ordersCache[idx] = {
-                    ...ordersCache[idx],
-                    ...data.order,
-                    delivery_assignment: data.order.delivery_assignment || {
-                        assigned_to: currentAdminProfile?.id,
-                        assigned_to_name: currentAdminProfile?.name,
-                        is_claimed: true
-                    }
-                };
+            const updatedOrder = {
+                ...(idx >= 0 ? ordersCache[idx] : {}),
+                ...returnedOrder,
+                rider_name: assignedName,
+                delivery_assignment: updatedDa
+            };
+            if (idx >= 0) {
+                ordersCache[idx] = updatedOrder;
+            } else {
+                ordersCache.unshift(updatedOrder);
             }
+
+            if (typeof getOrderSignature === 'function') {
+                knownOrderMap.set(orderId, getOrderSignature(updatedOrder));
+            }
+
             filterOrders();
-            if (currentDrawerOrderId === orderId) openOrderDrawer(orderId);
+            if (currentDrawerOrderId === orderId) {
+                updateDrawerDispatchCard(updatedOrder);
+                openOrderDrawer(orderId);
+            }
         } else {
             showToast(data.error || 'Failed to claim order. It may have already been accepted.', 'error');
             loadOrders();
@@ -2033,11 +2130,23 @@ async function submitOrderEdit(event) {
 }
 
 function updateDrawerDispatchCard(order) {
+    if (!order) return;
     const da = order.delivery_assignment || {};
-    const isDone = ['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(order.status);
-    const isUnassigned = !da.is_claimed || !da.assigned_to;
+    const s = (order.status || '').toLowerCase();
+    const isDelivered = s === 'delivered';
+    const isCancelled = s === 'cancelled';
+    const rawRider = typeof order.rider_name === 'string' && !order.rider_name.startsWith('{') ? order.rider_name.trim() : null;
+    const hasExplicitRider = rawRider && !['Alex', 'Campus Express', 'Unassigned', 'unassigned'].includes(rawRider);
+    const isClaimed = Boolean(
+        (da.is_claimed && (da.assigned_to || da.assigned_to_name || da.name)) ||
+        da.assigned_to ||
+        hasExplicitRider
+    );
     const myId = currentAdminProfile?.id;
-    const isAssignedToMe = da.assigned_to === myId;
+    const myName = (currentAdminProfile?.name || '').trim().toLowerCase();
+    const assignedRiderName = da.assigned_to_name || da.name || (hasExplicitRider ? rawRider : null) || 'Delivery Rider';
+    const isAssignedToMe = (da.assigned_to && myId && da.assigned_to === myId) || 
+                           (myName && assignedRiderName && assignedRiderName.toLowerCase() === myName);
     const isOwnerOrStoreMgr = currentAdminProfile?.is_owner || (currentAdminProfile?.roles || []).includes('owner') || (currentAdminProfile?.roles || []).includes('store_manager');
 
     const badge = document.getElementById('drawer-dispatch-status-badge');
@@ -2049,32 +2158,49 @@ function updateDrawerDispatchCard(order) {
     const transferTxt = document.getElementById('drawer-transfer-text');
     const transferActions = document.getElementById('drawer-transfer-actions');
 
-    if (isUnassigned) {
-        if (badge) {
-            badge.textContent = 'Unassigned Pool';
-            badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800';
-        }
-        if (nameEl) nameEl.textContent = 'No delivery person assigned. Any admin can accept delivery.';
-        if (timeEl) timeEl.textContent = 'Waiting for runner acceptance';
-        if (btnClaim) {
-            btnClaim.classList.toggle('hidden', isDone);
-            btnClaim.innerHTML = '<span class="material-symbols-outlined text-sm">electric_bolt</span><span>Accept Delivery</span>';
-        }
-        if (btnTransfer) btnTransfer.classList.add('hidden');
-        if (transferBanner) transferBanner.classList.add('hidden');
-    } else {
-        const riderName = da.assigned_to_name || order.rider_name || 'Delivery Rider';
-        if (badge) {
-            badge.textContent = isAssignedToMe ? 'Assigned to You' : 'Assigned';
-            badge.className = isAssignedToMe 
-                ? 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800'
-                : 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800';
-        }
-        if (nameEl) nameEl.textContent = `Assigned Rider: ${riderName}`;
-        if (timeEl) timeEl.textContent = da.claimed_at ? `Claimed at: ${new Date(da.claimed_at).toLocaleTimeString()}` : '';
+    if (btnClaim) btnClaim.classList.add('hidden');
+    if (btnTransfer) btnTransfer.classList.add('hidden');
+    if (transferBanner) transferBanner.classList.add('hidden');
 
-        if (btnClaim) btnClaim.classList.add('hidden');
-        if (btnTransfer) btnTransfer.classList.toggle('hidden', isDone || (!isAssignedToMe && !isOwnerOrStoreMgr));
+    if (isDelivered) {
+        if (badge) {
+            badge.textContent = 'Delivered ✓';
+            badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300';
+        }
+        if (nameEl) {
+            nameEl.textContent = (assignedRiderName && assignedRiderName !== 'Delivery Rider')
+                ? `Delivered by: ${assignedRiderName}`
+                : 'Order completed & delivered to customer';
+        }
+        if (timeEl) {
+            timeEl.textContent = da.claimed_at ? `Accepted at ${new Date(da.claimed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Delivery completed';
+        }
+        return;
+    }
+
+    if (isCancelled) {
+        if (badge) {
+            badge.textContent = 'Cancelled ✕';
+            badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200';
+        }
+        if (nameEl) nameEl.textContent = 'Order was cancelled. No delivery required.';
+        if (timeEl) timeEl.textContent = 'Cancelled';
+        return;
+    }
+
+    // Active order dispatch states
+    if (isClaimed) {
+        const riderName = assignedRiderName;
+        if (badge) {
+            badge.textContent = isAssignedToMe ? '🛵 Assigned to You' : 'Assigned';
+            badge.className = isAssignedToMe 
+                ? 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-300'
+                : 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300';
+        }
+        if (nameEl) nameEl.textContent = isAssignedToMe ? `You are delivering this order (${riderName})` : `Assigned Rider: ${riderName}`;
+        if (timeEl) timeEl.textContent = da.claimed_at ? `Claimed at: ${new Date(da.claimed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Accepted';
+
+        if (btnTransfer) btnTransfer.classList.toggle('hidden', !isAssignedToMe && !isOwnerOrStoreMgr);
 
         if (da.transfer && da.transfer.status === 'PENDING') {
             if (transferBanner) {
@@ -2088,8 +2214,18 @@ function updateDrawerDispatchCard(order) {
                     if (transferActions) transferActions.classList.add('hidden');
                 }
             }
-        } else {
-            if (transferBanner) transferBanner.classList.add('hidden');
+        }
+    } else {
+        // Unassigned active order
+        if (badge) {
+            badge.textContent = '⚡ Unassigned Pool';
+            badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300';
+        }
+        if (nameEl) nameEl.textContent = 'No delivery person assigned. Any admin can accept delivery.';
+        if (timeEl) timeEl.textContent = 'Waiting for runner acceptance';
+        if (btnClaim) {
+            btnClaim.classList.remove('hidden');
+            btnClaim.innerHTML = '<span class="material-symbols-outlined text-sm">electric_bolt</span><span>Accept Delivery</span>';
         }
     }
 }
@@ -2110,19 +2246,31 @@ function setOrderStatusFilter(status) {
 
 function filterOrders() {
     const myId = currentAdminProfile?.id;
+    const myName = (currentAdminProfile?.name || '').trim().toLowerCase();
     const isOwnerOrStoreMgr = currentAdminProfile?.is_owner || (currentAdminProfile?.roles || []).includes('owner') || (currentAdminProfile?.roles || []).includes('store_manager');
 
     // Update dispatch tab badges
     const unassignedCount = ordersCache.filter(o => {
         const isDone = ['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(o.status);
-        const da = o.delivery_assignment;
-        return !isDone && (!da || !da.is_claimed || !da.assigned_to);
+        const da = o.delivery_assignment || {};
+        const rawRider = typeof o.rider_name === 'string' && !o.rider_name.startsWith('{') ? o.rider_name.trim() : null;
+        const hasExplicitRider = rawRider && !['Alex', 'Campus Express', 'Unassigned', 'unassigned'].includes(rawRider);
+        const isClaimed = Boolean(
+            (da.is_claimed && (da.assigned_to || da.assigned_to_name || da.name)) ||
+            da.assigned_to ||
+            hasExplicitRider
+        );
+        return !isDone && !isClaimed;
     }).length;
 
     const myDeliveriesCount = ordersCache.filter(o => {
         const isDone = ['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(o.status);
-        const da = o.delivery_assignment;
-        return !isDone && da && da.assigned_to === myId;
+        const da = o.delivery_assignment || {};
+        const rawRider = typeof o.rider_name === 'string' && !o.rider_name.startsWith('{') ? o.rider_name.trim() : null;
+        const assignedName = da.assigned_to_name || da.name || (rawRider && !['Alex', 'Campus Express', 'Unassigned', 'unassigned'].includes(rawRider) ? rawRider : null) || '';
+        const isAssignedToMe = (da.assigned_to && myId && da.assigned_to === myId) || 
+                               (myName && assignedName && assignedName.toLowerCase() === myName);
+        return !isDone && isAssignedToMe;
     }).length;
 
     const transfersCount = ordersCache.filter(o => {
@@ -2153,14 +2301,25 @@ function filterOrders() {
     if (currentOrderFilter === 'unassigned') {
         filtered = filtered.filter(o => {
             const isDone = ['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(o.status);
-            const da = o.delivery_assignment;
-            return !isDone && (!da || !da.is_claimed || !da.assigned_to);
+            const da = o.delivery_assignment || {};
+            const rawRider = typeof o.rider_name === 'string' && !o.rider_name.startsWith('{') ? o.rider_name.trim() : null;
+            const hasExplicitRider = rawRider && !['Alex', 'Campus Express', 'Unassigned', 'unassigned'].includes(rawRider);
+            const isClaimed = Boolean(
+                (da.is_claimed && (da.assigned_to || da.assigned_to_name || da.name)) ||
+                da.assigned_to ||
+                hasExplicitRider
+            );
+            return !isDone && !isClaimed;
         });
     } else if (currentOrderFilter === 'my_deliveries') {
         filtered = filtered.filter(o => {
             const isDone = ['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(o.status);
-            const da = o.delivery_assignment;
-            return !isDone && da && da.assigned_to === myId;
+            const da = o.delivery_assignment || {};
+            const rawRider = typeof o.rider_name === 'string' && !o.rider_name.startsWith('{') ? o.rider_name.trim() : null;
+            const assignedName = da.assigned_to_name || da.name || (rawRider && !['Alex', 'Campus Express', 'Unassigned', 'unassigned'].includes(rawRider) ? rawRider : null) || '';
+            const isAssignedToMe = (da.assigned_to && myId && da.assigned_to === myId) || 
+                                   (myName && assignedName && assignedName.toLowerCase() === myName);
+            return !isDone && isAssignedToMe;
         });
     } else if (currentOrderFilter === 'transfers') {
         filtered = filtered.filter(o => {
@@ -2183,24 +2342,41 @@ function filterOrders() {
         const contactHtml = o.customer_phone ? o.customer_phone : (o.customer_email || 'Not provided');
         const displayName = formatCustomerDisplayName(o);
         const da = o.delivery_assignment || {};
-        const isDone = ['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(o.status);
+        const s = (o.status || '').toLowerCase();
+        const isDelivered = s === 'delivered';
+        const isCancelled = s === 'cancelled';
+        const isDone = isDelivered || isCancelled;
+        const rawRider = typeof o.rider_name === 'string' && !o.rider_name.startsWith('{') ? o.rider_name.trim() : null;
+        const hasExplicitRider = rawRider && !['Alex', 'Campus Express', 'Unassigned', 'unassigned'].includes(rawRider);
+        const assignedRiderName = da.assigned_to_name || da.name || (hasExplicitRider ? rawRider : null) || 'Rider';
+        const isClaimed = Boolean(
+            (da.is_claimed && (da.assigned_to || da.assigned_to_name || da.name)) ||
+            da.assigned_to ||
+            hasExplicitRider
+        );
+        const isUnassigned = !isClaimed;
         const isPendingTransfer = da.transfer && da.transfer.status === 'PENDING';
         const isOfferedToMe = isPendingTransfer && da.transfer.to_id === myId;
-        const isAssignedToMe = da.assigned_to === myId;
-        const isUnassigned = !da.is_claimed || !da.assigned_to;
+        const isAssignedToMe = (da.assigned_to && myId && da.assigned_to === myId) || 
+                               (myName && assignedRiderName && assignedRiderName.toLowerCase() === myName);
 
         // Delivery Dispatch badge column
         let dispatchBadgeHtml = '';
-        if (isUnassigned) {
+        if (isDelivered) {
+            const label = (assignedRiderName && assignedRiderName !== 'Rider' && assignedRiderName !== 'Alex' && assignedRiderName !== 'Unassigned' && assignedRiderName !== 'Campus Express') ? `✓ ${assignedRiderName}` : '✓ Delivered';
+            dispatchBadgeHtml = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-300">${label}</span>`;
+        } else if (isCancelled) {
+            dispatchBadgeHtml = '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-500">✕ Closed</span>';
+        } else if (isUnassigned) {
             dispatchBadgeHtml = '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300">⚡ Unassigned</span>';
         } else if (isOfferedToMe) {
             dispatchBadgeHtml = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-900 border border-purple-300 animate-pulse" title="From ${da.transfer.from_name}">🔄 Offered to You</span>`;
         } else if (isPendingTransfer) {
             dispatchBadgeHtml = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">⏳ Transfer Pending (${da.transfer.to_name})</span>`;
         } else if (isAssignedToMe) {
-            dispatchBadgeHtml = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-blue-100 text-[#1a73e8] border border-blue-300">🛵 You (${da.assigned_to_name || 'Assigned'})</span>`;
+            dispatchBadgeHtml = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-blue-100 text-[#1a73e8] border border-blue-300">🛵 You (${assignedRiderName !== 'Rider' ? assignedRiderName : 'Assigned'})</span>`;
         } else {
-            dispatchBadgeHtml = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700">👤 ${da.assigned_to_name || o.rider_name || 'Rider'}</span>`;
+            dispatchBadgeHtml = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700">👤 ${assignedRiderName}</span>`;
         }
 
         // Action / Dispatch buttons column
@@ -2364,6 +2540,11 @@ async function openOrderDrawer(orderId) {
         const o = data.order;
         if (!o || currentDrawerOrderId !== orderId) return;
 
+        const idx = ordersCache.findIndex(x => x.id === orderId);
+        if (idx >= 0) {
+            ordersCache[idx] = { ...ordersCache[idx], ...o };
+        }
+
         currentDrawerOrderUserId = o.user_id || cachedOrder?.user_id || null;
         document.getElementById('drawer-order-id').textContent = `Order #${(o.id || '').replace('order_', '').toUpperCase()}`;
         document.getElementById('drawer-order-time').textContent = `Placed: ${new Date(o.created_at || Date.now()).toLocaleString()}`;
@@ -2445,7 +2626,13 @@ async function applyDrawerStatusUpdate() {
 
     // 1. Optimistic instant local update
     const o = ordersCache.find(x => x.id === targetOrderId);
-    if (o) o.status = newStatus;
+    if (o) {
+        o.status = newStatus;
+        updateDrawerDispatchCard(o);
+        if (typeof getOrderSignature === 'function') {
+            knownOrderMap.set(targetOrderId, getOrderSignature(o));
+        }
+    }
     
     // Update live pills in DOM
     const pill1 = document.getElementById(`order-status-pill-${targetOrderId}`);
@@ -2455,6 +2642,10 @@ async function applyDrawerStatusUpdate() {
 
     const shortId = targetOrderId.replace('order_', '').toUpperCase();
     showToast(`✓ Order #${shortId} status updated to: ${newStatus}`, 'success');
+
+    if (activeView === 'orders') filterOrders();
+    else if (activeView === 'dashboard') loadDashboard();
+
     closeOrderDrawer();
 
     try {
@@ -3369,6 +3560,13 @@ async function forceLiveDbSync() {
 }
 window.forceLiveDbSync = forceLiveDbSync;
 
+function getOrderSignature(o) {
+    if (!o) return '';
+    const da = o.delivery_assignment || {};
+    const transferKey = da.transfer ? `${da.transfer.status}_${da.transfer.to_id}` : 'none';
+    return `${o.status}|${da.assigned_to || 'none'}|${da.assigned_to_name || ''}|${da.is_claimed ? '1' : '0'}|${transferKey}|${o.rider_name || ''}`;
+}
+
 // Smart Continuous Live Order Sync (Adaptive Polling with Page Visibility API)
 async function syncOrdersLive() {
     const token = adminToken || localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token');
@@ -3394,13 +3592,15 @@ async function syncOrdersLive() {
 
         if (isInitialOrderPoll) {
             orders.forEach(o => {
-                if (o && o.id) knownOrderMap.set(o.id, o.status);
+                if (o && o.id) knownOrderMap.set(o.id, getOrderSignature(o));
             });
             isInitialOrderPoll = false;
             updateConnectionStatus(true, 'Live');
             if (activeView === 'dashboard') {
                 renderRecentOrdersTable(orders);
                 updateKpiCountersFromCache();
+            } else if (activeView === 'orders') {
+                renderOrdersTable(orders);
             }
             return;
         }
@@ -3410,18 +3610,29 @@ async function syncOrdersLive() {
             hasOrderChanges = true;
         }
 
-        // Detect new orders and status updates
+        // Detect new orders, status updates, and dispatch/rider changes
         for (const order of orders) {
             if (!order || !order.id) continue;
+            const currentSig = getOrderSignature(order);
 
             if (!knownOrderMap.has(order.id)) {
                 hasOrderChanges = true;
-                knownOrderMap.set(order.id, order.status);
+                knownOrderMap.set(order.id, currentSig);
                 handleRealtimeNewOrder(order);
-            } else if (knownOrderMap.get(order.id) !== order.status) {
+            } else if (knownOrderMap.get(order.id) !== currentSig) {
                 hasOrderChanges = true;
-                knownOrderMap.set(order.id, order.status);
-                handleRealtimeStatusUpdate({ orderId: order.id, status: order.status });
+                const prevSig = knownOrderMap.get(order.id);
+                knownOrderMap.set(order.id, currentSig);
+                
+                // If status itself changed, trigger status update notification & KPI refresh
+                if (!prevSig || !prevSig.startsWith(order.status + '|')) {
+                    handleRealtimeStatusUpdate({ orderId: order.id, status: order.status });
+                }
+
+                // If currently open in drawer, update drawer dispatch card immediately!
+                if (currentDrawerOrderId === order.id) {
+                    updateDrawerDispatchCard(order);
+                }
             }
         }
 
@@ -3432,6 +3643,10 @@ async function syncOrdersLive() {
                 updateKpiCountersFromCache();
             } else if (activeView === 'orders') {
                 renderOrdersTable(orders);
+            }
+            if (currentDrawerOrderId) {
+                const currentOrder = ordersCache.find(x => x.id === currentDrawerOrderId);
+                if (currentOrder) updateDrawerDispatchCard(currentOrder);
             }
         }
 
@@ -3516,10 +3731,26 @@ function initRealtimeWebSocket() {
                 const data = JSON.parse(event.data);
 
                 if (data.type === 'NEW_ORDER' && data.order) {
-                    knownOrderMap.set(data.order.id, data.order.status);
+                    // Store proper signature (not just status) to avoid phantom re-renders
+                    if (typeof getOrderSignature === 'function') {
+                        knownOrderMap.set(data.order.id, getOrderSignature(data.order));
+                    } else {
+                        knownOrderMap.set(data.order.id, data.order.status);
+                    }
                     handleRealtimeNewOrder(data.order);
                 } else if (data.type === 'ORDER_STATUS_UPDATE') {
-                    if (data.orderId && data.status) knownOrderMap.set(data.orderId, data.status);
+                    if (data.orderId && data.status) {
+                        // Update the status in the local cached order and store full signature
+                        const cachedOrder = ordersCache.find(x => x.id === data.orderId);
+                        if (cachedOrder) {
+                            cachedOrder.status = data.status;
+                            if (typeof getOrderSignature === 'function') {
+                                knownOrderMap.set(data.orderId, getOrderSignature(cachedOrder));
+                            }
+                        } else {
+                            knownOrderMap.set(data.orderId, data.status);
+                        }
+                    }
                     handleRealtimeStatusUpdate(data);
                 } else if (data.type === 'INVENTORY_UPDATE') {
                     handleRealtimeInventoryUpdate(data);
@@ -3547,22 +3778,47 @@ function initRealtimeWebSocket() {
         };
 
         function handleRealtimeOrderClaimed(data) {
-            const o = ordersCache.find(x => x.id === data.orderId);
+            let o = ordersCache.find(x => x.id === data.orderId);
             if (o) {
                 o.rider_name = data.adminName;
                 o.delivery_assignment = {
                     assigned_to: data.adminId,
                     assigned_to_name: data.adminName,
+                    name: data.adminName,
                     claimed_at: data.claimedAt,
                     is_claimed: true,
                     transfer: null
                 };
+                if (typeof getOrderSignature === 'function') {
+                    knownOrderMap.set(data.orderId, getOrderSignature(o));
+                }
+            } else {
+                o = {
+                    id: data.orderId,
+                    rider_name: data.adminName,
+                    delivery_assignment: {
+                        assigned_to: data.adminId,
+                        assigned_to_name: data.adminName,
+                        name: data.adminName,
+                        claimed_at: data.claimedAt,
+                        is_claimed: true,
+                        transfer: null
+                    }
+                };
+                ordersCache.unshift(o);
+                if (typeof getOrderSignature === 'function') {
+                    knownOrderMap.set(data.orderId, getOrderSignature(o));
+                }
             }
             if (data.adminId !== currentAdminProfile?.id) {
                 showToast(`🛵 ${data.adminName} accepted Order #${(data.orderId || '').replace('order_', '').slice(0, 8)}`, 'info');
             }
             filterOrders();
-            if (currentDrawerOrderId === data.orderId) openOrderDrawer(data.orderId);
+            if (currentDrawerOrderId === data.orderId) {
+                updateDrawerDispatchCard(o);
+            }
+            // Trigger immediate server sync to ensure all admins see fresh delivery data
+            setTimeout(() => { syncOrdersLive(); }, 500);
         }
 
         function handleRealtimeTransferRequested(data) {
@@ -3599,11 +3855,18 @@ function initRealtimeWebSocket() {
                 } else if (o.delivery_assignment) {
                     o.delivery_assignment.transfer = null;
                 }
+                if (typeof getOrderSignature === 'function') {
+                    knownOrderMap.set(data.orderId, getOrderSignature(o));
+                }
             }
             const shortId = (data.orderId || '').replace('order_', '').slice(0, 8).toUpperCase();
             showToast(`Order #${shortId} transfer ${data.accepted ? 'accepted by ' + data.toName : 'declined'}`, data.accepted ? 'success' : 'warning');
             filterOrders();
             if (currentDrawerOrderId === data.orderId) openOrderDrawer(data.orderId);
+            // Sync fresh data to confirm the transfer update
+            if (data.accepted) {
+                setTimeout(() => { syncOrdersLive(); }, 500);
+            }
         }
 
         function handleRealtimeOrderEdited(data) {
@@ -3749,7 +4012,12 @@ function handleRealtimeNewOrder(order) {
 function handleRealtimeStatusUpdate(data) {
     const { orderId, status } = data;
     const o = ordersCache.find(x => x.id === orderId);
-    if (o) o.status = status;
+    if (o) {
+        o.status = status;
+        if (typeof getOrderSignature === 'function') {
+            knownOrderMap.set(orderId, getOrderSignature(o));
+        }
+    }
 
     // Update both dashboard table and orders queue table
     const pills = document.querySelectorAll(`[data-status-pill-id="${orderId}"], #order-status-pill-${orderId}, #dash-status-pill-${orderId}`);
@@ -3758,6 +4026,7 @@ function handleRealtimeStatusUpdate(data) {
     if (currentDrawerOrderId === orderId) {
         const select = document.getElementById('drawer-status-select');
         if (select) select.value = status;
+        if (o) updateDrawerDispatchCard(o);
     }
 
     // Refresh KPI metrics in-place without jarring page reloads
@@ -3952,6 +4221,12 @@ function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
     if (!container) return;
 
+    // Prevent duplicate toast spam if exact message is already displayed
+    const existingToasts = container.querySelectorAll('.toast-card span.text-xs');
+    for (const t of existingToasts) {
+        if (t.textContent === message) return;
+    }
+
     const id = `toast-gen-${Date.now()}`;
     const colors = {
         success: 'border-[#10B981] bg-[#ecfdf5]',
@@ -3967,19 +4242,19 @@ function showToast(message, type = 'info') {
     };
 
     const html = `
-        <div id="${id}" class="toast-card p-3 border-l-4 ${colors[type] || colors.info} flex items-center justify-between gap-3">
+        <div id="${id}" class="toast-card p-3 border-l-4 ${colors[type] || colors.info} flex items-center justify-between gap-3 shadow-md rounded-r-lg">
             <div class="flex items-center gap-2">
                 <span class="material-symbols-outlined text-[16px]">${iconMap[type] || 'info'}</span>
                 <span class="text-xs font-semibold text-[#181c1f]">${message}</span>
             </div>
-            <button onclick="dismissToast('${id}')" class="text-[#74777a] hover:text-[#181c1f] text-xs">✕</button>
+            <button onclick="dismissToast('${id}')" class="text-[#74777a] hover:text-[#181c1f] text-xs font-bold p-1">✕</button>
         </div>
     `;
 
     container.insertAdjacentHTML('beforeend', html);
     const el = document.getElementById(id);
     setTimeout(() => { if (el) el.classList.add('show'); }, 20);
-    setTimeout(() => { dismissToast(id); }, 4000);
+    setTimeout(() => { dismissToast(id); }, 5000);
 }
 
 // ================= 9. STAFF & ADMIN TEAM MANAGEMENT (OWNER ONLY) =================

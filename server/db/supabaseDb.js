@@ -858,23 +858,41 @@ const supabaseDb = {
                     latest_edit: null
                 };
             }
-            if (typeof riderName === 'string' && riderName.startsWith('{')) {
+            if (typeof riderName === 'object' && riderName !== null) {
+                const meta = riderName;
+                const editsList = Array.isArray(meta.edits) ? meta.edits : [];
+                const assignedId = meta.admin_id || meta.assigned_to || null;
+                const assignedName = meta.name || meta.assigned_to_name || null;
+                return {
+                    assigned_to: assignedId,
+                    assigned_to_name: assignedName,
+                    name: assignedName,
+                    claimed_at: meta.claimed_at || null,
+                    transfer: meta.transfer || null,
+                    is_claimed: Boolean(assignedId || meta.is_claimed),
+                    edits: editsList,
+                    latest_edit: meta.latest_edit || (editsList.length > 0 ? editsList[editsList.length - 1] : null)
+                };
+            }
+            if (typeof riderName === 'string' && riderName.trim().startsWith('{')) {
                 try {
-                    const meta = JSON.parse(riderName);
+                    const meta = JSON.parse(riderName.trim());
                     const editsList = Array.isArray(meta.edits) ? meta.edits : [];
+                    const assignedId = meta.admin_id || meta.assigned_to || null;
+                    const assignedName = meta.name || meta.assigned_to_name || null;
                     return {
-                        assigned_to: meta.admin_id || null,
-                        assigned_to_name: meta.name || null,
-                        name: meta.name || null,
+                        assigned_to: assignedId,
+                        assigned_to_name: assignedName,
+                        name: assignedName,
                         claimed_at: meta.claimed_at || null,
                         transfer: meta.transfer || null,
-                        is_claimed: Boolean(meta.admin_id),
+                        is_claimed: Boolean(assignedId || meta.is_claimed),
                         edits: editsList,
                         latest_edit: meta.latest_edit || (editsList.length > 0 ? editsList[editsList.length - 1] : null)
                     };
                 } catch (e) {}
             }
-            if (riderName === 'Alex' || riderName === 'Campus Express' || riderName === 'unassigned') {
+            if (riderName === 'Alex' || riderName === 'Campus Express' || riderName === 'unassigned' || riderName === 'Unassigned') {
                 return {
                     assigned_to: null,
                     assigned_to_name: null,
@@ -910,6 +928,10 @@ const supabaseDb = {
 
             if (fetchErr || !order) throw new Error('Order not found');
 
+            if (['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(order.status)) {
+                throw new Error(`This order is already ${order.status.toLowerCase()} and cannot be claimed.`);
+            }
+
             const currentInfo = this.parseDeliveryMeta(order.rider_name);
             if (currentInfo.is_claimed && currentInfo.assigned_to && currentInfo.assigned_to !== adminId) {
                 throw new Error(`Order was already accepted by ${currentInfo.assigned_to_name || 'another delivery admin'}`);
@@ -941,6 +963,7 @@ const supabaseDb = {
 
             return {
                 ...data,
+                rider_name: this.formatRiderDisplayName(data.rider_name, adminName),
                 delivery_assignment: this.parseDeliveryMeta(data.rider_name)
             };
         },
@@ -1035,6 +1058,7 @@ const supabaseDb = {
 
             return {
                 ...data,
+                rider_name: this.formatRiderDisplayName(data.rider_name, deliveryMeta.name),
                 delivery_assignment: this.parseDeliveryMeta(data.rider_name),
                 previous_transfer: currentInfo.transfer
             };
@@ -1064,6 +1088,7 @@ const supabaseDb = {
 
             return {
                 ...data,
+                rider_name: this.formatRiderDisplayName(data.rider_name, targetAdminName),
                 delivery_assignment: this.parseDeliveryMeta(data.rider_name)
             };
         },

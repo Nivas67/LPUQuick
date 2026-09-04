@@ -198,7 +198,7 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
 
             fallbackOrdersCache = enriched;
             return { orders: enriched };
-        }, forceFresh ? 0 : 4000); // 4-second coalesced micro-cache (coalesces rapid multi-tab polls)
+        }, forceFresh ? 0 : 1000); // 1-second coalesced micro-cache (coalesces rapid multi-tab polls; kept short so delivery assignment changes propagate quickly)
 
         res.json(payload || { orders: fallbackOrdersCache });
     } catch (err) {
@@ -353,7 +353,10 @@ router.get('/admin/detail/:orderId', requireAdmin, async (req, res) => {
         const customerPhone = order.customer_phone || user?.phone || '';
         const customerEmail = (order.customer_email && !order.customer_email.endsWith('@lpu.in')) ? order.customer_email : (user?.email || order.customer_email || '');
         const deliveryAddress = order.delivery_address || 'Not provided';
-        const deliveryInfo = supabaseDb.orders.parseDeliveryMeta(order.rider_name);
+        // Preserve existing delivery_assignment already parsed by getOrderById to avoid wiping assigned_to
+        const deliveryInfo = (order.delivery_assignment && (order.delivery_assignment.assigned_to || order.delivery_assignment.assigned_to_name))
+            ? order.delivery_assignment
+            : supabaseDb.orders.parseDeliveryMeta(order.rider_name);
 
         const enrichedItems = (order.items || []).map(i => ({
             ...i,
@@ -370,7 +373,7 @@ router.get('/admin/detail/:orderId', requireAdmin, async (req, res) => {
                 customer_phone: customerPhone,
                 customer_email: customerEmail,
                 delivery_address: deliveryAddress,
-                rider_name: deliveryInfo.assigned_to_name || (deliveryInfo.is_claimed ? 'Assigned' : 'Unassigned'),
+                rider_name: deliveryInfo.assigned_to_name || (deliveryInfo.is_claimed ? (order.rider_name || 'Assigned') : 'Unassigned'),
                 delivery_assignment: deliveryInfo,
                 items: enrichedItems
             }
@@ -493,26 +496,46 @@ router.get('/admin/delivery-staff', requireAdmin, async (req, res) => {
 router.post('/:orderId/claim', requireAdmin, async (req, res) => {
     const { orderId } = req.params;
     const adminId = req.admin.id;
-    const adminName = req.admin.name || 'Delivery Rider';
+    // Prefer explicit adminName passed from active staff profile, fallback to req.admin.name
+    const adminName = (req.body && req.body.adminName && typeof req.body.adminName === 'string' && req.body.adminName.trim())
+        ? req.body.adminName.trim()
+        : (req.admin.name || 'Delivery Rider');
 
     try {
         const updated = await supabaseDb.orders.claimOrder(orderId, adminId, adminName);
         cache.invalidateOrders();
 
+        const resolvedRiderName = updated.rider_name || adminName;
+
+        if (Array.isArray(fallbackOrdersCache)) {
+            const o = fallbackOrdersCache.find(x => x.id === orderId);
+            if (o) {
+                o.rider_name = resolvedRiderName;
+                o.delivery_assignment = updated.delivery_assignment;
+                if (updated.status) o.status = updated.status;
+            }
+        }
+
         // Broadcast real-time claim to all open admin dashboards
         broadcastOrderClaimed({
             orderId,
             adminId,
-            adminName,
-            claimedAt: updated.delivery_assignment.claimed_at
+            adminName: resolvedRiderName,
+            claimedAt: updated.delivery_assignment?.claimed_at || new Date().toISOString()
         });
 
+        // Also broadcast status change (if claim auto-confirmed the order) so other admins
+        // can detect the change via signature comparison and re-render immediately
+        if (updated.status) {
+            broadcastStatusUpdate(orderId, updated.status);
+        }
+
         // Trigger background Push notification to other admins
-        pushService.notifyOrderClaimed(orderId, adminName, adminId).catch(() => {});
+        pushService.notifyOrderClaimed(orderId, resolvedRiderName, adminId).catch(() => {});
 
         res.json({
             success: true,
-            message: `Order delivery successfully accepted by ${adminName}`,
+            message: `Order delivery successfully accepted by ${resolvedRiderName}`,
             order: updated
         });
     } catch (err) {
@@ -643,8 +666,14 @@ router.post('/:orderId/transfer/direct', requireAdmin, requireRole('owner', 'sto
         broadcastOrderClaimed({
             orderId,
             adminId: targetAdminId,
-            adminName: targetAdminName
+            adminName: targetAdminName,
+            claimedAt: updated.delivery_assignment?.claimed_at || new Date().toISOString()
         });
+
+        // Broadcast status update so polling admins detect the reassignment immediately
+        if (updated.status) {
+            broadcastStatusUpdate(orderId, updated.status);
+        }
 
         pushService.notifyOrderClaimed(orderId, targetAdminName).catch(() => {});
 

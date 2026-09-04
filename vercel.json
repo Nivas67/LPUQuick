@@ -104,6 +104,14 @@
     {
       "source": "/logo.png",
       "destination": "/client/logo.png"
+    },
+    {
+      "source": "/sw.js",
+      "destination": "/client/sw.js"
+    },
+    {
+      "source": "/manifest.json",
+      "destination": "/client/manifest.json"
     }
   ]
 }
