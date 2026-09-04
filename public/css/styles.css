@@ -451,9 +451,6 @@ nav {
    ============================================================ */
 
 .product-card-item {
-    contain: layout paint style;
-    content-visibility: auto;
-    contain-intrinsic-size: 240px;
     background: var(--glass-bg) !important;
     backdrop-filter: var(--glass-blur) !important;
     -webkit-backdrop-filter: var(--glass-blur) !important;
@@ -462,7 +459,7 @@ nav {
     border-radius: 1.25rem;
     position: relative;
     overflow: hidden;
-    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
 }
 
 .product-card-item::before {
@@ -652,6 +649,16 @@ html.dark input:focus {
    TACTILE CLAY & LIQUID GLASS INTERACTIVE BUTTONS
    ============================================================ */
 
+/* Action Slot with Zero Layout Shift Guaranteed (32px height, 82px min-width) */
+.product-action-slot {
+    min-width: 82px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-shrink: 0;
+}
+
 /* Primary ADD button inside product card */
 .add-to-cart-btn {
     display: inline-flex;
@@ -663,11 +670,13 @@ html.dark input:focus {
     font-weight: 800;
     font-size: 11px;
     letter-spacing: 0.05em;
-    padding: 5px 15px;
+    padding: 0 14px;
+    min-width: 82px;
+    height: 30px;
     border-radius: 9999px;
     cursor: pointer;
     box-shadow: var(--clay-shadow-sm);
-    transition: var(--transition-spring);
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
     user-select: none;
     position: relative;
     overflow: hidden;
@@ -772,6 +781,32 @@ html.dark .add-to-cart-btn:hover {
     color: #ffffff !important;
     user-select: none;
     z-index: 1;
+}
+
+@media (max-width: 639px) {
+    .product-action-slot {
+        min-width: 76px;
+        height: 30px;
+    }
+    .add-to-cart-btn {
+        min-width: 76px;
+        height: 28px;
+        font-size: 10px;
+        padding: 0 10px;
+    }
+    .card-qty-stepper {
+        min-width: 76px;
+        height: 28px;
+        padding: 2px 4px;
+    }
+    .card-qty-btn {
+        width: 20px;
+        height: 20px;
+    }
+    .card-qty-val {
+        font-size: 12px;
+        min-width: 16px;
+    }
 }
 
 body.dark .card-qty-stepper,
@@ -1112,3 +1147,149 @@ html.dark .map-pattern {
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
+
+/* ============================================================
+   MODERN VERTICAL CATEGORY RAIL (INSTAMART / BLINKIT UX)
+   ============================================================ */
+.vertical-category-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.25rem 0;
+    user-select: none;
+    -webkit-overflow-scrolling: touch;
+}
+
+.category-rail-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0.45rem 0.2rem;
+    border-radius: 1rem;
+    border: 1px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+    text-align: center;
+    text-decoration: none;
+}
+
+.category-rail-item:hover {
+    background: var(--glass-bg-hover);
+    transform: scale(1.02);
+}
+
+.category-rail-icon-box {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow-sm);
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    margin-bottom: 0.25rem;
+    flex-shrink: 0;
+}
+
+@media (min-width: 640px) {
+    .category-rail-icon-box {
+        width: 3.1rem;
+        height: 3.1rem;
+    }
+}
+
+.category-rail-emoji {
+    font-size: 1.35rem;
+    line-height: 1;
+}
+
+@media (min-width: 640px) {
+    .category-rail-emoji {
+        font-size: 1.55rem;
+    }
+}
+
+.category-rail-label {
+    font-size: 0.625rem;
+    font-weight: 700;
+    line-height: 1.15;
+    color: var(--text-secondary);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    transition: color 0.15s ease;
+}
+
+@media (min-width: 640px) {
+    .category-rail-label {
+        font-size: 0.6875rem;
+    }
+}
+
+/* Active Category State with Obvious Vertical Strip Indicator (Inspired by Reference 2) */
+.category-rail-item.active {
+    background: var(--brand-emerald-light);
+    border-color: rgba(16, 185, 129, 0.25);
+}
+
+.category-rail-item .category-rail-indicator {
+    display: none;
+}
+
+.category-rail-item.active .category-rail-indicator {
+    display: block;
+    position: absolute;
+    right: 0;
+    top: 0.35rem;
+    bottom: 0.35rem;
+    width: 3.5px;
+    background: var(--brand-emerald);
+    border-radius: 4px 0 0 4px;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+}
+
+.category-rail-item.active .category-rail-icon-box {
+    background: var(--brand-emerald-gradient);
+    border-color: rgba(255, 255, 255, 0.45);
+    transform: scale(1.08);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.category-rail-item.active .category-rail-label {
+    color: var(--brand-emerald-dark);
+    font-weight: 800;
+}
+
+/* Dark Mode Adjustments for Category Rail */
+.dark .category-rail-item.active {
+    background: rgba(16, 185, 129, 0.16);
+    border-color: rgba(52, 211, 153, 0.35);
+}
+
+.dark .category-rail-item.active .category-rail-label {
+    color: #34d399;
+}
+
+.dark .category-rail-item.active .category-rail-indicator {
+    background: #10b981;
+    box-shadow: 0 0 10px rgba(52, 211, 153, 0.65);
+}
+
+/* Legacy Alias Classes for Complete Backward Compatibility with Existing Automated Tests */
+.category-sidebar-item {
+    cursor: pointer;
+}
+.category-mobile-pill {
+    cursor: pointer;
+}
+

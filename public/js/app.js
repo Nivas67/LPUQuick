@@ -584,74 +584,12 @@ window.openProductModal = async function(productId) {
                 </div>
 
                 <!-- Action Button inside Modal -->
-                <div class="pt-1.5" id="modal-action-container">
-                    ${isOutOfStock ? `
-                    <button type="button" class="w-full clay-pill text-slate-400 rounded-2xl py-3 text-xs font-bold cursor-not-allowed flex items-center justify-center gap-1.5 opacity-60" disabled>
-                        Out of Stock
-                    </button>
-                    ` : (qty === 0 ? `
-                    <button type="button" class="clay-btn clay-btn-primary w-full rounded-2xl py-3 text-xs font-black shadow-md active:scale-95 transition-transform flex items-center justify-center gap-2 cursor-pointer" id="modal-add-btn">
-                        <span class="material-symbols-outlined text-base">add_shopping_cart</span>
-                        <span>Add to Cart · ₹${pPrice}</span>
-                    </button>
-                    ` : `
-                    <div class="flex items-center justify-between clay-card rounded-2xl p-2 px-4 shadow-sm">
-                        <span class="text-xs font-bold text-slate-700 dark:text-slate-300">Quantity in Cart:</span>
-                        <div class="card-qty-stepper flex items-center">
-                            <button type="button" class="card-qty-btn card-dec-btn" id="modal-dec-btn">
-                                <span class="material-symbols-outlined text-[13px] font-bold">remove</span>
-                            </button>
-                            <span class="card-qty-val select-none">${qty}</span>
-                            <button type="button" class="card-qty-btn card-inc-btn ${qty >= stockLeft ? 'opacity-40 cursor-not-allowed' : ''}" id="modal-inc-btn" ${qty >= stockLeft ? 'disabled' : ''}>
-                                <span class="material-symbols-outlined text-[13px] font-bold">add</span>
-                            </button>
-                        </div>
-                    </div>
-                    `)}
-                </div>
+                <div class="pt-1.5" id="modal-action-container"></div>
             </div>
         `;
+        modal.dataset.productId = pid;
+        renderModalActionContainer(pid, pPrice, stockLeft, isOutOfStock);
 
-        // Bind Modal Action Buttons with Atomic Debounced Sync
-        const modalAddBtn = document.getElementById('modal-add-btn');
-        if (modalAddBtn) {
-            modalAddBtn.onclick = () => {
-                if (isOutOfStock) {
-                    if (typeof window.showClientToast === 'function') window.showClientToast('This item is currently out of stock', 'warning', 'inventory_2');
-                    return;
-                }
-                window.setOptimisticCartQuantity(pid, 1, stockLeft, () => {
-                    if (document.getElementById('product-modal')) window.openProductModal(pid);
-                });
-                window.openProductModal(pid);
-            };
-        }
-        const modalIncBtn = document.getElementById('modal-inc-btn');
-        if (modalIncBtn) {
-            modalIncBtn.onclick = () => {
-                const currentQty = window.cartState?.[pid]?.quantity || 0;
-                if (currentQty >= stockLeft) {
-                    if (typeof window.showClientToast === 'function') {
-                        window.showClientToast(`⚠️ Only ${stockLeft} unit${stockLeft === 1 ? '' : 's'} available in stock!`, 'warning', 'inventory_2');
-                    }
-                    return;
-                }
-                window.setOptimisticCartQuantity(pid, currentQty + 1, stockLeft, () => {
-                    if (document.getElementById('product-modal')) window.openProductModal(pid);
-                });
-                window.openProductModal(pid);
-            };
-        }
-        const modalDecBtn = document.getElementById('modal-dec-btn');
-        if (modalDecBtn) {
-            modalDecBtn.onclick = () => {
-                const currentQty = window.cartState?.[pid]?.quantity || 0;
-                window.setOptimisticCartQuantity(pid, Math.max(0, currentQty - 1), stockLeft, () => {
-                    if (document.getElementById('product-modal')) window.openProductModal(pid);
-                });
-                window.openProductModal(pid);
-            };
-        }
     } catch(e) {
         console.error('[Product Modal Error]:', e);
         modal.innerHTML = `
@@ -662,6 +600,83 @@ window.openProductModal = async function(productId) {
         `;
     }
 };
+
+// Render modal action container in-place (Zero modal unmounting / zero off-screen jumps)
+function renderModalActionContainer(productId, pPrice, stockLeft, isOutOfStock) {
+    const container = document.getElementById('modal-action-container');
+    if (!container) return;
+    const cartInfo = window.cartState ? window.cartState[productId] : null;
+    const qty = cartInfo ? cartInfo.quantity : 0;
+
+    if (isOutOfStock || stockLeft <= 0) {
+        container.innerHTML = `
+            <button type="button" class="w-full clay-pill text-slate-400 rounded-2xl py-3 text-xs font-bold cursor-not-allowed flex items-center justify-center gap-1.5 opacity-60" disabled>
+                Out of Stock
+            </button>
+        `;
+        return;
+    }
+
+    if (qty === 0) {
+        container.innerHTML = `
+            <button type="button" class="clay-btn clay-btn-primary w-full rounded-2xl py-3 text-xs font-black shadow-md active:scale-95 transition-transform flex items-center justify-center gap-2 cursor-pointer" id="modal-add-btn">
+                <span class="material-symbols-outlined text-base">add_shopping_cart</span>
+                <span>Add to Cart · ₹${pPrice}</span>
+            </button>
+        `;
+        const modalAddBtn = document.getElementById('modal-add-btn');
+        if (modalAddBtn) {
+            modalAddBtn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.setOptimisticCartQuantity(productId, 1, stockLeft);
+                renderModalActionContainer(productId, pPrice, stockLeft, isOutOfStock);
+            };
+        }
+    } else {
+        const isMaxReached = qty >= stockLeft;
+        container.innerHTML = `
+            <div class="flex items-center justify-between clay-card rounded-2xl p-2 px-4 shadow-sm">
+                <span class="text-xs font-bold text-slate-700 dark:text-slate-300">Quantity in Cart:</span>
+                <div class="card-qty-stepper flex items-center">
+                    <button type="button" class="card-qty-btn card-dec-btn" id="modal-dec-btn" title="Decrease">
+                        <span class="material-symbols-outlined text-[13px] font-bold">remove</span>
+                    </button>
+                    <span class="card-qty-val select-none">${qty}</span>
+                    <button type="button" class="card-qty-btn card-inc-btn ${isMaxReached ? 'opacity-40 cursor-not-allowed' : ''}" id="modal-inc-btn" ${isMaxReached ? 'disabled' : ''} title="${isMaxReached ? `Only ${stockLeft} left` : 'Add one more'}">
+                        <span class="material-symbols-outlined text-[13px] font-bold">add</span>
+                    </button>
+                </div>
+            </div>
+        `;
+        const modalDecBtn = document.getElementById('modal-dec-btn');
+        if (modalDecBtn) {
+            modalDecBtn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const currentQty = window.cartState?.[productId]?.quantity || 0;
+                window.setOptimisticCartQuantity(productId, Math.max(0, currentQty - 1), stockLeft);
+                renderModalActionContainer(productId, pPrice, stockLeft, isOutOfStock);
+            };
+        }
+        const modalIncBtn = document.getElementById('modal-inc-btn');
+        if (modalIncBtn) {
+            modalIncBtn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const currentQty = window.cartState?.[productId]?.quantity || 0;
+                if (currentQty >= stockLeft) {
+                    if (typeof window.showClientToast === 'function') {
+                        window.showClientToast(`⚠️ Only ${stockLeft} unit${stockLeft === 1 ? '' : 's'} available in stock!`, 'warning', 'inventory_2');
+                    }
+                    return;
+                }
+                window.setOptimisticCartQuantity(productId, currentQty + 1, stockLeft);
+                renderModalActionContainer(productId, pPrice, stockLeft, isOutOfStock);
+            };
+        }
+    }
+}
 
 // Render slot markup for a single product without rebuilding everything
 function renderSlotContent(productId, slotEl) {
@@ -708,6 +723,15 @@ window.updateSingleProductSlot = function(productId) {
     document.querySelectorAll(`.product-action-slot[data-id="${productId}"]`).forEach(slot => {
         renderSlotContent(productId, slot);
     });
+    // In-place update for open modal if present
+    const modalEl = document.getElementById('product-modal');
+    if (modalEl && modalEl.dataset.productId === productId) {
+        const cached = window.__cachedProducts?.get(productId);
+        const pPrice = Number(cached?.price) || 0;
+        const stockLeft = cached?.stock_left !== undefined ? Number(cached.stock_left) : 50;
+        const isOutOfStock = cached ? !cached.in_stock : false;
+        renderModalActionContainer(productId, pPrice, stockLeft, isOutOfStock);
+    }
     if (typeof window.updateGlobalCartBadges === 'function') {
         window.updateGlobalCartBadges();
     }
@@ -784,10 +808,6 @@ window.updateFloatingCartBar = function() {
         topProducts.forEach((pid, index) => {
             const p = window.__cachedProducts?.get(pid);
             let imgUrl = p?.image_url;
-            if (!imgUrl) {
-                const cardImg = document.querySelector(`.product-card-item[data-product-id="${pid}"] img`);
-                if (cardImg && cardImg.src) imgUrl = cardImg.src;
-            }
             if (!imgUrl) imgUrl = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=120';
             const pName = p?.name || 'Item';
             thumbsHTML += `
@@ -814,11 +834,15 @@ window.updateFloatingCartBar = function() {
         floatingBar.style.bottom = '6rem';
     }
 
-    // Animate into view
-    floatingBar.classList.remove('hidden');
-    requestAnimationFrame(() => {
+    // Smooth reveal without layout jumps
+    if (floatingBar.classList.contains('hidden')) {
+        floatingBar.classList.remove('hidden');
+        requestAnimationFrame(() => {
+            floatingBar.classList.remove('translate-y-12', 'opacity-0', 'pointer-events-none');
+        });
+    } else {
         floatingBar.classList.remove('translate-y-12', 'opacity-0', 'pointer-events-none');
-    });
+    }
 };
 
 // Global Cart Count Badges Synchronizer (Bottom Nav, Header Badges & Floating Cart Bar)
