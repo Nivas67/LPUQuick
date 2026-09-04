@@ -1,4 +1,4 @@
-// Checkout Page — Real Backend Order Placement + Interactive Slide Confirmation + Real-Time Live Status Timeline
+// Checkout Page — Classical Campus Quick-Commerce Checkout & Order Confirmation
 window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
@@ -44,105 +44,85 @@ window.pages.checkout = async function() {
         const discPercent = hasItemDiscount ? Math.round(((itemMrp - itemPrice) / itemMrp) * 100) : 0;
 
         return `
-        <div class="flex items-center justify-between py-3 border-b border-surface-variant/30 text-xs sm:text-sm cart-checkout-row" data-cart-id="${item.cart_id}">
-            <div class="flex items-center gap-3 min-w-0">
-                <img class="w-11 h-11 rounded-xl object-cover bg-surface-container-high flex-shrink-0" src="${item.image_url}" alt="${item.name}" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=100'">
+        <div class="flex items-center justify-between py-2.5 border-b border-border text-xs cart-checkout-row" data-cart-id="${item.cart_id}">
+            <div class="flex items-center gap-2.5 min-w-0">
+                <div class="w-10 h-10 rounded-lg bg-slate-50 dark:bg-slate-800/60 p-0.5 shrink-0 flex items-center justify-center border border-border">
+                    <img class="w-full h-full object-contain" src="${item.image_url}" alt="${item.name}" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=100'">
+                </div>
                 <div class="min-w-0">
-                    <p class="font-semibold text-on-surface truncate">${item.name}</p>
+                    <p class="font-semibold text-slate-900 dark:text-white truncate">${item.name}</p>
                     <div class="flex items-center gap-1.5 mt-0.5">
-                        <span class="text-[11px] text-on-surface-variant font-medium">₹${itemPrice} each</span>
-                        ${hasItemDiscount ? `<span class="line-through text-[10px] text-on-surface-variant/60">₹${itemMrp}</span> <span class="text-[10px] text-emerald font-bold bg-emerald/15 px-1 py-0.2 rounded">${discPercent}% OFF</span>` : ''}
+                        <span class="text-[11px] text-slate-500 dark:text-slate-400">₹${itemPrice}</span>
+                        ${hasItemDiscount ? `<span class="line-through text-[10px] text-slate-400">₹${itemMrp}</span> <span class="text-[9px] text-emerald-700 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-1 rounded">${discPercent}% OFF</span>` : ''}
                     </div>
                 </div>
             </div>
             
-            <div class="flex items-center gap-2 flex-shrink-0 ml-2">
-                <div class="cart-qty-stepper flex items-center gap-2 rounded-full px-2 py-0.5">
-                    <button class="w-6 h-6 rounded-full flex items-center justify-center active:scale-90 transition-all checkout-qty-dec" data-id="${item.cart_id}" data-qty="${item.quantity}">
-                        <span class="material-symbols-outlined text-sm">remove</span>
+            <div class="flex items-center gap-2 shrink-0 ml-2">
+                <div class="card-qty-stepper flex items-center shrink-0">
+                    <button class="checkout-qty-dec" data-id="${item.cart_id}" data-qty="${item.quantity}">
+                        <span class="material-symbols-outlined text-xs">remove</span>
                     </button>
-                    <span class="font-bold text-xs w-3 text-center">${item.quantity}</span>
-                    <button class="w-6 h-6 rounded-full flex items-center justify-center active:scale-90 transition-all checkout-qty-inc" data-id="${item.cart_id}" data-qty="${item.quantity}">
-                        <span class="material-symbols-outlined text-sm">add</span>
+                    <span class="qty-num">${item.quantity}</span>
+                    <button class="checkout-qty-inc" data-id="${item.cart_id}" data-qty="${item.quantity}">
+                        <span class="material-symbols-outlined text-xs">add</span>
                     </button>
                 </div>
-                <span class="font-bold text-on-surface text-xs sm:text-sm w-12 text-right">₹${item.quantity * itemPrice}</span>
+                <span class="font-bold text-slate-900 dark:text-white text-xs w-12 text-right">₹${item.quantity * itemPrice}</span>
             </div>
         </div>
     `}).join('');
 
     return `
-<style>
-@keyframes pulseGlow {
-    0% { transform: scale(0.9); opacity: 0.8; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
-    70% { transform: scale(1.15); opacity: 0.15; box-shadow: 0 0 0 16px rgba(16, 185, 129, 0); }
-    100% { transform: scale(0.9); opacity: 0; }
-}
-.success-ripple-ring {
-    animation: pulseGlow 2.2s infinite cubic-bezier(0.25, 1, 0.5, 1);
-}
-@keyframes successBadgePop {
-    0% { transform: scale(0.4); opacity: 0; }
-    60% { transform: scale(1.1); opacity: 1; }
-    100% { transform: scale(1); opacity: 1; }
-}
-.success-badge-anim {
-    animation: successBadgePop 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-}
-.timeline-dot {
-    transition: all 0.35s ease;
-}
-</style>
-
-<div class="bg-background text-on-background font-body-md min-h-screen pb-32">
+<div class="bg-background text-on-background min-h-screen pb-32">
     <!-- TopAppBar -->
-    <header class="px-margin-mobile md:px-margin-desktop py-4 flex items-center justify-between sticky top-0 bg-surface/80 backdrop-blur-md z-40 border-b border-glass-border">
+    <header class="px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 bg-surface/95 backdrop-blur-md z-40 border-b border-border shadow-xs">
         <div class="flex items-center gap-3">
-            <a href="#/cart" class="p-2 hover:bg-surface-variant/50 rounded-full transition-colors" id="checkout-back-link">
-                <span class="material-symbols-outlined text-on-surface">arrow_back</span>
+            <a href="#/cart" class="w-9 h-9 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-700 dark:text-slate-200" id="checkout-back-link">
+                <span class="material-symbols-outlined text-xl">arrow_back</span>
             </a>
-            <h1 class="font-headline-md text-base sm:text-lg font-bold text-on-surface" id="checkout-header-title">Checkout</h1>
+            <h1 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-tight" id="checkout-header-title">Checkout</h1>
         </div>
-        <div class="flex items-center gap-1 text-xs bg-emerald/10 text-emerald px-3 py-1.5 rounded-full font-semibold">
-            <span class="material-symbols-outlined text-sm">bolt</span>
-            <span>3 mins ETA</span>
+        <div class="flex items-center gap-1 text-[11px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-800/50 px-2.5 py-1 rounded-full font-semibold">
+            <span class="material-symbols-outlined text-sm">electric_bolt</span>
+            <span>3 mins delivery</span>
         </div>
     </header>
 
-    <main class="px-margin-mobile md:px-margin-desktop max-w-2xl mx-auto pt-6 space-y-5" id="checkout-main-container">
-        <!-- Pre-Order Section (Visible Before Order Placement) -->
-        <div id="checkout-form-section" class="space-y-5 transition-all duration-300">
+    <main class="px-4 sm:px-6 max-w-2xl mx-auto pt-5 space-y-4" id="checkout-main-container">
+        <!-- Pre-Order Section -->
+        <div id="checkout-form-section" class="space-y-4 transition-all duration-200">
             
             ${!window.isUserLoggedIn() ? `
             <!-- Sign In Required Banner -->
-            <div class="glass-card rounded-3xl p-4 border border-amber-500/40 bg-amber-500/10 flex items-center justify-between shadow-sm">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-500 flex items-center justify-center flex-shrink-0">
-                        <span class="material-symbols-outlined text-xl">account_circle</span>
+            <div class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl p-3.5 flex items-center justify-between text-xs">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-lg">account_circle</span>
                     </div>
                     <div>
-                        <p class="font-bold text-xs sm:text-sm text-on-surface">Sign In Required to Order</p>
-                        <p class="text-[11px] text-on-surface-variant">Sign in to confirm delivery to your room.</p>
+                        <p class="font-bold text-slate-900 dark:text-white">Sign In Required</p>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400">Sign in to confirm delivery to your campus hostel room.</p>
                     </div>
                 </div>
-                <a href="#/signin" onclick="localStorage.setItem('lpuquick_redirect', '#/checkout')" class="bg-emerald text-white px-4 py-2 rounded-full text-xs font-bold shadow-md hover:bg-primary transition-all active:scale-95 flex items-center gap-1">
+                <a href="#/signin" onclick="localStorage.setItem('lpuquick_redirect', '#/checkout')" class="bg-emerald text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold hover:bg-emerald-600 transition-colors flex items-center gap-1">
                     <span>Sign In</span>
                     <span class="material-symbols-outlined text-xs">arrow_forward</span>
                 </a>
             </div>
             ` : !window.hasUserConfiguredAddress() ? `
             <!-- Room Address & Mobile Required Banner -->
-            <div class="glass-card rounded-3xl p-4 border border-rose-500/40 bg-rose-500/10 flex items-center justify-between shadow-sm">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-500 flex items-center justify-center flex-shrink-0">
-                        <span class="material-symbols-outlined text-xl">contact_phone</span>
+            <div class="bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50 rounded-xl p-3.5 flex items-center justify-between text-xs">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-300 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-lg">contact_phone</span>
                     </div>
                     <div>
-                        <p class="font-bold text-xs sm:text-sm text-on-surface">Delivery Address & Mobile Required</p>
-                        <p class="text-[11px] text-on-surface-variant">Hostel room and 10-digit mobile are mandatory for delivery runner.</p>
+                        <p class="font-bold text-slate-900 dark:text-white">Address & Mobile Required</p>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400">Hostel room and 10-digit mobile are mandatory for delivery runner.</p>
                     </div>
                 </div>
-                <button type="button" onclick="window.openAddressModal(true, () => window.router())" class="bg-emerald text-white px-4 py-2 rounded-full text-xs font-bold shadow-md hover:bg-primary transition-all active:scale-95 flex items-center gap-1 cursor-pointer">
+                <button type="button" onclick="window.openAddressModal(true, () => window.router())" class="bg-emerald text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold hover:bg-emerald-600 transition-colors flex items-center gap-1 cursor-pointer">
                     <span>Add Now</span>
                     <span class="material-symbols-outlined text-xs">arrow_forward</span>
                 </button>
@@ -150,25 +130,25 @@ window.pages.checkout = async function() {
             ` : ''}
 
             <!-- Delivery Address Card -->
-            <div class="glass-card rounded-3xl p-5 border border-glass-border shadow-sm">
+            <div class="bg-surface border border-border rounded-xl p-4 shadow-xs">
                 <div class="flex justify-between items-start">
                     <div class="flex items-start gap-3">
-                        <div class="w-10 h-10 rounded-2xl bg-emerald/10 text-emerald flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <span class="material-symbols-outlined text-xl">location_on</span>
+                        <div class="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 border border-emerald-200/50 dark:border-emerald-800/50">
+                            <span class="material-symbols-outlined text-base">location_on</span>
                         </div>
                         <div>
                             <div class="flex items-center gap-2">
-                                <h3 class="font-bold text-on-surface text-sm sm:text-base">Hostel Delivery Destination</h3>
-                                <span class="text-[10px] bg-emerald/20 text-emerald px-2 py-0.5 rounded font-bold">Express 3m</span>
+                                <h3 class="font-bold text-slate-900 dark:text-white text-xs sm:text-sm">Hostel Delivery Destination</h3>
+                                <span class="text-[10px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.2 rounded font-semibold">3 mins</span>
                             </div>
-                            <p class="text-xs text-on-surface-variant mt-0.5" id="checkout-address-text">${address}</p>
+                            <p class="text-xs text-slate-600 dark:text-slate-300 mt-0.5" id="checkout-address-text">${address}</p>
                             ${(!savedPhone || savedPhone.length !== 10) ? `
-                            <p class="text-[11px] text-rose-500 font-bold mt-1 flex items-center gap-1">
-                                <span class="material-symbols-outlined text-xs">warning</span> Mobile number missing! Required for delivery runner.
+                            <p class="text-[11px] text-rose-600 dark:text-rose-400 font-medium mt-1 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-xs">warning</span> Mobile number missing! Required for runner.
                             </p>
                             ` : `
-                            <p class="text-[11px] text-emerald font-semibold mt-1 flex items-center gap-1">
-                                <span class="w-1.5 h-1.5 rounded-full bg-emerald"></span> Verified Contact for Runner Delivery (3 Mins)
+                            <p class="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium mt-1 flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald"></span> Verified Contact for Runner Delivery
                             </p>
                             `}
                         </div>
@@ -178,322 +158,309 @@ window.pages.checkout = async function() {
             </div>
 
             <!-- Order Items Summary -->
-            <div class="glass-card rounded-3xl p-5 border border-glass-border shadow-sm">
-                <h3 class="font-bold text-sm sm:text-base text-on-surface mb-2 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary text-lg">shopping_bag</span>
+            <div class="bg-surface border border-border rounded-xl p-4 shadow-xs">
+                <h3 class="font-bold text-xs sm:text-sm text-slate-900 dark:text-white mb-2 flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-base text-emerald">shopping_bag</span>
                     Order Items (${cartData.item_count || 0})
                 </h3>
-                <div class="divide-y divide-surface-variant/30">
-                    ${itemRows || '<p class="text-xs text-on-surface-variant py-2">No items in cart.</p>'}
+                <div class="divide-y divide-border">
+                    ${itemRows || '<p class="text-xs text-slate-500 py-2">No items in cart.</p>'}
                 </div>
             </div>
 
-            <!-- Honest Breakdown Card (100% Free Delivery & Free Handling Offer) -->
-            <div class="glass-card rounded-3xl p-5 sm:p-6 border border-glass-border shadow-sm space-y-4">
-                <div class="flex items-center justify-between">
-                    <h3 class="font-bold text-base text-on-surface flex items-center gap-2">
-                        <span class="material-symbols-outlined text-emerald text-xl">receipt</span>
-                        Honest Breakdown
+            <!-- Bill Breakdown Card -->
+            <div class="bg-surface border border-border rounded-xl p-4 shadow-xs space-y-3">
+                <div class="flex items-center justify-between pb-2 border-b border-border">
+                    <h3 class="font-bold text-xs sm:text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-base text-emerald">receipt</span>
+                        Bill Breakdown
                     </h3>
-                    <span class="text-xs text-on-surface-variant">Zero hidden charges</span>
+                    <span class="text-[11px] text-slate-500">Zero hidden fees</span>
                 </div>
 
-                <div class="space-y-3 text-xs sm:text-sm">
+                <div class="space-y-2 text-xs">
                     ${mrpDiscount > 0 ? `
-                    <!-- Total MRP Value -->
-                    <div class="flex justify-between items-center">
-                        <span class="bill-row-label">Total MRP Value</span>
-                        <span class="bill-strikethrough text-xs sm:text-sm">₹${totalMrp}</span>
+                    <div class="flex justify-between items-center text-slate-600 dark:text-slate-400">
+                        <span>Total MRP Value</span>
+                        <span class="line-through text-slate-400">₹${totalMrp}</span>
                     </div>
 
-                    <!-- Product MRP Discount -->
-                    <div class="flex justify-between items-center text-emerald-600 dark:text-emerald-400 font-semibold">
+                    <div class="flex justify-between items-center text-emerald-700 dark:text-emerald-400 font-medium">
                         <span>Product Discount</span>
-                        <span class="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-lg font-bold text-xs">-₹${mrpDiscount}</span>
+                        <span>-₹${mrpDiscount}</span>
                     </div>
                     ` : ''}
 
-                    <!-- Item Total -->
-                    <div class="flex justify-between items-center">
-                        <span class="bill-row-label">Item Subtotal</span>
-                        <span class="bill-row-val font-bold" id="checkout-subtotal-val">₹${subtotal}</span>
+                    <div class="flex justify-between items-center text-slate-700 dark:text-slate-300">
+                        <span>Item Subtotal</span>
+                        <span class="font-bold text-slate-900 dark:text-white" id="checkout-subtotal-val">₹${subtotal}</span>
                     </div>
 
                     ${hasDiscount ? `
-                    <!-- 5% Bulk Offer -->
-                    <div class="flex justify-between items-center text-emerald-600 dark:text-emerald-400 font-semibold">
-                        <span>5% Bulk Offer (&gt;₹350)</span>
-                        <span class="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-lg font-bold text-xs">-₹${discount5}</span>
+                    <div class="flex justify-between items-center text-emerald-700 dark:text-emerald-400 font-medium">
+                        <span>5% Bulk Offer</span>
+                        <span>-₹${discount5}</span>
                     </div>
                     ` : ''}
 
-                    <!-- Delivery Partner Fee -->
-                    <div class="flex justify-between items-center">
-                        <span class="bill-row-label">Delivery Fee</span>
+                    <div class="flex justify-between items-center text-slate-600 dark:text-slate-400">
+                        <span>Delivery Fee</span>
                         <div class="flex items-center gap-1.5">
-                            <span class="bill-strikethrough text-xs">₹25</span>
-                            <span class="font-bold text-emerald-600 dark:text-emerald-400 text-xs">FREE</span>
+                            <span class="line-through text-[11px] text-slate-400">₹25</span>
+                            <span class="font-bold text-emerald-600 dark:text-emerald-400">FREE</span>
                         </div>
                     </div>
 
-                    <!-- Handling Fee -->
-                    <div class="flex justify-between items-center">
-                        <span class="bill-row-label">Handling & Bag Fee</span>
+                    <div class="flex justify-between items-center text-slate-600 dark:text-slate-400">
+                        <span>Handling & Bag</span>
                         <div class="flex items-center gap-1.5">
-                            <span class="bill-strikethrough text-xs">₹5</span>
-                            <span class="font-bold text-emerald-600 dark:text-emerald-400 text-xs">FREE</span>
+                            <span class="line-through text-[11px] text-slate-400">₹5</span>
+                            <span class="font-bold text-emerald-600 dark:text-emerald-400">FREE</span>
                         </div>
                     </div>
                     
-                    <!-- Grand Total To Pay -->
-                    <div class="border-t border-glass-border pt-3.5 mt-2 flex justify-between items-center text-base sm:text-lg font-bold">
+                    <div class="border-t border-border pt-2.5 mt-2 flex justify-between items-center text-sm font-bold">
                         <div>
-                            <span class="bill-total-label">Total to Pay</span>
-                            <p class="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">100% Free Campus Delivery</p>
+                            <span class="text-slate-900 dark:text-white">Total to Pay</span>
+                            <p class="text-[10px] text-emerald font-medium">Free campus delivery</p>
                         </div>
-                        <span class="text-2xl bill-total-val font-display font-black" id="checkout-total-val">₹${exactTotal}</span>
+                        <span class="text-xl font-extrabold text-slate-900 dark:text-white" id="checkout-total-val">₹${exactTotal}</span>
                     </div>
                 </div>
 
                 <!-- Savings Banner -->
-                <div class="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
-                    <span class="material-symbols-outlined text-base">savings</span>
-                    <span>🎉 Total Savings: ₹${totalSavings} applied!</span>
+                <div class="p-2.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/40 rounded-lg flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-300 font-medium">
+                    <span class="material-symbols-outlined text-base text-emerald">savings</span>
+                    <span>Total Savings: ₹${totalSavings} applied</span>
                 </div>
             </div>
 
-            <!-- Payment Method Selection (Online Transactions Blocked / Coming Soon, COD Active) -->
-            <div class="glass-card rounded-3xl p-5 border border-glass-border shadow-sm space-y-3">
+            <!-- Payment Method Selection -->
+            <div class="bg-surface border border-border rounded-xl p-4 shadow-xs space-y-3">
                 <div class="flex items-center justify-between">
-                    <h3 class="font-bold text-sm text-on-surface">Select Payment Method</h3>
-                    <span class="text-[10px] text-emerald font-semibold bg-emerald/10 px-2 py-0.5 rounded-full">COD Active</span>
+                    <h3 class="font-bold text-xs sm:text-sm text-slate-900 dark:text-white">Payment Method</h3>
+                    <span class="text-[10px] text-emerald font-semibold bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">Cash on Delivery Active</span>
                 </div>
                 
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5" id="payment-options">
-                    <!-- 1. Cash on Delivery (ACTIVE & DEFAULT) -->
-                    <label class="flex items-center gap-2.5 p-3 rounded-2xl border-2 border-emerald bg-emerald/5 cursor-pointer payment-option-label relative" data-method="cod">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2" id="payment-options">
+                    <!-- 1. Cash on Delivery (ACTIVE) -->
+                    <label class="flex items-center gap-2.5 p-3 rounded-lg border-2 border-emerald bg-emerald-50/50 dark:bg-emerald-950/20 cursor-pointer payment-option-label relative" data-method="cod">
                         <input type="radio" name="paymentMethod" value="cod" checked class="text-emerald focus:ring-emerald">
                         <div>
                             <div class="flex items-center gap-1.5">
-                                <p class="font-bold text-xs text-on-surface">Cash on Delivery</p>
-                                <span class="text-[9px] bg-emerald text-white font-extrabold px-1.5 py-0.2 rounded-full">Active</span>
+                                <p class="font-bold text-xs text-slate-900 dark:text-white">Cash on Delivery</p>
                             </div>
-                            <p class="text-[10px] text-on-surface-variant mt-0.5">Pay at BH13 room/gate</p>
+                            <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Pay at BH13 room/gate</p>
                         </div>
                     </label>
 
-                    <!-- 2. UPI / GPay / QR (BLOCKED - COMING SOON) -->
-                    <div class="flex items-center gap-2.5 p-3 rounded-2xl border border-surface-variant/40 bg-surface-container-high/40 opacity-60 cursor-pointer payment-blocked-trigger relative group hover:opacity-80 transition-opacity" data-title="Online UPI Payments">
-                        <input type="radio" name="paymentMethod" value="upi" disabled class="text-neutral-400">
+                    <!-- 2. UPI / GPay / QR (Soon) -->
+                    <div class="flex items-center gap-2.5 p-3 rounded-lg border border-border bg-slate-50 dark:bg-slate-800/40 opacity-60 cursor-pointer payment-blocked-trigger relative" data-title="Online UPI Payments">
+                        <input type="radio" name="paymentMethod" value="upi" disabled class="text-slate-400">
                         <div class="min-w-0">
                             <div class="flex items-center gap-1.5">
-                                <p class="font-semibold text-xs text-on-surface-variant truncate">UPI / GPay / QR</p>
-                                <span class="text-[8px] bg-amber-500 text-white font-extrabold px-1.5 py-0.2 rounded-full">Soon 🔒</span>
+                                <p class="font-medium text-xs text-slate-600 dark:text-slate-400 truncate">UPI / QR</p>
+                                <span class="text-[8px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold px-1 rounded">Soon</span>
                             </div>
-                            <p class="text-[10px] text-on-surface-variant">Merchant KYC in progress</p>
+                            <p class="text-[10px] text-slate-400">KYC onboarding</p>
                         </div>
                     </div>
 
-                    <!-- 3. Cards / NetBanking (BLOCKED - COMING SOON) -->
-                    <div class="flex items-center gap-2.5 p-3 rounded-2xl border border-surface-variant/40 bg-surface-container-high/40 opacity-60 cursor-pointer payment-blocked-trigger relative group hover:opacity-80 transition-opacity" data-title="Card & NetBanking">
-                        <input type="radio" name="paymentMethod" value="card" disabled class="text-neutral-400">
+                    <!-- 3. Cards / NetBanking (Soon) -->
+                    <div class="flex items-center gap-2.5 p-3 rounded-lg border border-border bg-slate-50 dark:bg-slate-800/40 opacity-60 cursor-pointer payment-blocked-trigger relative" data-title="Card & NetBanking">
+                        <input type="radio" name="paymentMethod" value="card" disabled class="text-slate-400">
                         <div class="min-w-0">
                             <div class="flex items-center gap-1.5">
-                                <p class="font-semibold text-xs text-on-surface-variant truncate">Cards / NetBanking</p>
-                                <span class="text-[8px] bg-amber-500 text-white font-extrabold px-1.5 py-0.2 rounded-full">Soon 🔒</span>
+                                <p class="font-medium text-xs text-slate-600 dark:text-slate-400 truncate">Cards</p>
+                                <span class="text-[8px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold px-1 rounded">Soon</span>
                             </div>
-                            <p class="text-[10px] text-on-surface-variant">Visa, Master, Rupay</p>
+                            <p class="text-[10px] text-slate-400">Visa / Master</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Error Banner (Hidden by default) -->
-            <div id="checkout-error-banner" class="hidden p-4 bg-error/10 border border-error/30 rounded-2xl flex items-start gap-3 text-xs text-error">
-                <span class="material-symbols-outlined text-lg flex-shrink-0 mt-0.5">error</span>
+            <!-- Error Banner -->
+            <div id="checkout-error-banner" class="hidden p-3.5 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50 rounded-xl flex items-start gap-2.5 text-xs text-rose-700 dark:text-rose-400">
+                <span class="material-symbols-outlined text-base shrink-0 mt-0.5">error</span>
                 <div class="flex-1">
-                    <p class="font-bold text-sm">Couldn't place your order</p>
-                    <p class="text-on-surface-variant mt-0.5" id="checkout-error-msg">Please check your connection and try again.</p>
-                    <button type="button" id="checkout-retry-btn" class="mt-2 bg-error text-white font-bold px-3 py-1 rounded-full text-xs hover:opacity-90 active:scale-95 transition-all">
+                    <p class="font-bold">Couldn't place order</p>
+                    <p class="text-slate-600 dark:text-slate-400 mt-0.5" id="checkout-error-msg">Please check your connection and try again.</p>
+                    <button type="button" id="checkout-retry-btn" class="mt-2 bg-rose-600 text-white font-semibold px-3 py-1 rounded-md text-xs hover:bg-rose-700 transition-colors cursor-pointer">
                         Try Again
                     </button>
                 </div>
             </div>
 
-            <!-- Slide to Pay Interaction Component -->
-            <div class="pt-2">
+            <!-- Slide or Tap to Place Order -->
+            <div class="pt-1">
                 ${!window.hasUserConfiguredAddress() ? `
-                <button type="button" onclick="window.openAddressModal(true, () => { if (typeof window.router === 'function') window.router(); })" class="w-full py-4 px-6 rounded-2xl bg-emerald hover:bg-primary text-white font-bold text-sm shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98]">
-                    <span class="material-symbols-outlined text-lg">home_pin</span>
+                <button type="button" onclick="window.openAddressModal(true, () => { if (typeof window.router === 'function') window.router(); })" class="w-full py-3.5 px-5 rounded-xl bg-emerald hover:bg-emerald-600 text-white font-semibold text-xs sm:text-sm shadow-xs flex items-center justify-center gap-2 cursor-pointer transition-colors">
+                    <span class="material-symbols-outlined text-base">home_pin</span>
                     <span>Set Hostel Room Address to Complete Order (₹${exactTotal})</span>
                 </button>
                 ` : `
                 <div class="slider-track select-none" id="pay-slider-track">
                     <div class="slider-progress" id="pay-slider-progress"></div>
                     <div class="slider-thumb flex items-center justify-center select-none" id="pay-slider-thumb">
-                        <span class="material-symbols-outlined" id="thumb-icon">arrow_forward</span>
+                        <span class="material-symbols-outlined text-base" id="thumb-icon">arrow_forward</span>
                     </div>
-                    <div class="slider-text text-sm sm:text-base select-none" id="pay-slider-text">
+                    <div class="slider-text text-xs sm:text-sm select-none" id="pay-slider-text">
                         Slide to Confirm Order ₹${exactTotal}
                     </div>
                 </div>
                 
-                <div class="mt-3.5 flex flex-col gap-2">
-                    <button type="button" class="w-full py-3.5 px-4 rounded-2xl bg-emerald/15 hover:bg-emerald/25 border border-emerald/40 text-emerald font-bold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all active:scale-[0.98]" id="tap-to-pay-btn">
-                        <span class="material-symbols-outlined text-lg">bolt</span>
-                        <span>⚡ 1-Tap Quick Place: Cash on Delivery (₹${exactTotal})</span>
+                <div class="mt-3 flex flex-col gap-1.5">
+                    <button type="button" class="w-full py-3 px-4 rounded-xl bg-emerald text-white hover:bg-emerald-600 font-semibold text-xs sm:text-sm flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors" id="tap-to-pay-btn">
+                        <span class="material-symbols-outlined text-base">bolt</span>
+                        <span>Place Cash on Delivery Order (₹${exactTotal})</span>
                     </button>
-                    <div class="flex items-center justify-center gap-1.5 text-[11px] text-on-surface-variant/70">
+                    <div class="flex items-center justify-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
                         <span class="material-symbols-outlined text-xs text-emerald">verified</span>
-                        <span>3-Minute Corridor Dispatch • Pay cash/UPI on room delivery</span>
+                        <span>3-Min Corridor Dispatch • Pay cash on room delivery</span>
                     </div>
                 </div>
                 `}
             </div>
         </div>
 
-        <!-- POST-ORDER SUCCESS SCREEN & REAL-TIME TIMELINE (Revealed on Real Backend Confirmation) -->
-        <div id="order-success-section" class="hidden space-y-5 transition-all duration-500">
+        <!-- POST-ORDER SUCCESS SCREEN & REAL-TIME TIMELINE -->
+        <div id="order-success-section" class="hidden space-y-4 transition-all duration-300">
             
             <!-- Success Hero Card -->
-            <div class="glass-card rounded-3xl p-6 sm:p-8 text-center border-2 border-emerald/40 shadow-xl space-y-4 relative overflow-hidden">
-                
-                <!-- Animated Success Badge with Ripple Rings -->
-                <div class="relative w-24 h-24 mx-auto flex items-center justify-center">
-                    <div class="absolute inset-0 rounded-full bg-emerald/20 success-ripple-ring"></div>
-                    <div class="w-18 h-18 sm:w-20 sm:h-20 rounded-full bg-emerald text-white flex items-center justify-center shadow-lg shadow-emerald/40 relative z-10 success-badge-anim">
-                        <span class="material-symbols-outlined text-4xl sm:text-5xl">check</span>
-                    </div>
+            <div class="bg-surface border border-emerald-200 dark:border-emerald-800/50 rounded-2xl p-6 text-center shadow-xs space-y-3">
+                <div class="w-14 h-14 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center mx-auto">
+                    <span class="material-symbols-outlined text-3xl">check</span>
                 </div>
 
-                <div class="space-y-1">
-                    <h2 class="font-headline-md text-2xl sm:text-3xl font-black text-on-surface">
+                <div class="space-y-0.5">
+                    <h2 class="text-xl font-bold text-slate-900 dark:text-white">
                         Order Placed!
                     </h2>
-                    <p class="text-xs sm:text-sm text-on-surface-variant max-w-md mx-auto font-medium">
-                        Your order has been successfully placed and logged with the Dark Store.
+                    <p class="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                        Your order is confirmed and received at the campus dark store.
                     </p>
                 </div>
 
                 <!-- Order Details Snapshot Card -->
-                <div class="bg-surface-container-high/80 rounded-2xl p-4 sm:p-5 border border-surface-variant/40 text-left space-y-2.5 text-xs sm:text-sm shadow-inner">
-                    <div class="flex justify-between items-center pb-2 border-b border-surface-variant/40">
-                        <span class="text-on-surface-variant font-medium">Order ID</span>
-                        <span class="font-black text-on-surface font-mono" id="success-order-id">#ORDER_PENDING</span>
+                <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3.5 border border-border text-left space-y-2 text-xs">
+                    <div class="flex justify-between items-center pb-2 border-b border-border">
+                        <span class="text-slate-500 dark:text-slate-400">Order ID</span>
+                        <span class="font-bold text-slate-900 dark:text-white font-mono" id="success-order-id">#ORDER_PENDING</span>
                     </div>
                     <div class="flex justify-between items-center">
-                        <span class="text-on-surface-variant font-medium">Total Amount</span>
-                        <span class="font-black text-emerald text-base" id="success-order-total">₹${exactTotal}</span>
+                        <span class="text-slate-500 dark:text-slate-400">Total Amount</span>
+                        <span class="font-bold text-emerald text-sm" id="success-order-total">₹${exactTotal}</span>
                     </div>
                     <div class="flex justify-between items-center">
-                        <span class="text-on-surface-variant font-medium">Payment Method</span>
-                        <span class="font-semibold text-on-surface" id="success-order-payment">Cash on Delivery</span>
+                        <span class="text-slate-500 dark:text-slate-400">Payment</span>
+                        <span class="font-medium text-slate-800 dark:text-slate-200" id="success-order-payment">Cash on Delivery</span>
                     </div>
-                    <div class="flex justify-between items-start pt-2 border-t border-surface-variant/40">
-                        <span class="text-on-surface-variant font-medium">Delivery Destination</span>
-                        <span class="font-semibold text-on-surface text-right max-w-[200px]" id="success-order-address">${address}</span>
+                    <div class="flex justify-between items-start pt-2 border-t border-border">
+                        <span class="text-slate-500 dark:text-slate-400">Destination</span>
+                        <span class="font-medium text-slate-800 dark:text-slate-200 text-right max-w-[200px]" id="success-order-address">${address}</span>
                     </div>
-                    <div class="p-2.5 bg-emerald/10 border border-emerald/20 rounded-xl flex items-center gap-2 text-xs text-emerald font-semibold mt-2">
+                    <div class="p-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/50 dark:border-emerald-800/40 rounded-lg flex items-center gap-1.5 text-[11px] text-emerald-800 dark:text-emerald-300 font-medium mt-1">
                         <span class="material-symbols-outlined text-sm">electric_bolt</span>
-                        <span id="success-order-dispatch-msg">⚡ Estimated delivery: 3 mins to ${address}</span>
+                        <span id="success-order-dispatch-msg">Estimated delivery: 3 mins to ${address}</span>
                     </div>
                 </div>
             </div>
 
             <!-- Real-Time Order Status Timeline Card -->
-            <div class="glass-card rounded-3xl p-6 border border-glass-border shadow-sm space-y-4">
-                <div class="flex justify-between items-center pb-2 border-b border-surface-variant/30">
-                    <h3 class="font-bold text-sm sm:text-base text-on-surface flex items-center gap-2">
-                        <span class="w-2.5 h-2.5 rounded-full bg-emerald animate-pulse"></span>
-                        Live Real-Time Order Status
+            <div class="bg-surface border border-border rounded-xl p-4 sm:p-5 shadow-xs space-y-3">
+                <div class="flex justify-between items-center pb-2 border-b border-border">
+                    <h3 class="font-bold text-xs sm:text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald"></span>
+                        Live Order Status
                     </h3>
-                    <span class="text-[10px] bg-emerald/15 text-emerald font-bold px-2.5 py-0.5 rounded-full" id="live-connection-badge">
-                        ● Live Backend
+                    <span class="text-[10px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-800/50 font-semibold px-2 py-0.5 rounded-full" id="live-connection-badge">
+                        ● Live
                     </span>
                 </div>
 
-                <!-- 5-Step Order Progression Timeline -->
-                <div class="space-y-4 relative pl-2" id="order-timeline-container">
+                <!-- 5-Step Progression Timeline -->
+                <div class="space-y-3.5 pl-1" id="order-timeline-container">
                     
                     <!-- Step 1: Order Placed -->
-                    <div class="flex items-start gap-3.5 relative group" id="timeline-step-1">
-                        <div class="w-7 h-7 rounded-full bg-emerald text-white flex items-center justify-center flex-shrink-0 z-10 timeline-dot shadow-sm">
-                            <span class="material-symbols-outlined text-sm">check</span>
+                    <div class="flex items-start gap-3" id="timeline-step-1">
+                        <div class="w-6 h-6 rounded-full bg-emerald text-white flex items-center justify-center shrink-0 timeline-dot">
+                            <span class="material-symbols-outlined text-xs">check</span>
                         </div>
                         <div class="flex-1 pt-0.5">
                             <div class="flex justify-between items-center">
-                                <h4 class="font-bold text-xs sm:text-sm text-on-surface">Order Placed</h4>
-                                <span class="text-[10px] text-on-surface-variant font-mono" id="timeline-time-1">Just now</span>
+                                <h4 class="font-bold text-xs text-slate-900 dark:text-white">Order Placed</h4>
+                                <span class="text-[10px] text-slate-400 font-mono" id="timeline-time-1">Just now</span>
                             </div>
-                            <p class="text-[11px] text-on-surface-variant">Order received and logged in database</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400">Order logged in database</p>
                         </div>
                     </div>
 
                     <!-- Step 2: Order Confirmed -->
-                    <div class="flex items-start gap-3.5 relative group opacity-50 transition-opacity" id="timeline-step-2">
-                        <div class="w-7 h-7 rounded-full bg-surface-container-high border-2 border-outline-variant text-on-surface-variant flex items-center justify-center flex-shrink-0 z-10 timeline-dot">
-                            <span class="material-symbols-outlined text-sm">radio_button_unchecked</span>
+                    <div class="flex items-start gap-3 opacity-50 transition-opacity" id="timeline-step-2">
+                        <div class="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 border border-border text-slate-400 flex items-center justify-center shrink-0 timeline-dot">
+                            <span class="material-symbols-outlined text-xs">radio_button_unchecked</span>
                         </div>
                         <div class="flex-1 pt-0.5">
                             <div class="flex justify-between items-center">
-                                <h4 class="font-semibold text-xs sm:text-sm text-on-surface" id="timeline-title-2">Order Confirmed</h4>
-                                <span class="text-[10px] text-on-surface-variant font-mono" id="timeline-time-2">--</span>
+                                <h4 class="font-semibold text-xs text-slate-800 dark:text-slate-200" id="timeline-title-2">Order Confirmed</h4>
+                                <span class="text-[10px] text-slate-400 font-mono" id="timeline-time-2">--</span>
                             </div>
-                            <p class="text-[11px] text-on-surface-variant">Dark Store verifying stock and items</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400">Dark store verifying items</p>
                         </div>
                     </div>
 
                     <!-- Step 3: Preparing -->
-                    <div class="flex items-start gap-3.5 relative group opacity-50 transition-opacity" id="timeline-step-3">
-                        <div class="w-7 h-7 rounded-full bg-surface-container-high border-2 border-outline-variant text-on-surface-variant flex items-center justify-center flex-shrink-0 z-10 timeline-dot">
-                            <span class="material-symbols-outlined text-sm">radio_button_unchecked</span>
+                    <div class="flex items-start gap-3 opacity-50 transition-opacity" id="timeline-step-3">
+                        <div class="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 border border-border text-slate-400 flex items-center justify-center shrink-0 timeline-dot">
+                            <span class="material-symbols-outlined text-xs">radio_button_unchecked</span>
                         </div>
                         <div class="flex-1 pt-0.5">
                             <div class="flex justify-between items-center">
-                                <h4 class="font-semibold text-xs sm:text-sm text-on-surface" id="timeline-title-3">Preparing</h4>
-                                <span class="text-[10px] text-on-surface-variant font-mono" id="timeline-time-3">--</span>
+                                <h4 class="font-semibold text-xs text-slate-800 dark:text-slate-200" id="timeline-title-3">Preparing</h4>
+                                <span class="text-[10px] text-slate-400 font-mono" id="timeline-time-3">--</span>
                             </div>
-                            <p class="text-[11px] text-on-surface-variant">Express packing at campus fulfillment dark store</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400">Packing at campus fulfillment hub</p>
                         </div>
                     </div>
 
-                    <!-- Step 4: Ready for Pickup / Out for Delivery -->
-                    <div class="flex items-start gap-3.5 relative group opacity-50 transition-opacity" id="timeline-step-4">
-                        <div class="w-7 h-7 rounded-full bg-surface-container-high border-2 border-outline-variant text-on-surface-variant flex items-center justify-center flex-shrink-0 z-10 timeline-dot">
-                            <span class="material-symbols-outlined text-sm">directions_walk</span>
+                    <!-- Step 4: Out for Delivery -->
+                    <div class="flex items-start gap-3 opacity-50 transition-opacity" id="timeline-step-4">
+                        <div class="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 border border-border text-slate-400 flex items-center justify-center shrink-0 timeline-dot">
+                            <span class="material-symbols-outlined text-xs">directions_walk</span>
                         </div>
                         <div class="flex-1 pt-0.5">
                             <div class="flex justify-between items-center">
-                                <h4 class="font-semibold text-xs sm:text-sm text-on-surface" id="timeline-title-4">Out for Delivery</h4>
-                                <span class="text-[10px] text-on-surface-variant font-mono" id="timeline-time-4">--</span>
+                                <h4 class="font-semibold text-xs text-slate-800 dark:text-slate-200" id="timeline-title-4">Out for Delivery</h4>
+                                <span class="text-[10px] text-slate-400 font-mono" id="timeline-time-4">--</span>
                             </div>
-                            <p class="text-[11px] text-on-surface-variant" id="timeline-desc-4">Campus runner walking from BH13 Hub to your room</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400" id="timeline-desc-4">Campus runner walking from BH13 Hub to your room</p>
                         </div>
                     </div>
 
                     <!-- Step 5: Delivered -->
-                    <div class="flex items-start gap-3.5 relative group opacity-50 transition-opacity" id="timeline-step-5">
-                        <div class="w-7 h-7 rounded-full bg-surface-container-high border-2 border-outline-variant text-on-surface-variant flex items-center justify-center flex-shrink-0 z-10 timeline-dot">
-                            <span class="material-symbols-outlined text-sm">radio_button_unchecked</span>
+                    <div class="flex items-start gap-3 opacity-50 transition-opacity" id="timeline-step-5">
+                        <div class="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 border border-border text-slate-400 flex items-center justify-center shrink-0 timeline-dot">
+                            <span class="material-symbols-outlined text-xs">radio_button_unchecked</span>
                         </div>
                         <div class="flex-1 pt-0.5">
                             <div class="flex justify-between items-center">
-                                <h4 class="font-semibold text-xs sm:text-sm text-on-surface" id="timeline-title-5">Delivered</h4>
-                                <span class="text-[10px] text-on-surface-variant font-mono" id="timeline-time-5">--</span>
+                                <h4 class="font-semibold text-xs text-slate-800 dark:text-slate-200" id="timeline-title-5">Delivered</h4>
+                                <span class="text-[10px] text-slate-400 font-mono" id="timeline-time-5">--</span>
                             </div>
-                            <p class="text-[11px] text-on-surface-variant">Package handed over at hostel room/gate</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400">Package handed over at hostel room/gate</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Navigation Actions (Visible & Stable - Never automatically navigates away immediately) -->
-            <div class="space-y-3 pt-2">
-                <button type="button" id="success-track-btn" class="w-full bg-emerald text-white font-bold text-xs sm:text-sm py-3.5 rounded-full shadow-lg shadow-emerald/30 hover:bg-primary active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2">
+            <!-- Actions -->
+            <div class="space-y-2 pt-1">
+                <button type="button" id="success-track-btn" class="w-full bg-emerald text-white font-semibold text-xs sm:text-sm py-3 rounded-lg shadow-xs hover:bg-emerald-600 transition-colors cursor-pointer flex items-center justify-center gap-1.5">
                     <span class="material-symbols-outlined text-base">location_on</span>
                     Track Order on Live Map
                 </button>
-                <a href="#/" id="success-continue-btn" class="w-full bg-surface-container-high border border-surface-variant/40 text-on-surface font-semibold text-xs sm:text-sm py-3 rounded-full hover:bg-surface-variant/50 active:scale-95 transition-all text-center block">
+                <a href="#/" id="success-continue-btn" class="w-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs sm:text-sm py-2.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-center block">
                     Continue Shopping
                 </a>
             </div>
@@ -501,9 +468,9 @@ window.pages.checkout = async function() {
     </main>
 
     <!-- Payment Blocked Toast Alert -->
-    <div id="payment-toast" class="fixed top-20 left-1/2 -translate-x-1/2 bg-surface-container-lowest/95 backdrop-blur-xl border border-amber-500/40 text-on-surface px-4 py-2.5 rounded-full shadow-2xl z-50 text-xs font-semibold flex items-center gap-2 transition-all duration-300 opacity-0 pointer-events-none -translate-y-4">
-        <span class="material-symbols-outlined text-amber-500 text-sm">lock</span>
-        <span id="payment-toast-text">Online payment is launching soon! Delivering with Cash on Delivery right now.</span>
+    <div id="payment-toast" class="fixed top-16 left-1/2 -translate-x-1/2 bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-2 rounded-lg shadow-lg z-50 text-xs font-medium flex items-center gap-2 transition-all duration-200 opacity-0 pointer-events-none -translate-y-2">
+        <span class="material-symbols-outlined text-amber-400 text-sm">lock</span>
+        <span id="payment-toast-text">Online payment coming soon! Delivering with Cash on Delivery right now.</span>
     </div>
 </div>`;
 };
@@ -543,15 +510,14 @@ window.pageInits.checkout = function() {
     function showPaymentToast(msg) {
         if (!paymentToast || !paymentToastText) return;
         paymentToastText.textContent = msg;
-        paymentToast.classList.remove('opacity-0', 'pointer-events-none', '-translate-y-4');
+        paymentToast.classList.remove('opacity-0', 'pointer-events-none', '-translate-y-2');
         paymentToast.classList.add('opacity-100', 'translate-y-0');
         setTimeout(() => {
             paymentToast.classList.remove('opacity-100', 'translate-y-0');
-            paymentToast.classList.add('opacity-0', 'pointer-events-none', '-translate-y-4');
-        }, 3200);
+            paymentToast.classList.add('opacity-0', 'pointer-events-none', '-translate-y-2');
+        }, 2800);
     }
 
-    // Blocked Payment Triggers Handler (UPI & Cards)
     document.querySelectorAll('.payment-blocked-trigger').forEach(trigger => {
         trigger.onclick = () => {
             const title = trigger.dataset.title || 'Online Payment';
@@ -559,7 +525,6 @@ window.pageInits.checkout = function() {
         };
     });
 
-    // Real-Time Quantity Increment / Decrement on Checkout Page
     document.querySelectorAll('.checkout-qty-inc').forEach(btn => {
         btn.onclick = async (e) => {
             e.stopPropagation();
@@ -594,19 +559,18 @@ window.pageInits.checkout = function() {
         };
     });
 
-    // Payment Option Selectors (COD)
     document.querySelectorAll('.payment-option-label').forEach(label => {
         label.onclick = () => {
             document.querySelectorAll('.payment-option-label').forEach(l => {
-                l.classList.remove('border-emerald', 'bg-emerald/5', 'border-2');
-                l.classList.add('border-surface-variant/60');
+                l.classList.remove('border-emerald', 'bg-emerald-50/50', 'dark:bg-emerald-950/20', 'border-2');
+                l.classList.add('border-border');
             });
-            label.classList.remove('border-surface-variant/60');
-            label.classList.add('border-emerald', 'bg-emerald/5', 'border-2');
+            label.classList.remove('border-border');
+            label.classList.add('border-emerald', 'bg-emerald-50/50', 'dark:bg-emerald-950/20', 'border-2');
         };
     });
 
-    // 1. ROCK-SOLID SLIDER INTERACTION WITH MULTI-EVENT WINDOW TRACKING
+    // Slider Interaction
     if (track && thumb) {
         let isDragging = false;
         let startClientX = 0;
@@ -615,7 +579,7 @@ window.pageInits.checkout = function() {
         function getMaxSlide() {
             const trackWidth = track.clientWidth || track.offsetWidth || 320;
             const thumbWidth = thumb.clientWidth || thumb.offsetWidth || 48;
-            return Math.max(20, trackWidth - thumbWidth - 12);
+            return Math.max(20, trackWidth - thumbWidth - 8);
         }
 
         function updateSliderUI(x) {
@@ -623,7 +587,7 @@ window.pageInits.checkout = function() {
             const clamped = Math.max(0, Math.min(x, maxSlide));
             currentPos = clamped;
             thumb.style.transform = `translateX(${clamped}px)`;
-            if (progress) progress.style.width = `${clamped + 28}px`;
+            if (progress) progress.style.width = `${clamped + 24}px`;
             if (text) {
                 const ratio = clamped / maxSlide;
                 text.style.opacity = `${Math.max(0, 1 - (ratio * 1.3))}`;
@@ -645,7 +609,6 @@ window.pageInits.checkout = function() {
             const delta = clientX - startClientX;
             const { clamped, maxSlide } = updateSliderUI(delta);
 
-            // Threshold: reached 70% of slider distance
             if (clamped >= maxSlide * 0.70) {
                 isDragging = false;
                 if (navigator.vibrate) {
@@ -661,7 +624,6 @@ window.pageInits.checkout = function() {
             resetSlider();
         }
 
-        // --- Touch Events (Scoped Document Listeners) ---
         thumb.ontouchstart = (e) => {
             if (isSubmitting || !e.touches || !e.touches[0]) return;
             onDragStart(e.touches[0].clientX);
@@ -683,7 +645,6 @@ window.pageInits.checkout = function() {
             document.addEventListener('touchcancel', onTouchEnd);
         };
 
-        // --- Mouse Events (Scoped Document Listeners) ---
         thumb.onmousedown = (e) => {
             if (isSubmitting) return;
             e.preventDefault();
@@ -703,14 +664,12 @@ window.pageInits.checkout = function() {
             document.addEventListener('mouseup', onMouseUp);
         };
 
-        // --- Direct Track Click / Tap Support ---
         track.onclick = (e) => {
             if (isSubmitting) return;
             const trackRect = track.getBoundingClientRect();
             const clickOffset = e.clientX - trackRect.left;
             const maxSlide = getMaxSlide();
             if (clickOffset > maxSlide * 0.35) {
-                // Animate thumb smoothly to the end and submit
                 thumb.style.transition = 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)';
                 if (progress) progress.style.transition = 'width 0.25s cubic-bezier(0.16, 1, 0.3, 1)';
                 updateSliderUI(maxSlide);
@@ -732,15 +691,15 @@ window.pageInits.checkout = function() {
 
     function resetSlider() {
         if (thumb && track) {
-            thumb.style.transition = 'transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            thumb.style.transition = 'transform 0.25s ease';
             thumb.style.transform = 'translateX(0px)';
         }
         if (progress) {
-            progress.style.transition = 'width 0.35s ease';
+            progress.style.transition = 'width 0.25s ease';
             progress.style.width = '0px';
         }
         if (text) {
-            text.style.transition = 'opacity 0.3s ease';
+            text.style.transition = 'opacity 0.2s ease';
             text.style.opacity = '1';
             text.textContent = `Slide to Confirm Order ₹${window.cartTotalCache || 40}`;
         }
@@ -752,13 +711,12 @@ window.pageInits.checkout = function() {
             tapToPayBtn.classList.remove('opacity-75', 'pointer-events-none');
             const amt = window.cartTotalCache ? ` (₹${window.cartTotalCache})` : '';
             tapToPayBtn.innerHTML = `
-                <span class="material-symbols-outlined text-lg">bolt</span>
-                <span>⚡ 1-Tap Quick Place: Cash on Delivery${amt}</span>
+                <span class="material-symbols-outlined text-base">bolt</span>
+                <span>Place Cash on Delivery Order${amt}</span>
             `;
         }
     }
 
-    // 2. REAL ORDER PLACEMENT TO BACKEND (Ultra Fast & Reactive)
     async function handleOrderPlacement() {
         if (isSubmitting) return;
 
@@ -766,10 +724,9 @@ window.pageInits.checkout = function() {
         const savedBlock = (localStorage.getItem('lpuquick_block') || 'Block A').trim();
         const cleanPhone = (localStorage.getItem('lpuquick_phone') || '').replace(/\D/g, '');
 
-        // Address & 10-Digit Mobile Validation
         if (!window.hasUserConfiguredAddress() || !savedRoom || savedRoom === 'null' || savedRoom === 'undefined') {
             resetSlider();
-            showPaymentToast('📍 Room Address Required: Please set your hostel room number.');
+            showPaymentToast('Room Address Required: Please set your hostel room number.');
             window.openAddressModal(true, () => {
                 if (typeof window.router === 'function') window.router();
             });
@@ -778,7 +735,7 @@ window.pageInits.checkout = function() {
 
         if (!cleanPhone || cleanPhone.length !== 10) {
             resetSlider();
-            showPaymentToast('📞 Mobile Number Mandatory: 10-digit mobile is required so our runner can call you.');
+            showPaymentToast('Mobile Number Mandatory: 10-digit mobile is required for runner.');
             window.openAddressModal(true, () => {
                 if (typeof window.router === 'function') window.router();
             });
@@ -788,9 +745,8 @@ window.pageInits.checkout = function() {
         isSubmitting = true;
         if (errorBanner) errorBanner.classList.add('hidden');
 
-        // Immediate Visual Feedback on Slider
         if (thumb && track) {
-            const finalX = track.offsetWidth - thumb.offsetWidth - 16;
+            const finalX = track.offsetWidth - thumb.offsetWidth - 12;
             thumb.style.transition = 'transform 0.2s ease';
             thumb.style.transform = `translateX(${finalX}px)`;
             if (progress) {
@@ -807,11 +763,10 @@ window.pageInits.checkout = function() {
             thumbIcon.classList.add('animate-spin');
         }
 
-        // Immediate Visual Feedback on 1-Tap Button
         if (tapToPayBtn) {
             tapToPayBtn.classList.add('opacity-75', 'pointer-events-none');
             tapToPayBtn.innerHTML = `
-                <span class="material-symbols-outlined text-lg animate-spin">progress_activity</span>
+                <span class="material-symbols-outlined text-base animate-spin">progress_activity</span>
                 <span>Placing your order...</span>
             `;
         }
@@ -856,7 +811,7 @@ window.pageInits.checkout = function() {
 
         let progressTimer = setTimeout(() => {
             if (isSubmitting && text) {
-                text.textContent = 'Connecting Dark Store...';
+                text.textContent = 'Connecting store...';
             }
         }, 2200);
 
@@ -873,7 +828,6 @@ window.pageInits.checkout = function() {
                 clearTimeout(safetyTimeout);
                 clearTimeout(progressTimer);
 
-                // Auto-persist permanent user session if guest
                 try {
                     const existingUser = JSON.parse(localStorage.getItem('lpuquick_user') || '{}');
                     if (!existingUser.id) {
@@ -889,7 +843,6 @@ window.pageInits.checkout = function() {
                     }
                 } catch(e) {}
 
-                // Successful confirmation state
                 if (text) text.textContent = 'Order Placed! ✓';
                 if (thumbIcon) {
                     thumbIcon.classList.remove('animate-spin');
@@ -897,10 +850,9 @@ window.pageInits.checkout = function() {
                 }
 
                 if (typeof window.showClientToast === 'function') {
-                    window.showClientToast('🎉 Order Placed! Campus delivery runner dispatched to your room.', 'success', 'bolt');
+                    window.showClientToast('Order Placed! Campus delivery runner dispatched.', 'success', 'bolt');
                 }
 
-                // Render in-place Success Screen with real data
                 setTimeout(() => {
                     renderSuccessScreen(res.order);
                 }, 200);
@@ -912,7 +864,7 @@ window.pageInits.checkout = function() {
                 if (typeof window.syncStoreAvailability === 'function') {
                     window.syncStoreAvailability();
                 }
-                const msg = res.message || (res.availability?.display_reopen?.fullHeadline ? `Store is closed. ${res.availability.display_reopen.fullHeadline}` : 'Dark store is temporarily closed for orders.');
+                const msg = res.message || 'Dark store is temporarily closed for orders.';
                 showPaymentToast(msg);
                 if (errorBanner) {
                     errorBanner.classList.remove('hidden');
@@ -926,7 +878,7 @@ window.pageInits.checkout = function() {
                 resetSlider();
                 window.__isUserBlocked = true;
                 window.__userBlockReason = res.reason || 'Fake Orders';
-                showPaymentToast(res.message || 'You are blocked due to suspicious activity.');
+                showPaymentToast(res.message || 'Account restricted.');
                 if (typeof window.renderBlockedPage === 'function') {
                     window.location.hash = '#/blocked';
                 }
@@ -956,39 +908,32 @@ window.pageInits.checkout = function() {
         }
     }
 
-
-    // 3. RENDER POLISHED SUCCESS SCREEN & CONNECT REAL-TIME STATUS
     function renderSuccessScreen(order) {
         if (formSection) formSection.classList.add('hidden');
         if (successSection) {
             successSection.classList.remove('hidden');
-            successSection.classList.add('page-enter');
         }
         if (headerTitle) headerTitle.textContent = 'Order Status';
         if (backLink) backLink.href = '#/';
 
-        // Populate real order data
         const formattedId = (order.id || '').replace('order_', '').toUpperCase();
         if (successOrderId) successOrderId.textContent = `#${formattedId}`;
         if (successOrderTotal) successOrderTotal.textContent = `₹${order.total}`;
         if (successOrderPayment) successOrderPayment.textContent = order.payment_method || 'Cash on Delivery';
         if (successOrderAddress) successOrderAddress.textContent = order.delivery_address || 'BH13 (Block A), Room 304';
         if (successOrderDispatchMsg) {
-            successOrderDispatchMsg.textContent = `⚡ Estimated delivery: ${order.estimated_minutes || 3} mins to ${order.delivery_address || 'BH13'}`;
+            successOrderDispatchMsg.textContent = `Estimated delivery: ${order.estimated_minutes || 3} mins to ${order.delivery_address || 'BH13'}`;
         }
 
-        // Set initial timestamp for Step 1
         const timeEl1 = document.getElementById('timeline-time-1');
         if (timeEl1) {
             timeEl1.textContent = new Date(order.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
         }
 
-        // Track Order Navigation Button
         successTrackBtn?.addEventListener('click', () => {
             window.location.hash = '#/orders';
         });
 
-        // 4. REAL-TIME WEBSOCKET LISTENER FOR TIMELINE STATUS UPDATES
         connectRealTimeOrderTracking(order.id);
     }
 
@@ -1000,9 +945,9 @@ window.pageInits.checkout = function() {
                 stepEl.classList.remove('opacity-50');
                 const dot = stepEl.querySelector('.timeline-dot');
                 if (dot) {
-                    dot.classList.remove('bg-surface-container-high', 'border-2', 'border-outline-variant', 'text-on-surface-variant');
-                    dot.classList.add('bg-emerald', 'text-white', 'shadow-sm');
-                    dot.innerHTML = '<span class="material-symbols-outlined text-sm">check</span>';
+                    dot.classList.remove('bg-slate-100', 'dark:bg-slate-800', 'border', 'border-border', 'text-slate-400');
+                    dot.classList.add('bg-emerald', 'text-white');
+                    dot.innerHTML = '<span class="material-symbols-outlined text-xs">check</span>';
                 }
             }
             if (timeEl && i === stepNumber && timestamp) {

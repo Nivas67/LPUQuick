@@ -33,16 +33,15 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="LPUQuick">
 
-    <!-- Immediate Night Mode Initializer (Zero Flash) -->
+    <!-- Immediate Theme Initializer (Zero Flash) -->
     <script>
         (function() {
             try {
-                const user = localStorage.getItem('lpuquick_user');
                 const theme = localStorage.getItem('lpuquick_theme');
-                // Automatically activate Night Mode if user is logged in or theme is dark
-                if (user || theme === 'dark') {
+                if (theme === 'dark') {
                     document.documentElement.classList.add('dark');
-                    localStorage.setItem('lpuquick_theme', 'dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
                 }
             } catch(e) {}
         })();
@@ -177,243 +176,32 @@
     <link rel="stylesheet" href="/css/styles.css?v=20260830r12">
 </head>
 <body class="bg-background text-on-surface font-sans antialiased selection:bg-emerald/20 selection:text-primary relative min-h-screen">
-    <!-- Ambient Animated Dynamic Campus Atmosphere Canvas -->
-    <div class="fixed inset-0 overflow-hidden pointer-events-none z-[-1] select-none" id="ambient-canvas" aria-hidden="true">
-        <!-- Layer 1: Base Radiant Gradient Mesh -->
-        <div class="ambient-base-gradient"></div>
-
-        <!-- Interactive Luminous Cursor Torch (Dynamic Ambient Follower) -->
-        <div class="ambient-cursor-torch" id="ambient-cursor-torch"></div>
-
-        <!-- Layer 2: 5 Large Floating Blurred Light Orbs -->
-        <!-- Top-Left: Soft Mint/Green Glow -->
-        <div class="ambient-orb orb-top-left"></div>
-        <!-- Top-Right: Very Subtle Cyan/Blue Glow -->
-        <div class="ambient-orb orb-top-right"></div>
-        <!-- Middle-Right: Soft Warm Pastel Amber Glow -->
-        <div class="ambient-orb orb-mid-right"></div>
-        <!-- Bottom-Left: Soft Green Emerald Glow -->
-        <div class="ambient-orb orb-bot-left"></div>
-        <!-- Bottom-Right: Extremely Soft Pink/Warm Peach Glow -->
-        <div class="ambient-orb orb-bot-right"></div>
-
-        <!-- Layer 3: Dynamic Curved Delivery Wave Trails -->
-        <svg class="ambient-delivery-trails" viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
-            <!-- Top Flowing Mint/Cyan Wave -->
-            <path class="trail-path trail-path-1" d="M-100 220 C 260 90, 560 380, 1020 160 C 1260 60, 1460 220, 1620 140" stroke="url(#trail-grad-1)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="14 20"/>
-            <!-- Bottom Golden Amber Delivery Wave -->
-            <path class="trail-path trail-path-2" d="M-80 660 C 340 780, 760 420, 1160 640 C 1360 740, 1540 560, 1680 620" stroke="url(#trail-grad-2)" stroke-width="2" stroke-linecap="round" stroke-dasharray="12 18"/>
-            <defs>
-                <linearGradient id="trail-grad-1" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stop-color="#10B981" stop-opacity="0"/>
-                    <stop offset="25%" stop-color="#34D399" stop-opacity="0.45"/>
-                    <stop offset="65%" stop-color="#06B6D4" stop-opacity="0.38"/>
-                    <stop offset="100%" stop-color="#10B981" stop-opacity="0"/>
-                </linearGradient>
-                <linearGradient id="trail-grad-2" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stop-color="#F59E0B" stop-opacity="0"/>
-                    <stop offset="35%" stop-color="#FBBF24" stop-opacity="0.42"/>
-                    <stop offset="75%" stop-color="#10B981" stop-opacity="0.30"/>
-                    <stop offset="100%" stop-color="#F59E0B" stop-opacity="0"/>
-                </linearGradient>
-            </defs>
-        </svg>
-
-        <!-- Layer 4: Subtle Abstract Delivery & Campus Line-Art -->
-        <div class="ambient-lineart lineart-bag">
-            <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M30 40 L30 80 C30 86, 34 90, 40 90 L60 90 C66 90, 70 86, 70 80 L70 40 Z" stroke="rgba(16, 185, 129, 0.15)" stroke-width="2" stroke-linecap="round"/>
-                <path d="M40 40 C40 26, 60 26, 60 40" stroke="rgba(16, 185, 129, 0.15)" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-        </div>
-        <div class="ambient-lineart lineart-compass">
-            <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="50" cy="50" r="36" stroke="rgba(6, 182, 212, 0.12)" stroke-width="1.8" stroke-dasharray="6 8"/>
-                <path d="M50 20 L58 46 L80 50 L58 54 L50 80 L42 54 L20 50 L42 46 Z" fill="rgba(16, 185, 129, 0.08)" stroke="rgba(16, 185, 129, 0.15)" stroke-width="1.5"/>
-            </svg>
-        </div>
-
-        <!-- Layer 5: Floating Fresh Green Botanical Leaves (Framing the Viewport) -->
-        <!-- Leaf 1: Top-Left Header Margin -->
-        <div class="ambient-leaf leaf-top-left">
-            <svg viewBox="0 0 64 64" class="w-full h-full">
-                <defs>
-                    <linearGradient id="leafGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#86EFAC"/>
-                        <stop offset="50%" stop-color="#22C55E"/>
-                        <stop offset="100%" stop-color="#15803D"/>
-                    </linearGradient>
-                </defs>
-                <path d="M54 10 C38 10, 18 24, 10 38 C2 52, 6 62, 6 62 C6 62, 16 66, 30 58 C44 50, 58 28, 54 10 Z" fill="url(#leafGrad1)"/>
-                <path d="M10 58 C22 46, 36 32, 52 12" stroke="rgba(255,255,255,0.45)" stroke-width="1.8" stroke-linecap="round"/>
-            </svg>
-        </div>
-        <!-- Leaf 2: Top-Right Search Margin -->
-        <div class="ambient-leaf leaf-top-right">
-            <svg viewBox="0 0 64 64" class="w-full h-full">
-                <defs>
-                    <linearGradient id="leafGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#4ADE80"/>
-                        <stop offset="60%" stop-color="#16A34A"/>
-                        <stop offset="100%" stop-color="#14532D"/>
-                    </linearGradient>
-                </defs>
-                <path d="M54 10 C38 10, 18 24, 10 38 C2 52, 6 62, 6 62 C6 62, 16 66, 30 58 C44 50, 58 28, 54 10 Z" fill="url(#leafGrad2)"/>
-                <path d="M10 58 C22 46, 36 32, 52 12" stroke="rgba(255,255,255,0.45)" stroke-width="1.8" stroke-linecap="round"/>
-            </svg>
-        </div>
-        <!-- Leaf 3: Middle-Left Margin -->
-        <div class="ambient-leaf leaf-mid-left">
-            <svg viewBox="0 0 64 64" class="w-full h-full">
-                <defs>
-                    <linearGradient id="leafGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#86EFAC"/>
-                        <stop offset="50%" stop-color="#10B981"/>
-                        <stop offset="100%" stop-color="#047857"/>
-                    </linearGradient>
-                </defs>
-                <path d="M54 10 C38 10, 18 24, 10 38 C2 52, 6 62, 6 62 C6 62, 16 66, 30 58 C44 50, 58 28, 54 10 Z" fill="url(#leafGrad3)"/>
-                <path d="M10 58 C22 46, 36 32, 52 12" stroke="rgba(255,255,255,0.45)" stroke-width="1.8" stroke-linecap="round"/>
-            </svg>
-        </div>
-        <!-- Leaf 4: Bottom-Left Margin -->
-        <div class="ambient-leaf leaf-bot-left">
-            <svg viewBox="0 0 64 64" class="w-full h-full">
-                <defs>
-                    <linearGradient id="leafGrad4" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#A7F3D0"/>
-                        <stop offset="60%" stop-color="#059669"/>
-                        <stop offset="100%" stop-color="#064E3B"/>
-                    </linearGradient>
-                </defs>
-                <path d="M54 10 C38 10, 18 24, 10 38 C2 52, 6 62, 6 62 C6 62, 16 66, 30 58 C44 50, 58 28, 54 10 Z" fill="url(#leafGrad4)"/>
-                <path d="M10 58 C22 46, 36 32, 52 12" stroke="rgba(255,255,255,0.45)" stroke-width="1.8" stroke-linecap="round"/>
-            </svg>
-        </div>
-        <!-- Leaf 5: Middle-Right Margin -->
-        <div class="ambient-leaf leaf-mid-right">
-            <svg viewBox="0 0 64 64" class="w-full h-full">
-                <defs>
-                    <linearGradient id="leafGrad5" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#4ADE80"/>
-                        <stop offset="50%" stop-color="#15803D"/>
-                        <stop offset="100%" stop-color="#052E16"/>
-                    </linearGradient>
-                </defs>
-                <path d="M54 10 C38 10, 18 24, 10 38 C2 52, 6 62, 6 62 C6 62, 16 66, 30 58 C44 50, 58 28, 54 10 Z" fill="url(#leafGrad5)"/>
-                <path d="M10 58 C22 46, 36 32, 52 12" stroke="rgba(255,255,255,0.45)" stroke-width="1.8" stroke-linecap="round"/>
-            </svg>
-        </div>
-        <!-- Leaf 6: Bottom-Right Margin -->
-        <div class="ambient-leaf leaf-bot-right">
-            <svg viewBox="0 0 64 64" class="w-full h-full">
-                <defs>
-                    <linearGradient id="leafGrad6" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#86EFAC"/>
-                        <stop offset="60%" stop-color="#22C55E"/>
-                        <stop offset="100%" stop-color="#166534"/>
-                    </linearGradient>
-                </defs>
-                <path d="M54 10 C38 10, 18 24, 10 38 C2 52, 6 62, 6 62 C6 62, 16 66, 30 58 C44 50, 58 28, 54 10 Z" fill="url(#leafGrad6)"/>
-                <path d="M10 58 C22 46, 36 32, 52 12" stroke="rgba(255,255,255,0.45)" stroke-width="1.8" stroke-linecap="round"/>
-            </svg>
-        </div>
-
-        <!-- Layer 6: Vibrant 4-Point Golden & Mint Star Sparkles (Twinkling ✨) -->
-        <!-- Sparkle 1: Top-Center -->
-        <div class="ambient-sparkle sparkle-top-center">
-            <svg viewBox="0 0 32 32" class="w-full h-full drop-shadow-[0_0_8px_rgba(251,191,36,0.85)]">
-                <defs>
-                    <radialGradient id="spGold1" cx="50%" cy="50%" r="50%">
-                        <stop offset="0%" stop-color="#FFFBEB"/>
-                        <stop offset="50%" stop-color="#FBBF24"/>
-                        <stop offset="100%" stop-color="#D97706"/>
-                    </radialGradient>
-                </defs>
-                <path d="M16 0 L18.5 13.5 L32 16 L18.5 18.5 L16 32 L13.5 18.5 L0 16 L13.5 13.5 Z" fill="url(#spGold1)"/>
-                <circle cx="16" cy="16" r="2.5" fill="#FFFFFF"/>
-            </svg>
-        </div>
-        <!-- Sparkle 2: Top-Left -->
-        <div class="ambient-sparkle sparkle-top-left">
-            <svg viewBox="0 0 32 32" class="w-full h-full drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]">
-                <defs>
-                    <radialGradient id="spMint1" cx="50%" cy="50%" r="50%">
-                        <stop offset="0%" stop-color="#ECFDF5"/>
-                        <stop offset="50%" stop-color="#34D399"/>
-                        <stop offset="100%" stop-color="#059669"/>
-                    </radialGradient>
-                </defs>
-                <path d="M16 0 L18.5 13.5 L32 16 L18.5 18.5 L16 32 L13.5 18.5 L0 16 L13.5 13.5 Z" fill="url(#spMint1)"/>
-                <circle cx="16" cy="16" r="3" fill="#FFFFFF"/>
-            </svg>
-        </div>
-        <!-- Sparkle 3: Bottom-Left -->
-        <div class="ambient-sparkle sparkle-bot-left">
-            <svg viewBox="0 0 32 32" class="w-full h-full drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]">
-                <defs>
-                    <radialGradient id="spMint2" cx="50%" cy="50%" r="50%">
-                        <stop offset="0%" stop-color="#ECFDF5"/>
-                        <stop offset="50%" stop-color="#10B981"/>
-                        <stop offset="100%" stop-color="#047857"/>
-                    </radialGradient>
-                </defs>
-                <path d="M16 0 L18.5 13.5 L32 16 L18.5 18.5 L16 32 L13.5 18.5 L0 16 L13.5 13.5 Z" fill="url(#spMint2)"/>
-                <circle cx="16" cy="16" r="2.5" fill="#FFFFFF"/>
-            </svg>
-        </div>
-        <!-- Sparkle 4: Bottom-Right -->
-        <div class="ambient-sparkle sparkle-bot-right">
-            <svg viewBox="0 0 32 32" class="w-full h-full drop-shadow-[0_0_10px_rgba(251,191,36,0.85)]">
-                <defs>
-                    <radialGradient id="spGold2" cx="50%" cy="50%" r="50%">
-                        <stop offset="0%" stop-color="#FEF3C7"/>
-                        <stop offset="50%" stop-color="#F59E0B"/>
-                        <stop offset="100%" stop-color="#B45309"/>
-                    </radialGradient>
-                </defs>
-                <path d="M16 0 L18.5 13.5 L32 16 L18.5 18.5 L16 32 L13.5 18.5 L0 16 L13.5 13.5 Z" fill="url(#spGold2)"/>
-                <circle cx="16" cy="16" r="2.5" fill="#FFFFFF"/>
-            </svg>
-        </div>
-
-        <!-- Layer 7: Floating Micro-Glow Particles -->
-        <div class="ambient-particle particle-1"></div>
-        <div class="ambient-particle particle-2"></div>
-        <div class="ambient-particle particle-3"></div>
-        <div class="ambient-particle particle-4"></div>
-        <div class="ambient-particle particle-5"></div>
-        <div class="ambient-particle particle-6"></div>
-        <div class="ambient-particle particle-7"></div>
-        <div class="ambient-particle particle-8"></div>
-
-        <!-- Layer 8: Gentle Breathing Matrix Grid Overlay -->
-        <div class="ambient-grid-overlay"></div>
-    </div>
+    <!-- Clean Minimal E-Commerce Backdrop -->
+    <div class="fixed inset-0 pointer-events-none z-[-1] select-none bg-[#f8fafc] dark:bg-[#0b0f19] transition-colors duration-200" id="ambient-canvas" aria-hidden="true"></div>
 
     <!-- SPA Root Container -->
     <div id="app"></div>
 
     <!-- Global Floating Live Delivery Bar (Shows across all store pages when an order is active) -->
     <div id="global-live-delivery-bar" class="fixed bottom-24 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 hidden transition-all duration-300">
-        <a href="#/orders" class="glass-card p-3 rounded-2xl border border-emerald/40 shadow-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl flex items-center justify-between gap-3 text-xs hover:border-emerald transition-all active:scale-[0.98]">
-            <div class="flex items-center gap-2.5 min-w-0">
-                <div class="w-8 h-8 rounded-full bg-emerald text-white flex items-center justify-center font-bold flex-shrink-0 animate-bounce">
+        <a href="#/orders" class="p-3 rounded-2xl border border-emerald-500/30 shadow-lg bg-white/95 dark:bg-slate-900/95 backdrop-blur-md flex items-center justify-between gap-3 text-xs hover:border-emerald-500 transition-all active:scale-[0.99]">
+            <div class="flex items-center gap-3 min-w-0">
+                <div class="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold flex-shrink-0 shadow-sm">
                     <span class="material-symbols-outlined text-base">directions_walk</span>
                 </div>
                 <div class="truncate">
-                    <div class="flex items-center gap-1.5 font-bold text-on-surface">
-                        <span class="w-2 h-2 rounded-full bg-emerald animate-pulse"></span>
+                    <div class="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
                         <span id="global-delivery-status">Out for Delivery</span>
-                        <span class="text-[10px] text-emerald font-extrabold bg-emerald/10 px-1.5 py-0.2 rounded-full" id="global-delivery-eta">1 min</span>
+                        <span class="text-[10px] text-emerald-700 dark:text-emerald-400 font-extrabold bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full" id="global-delivery-eta">1 min</span>
                     </div>
-                    <p class="text-[10px] text-on-surface-variant truncate mt-0.5" id="global-delivery-subtitle">
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5" id="global-delivery-subtitle">
                         Campus runner walking to BH13 (Block A), Room 304
                     </p>
                 </div>
             </div>
-            <div class="flex items-center gap-1 text-emerald font-bold text-xs flex-shrink-0">
-                <span>Live Map</span>
+            <div class="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold text-xs flex-shrink-0">
+                <span>Track</span>
                 <span class="material-symbols-outlined text-sm">arrow_forward</span>
             </div>
         </a>
@@ -421,23 +209,24 @@
 
     <!-- Global Floating Quick-Commerce View Cart Bar (Zepto / Blinkit Style) -->
     <div id="global-floating-cart-bar" class="fixed bottom-24 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 hidden transition-all duration-300 transform translate-y-12 opacity-0 pointer-events-none">
-        <a href="#/cart" id="floating-cart-inner" class="w-full bg-[#16a34a] hover:bg-[#15803d] text-white rounded-full py-2 px-3 sm:px-3.5 shadow-2xl flex items-center justify-between gap-3 border border-emerald-400/40 active:scale-[0.98] transition-all group cursor-pointer">
+        <a href="#/cart" id="floating-cart-inner" class="w-full bg-[#059669] hover:bg-[#047857] text-white rounded-2xl py-3 px-4 shadow-xl flex items-center justify-between gap-3 border border-emerald-400/30 active:scale-[0.99] transition-all group cursor-pointer">
             <!-- Left: Stacked Overlapping Product Images (up to 3 items) -->
-            <div id="floating-cart-thumbnails" class="flex items-center -space-x-3.5 mr-1 overflow-visible flex-shrink-0">
+            <div id="floating-cart-thumbnails" class="flex items-center -space-x-2.5 mr-1 overflow-visible flex-shrink-0">
                 <!-- Dynamically populated up to 3 thumbnails -->
             </div>
 
             <!-- Center: View Cart & Items / Subtotal -->
             <div class="flex flex-col text-left flex-1 min-w-0">
-                <span class="text-sm sm:text-base font-extrabold text-white tracking-tight leading-tight">View cart</span>
-                <span id="floating-cart-subtitle" class="text-xs text-white/90 font-semibold leading-tight truncate">
+                <span class="text-sm font-extrabold text-white tracking-tight leading-tight">View Cart</span>
+                <span id="floating-cart-subtitle" class="text-xs text-emerald-100 font-medium leading-tight truncate">
                     0 items
                 </span>
             </div>
 
-            <!-- Right: Circular Arrow Action -->
-            <div class="w-8 h-8 rounded-full bg-emerald-800/60 dark:bg-black/30 border border-white/25 flex items-center justify-center text-white flex-shrink-0 shadow-inner group-hover:translate-x-1 transition-transform">
-                <span class="material-symbols-outlined text-xl">chevron_right</span>
+            <!-- Right: Action Button / Chevron -->
+            <div class="flex items-center gap-1 font-bold text-xs bg-white/20 px-3 py-1.5 rounded-xl text-white group-hover:bg-white/30 transition-colors">
+                <span>Checkout</span>
+                <span class="material-symbols-outlined text-base group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
             </div>
         </a>
     </div>
@@ -464,10 +253,15 @@
                         window.CURRENT_USER_EMAIL = savedUser.email || '';
                         window.CURRENT_USER_PICTURE = savedUser.picture || '';
                         
-                        // Whenever user is logged in, ensure Night Mode is activated
-                        document.documentElement.classList.add('dark');
-                        if (document.body) document.body.classList.add('dark');
-                        localStorage.setItem('lpuquick_theme', 'dark');
+                        // Respect user's selected theme
+                        const currentTheme = localStorage.getItem('lpuquick_theme');
+                        if (currentTheme === 'dark') {
+                            document.documentElement.classList.add('dark');
+                            if (document.body) document.body.classList.add('dark');
+                        } else {
+                            document.documentElement.classList.remove('dark');
+                            if (document.body) document.body.classList.remove('dark');
+                        }
                     }
                 } else {
                     window.CURRENT_USER_ID = null;

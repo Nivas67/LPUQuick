@@ -4,76 +4,55 @@ window.pageInits = window.pageInits || {};
 
 window.pages.signin = async function() {
     return `
-<div class="min-h-screen bg-background text-on-surface flex items-center justify-center font-display relative overflow-hidden py-10 px-4">
-    
-    <!-- Ambient Animated Background Lights -->
-    <div class="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-emerald/20 blur-[120px] pointer-events-none animate-pulse"></div>
-    <div class="absolute -bottom-24 -right-24 w-[450px] h-[450px] rounded-full bg-primary/20 blur-[140px] pointer-events-none animate-pulse" style="animation-duration: 4s;"></div>
-    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full bg-teal-500/10 blur-[100px] pointer-events-none"></div>
-
-    <!-- Subtle Background Dot Grid -->
-    <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#10B981 1.5px, transparent 1.5px); background-size: 24px 24px;"></div>
-
-    <div class="relative z-10 w-full max-w-md mx-auto">
+<div class="min-h-screen bg-background text-on-surface flex items-center justify-center py-10 px-4">
+    <div class="w-full max-w-sm mx-auto space-y-6">
         
         <!-- Brand Header -->
-        <div class="text-center mb-6 space-y-2">
-            <a href="#/" class="inline-flex items-center justify-center gap-3 hover:scale-105 transition-transform duration-200 group">
-                <div class="relative">
-                    <div class="absolute -inset-1 rounded-full bg-emerald/30 blur-sm group-hover:bg-emerald/50 transition-all"></div>
-                    <img src="/logo.png" alt="LPUQuick" class="relative w-14 h-14 rounded-full shadow-md object-contain bg-transparent">
-                </div>
+        <div class="text-center space-y-2">
+            <a href="#/" class="inline-flex items-center justify-center gap-2.5">
+                <img src="/logo.png" alt="LPUQuick" class="w-12 h-12 rounded-xl shadow-xs object-contain bg-transparent">
                 <div class="text-left">
-                    <span class="text-2xl sm:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">LPUQuick</span>
-                    <span class="block text-[11px] font-bold text-on-surface-variant tracking-wider uppercase">Campus Express</span>
+                    <span class="text-xl font-bold tracking-tight text-slate-900 dark:text-white">LPUQuick</span>
+                    <span class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Campus Store</span>
                 </div>
             </a>
-            <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald/10 border border-emerald/20 text-emerald text-xs font-bold shadow-sm">
-                <span class="w-2 h-2 rounded-full bg-emerald animate-ping"></span>
-                <span>3-Minute BH13 Room Delivery</span>
-            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">
+                3-minute corridor delivery directly to your hostel room
+            </p>
         </div>
 
-        <!-- Glassmorphic Card (Real-Time Google Only Authentication) -->
-        <div class="glass-card bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl rounded-3xl p-7 sm:p-9 shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/60 dark:border-slate-800 w-full transition-all duration-300 text-center space-y-6">
-            
-            <div class="space-y-2">
-                <h2 class="text-2xl sm:text-3xl font-black text-on-surface">Welcome to LPUQuick</h2>
-                <p class="text-xs sm:text-sm text-on-surface-variant max-w-sm mx-auto">
-                    Instant 3-minute delivery right to your hostel room. Sign in with your Google account to get started.
+        <!-- Clean Authentication Card -->
+        <div class="bg-surface border border-border rounded-2xl p-6 sm:p-7 shadow-xs w-full text-center space-y-5">
+            <div class="space-y-1">
+                <h2 class="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">Sign In to Your Account</h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400">
+                    Use your Google or student account to access your cart and orders.
                 </p>
             </div>
 
-            <!-- Campus Express Features Badge List -->
-            <div class="bg-surface-container-low/60 dark:bg-slate-800/60 rounded-2xl p-4 border border-outline-variant/30 text-left space-y-2.5">
-                <div class="flex items-center gap-2.5 text-xs text-on-surface font-semibold">
-                    <span class="w-6 h-6 rounded-full bg-emerald/15 text-emerald flex items-center justify-center shrink-0">
-                        <span class="material-symbols-outlined text-sm">bolt</span>
-                    </span>
+            <!-- Features Summary -->
+            <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3.5 border border-border text-left space-y-2 text-xs">
+                <div class="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                    <span class="material-symbols-outlined text-base text-emerald">bolt</span>
                     <span>3-Minute Express Hostel Delivery</span>
                 </div>
-                <div class="flex items-center gap-2.5 text-xs text-on-surface font-semibold">
-                    <span class="w-6 h-6 rounded-full bg-emerald/15 text-emerald flex items-center justify-center shrink-0">
-                        <span class="material-symbols-outlined text-sm">storefront</span>
-                    </span>
-                    <span>BH13 Ground Floor Dark Store</span>
+                <div class="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                    <span class="material-symbols-outlined text-base text-emerald">storefront</span>
+                    <span>BH13 Ground Floor Campus Fulfillment</span>
                 </div>
-                <div class="flex items-center gap-2.5 text-xs text-on-surface font-semibold">
-                    <span class="w-6 h-6 rounded-full bg-emerald/15 text-emerald flex items-center justify-center shrink-0">
-                        <span class="material-symbols-outlined text-sm">directions_walk</span>
-                    </span>
-                    <span>Live GPS Corridor Walker Tracking</span>
+                <div class="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                    <span class="material-symbols-outlined text-base text-emerald">directions_walk</span>
+                    <span>Live GPS Corridor Runner Tracking</span>
                 </div>
             </div>
 
-            <!-- Cancellation / Status Banner (Hidden by default) -->
-            <div id="auth-status-msg" class="hidden p-3 rounded-2xl text-xs font-medium border transition-all text-left"></div>
+            <!-- Status Banner -->
+            <div id="auth-status-msg" class="hidden p-2.5 rounded-lg text-xs font-medium border text-left"></div>
 
-            <!-- Single Clean & Prominent Google Sign-In Button -->
-            <div class="space-y-3 pt-1" id="custom-google-btn-wrapper">
-                <button class="w-full h-14 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 text-white rounded-2xl flex items-center justify-center gap-3.5 shadow-md hover:shadow-xl transition-all duration-200 text-sm sm:text-base font-bold active:scale-98 cursor-pointer group" type="button" id="btn-google">
-                    <!-- Official Multi-Color Google G SVG -->
-                    <svg class="w-6 h-6 group-hover:scale-110 transition-transform" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <!-- Google Sign-In Button -->
+            <div class="space-y-2 pt-1" id="custom-google-btn-wrapper">
+                <button class="w-full h-11 bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100 rounded-lg flex items-center justify-center gap-2.5 shadow-xs transition-colors text-xs font-semibold cursor-pointer" type="button" id="btn-google">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                         <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
                         <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
@@ -83,18 +62,15 @@ window.pages.signin = async function() {
                 </button>
             </div>
 
-
-            <!-- Single Sign-On Security Note -->
-            <p class="text-[11px] text-on-surface-variant/70">
-                By signing in, you agree to LPUQuick Campus Commerce Terms & BH13 Express Guidelines.
+            <!-- Terms -->
+            <p class="text-[10px] text-slate-400">
+                By continuing, you agree to LPUQuick Terms & Campus Delivery Guidelines.
             </p>
-
         </div>
 
-        <!-- Campus Safety & Privacy Tagline -->
-        <p class="text-center text-[11px] text-on-surface-variant/70 mt-6 flex items-center justify-center gap-1">
+        <p class="text-center text-[10px] text-slate-400 flex items-center justify-center gap-1">
             <span class="material-symbols-outlined text-xs text-emerald">verified_user</span>
-            <span>Secured exclusively for LPU Students & Faculty</span>
+            <span>Secured for LPU Campus Students & Faculty</span>
         </p>
 
     </div>

@@ -49,10 +49,14 @@ window.logoutUser = function() {
                 window.currentAddressDetail = localStorage.getItem('lpuquick_address_detail') || '';
                 localStorage.setItem('lpuquick_last_active', Date.now().toString());
 
-                // Whenever user is logged in, ensure Night Mode is activated
-                document.documentElement.classList.add('dark');
-                if (document.body) document.body.classList.add('dark');
-                localStorage.setItem('lpuquick_theme', 'dark');
+                // Respect student's theme preference (default to light)
+                if (localStorage.getItem('lpuquick_theme') === 'dark') {
+                    document.documentElement.classList.add('dark');
+                    if (document.body) document.body.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    if (document.body) document.body.classList.remove('dark');
+                }
             }
         }
     } catch (e) {
@@ -170,11 +174,13 @@ window.syncAllThemeToggles = function() {
     }
 };
 
-// Whenever user is logged in or theme is dark, ensure night mode is active
-if (localStorage.getItem('lpuquick_theme') === 'dark' || window.isUserLoggedIn()) {
+// Respect user theme preference (light by default)
+if (localStorage.getItem('lpuquick_theme') === 'dark') {
     document.documentElement.classList.add('dark');
     if (document.body) document.body.classList.add('dark');
-    localStorage.setItem('lpuquick_theme', 'dark');
+} else {
+    document.documentElement.classList.remove('dark');
+    if (document.body) document.body.classList.remove('dark');
 }
 
 const routes = {
@@ -256,54 +262,54 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
     modal.id = 'address-modal';
     modal.className = 'modal-overlay';
     modal.innerHTML = `
-        <div class="modal-content p-5 sm:p-6 space-y-4 max-h-[88vh] overflow-y-auto" onclick="event.stopPropagation()">
+        <div class="modal-content p-5 space-y-3.5 max-w-sm rounded-2xl max-h-[88vh] overflow-y-auto" onclick="event.stopPropagation()">
             <!-- Header -->
-            <div class="flex justify-between items-center pb-3 border-b border-surface-variant/40">
+            <div class="flex justify-between items-center pb-2.5 border-b border-border">
                 <div class="flex items-center gap-2">
-                    <div class="w-9 h-9 rounded-2xl bg-emerald/10 text-emerald flex items-center justify-center">
-                        <span class="material-symbols-outlined text-xl">location_on</span>
+                    <div class="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 flex items-center justify-center border border-emerald-200/50 dark:border-emerald-800/50">
+                        <span class="material-symbols-outlined text-base">location_on</span>
                     </div>
                     <div>
-                        <h3 class="font-bold text-sm sm:text-base text-on-surface">${isMandatorySetup ? 'Delivery Address Required' : 'Select Delivery Location'}</h3>
-                        <p class="text-[11px] text-on-surface-variant">LPU Campus Express Delivery (3 mins)</p>
+                        <h3 class="font-bold text-xs sm:text-sm text-slate-900 dark:text-white">${isMandatorySetup ? 'Delivery Address Required' : 'Select Delivery Location'}</h3>
+                        <p class="text-[10px] text-slate-500">LPU Campus 3-Min Delivery</p>
                     </div>
                 </div>
                 ${isMandatorySetup ? `
-                <span class="text-[10px] bg-emerald/10 text-emerald px-2 py-0.5 rounded-full font-bold">Step 2: Room Info</span>
+                <span class="text-[10px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full font-semibold border border-emerald-200/50">Step 2</span>
                 ` : `
-                <button type="button" class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface" onclick="document.getElementById('address-modal').remove()">
+                <button type="button" class="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center transition-colors cursor-pointer" onclick="document.getElementById('address-modal').remove()">
                     <span class="material-symbols-outlined text-base">close</span>
                 </button>
                 `}
             </div>
 
             <!-- Notice Banner -->
-            <div class="p-3 bg-emerald/10 border border-emerald/20 rounded-2xl flex items-center gap-2.5 text-xs text-emerald font-medium">
-                <span class="material-symbols-outlined text-base">bolt</span>
-                <span>Express 3-min delivery is exclusively live at <strong>BH13</strong>! Food delivered straight to your room.</span>
+            <div class="p-2.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/40 rounded-lg flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-300">
+                <span class="material-symbols-outlined text-base text-emerald">bolt</span>
+                <span>Express 3-min delivery live at <strong>BH13</strong>! Direct room delivery.</span>
             </div>
 
             <!-- Hostel Selector Grid -->
-            <div class="space-y-2">
-                <div class="flex justify-between items-center">
-                    <label class="block text-xs font-semibold text-on-surface-variant">Choose Hostel / Building</label>
-                    <span class="text-[10px] text-emerald font-bold">BH13 Active</span>
+            <div class="space-y-1.5">
+                <div class="flex justify-between items-center text-xs">
+                    <label class="font-medium text-slate-700 dark:text-slate-300">Hostel</label>
+                    <span class="text-[10px] text-emerald font-semibold">BH13 Active</span>
                 </div>
-                <div class="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-36 overflow-y-auto p-1 no-scrollbar" id="hostels-container">
+                <div class="grid grid-cols-3 sm:grid-cols-4 gap-1.5 max-h-32 overflow-y-auto p-0.5 no-scrollbar" id="hostels-container">
                     ${allLocations.map(h => {
                         const isSelected = h.name === selectedHostel;
                         if (h.active) {
                             return `
-                            <button type="button" class="p-2 rounded-2xl border text-xs font-bold transition-all relative flex flex-col items-center justify-center gap-0.5 hostel-pick-btn ${isSelected ? 'border-2 border-emerald bg-emerald/10 text-emerald shadow-sm' : 'border-surface-variant bg-surface hover:border-emerald text-on-surface'}" data-hostel="${h.name}">
+                            <button type="button" class="p-1.5 rounded-lg border text-xs font-semibold transition-colors relative flex flex-col items-center justify-center gap-0.5 hostel-pick-btn cursor-pointer ${isSelected ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400' : 'border-border bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-emerald'}" data-hostel="${h.name}">
                                 <span>${h.name}</span>
-                                <span class="bg-emerald text-white text-[9px] px-1.5 py-0.2 rounded-full font-bold">Live ⚡</span>
+                                <span class="bg-emerald text-white text-[8px] px-1 rounded font-bold">Live</span>
                             </button>
                             `;
                         } else {
                             return `
-                            <button type="button" class="p-2 rounded-2xl border border-surface-variant/40 bg-surface/50 text-on-surface-variant/70 text-xs font-medium transition-all relative flex flex-col items-center justify-center gap-0.5 hostel-disabled-btn cursor-not-allowed opacity-60" data-hostel="${h.name}">
+                            <button type="button" class="p-1.5 rounded-lg border border-border bg-slate-50 dark:bg-slate-800/40 text-slate-400 text-xs font-medium transition-colors relative flex flex-col items-center justify-center gap-0.5 hostel-disabled-btn cursor-not-allowed opacity-60" data-hostel="${h.name}">
                                 <span>${h.name}</span>
-                                <span class="text-[8px] bg-surface-container-high px-1 py-0.2 rounded text-on-surface-variant font-medium">Soon</span>
+                                <span class="text-[8px] text-slate-400">Soon</span>
                             </button>
                             `;
                         }
@@ -311,59 +317,53 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
                 </div>
             </div>
 
-            <!-- Block Selector (Block A or Block B) -->
-            <div class="space-y-2">
-                <label class="block text-xs font-semibold text-on-surface-variant">Select Block</label>
-                <div class="grid grid-cols-2 gap-2.5" id="block-selector">
-                    <button type="button" class="py-2.5 px-4 rounded-xl border text-xs font-bold transition-all block-btn flex items-center justify-center gap-1.5 ${selectedBlock === 'Block A' ? 'border-2 border-emerald bg-emerald/10 text-emerald shadow-sm' : 'border-surface-variant bg-surface text-on-surface'}" data-block="Block A">
+            <!-- Block Selector -->
+            <div class="space-y-1.5">
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Block</label>
+                <div class="grid grid-cols-2 gap-2" id="block-selector">
+                    <button type="button" class="py-2 px-3 rounded-lg border text-xs font-semibold transition-colors block-btn flex items-center justify-center gap-1 cursor-pointer ${selectedBlock === 'Block A' ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400' : 'border-border bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'}" data-block="Block A">
                         <span class="material-symbols-outlined text-sm">apartment</span>
                         Block A
                     </button>
-                    <button type="button" class="py-2.5 px-4 rounded-xl border text-xs font-bold transition-all block-btn flex items-center justify-center gap-1.5 ${selectedBlock === 'Block B' ? 'border-2 border-emerald bg-emerald/10 text-emerald shadow-sm' : 'border-surface-variant bg-surface text-on-surface'}" data-block="Block B">
+                    <button type="button" class="py-2 px-3 rounded-lg border text-xs font-semibold transition-colors block-btn flex items-center justify-center gap-1 cursor-pointer ${selectedBlock === 'Block B' ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400' : 'border-border bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'}" data-block="Block B">
                         <span class="material-symbols-outlined text-sm">apartment</span>
                         Block B
                     </button>
                 </div>
             </div>
 
-            <!-- Room Number Input (Strictly Numeric) -->
+            <!-- Room Number Input -->
             <div class="space-y-1">
-                <label class="block text-xs font-semibold text-on-surface-variant" for="room-input">Room Number (Digits only) *</label>
-                <div class="relative">
-                    <input type="tel" inputmode="numeric" pattern="[0-9]*" id="room-input" required class="w-full px-3.5 py-2.5 rounded-xl border border-surface-variant bg-surface text-xs text-on-surface font-semibold focus:outline-none focus:border-emerald" placeholder="e.g. 304" value="${savedRoom.replace(/\D/g, '')}">
-                </div>
+                <label class="block text-xs font-medium text-slate-700 dark:text-slate-300" for="room-input">Room Number (Digits only) *</label>
+                <input type="tel" inputmode="numeric" pattern="[0-9]*" id="room-input" required class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:border-emerald transition-colors" placeholder="e.g. 304" value="${savedRoom.replace(/\D/g, '')}">
             </div>
 
-            <!-- Contact Phone Number (Strictly Mandatory for Every User) -->
-            <div class="space-y-1.5">
+            <!-- Contact Phone Number -->
+            <div class="space-y-1">
                 <div class="flex justify-between items-center">
-                    <label class="block text-xs font-bold text-on-surface" for="phone-input">Mobile Phone Number <span class="text-rose-500">* (Mandatory)</span></label>
-                    <span class="text-[10px] bg-rose-500/10 text-rose-600 font-bold px-2 py-0.5 rounded-full border border-rose-500/20">Required for Runner</span>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300" for="phone-input">Mobile Phone Number <span class="text-rose-600 dark:text-rose-400">*</span></label>
+                    <span class="text-[10px] text-rose-600 dark:text-rose-400 font-medium">Required for Runner</span>
                 </div>
                 <div class="relative">
-                    <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant">+91</span>
-                    <input type="tel" inputmode="numeric" pattern="[0-9]*" id="phone-input" maxlength="10" required class="w-full pl-12 pr-3.5 py-2.5 rounded-xl border-2 border-surface-variant bg-surface text-xs text-on-surface font-semibold focus:outline-none focus:border-emerald" placeholder="Enter 10-digit mobile" value="${savedPhone.replace(/\D/g, '')}">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">+91</span>
+                    <input type="tel" inputmode="numeric" pattern="[0-9]*" id="phone-input" maxlength="10" required class="w-full pl-11 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:border-emerald transition-colors" placeholder="10-digit mobile" value="${savedPhone.replace(/\D/g, '')}">
                 </div>
-                <p class="text-[10px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
-                    <span class="material-symbols-outlined text-xs">call</span>
-                    <span>10-digit mobile is strictly required so our runner can call you upon reaching your room.</span>
-                </p>
             </div>
 
             <!-- Inline Validation Alert -->
-            <div id="address-validation-alert" class="hidden p-2.5 bg-red-500/10 border border-red-500/30 rounded-xl text-red-600 text-xs flex items-center gap-2">
+            <div id="address-validation-alert" class="hidden p-2 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50 rounded-lg text-rose-700 dark:text-rose-400 text-xs flex items-center gap-1.5">
                 <span class="material-symbols-outlined text-sm">error</span>
                 <span id="address-validation-msg">Please enter your room number.</span>
             </div>
 
-            <!-- Inline Alert for Blocked Hostels (Initially hidden) -->
-            <div id="blocked-hostel-alert" class="hidden p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-600 text-xs flex items-center gap-2">
+            <!-- Inline Alert for Blocked Hostels -->
+            <div id="blocked-hostel-alert" class="hidden p-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-lg text-amber-700 dark:text-amber-300 text-xs flex items-center gap-1.5">
                 <span class="material-symbols-outlined text-sm">info</span>
                 <span id="blocked-hostel-msg">This hostel is opening soon. Delivering to BH13 right now.</span>
             </div>
 
             <!-- Save Button -->
-            <button type="button" id="save-address-btn" class="w-full bg-emerald text-white rounded-full py-3.5 text-xs sm:text-sm font-semibold shadow-md hover:bg-primary transition-all active:scale-95 cursor-pointer">
+            <button type="button" id="save-address-btn" class="w-full bg-emerald text-white rounded-lg py-2.5 text-xs font-semibold shadow-xs hover:bg-emerald-600 transition-colors cursor-pointer">
                 Confirm Address & Deliver to BH13 (<span id="btn-block-label">${selectedBlock}</span>)
             </button>
         </div>
@@ -528,81 +528,81 @@ window.openProductModal = async function(productId) {
         const qty = cartInfo ? cartInfo.quantity : 0;
 
         modal.innerHTML = `
-            <div class="modal-content p-6 space-y-5" onclick="event.stopPropagation()">
+            <div class="modal-content p-5 space-y-4 max-w-sm rounded-2xl" onclick="event.stopPropagation()">
                 <!-- Modal Top -->
-                <div class="flex justify-between items-start">
-                    <span class="text-[10px] font-bold uppercase tracking-wider text-emerald bg-emerald/10 px-2.5 py-0.5 rounded-full">
-                        ${pCategory} · ${pSubcategory}
+                <div class="flex justify-between items-center pb-2 border-b border-border">
+                    <span class="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200/50 dark:border-emerald-800/50">
+                        ${pCategory}
                     </span>
-                    <button type="button" class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface hover:bg-surface-variant transition-colors" onclick="document.getElementById('product-modal').remove()">
+                    <button type="button" class="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center transition-colors cursor-pointer" onclick="document.getElementById('product-modal').remove()">
                         <span class="material-symbols-outlined text-base">close</span>
                     </button>
                 </div>
 
-                <!-- Product Image Banner -->
-                <div class="h-48 bg-surface-container-high rounded-2xl overflow-hidden flex items-center justify-center p-4 relative">
+                <!-- Product Image Frame -->
+                <div class="h-44 bg-slate-50 dark:bg-slate-800/60 rounded-xl overflow-hidden flex items-center justify-center p-3 relative border border-border">
                     <img class="max-h-full max-w-full object-contain" src="${pImg}" alt="${pName}" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400'">
                     ${pDiscount > 0 ? `
-                    <div class="absolute top-3 left-3 bg-vibrant-yellow text-slate-900 font-bold text-[11px] px-2.5 py-0.5 rounded-md shadow-sm">
+                    <div class="absolute top-2.5 left-2.5 bg-emerald-600 text-white font-bold text-[10px] px-2 py-0.5 rounded shadow-xs">
                         ${pDiscount}% OFF
                     </div>
                     ` : ''}
                     ${isLowStock ? `
-                    <div class="absolute top-3 right-3 bg-amber-500 text-white text-[11px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-0.5">
-                        <span class="material-symbols-outlined text-xs" style="font-variation-settings: 'FILL' 1;">bolt</span> Only ${stockLeft} left!
+                    <div class="absolute top-2.5 right-2.5 bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-xs">
+                        Only ${stockLeft} left
                     </div>
                     ` : (isOutOfStock ? `
-                    <div class="absolute top-3 right-3 bg-rose-600 text-white text-[11px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm">
+                    <div class="absolute top-2.5 right-2.5 bg-rose-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-xs">
                         Out of Stock
                     </div>
                     ` : '')}
                 </div>
 
                 <!-- Title & Price -->
-                <div class="space-y-1">
-                    <h2 class="font-headline-md text-lg font-bold text-on-surface">${pName}</h2>
-                    <p class="text-xs text-on-surface-variant font-medium">${pSize}</p>
+                <div class="space-y-0.5">
+                    <h2 class="text-base font-bold text-slate-900 dark:text-white leading-snug">${pName}</h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">${pSize}</p>
                     <div class="flex items-baseline gap-2 pt-1">
-                        <span class="text-2xl font-bold text-emerald">₹${pPrice}</span>
-                        ${pMrp > pPrice ? `<span class="text-xs text-on-surface-variant line-through">₹${pMrp}</span>` : ''}
+                        <span class="text-xl font-bold text-slate-900 dark:text-white">₹${pPrice}</span>
+                        ${pMrp > pPrice ? `<span class="text-xs text-slate-400 line-through">₹${pMrp}</span>` : ''}
                     </div>
                 </div>
 
                 <!-- Highlights & Description -->
-                <div class="space-y-3 border-t border-surface-variant/40 pt-3 text-xs">
-                    <p class="text-on-surface-variant leading-relaxed">${pDesc}</p>
+                <div class="space-y-2.5 border-t border-border pt-2.5 text-xs">
+                    <p class="text-slate-600 dark:text-slate-300 leading-relaxed text-[11px]">${pDesc}</p>
                     <div class="grid grid-cols-2 gap-2 text-[11px]">
-                        <div class="bg-surface p-2 rounded-xl border border-surface-variant/40">
-                            <span class="text-on-surface-variant block text-[10px]">Shelf Life</span>
-                            <span class="font-semibold text-on-surface">${pShelfLife}</span>
+                        <div class="bg-slate-50 dark:bg-slate-800/40 p-2 rounded-lg border border-border">
+                            <span class="text-slate-400 block text-[10px]">Shelf Life</span>
+                            <span class="font-semibold text-slate-800 dark:text-slate-200">${pShelfLife}</span>
                         </div>
-                        <div class="bg-surface p-2 rounded-xl border border-surface-variant/40">
-                            <span class="text-on-surface-variant block text-[10px]">Campus Delivery</span>
+                        <div class="bg-slate-50 dark:bg-slate-800/40 p-2 rounded-lg border border-border">
+                            <span class="text-slate-400 block text-[10px]">Campus Delivery</span>
                             <span class="font-semibold text-emerald">3 mins to BH13</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- Action Button inside Modal -->
-                <div class="pt-2" id="modal-action-container">
+                <div class="pt-1" id="modal-action-container">
                     ${isOutOfStock ? `
-                    <button type="button" class="w-full bg-rose-500/10 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60 rounded-full py-3 text-xs font-bold shadow-none cursor-not-allowed flex items-center justify-center gap-1.5" disabled>
-                        <span class="material-symbols-outlined text-sm">block</span> Out of Stock
+                    <button type="button" class="w-full bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-lg py-2.5 text-xs font-semibold cursor-not-allowed flex items-center justify-center gap-1.5" disabled>
+                        Out of Stock
                     </button>
                     ` : (qty === 0 ? `
-                    <button type="button" class="w-full bg-emerald text-white rounded-full py-3 text-xs font-semibold shadow-md hover:bg-primary transition-all flex items-center justify-center gap-1.5 cursor-pointer" id="modal-add-btn">
-                        <span class="material-symbols-outlined text-sm">add_shopping_cart</span> Add to Cart · ₹${pPrice}
+                    <button type="button" class="w-full bg-emerald text-white rounded-lg py-2.5 text-xs font-semibold shadow-xs hover:bg-emerald-600 transition-colors flex items-center justify-center gap-1.5 cursor-pointer" id="modal-add-btn">
+                        <span class="material-symbols-outlined text-base">add_shopping_cart</span> Add to Cart · ₹${pPrice}
                     </button>
                     ` : `
-                    <div class="flex items-center justify-between bg-surface-container-high rounded-full p-1.5 px-4 border border-outline-variant/30">
-                        <span class="text-xs font-semibold text-on-surface">Quantity in Cart:</span>
-                        <div class="flex items-center gap-3">
-                            <button type="button" class="w-7 h-7 rounded-full bg-white dark:bg-surface flex items-center justify-center text-on-surface shadow-sm cursor-pointer" id="modal-dec-btn">
-                                <span class="material-symbols-outlined text-sm">remove</span>
+                    <div class="flex items-center justify-between bg-slate-50 dark:bg-slate-800 rounded-lg p-1.5 px-3 border border-border">
+                        <span class="text-xs font-medium text-slate-700 dark:text-slate-300">Quantity in Cart:</span>
+                        <div class="card-qty-stepper flex items-center">
+                            <button type="button" class="card-qty-btn card-dec-btn" id="modal-dec-btn">
+                                <span class="material-symbols-outlined text-[13px] font-bold">remove</span>
                             </button>
-                            <span class="font-bold text-xs w-4 text-center">${qty}</span>
-                            <button type="button" class="w-7 h-7 rounded-full bg-emerald text-white flex items-center justify-center shadow-sm cursor-pointer ${qty >= stockLeft ? 'opacity-40 cursor-not-allowed' : ''}" id="modal-inc-btn" ${qty >= stockLeft ? 'disabled' : ''}>
-                                <span class="material-symbols-outlined text-sm">add</span>
+                            <span class="card-qty-val select-none">${qty}</span>
+                            <button type="button" class="card-qty-btn card-inc-btn ${qty >= stockLeft ? 'opacity-40 cursor-not-allowed' : ''}" id="modal-inc-btn" ${qty >= stockLeft ? 'disabled' : ''}>
+                                <span class="material-symbols-outlined text-[13px] font-bold">add</span>
                             </button>
                         </div>
                     </div>
@@ -672,8 +672,8 @@ function renderSlotContent(productId, slotEl) {
 
     if (isOutOfStock || stockLeft <= 0) {
         slotEl.innerHTML = `
-            <span class="text-[10px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-2.5 py-1 rounded-xl border border-rose-200 dark:border-rose-800 cursor-not-allowed select-none">
-                Out of Stock
+            <span class="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md cursor-not-allowed select-none">
+                Out
             </span>
         `;
         return;
@@ -687,17 +687,17 @@ function renderSlotContent(productId, slotEl) {
         slotEl.innerHTML = `
             <div class="card-qty-stepper">
                 <button type="button" class="card-qty-btn card-dec-btn" data-id="${productId}" data-stock-left="${stockLeft}" title="Decrease">
-                    <span class="material-symbols-outlined text-[15px] font-bold">remove</span>
+                    <span class="material-symbols-outlined text-[13px] font-bold">remove</span>
                 </button>
                 <span class="card-qty-val select-none">${qty}</span>
                 <button type="button" class="card-qty-btn card-inc-btn ${isMaxReached ? 'opacity-40 cursor-not-allowed' : ''}" data-id="${productId}" data-stock-left="${stockLeft}" title="${isMaxReached ? `Only ${stockLeft} left in stock` : 'Add one more'}">
-                    <span class="material-symbols-outlined text-[15px] font-bold">add</span>
+                    <span class="material-symbols-outlined text-[13px] font-bold">add</span>
                 </button>
             </div>
         `;
     } else {
         slotEl.innerHTML = `
-            <button type="button" class="add-to-cart-btn bg-emerald-950/20 dark:bg-emerald-950/40 border border-emerald-600 text-emerald-600 dark:text-emerald-400 font-extrabold text-xs px-3.5 py-1 rounded-xl shadow-sm hover:bg-emerald-600 hover:text-white active:scale-95 transition-all tracking-wider uppercase" data-id="${productId}" data-stock-left="${stockLeft}">ADD</button>
+            <button type="button" class="add-to-cart-btn uppercase" data-id="${productId}" data-stock-left="${stockLeft}">ADD</button>
         `;
     }
 }

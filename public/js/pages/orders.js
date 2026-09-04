@@ -1,57 +1,59 @@
-// Orders Page — Live 3-Minute GPS Tracking & Order History
+// Orders Page — Classical Campus Quick-Commerce Tracking & Order History
 window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
 window.pages.orders = async function() {
     if (!window.isUserLoggedIn()) {
         return `
-<div class="bg-background text-on-background font-body-md min-h-screen pb-32">
-    <header class="px-margin-mobile md:px-margin-desktop py-4 flex items-center justify-between sticky top-0 bg-surface/80 backdrop-blur-md z-40 border-b border-glass-border">
+<div class="bg-background text-on-background min-h-screen pb-32">
+    <header class="px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 bg-surface/95 backdrop-blur-md z-40 border-b border-border shadow-xs">
         <div class="flex items-center gap-3">
-            <a href="#/" class="p-2 hover:bg-surface-variant/50 rounded-full transition-colors">
-                <span class="material-symbols-outlined text-on-surface">arrow_back</span>
+            <a href="#/" class="w-9 h-9 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-700 dark:text-slate-200">
+                <span class="material-symbols-outlined text-xl">arrow_back</span>
             </a>
-            <h1 class="font-headline-md text-base sm:text-lg font-bold text-on-surface">Live Tracking & Orders</h1>
+            <h1 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-tight">Orders & Tracking</h1>
         </div>
     </header>
 
-    <main class="px-margin-mobile md:px-margin-desktop max-w-md mx-auto pt-16 text-center space-y-6">
-        <div class="w-20 h-20 rounded-full bg-emerald/10 text-emerald flex items-center justify-center mx-auto shadow-sm">
-            <span class="material-symbols-outlined text-4xl">receipt_long</span>
+    <main class="px-4 sm:px-6 max-w-md mx-auto pt-16 text-center space-y-4">
+        <div class="w-16 h-16 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-800/50 flex items-center justify-center mx-auto shadow-xs">
+            <span class="material-symbols-outlined text-3xl">receipt_long</span>
         </div>
-        <div class="space-y-2">
-            <h2 class="text-xl sm:text-2xl font-bold text-on-surface">Sign In to Track Orders</h2>
-            <p class="text-xs text-on-surface-variant max-w-xs mx-auto">
-                Sign in with your Google or student account to view live 3-minute delivery tracking and your campus order history.
+        <div class="space-y-1.5">
+            <h2 class="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">Sign In to View Orders</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
+                Sign in with your student account to view real-time delivery tracking and your past campus orders.
             </p>
         </div>
-        <a href="#/signin" onclick="localStorage.setItem('lpuquick_redirect', '#/orders')" class="inline-flex items-center justify-center gap-2 bg-emerald text-white px-7 py-3.5 rounded-full font-bold text-xs shadow-md hover:bg-primary transition-all active:scale-95">
-            <span>Continue with Google</span>
-            <span class="material-symbols-outlined text-sm">arrow_forward</span>
-        </a>
+        <div class="pt-2">
+            <a href="#/signin" onclick="localStorage.setItem('lpuquick_redirect', '#/orders')" class="inline-flex items-center justify-center gap-1.5 bg-emerald text-white px-6 py-2.5 rounded-lg font-semibold text-xs shadow-xs hover:bg-emerald-600 transition-colors">
+                <span>Continue with Google</span>
+                <span class="material-symbols-outlined text-sm">arrow_forward</span>
+            </a>
+        </div>
     </main>
 
-    <!-- BottomNavBar -->
-    <div class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-50">
-        <nav class="flex justify-around items-center p-2 mx-auto bg-white/80 backdrop-blur-2xl shadow-xl border border-glass-border rounded-full">
-            <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-95 duration-200" href="#/">
-                <span class="material-symbols-outlined">home</span>
-                <span class="font-label-sm text-[11px] mt-0.5 hidden sm:block">Home</span>
+    <!-- Bottom Navigation Bar -->
+    <div class="fixed bottom-0 left-0 right-0 z-40 bg-surface/95 backdrop-blur-md border-t border-border shadow-xs sm:hidden">
+        <nav class="flex justify-around items-center h-14 max-w-md mx-auto px-2">
+            <a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer" href="#/" title="Home">
+                <span class="material-symbols-outlined text-xl">home</span>
+                <span class="text-[10px] font-medium mt-0.5">Home</span>
             </a>
-            <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-95 duration-200" href="#/categories">
-                <span class="material-symbols-outlined">category</span>
-                <span class="font-label-sm text-[11px] mt-0.5 hidden sm:block">Categories</span>
+            <a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer" href="#/categories" title="Categories">
+                <span class="material-symbols-outlined text-xl">category</span>
+                <span class="text-[10px] font-medium mt-0.5">Categories</span>
             </a>
-            <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-95 duration-200 relative" href="#/cart" id="bottom-nav-cart-btn">
+            <a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer relative" href="#/cart" title="Cart" id="bottom-nav-cart-btn">
                 <div class="relative flex items-center justify-center">
-                    <span class="material-symbols-outlined">shopping_cart</span>
-                    <span id="bottom-nav-cart-count" class="global-cart-count-badge absolute -top-1.5 -right-2 bg-emerald text-white text-[10px] font-black min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center shadow-md ring-2 ring-white dark:ring-slate-900 hidden">0</span>
+                    <span class="material-symbols-outlined text-xl">shopping_cart</span>
+                    <span id="bottom-nav-cart-count" class="global-cart-count-badge absolute -top-1.5 -right-2.5 bg-emerald text-white text-[9px] font-bold min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center shadow-xs ring-2 ring-white dark:ring-slate-900 hidden">0</span>
                 </div>
-                <span class="font-label-sm text-[11px] mt-0.5 hidden sm:block">Cart</span>
+                <span class="text-[10px] font-medium mt-0.5">Cart</span>
             </a>
-            <a class="flex flex-col items-center justify-center bg-emerald text-on-primary rounded-full px-6 py-2 active:scale-95 duration-200 shadow-md" href="#/orders">
-                <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">receipt_long</span>
-                <span class="font-label-sm text-[11px] mt-0.5">Orders</span>
+            <a class="flex flex-col items-center justify-center text-emerald dark:text-emerald-400 px-3 py-1 cursor-pointer font-bold" href="#/orders">
+                <span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">receipt_long</span>
+                <span class="text-[10px] mt-0.5">Orders</span>
             </a>
         </nav>
     </div>
@@ -90,21 +92,21 @@ window.pages.orders = async function() {
     const pastRows = pastOrders.map(o => {
         const isCancelled = ['Cancelled', 'cancelled'].includes(o.status);
         const statusBadgeClass = isCancelled 
-            ? 'bg-error/15 text-error border border-error/30' 
-            : 'bg-emerald/10 text-emerald';
+            ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50' 
+            : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-800/50';
         return `
-        <div class="glass-card rounded-2xl p-4 border border-glass-border shadow-sm flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+        <div class="bg-surface border border-border rounded-xl p-3.5 sm:p-4 shadow-xs flex flex-col sm:flex-row justify-between sm:items-center gap-3">
             <div class="space-y-1">
                 <div class="flex items-center gap-2">
-                    <span class="font-bold text-xs sm:text-sm text-on-surface">Order #${o.id.replace('order_', '')}</span>
-                    <span class="text-[10px] ${statusBadgeClass} font-bold px-2 py-0.5 rounded-full capitalize">${o.status}</span>
+                    <span class="font-bold text-xs sm:text-sm text-slate-900 dark:text-white">Order #${o.id.replace('order_', '').toUpperCase()}</span>
+                    <span class="text-[10px] ${statusBadgeClass} font-semibold px-2 py-0.2 rounded-full capitalize">${o.status}</span>
                 </div>
-                <p class="text-xs text-on-surface-variant line-clamp-1">${o.item_names || 'Campus Groceries & Essentials'}</p>
-                <p class="text-[11px] text-on-surface-variant">${new Date(o.created_at || Date.now()).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400 line-clamp-1">${o.item_names || 'Campus Groceries & Essentials'}</p>
+                <p class="text-[11px] text-slate-400">${new Date(o.created_at || Date.now()).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
             </div>
-            <div class="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-surface-variant/30">
-                <span class="font-bold text-sm text-on-surface">₹${o.total}</span>
-                <button data-order-id="${o.id}" class="bg-surface-container-high hover:bg-emerald/10 hover:border-emerald border border-outline-variant/40 text-on-surface text-xs font-semibold px-3 py-1 rounded-full transition-all reorder-btn active:scale-95 cursor-pointer">
+            <div class="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-border">
+                <span class="font-bold text-sm text-slate-900 dark:text-white">₹${o.total}</span>
+                <button data-order-id="${o.id}" class="bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-400 border border-border text-slate-700 dark:text-slate-300 text-xs font-semibold px-3 py-1 rounded-lg transition-colors reorder-btn cursor-pointer">
                     Reorder
                 </button>
             </div>
@@ -116,207 +118,148 @@ window.pages.orders = async function() {
     window.CURRENT_ACTIVE_ORDER_STATUS = activeOrder ? activeOrder.status : 'Order Placed';
 
     return `
-<div class="bg-background text-on-background font-body-md min-h-screen pb-32">
+<div class="bg-background text-on-background min-h-screen pb-32">
     <!-- TopAppBar -->
-    <header class="px-margin-mobile md:px-margin-desktop py-4 flex items-center justify-between sticky top-0 bg-surface/80 backdrop-blur-md z-40 border-b border-glass-border">
+    <header class="px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 bg-surface/95 backdrop-blur-md z-40 border-b border-border shadow-xs">
         <div class="flex items-center gap-3">
-            <a href="#/" class="p-2 hover:bg-surface-variant/50 rounded-full transition-colors">
-                <span class="material-symbols-outlined text-on-surface">arrow_back</span>
+            <a href="#/" class="w-9 h-9 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-700 dark:text-slate-200">
+                <span class="material-symbols-outlined text-xl">arrow_back</span>
             </a>
-            <h1 class="font-headline-md text-base sm:text-lg font-bold text-on-surface">Live Tracking & Orders</h1>
+            <h1 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-tight">Live Tracking & Orders</h1>
         </div>
-        <div class="flex items-center gap-1 text-xs bg-emerald/10 text-emerald px-3 py-1 rounded-full font-bold">
-            <span class="material-symbols-outlined text-sm animate-spin">sync</span>
+        <div class="flex items-center gap-1.5 text-xs bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-800/50 px-2.5 py-1 rounded-full font-semibold">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald animate-pulse"></span>
             <span id="orders-live-indicator">Live Connected</span>
         </div>
     </header>
 
-    <main class="px-margin-mobile md:px-margin-desktop max-w-4xl mx-auto pt-6 space-y-6">
+    <main class="px-4 sm:px-6 max-w-4xl mx-auto pt-5 space-y-5">
         <!-- Active Order Live Tracking Section -->
         ${activeOrder ? `
         <section class="space-y-3" id="active-order-tracking-card" data-order-id="${activeOrder.id}">
             <div class="flex justify-between items-center flex-wrap gap-2">
-                <h2 class="font-headline-md text-base sm:text-lg font-bold text-on-surface flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 rounded-full bg-emerald animate-pulse"></span>
-                    Live 3-Minute BH13 Campus Delivery
+                <h2 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald"></span>
+                    Live Campus Delivery (3 Mins)
                 </h2>
                 <div class="flex items-center gap-2">
-                    <span class="text-xs bg-emerald/15 text-emerald font-extrabold px-3 py-1 rounded-full flex items-center gap-1" id="tracking-eta">
+                    <span class="text-xs bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-800/50 font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1" id="tracking-eta">
                         <span class="material-symbols-outlined text-xs">bolt</span>
                         <span id="tracking-eta-time">Status: ${activeOrder.status}</span>
                     </span>
-                    <!-- Help Option Button (Visible ONLY when order is active) -->
-                    <button type="button" id="btn-order-help" onclick="window.openOrderHelpModal()" class="text-xs bg-surface-container-high hover:bg-emerald/15 hover:text-emerald text-on-surface font-bold px-3 py-1 rounded-full border border-outline-variant/40 flex items-center gap-1 transition-all active:scale-95 shadow-sm cursor-pointer z-30" title="Order Help & Support">
+                    <button type="button" id="btn-order-help" onclick="window.openOrderHelpModal()" class="text-xs bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium px-2.5 py-0.5 rounded-lg border border-border flex items-center gap-1 transition-colors cursor-pointer" title="Order Help">
                         <span class="material-symbols-outlined text-sm text-emerald">help</span>
                         <span>Help</span>
                     </button>
                 </div>
             </div>
-            <div class="glass-card rounded-3xl overflow-hidden border border-emerald-500/40 shadow-2xl bg-surface relative">
-                <!-- BH13 Campus Floor / Corridor Live High-Tech Map Canvas -->
-                <div class="h-80 sm:h-96 relative bg-gradient-to-b from-[#060e1a] via-[#091526] to-[#040912] overflow-hidden flex items-center justify-center p-4 select-none rounded-t-3xl border-b border-emerald-500/20">
+
+            <div class="bg-surface border border-border rounded-xl overflow-hidden shadow-xs">
+                <!-- Clean Schematic Campus Delivery Canvas -->
+                <div class="h-44 sm:h-52 relative bg-slate-900 overflow-hidden flex items-center justify-center p-4 select-none border-b border-border">
                     
-                    <!-- Futuristic Animated HUD Overlay (Top Bar) -->
-                    <div class="absolute top-3 inset-x-2.5 sm:inset-x-4 flex justify-between items-center z-30 pointer-events-none">
-                        <div class="flex items-center gap-1.5 sm:gap-2 bg-black/85 backdrop-blur-xl border border-emerald-500/40 text-emerald-400 text-[10px] sm:text-[11px] font-black px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.25)]">
-                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                            <span class="tracking-wide hidden sm:inline">📡 BH13 LIVE CORRIDOR GPS</span>
-                            <span class="tracking-wide sm:hidden">📡 BH13 GPS</span>
+                    <!-- HUD Status Header -->
+                    <div class="absolute top-2.5 inset-x-3 flex justify-between items-center z-30 pointer-events-none">
+                        <div class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700 text-emerald-400 text-[10px] font-semibold px-2 py-0.5 rounded-md">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <span>BH13 Corridor Runner</span>
                         </div>
-                        <div class="flex items-center gap-1.5 sm:gap-2 bg-black/85 backdrop-blur-xl border border-white/15 text-white/90 text-[10px] sm:text-[11px] font-bold px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full shadow-lg">
-                            <span class="text-emerald-400 font-extrabold flex items-center gap-0.5">
-                                <span class="material-symbols-outlined text-[12px] sm:text-[13px]">bolt</span> 1.4 m/s
-                            </span>
-                            <span class="text-white/30 hidden sm:inline">•</span>
-                            <span class="text-slate-300 hidden sm:inline">Floor 3 Express</span>
+                        <div class="flex items-center gap-1 bg-slate-900/90 border border-slate-700 text-slate-300 text-[10px] font-medium px-2 py-0.5 rounded-md">
+                            <span class="text-emerald-400 font-bold">1.4 m/s</span>
+                            <span>• Express 3m</span>
                         </div>
                     </div>
 
-                    <!-- Ambient Floating Grid Lines -->
-                    <div class="absolute inset-0 opacity-20 pointer-events-none map-grid-animated" style="background-image: radial-gradient(#10B981 1.5px, transparent 1.5px); background-size: 28px 28px;"></div>
-
-                    <!-- Walking Footpath Path SVG with Gradients & Glow Filters -->
-                    <svg class="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 800 280">
-                        <defs>
-                            <linearGradient id="emeraldPathGlow" x1="0%" y1="0%" x2="100%" y2="0%">
-                                <stop offset="0%" stop-color="#059669" stop-opacity="0.8"/>
-                                <stop offset="50%" stop-color="#10B981" stop-opacity="1"/>
-                                <stop offset="100%" stop-color="#34D399" stop-opacity="0.9"/>
-                            </linearGradient>
-                            <filter id="laserGlow" x="-30%" y="-30%" width="160%" height="160%">
-                                <feGaussianBlur stdDeviation="8" result="blur" />
-                                <feMerge>
-                                    <feMergeNode in="blur" />
-                                    <feMergeNode in="SourceGraphic" />
-                                </feMerge>
-                            </filter>
-                        </defs>
-
-                        <!-- Outer Ambient Glow Track -->
-                        <path d="M 70 140 C 200 70, 320 215, 490 95 S 640 185, 730 140" fill="none" stroke="url(#emeraldPathGlow)" stroke-width="16" stroke-linecap="round" opacity="0.35" filter="url(#laserGlow)"/>
-                        
-                        <!-- Base Solid Guideway -->
-                        <path d="M 70 140 C 200 70, 320 215, 490 95 S 640 185, 730 140" fill="none" stroke="#1e293b" stroke-width="9" stroke-linecap="round"/>
-                        
-                        <!-- Animated Neon Laser Dash Track -->
-                        <path class="path-dash-animated" d="M 70 140 C 200 70, 320 215, 490 95 S 640 185, 730 140" fill="none" stroke="#10B981" stroke-width="5.5" stroke-linecap="round" stroke-dasharray="12,14"/>
-
-                        <!-- Waypoints & Halos along corridor -->
-                        <g class="waypoint-halo">
-                            <circle cx="280" cy="150" r="5" fill="#10B981" />
-                            <circle cx="280" cy="150" r="10" fill="none" stroke="#10B981" stroke-width="1.5" opacity="0.6"/>
-                        </g>
-                        <g class="waypoint-halo">
-                            <circle cx="490" cy="95" r="5" fill="#34D399" />
-                            <circle cx="490" cy="95" r="10" fill="none" stroke="#34D399" stroke-width="1.5" opacity="0.6"/>
-                        </g>
-                        <g class="waypoint-halo">
-                            <circle cx="630" cy="160" r="5" fill="#10B981" />
-                            <circle cx="630" cy="160" r="10" fill="none" stroke="#10B981" stroke-width="1.5" opacity="0.6"/>
-                        </g>
+                    <!-- Clean Walking Corridor SVG -->
+                    <svg class="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 800 240">
+                        <!-- Path base line -->
+                        <path d="M 80 120 C 220 70, 340 170, 480 100 S 620 160, 720 120" fill="none" stroke="#334155" stroke-width="4" stroke-linecap="round"/>
+                        <!-- Emerald active dashed path -->
+                        <path d="M 80 120 C 220 70, 340 170, 480 100 S 620 160, 720 120" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-dasharray="6,8"/>
                     </svg>
 
-                    <!-- Origin: BH13 Dark Store Hub Pin (Left) -->
-                    <div class="absolute left-2.5 sm:left-6 top-1/2 transform -translate-y-1/2 z-20 flex flex-col items-center group cursor-pointer">
-                        <div class="relative flex items-center justify-center">
-                            <div class="absolute -inset-2 rounded-xl sm:rounded-2xl bg-emerald-500/25 animate-pulse"></div>
-                            <div class="w-10 h-10 sm:w-13 sm:h-13 rounded-xl sm:rounded-2xl bg-gradient-to-br from-[#1e293b] to-[#0f172a] text-emerald-400 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.4)] border-2 border-emerald-400 p-2">
-                                <span class="material-symbols-outlined text-xl sm:text-2xl">storefront</span>
-                            </div>
+                    <!-- Origin: BH13 Hub Pin -->
+                    <div class="absolute left-4 sm:left-8 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center">
+                        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-slate-800 text-emerald-400 flex items-center justify-center border border-emerald-500/40 shadow-xs">
+                            <span class="material-symbols-outlined text-lg">storefront</span>
                         </div>
-                        <div class="mt-1.5 bg-black/85 backdrop-blur-md text-emerald-400 text-[9px] sm:text-[10px] font-extrabold px-2 sm:px-3 py-0.5 sm:py-1 rounded-full border border-emerald-500/40 shadow-xl max-w-[80px] sm:max-w-[120px] truncate text-center">
+                        <span class="mt-1 bg-slate-900 text-emerald-400 text-[9px] font-bold px-1.5 py-0.5 rounded border border-slate-700">
                             BH13 Hub
-                        </div>
+                        </span>
                     </div>
 
-                    <!-- Active Walking Runner Pin (Dynamic Movement & Triple Radar Waves) -->
-                    <div class="absolute transform -translate-x-1/2 -translate-y-1/2 z-30" id="rider-pin" style="left: 68%; top: 40%;">
+                    <!-- Active Runner Pin -->
+                    <div class="absolute -translate-x-1/2 -translate-y-1/2 z-30 transition-all duration-500" id="rider-pin" style="left: 60%; top: 46%;">
                         <div class="relative flex flex-col items-center">
-                            
-                            <!-- Triple Expanding Sonar Waves -->
-                            <div class="absolute w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-emerald-500/20 radar-wave-1 pointer-events-none"></div>
-                            <div class="absolute w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-emerald-500/25 radar-wave-2 pointer-events-none"></div>
-                            <div class="absolute w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-emerald-500/30 radar-wave-3 pointer-events-none"></div>
-                            
-                            <!-- 3D Emerald Gradient Runner Orb with Bobbing Animation -->
-                            <div class="w-11 h-11 sm:w-14 sm:h-14 rounded-full bg-gradient-to-tr from-emerald-600 via-emerald-500 to-teal-400 text-white flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.9)] border-2 border-white relative z-10 walker-bob cursor-pointer">
-                                <span class="material-symbols-outlined text-2xl sm:text-3xl font-black">directions_walk</span>
+                            <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-emerald text-white flex items-center justify-center shadow-md border-2 border-white">
+                                <span class="material-symbols-outlined text-xl">directions_walk</span>
                             </div>
-                            
-                            <!-- Floating Runner Status Badge -->
-                            <div class="mt-1.5 sm:mt-2.5 bg-black/90 backdrop-blur-xl text-white text-[10px] sm:text-[11px] font-black px-2.5 sm:px-3.5 py-0.5 sm:py-1 rounded-full shadow-2xl border border-emerald-400/60 max-w-[130px] sm:max-w-[200px] truncate flex items-center gap-1.5" id="rider-badge">
-                                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
-                                <span class="truncate">${activeRiderName} · Walking</span>
+                            <div class="mt-1 bg-slate-900 text-white text-[9px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/50 whitespace-nowrap" id="rider-badge">
+                                ${activeRiderName} · Walking
                             </div>
                         </div>
                     </div>
 
-                    <!-- Destination: Student Hostel Room Pin (Right) -->
-                    <div class="absolute right-2.5 sm:right-6 top-1/2 transform -translate-y-1/2 z-20 flex flex-col items-center group cursor-pointer">
-                        <div class="relative flex items-center justify-center">
-                            <div class="absolute -inset-2 rounded-xl sm:rounded-2xl bg-teal-500/25 animate-pulse"></div>
-                            <div class="w-10 h-10 sm:w-13 sm:h-13 rounded-xl sm:rounded-2xl bg-gradient-to-br from-teal-700 to-emerald-950 text-white flex items-center justify-center shadow-[0_0_20px_rgba(20,184,166,0.4)] border-2 border-teal-400 p-2">
-                                <span class="material-symbols-outlined text-xl sm:text-2xl">apartment</span>
-                            </div>
+                    <!-- Destination: Hostel Room Pin -->
+                    <div class="absolute right-4 sm:right-8 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center">
+                        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-slate-800 text-white flex items-center justify-center border border-slate-700 shadow-xs">
+                            <span class="material-symbols-outlined text-lg text-emerald-400">apartment</span>
                         </div>
-                        <div class="mt-1.5 bg-black/85 backdrop-blur-md text-teal-300 text-[9px] sm:text-[10px] font-extrabold px-2 sm:px-3 py-0.5 sm:py-1 rounded-full border border-teal-400/40 shadow-xl max-w-[85px] sm:max-w-[140px] truncate text-center" id="tracking-dest-label">
+                        <span class="mt-1 bg-slate-900 text-slate-300 text-[9px] font-bold px-1.5 py-0.5 rounded border border-slate-700 max-w-[90px] truncate" id="tracking-dest-label">
                             ${activeOrder.delivery_address || `${hostelShort} Room`}
-                        </div>
+                        </span>
                     </div>
                 </div>
 
                 <!-- Order Details & Progress -->
-                <div class="p-5 sm:p-6 space-y-4">
-                    <!-- If order was modified by Dark Store, show real-time notice banner -->
-                    <div id="tracking-order-edited-banner" class="${activeEdit ? '' : 'hidden '}p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-on-surface space-y-1">
+                <div class="p-4 sm:p-5 space-y-3.5">
+                    <!-- Modified Order Notice -->
+                    <div id="tracking-order-edited-banner" class="${activeEdit ? '' : 'hidden '}p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 text-slate-800 dark:text-slate-200 space-y-1 text-xs">
                         <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-bold text-xs">
+                            <div class="flex items-center gap-1.5 text-amber-700 dark:text-amber-400 font-bold">
                                 <span class="material-symbols-outlined text-base">edit_notifications</span>
                                 <span id="tracking-order-edited-title">Dark Store Notice: ${activeEdit?.reason ? activeEdit.reason : 'Item Unavailable'}</span>
                             </div>
-                            <span id="tracking-order-edited-total" class="text-[10px] bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold px-2 py-0.5 rounded-full">
+                            <span id="tracking-order-edited-total" class="text-[10px] bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 font-bold px-2 py-0.5 rounded">
                                 Total: ₹<span id="tracking-order-edited-total-val">${activeOrder.total}</span>
                             </span>
                         </div>
-                        <p id="tracking-order-edited-desc" class="text-xs text-on-surface-variant font-medium">
-                            ${activeEdit?.notes ? activeEdit.notes : 'One or more unavailable items were removed or adjusted by the Dark Store. Your bill has been updated.'}
+                        <p id="tracking-order-edited-desc" class="text-[11px] text-slate-600 dark:text-slate-400">
+                            ${activeEdit?.notes ? activeEdit.notes : 'Unavailable items were adjusted by the Dark Store.'}
                         </p>
                     </div>
 
                     <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
                         <div>
-                            <p class="text-xs text-on-surface-variant font-medium flex items-center gap-1.5" id="tracking-status-msg">
+                            <p class="text-xs text-slate-600 dark:text-slate-300 flex items-center gap-1.5" id="tracking-status-msg">
                                 <span class="material-symbols-outlined text-base text-emerald">directions_walk</span>
-                                <span>${activeRiderName} picked up your snacks from BH13 Dark Store and is walking to ${activeOrder.delivery_address || hostelAddress}.</span>
+                                <span>${activeRiderName} picked up your snacks from BH13 Hub and is walking to ${activeOrder.delivery_address || hostelAddress}.</span>
                             </p>
-                            <h3 class="font-bold text-sm sm:text-base text-on-surface mt-1" id="tracking-order-title">Order #${activeOrder.id.replace('order_', '').toUpperCase()} · Total ₹<span id="tracking-active-total">${activeOrder.total}</span> (${activeOrder.payment_method || 'Cash on Delivery'})</h3>
+                            <h3 class="font-bold text-xs sm:text-sm text-slate-900 dark:text-white mt-1" id="tracking-order-title">Order #${activeOrder.id.replace('order_', '').toUpperCase()} · Total ₹<span id="tracking-active-total">${activeOrder.total}</span> (${activeOrder.payment_method || 'Cash on Delivery'})</h3>
                         </div>
-                        <div class="flex items-center gap-3 bg-surface-container-high rounded-2xl p-2 px-3.5 border border-surface-variant/40 shadow-sm">
-                            <div class="w-9 h-9 rounded-full bg-emerald text-white flex items-center justify-center font-black text-xs shadow-sm" id="rider-avatar">
+                        <div class="flex items-center gap-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl p-2 px-3 border border-border shadow-xs">
+                            <div class="w-8 h-8 rounded-full bg-emerald text-white flex items-center justify-center font-bold text-xs" id="rider-avatar">
                                 ${(activeRiderName || 'A')[0]}
                             </div>
                             <div>
-                                <p class="font-bold text-xs text-on-surface" id="rider-name-display">${activeRiderName}</p>
-                                <p class="text-[10px] text-emerald font-bold flex items-center gap-0.5">
-                                    <span class="material-symbols-outlined text-[13px]">directions_walk</span>
-                                    <span>BH13 Express Walker</span>
-                                </p>
+                                <p class="font-bold text-xs text-slate-900 dark:text-white" id="rider-name-display">${activeRiderName}</p>
+                                <p class="text-[10px] text-emerald font-semibold">Campus Runner</p>
                             </div>
-                            <a href="tel:7671836211" class="ml-2 w-8 h-8 rounded-full bg-emerald text-white flex items-center justify-center hover:opacity-90 shadow-md transition-all active:scale-95" title="Call Runner">
-                                <span class="material-symbols-outlined text-sm">call</span>
+                            <a href="tel:7671836211" class="ml-1.5 w-7 h-7 rounded-full bg-emerald text-white flex items-center justify-center hover:bg-emerald-600 transition-colors" title="Call Runner">
+                                <span class="material-symbols-outlined text-xs">call</span>
                             </a>
                         </div>
                     </div>
 
                     <!-- Progress Step Indicator -->
-                    <div class="space-y-2 pt-1">
-                        <div class="w-full bg-surface-container-high h-3 rounded-full overflow-hidden p-0.5 border border-surface-variant/40">
-                            <div class="h-full rounded-full transition-all duration-700 shadow-sm" id="order-progress-bar" style="width: 25%; background: linear-gradient(90deg, #059669 0%, #10B981 100%); box-shadow: 0 0 10px rgba(16, 185, 129, 0.7);"></div>
+                    <div class="space-y-1.5 pt-1">
+                        <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden border border-border">
+                            <div class="h-full bg-emerald rounded-full transition-all duration-500" id="order-progress-bar" style="width: 25%;"></div>
                         </div>
-                        <div class="flex justify-between text-[10px] sm:text-xs font-bold text-on-surface-variant px-1">
-                            <span class="text-emerald font-extrabold" id="step-placed" style="color: #10B981;">Accepted ✓</span>
+                        <div class="flex justify-between text-[11px] font-medium text-slate-500 dark:text-slate-400 px-0.5">
+                            <span class="text-emerald font-bold" id="step-placed">Accepted ✓</span>
                             <span id="step-packed">Packed 📦</span>
-                            <span id="step-enroute">Walking to Room 🚶‍♂️</span>
+                            <span id="step-enroute">En Route 🚶</span>
                             <span id="step-delivered">Delivered 🏁</span>
                         </div>
                     </div>
@@ -324,91 +267,91 @@ window.pages.orders = async function() {
             </div>
         </section>
         ` : `
-        <section class="glass-card rounded-3xl p-8 text-center border border-glass-border">
-            <div class="w-14 h-14 rounded-full bg-surface-container-high mx-auto flex items-center justify-center mb-3">
-                <span class="material-symbols-outlined text-3xl text-on-surface-variant">directions_walk</span>
+        <section class="bg-surface border border-border rounded-xl p-8 text-center shadow-xs">
+            <div class="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 mx-auto flex items-center justify-center mb-2.5">
+                <span class="material-symbols-outlined text-2xl">directions_walk</span>
             </div>
-            <p class="font-bold text-sm text-on-surface">No active deliveries right now</p>
-            <p class="text-xs text-on-surface-variant mt-1">Place an order to see live real-time GPS walking tracking.</p>
-            <a href="#/" class="mt-4 inline-block bg-emerald text-white text-xs font-semibold px-4 py-2 rounded-full shadow-md">Explore Campus Store</a>
+            <p class="font-bold text-sm text-slate-900 dark:text-white">No active deliveries</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Place an order to see live real-time campus tracking.</p>
+            <a href="#/" class="mt-3.5 inline-block bg-emerald text-white text-xs font-semibold px-4 py-2 rounded-lg hover:bg-emerald-600 transition-colors shadow-xs">Explore Campus Store</a>
         </section>
         `}
 
         <!-- Past Orders History -->
-        <section class="space-y-3">
-            <h2 class="font-headline-md text-base sm:text-lg font-bold text-on-surface">Past Orders</h2>
-            <div class="space-y-2.5">
-                ${pastRows || '<p class="text-xs text-on-surface-variant py-2">No past orders yet.</p>'}
+        <section class="space-y-2.5">
+            <h2 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white">Past Orders</h2>
+            <div class="space-y-2">
+                ${pastRows || '<p class="text-xs text-slate-500 py-2">No past orders yet.</p>'}
             </div>
         </section>
     </main>
 
-    <!-- Order Help Modal (Shown only for active orders) -->
-    <div id="order-help-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
-        <div class="glass-card bg-surface rounded-3xl max-w-md w-full p-6 shadow-2xl border border-glass-border space-y-4 animate-in fade-in zoom-in-95 duration-200">
-            <div class="flex items-center justify-between border-b border-surface-variant/40 pb-3">
+    <!-- Order Help Modal -->
+    <div id="order-help-modal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs hidden flex items-center justify-center p-4">
+        <div class="bg-surface rounded-2xl max-w-sm w-full p-5 shadow-xl border border-border space-y-3.5">
+            <div class="flex items-center justify-between border-b border-border pb-2.5">
                 <div class="flex items-center gap-2">
-                    <span class="w-8 h-8 rounded-full bg-emerald/15 text-emerald flex items-center justify-center">
-                        <span class="material-symbols-outlined text-lg">support_agent</span>
+                    <span class="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-base">support_agent</span>
                     </span>
                     <div>
-                        <h3 class="font-bold text-sm sm:text-base text-on-surface">Order Help & Support</h3>
-                        <p class="text-[11px] text-on-surface-variant">Order #${activeOrder ? activeOrder.id.replace('order_', '') : ''}</p>
+                        <h3 class="font-bold text-xs sm:text-sm text-slate-900 dark:text-white">Order Support</h3>
+                        <p class="text-[10px] text-slate-500">Order #${activeOrder ? activeOrder.id.replace('order_', '').toUpperCase() : ''}</p>
                     </div>
                 </div>
-                <button type="button" id="btn-close-help-modal" onclick="window.closeOrderHelpModal()" class="w-8 h-8 rounded-full bg-surface-container-high text-on-surface-variant hover:text-on-surface flex items-center justify-center cursor-pointer">
+                <button type="button" id="btn-close-help-modal" onclick="window.closeOrderHelpModal()" class="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center cursor-pointer">
                     <span class="material-symbols-outlined text-base">close</span>
                 </button>
             </div>
 
-            <div class="space-y-2.5">
+            <div class="space-y-2">
                 <!-- Option 1: Call Delivery Agent -->
-                <a href="tel:7671836211" class="flex items-center justify-between p-3.5 rounded-2xl bg-surface-container-high hover:bg-emerald/10 border border-outline-variant/30 hover:border-emerald transition-all group">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl bg-emerald text-white flex items-center justify-center shadow-md">
-                            <span class="material-symbols-outlined text-xl">call</span>
+                <a href="tel:7671836211" class="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 border border-border transition-colors">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-emerald text-white flex items-center justify-center">
+                            <span class="material-symbols-outlined text-base">call</span>
                         </div>
                         <div>
-                            <h4 class="font-bold text-xs sm:text-sm text-on-surface">1. Call Delivery Agent</h4>
-                            <p class="text-[11px] text-on-surface-variant">${activeOrder?.rider_name || 'Alex'} (BH13 Express Walker) · 7671836211</p>
+                            <h4 class="font-semibold text-xs text-slate-900 dark:text-white">1. Call Delivery Agent</h4>
+                            <p class="text-[10px] text-slate-500">${activeOrder?.rider_name || 'Alex'} · 7671836211</p>
                         </div>
                     </div>
-                    <span class="material-symbols-outlined text-emerald group-hover:translate-x-1 transition-transform">chevron_right</span>
+                    <span class="material-symbols-outlined text-slate-400 text-sm">chevron_right</span>
                 </a>
 
                 <!-- Option 2: Change Address -->
-                <button type="button" id="btn-help-change-address" onclick="window.changeHelpOrderAddress()" class="w-full text-left flex items-center justify-between p-3.5 rounded-2xl bg-surface-container-high hover:bg-emerald/10 border border-outline-variant/30 hover:border-emerald transition-all group cursor-pointer">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center shadow-md">
-                            <span class="material-symbols-outlined text-xl">location_on</span>
+                <button type="button" id="btn-help-change-address" onclick="window.changeHelpOrderAddress()" class="w-full text-left flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 border border-border transition-colors cursor-pointer">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-slate-700 text-white flex items-center justify-center">
+                            <span class="material-symbols-outlined text-base">location_on</span>
                         </div>
                         <div>
-                            <h4 class="font-bold text-xs sm:text-sm text-on-surface">2. Change Delivery Address</h4>
-                            <p class="text-[11px] text-on-surface-variant truncate max-w-[220px]" id="help-current-address-label">${activeOrder?.delivery_address || hostelAddress}</p>
+                            <h4 class="font-semibold text-xs text-slate-900 dark:text-white">2. Change Address</h4>
+                            <p class="text-[10px] text-slate-500 truncate max-w-[180px]" id="help-current-address-label">${activeOrder?.delivery_address || hostelAddress}</p>
                         </div>
                     </div>
-                    <span class="material-symbols-outlined text-primary group-hover:translate-x-1 transition-transform">chevron_right</span>
+                    <span class="material-symbols-outlined text-slate-400 text-sm">chevron_right</span>
                 </button>
 
-                <!-- Option 3: Cancel Order (Frozen after order is packed / walker en route) -->
+                <!-- Option 3: Cancel Order -->
                 ${(() => {
                     const isFrozen = activeOrder && ['Out for Delivery', 'out for delivery', 'Delivered', 'delivered'].includes(activeOrder.status);
                     return `
-                    <button type="button" id="btn-help-cancel-order" onclick="window.cancelHelpOrder()" ${isFrozen ? 'disabled' : ''} class="w-full text-left flex items-center justify-between p-3.5 rounded-2xl ${isFrozen ? 'bg-surface-container-high opacity-50 border border-outline-variant/30 cursor-not-allowed' : 'bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 cursor-pointer'} transition-all group">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-xl ${isFrozen ? 'bg-surface-variant text-on-surface-variant' : 'bg-error text-white'} flex items-center justify-center shadow-md">
-                                <span class="material-symbols-outlined text-xl">${isFrozen ? 'lock' : 'cancel'}</span>
+                    <button type="button" id="btn-help-cancel-order" onclick="window.cancelHelpOrder()" ${isFrozen ? 'disabled' : ''} class="w-full text-left flex items-center justify-between p-3 rounded-xl ${isFrozen ? 'bg-slate-50 dark:bg-slate-800/40 opacity-50 border border-border cursor-not-allowed' : 'bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/40 border border-rose-200 dark:border-rose-800/50 cursor-pointer'} transition-colors">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-lg ${isFrozen ? 'bg-slate-300 text-slate-600' : 'bg-rose-600 text-white'} flex items-center justify-center">
+                                <span class="material-symbols-outlined text-base">${isFrozen ? 'lock' : 'cancel'}</span>
                             </div>
                             <div>
-                                <h4 class="font-bold text-xs sm:text-sm ${isFrozen ? 'text-on-surface-variant' : 'text-error'}">
-                                    3. Cancel Order ${isFrozen ? '<span class="text-[10px] bg-surface-variant text-on-surface-variant font-bold px-2 py-0.5 rounded-full ml-1">Locked</span>' : ''}
+                                <h4 class="font-semibold text-xs ${isFrozen ? 'text-slate-400' : 'text-rose-700 dark:text-rose-400'}">
+                                    3. Cancel Order ${isFrozen ? '<span class="text-[9px] bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold px-1.5 py-0.2 rounded ml-1">Locked</span>' : ''}
                                 </h4>
-                                <p class="text-[11px] text-on-surface-variant" id="help-cancel-desc">
-                                    ${isFrozen ? '🔒 Order packed & walker en route. Cannot cancel now.' : 'Cancel active delivery & request immediate refund'}
+                                <p class="text-[10px] text-slate-500" id="help-cancel-desc">
+                                    ${isFrozen ? 'Order packed and out for delivery.' : 'Cancel delivery and receive refund'}
                                 </p>
                             </div>
                         </div>
-                        <span class="material-symbols-outlined ${isFrozen ? 'text-on-surface-variant' : 'text-error'} group-hover:translate-x-1 transition-transform">${isFrozen ? 'lock' : 'chevron_right'}</span>
+                        <span class="material-symbols-outlined ${isFrozen ? 'text-slate-400' : 'text-rose-600'} text-sm">${isFrozen ? 'lock' : 'chevron_right'}</span>
                     </button>
                     `;
                 })()}
@@ -416,27 +359,27 @@ window.pages.orders = async function() {
         </div>
     </div>
 
-    <!-- BottomNavBar -->
-    <div class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-50">
-        <nav class="flex justify-around items-center p-2 mx-auto bg-white/80 backdrop-blur-2xl shadow-xl border border-glass-border rounded-full">
-            <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-95 duration-200" href="#/">
-                <span class="material-symbols-outlined">home</span>
-                <span class="font-label-sm text-[11px] mt-0.5 hidden sm:block">Home</span>
+    <!-- Bottom Navigation Bar -->
+    <div class="fixed bottom-0 left-0 right-0 z-40 bg-surface/95 backdrop-blur-md border-t border-border shadow-xs sm:hidden">
+        <nav class="flex justify-around items-center h-14 max-w-md mx-auto px-2">
+            <a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer" href="#/" title="Home">
+                <span class="material-symbols-outlined text-xl">home</span>
+                <span class="text-[10px] font-medium mt-0.5">Home</span>
             </a>
-            <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-95 duration-200" href="#/categories">
-                <span class="material-symbols-outlined">category</span>
-                <span class="font-label-sm text-[11px] mt-0.5 hidden sm:block">Categories</span>
+            <a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer" href="#/categories" title="Categories">
+                <span class="material-symbols-outlined text-xl">category</span>
+                <span class="text-[10px] font-medium mt-0.5">Categories</span>
             </a>
-            <a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-2 hover:bg-surface-variant/50 rounded-full transition-all active:scale-95 duration-200 relative" href="#/cart" id="bottom-nav-cart-btn">
+            <a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer relative" href="#/cart" title="Cart" id="bottom-nav-cart-btn">
                 <div class="relative flex items-center justify-center">
-                    <span class="material-symbols-outlined">shopping_cart</span>
-                    <span id="bottom-nav-cart-count" class="global-cart-count-badge absolute -top-1.5 -right-2 bg-emerald text-white text-[10px] font-black min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center shadow-md ring-2 ring-white dark:ring-slate-900 hidden">0</span>
+                    <span class="material-symbols-outlined text-xl">shopping_cart</span>
+                    <span id="bottom-nav-cart-count" class="global-cart-count-badge absolute -top-1.5 -right-2.5 bg-emerald text-white text-[9px] font-bold min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center shadow-xs ring-2 ring-white dark:ring-slate-900 hidden">0</span>
                 </div>
-                <span class="font-label-sm text-[11px] mt-0.5 hidden sm:block">Cart</span>
+                <span class="text-[10px] font-medium mt-0.5">Cart</span>
             </a>
-            <a class="flex flex-col items-center justify-center bg-emerald text-on-primary rounded-full px-6 py-2 active:scale-95 duration-200 shadow-md" href="#/orders">
-                <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">receipt_long</span>
-                <span class="font-label-sm text-[11px] mt-0.5">Orders</span>
+            <a class="flex flex-col items-center justify-center text-emerald dark:text-emerald-400 px-3 py-1 cursor-pointer font-bold" href="#/orders" title="Orders">
+                <span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">receipt_long</span>
+                <span class="text-[10px] mt-0.5">Orders</span>
             </a>
         </nav>
     </div>
@@ -449,7 +392,7 @@ window.pageInits.orders = function() {
     const hostelAddress = window.currentAddressDetail?.label || 'BH13 (Block A), Room 304';
     const activeOrderId = window.CURRENT_ACTIVE_ORDER_ID;
 
-    // Reorder button click (Genuine items from order)
+    // Reorder button click
     document.querySelectorAll('.reorder-btn').forEach(btn => {
         btn.onclick = async (e) => {
             e.preventDefault();
@@ -507,40 +450,40 @@ window.pageInits.orders = function() {
 
         if (isFrozen) {
             cancelBtn.disabled = true;
-            cancelBtn.className = 'w-full text-left flex items-center justify-between p-3.5 rounded-2xl bg-surface-container-high opacity-50 border border-outline-variant/30 cursor-not-allowed transition-all select-none';
+            cancelBtn.className = 'w-full text-left flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 opacity-50 border border-border cursor-not-allowed transition-colors select-none';
             cancelBtn.innerHTML = `
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-surface-variant text-on-surface-variant flex items-center justify-center shadow-md">
-                        <span class="material-symbols-outlined text-xl">lock</span>
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-slate-300 text-slate-600 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-base">lock</span>
                     </div>
                     <div>
-                        <h4 class="font-bold text-xs sm:text-sm text-on-surface-variant flex items-center gap-1.5">
+                        <h4 class="font-semibold text-xs text-slate-400 flex items-center gap-1">
                             <span>3. Cancel Order</span>
-                            <span class="text-[10px] bg-surface-variant text-on-surface-variant font-bold px-2 py-0.5 rounded-full">Locked 🔒</span>
+                            <span class="text-[9px] bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold px-1.5 py-0.2 rounded">Locked</span>
                         </h4>
-                        <p class="text-[11px] text-on-surface-variant" id="help-cancel-desc">
-                            🔒 Order packed & walker en route. Cannot cancel now.
+                        <p class="text-[10px] text-slate-500" id="help-cancel-desc">
+                            Order packed and out for delivery.
                         </p>
                     </div>
                 </div>
-                <span class="material-symbols-outlined text-on-surface-variant">lock</span>
+                <span class="material-symbols-outlined text-slate-400 text-sm">lock</span>
             `;
         } else {
             cancelBtn.disabled = false;
-            cancelBtn.className = 'w-full text-left flex items-center justify-between p-3.5 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 cursor-pointer transition-all group';
+            cancelBtn.className = 'w-full text-left flex items-center justify-between p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/40 border border-rose-200 dark:border-rose-800/50 cursor-pointer transition-colors';
             cancelBtn.innerHTML = `
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-error text-white flex items-center justify-center shadow-md">
-                        <span class="material-symbols-outlined text-xl">cancel</span>
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-rose-600 text-white flex items-center justify-center">
+                        <span class="material-symbols-outlined text-base">cancel</span>
                     </div>
                     <div>
-                        <h4 class="font-bold text-xs sm:text-sm text-error">3. Cancel Order</h4>
-                        <p class="text-[11px] text-on-surface-variant" id="help-cancel-desc">
-                            Cancel active delivery & request immediate refund
+                        <h4 class="font-semibold text-xs text-rose-700 dark:text-rose-400">3. Cancel Order</h4>
+                        <p class="text-[10px] text-slate-500" id="help-cancel-desc">
+                            Cancel delivery and receive refund
                         </p>
                     </div>
                 </div>
-                <span class="material-symbols-outlined text-error group-hover:translate-x-1 transition-transform">chevron_right</span>
+                <span class="material-symbols-outlined text-rose-600 text-sm">chevron_right</span>
             `;
         }
     };
@@ -612,60 +555,15 @@ window.pageInits.orders = function() {
         }
     };
 
-    let lastPlayedSoundStatus = null;
-    function playStatusChime(status) {
-        if (!status || lastPlayedSoundStatus === status) return;
-        lastPlayedSoundStatus = status;
-        try {
-            const AudioCtx = window.AudioContext || window.webkitAudioContext;
-            if (!AudioCtx) return;
-            const ctx = new AudioCtx();
-            if (ctx.state === 'suspended') ctx.resume();
-
-            const s = (status || '').toLowerCase();
-            if (s.includes('delivered')) {
-                const notes = [523.25, 659.25, 783.99, 1046.50];
-                notes.forEach((freq, i) => {
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.12);
-                    gain.gain.setValueAtTime(0.2, ctx.currentTime + i * 0.12);
-                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.4);
-                    osc.connect(gain);
-                    gain.connect(ctx.destination);
-                    osc.start(ctx.currentTime + i * 0.12);
-                    osc.stop(ctx.currentTime + i * 0.12 + 0.45);
-                });
-            } else if (s.includes('out for delivery') || s.includes('en_route')) {
-                const notes = [587.33, 739.99, 880.00];
-                notes.forEach((freq, i) => {
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-                    osc.type = 'triangle';
-                    osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.1);
-                    gain.gain.setValueAtTime(0.18, ctx.currentTime + i * 0.1);
-                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.1 + 0.3);
-                    osc.connect(gain);
-                    gain.connect(ctx.destination);
-                    osc.start(ctx.currentTime + i * 0.1);
-                    osc.stop(ctx.currentTime + i * 0.1 + 0.35);
-                });
-            } else if (s.includes('confirmed') || s.includes('preparing') || s.includes('packed')) {
-                [659.25, 880.00].forEach((freq, i) => {
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.15);
-                    gain.gain.setValueAtTime(0.15, ctx.currentTime + i * 0.15);
-                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.15 + 0.3);
-                    osc.connect(gain);
-                    gain.connect(ctx.destination);
-                    osc.start(ctx.currentTime + i * 0.15);
-                    osc.stop(ctx.currentTime + i * 0.15 + 0.35);
-                });
-            }
-        } catch (e) {}
+    function formatClientRiderName(raw) {
+        if (!raw || raw === 'unassigned') return 'Alex';
+        if (typeof raw === 'string' && raw.trim().startsWith('{')) {
+            try {
+                const parsed = JSON.parse(raw);
+                return parsed.name || parsed.assigned_to_name || 'Alex';
+            } catch (e) {}
+        }
+        return raw;
     }
 
     // Live status UI updater
@@ -673,7 +571,6 @@ window.pageInits.orders = function() {
         if (!status) return;
         currentOrderStatus = status;
         window.CURRENT_ACTIVE_ORDER_STATUS = status;
-        playStatusChime(status);
         if (typeof window.updateHelpModalCancelState === 'function') {
             window.updateHelpModalCancelState(status);
         }
@@ -694,165 +591,91 @@ window.pageInits.orders = function() {
 
         if (rName) rName.textContent = rider;
         if (rAvatar) rAvatar.textContent = rider[0];
-        if (rBadge) rBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span><span class="truncate">${rider} · Walking</span>`;
+        if (rBadge) rBadge.textContent = `${rider} · Walking`;
 
         const s = status.trim().toLowerCase();
 
         if (pBar) {
             pBar.style.height = '100%';
-            pBar.style.borderRadius = '9999px';
-            pBar.style.transition = 'width 0.7s cubic-bezier(0.4, 0, 0.2, 1), background 0.5s ease';
+            pBar.style.transition = 'width 0.5s ease';
         }
 
         if (s === 'order placed' || s === 'pending') {
             if (pBar) {
                 pBar.style.width = '25%';
-                pBar.style.background = 'linear-gradient(90deg, #059669 0%, #10B981 100%)';
-                pBar.style.boxShadow = '0 0 10px rgba(16, 185, 129, 0.7)';
+                pBar.className = 'h-full bg-emerald rounded-full';
             }
             if (etaText) etaText.textContent = 'Status: Order Placed';
             if (statusMsg) statusMsg.innerHTML = '<span class="material-symbols-outlined text-base text-emerald">storefront</span><span>BH13 Dark Store received your order and is verifying items.</span>';
             if (riderPin) {
                 riderPin.style.left = '20%';
                 riderPin.style.top = '48%';
-                riderPin.innerHTML = `
-                    <div class="relative flex flex-col items-center">
-                        <div class="absolute w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-emerald-500/20 radar-wave-1 pointer-events-none"></div>
-                        <div class="absolute w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-emerald-500/25 radar-wave-2 pointer-events-none"></div>
-                        <div class="absolute w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-emerald-500/30 radar-wave-3 pointer-events-none"></div>
-                        <div class="w-11 h-11 sm:w-14 sm:h-14 rounded-full bg-gradient-to-tr from-emerald-600 via-emerald-500 to-teal-400 text-white flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.9)] border-2 border-white relative z-10 walker-bob cursor-pointer">
-                            <span class="material-symbols-outlined text-2xl sm:text-3xl font-black">directions_walk</span>
-                        </div>
-                        <div class="mt-1.5 sm:mt-2.5 bg-black/90 backdrop-blur-xl text-white text-[10px] sm:text-[11px] font-black px-2.5 sm:px-3.5 py-0.5 sm:py-1 rounded-full shadow-2xl border border-emerald-400/60 max-w-[130px] sm:max-w-[200px] truncate flex items-center gap-1.5" id="rider-badge">
-                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
-                            <span class="truncate">${rider} · Assigned</span>
-                        </div>
-                    </div>
-                `;
             }
-            if (sPlaced) { sPlaced.className = 'text-emerald font-extrabold'; sPlaced.style.color = '#10B981'; }
-            if (sPacked) { sPacked.className = 'text-on-surface-variant font-medium'; sPacked.style.color = ''; }
-            if (sEnroute) { sEnroute.className = 'text-on-surface-variant font-medium'; sEnroute.style.color = ''; }
-            if (sDelivered) { sDelivered.className = 'text-on-surface-variant font-medium'; sDelivered.style.color = ''; }
+            if (sPlaced) sPlaced.className = 'text-emerald font-bold';
+            if (sPacked) sPacked.className = 'text-slate-500 font-medium';
+            if (sEnroute) sEnroute.className = 'text-slate-500 font-medium';
+            if (sDelivered) sDelivered.className = 'text-slate-500 font-medium';
         } else if (s === 'order confirmed' || s === 'confirmed' || s === 'accepted') {
             if (pBar) {
                 pBar.style.width = '45%';
-                pBar.style.background = 'linear-gradient(90deg, #059669 0%, #10B981 60%, #34D399 100%)';
-                pBar.style.boxShadow = '0 0 12px rgba(16, 185, 129, 0.8)';
+                pBar.className = 'h-full bg-emerald rounded-full';
             }
             if (etaText) etaText.textContent = 'Status: Confirmed (3 mins)';
             if (statusMsg) statusMsg.innerHTML = '<span class="material-symbols-outlined text-base text-emerald">check_circle</span><span>BH13 Dark Store confirmed your order. Bag packing started!</span>';
             if (riderPin) {
                 riderPin.style.left = '36%';
-                riderPin.style.top = '38%';
-                riderPin.innerHTML = `
-                    <div class="relative flex flex-col items-center">
-                        <div class="absolute w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-emerald-500/20 radar-wave-1 pointer-events-none"></div>
-                        <div class="absolute w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-emerald-500/25 radar-wave-2 pointer-events-none"></div>
-                        <div class="absolute w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-emerald-500/30 radar-wave-3 pointer-events-none"></div>
-                        <div class="w-11 h-11 sm:w-14 sm:h-14 rounded-full bg-gradient-to-tr from-emerald-600 via-emerald-500 to-teal-400 text-white flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.9)] border-2 border-white relative z-10 walker-bob cursor-pointer">
-                            <span class="material-symbols-outlined text-2xl sm:text-3xl font-black">directions_walk</span>
-                        </div>
-                        <div class="mt-1.5 sm:mt-2.5 bg-black/90 backdrop-blur-xl text-white text-[10px] sm:text-[11px] font-black px-2.5 sm:px-3.5 py-0.5 sm:py-1 rounded-full shadow-2xl border border-emerald-400/60 max-w-[130px] sm:max-w-[200px] truncate flex items-center gap-1.5" id="rider-badge">
-                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
-                            <span class="truncate">${rider} · Packing</span>
-                        </div>
-                    </div>
-                `;
+                riderPin.style.top = '44%';
             }
-            if (sPlaced) { sPlaced.className = 'text-emerald font-extrabold'; sPlaced.style.color = '#10B981'; }
-            if (sPacked) { sPacked.className = 'text-emerald font-extrabold'; sPacked.style.color = '#10B981'; }
-            if (sEnroute) { sEnroute.className = 'text-on-surface-variant font-medium'; sEnroute.style.color = ''; }
-            if (sDelivered) { sDelivered.className = 'text-on-surface-variant font-medium'; sDelivered.style.color = ''; }
+            if (sPlaced) sPlaced.className = 'text-emerald font-bold';
+            if (sPacked) sPacked.className = 'text-emerald font-bold';
+            if (sEnroute) sEnroute.className = 'text-slate-500 font-medium';
+            if (sDelivered) sDelivered.className = 'text-slate-500 font-medium';
         } else if (s === 'preparing' || s === 'packed') {
             if (pBar) {
                 pBar.style.width = '65%';
-                pBar.style.background = 'linear-gradient(90deg, #059669 0%, #10B981 50%, #34D399 100%)';
-                pBar.style.boxShadow = '0 0 14px rgba(16, 185, 129, 0.85)';
+                pBar.className = 'h-full bg-emerald rounded-full';
             }
             if (etaText) etaText.textContent = 'Status: Packed & Ready (2 mins)';
-            if (statusMsg) statusMsg.innerHTML = `<span class="material-symbols-outlined text-base text-emerald">inventory_2</span><span>Snacks sealed in tamper-proof bag. Runner ${rider} at dispatch counter.</span>`;
+            if (statusMsg) statusMsg.innerHTML = `<span class="material-symbols-outlined text-base text-emerald">inventory_2</span><span>Snacks sealed in bag. Runner ${rider} at dispatch counter.</span>`;
             if (riderPin) {
                 riderPin.style.left = '52%';
-                riderPin.style.top = '58%';
-                riderPin.innerHTML = `
-                    <div class="relative flex flex-col items-center">
-                        <div class="absolute w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-emerald-500/20 radar-wave-1 pointer-events-none"></div>
-                        <div class="absolute w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-emerald-500/25 radar-wave-2 pointer-events-none"></div>
-                        <div class="absolute w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-emerald-500/30 radar-wave-3 pointer-events-none"></div>
-                        <div class="w-11 h-11 sm:w-14 sm:h-14 rounded-full bg-gradient-to-tr from-emerald-600 via-emerald-500 to-teal-400 text-white flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.9)] border-2 border-white relative z-10 walker-bob cursor-pointer">
-                            <span class="material-symbols-outlined text-2xl sm:text-3xl font-black">directions_walk</span>
-                        </div>
-                        <div class="mt-1.5 sm:mt-2.5 bg-black/90 backdrop-blur-xl text-white text-[10px] sm:text-[11px] font-black px-2.5 sm:px-3.5 py-0.5 sm:py-1 rounded-full shadow-2xl border border-emerald-400/60 max-w-[130px] sm:max-w-[200px] truncate flex items-center gap-1.5" id="rider-badge">
-                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
-                            <span class="truncate">${rider} · Dispatching</span>
-                        </div>
-                    </div>
-                `;
+                riderPin.style.top = '50%';
             }
-            if (sPlaced) { sPlaced.className = 'text-emerald font-extrabold'; sPlaced.style.color = '#10B981'; }
-            if (sPacked) { sPacked.className = 'text-emerald font-extrabold'; sPacked.style.color = '#10B981'; }
-            if (sEnroute) { sEnroute.className = 'text-on-surface-variant font-medium'; sEnroute.style.color = ''; }
-            if (sDelivered) { sDelivered.className = 'text-on-surface-variant font-medium'; sDelivered.style.color = ''; }
+            if (sPlaced) sPlaced.className = 'text-emerald font-bold';
+            if (sPacked) sPacked.className = 'text-emerald font-bold';
+            if (sEnroute) sEnroute.className = 'text-slate-500 font-medium';
+            if (sDelivered) sDelivered.className = 'text-slate-500 font-medium';
         } else if (s === 'out for delivery' || s === 'en_route') {
             if (pBar) {
                 pBar.style.width = '85%';
-                pBar.style.background = 'linear-gradient(90deg, #059669 0%, #10B981 40%, #34D399 100%)';
-                pBar.style.boxShadow = '0 0 16px rgba(16, 185, 129, 0.9)';
+                pBar.className = 'h-full bg-emerald rounded-full';
             }
             if (etaText) etaText.textContent = 'Status: Out for Delivery (1 min)';
-            if (statusMsg) statusMsg.innerHTML = `<span class="material-symbols-outlined text-base text-emerald">directions_walk</span><span>${rider} picked up your snacks and is walking at 1.4 m/s to ${hostelAddress}!</span>`;
+            if (statusMsg) statusMsg.innerHTML = `<span class="material-symbols-outlined text-base text-emerald">directions_walk</span><span>${rider} picked up your snacks and is walking to ${hostelAddress}!</span>`;
             if (riderPin) {
                 riderPin.style.left = '68%';
-                riderPin.style.top = '40%';
-                riderPin.innerHTML = `
-                    <div class="relative flex flex-col items-center">
-                        <div class="absolute w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-emerald-500/20 radar-wave-1 pointer-events-none"></div>
-                        <div class="absolute w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-emerald-500/25 radar-wave-2 pointer-events-none"></div>
-                        <div class="absolute w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-emerald-500/30 radar-wave-3 pointer-events-none"></div>
-                        <div class="w-11 h-11 sm:w-14 sm:h-14 rounded-full bg-gradient-to-tr from-emerald-600 via-emerald-500 to-teal-400 text-white flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.9)] border-2 border-white relative z-10 walker-bob cursor-pointer">
-                            <span class="material-symbols-outlined text-2xl sm:text-3xl font-black">directions_walk</span>
-                        </div>
-                        <div class="mt-1.5 sm:mt-2.5 bg-black/90 backdrop-blur-xl text-white text-[10px] sm:text-[11px] font-black px-2.5 sm:px-3.5 py-0.5 sm:py-1 rounded-full shadow-2xl border border-emerald-400/60 max-w-[130px] sm:max-w-[200px] truncate flex items-center gap-1.5" id="rider-badge">
-                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
-                            <span class="truncate">${rider} · Walking to Room</span>
-                        </div>
-                    </div>
-                `;
+                riderPin.style.top = '45%';
             }
-            if (sPlaced) { sPlaced.className = 'text-emerald font-extrabold'; sPlaced.style.color = '#10B981'; }
-            if (sPacked) { sPacked.className = 'text-emerald font-extrabold'; sPacked.style.color = '#10B981'; }
-            if (sEnroute) { sEnroute.className = 'text-emerald font-extrabold'; sEnroute.style.color = '#10B981'; }
-            if (sDelivered) { sDelivered.className = 'text-on-surface-variant font-medium'; sDelivered.style.color = ''; }
+            if (sPlaced) sPlaced.className = 'text-emerald font-bold';
+            if (sPacked) sPacked.className = 'text-emerald font-bold';
+            if (sEnroute) sEnroute.className = 'text-emerald font-bold';
+            if (sDelivered) sDelivered.className = 'text-slate-500 font-medium';
         } else if (s === 'delivered') {
             if (pBar) {
                 pBar.style.width = '100%';
-                pBar.style.background = '#10B981';
-                pBar.style.boxShadow = '0 0 20px rgba(16, 185, 129, 1)';
+                pBar.className = 'h-full bg-emerald rounded-full';
             }
             if (etaText) etaText.textContent = 'Status: Delivered ✓';
-            if (statusMsg) statusMsg.innerHTML = `<span class="material-symbols-outlined text-base text-emerald">task_alt</span><span>🎉 Arrived at ${hostelAddress}! Please collect your items.</span>`;
+            if (statusMsg) statusMsg.innerHTML = `<span class="material-symbols-outlined text-base text-emerald">task_alt</span><span>Arrived at ${hostelAddress}! Please collect your items.</span>`;
             if (riderPin) {
                 riderPin.style.left = '80%';
                 riderPin.style.top = '50%';
-                riderPin.innerHTML = `
-                    <div class="relative flex flex-col items-center">
-                        <div class="absolute w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-emerald-500/30 delivery-celebration-ring pointer-events-none"></div>
-                        <div class="w-11 h-11 sm:w-14 sm:h-14 rounded-full bg-emerald text-white flex items-center justify-center shadow-[0_0_35px_rgba(16,185,129,0.95)] border-2 border-white relative z-10 animate-bounce">
-                            <span class="material-symbols-outlined text-2xl sm:text-3xl font-black">task_alt</span>
-                        </div>
-                        <div class="mt-1.5 sm:mt-2.5 bg-black/90 backdrop-blur-xl text-emerald-400 text-[10px] sm:text-[11px] font-black px-2.5 sm:px-3.5 py-0.5 sm:py-1 rounded-full shadow-2xl border border-emerald-400/60 max-w-[130px] sm:max-w-[200px] truncate flex items-center gap-1.5">
-                            <span class="truncate">Delivered to Room 🎉</span>
-                        </div>
-                    </div>
-                `;
             }
-            if (sPlaced) { sPlaced.className = 'text-emerald font-extrabold'; sPlaced.style.color = '#10B981'; }
-            if (sPacked) { sPacked.className = 'text-emerald font-extrabold'; sPacked.style.color = '#10B981'; }
-            if (sEnroute) { sEnroute.className = 'text-emerald font-extrabold'; sEnroute.style.color = '#10B981'; }
-            if (sDelivered) { sDelivered.className = 'text-emerald font-extrabold'; sDelivered.style.color = '#10B981'; }
+            if (sPlaced) sPlaced.className = 'text-emerald font-bold';
+            if (sPacked) sPacked.className = 'text-emerald font-bold';
+            if (sEnroute) sEnroute.className = 'text-emerald font-bold';
+            if (sDelivered) sDelivered.className = 'text-emerald font-bold';
 
-            // Auto-refresh softly to update past orders history
             setTimeout(() => {
                 if (window.location.hash === '#/orders') {
                     window.router();
@@ -861,31 +684,20 @@ window.pageInits.orders = function() {
         } else if (s === 'cancelled') {
             if (pBar) {
                 pBar.style.width = '100%';
-                pBar.style.background = '#dc2626';
-                pBar.style.boxShadow = '0 0 15px rgba(220, 38, 38, 0.8)';
+                pBar.className = 'h-full bg-rose-600 rounded-full';
             }
             if (etaText) etaText.textContent = 'Status: Cancelled ✕';
             if (statusMsg) {
-                statusMsg.innerHTML = '<span class="material-symbols-outlined text-base text-rose-600">cancel</span><span class="text-rose-600 font-bold">Order cancelled by Admin / Dark Store. Refund initiated.</span>';
+                statusMsg.innerHTML = '<span class="material-symbols-outlined text-base text-rose-600">cancel</span><span class="text-rose-600 font-medium">Order cancelled. Refund initiated.</span>';
             }
             if (riderPin) {
                 riderPin.style.left = '50%';
                 riderPin.style.top = '50%';
-                riderPin.innerHTML = `
-                    <div class="relative flex flex-col items-center">
-                        <div class="w-12 h-12 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-2xl border-2 border-white relative z-10">
-                            <span class="material-symbols-outlined text-2xl font-black">close</span>
-                        </div>
-                        <div class="mt-2 bg-black/90 text-rose-400 text-[11px] font-black px-3.5 py-1 rounded-full shadow-lg border border-rose-500/40 whitespace-nowrap flex items-center gap-1">
-                            <span>Order Cancelled</span>
-                        </div>
-                    </div>
-                `;
             }
-            if (sPlaced) { sPlaced.className = 'text-rose-600 font-bold'; sPlaced.style.color = '#dc2626'; }
-            if (sPacked) { sPacked.className = 'text-on-surface-variant font-medium'; sPacked.style.color = ''; }
-            if (sEnroute) { sEnroute.className = 'text-on-surface-variant font-medium'; sEnroute.style.color = ''; }
-            if (sDelivered) { sDelivered.className = 'text-on-surface-variant font-medium'; sDelivered.style.color = ''; }
+            if (sPlaced) sPlaced.className = 'text-rose-600 font-bold';
+            if (sPacked) sPacked.className = 'text-slate-500 font-medium';
+            if (sEnroute) sEnroute.className = 'text-slate-500 font-medium';
+            if (sDelivered) sDelivered.className = 'text-slate-500 font-medium';
 
             setTimeout(() => {
                 if (window.location.hash === '#/orders') {
@@ -895,12 +707,10 @@ window.pageInits.orders = function() {
         }
     };
 
-    // Trigger initial UI setup immediately on page render
     window.applyOrderStatusUI(currentOrderStatus, 'Alex');
 
     if (!activeOrderId) return;
 
-    // Connect Live Tracking WebSocket
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/track/${activeOrderId}`;
     let ws = null;
@@ -956,7 +766,7 @@ window.pageInits.orders = function() {
         };
 
         ws.onerror = () => {
-            if (liveIndicator) liveIndicator.textContent = 'Syncing (Fallback)';
+            if (liveIndicator) liveIndicator.textContent = 'Syncing';
             startPollingStatus();
         };
 
@@ -970,7 +780,7 @@ window.pageInits.orders = function() {
     function startPollingStatus() {
         if (ordersPoll) clearInterval(ordersPoll);
         const pollFn = async () => {
-            if (typeof document !== 'undefined' && document.hidden) return; // Pause polling when tab is inactive
+            if (typeof document !== 'undefined' && document.hidden) return;
             try {
                 const res = await window.api.getOrderDetail(activeOrderId);
                 const orderData = res?.order || res;
@@ -988,10 +798,9 @@ window.pageInits.orders = function() {
             } catch (err) {}
         };
 
-        ordersPoll = setInterval(pollFn, 6000); // 6s interval with instant revalidation on tab focus
+        ordersPoll = setInterval(pollFn, 6000);
     }
 
-    // Instant revalidation when student returns to browser tab
     const handleVisibilityChange = () => {
         if (!document.hidden && activeOrderId) {
             window.api.getOrderDetail(activeOrderId).then(res => {
@@ -1005,8 +814,5 @@ window.pageInits.orders = function() {
     document.addEventListener('visibilitychange', handleVisibilityChange, { passive: true });
     window.addEventListener('focus', handleVisibilityChange, { passive: true });
 
-    // Always run active polling in background as dual-assurance for instant admin sync
     startPollingStatus();
 };
-
-
