@@ -7,11 +7,11 @@ window.pages.categories = async function() {
 
     return `
 <div class="bg-background text-on-background min-h-screen pb-24 flex flex-col">
-    <!-- Top Sticky Search & Header -->
-    <header class="sticky top-0 z-40 bg-surface/95 backdrop-blur-md border-b border-border shadow-xs">
+    <!-- Top Sticky Search & Header (Frosted Liquid Glass) -->
+    <header class="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-white/70 dark:border-white/10 shadow-sm">
         <div class="px-3 sm:px-6 py-2.5 flex items-center justify-between gap-3 max-w-7xl mx-auto w-full">
             <div class="flex items-center gap-2 min-w-0">
-                <a href="#/" class="w-9 h-9 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors shrink-0 text-slate-700 dark:text-slate-200" aria-label="Back to Home" title="Back to Home">
+                <a href="#/" class="w-9 h-9 flex items-center justify-center hover:bg-white/50 dark:hover:bg-slate-800/50 rounded-xl transition-colors shrink-0 text-slate-700 dark:text-slate-200" aria-label="Back to Home" title="Back to Home">
                     <span class="material-symbols-outlined text-xl">arrow_back</span>
                 </a>
                 <div class="min-w-0">
@@ -28,14 +28,14 @@ window.pages.categories = async function() {
 
             <!-- Top Search Input -->
             <div class="relative flex-1 max-w-md hidden sm:block">
-                <input class="w-full pl-9 pr-4 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:border-emerald text-xs text-slate-800 dark:text-slate-200 transition-colors" placeholder="Search snacks, drinks, chips, noodles..." type="text" id="desktop-cat-search" autocomplete="off">
-                <span class="material-symbols-outlined absolute left-2.5 top-2 text-slate-400 text-sm">search</span>
+                <input class="w-full pl-9 pr-4 py-2 rounded-2xl border border-white/80 dark:border-white/10 bg-white/70 dark:bg-slate-800/70 backdrop-blur-md focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:border-emerald text-xs text-slate-800 dark:text-slate-200 transition-colors shadow-xs" placeholder="Search snacks, drinks, chips, noodles..." type="text" id="desktop-cat-search" autocomplete="off">
+                <span class="material-symbols-outlined absolute left-2.5 top-2.5 text-slate-400 text-sm">search</span>
             </div>
 
             <div class="flex items-center gap-2 shrink-0">
                 <!-- Theme Toggle Switch -->
                 <button type="button" 
-                        class="theme-toggle-switch relative inline-flex items-center w-[52px] sm:w-[56px] h-[26px] sm:h-[28px] rounded-full p-[2px] transition-colors duration-200 cursor-pointer select-none bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 shrink-0" 
+                        class="theme-toggle-switch relative inline-flex items-center w-[52px] sm:w-[56px] h-[26px] sm:h-[28px] rounded-full p-[2px] transition-colors duration-200 cursor-pointer select-none bg-slate-200/80 dark:bg-slate-800/80 border border-white/70 dark:border-white/10 shrink-0 shadow-xs" 
                         role="switch" 
                         aria-checked="false" 
                         aria-label="Toggle dark mode" 
@@ -48,9 +48,9 @@ window.pages.categories = async function() {
                     </div>
                 </button>
 
-                <a href="#/cart" class="w-9 h-9 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-emerald hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors relative shrink-0" title="Cart">
+                <a href="#/cart" class="w-9 h-9 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-emerald hover:bg-white/50 dark:hover:bg-slate-800/50 rounded-xl transition-colors relative shrink-0" title="Cart">
                     <span class="material-symbols-outlined text-xl">shopping_cart</span>
-                    <span id="mobile-header-cart-count" class="global-cart-count-badge absolute -top-1 -right-1 bg-emerald text-white text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center shadow-xs ring-2 ring-white dark:ring-slate-900 hidden">0</span>
+                    <span id="mobile-header-cart-count" class="global-cart-count-badge absolute -top-1 -right-1 bg-gradient-to-r from-emerald-500 to-emerald-700 text-white text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center shadow-xs ring-2 ring-white dark:ring-slate-900 hidden">0</span>
                 </a>
             </div>
         </div>
@@ -58,7 +58,7 @@ window.pages.categories = async function() {
         <!-- Mobile Search Bar -->
         <div class="px-3 pb-2.5 sm:hidden">
             <div class="relative">
-                <input class="w-full pl-9 pr-8 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:border-emerald text-xs text-slate-800 dark:text-slate-200" placeholder="Search snacks, drinks, maggi, chips..." type="text" id="mobile-cat-search" autocomplete="off">
+                <input class="w-full pl-9 pr-8 py-2 rounded-2xl border border-white/80 dark:border-white/10 bg-white/70 dark:bg-slate-800/70 backdrop-blur-md focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:border-emerald text-xs text-slate-800 dark:text-slate-200 shadow-xs" placeholder="Search snacks, drinks, maggi, chips..." type="text" id="mobile-cat-search" autocomplete="off">
                 <span class="material-symbols-outlined absolute left-2.5 top-2.5 text-slate-400 text-sm">search</span>
             </div>
         </div>
@@ -67,67 +67,67 @@ window.pages.categories = async function() {
     <!-- Main Dual-Pane Layout: Left Categories Rail + Right Products/Coming Soon Content -->
     <div class="flex flex-1 max-w-7xl mx-auto w-full overflow-hidden">
         <!-- Left Vertical Category Column Rail -->
-        <aside class="w-[84px] sm:w-36 shrink-0 bg-surface dark:bg-surface border-r border-border overflow-y-auto max-h-[calc(100vh-120px)] sticky top-[60px] py-2 no-scrollbar z-20" id="left-categories-rail">
-            <div class="flex flex-col gap-1 px-1.5" id="category-sidebar-list">
+        <aside class="w-[88px] sm:w-38 shrink-0 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border-r border-white/70 dark:border-white/10 overflow-y-auto max-h-[calc(100vh-120px)] sticky top-[60px] py-2 no-scrollbar z-20" id="left-categories-rail">
+            <div class="flex flex-col gap-1.5 px-2" id="category-sidebar-list">
                 
                 <!-- 1. Snacks & Drinks (LIVE & ACTIVE) -->
-                <button type="button" class="w-full flex flex-col items-center py-2 px-1 rounded-xl relative transition-all group cursor-pointer cat-sidebar-btn active-cat bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 font-bold border border-emerald-200/60 dark:border-emerald-800/40" data-category-id="snacks" data-status="live">
+                <button type="button" class="w-full flex flex-col items-center py-2 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn active-cat bg-emerald-500/15 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-500/40 shadow-xs" data-category-id="snacks" data-status="live">
                     <div class="absolute left-0 top-2 bottom-2 w-1 bg-emerald rounded-r indicator-bar"></div>
-                    <div class="w-11 h-11 sm:w-13 sm:h-13 rounded-lg overflow-hidden p-1 border border-emerald-200 dark:border-emerald-700 bg-white dark:bg-slate-800 relative shrink-0">
-                        <img src="https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=120" alt="Snacks & Drinks" class="w-full h-full object-cover rounded">
+                    <div class="w-11 h-11 sm:w-13 sm:h-13 rounded-xl overflow-hidden p-1 border border-emerald-300/50 dark:border-emerald-600/50 bg-white/90 dark:bg-slate-800 relative shrink-0 shadow-xs">
+                        <img src="https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=120" alt="Snacks & Drinks" class="w-full h-full object-cover rounded-lg">
                     </div>
                     <span class="text-[11px] sm:text-xs mt-1.5 text-center leading-tight font-bold cat-label">Snacks & Drinks</span>
                 </button>
 
                 <!-- 2. Bakery & Biscuits (Coming Soon) -->
-                <button type="button" class="w-full flex flex-col items-center py-2 px-1 rounded-xl relative transition-all group cursor-pointer cat-sidebar-btn text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 border border-transparent" data-category-id="bakery" data-status="blocked" data-name="Bakery & Biscuits">
-                    <div class="w-11 h-11 sm:w-13 sm:h-13 rounded-lg overflow-hidden p-1 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 relative shrink-0">
-                        <img src="https://images.unsplash.com/photo-1509440159596-0249088772ff?w=120" alt="Bakery & Biscuits" class="w-full h-full object-cover rounded opacity-70 group-hover:opacity-100 transition-opacity">
+                <button type="button" class="w-full flex flex-col items-center py-2 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn text-slate-600 dark:text-slate-400 hover:bg-white/40 dark:hover:bg-slate-800/40 border border-transparent" data-category-id="bakery" data-status="blocked" data-name="Bakery & Biscuits">
+                    <div class="w-11 h-11 sm:w-13 sm:h-13 rounded-xl overflow-hidden p-1 border border-white/60 dark:border-white/10 bg-white/60 dark:bg-slate-800 relative shrink-0">
+                        <img src="https://images.unsplash.com/photo-1509440159596-0249088772ff?w=120" alt="Bakery & Biscuits" class="w-full h-full object-cover rounded-lg opacity-70 group-hover:opacity-100 transition-opacity">
                         <span class="absolute top-0.5 right-0.5 bg-slate-800/80 text-white text-[8px] px-1 rounded font-medium">Soon</span>
                     </div>
                     <span class="text-[11px] sm:text-xs mt-1.5 text-center leading-tight font-medium cat-label">Bakery & Biscuits</span>
                 </button>
 
                 <!-- 3. Grocery & Kitchen (Coming Soon) -->
-                <button type="button" class="w-full flex flex-col items-center py-2 px-1 rounded-xl relative transition-all group cursor-pointer cat-sidebar-btn text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 border border-transparent" data-category-id="grocery" data-status="blocked" data-name="Grocery & Kitchen">
-                    <div class="w-11 h-11 sm:w-13 sm:h-13 rounded-lg overflow-hidden p-1 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 relative shrink-0">
-                        <img src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=120" alt="Grocery & Kitchen" class="w-full h-full object-cover rounded opacity-70 group-hover:opacity-100 transition-opacity">
+                <button type="button" class="w-full flex flex-col items-center py-2 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn text-slate-600 dark:text-slate-400 hover:bg-white/40 dark:hover:bg-slate-800/40 border border-transparent" data-category-id="grocery" data-status="blocked" data-name="Grocery & Kitchen">
+                    <div class="w-11 h-11 sm:w-13 sm:h-13 rounded-xl overflow-hidden p-1 border border-white/60 dark:border-white/10 bg-white/60 dark:bg-slate-800 relative shrink-0">
+                        <img src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=120" alt="Grocery & Kitchen" class="w-full h-full object-cover rounded-lg opacity-70 group-hover:opacity-100 transition-opacity">
                         <span class="absolute top-0.5 right-0.5 bg-slate-800/80 text-white text-[8px] px-1 rounded font-medium">Soon</span>
                     </div>
                     <span class="text-[11px] sm:text-xs mt-1.5 text-center leading-tight font-medium cat-label">Grocery & Kitchen</span>
                 </button>
 
                 <!-- 4. Beauty & Personal Care (Coming Soon) -->
-                <button type="button" class="w-full flex flex-col items-center py-2 px-1 rounded-xl relative transition-all group cursor-pointer cat-sidebar-btn text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 border border-transparent" data-category-id="beauty" data-status="blocked" data-name="Beauty & Personal Care">
-                    <div class="w-11 h-11 sm:w-13 sm:h-13 rounded-lg overflow-hidden p-1 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 relative shrink-0">
-                        <img src="https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=120" alt="Beauty & Personal Care" class="w-full h-full object-cover rounded opacity-70 group-hover:opacity-100 transition-opacity">
+                <button type="button" class="w-full flex flex-col items-center py-2 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn text-slate-600 dark:text-slate-400 hover:bg-white/40 dark:hover:bg-slate-800/40 border border-transparent" data-category-id="beauty" data-status="blocked" data-name="Beauty & Personal Care">
+                    <div class="w-11 h-11 sm:w-13 sm:h-13 rounded-xl overflow-hidden p-1 border border-white/60 dark:border-white/10 bg-white/60 dark:bg-slate-800 relative shrink-0">
+                        <img src="https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=120" alt="Beauty & Personal Care" class="w-full h-full object-cover rounded-lg opacity-70 group-hover:opacity-100 transition-opacity">
                         <span class="absolute top-0.5 right-0.5 bg-slate-800/80 text-white text-[8px] px-1 rounded font-medium">Soon</span>
                     </div>
                     <span class="text-[11px] sm:text-xs mt-1.5 text-center leading-tight font-medium cat-label">Beauty & Care</span>
                 </button>
 
                 <!-- 5. Stationery & Study (Coming Soon) -->
-                <button type="button" class="w-full flex flex-col items-center py-2 px-1 rounded-xl relative transition-all group cursor-pointer cat-sidebar-btn text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 border border-transparent" data-category-id="stationery" data-status="blocked" data-name="Stationery & Study">
-                    <div class="w-11 h-11 sm:w-13 sm:h-13 rounded-lg overflow-hidden p-1 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 relative shrink-0">
-                        <img src="https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=120" alt="Stationery" class="w-full h-full object-cover rounded opacity-70 group-hover:opacity-100 transition-opacity">
+                <button type="button" class="w-full flex flex-col items-center py-2 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn text-slate-600 dark:text-slate-400 hover:bg-white/40 dark:hover:bg-slate-800/40 border border-transparent" data-category-id="stationery" data-status="blocked" data-name="Stationery & Study">
+                    <div class="w-11 h-11 sm:w-13 sm:h-13 rounded-xl overflow-hidden p-1 border border-white/60 dark:border-white/10 bg-white/60 dark:bg-slate-800 relative shrink-0">
+                        <img src="https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=120" alt="Stationery" class="w-full h-full object-cover rounded-lg opacity-70 group-hover:opacity-100 transition-opacity">
                         <span class="absolute top-0.5 right-0.5 bg-slate-800/80 text-white text-[8px] px-1 rounded font-medium">Soon</span>
                     </div>
                     <span class="text-[11px] sm:text-xs mt-1.5 text-center leading-tight font-medium cat-label">Stationery</span>
                 </button>
 
                 <!-- 6. Electronics & Accessories (Coming Soon) -->
-                <button type="button" class="w-full flex flex-col items-center py-2 px-1 rounded-xl relative transition-all group cursor-pointer cat-sidebar-btn text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 border border-transparent" data-category-id="electronics" data-status="blocked" data-name="Electronics & Accessories">
-                    <div class="w-11 h-11 sm:w-13 sm:h-13 rounded-lg overflow-hidden p-1 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 relative shrink-0">
-                        <img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=120" alt="Electronics" class="w-full h-full object-cover rounded opacity-70 group-hover:opacity-100 transition-opacity">
+                <button type="button" class="w-full flex flex-col items-center py-2 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn text-slate-600 dark:text-slate-400 hover:bg-white/40 dark:hover:bg-slate-800/40 border border-transparent" data-category-id="electronics" data-status="blocked" data-name="Electronics & Accessories">
+                    <div class="w-11 h-11 sm:w-13 sm:h-13 rounded-xl overflow-hidden p-1 border border-white/60 dark:border-white/10 bg-white/60 dark:bg-slate-800 relative shrink-0">
+                        <img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=120" alt="Electronics" class="w-full h-full object-cover rounded-lg opacity-70 group-hover:opacity-100 transition-opacity">
                         <span class="absolute top-0.5 right-0.5 bg-slate-800/80 text-white text-[8px] px-1 rounded font-medium">Soon</span>
                     </div>
                     <span class="text-[11px] sm:text-xs mt-1.5 text-center leading-tight font-medium cat-label">Electronics</span>
                 </button>
 
                 <!-- 7. Pharmacy (Coming Soon) -->
-                <button type="button" class="w-full flex flex-col items-center py-2 px-1 rounded-xl relative transition-all group cursor-pointer cat-sidebar-btn text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 border border-transparent" data-category-id="pharmacy" data-status="blocked" data-name="Campus Pharmacy & Wellness">
-                    <div class="w-11 h-11 sm:w-13 sm:h-13 rounded-lg overflow-hidden p-1 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 relative shrink-0">
-                        <img src="https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=120" alt="Pharmacy" class="w-full h-full object-cover rounded opacity-70 group-hover:opacity-100 transition-opacity">
+                <button type="button" class="w-full flex flex-col items-center py-2 px-1 rounded-2xl relative transition-all group cursor-pointer cat-sidebar-btn text-slate-600 dark:text-slate-400 hover:bg-white/40 dark:hover:bg-slate-800/40 border border-transparent" data-category-id="pharmacy" data-status="blocked" data-name="Campus Pharmacy & Wellness">
+                    <div class="w-11 h-11 sm:w-13 sm:h-13 rounded-xl overflow-hidden p-1 border border-white/60 dark:border-white/10 bg-white/60 dark:bg-slate-800 relative shrink-0">
+                        <img src="https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=120" alt="Pharmacy" class="w-full h-full object-cover rounded-lg opacity-70 group-hover:opacity-100 transition-opacity">
                         <span class="absolute top-0.5 right-0.5 bg-slate-800/80 text-white text-[8px] px-1 rounded font-medium">Soon</span>
                     </div>
                     <span class="text-[11px] sm:text-xs mt-1.5 text-center leading-tight font-medium cat-label">Pharmacy</span>
@@ -357,7 +357,7 @@ window.pageInits.categories = async function() {
     function renderSubcatChips() {
         if (!subcatChipsContainer) return;
         subcatChipsContainer.innerHTML = snackSubcats.map((sc) => `
-            <button type="button" class="px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors subcat-chip cursor-pointer ${sc.id === currentSubcategory ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}" data-subcat-id="${sc.id}">
+            <button type="button" class="px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all subcat-chip cursor-pointer ${sc.id === currentSubcategory ? 'clay-btn-primary text-white shadow-md' : 'clay-pill text-slate-700 dark:text-slate-200 hover:text-emerald'}" data-subcat-id="${sc.id}">
                 ${sc.name}
             </button>
         `).join('');
@@ -402,15 +402,15 @@ window.pageInits.categories = async function() {
 
         if (filtered.length === 0) {
             productsGrid.innerHTML = `
-                <div class="col-span-full py-12 text-center">
-                    <span class="material-symbols-outlined text-3xl text-slate-400">inventory_2</span>
-                    <p class="text-xs font-medium text-slate-500 mt-1">No items found matching your selection</p>
+                <div class="col-span-full py-16 text-center glass-card rounded-3xl p-6">
+                    <span class="material-symbols-outlined text-4xl text-slate-400">inventory_2</span>
+                    <p class="text-xs font-semibold text-slate-500 mt-2">No items found matching your selection</p>
                 </div>
             `;
             return;
         }
 
-        // Render Clean Classical Product Cards
+        // Render Frosted Glass & Claymorphic Product Cards
         productsGrid.innerHTML = filtered.map((p, idx) => {
             const discountPercent = p.mrp && p.mrp > p.price ? Math.round(((p.mrp - p.price) / p.mrp) * 100) : 0;
             const stockLeft = p.stock_left !== undefined && p.stock_left !== null ? p.stock_left : (p.in_stock ? 50 : 0);
@@ -418,36 +418,36 @@ window.pageInits.categories = async function() {
             const isOutOfStock = !p.in_stock || stockLeft === 0;
 
             return `
-                <div class="product-card-item product-detail-trigger p-2.5 sm:p-3 flex flex-col justify-between cursor-pointer group ${isOutOfStock ? 'opacity-85' : ''}" data-product-id="${p.id}" data-out-of-stock="${isOutOfStock}">
+                <div class="product-card-item product-detail-trigger p-3 flex flex-col justify-between cursor-pointer group ${isOutOfStock ? 'opacity-85' : ''}" data-product-id="${p.id}" data-out-of-stock="${isOutOfStock}">
                     <div>
-                        <!-- Clean Image Frame -->
-                        <div class="h-32 sm:h-36 bg-slate-50 dark:bg-slate-800/50 rounded-xl relative overflow-hidden flex items-center justify-center p-2 mb-2">
+                        <!-- Claymorphic Image Well -->
+                        <div class="h-32 sm:h-36 bg-gradient-to-b from-white/90 to-slate-100/80 dark:from-slate-800/80 dark:to-slate-900/80 rounded-2xl relative overflow-hidden flex items-center justify-center p-2 mb-2.5 border border-white/80 dark:border-white/10 shadow-[inset_2px_2px_4px_rgba(255,255,255,0.9),inset_-2px_-2px_4px_rgba(0,0,0,0.04)]">
                             <!-- Veg indicator -->
-                            <div class="absolute top-2 left-2 z-10 bg-white/90 dark:bg-slate-900/90 p-0.5 rounded shadow-xs">
+                            <div class="absolute top-2 left-2 z-10 bg-white/90 dark:bg-slate-900/90 p-0.5 rounded-md shadow-xs border border-white/60 dark:border-white/10">
                                 <span class="w-3.5 h-3.5 border ${p.is_veg !== 0 ? 'border-emerald-600' : 'border-rose-600'} rounded-xs flex items-center justify-center p-[1px]">
                                     <span class="w-1.5 h-1.5 rounded-full ${p.is_veg !== 0 ? 'bg-emerald-600' : 'bg-rose-600'}"></span>
                                 </span>
                             </div>
 
-                            <!-- Discount Badge -->
+                            <!-- Liquid Glass Discount Badge -->
                             ${discountPercent > 0 ? `
-                            <div class="absolute top-2 right-2 z-10 bg-emerald-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-xs">
+                            <div class="liquid-badge absolute top-2 right-2 z-10 text-emerald-800 dark:text-emerald-300 text-[10px] font-extrabold px-2 py-0.5 shadow-xs">
                                 ${discountPercent}% OFF
                             </div>
                             ` : ''}
 
                             <!-- Stock Status Badge -->
                             ${isLowStock ? `
-                            <div class="absolute bottom-2 left-2 z-10 bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs">
+                            <div class="absolute bottom-2 left-2 z-10 bg-amber-500/90 backdrop-blur-md text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
                                 Only ${stockLeft} left
                             </div>
                             ` : (isOutOfStock ? `
-                            <div class="absolute bottom-2 left-2 z-10 bg-rose-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs">
+                            <div class="absolute bottom-2 left-2 z-10 bg-rose-600/90 backdrop-blur-md text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
                                 Out of Stock
                             </div>
                             ` : '')}
 
-                            <img class="object-contain w-full h-full group-hover:scale-105 transition-transform duration-200" 
+                            <img class="object-contain w-full h-full group-hover:scale-108 transition-transform duration-300" 
                                  src="${p.image_url}" 
                                  alt="${p.name}" 
                                  width="140" 
@@ -461,19 +461,19 @@ window.pageInits.categories = async function() {
                         <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate mb-1">${p.size || p.unit || '1 unit'}</p>
 
                         <!-- Title -->
-                        <h3 class="font-semibold text-xs text-slate-900 dark:text-slate-100 line-clamp-2 leading-snug min-h-[32px]">${p.name}</h3>
+                        <h3 class="font-bold text-xs text-slate-900 dark:text-slate-100 line-clamp-2 leading-snug min-h-[32px]">${p.name}</h3>
                     </div>
 
                     <!-- Bottom Price & ADD Button Slot -->
-                    <div class="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-1.5">
+                    <div class="mt-2.5 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between gap-1.5">
                         <div class="flex flex-col">
-                            <span class="text-sm font-bold text-slate-900 dark:text-white">₹${p.price}</span>
+                            <span class="text-sm font-extrabold text-slate-900 dark:text-white">₹${p.price}</span>
                             ${p.mrp && p.mrp > p.price ? `<span class="text-[10px] text-slate-400 line-through">₹${p.mrp}</span>` : ''}
                         </div>
 
                         <div class="product-action-slot" data-id="${p.id}" data-out-of-stock="${isOutOfStock}" data-stock-left="${stockLeft}">
                             ${isOutOfStock ? `
-                            <span class="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md cursor-not-allowed select-none">
+                            <span class="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-full cursor-not-allowed select-none">
                                 Out
                             </span>
                             ` : `

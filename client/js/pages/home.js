@@ -28,36 +28,36 @@ function buildProductCardsHTML(items, isAboveFold = false) {
         }
 
         return `
-        <div class="product-card-item product-detail-trigger p-2.5 sm:p-3 flex flex-col justify-between cursor-pointer group ${isOutOfStock ? 'opacity-85' : ''}" data-product-id="${p.id}" data-category="${catTag}" data-out-of-stock="${isOutOfStock}">
+        <div class="product-card-item product-detail-trigger p-3 flex flex-col justify-between cursor-pointer group ${isOutOfStock ? 'opacity-85' : ''}" data-product-id="${p.id}" data-category="${catTag}" data-out-of-stock="${isOutOfStock}">
             <div>
-                <!-- Clean Image Frame with Neutral Light Background -->
-                <div class="h-32 sm:h-36 bg-slate-50 dark:bg-slate-800/50 rounded-xl relative overflow-hidden flex items-center justify-center p-2.5 mb-2">
+                <!-- Claymorphic Image Frame with Soft Inset Lighting -->
+                <div class="h-32 sm:h-36 bg-gradient-to-b from-white/90 to-slate-100/80 dark:from-slate-800/80 dark:to-slate-900/80 rounded-2xl relative overflow-hidden flex items-center justify-center p-2.5 mb-2.5 border border-white/80 dark:border-white/10 shadow-[inset_2px_2px_4px_rgba(255,255,255,0.9),inset_-2px_-2px_4px_rgba(0,0,0,0.04)] dark:shadow-[inset_1px_1px_2px_rgba(255,255,255,0.1),inset_-2px_-2px_4px_rgba(0,0,0,0.4)]">
                     <!-- Veg indicator -->
-                    <div class="absolute top-2 left-2 z-10 bg-white/90 dark:bg-slate-900/90 p-0.5 rounded shadow-sm">
-                        <span class="w-3.5 h-3.5 border ${p.is_veg !== 0 ? 'border-emerald-600' : 'border-rose-600'} rounded-sm flex items-center justify-center p-[1px]">
+                    <div class="absolute top-2 left-2 z-10 bg-white/90 dark:bg-slate-900/90 p-0.5 rounded-md shadow-xs border border-white/60 dark:border-white/10">
+                        <span class="w-3.5 h-3.5 border ${p.is_veg !== 0 ? 'border-emerald-600' : 'border-rose-600'} rounded-xs flex items-center justify-center p-[1px]">
                             <span class="w-1.5 h-1.5 rounded-full ${p.is_veg !== 0 ? 'bg-emerald-600' : 'bg-rose-600'}"></span>
                         </span>
                     </div>
 
-                    <!-- Discount Badge -->
+                    <!-- Liquid Glass Discount Badge -->
                     ${discountPercent > 0 ? `
-                    <div class="absolute top-2 right-2 z-10 bg-emerald-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
+                    <div class="liquid-badge absolute top-2 right-2 z-10 text-emerald-800 dark:text-emerald-300 text-[10px] font-extrabold px-2 py-0.5 shadow-xs">
                         ${discountPercent}% OFF
                     </div>
                     ` : ''}
 
                     <!-- Stock Status Badge -->
                     ${isLowStock ? `
-                    <div class="absolute bottom-2 left-2 z-10 bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm">
+                    <div class="absolute bottom-2 left-2 z-10 bg-amber-500/90 backdrop-blur-md text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
                         Only ${stockLeft} left
                     </div>
                     ` : (isOutOfStock ? `
-                    <div class="absolute bottom-2 left-2 z-10 bg-rose-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm">
+                    <div class="absolute bottom-2 left-2 z-10 bg-rose-600/90 backdrop-blur-md text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
                         Out of Stock
                     </div>
                     ` : '')}
 
-                    <img class="object-contain w-full h-full group-hover:scale-105 transition-transform duration-200" 
+                    <img class="object-contain w-full h-full group-hover:scale-108 transition-transform duration-300" 
                          src="${p.image_url}" 
                          alt="${p.name}" 
                          width="140" 
@@ -71,11 +71,11 @@ function buildProductCardsHTML(items, isAboveFold = false) {
                 <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate mb-1">${p.size || p.unit || '1 unit'}</p>
 
                 <!-- Title -->
-                <h3 class="font-semibold text-xs text-slate-900 dark:text-slate-100 line-clamp-2 leading-snug min-h-[32px]">${p.name}</h3>
+                <h3 class="font-bold text-xs text-slate-900 dark:text-slate-100 line-clamp-2 leading-snug min-h-[32px]">${p.name}</h3>
             </div>
 
             <!-- Bottom Price & ADD Button Slot -->
-            <div class="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-1.5">
+            <div class="mt-2.5 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between gap-1.5">
                 <div class="flex flex-col">
                     <span class="text-sm font-extrabold text-slate-900 dark:text-white">₹${p.price}</span>
                     ${p.mrp && p.mrp > p.price ? `<span class="text-[10px] text-slate-400 line-through">₹${p.mrp}</span>` : ''}
@@ -83,7 +83,7 @@ function buildProductCardsHTML(items, isAboveFold = false) {
 
                 <div class="product-action-slot" data-id="${p.id}" data-out-of-stock="${isOutOfStock}" data-stock-left="${stockLeft}">
                     ${isOutOfStock ? `
-                    <span class="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg cursor-not-allowed select-none">
+                    <span class="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-full cursor-not-allowed select-none">
                         Out
                     </span>
                     ` : `
@@ -179,19 +179,19 @@ window.pages.home = async function() {
 
     return `
 <div class="min-h-screen pb-32">
-    <!-- TopAppBar (Web) -->
-    <header class="hidden md:flex justify-between items-center px-6 lg:px-10 py-3 w-full z-50 fixed top-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-sm">
+    <!-- TopAppBar (Web) — Frosted Liquid Glass -->
+    <header class="hidden md:flex justify-between items-center px-6 lg:px-10 py-3 w-full z-50 fixed top-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-white/70 dark:border-white/10 shadow-sm">
         <div class="flex items-center gap-6">
             <a href="#/" class="flex items-center gap-2.5 hover:opacity-90 transition-opacity">
-                <img src="/logo.png" alt="LPUQuick" class="w-8 h-8 rounded-full shadow-sm shrink-0 object-contain">
+                <img src="/logo.png" alt="LPUQuick" class="w-8 h-8 rounded-full shadow-xs shrink-0 object-contain">
                 <div class="flex flex-col">
                     <span class="brand-title text-xl tracking-tight leading-none font-bold text-emerald-700 dark:text-emerald-400">LPUQuick</span>
                     <span class="text-[10px] text-slate-500 dark:text-slate-400 font-semibold tracking-wide uppercase">BH13 Express</span>
                 </div>
             </a>
 
-            <!-- Address Selector Trigger -->
-            <button type="button" class="address-selector-trigger flex items-center bg-slate-100 dark:bg-slate-800 hover:bg-slate-200/80 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700 rounded-full px-3.5 py-1.5 text-slate-800 dark:text-slate-200 text-xs transition-all cursor-pointer">
+            <!-- Address Selector Trigger (Tactile Clay Pill) -->
+            <button type="button" class="address-selector-trigger clay-pill flex items-center px-4 py-1.5 text-slate-800 dark:text-slate-200 text-xs cursor-pointer">
                 <span class="material-symbols-outlined text-emerald-600 dark:text-emerald-400 text-sm mr-1.5" style="font-variation-settings: 'FILL' 1;">location_on</span>
                 <span>Deliver to <strong>${address}</strong></span>
                 <span class="text-slate-400 dark:text-slate-500 ml-1">· 3 mins</span>
@@ -202,20 +202,20 @@ window.pages.home = async function() {
         <div class="flex items-center gap-3">
             <!-- Dedicated Fast Product Search -->
             <div class="relative w-80">
-                <input class="w-full pl-9 pr-8 py-2 rounded-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-emerald-600 transition-all shadow-sm" placeholder="Search snacks, drinks, maggi, chips..." type="text" id="desktop-search" autocomplete="off">
+                <input class="w-full pl-9 pr-8 py-2 rounded-full border border-white/80 dark:border-white/10 bg-white/70 dark:bg-slate-800/70 backdrop-blur-md text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-emerald-600 transition-all shadow-xs" placeholder="Search snacks, drinks, maggi, chips..." type="text" id="desktop-search" autocomplete="off">
                 <span class="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-sm">search</span>
-                <div id="desktop-search-dropdown" class="hidden absolute top-11 left-0 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 max-h-80 overflow-y-auto p-2"></div>
+                <div id="desktop-search-dropdown" class="hidden absolute top-11 left-0 w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-white/70 dark:border-white/10 rounded-2xl shadow-2xl z-50 max-h-80 overflow-y-auto p-2"></div>
             </div>
 
             <!-- Install App Quick Pill -->
-            <button type="button" onclick="window.showInstallPrompt()" class="btn-install-app bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-full px-3 py-1.5 text-xs font-semibold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer shadow-sm" title="Install App">
+            <button type="button" onclick="window.showInstallPrompt()" class="btn-install-app clay-pill bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 px-3.5 py-1.5 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs" title="Install App">
                 <span class="material-symbols-outlined text-sm">install_mobile</span>
                 <span>Install</span>
             </button>
 
             <!-- Sleek Day/Night Theme Pill Switch -->
             <button type="button" 
-                    class="theme-toggle-switch relative inline-flex items-center w-[54px] h-[28px] rounded-full p-[2px] transition-all duration-200 ease-in-out cursor-pointer select-none bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:opacity-90 active:scale-95 shrink-0" 
+                    class="theme-toggle-switch relative inline-flex items-center w-[54px] h-[28px] rounded-full p-[2px] transition-all duration-200 ease-in-out cursor-pointer select-none bg-slate-200/80 dark:bg-slate-800/80 border border-white/70 dark:border-white/10 hover:opacity-90 active:scale-95 shrink-0 shadow-xs" 
                     role="switch" 
                     aria-checked="false" 
                     aria-label="Toggle dark mode" 
@@ -231,17 +231,17 @@ window.pages.home = async function() {
             <a href="#/orders" class="p-2 text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors" title="My Orders"><span class="material-symbols-outlined">receipt_long</span></a>
             <a href="#/cart" class="p-2 text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors relative flex items-center justify-center" title="Cart">
                 <span class="material-symbols-outlined">shopping_cart</span>
-                <span id="desktop-header-cart-count" class="global-cart-count-badge absolute -top-0.5 -right-0.5 bg-emerald-600 text-white text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center shadow-sm hidden">0</span>
+                <span id="desktop-header-cart-count" class="global-cart-count-badge absolute -top-0.5 -right-0.5 bg-gradient-to-r from-emerald-500 to-emerald-700 text-white text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center shadow-xs hidden border border-white/50">0</span>
             </a>
             <a href="#/settings" class="p-2 text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors" title="Settings"><span class="material-symbols-outlined">account_circle</span></a>
         </div>
     </header>
 
-    <!-- TopAppBar (Mobile) -->
-    <header class="md:hidden flex justify-between items-center px-4 py-2.5 w-full z-50 fixed top-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-sm">
+    <!-- TopAppBar (Mobile) — Frosted Liquid Glass -->
+    <header class="md:hidden flex justify-between items-center px-4 py-2.5 w-full z-50 fixed top-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-white/70 dark:border-white/10 shadow-sm">
         <div class="flex items-center gap-2.5 min-w-0">
             <a href="#/" class="shrink-0">
-                <img src="/logo.png" alt="LPUQuick" class="w-8 h-8 rounded-full shadow-sm shrink-0 object-contain">
+                <img src="/logo.png" alt="LPUQuick" class="w-8 h-8 rounded-full shadow-xs shrink-0 object-contain">
             </a>
             <button type="button" class="address-selector-trigger flex flex-col text-left cursor-pointer truncate">
                 <div class="flex items-center text-slate-900 dark:text-white font-bold text-xs truncate">
@@ -260,7 +260,7 @@ window.pages.home = async function() {
 
             <!-- Mobile Day/Night Theme Pill Switch -->
             <button type="button" 
-                    class="theme-toggle-switch relative inline-flex items-center w-[50px] h-[26px] rounded-full p-[2px] transition-all duration-200 ease-in-out cursor-pointer select-none bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:opacity-90 active:scale-95 shrink-0" 
+                    class="theme-toggle-switch relative inline-flex items-center w-[50px] h-[26px] rounded-full p-[2px] transition-all duration-200 ease-in-out cursor-pointer select-none bg-slate-200/80 dark:bg-slate-800/80 border border-white/70 dark:border-white/10 hover:opacity-90 active:scale-95 shrink-0 shadow-xs" 
                     role="switch" 
                     aria-checked="false" 
                     aria-label="Toggle dark mode" 
@@ -275,7 +275,7 @@ window.pages.home = async function() {
 
             <a href="#/cart" class="p-1.5 text-slate-600 dark:text-slate-300 hover:text-emerald-600 transition-colors relative flex items-center justify-center" title="Cart">
                 <span class="material-symbols-outlined text-xl">shopping_cart</span>
-                <span id="mobile-header-cart-count" class="global-cart-count-badge absolute top-0 right-0 bg-emerald-600 text-white text-[10px] font-bold min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center shadow-sm hidden">0</span>
+                <span id="mobile-header-cart-count" class="global-cart-count-badge absolute top-0 right-0 bg-gradient-to-r from-emerald-500 to-emerald-700 text-white text-[10px] font-bold min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center shadow-xs hidden border border-white/50">0</span>
             </a>
             <a href="#/settings" class="p-1.5 text-slate-600 dark:text-slate-300 hover:text-emerald-600 transition-colors" title="Settings">
                 <span class="material-symbols-outlined text-xl">account_circle</span>
@@ -291,47 +291,48 @@ window.pages.home = async function() {
         <!-- Mobile Product Search Bar -->
         <section class="md:hidden relative w-full pt-1">
             <div class="relative">
-                <input class="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-emerald-600 shadow-sm" placeholder="Search snacks, drinks, maggi, chips..." type="text" id="mobile-search" autocomplete="off">
-                <span class="material-symbols-outlined absolute left-2.5 top-2.5 text-slate-400 text-base">search</span>
+                <input class="w-full pl-9 pr-4 py-2.5 rounded-2xl border border-white/80 dark:border-white/10 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-emerald-600 shadow-xs" placeholder="Search snacks, drinks, maggi, chips..." type="text" id="mobile-search" autocomplete="off">
+                <span class="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-base">search</span>
             </div>
-            <div id="mobile-search-dropdown" class="hidden absolute top-12 left-0 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto p-2"></div>
+            <div id="mobile-search-dropdown" class="hidden absolute top-12 left-0 w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-white/70 dark:border-white/10 rounded-2xl shadow-2xl z-50 max-h-80 overflow-y-auto p-2"></div>
         </section>
 
-        <!-- Classical Quick-Commerce Hero Promotional Banner -->
-        <section class="rounded-2xl bg-gradient-to-r from-emerald-800 to-teal-900 text-white p-5 sm:p-7 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative overflow-hidden">
+        <!-- Liquid Glass Hero Promotional Showcase -->
+        <section class="rounded-3xl bg-gradient-to-r from-emerald-800/90 via-emerald-750/90 to-teal-900/90 text-white p-6 sm:p-8 shadow-2xl backdrop-blur-xl border border-white/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 relative overflow-hidden">
+            <div class="absolute -right-16 -top-16 w-64 h-64 bg-emerald-400/20 rounded-full blur-3xl pointer-events-none"></div>
             <div class="z-10 max-w-xl">
-                <div class="inline-flex items-center gap-1.5 bg-emerald-600/60 border border-emerald-400/40 text-emerald-100 text-[10px] font-bold px-2.5 py-0.5 rounded-full mb-2 uppercase tracking-wider">
-                    <span>⚡ BH13 Ground Floor Hub</span>
+                <div class="inline-flex items-center gap-1.5 bg-white/20 border border-white/30 text-emerald-100 text-[10px] font-extrabold px-3 py-1 rounded-full mb-3 uppercase tracking-wider backdrop-blur-md shadow-xs">
+                    <span>⚡ BH13 Ground Floor Express Hub</span>
                 </div>
-                <h1 class="text-lg sm:text-2xl font-bold tracking-tight text-white leading-snug">
+                <h1 class="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-white leading-tight">
                     Instant 3-Minute Campus Delivery
                 </h1>
-                <p class="text-xs sm:text-sm text-emerald-100 mt-1 leading-relaxed">
-                    Fresh snacks, cold beverages, instant maggi, and late-night study fuel delivered straight to your hostel room.
+                <p class="text-xs sm:text-sm text-emerald-100/90 mt-2 leading-relaxed">
+                    Fresh munchies, iced beverages, noodles & exam study essentials delivered right to your hostel door.
                 </p>
-                <div class="mt-4 flex items-center gap-3">
-                    <a href="#/categories" class="bg-white hover:bg-slate-100 text-emerald-900 font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-sm active:scale-95 inline-flex items-center gap-1">
-                        <span>Browse Categories</span>
-                        <span class="material-symbols-outlined text-xs">arrow_forward</span>
+                <div class="mt-5 flex items-center gap-3">
+                    <a href="#/categories" class="clay-btn bg-white hover:bg-white/95 text-emerald-900 font-extrabold text-xs px-5 py-2.5 rounded-full transition-all shadow-md active:scale-95 inline-flex items-center gap-1.5 border border-white/80">
+                        <span>Browse Catalog</span>
+                        <span class="material-symbols-outlined text-sm">arrow_forward</span>
                     </a>
-                    <a href="#/flow-assist" class="bg-emerald-700/60 hover:bg-emerald-700 text-white font-semibold text-xs px-3.5 py-2 rounded-xl border border-emerald-400/30 transition-all inline-flex items-center gap-1">
-                        <span class="material-symbols-outlined text-xs">auto_awesome</span>
-                        <span>AI Bundle</span>
+                    <a href="#/flow-assist" class="clay-pill bg-emerald-700/60 hover:bg-emerald-700 text-white font-semibold text-xs px-4 py-2.5 rounded-full border border-emerald-400/40 transition-all inline-flex items-center gap-1.5 backdrop-blur-md">
+                        <span class="material-symbols-outlined text-sm">auto_awesome</span>
+                        <span>AI Combos</span>
                     </a>
                 </div>
             </div>
-            <div class="hidden sm:flex items-center justify-center w-28 h-28 rounded-2xl bg-emerald-700/30 border border-white/10 text-white/90">
+            <div class="hidden sm:flex items-center justify-center w-32 h-32 rounded-3xl bg-white/10 border border-white/20 text-white/90 backdrop-blur-md shadow-inner">
                 <span class="material-symbols-outlined text-6xl">timer</span>
             </div>
         </section>
 
         <!-- 1. Explore All Available In-Stock Products & Live Filter Chips -->
         <section>
-            <div class="flex flex-col sm:flex-row justify-between sm:items-end gap-2 mb-3">
+            <div class="flex flex-col sm:flex-row justify-between sm:items-end gap-2 mb-3.5">
                 <div>
-                    <h2 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <h2 class="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
                         <span>${sectionTitle}</span>
-                        <span class="text-[10px] bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 font-bold px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">Available Now</span>
+                        <span class="text-[10px] liquid-badge text-emerald-700 dark:text-emerald-400 font-bold px-2.5 py-0.5">Available Now</span>
                     </h2>
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Quick delivery across all BH13 rooms</p>
                 </div>
@@ -341,42 +342,42 @@ window.pages.home = async function() {
                 </a>
             </div>
 
-            <!-- Interactive Category Filter Chips -->
-            <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-3 pt-1" id="home-category-filters">
-                <button type="button" class="home-filter-btn px-4 py-1.5 rounded-full text-xs font-bold transition-all bg-emerald-600 text-white shadow-sm shrink-0 active:scale-95 cursor-pointer" data-filter="all">
+            <!-- Tactile Clay Category Filter Chips -->
+            <div class="flex items-center gap-2.5 overflow-x-auto no-scrollbar pb-3 pt-1" id="home-category-filters">
+                <button type="button" class="home-filter-btn clay-btn-primary px-4 py-1.5 rounded-full text-xs font-bold transition-all shadow-md shrink-0 active:scale-95 cursor-pointer" data-filter="all">
                     All Items
                 </button>
                 ${biscuits.length > 0 ? `
-                <button type="button" class="home-filter-btn px-4 py-1.5 rounded-full text-xs font-semibold transition-all bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shrink-0 active:scale-95 cursor-pointer" data-filter="biscuits">
+                <button type="button" class="home-filter-btn clay-pill px-4 py-1.5 rounded-full text-xs font-semibold transition-all text-slate-700 dark:text-slate-200 shrink-0 active:scale-95 cursor-pointer" data-filter="biscuits">
                     Biscuits
                 </button>
                 ` : ''}
                 ${trendingSnacks.length > 0 ? `
-                <button type="button" class="home-filter-btn px-4 py-1.5 rounded-full text-xs font-semibold transition-all bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shrink-0 active:scale-95 cursor-pointer" data-filter="snacks">
+                <button type="button" class="home-filter-btn clay-pill px-4 py-1.5 rounded-full text-xs font-semibold transition-all text-slate-700 dark:text-slate-200 shrink-0 active:scale-95 cursor-pointer" data-filter="snacks">
                     Chips & Munchies
                 </button>
                 ` : ''}
                 ${chocolates.length > 0 ? `
-                <button type="button" class="home-filter-btn px-4 py-1.5 rounded-full text-xs font-semibold transition-all bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shrink-0 active:scale-95 cursor-pointer" data-filter="chocolates">
+                <button type="button" class="home-filter-btn clay-pill px-4 py-1.5 rounded-full text-xs font-semibold transition-all text-slate-700 dark:text-slate-200 shrink-0 active:scale-95 cursor-pointer" data-filter="chocolates">
                     Chocolates
                 </button>
                 ` : ''}
                 ${instantFood.length > 0 ? `
-                <button type="button" class="home-filter-btn px-4 py-1.5 rounded-full text-xs font-semibold transition-all bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shrink-0 active:scale-95 cursor-pointer" data-filter="instant">
+                <button type="button" class="home-filter-btn clay-pill px-4 py-1.5 rounded-full text-xs font-semibold transition-all text-slate-700 dark:text-slate-200 shrink-0 active:scale-95 cursor-pointer" data-filter="instant">
                     Instant Food
                 </button>
                 ` : ''}
                 ${drinks.length > 0 ? `
-                <button type="button" class="home-filter-btn px-4 py-1.5 rounded-full text-xs font-semibold transition-all bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shrink-0 active:scale-95 cursor-pointer" data-filter="drinks">
+                <button type="button" class="home-filter-btn clay-pill px-4 py-1.5 rounded-full text-xs font-semibold transition-all text-slate-700 dark:text-slate-200 shrink-0 active:scale-95 cursor-pointer" data-filter="drinks">
                     Cold Drinks
                 </button>
                 ` : ''}
             </div>
 
             <!-- In-Stock Product Grid -->
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4" id="home-main-products-grid">
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4" id="home-main-products-grid">
                 ${inStockProductCards || `
-                <div class="col-span-full py-12 text-center flex flex-col items-center justify-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
+                <div class="col-span-full py-12 text-center flex flex-col items-center justify-center glass-card rounded-3xl p-6">
                     <span class="material-symbols-outlined text-4xl text-emerald-600 mb-2">storefront</span>
                     <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200">Catalog Restocking</h3>
                     <p class="text-xs text-slate-500 mt-1 max-w-sm">Products are currently being refreshed. Please check back shortly!</p>
@@ -464,9 +465,9 @@ window.pages.home = async function() {
 
         <!-- 7. Promotional Service Highlights -->
         <section class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-            <a href="#/flow-assist" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 hover:border-emerald-500 transition-all shadow-sm flex items-start justify-between gap-4 cursor-pointer group">
+            <a href="#/flow-assist" class="glass-card rounded-3xl p-5 hover:border-emerald-500/50 transition-all shadow-md flex items-start justify-between gap-4 cursor-pointer group border border-white/70 dark:border-white/10">
                 <div class="space-y-1">
-                    <span class="inline-flex items-center gap-1 text-[10px] font-bold text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 px-2 py-0.5 rounded-full uppercase tracking-wider">AI Assistant</span>
+                    <span class="inline-flex items-center gap-1 text-[10px] font-extrabold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 px-2.5 py-0.5 rounded-full uppercase tracking-wider border border-purple-200 dark:border-purple-800">AI Assistant</span>
                     <h3 class="text-base font-bold text-slate-900 dark:text-white">Need snack bundle ideas?</h3>
                     <p class="text-xs text-slate-500 dark:text-slate-400">Ask Flow Assist to build custom combos for exam study sessions or match watch parties.</p>
                     <div class="pt-2">
@@ -475,14 +476,14 @@ window.pages.home = async function() {
                         </span>
                     </div>
                 </div>
-                <div class="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                <div class="w-12 h-12 rounded-2xl bg-purple-100/60 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 border border-purple-200/50 dark:border-purple-800/50 shadow-xs">
                     <span class="material-symbols-outlined text-2xl">auto_awesome</span>
                 </div>
             </a>
 
-            <a href="#/categories" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 hover:border-emerald-500 transition-all shadow-sm flex items-start justify-between gap-4 cursor-pointer group">
+            <a href="#/categories" class="glass-card rounded-3xl p-5 hover:border-emerald-500/50 transition-all shadow-md flex items-start justify-between gap-4 cursor-pointer group border border-white/70 dark:border-white/10">
                 <div class="space-y-1">
-                    <span class="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full uppercase tracking-wider">BH13 Delivery</span>
+                    <span class="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-full uppercase tracking-wider border border-emerald-200 dark:border-emerald-800">BH13 Delivery</span>
                     <h3 class="text-base font-bold text-slate-900 dark:text-white">Late Night Deliveries</h3>
                     <p class="text-xs text-slate-500 dark:text-slate-400">Serving all blocks in BH13. Order directly to your room with cash or UPI on delivery.</p>
                     <div class="pt-2">
@@ -491,7 +492,7 @@ window.pages.home = async function() {
                         </span>
                     </div>
                 </div>
-                <div class="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                <div class="w-12 h-12 rounded-2xl bg-emerald-100/60 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-200/50 dark:border-emerald-800/50 shadow-xs">
                     <span class="material-symbols-outlined text-2xl">local_shipping</span>
                 </div>
             </a>
@@ -499,7 +500,7 @@ window.pages.home = async function() {
 
         <!-- 8. Out of Stock Items (Segregated at bottom if any) -->
         ${outOfStockProducts.length > 0 ? `
-        <section class="opacity-80 pt-4 border-t border-slate-200 dark:border-slate-800">
+        <section class="opacity-80 pt-4 border-t border-slate-200/60 dark:border-slate-800">
             <div class="flex justify-between items-center mb-3">
                 <div>
                     <h3 class="font-bold text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
@@ -509,30 +510,30 @@ window.pages.home = async function() {
                     <p class="text-[11px] text-slate-400">Restocking in the next delivery batch</p>
                 </div>
             </div>
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">${outOfStockCards}</div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4">${outOfStockCards}</div>
         </section>
         ` : ''}
     </main>
 
-    <!-- Bottom Navigation Bar (Modern E-Commerce Dock) -->
+    <!-- Bottom Navigation Bar (Liquid Glass Dock) -->
     <div class="fixed bottom-5 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-50">
-        <nav class="flex justify-around items-center py-2 px-3 mx-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur-md shadow-xl border border-slate-200 dark:border-slate-800 rounded-2xl">
-            <a class="flex flex-col items-center justify-center text-emerald-600 dark:text-emerald-400 px-4 py-1.5 rounded-xl transition-all" href="#/">
+        <nav class="flex justify-around items-center py-2 px-3 mx-auto bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl shadow-2xl border border-white/70 dark:border-white/10 rounded-full">
+            <a class="flex flex-col items-center justify-center text-emerald-700 dark:text-emerald-300 font-bold px-4 py-1.5 rounded-full transition-all bg-emerald-500/15 dark:bg-emerald-500/20 border border-emerald-500/30" href="#/">
                 <span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">home</span>
                 <span class="text-[10px] font-bold mt-0.5">Home</span>
             </a>
-            <a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 px-4 py-1.5 rounded-xl transition-all" href="#/categories">
+            <a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 px-4 py-1.5 rounded-full transition-all" href="#/categories">
                 <span class="material-symbols-outlined text-xl">category</span>
                 <span class="text-[10px] font-medium mt-0.5">Categories</span>
             </a>
-            <a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 px-4 py-1.5 rounded-xl transition-all relative" href="#/cart" id="bottom-nav-cart-btn">
+            <a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 px-4 py-1.5 rounded-full transition-all relative" href="#/cart" id="bottom-nav-cart-btn">
                 <div class="relative flex items-center justify-center">
                     <span class="material-symbols-outlined text-xl">shopping_cart</span>
-                    <span id="bottom-nav-cart-count" class="global-cart-count-badge absolute -top-1.5 -right-2.5 bg-emerald-600 text-white text-[9px] font-bold min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center shadow-sm hidden">0</span>
+                    <span id="bottom-nav-cart-count" class="global-cart-count-badge absolute -top-1.5 -right-2.5 bg-gradient-to-r from-emerald-500 to-emerald-700 text-white text-[9px] font-bold min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center shadow-xs hidden border border-white/40">0</span>
                 </div>
                 <span class="text-[10px] font-medium mt-0.5">Cart</span>
             </a>
-            <a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 px-4 py-1.5 rounded-xl transition-all" href="#/orders">
+            <a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 px-4 py-1.5 rounded-full transition-all" href="#/orders">
                 <span class="material-symbols-outlined text-xl">receipt_long</span>
                 <span class="text-[10px] font-medium mt-0.5">Orders</span>
             </a>

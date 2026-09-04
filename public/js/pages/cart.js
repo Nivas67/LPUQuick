@@ -26,13 +26,13 @@ window.pages.cart = async function() {
     const totalSavings = mrpDiscount + discount5 + deliverySavings + handlingSavings;
 
     const itemCards = items.length === 0 ? `
-        <div class="bg-surface border border-border rounded-2xl p-8 sm:p-12 text-center my-6 shadow-xs">
-            <div class="w-14 h-14 rounded-full bg-slate-100 dark:bg-slate-800 mx-auto flex items-center justify-center mb-3 text-slate-400">
+        <div class="glass-card rounded-3xl p-8 sm:p-12 text-center my-6 shadow-xl border border-white/70 dark:border-white/10">
+            <div class="w-16 h-16 rounded-2xl bg-white/80 dark:bg-slate-800/80 shadow-inner mx-auto flex items-center justify-center mb-3 text-emerald-600 border border-white/60 dark:border-white/10">
                 <span class="material-symbols-outlined text-3xl">shopping_bag</span>
             </div>
             <h3 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Your cart is empty</h3>
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-5 max-w-xs mx-auto">Add snacks, beverages, biscuits or study essentials to start your campus order.</p>
-            <a href="#/" class="inline-flex items-center gap-1.5 bg-emerald text-white px-5 py-2.5 rounded-lg text-xs font-semibold shadow-xs hover:bg-emerald-600 transition-colors">
+            <a href="#/" class="clay-btn-primary inline-flex items-center gap-1.5 px-6 py-2.5 rounded-full text-xs font-bold shadow-md">
                 Browse Campus Store <span class="material-symbols-outlined text-sm">arrow_forward</span>
             </a>
         </div>
@@ -50,13 +50,13 @@ window.pages.cart = async function() {
         const isMaxStockReached = item.quantity >= stockLeft;
 
         return `
-        <div class="bg-surface border border-border rounded-xl p-3 sm:p-3.5 flex items-center justify-between gap-3 shadow-xs mb-2.5 cart-row" data-cart-id="${item.cart_id}" data-product-id="${item.product_id}" data-stock-left="${stockLeft}">
+        <div class="glass-card rounded-2xl p-3 sm:p-3.5 flex items-center justify-between gap-3 shadow-md mb-3 border border-white/70 dark:border-white/10 cart-row" data-cart-id="${item.cart_id}" data-product-id="${item.product_id}" data-stock-left="${stockLeft}">
             <div class="flex items-center gap-3 min-w-0">
-                <div class="w-14 h-14 rounded-lg bg-slate-50 dark:bg-slate-800/60 p-1 shrink-0 flex items-center justify-center border border-slate-100 dark:border-slate-800">
+                <div class="w-14 h-14 rounded-xl bg-gradient-to-b from-white/90 to-slate-100/80 dark:from-slate-800/80 dark:to-slate-900/80 p-1.5 shrink-0 flex items-center justify-center border border-white/80 dark:border-white/10 shadow-[inset_1px_1px_3px_rgba(255,255,255,0.9),inset_-1px_-1px_3px_rgba(0,0,0,0.03)]">
                     <img class="w-full h-full object-contain" src="${item.image_url}" alt="${item.name}" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200'">
                 </div>
                 <div class="min-w-0">
-                    <h4 class="font-semibold text-xs sm:text-sm text-slate-900 dark:text-white truncate">${item.name}</h4>
+                    <h4 class="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate">${item.name}</h4>
                     <p class="text-[11px] text-slate-500 dark:text-slate-400">${item.size || item.unit || '1 unit'}</p>
                     ${stockLeft > 0 && stockLeft <= 4 ? `
                     <p class="text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-0.5">
@@ -64,10 +64,10 @@ window.pages.cart = async function() {
                     </p>
                     ` : ''}
                     <div class="flex items-center gap-1.5 mt-1">
-                        <span class="font-bold text-xs sm:text-sm text-slate-900 dark:text-white">₹${itemPrice}</span>
+                        <span class="font-extrabold text-xs sm:text-sm text-slate-900 dark:text-white">₹${itemPrice}</span>
                         ${hasItemDiscount ? `
                         <span class="line-through text-slate-400 text-[11px]">₹${itemMrp}</span>
-                        <span class="text-[9px] text-emerald font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 px-1 py-0.5 rounded">${discPercent}% OFF</span>
+                        <span class="liquid-badge text-[9px] text-emerald-800 dark:text-emerald-300 font-extrabold px-1.5 py-0.5">${discPercent}% OFF</span>
                         ` : ''}
                     </div>
                 </div>
@@ -88,9 +88,9 @@ window.pages.cart = async function() {
     return `
 <div class="bg-background text-on-background min-h-screen pb-32">
     <!-- TopAppBar -->
-    <header class="px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 bg-surface/95 backdrop-blur-md z-40 border-b border-border shadow-xs">
+    <header class="px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl z-40 border-b border-white/70 dark:border-white/10 shadow-sm">
         <div class="flex items-center gap-3">
-            <a href="#/" class="w-9 h-9 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-700 dark:text-slate-200">
+            <a href="#/" class="w-9 h-9 flex items-center justify-center hover:bg-white/50 dark:hover:bg-slate-800/50 rounded-xl transition-colors text-slate-700 dark:text-slate-200">
                 <span class="material-symbols-outlined text-xl">arrow_back</span>
             </a>
             <div>
@@ -108,15 +108,15 @@ window.pages.cart = async function() {
         <div class="lg:col-span-2 space-y-3">
             <!-- 5% Offer Status Banner -->
             ${hasDiscount ? `
-            <div class="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-3 flex items-center justify-between text-xs">
+            <div class="bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-300/60 dark:border-emerald-700/60 rounded-2xl p-3.5 flex items-center justify-between text-xs backdrop-blur-md shadow-xs">
                 <div class="flex items-center gap-2 font-medium text-emerald-800 dark:text-emerald-300">
                     <span class="material-symbols-outlined text-base">verified</span>
                     <span>5% Campus Bulk Offer Applied (Above ₹350)</span>
                 </div>
-                <span class="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/50 px-2 py-0.5 rounded">Extra ₹${discount5} OFF</span>
+                <span class="text-[11px] font-extrabold text-emerald-700 dark:text-emerald-300 bg-emerald-200/60 dark:bg-emerald-900/60 px-2.5 py-0.5 rounded-full">Extra ₹${discount5} OFF</span>
             </div>
             ` : subtotal > 0 ? `
-            <div class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl p-3 flex items-center justify-between text-xs">
+            <div class="bg-amber-50/80 dark:bg-amber-950/40 border border-amber-300/60 dark:border-amber-700/60 rounded-2xl p-3.5 flex items-center justify-between text-xs backdrop-blur-md shadow-xs">
                 <div class="flex items-center gap-2 font-medium text-amber-800 dark:text-amber-300">
                     <span class="material-symbols-outlined text-base">local_offer</span>
                     <span>Add ₹${350 - subtotal} more to get 5% FLAT OFF on your order</span>
@@ -126,12 +126,12 @@ window.pages.cart = async function() {
             ` : ''}
 
             <!-- Free Delivery Promo Banner -->
-            <div class="bg-slate-50 dark:bg-slate-800/60 border border-border rounded-xl p-3 flex items-center justify-between text-xs">
+            <div class="glass-card border border-white/70 dark:border-white/10 rounded-2xl p-3.5 flex items-center justify-between text-xs shadow-xs">
                 <div class="flex items-center gap-2 font-medium text-slate-700 dark:text-slate-300">
                     <span class="material-symbols-outlined text-base text-emerald-600">electric_bolt</span>
                     <span>Free 3-Min Campus Room Delivery</span>
                 </div>
-                <span class="text-[11px] font-bold text-emerald-700 dark:text-emerald-400">Saved ₹25</span>
+                <span class="text-[11px] font-extrabold text-emerald-700 dark:text-emerald-400 liquid-badge px-2 py-0.5">Saved ₹25</span>
             </div>
 
             <!-- Items List -->
@@ -140,10 +140,10 @@ window.pages.cart = async function() {
             </div>
         </div>
 
-        <!-- Right: Order Summary Panel -->
+        <!-- Right: Order Summary Panel (Frosted Glass & Clay Checkout) -->
         <div class="lg:col-span-1">
-            <div class="bg-surface border border-border rounded-xl p-4 sm:p-5 sticky top-20 shadow-xs space-y-4">
-                <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5 pb-2 border-b border-border">
+            <div class="glass-card rounded-3xl p-5 sm:p-6 sticky top-20 shadow-2xl border border-white/70 dark:border-white/10 space-y-4">
+                <h3 class="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5 pb-2.5 border-b border-slate-200/60 dark:border-slate-700/60">
                     <span class="material-symbols-outlined text-base text-emerald">receipt</span>
                     Bill Details
                 </h3>
@@ -189,7 +189,7 @@ window.pages.cart = async function() {
                         </div>
                     </div>
                     
-                    <div class="border-t border-border pt-3 mt-2 flex justify-between items-center text-sm font-bold">
+                    <div class="border-t border-slate-200/60 dark:border-slate-700/60 pt-3 mt-2 flex justify-between items-center text-sm font-bold">
                         <div>
                             <span class="text-slate-900 dark:text-white">To Pay</span>
                             <p class="text-[10px] text-emerald font-medium">Free campus delivery included</p>
@@ -199,26 +199,26 @@ window.pages.cart = async function() {
                 </div>
 
                 <!-- Savings Banner -->
-                <div class="p-2.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/40 rounded-lg flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-300 font-medium">
+                <div class="p-3 bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/40 rounded-2xl flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-300 font-semibold backdrop-blur-md shadow-xs">
                     <span class="material-symbols-outlined text-base text-emerald">savings</span>
                     <span>Total Savings: ₹${totalSavings}</span>
                 </div>
 
                 ${window.__isUserBlocked ? `
-                <div class="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 rounded-lg text-center space-y-1">
+                <div class="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 rounded-2xl text-center space-y-1">
                     <p class="font-bold text-xs text-rose-700 dark:text-rose-400">Account Restricted</p>
                     <p class="text-[11px] text-slate-500">Contact BH13 Campus Hub for assistance.</p>
                 </div>
-                <button disabled class="w-full bg-slate-200 dark:bg-slate-800 text-slate-400 rounded-lg py-3 font-semibold text-xs cursor-not-allowed">
+                <button disabled class="w-full bg-slate-200 dark:bg-slate-800 text-slate-400 rounded-full py-3.5 font-semibold text-xs cursor-not-allowed">
                     Checkout Disabled
                 </button>
                 ` : (items.length > 0 ? `
-                <a href="#/checkout" id="proceed-to-checkout-btn" class="w-full bg-emerald text-white rounded-lg py-3 font-semibold text-xs text-center flex items-center justify-center gap-1.5 hover:bg-emerald-600 transition-colors shadow-xs">
+                <a href="#/checkout" id="proceed-to-checkout-btn" class="clay-btn-primary w-full py-3.5 rounded-full font-extrabold text-xs text-center flex items-center justify-center gap-1.5 shadow-lg">
                     Proceed to Checkout (₹${exactTotal})
                     <span class="material-symbols-outlined text-sm">arrow_forward</span>
                 </a>
                 ` : `
-                <button disabled class="w-full bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-lg py-3 font-semibold text-xs text-center cursor-not-allowed">
+                <button disabled class="w-full bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-full py-3.5 font-semibold text-xs text-center cursor-not-allowed">
                     Cart is Empty
                 </button>
                 `)}
@@ -226,15 +226,15 @@ window.pages.cart = async function() {
         </div>
     </main>
 
-    <!-- Mobile Sticky Checkout Bar -->
+    <!-- Mobile Sticky Checkout Bar (Liquid Glass) -->
     ${items.length > 0 && !window.__isUserBlocked ? `
-    <div class="lg:hidden fixed bottom-14 left-0 right-0 z-30 p-3 bg-surface/95 backdrop-blur-md border-t border-border">
+    <div class="lg:hidden fixed bottom-14 left-0 right-0 z-30 p-3.5 bg-white/85 dark:bg-slate-900/85 backdrop-blur-2xl border-t border-white/70 dark:border-white/10 shadow-2xl">
         <div class="max-w-md mx-auto flex items-center justify-between gap-3">
             <div>
                 <span class="text-[11px] text-slate-500 dark:text-slate-400">${cartData.item_count || items.length} items</span>
-                <p class="text-base font-bold text-slate-900 dark:text-white leading-none mt-0.5">₹${exactTotal}</p>
+                <p class="text-base font-extrabold text-slate-900 dark:text-white leading-none mt-0.5">₹${exactTotal}</p>
             </div>
-            <a href="#/checkout" class="bg-emerald text-white px-5 py-2.5 rounded-lg text-xs font-semibold flex items-center gap-1 hover:bg-emerald-600 transition-colors shadow-xs">
+            <a href="#/checkout" class="clay-btn-primary px-5 py-2.5 rounded-full text-xs font-bold flex items-center gap-1 shadow-md">
                 <span>Proceed to Checkout</span>
                 <span class="material-symbols-outlined text-sm">arrow_forward</span>
             </a>
@@ -243,7 +243,7 @@ window.pages.cart = async function() {
     ` : ''}
 
     <!-- Bottom Navigation Bar -->
-    <div class="fixed bottom-0 left-0 right-0 z-40 bg-surface/95 backdrop-blur-md border-t border-border shadow-xs sm:hidden">
+    <div class="fixed bottom-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border-t border-white/70 dark:border-white/10 shadow-xs sm:hidden">
         <nav class="flex justify-around items-center h-14 max-w-md mx-auto px-2">
             <a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer" href="#/" title="Home">
                 <span class="material-symbols-outlined text-xl">home</span>

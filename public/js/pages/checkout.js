@@ -129,53 +129,53 @@ window.pages.checkout = async function() {
             </div>
             ` : ''}
 
-            <!-- Delivery Address Card -->
-            <div class="bg-surface border border-border rounded-xl p-4 shadow-xs">
+            <!-- Delivery Address Card (Tactile Clay Depth) -->
+            <div class="glass-card rounded-3xl p-5 shadow-md border border-white/70 dark:border-white/10">
                 <div class="flex justify-between items-start">
-                    <div class="flex items-start gap-3">
-                        <div class="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 border border-emerald-200/50 dark:border-emerald-800/50">
-                            <span class="material-symbols-outlined text-base">location_on</span>
+                    <div class="flex items-start gap-3.5">
+                        <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm border border-white/40">
+                            <span class="material-symbols-outlined text-lg">location_on</span>
                         </div>
                         <div>
                             <div class="flex items-center gap-2">
-                                <h3 class="font-bold text-slate-900 dark:text-white text-xs sm:text-sm">Hostel Delivery Destination</h3>
-                                <span class="text-[10px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.2 rounded font-semibold">3 mins</span>
+                                <h3 class="font-extrabold text-slate-900 dark:text-white text-xs sm:text-sm">Hostel Delivery Destination</h3>
+                                <span class="liquid-badge text-[10px] text-emerald-800 dark:text-emerald-300 px-2 py-0.5 font-bold">3 mins</span>
                             </div>
-                            <p class="text-xs text-slate-600 dark:text-slate-300 mt-0.5" id="checkout-address-text">${address}</p>
+                            <p class="text-xs text-slate-600 dark:text-slate-300 mt-1" id="checkout-address-text">${address}</p>
                             ${(!savedPhone || savedPhone.length !== 10) ? `
-                            <p class="text-[11px] text-rose-600 dark:text-rose-400 font-medium mt-1 flex items-center gap-1">
+                            <p class="text-[11px] text-rose-600 dark:text-rose-400 font-medium mt-1.5 flex items-center gap-1">
                                 <span class="material-symbols-outlined text-xs">warning</span> Mobile number missing! Required for runner.
                             </p>
                             ` : `
-                            <p class="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium mt-1 flex items-center gap-1">
-                                <span class="w-1.5 h-1.5 rounded-full bg-emerald"></span> Verified Contact for Runner Delivery
+                            <p class="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold mt-1.5 flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Verified Contact for Runner Delivery
                             </p>
                             `}
                         </div>
                     </div>
-                    <button type="button" class="text-xs font-semibold text-emerald hover:underline address-selector-trigger" onclick="window.openAddressModal(true)">Change</button>
+                    <button type="button" class="clay-pill px-3 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300 address-selector-trigger" onclick="window.openAddressModal(true)">Change</button>
                 </div>
             </div>
 
             <!-- Order Items Summary -->
-            <div class="bg-surface border border-border rounded-xl p-4 shadow-xs">
-                <h3 class="font-bold text-xs sm:text-sm text-slate-900 dark:text-white mb-2 flex items-center gap-1.5">
+            <div class="glass-card rounded-3xl p-5 shadow-md border border-white/70 dark:border-white/10">
+                <h3 class="font-extrabold text-xs sm:text-sm text-slate-900 dark:text-white mb-2.5 flex items-center gap-2">
                     <span class="material-symbols-outlined text-base text-emerald">shopping_bag</span>
                     Order Items (${cartData.item_count || 0})
                 </h3>
-                <div class="divide-y divide-border">
+                <div class="divide-y divide-slate-200/60 dark:divide-slate-700/60">
                     ${itemRows || '<p class="text-xs text-slate-500 py-2">No items in cart.</p>'}
                 </div>
             </div>
 
             <!-- Bill Breakdown Card -->
-            <div class="bg-surface border border-border rounded-xl p-4 shadow-xs space-y-3">
-                <div class="flex items-center justify-between pb-2 border-b border-border">
-                    <h3 class="font-bold text-xs sm:text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
+            <div class="glass-card rounded-3xl p-5 shadow-md border border-white/70 dark:border-white/10 space-y-3">
+                <div class="flex items-center justify-between pb-2.5 border-b border-slate-200/60 dark:border-slate-700/60">
+                    <h3 class="font-extrabold text-xs sm:text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
                         <span class="material-symbols-outlined text-base text-emerald">receipt</span>
                         Bill Breakdown
                     </h3>
-                    <span class="text-[11px] text-slate-500">Zero hidden fees</span>
+                    <span class="text-[11px] text-slate-500 font-medium">Zero hidden fees</span>
                 </div>
 
                 <div class="space-y-2 text-xs">
@@ -207,7 +207,7 @@ window.pages.checkout = async function() {
                         <span>Delivery Fee</span>
                         <div class="flex items-center gap-1.5">
                             <span class="line-through text-[11px] text-slate-400">₹25</span>
-                            <span class="font-bold text-emerald-600 dark:text-emerald-400">FREE</span>
+                            <span class="font-extrabold text-emerald-600 dark:text-emerald-400">FREE</span>
                         </div>
                     </div>
 
@@ -215,36 +215,36 @@ window.pages.checkout = async function() {
                         <span>Handling & Bag</span>
                         <div class="flex items-center gap-1.5">
                             <span class="line-through text-[11px] text-slate-400">₹5</span>
-                            <span class="font-bold text-emerald-600 dark:text-emerald-400">FREE</span>
+                            <span class="font-extrabold text-emerald-600 dark:text-emerald-400">FREE</span>
                         </div>
                     </div>
                     
-                    <div class="border-t border-border pt-2.5 mt-2 flex justify-between items-center text-sm font-bold">
+                    <div class="border-t border-slate-200/60 dark:border-slate-700/60 pt-3 mt-2 flex justify-between items-center text-sm font-bold">
                         <div>
                             <span class="text-slate-900 dark:text-white">Total to Pay</span>
                             <p class="text-[10px] text-emerald font-medium">Free campus delivery</p>
                         </div>
-                        <span class="text-xl font-extrabold text-slate-900 dark:text-white" id="checkout-total-val">₹${exactTotal}</span>
+                        <span class="text-2xl font-extrabold text-slate-900 dark:text-white" id="checkout-total-val">₹${exactTotal}</span>
                     </div>
                 </div>
 
                 <!-- Savings Banner -->
-                <div class="p-2.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/40 rounded-lg flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-300 font-medium">
+                <div class="p-3 bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/40 rounded-2xl flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-300 font-semibold backdrop-blur-md shadow-xs">
                     <span class="material-symbols-outlined text-base text-emerald">savings</span>
                     <span>Total Savings: ₹${totalSavings} applied</span>
                 </div>
             </div>
 
             <!-- Payment Method Selection -->
-            <div class="bg-surface border border-border rounded-xl p-4 shadow-xs space-y-3">
+            <div class="glass-card rounded-3xl p-5 shadow-md border border-white/70 dark:border-white/10 space-y-3.5">
                 <div class="flex items-center justify-between">
-                    <h3 class="font-bold text-xs sm:text-sm text-slate-900 dark:text-white">Payment Method</h3>
-                    <span class="text-[10px] text-emerald font-semibold bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">Cash on Delivery Active</span>
+                    <h3 class="font-extrabold text-xs sm:text-sm text-slate-900 dark:text-white">Payment Method</h3>
+                    <span class="liquid-badge text-[10px] text-emerald-800 dark:text-emerald-300 font-bold px-2.5 py-0.5">Cash on Delivery Active</span>
                 </div>
                 
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2" id="payment-options">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5" id="payment-options">
                     <!-- 1. Cash on Delivery (ACTIVE) -->
-                    <label class="flex items-center gap-2.5 p-3 rounded-lg border-2 border-emerald bg-emerald-50/50 dark:bg-emerald-950/20 cursor-pointer payment-option-label relative" data-method="cod">
+                    <label class="flex items-center gap-3 p-3.5 rounded-2xl border-2 border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/30 cursor-pointer payment-option-label relative shadow-sm" data-method="cod">
                         <input type="radio" name="paymentMethod" value="cod" checked class="text-emerald focus:ring-emerald">
                         <div>
                             <div class="flex items-center gap-1.5">
@@ -255,24 +255,24 @@ window.pages.checkout = async function() {
                     </label>
 
                     <!-- 2. UPI / GPay / QR (Soon) -->
-                    <div class="flex items-center gap-2.5 p-3 rounded-lg border border-border bg-slate-50 dark:bg-slate-800/40 opacity-60 cursor-pointer payment-blocked-trigger relative" data-title="Online UPI Payments">
+                    <div class="flex items-center gap-3 p-3.5 rounded-2xl border border-white/60 dark:border-white/10 bg-white/40 dark:bg-slate-800/40 opacity-65 cursor-pointer payment-blocked-trigger relative" data-title="Online UPI Payments">
                         <input type="radio" name="paymentMethod" value="upi" disabled class="text-slate-400">
                         <div class="min-w-0">
                             <div class="flex items-center gap-1.5">
                                 <p class="font-medium text-xs text-slate-600 dark:text-slate-400 truncate">UPI / QR</p>
-                                <span class="text-[8px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold px-1 rounded">Soon</span>
+                                <span class="text-[8px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold px-1.5 py-0.5 rounded-full">Soon</span>
                             </div>
                             <p class="text-[10px] text-slate-400">KYC onboarding</p>
                         </div>
                     </div>
 
                     <!-- 3. Cards / NetBanking (Soon) -->
-                    <div class="flex items-center gap-2.5 p-3 rounded-lg border border-border bg-slate-50 dark:bg-slate-800/40 opacity-60 cursor-pointer payment-blocked-trigger relative" data-title="Card & NetBanking">
+                    <div class="flex items-center gap-3 p-3.5 rounded-2xl border border-white/60 dark:border-white/10 bg-white/40 dark:bg-slate-800/40 opacity-65 cursor-pointer payment-blocked-trigger relative" data-title="Card & NetBanking">
                         <input type="radio" name="paymentMethod" value="card" disabled class="text-slate-400">
                         <div class="min-w-0">
                             <div class="flex items-center gap-1.5">
                                 <p class="font-medium text-xs text-slate-600 dark:text-slate-400 truncate">Cards</p>
-                                <span class="text-[8px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold px-1 rounded">Soon</span>
+                                <span class="text-[8px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold px-1.5 py-0.5 rounded-full">Soon</span>
                             </div>
                             <p class="text-[10px] text-slate-400">Visa / Master</p>
                         </div>
@@ -281,21 +281,21 @@ window.pages.checkout = async function() {
             </div>
 
             <!-- Error Banner -->
-            <div id="checkout-error-banner" class="hidden p-3.5 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50 rounded-xl flex items-start gap-2.5 text-xs text-rose-700 dark:text-rose-400">
+            <div id="checkout-error-banner" class="hidden p-4 bg-rose-50/90 dark:bg-rose-950/40 border border-rose-300 rounded-2xl flex items-start gap-3 text-xs text-rose-700 dark:text-rose-400 shadow-sm">
                 <span class="material-symbols-outlined text-base shrink-0 mt-0.5">error</span>
                 <div class="flex-1">
                     <p class="font-bold">Couldn't place order</p>
                     <p class="text-slate-600 dark:text-slate-400 mt-0.5" id="checkout-error-msg">Please check your connection and try again.</p>
-                    <button type="button" id="checkout-retry-btn" class="mt-2 bg-rose-600 text-white font-semibold px-3 py-1 rounded-md text-xs hover:bg-rose-700 transition-colors cursor-pointer">
+                    <button type="button" id="checkout-retry-btn" class="mt-2.5 bg-rose-600 text-white font-semibold px-4 py-1.5 rounded-full text-xs hover:bg-rose-700 transition-colors cursor-pointer shadow-xs">
                         Try Again
                     </button>
                 </div>
             </div>
 
-            <!-- Slide or Tap to Place Order -->
-            <div class="pt-1">
+            <!-- Slide or Tap to Place Order (Liquid Glass Track & Tactile Button) -->
+            <div class="pt-2">
                 ${!window.hasUserConfiguredAddress() ? `
-                <button type="button" onclick="window.openAddressModal(true, () => { if (typeof window.router === 'function') window.router(); })" class="w-full py-3.5 px-5 rounded-xl bg-emerald hover:bg-emerald-600 text-white font-semibold text-xs sm:text-sm shadow-xs flex items-center justify-center gap-2 cursor-pointer transition-colors">
+                <button type="button" onclick="window.openAddressModal(true, () => { if (typeof window.router === 'function') window.router(); })" class="clay-btn-primary w-full py-4 px-5 rounded-full text-white font-extrabold text-xs sm:text-sm shadow-xl flex items-center justify-center gap-2 cursor-pointer transition-all">
                     <span class="material-symbols-outlined text-base">home_pin</span>
                     <span>Set Hostel Room Address to Complete Order (₹${exactTotal})</span>
                 </button>
@@ -310,10 +310,10 @@ window.pages.checkout = async function() {
                     </div>
                 </div>
                 
-                <div class="mt-3 flex flex-col gap-1.5">
-                    <button type="button" class="w-full py-3 px-4 rounded-xl bg-emerald text-white hover:bg-emerald-600 font-semibold text-xs sm:text-sm flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors" id="tap-to-pay-btn">
+                <div class="mt-3.5 flex flex-col gap-2">
+                    <button type="button" class="clay-btn-primary w-full py-3.5 px-4 rounded-full font-extrabold text-xs sm:text-sm flex items-center justify-center gap-1.5 cursor-pointer shadow-xl transition-all" id="tap-to-pay-btn">
                         <span class="material-symbols-outlined text-base">bolt</span>
-                        <span>Place Cash on Delivery Order (₹${exactTotal})</span>
+                        <span>⚡ 1-Tap Quick Place (₹${exactTotal})</span>
                     </button>
                     <div class="flex items-center justify-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
                         <span class="material-symbols-outlined text-xs text-emerald">verified</span>
@@ -328,8 +328,8 @@ window.pages.checkout = async function() {
         <div id="order-success-section" class="hidden space-y-4 transition-all duration-300">
             
             <!-- Success Hero Card -->
-            <div class="bg-surface border border-emerald-200 dark:border-emerald-800/50 rounded-2xl p-6 text-center shadow-xs space-y-3">
-                <div class="w-14 h-14 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center mx-auto">
+            <div class="glass-card rounded-3xl p-8 text-center shadow-2xl border border-emerald-500/40 space-y-3.5">
+                <div class="w-16 h-16 rounded-3xl bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-xl flex items-center justify-center mx-auto border border-white/50">
                     <span class="material-symbols-outlined text-3xl">check</span>
                 </div>
 

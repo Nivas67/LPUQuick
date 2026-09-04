@@ -1,33 +1,62 @@
 /* ============================================================
-   LPUQuick — Professional Classical Quick-Commerce Stylesheet
-   Modern, Clean, High-Trust UI/UX (Inspired by Zepto, Blinkit & Apple)
+   LPUQuick — Glassmorphism, Claymorphism & Liquid Glass Design System
+   Modern, Ultra-Smooth, Responsive & Tactile (Zepto / Blinkit / Apple Luxury)
    ============================================================ */
 
 :root {
-    --bg-primary: #f8fafc;
-    --bg-surface: #ffffff;
-    --bg-surface-secondary: #f1f5f9;
-    --border-color: #e2e8f0;
-    --border-subtle: #edf2f7;
+    /* Base Colors & Surfaces */
+    --bg-primary: #f0f4f9;
+    --bg-surface: rgba(255, 255, 255, 0.78);
+    --bg-surface-elevated: rgba(255, 255, 255, 0.9);
+    --bg-surface-secondary: rgba(241, 245, 249, 0.8);
+    --border-color: rgba(226, 232, 240, 0.85);
+    --border-subtle: rgba(255, 255, 255, 0.65);
     --text-primary: #0f172a;
     --text-secondary: #475569;
     --text-muted: #94a3b8;
     
+    /* Emerald Brand Accent */
     --brand-emerald: #059669;
     --brand-emerald-dark: #047857;
-    --brand-emerald-light: #ecfdf5;
-    --brand-emerald-border: #a7f3d0;
+    --brand-emerald-light: rgba(16, 185, 129, 0.12);
+    --brand-emerald-border: rgba(16, 185, 129, 0.35);
+    --brand-emerald-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
     
-    --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
-    --card-shadow-hover: 0 4px 14px 0 rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+    /* Glassmorphism Specs */
+    --glass-bg: rgba(255, 255, 255, 0.74);
+    --glass-bg-hover: rgba(255, 255, 255, 0.88);
+    --glass-border: 1px solid rgba(255, 255, 255, 0.75);
+    --glass-border-subtle: 1px solid rgba(226, 232, 240, 0.7);
+    --glass-blur: blur(20px) saturate(180%);
+    --glass-shadow: 0 10px 30px -5px rgba(31, 38, 135, 0.07), 0 4px 12px -2px rgba(0, 0, 0, 0.03), inset 0 1px 1px 0 rgba(255, 255, 255, 0.95);
+    --glass-shadow-hover: 0 16px 36px -5px rgba(31, 38, 135, 0.12), 0 6px 16px -2px rgba(0, 0, 0, 0.05), inset 0 1px 2px 0 rgba(255, 255, 255, 1);
     
-    --header-bg: rgba(255, 255, 255, 0.92);
-    --nav-bg: rgba(255, 255, 255, 0.94);
+    /* Claymorphism Specs (Light Mode Soft 3D Tactile) */
+    --clay-bg: #f3f6fc;
+    --clay-shadow: 7px 7px 16px rgba(166, 175, 195, 0.35), -7px -7px 16px rgba(255, 255, 255, 0.95), inset 2px 2px 4px rgba(255, 255, 255, 0.8), inset -2px -2px 4px rgba(0, 0, 0, 0.04);
+    --clay-shadow-sm: 4px 4px 10px rgba(166, 175, 195, 0.3), -4px -4px 10px rgba(255, 255, 255, 0.95), inset 1.5px 1.5px 3px rgba(255, 255, 255, 0.85), inset -1.5px -1.5px 3px rgba(0, 0, 0, 0.04);
+    --clay-shadow-pressed: inset 3px 3px 6px rgba(166, 175, 195, 0.45), inset -3px -3px 6px rgba(255, 255, 255, 0.85);
+    --clay-emerald-shadow: 5px 5px 14px rgba(5, 150, 105, 0.35), -3px -3px 10px rgba(255, 255, 255, 0.85), inset 1.5px 1.5px 3px rgba(255, 255, 255, 0.45), inset -2px -2px 4px rgba(4, 120, 87, 0.3);
+    --clay-emerald-pressed: inset 3px 3px 6px rgba(4, 120, 87, 0.6), inset -2px -2px 4px rgba(255, 255, 255, 0.3);
+
+    /* Liquid Glass Specs */
+    --liquid-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.05) 100%);
+    --liquid-glow-emerald: radial-gradient(circle, rgba(16, 185, 129, 0.25) 0%, rgba(16, 185, 129, 0) 70%);
+    --liquid-glow-cyan: radial-gradient(circle, rgba(6, 182, 212, 0.2) 0%, rgba(6, 182, 212, 0) 70%);
+
+    --card-shadow: var(--glass-shadow);
+    --card-shadow-hover: var(--glass-shadow-hover);
+    
+    --header-bg: rgba(255, 255, 255, 0.82);
+    --nav-bg: rgba(255, 255, 255, 0.84);
     
     --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
     --safe-left: env(safe-area-inset-left, 0px);
     --safe-right: env(safe-area-inset-right, 0px);
+    
+    --transition-smooth: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    --transition-spring: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* ============================================================
@@ -59,13 +88,16 @@ body {
     padding-left: var(--safe-left);
     padding-right: var(--safe-right);
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-image: 
+        radial-gradient(at 10% 15%, rgba(16, 185, 129, 0.08) 0px, transparent 50%),
+        radial-gradient(at 90% 20%, rgba(59, 130, 246, 0.08) 0px, transparent 50%),
+        radial-gradient(at 50% 85%, rgba(168, 85, 247, 0.06) 0px, transparent 50%);
+    background-attachment: fixed;
 }
 
-/* Prevent iOS Safari / Android Chrome Auto-Zoom on Form Inputs */
+/* Prevent iOS Safari / Android Chrome Auto-Zoom */
 @media screen and (max-width: 768px) {
-    input,
-    select,
-    textarea {
+    input, select, textarea {
         font-size: 16px !important;
         touch-action: manipulation;
     }
@@ -83,8 +115,63 @@ html {
     text-rendering: optimizeLegibility;
 }
 
+/* Ambient Liquid Gradient Backdrop (Ultra lightweight CSS, 60fps) */
+.ambient-liquid-backdrop {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+    opacity: 0.65;
+    transition: opacity 0.5s ease;
+}
+
+.liquid-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.5;
+    will-change: transform;
+    animation: liquidDrift 18s ease-in-out infinite alternate;
+}
+
+.liquid-orb-1 {
+    width: 380px;
+    height: 380px;
+    background: radial-gradient(circle, #10b981 0%, rgba(16, 185, 129, 0.1) 70%);
+    top: -80px;
+    left: -80px;
+    animation-duration: 22s;
+}
+
+.liquid-orb-2 {
+    width: 420px;
+    height: 420px;
+    background: radial-gradient(circle, #3b82f6 0%, rgba(59, 130, 246, 0.08) 70%);
+    top: 40%;
+    right: -100px;
+    animation-duration: 26s;
+    animation-delay: -5s;
+}
+
+.liquid-orb-3 {
+    width: 320px;
+    height: 320px;
+    background: radial-gradient(circle, #a855f7 0%, rgba(168, 85, 247, 0.08) 70%);
+    bottom: 5%;
+    left: 20%;
+    animation-duration: 20s;
+    animation-delay: -10s;
+}
+
+@keyframes liquidDrift {
+    0% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(40px, 30px) scale(1.08); }
+    100% { transform: translate(-30px, -40px) scale(0.95); }
+}
+
 /* ============================================================
-   LIGHT MODE SURFACES & CARDS
+   GLASSMORPHISM & CLAYMORPHISM SURFACES
    ============================================================ */
 
 .brand-title {
@@ -100,95 +187,205 @@ html {
     background-color: transparent !important;
 }
 
-/* Real E-Commerce Cards */
-.glass-card,
+/* Frosted Glass Panels */
 .glass-panel,
+.glass-card,
 .bg-surface {
-    background: #ffffff !important;
-    border: 1px solid #e2e8f0 !important;
-    box-shadow: var(--card-shadow) !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    background: var(--glass-bg) !important;
+    backdrop-filter: var(--glass-blur) !important;
+    -webkit-backdrop-filter: var(--glass-blur) !important;
+    border: var(--glass-border) !important;
+    box-shadow: var(--glass-shadow) !important;
+    transition: var(--transition-smooth);
+}
+
+.glass-panel:hover,
+.glass-card:hover {
+    box-shadow: var(--glass-shadow-hover) !important;
 }
 
 .bg-surface-container-high {
-    background: #f1f5f9 !important;
-    border: 1px solid #e2e8f0 !important;
+    background: rgba(241, 245, 249, 0.75) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    border: 1px solid rgba(226, 232, 240, 0.8) !important;
 }
 
 .bg-surface-container-low,
 .bg-surface-container-lowest {
-    background: #ffffff !important;
+    background: rgba(255, 255, 255, 0.6) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
 }
 
 .border-glass-border,
 .border-surface-variant {
-    border-color: #e2e8f0 !important;
+    border-color: var(--border-color) !important;
 }
 
-/* Top Navigation Header in Light Mode */
+/* Claymorphic Tactile Elements */
+.clay-card {
+    background: var(--clay-bg) !important;
+    border-radius: 1.25rem;
+    box-shadow: var(--clay-shadow) !important;
+    border: 1px solid rgba(255, 255, 255, 0.8) !important;
+    transition: var(--transition-smooth);
+}
+
+.clay-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 8px 8px 20px rgba(166, 175, 195, 0.4), -8px -8px 20px rgba(255, 255, 255, 1), inset 2px 2px 4px rgba(255, 255, 255, 0.9), inset -2px -2px 4px rgba(0, 0, 0, 0.04) !important;
+}
+
+.clay-pill {
+    background: var(--clay-bg);
+    border-radius: 9999px;
+    box-shadow: var(--clay-shadow-sm);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    transition: var(--transition-smooth);
+}
+
+.clay-pill:hover {
+    transform: translateY(-1px);
+}
+
+.clay-pill:active {
+    box-shadow: var(--clay-shadow-pressed);
+    transform: scale(0.97);
+}
+
+/* Claymorphic Buttons */
+.clay-btn {
+    background: var(--clay-bg);
+    border-radius: 9999px;
+    box-shadow: var(--clay-shadow-sm);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    font-weight: 700;
+    transition: var(--transition-smooth);
+    cursor: pointer;
+}
+
+.clay-btn:hover {
+    transform: translateY(-1.5px);
+    box-shadow: 5px 5px 12px rgba(166, 175, 195, 0.38), -5px -5px 12px rgba(255, 255, 255, 1);
+}
+
+.clay-btn:active {
+    box-shadow: var(--clay-shadow-pressed);
+    transform: translateY(1px) scale(0.98);
+}
+
+.clay-btn-primary {
+    background: var(--brand-emerald-gradient) !important;
+    color: #ffffff !important;
+    border-radius: 9999px;
+    box-shadow: var(--clay-emerald-shadow) !important;
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+    font-weight: 800;
+    transition: var(--transition-spring);
+    cursor: pointer;
+}
+
+.clay-btn-primary:hover {
+    transform: translateY(-2px) scale(1.01);
+    box-shadow: 6px 6px 18px rgba(5, 150, 105, 0.45), -4px -4px 12px rgba(255, 255, 255, 0.9) !important;
+}
+
+.clay-btn-primary:active {
+    box-shadow: var(--clay-emerald-pressed) !important;
+    transform: translateY(1px) scale(0.97);
+}
+
+/* Top Navigation Header (Frosted Liquid Glass) */
 header {
     background: var(--header-bg) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-    border-bottom: 1px solid #e2e8f0 !important;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03) !important;
+    backdrop-filter: var(--glass-blur) !important;
+    -webkit-backdrop-filter: var(--glass-blur) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.6) !important;
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04), 0 2px 6px -1px rgba(0, 0, 0, 0.02) !important;
+    position: sticky;
+    top: 0;
+    z-index: 40;
 }
 
-/* Floating Bottom Navigation Bar in Light Mode */
+/* Floating Bottom Navigation Bar */
 nav {
     background: var(--nav-bg) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-    border: 1px solid #e2e8f0 !important;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08) !important;
+    backdrop-filter: var(--glass-blur) !important;
+    -webkit-backdrop-filter: var(--glass-blur) !important;
+    border: 1px solid rgba(255, 255, 255, 0.7) !important;
+    box-shadow: 0 12px 36px rgba(31, 38, 135, 0.12), inset 0 1px 1px rgba(255, 255, 255, 0.9) !important;
+    border-radius: 9999px;
 }
 
-/* Product Cards in Light Mode */
+/* ============================================================
+   PRODUCT CARDS (HYBRID GLASS & CLAYMORPHISM)
+   ============================================================ */
+
 .product-card-item {
     contain: layout paint style;
     content-visibility: auto;
     contain-intrinsic-size: 240px;
-    background: #ffffff !important;
-    border: 1px solid #e2e8f0 !important;
-    box-shadow: var(--card-shadow) !important;
-    border-radius: 1rem;
-    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    background: var(--glass-bg) !important;
+    backdrop-filter: var(--glass-blur) !important;
+    -webkit-backdrop-filter: var(--glass-blur) !important;
+    border: 1px solid rgba(255, 255, 255, 0.7) !important;
+    box-shadow: var(--glass-shadow) !important;
+    border-radius: 1.25rem;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease;
+}
+
+.product-card-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.8) 50%, rgba(255,255,255,0) 100%);
+    pointer-events: none;
 }
 
 .product-card-item:hover {
-    border-color: #cbd5e1 !important;
-    box-shadow: var(--card-shadow-hover) !important;
-    transform: translateY(-2px);
+    border-color: rgba(16, 185, 129, 0.4) !important;
+    box-shadow: 0 16px 36px -4px rgba(31, 38, 135, 0.12), 0 6px 16px -2px rgba(0, 0, 0, 0.04), inset 0 1px 2px 0 rgba(255, 255, 255, 1) !important;
+    transform: translateY(-4px) scale(1.01);
 }
 
 .product-detail-trigger {
     cursor: pointer;
 }
 
-/* Search inputs in Light Mode */
+/* Search inputs */
 input {
-    background: #ffffff !important;
-    border-color: #cbd5e1 !important;
+    background: rgba(255, 255, 255, 0.8) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    border: 1px solid rgba(226, 232, 240, 0.9) !important;
     color: #0f172a !important;
+    box-shadow: inset 1px 1px 3px rgba(0, 0, 0, 0.03);
+    transition: var(--transition-smooth);
 }
 
 input:focus {
+    background: #ffffff !important;
     border-color: #059669 !important;
-    box-shadow: 0 0 0 1px #059669 !important;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15), inset 1px 1px 2px rgba(0, 0, 0, 0.02) !important;
 }
 
 /* ============================================================
-   DARK MODE — CLEAN REFINED SLATE / ZINC E-COMMERCE
+   DARK MODE — FROSTED DEEP SLATE & LUMINOUS ACCENTS
    ============================================================ */
 
 html.dark, body.dark {
-    --bg-primary: #090d16;
-    --bg-surface: #111827;
-    --bg-surface-secondary: #1e293b;
-    --border-color: #1f2937;
-    --border-subtle: #273549;
+    --bg-primary: #0b0f19;
+    --bg-surface: rgba(17, 24, 39, 0.75);
+    --bg-surface-elevated: rgba(30, 41, 59, 0.85);
+    --bg-surface-secondary: rgba(30, 41, 59, 0.65);
+    --border-color: rgba(255, 255, 255, 0.1);
+    --border-subtle: rgba(255, 255, 255, 0.06);
     --text-primary: #f8fafc;
     --text-secondary: #94a3b8;
     --text-muted: #64748b;
@@ -196,36 +393,50 @@ html.dark, body.dark {
     --brand-emerald: #10b981;
     --brand-emerald-dark: #059669;
     --brand-emerald-light: rgba(16, 185, 129, 0.15);
-    --brand-emerald-border: rgba(16, 185, 129, 0.3);
+    --brand-emerald-border: rgba(16, 185, 129, 0.35);
     
-    --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
-    --card-shadow-hover: 0 4px 14px 0 rgba(0, 0, 0, 0.4);
+    --glass-bg: rgba(17, 24, 39, 0.72);
+    --glass-bg-hover: rgba(30, 41, 59, 0.82);
+    --glass-border: 1px solid rgba(255, 255, 255, 0.12);
+    --glass-border-subtle: 1px solid rgba(255, 255, 255, 0.06);
+    --glass-blur: blur(20px) saturate(190%);
+    --glass-shadow: 0 12px 36px -4px rgba(0, 0, 0, 0.5), 0 4px 12px -2px rgba(0, 0, 0, 0.3), inset 0 1px 1px 0 rgba(255, 255, 255, 0.15);
+    --glass-shadow-hover: 0 18px 44px -4px rgba(0, 0, 0, 0.65), 0 8px 18px -2px rgba(0, 0, 0, 0.4), inset 0 1px 2px 0 rgba(255, 255, 255, 0.25);
     
-    --header-bg: rgba(17, 24, 39, 0.94);
-    --nav-bg: rgba(17, 24, 39, 0.94);
+    --clay-bg: #161e2e;
+    --clay-shadow: 6px 6px 16px rgba(0, 0, 0, 0.55), -4px -4px 12px rgba(255, 255, 255, 0.03), inset 1px 1px 2px rgba(255, 255, 255, 0.12), inset -2px -2px 4px rgba(0, 0, 0, 0.5);
+    --clay-shadow-sm: 4px 4px 10px rgba(0, 0, 0, 0.45), -3px -3px 8px rgba(255, 255, 255, 0.03), inset 1px 1px 2px rgba(255, 255, 255, 0.1), inset -1px -1px 2px rgba(0, 0, 0, 0.4);
+    --clay-shadow-pressed: inset 4px 4px 8px rgba(0, 0, 0, 0.7), inset -3px -3px 6px rgba(255, 255, 255, 0.05);
+
+    --header-bg: rgba(11, 15, 25, 0.82);
+    --nav-bg: rgba(17, 24, 39, 0.84);
 }
 
 body.dark {
     background-color: var(--bg-primary) !important;
     color: var(--text-primary) !important;
+    background-image: 
+        radial-gradient(at 10% 15%, rgba(16, 185, 129, 0.12) 0px, transparent 50%),
+        radial-gradient(at 90% 20%, rgba(59, 130, 246, 0.1) 0px, transparent 50%),
+        radial-gradient(at 50% 85%, rgba(168, 85, 247, 0.08) 0px, transparent 50%);
 }
 
 body.dark header,
 html.dark header {
     background: var(--header-bg) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-    border-bottom: 1px solid var(--border-color) !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+    backdrop-filter: var(--glass-blur) !important;
+    -webkit-backdrop-filter: var(--glass-blur) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45) !important;
 }
 
 body.dark nav,
 html.dark nav {
     background: var(--nav-bg) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-    border: 1px solid var(--border-color) !important;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5) !important;
+    backdrop-filter: var(--glass-blur) !important;
+    -webkit-backdrop-filter: var(--glass-blur) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.12) !important;
 }
 
 body.dark .glass-card,
@@ -234,39 +445,37 @@ body.dark .bg-surface,
 html.dark .glass-card,
 html.dark .glass-panel,
 html.dark .bg-surface {
-    background: var(--bg-surface) !important;
-    border: 1px solid var(--border-color) !important;
-    box-shadow: var(--card-shadow) !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
+    background: var(--glass-bg) !important;
+    border: var(--glass-border) !important;
+    box-shadow: var(--glass-shadow) !important;
     color: var(--text-primary) !important;
 }
 
 body.dark .bg-surface-container-high,
 html.dark .bg-surface-container-high {
-    background: var(--bg-surface-secondary) !important;
-    border: 1px solid var(--border-color) !important;
+    background: rgba(30, 41, 59, 0.65) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
 body.dark .bg-surface-container-low,
 body.dark .bg-surface-container-lowest,
 html.dark .bg-surface-container-low,
 html.dark .bg-surface-container-lowest {
-    background: var(--bg-surface) !important;
+    background: rgba(17, 24, 39, 0.6) !important;
     color: var(--text-primary) !important;
 }
 
 body.dark .product-card-item,
 html.dark .product-card-item {
-    background: var(--bg-surface) !important;
-    border: 1px solid var(--border-color) !important;
-    box-shadow: var(--card-shadow) !important;
+    background: var(--glass-bg) !important;
+    border: var(--glass-border) !important;
+    box-shadow: var(--glass-shadow) !important;
 }
 
 body.dark .product-card-item:hover,
 html.dark .product-card-item:hover {
-    border-color: var(--border-subtle) !important;
-    box-shadow: var(--card-shadow-hover) !important;
+    border-color: rgba(16, 185, 129, 0.5) !important;
+    box-shadow: var(--glass-shadow-hover) !important;
 }
 
 body.dark .text-on-surface,
@@ -288,7 +497,7 @@ html.dark .border-surface-variant {
 
 body.dark .brand-title,
 html.dark .brand-title {
-    color: #ffffff !important;
+    color: #34d399 !important;
 }
 
 body.dark .text-primary,
@@ -298,19 +507,21 @@ html.dark .text-primary {
 
 body.dark input,
 html.dark input {
-    background: #1e293b !important;
-    border-color: #334155 !important;
+    background: rgba(30, 41, 59, 0.75) !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
     color: #f8fafc !important;
+    box-shadow: inset 1px 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 body.dark input:focus,
 html.dark input:focus {
+    background: rgba(30, 41, 59, 0.95) !important;
     border-color: #10b981 !important;
-    box-shadow: 0 0 0 1px #10b981 !important;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25) !important;
 }
 
 /* ============================================================
-   QUICK-COMMERCE ADD BUTTON & COMPACT QUANTITY STEPPERS
+   TACTILE CLAY & LIQUID GLASS INTERACTIVE BUTTONS
    ============================================================ */
 
 /* Primary ADD button inside product card */
@@ -318,105 +529,136 @@ html.dark input:focus {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: #ffffff;
-    border: 1.5px solid #059669;
-    color: #059669;
+    background: var(--clay-bg);
+    border: 1.5px solid var(--brand-emerald);
+    color: var(--brand-emerald);
     font-weight: 800;
     font-size: 11px;
     letter-spacing: 0.05em;
-    padding: 5px 14px;
+    padding: 5px 15px;
     border-radius: 9999px;
     cursor: pointer;
-    transition: all 0.15s ease;
+    box-shadow: var(--clay-shadow-sm);
+    transition: var(--transition-spring);
     user-select: none;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    position: relative;
+    overflow: hidden;
+}
+
+.add-to-cart-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--liquid-sheen);
+    pointer-events: none;
+    opacity: 0.7;
 }
 
 .add-to-cart-btn:hover {
-    background: #059669;
+    background: var(--brand-emerald-gradient);
     color: #ffffff;
-    box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25);
+    box-shadow: var(--clay-emerald-shadow);
+    transform: translateY(-1.5px) scale(1.02);
 }
 
 .add-to-cart-btn:active {
-    transform: scale(0.96);
+    box-shadow: var(--clay-emerald-pressed);
+    transform: translateY(1px) scale(0.95);
 }
 
 body.dark .add-to-cart-btn,
 html.dark .add-to-cart-btn {
-    background: #1e293b;
+    background: var(--clay-bg);
     border-color: #10b981;
     color: #34d399;
 }
 
 body.dark .add-to-cart-btn:hover,
 html.dark .add-to-cart-btn:hover {
-    background: #10b981;
+    background: var(--brand-emerald-gradient);
     color: #0f172a;
 }
 
-/* Card Quantity Stepper [- qty +] Matching Zepto / Blinkit */
+/* Card Quantity Stepper [- qty +] (Claymorphic Pill with Liquid Sheen) */
 .card-qty-stepper {
     display: inline-flex;
     align-items: center;
     justify-content: space-between;
-    background: #059669 !important;
+    background: var(--brand-emerald-gradient) !important;
     color: #ffffff !important;
     border-radius: 9999px;
     padding: 2px 8px;
-    min-width: 78px;
-    height: 28px;
-    box-shadow: 0 2px 6px rgba(5, 150, 105, 0.3);
-    transition: transform 0.1s ease, box-shadow 0.1s ease;
+    min-width: 82px;
+    height: 30px;
+    box-shadow: var(--clay-emerald-shadow) !important;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    transition: var(--transition-spring);
     user-select: none;
+    position: relative;
+    overflow: hidden;
+}
+
+.card-qty-stepper::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--liquid-sheen);
+    pointer-events: none;
+    opacity: 0.5;
 }
 
 .card-qty-stepper:active {
-    transform: scale(0.98);
+    transform: scale(0.97);
 }
 
 .card-qty-btn {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
     border-radius: 9999px;
     display: flex;
     align-items: center;
     justify-content: center;
     color: #ffffff;
     cursor: pointer;
-    transition: background 0.1s, transform 0.1s;
+    transition: background 0.15s, transform 0.1s;
     user-select: none;
+    z-index: 1;
 }
 
 .card-qty-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
 }
 
 .card-qty-btn:active {
     transform: scale(0.9);
+    background: rgba(0, 0, 0, 0.15);
 }
 
 .card-qty-val {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 800;
-    min-width: 18px;
+    min-width: 20px;
     text-align: center;
     padding: 0 2px;
     color: #ffffff !important;
     user-select: none;
+    z-index: 1;
 }
 
 body.dark .card-qty-stepper,
 html.dark .card-qty-stepper {
-    background: #059669 !important;
+    background: var(--brand-emerald-gradient) !important;
 }
 
-/* Cart Page Quantity Stepper */
+/* Cart Page Quantity Stepper (Tactile Clay) */
 .cart-qty-stepper {
-    background: #f1f5f9;
-    border: 1px solid #cbd5e1;
+    background: var(--clay-bg);
+    box-shadow: var(--clay-shadow-sm);
+    border: 1px solid rgba(255, 255, 255, 0.8);
     color: #0f172a;
     border-radius: 9999px;
+    padding: 2px 6px;
 }
 
 .cart-qty-stepper button {
@@ -425,18 +667,20 @@ html.dark .card-qty-stepper {
 }
 
 .cart-qty-stepper button:hover {
-    background: #ffffff;
+    background: rgba(255, 255, 255, 0.8);
+    transform: scale(1.1);
 }
 
 .cart-qty-stepper .qty-num {
     color: #0f172a;
-    font-weight: 700;
+    font-weight: 800;
 }
 
 body.dark .cart-qty-stepper,
 html.dark .cart-qty-stepper {
-    background: #1e293b !important;
-    border: 1px solid #334155 !important;
+    background: var(--clay-bg) !important;
+    box-shadow: var(--clay-shadow-sm) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
 body.dark .cart-qty-stepper button,
@@ -446,7 +690,7 @@ html.dark .cart-qty-stepper button {
 
 body.dark .cart-qty-stepper button:hover,
 html.dark .cart-qty-stepper button:hover {
-    background: #334155 !important;
+    background: rgba(255, 255, 255, 0.1) !important;
 }
 
 body.dark .cart-qty-stepper .qty-num,
@@ -500,15 +744,16 @@ html.dark .bill-total-val {
 }
 
 /* ============================================================
-   CHECKOUT SLIDE-TO-CONFIRM
+   CHECKOUT SLIDE-TO-CONFIRM (LIQUID GLASS & CLAY THUMB)
    ============================================================ */
 
 .slider-track {
     position: relative;
     width: 100%;
-    height: 56px;
-    background: #f1f5f9;
-    border: 1px solid #cbd5e1;
+    height: 58px;
+    background: var(--clay-bg);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    box-shadow: inset 2px 2px 5px rgba(166, 175, 195, 0.4), inset -2px -2px 5px rgba(255, 255, 255, 0.8);
     border-radius: 9999px;
     display: flex;
     align-items: center;
@@ -520,36 +765,40 @@ html.dark .bill-total-val {
 
 body.dark .slider-track,
 html.dark .slider-track {
-    background: #1e293b !important;
-    border-color: #334155 !important;
+    background: var(--clay-bg) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    box-shadow: inset 3px 3px 6px rgba(0, 0, 0, 0.6), inset -2px -2px 4px rgba(255, 255, 255, 0.05) !important;
 }
 
 .slider-thumb {
     position: absolute;
     left: 4px;
-    width: 48px;
-    height: 48px;
-    background: #059669;
+    width: 50px;
+    height: 50px;
+    background: var(--brand-emerald-gradient);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: grab;
-    box-shadow: 0 2px 8px rgba(5, 150, 105, 0.4);
+    box-shadow: var(--clay-emerald-shadow);
+    border: 1.5px solid rgba(255, 255, 255, 0.5);
     z-index: 2;
     touch-action: none !important;
     user-select: none !important;
     -webkit-user-select: none !important;
+    transition: transform 0.15s ease;
 }
 
 .slider-thumb:active {
     cursor: grabbing;
-    transform: scale(0.97);
+    transform: scale(0.96);
+    box-shadow: var(--clay-emerald-pressed);
 }
 
 .slider-thumb .material-symbols-outlined {
     color: white;
-    font-size: 22px;
+    font-size: 24px;
     pointer-events: none;
 }
 
@@ -557,16 +806,17 @@ html.dark .slider-track {
     width: 100%;
     text-align: center;
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 700;
     color: #334155;
     z-index: 1;
     pointer-events: none;
     transition: opacity 0.2s;
+    letter-spacing: 0.02em;
 }
 
 body.dark .slider-text,
 html.dark .slider-text {
-    color: #cbd5e1 !important;
+    color: #e2e8f0 !important;
 }
 
 .slider-progress {
@@ -574,27 +824,27 @@ html.dark .slider-text {
     left: 0;
     top: 0;
     height: 100%;
-    background: rgba(5, 150, 105, 0.2);
+    background: linear-gradient(90deg, rgba(16, 185, 129, 0.25), rgba(16, 185, 129, 0.45));
     width: 0;
     border-radius: 9999px;
     z-index: 0;
 }
 
 /* ============================================================
-   MODALS & BOTTOM SHEETS
+   FROSTED GLASS MODALS & BOTTOM SHEETS
    ============================================================ */
 
 .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(15, 23, 42, 0.5);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     z-index: 9999;
     display: flex;
     align-items: flex-end;
     justify-content: center;
-    animation: fadeIn 0.15s ease-out;
+    animation: fadeIn 0.2s ease-out;
     padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
@@ -610,28 +860,30 @@ html.dark .slider-text {
     max-width: 520px;
     max-height: min(88vh, calc(100dvh - 3rem));
     overflow-y: auto;
-    border-radius: 1.5rem 1.5rem 0 0;
-    background: #ffffff !important;
-    border: 1px solid #e2e8f0 !important;
-    box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.12) !important;
+    border-radius: 1.75rem 1.75rem 0 0;
+    background: var(--glass-bg) !important;
+    backdrop-filter: var(--glass-blur) !important;
+    -webkit-backdrop-filter: var(--glass-blur) !important;
+    border: var(--glass-border) !important;
+    box-shadow: 0 -12px 40px rgba(31, 38, 135, 0.18), inset 0 1px 1px rgba(255, 255, 255, 0.9) !important;
     padding-bottom: max(1.25rem, env(safe-area-inset-bottom, 1.25rem)) !important;
-    animation: slideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     -webkit-overflow-scrolling: touch;
 }
 
 @media (min-width: 640px) {
     .modal-content {
-        border-radius: 1.25rem;
+        border-radius: 1.5rem;
         padding-bottom: 1.25rem !important;
-        animation: scaleIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+        animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
 }
 
 body.dark .modal-content,
 html.dark .modal-content {
-    background: #111827 !important;
-    border-color: #1f2937 !important;
-    box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.6) !important;
+    background: var(--glass-bg) !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.15) !important;
     color: #f8fafc !important;
 }
 
@@ -641,7 +893,7 @@ html.dark .modal-content {
 }
 
 @keyframes scaleIn {
-    from { transform: scale(0.96); opacity: 0; }
+    from { transform: scale(0.94); opacity: 0; }
     to { transform: scale(1); opacity: 1; }
 }
 
@@ -672,8 +924,44 @@ html.dark .map-pattern {
 }
 
 /* ============================================================
-   UTILITIES
+   UTILITIES & LIQUID DETAILS
    ============================================================ */
+
+.liquid-badge {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.05) 100%);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 9999px;
+}
+
+.liquid-shimmer {
+    position: relative;
+    overflow: hidden;
+}
+
+.liquid-shimmer::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+        60deg,
+        rgba(255, 255, 255, 0) 20%,
+        rgba(255, 255, 255, 0.25) 50%,
+        rgba(255, 255, 255, 0) 80%
+    );
+    transform: rotate(25deg);
+    animation: shimmerPass 6s infinite;
+    pointer-events: none;
+}
+
+@keyframes shimmerPass {
+    0% { transform: translateX(-100%) rotate(25deg); }
+    20%, 100% { transform: translateX(100%) rotate(25deg); }
+}
 
 .no-scrollbar::-webkit-scrollbar {
     display: none;

@@ -176,40 +176,44 @@
     <link rel="stylesheet" href="/css/styles.css?v=20260830r12">
 </head>
 <body class="bg-background text-on-surface font-sans antialiased selection:bg-emerald/20 selection:text-primary relative min-h-screen">
-    <!-- Clean Minimal E-Commerce Backdrop -->
-    <div class="fixed inset-0 pointer-events-none z-[-1] select-none bg-[#f8fafc] dark:bg-[#0b0f19] transition-colors duration-200" id="ambient-canvas" aria-hidden="true"></div>
+    <!-- Ambient Liquid Glass Backdrop (Smooth, GPU Accelerated, 60fps) -->
+    <div class="ambient-liquid-backdrop" id="ambient-canvas" aria-hidden="true">
+        <div class="liquid-orb liquid-orb-1"></div>
+        <div class="liquid-orb liquid-orb-2"></div>
+        <div class="liquid-orb liquid-orb-3"></div>
+    </div>
 
     <!-- SPA Root Container -->
-    <div id="app"></div>
+    <div id="app" class="relative z-10"></div>
 
-    <!-- Global Floating Live Delivery Bar (Shows across all store pages when an order is active) -->
+    <!-- Global Floating Live Delivery Bar (Liquid Glass & Clay Styling) -->
     <div id="global-live-delivery-bar" class="fixed bottom-24 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 hidden transition-all duration-300">
-        <a href="#/orders" class="p-3 rounded-2xl border border-emerald-500/30 shadow-lg bg-white/95 dark:bg-slate-900/95 backdrop-blur-md flex items-center justify-between gap-3 text-xs hover:border-emerald-500 transition-all active:scale-[0.99]">
+        <a href="#/orders" class="p-3 rounded-2xl border border-white/60 dark:border-white/10 shadow-xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl flex items-center justify-between gap-3 text-xs hover:border-emerald-500/50 transition-all active:scale-[0.98]">
             <div class="flex items-center gap-3 min-w-0">
-                <div class="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold flex-shrink-0 shadow-sm">
+                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 text-white flex items-center justify-center font-bold flex-shrink-0 shadow-md border border-white/40">
                     <span class="material-symbols-outlined text-base">directions_walk</span>
                 </div>
                 <div class="truncate">
                     <div class="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                         <span id="global-delivery-status">Out for Delivery</span>
-                        <span class="text-[10px] text-emerald-700 dark:text-emerald-400 font-extrabold bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full" id="global-delivery-eta">1 min</span>
+                        <span class="text-[10px] text-emerald-700 dark:text-emerald-400 font-extrabold bg-emerald-50/80 dark:bg-emerald-950/60 border border-emerald-300/60 dark:border-emerald-700/60 px-2 py-0.5 rounded-full" id="global-delivery-eta">1 min</span>
                     </div>
-                    <p class="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5" id="global-delivery-subtitle">
+                    <p class="text-[11px] text-slate-600 dark:text-slate-400 truncate mt-0.5" id="global-delivery-subtitle">
                         Campus runner walking to BH13 (Block A), Room 304
                     </p>
                 </div>
             </div>
-            <div class="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold text-xs flex-shrink-0">
+            <div class="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold text-xs flex-shrink-0 clay-pill px-2.5 py-1">
                 <span>Track</span>
                 <span class="material-symbols-outlined text-sm">arrow_forward</span>
             </div>
         </a>
     </div>
 
-    <!-- Global Floating Quick-Commerce View Cart Bar (Zepto / Blinkit Style) -->
+    <!-- Global Floating Quick-Commerce View Cart Bar (Liquid Glass & Clay Styling) -->
     <div id="global-floating-cart-bar" class="fixed bottom-24 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 hidden transition-all duration-300 transform translate-y-12 opacity-0 pointer-events-none">
-        <a href="#/cart" id="floating-cart-inner" class="w-full bg-[#059669] hover:bg-[#047857] text-white rounded-2xl py-3 px-4 shadow-xl flex items-center justify-between gap-3 border border-emerald-400/30 active:scale-[0.99] transition-all group cursor-pointer">
+        <a href="#/cart" id="floating-cart-inner" class="w-full bg-gradient-to-r from-emerald-600/95 via-emerald-600/95 to-teal-700/95 text-white rounded-2xl py-3 px-4 shadow-2xl backdrop-blur-xl flex items-center justify-between gap-3 border border-white/30 active:scale-[0.98] transition-all group cursor-pointer">
             <!-- Left: Stacked Overlapping Product Images (up to 3 items) -->
             <div id="floating-cart-thumbnails" class="flex items-center -space-x-2.5 mr-1 overflow-visible flex-shrink-0">
                 <!-- Dynamically populated up to 3 thumbnails -->
@@ -224,7 +228,7 @@
             </div>
 
             <!-- Right: Action Button / Chevron -->
-            <div class="flex items-center gap-1 font-bold text-xs bg-white/20 px-3 py-1.5 rounded-xl text-white group-hover:bg-white/30 transition-colors">
+            <div class="flex items-center gap-1 font-bold text-xs bg-white/20 hover:bg-white/30 px-3.5 py-1.5 rounded-full text-white shadow-sm border border-white/30 transition-all">
                 <span>Checkout</span>
                 <span class="material-symbols-outlined text-base group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
             </div>
