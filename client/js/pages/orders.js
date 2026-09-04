@@ -1,4 +1,4 @@
-// Orders Page — Glassmorphism, Claymorphism & Liquid Glass Live Tracking & Order History
+// Orders Page — Complete Ground-Up Refreshing Redesign (Campus Radar Flight-Tracker HUD & Tactile Orders Deck)
 window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
@@ -6,31 +6,34 @@ window.pages.orders = async function() {
     if (!window.isUserLoggedIn()) {
         return `
 <div class="bg-background text-on-background min-h-screen pb-32">
-    <header class="px-4 sm:px-6 py-3.5 flex items-center justify-between sticky top-0 glass-panel z-40 border-b border-[var(--glass-border)]">
-        <div class="flex items-center gap-3">
-            <a href="#/" class="clay-pill w-10 h-10 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:text-emerald transition-transform active:scale-95">
-                <span class="material-symbols-outlined text-xl">arrow_back</span>
-            </a>
-            <div>
-                <h1 class="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">Orders & Tracking</h1>
-                <p class="text-[11px] text-slate-500 font-medium">Real-time campus corridor updates</p>
+    <!-- Floating Dynamic Island Header -->
+    <header class="sticky top-2 z-40 px-3 sm:px-6 pt-1">
+        <div class="dynamic-island-nav max-w-md mx-auto px-4 py-2.5 flex items-center justify-between shadow-2xl">
+            <div class="flex items-center gap-3">
+                <a href="#/" class="clay-pill w-9 h-9 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:text-emerald transition-transform active:scale-95">
+                    <span class="material-symbols-outlined text-lg">arrow_back</span>
+                </a>
+                <div>
+                    <h1 class="text-sm sm:text-base font-black text-slate-900 dark:text-white tracking-tight leading-tight">Orders & Tracking</h1>
+                    <p class="text-[10px] text-slate-500 font-medium">Campus corridor updates</p>
+                </div>
             </div>
         </div>
     </header>
 
     <main class="px-4 sm:px-6 max-w-md mx-auto pt-16 text-center space-y-5">
-        <div class="clay-card w-20 h-20 rounded-3xl text-emerald-500 flex items-center justify-center mx-auto shadow-lg relative">
-            <div class="absolute inset-0 rounded-3xl bg-emerald-500/10 animate-pulse pointer-events-none"></div>
+        <div class="glass-panel card-pedestal w-20 h-20 rounded-3xl text-emerald-500 flex items-center justify-center mx-auto shadow-2xl relative overflow-hidden">
+            <div class="absolute inset-0 bg-emerald-500/10 rounded-3xl animate-pulse pointer-events-none"></div>
             <span class="material-symbols-outlined text-4xl">receipt_long</span>
         </div>
         <div class="space-y-2">
             <h2 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">Sign In to View Orders</h2>
-            <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-xs mx-auto leading-relaxed">
+            <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-xs mx-auto leading-relaxed font-medium">
                 Connect your campus account to access real-time runner tracking, order receipts, and 1-tap reordering.
             </p>
         </div>
         <div class="pt-2">
-            <a href="#/signin" onclick="localStorage.setItem('lpuquick_redirect', '#/orders')" class="clay-btn clay-btn-primary inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl font-bold text-xs shadow-md active:scale-95 transition-transform">
+            <a href="#/signin" onclick="localStorage.setItem('lpuquick_redirect', '#/orders')" class="clay-btn clay-btn-primary inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl font-black text-xs shadow-xl active:scale-95 transition-transform tracking-wide uppercase">
                 <span>Continue with Google</span>
                 <span class="material-symbols-outlined text-sm">arrow_forward</span>
             </a>
@@ -99,7 +102,7 @@ window.pages.orders = async function() {
             ? 'bg-rose-500/10 text-rose-500 border border-rose-500/25' 
             : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25';
         return `
-        <div class="glass-card rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row justify-between sm:items-center gap-3.5 hover:translate-y-[-2px] transition-all shadow-sm">
+        <div class="glass-panel card-pedestal rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row justify-between sm:items-center gap-3.5 hover:translate-y-[-2px] transition-all shadow-md">
             <div class="space-y-1.5">
                 <div class="flex items-center gap-2">
                     <span class="font-black text-xs sm:text-sm text-slate-900 dark:text-white tracking-tight">Order #${o.id.replace('order_', '').toUpperCase()}</span>
@@ -127,24 +130,26 @@ window.pages.orders = async function() {
 
     return `
 <div class="bg-background text-on-background min-h-screen pb-32">
-    <!-- TopAppBar with Specular Liquid Glass -->
-    <header class="px-4 sm:px-6 py-3.5 flex items-center justify-between sticky top-0 glass-panel z-40 border-b border-[var(--glass-border)]">
-        <div class="flex items-center gap-3">
-            <a href="#/" class="clay-pill w-10 h-10 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:text-emerald transition-transform active:scale-95">
-                <span class="material-symbols-outlined text-xl">arrow_back</span>
-            </a>
-            <div>
-                <h1 class="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight leading-tight">Live Tracking & Orders</h1>
-                <p class="text-[11px] text-slate-500 font-medium">LPU BH13 corridor hyper-fast dispatch</p>
+    <!-- Floating Dynamic Island Header -->
+    <header class="sticky top-2 z-40 px-3 sm:px-6 pt-1">
+        <div class="dynamic-island-nav max-w-4xl mx-auto px-4 py-2.5 flex items-center justify-between shadow-2xl">
+            <div class="flex items-center gap-3">
+                <a href="#/" class="clay-pill w-9 h-9 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:text-emerald transition-transform active:scale-95">
+                    <span class="material-symbols-outlined text-lg">arrow_back</span>
+                </a>
+                <div>
+                    <h1 class="text-sm sm:text-base font-black text-slate-900 dark:text-white tracking-tight leading-tight">Live Tracking & Orders</h1>
+                    <p class="text-[10px] text-slate-500 font-semibold">LPU BH13 corridor hyper-fast dispatch</p>
+                </div>
             </div>
-        </div>
-        <div class="clay-pill px-3 py-1 flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 bg-emerald-50/50 dark:bg-emerald-950/40">
-            <span class="w-2 h-2 rounded-full bg-emerald animate-pulse"></span>
-            <span id="orders-live-indicator">Live Connected</span>
+            <div class="clay-pill px-3 py-1 flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald animate-pulse"></span>
+                <span id="orders-live-indicator">Live Connected</span>
+            </div>
         </div>
     </header>
 
-    <main class="px-4 sm:px-6 max-w-4xl mx-auto pt-6 space-y-6">
+    <main class="px-3 sm:px-6 max-w-4xl mx-auto pt-6 space-y-6">
         <!-- Active Order Live Tracking Section -->
         ${activeOrder ? `
         <section class="space-y-3.5" id="active-order-tracking-card" data-order-id="${activeOrder.id}">
@@ -165,9 +170,9 @@ window.pages.orders = async function() {
                 </div>
             </div>
 
-            <div class="clay-card rounded-3xl overflow-hidden p-0 border border-[var(--glass-border)] shadow-xl">
+            <div class="glass-panel card-pedestal rounded-3xl overflow-hidden p-0 border border-[var(--glass-border)] shadow-2xl">
                 <!-- Sleek Liquid Campus Delivery Radar Canvas -->
-                <div class="h-48 sm:h-56 relative overflow-hidden flex items-center justify-center p-4 select-none border-b border-[var(--glass-border)]" style="background: radial-gradient(ellipse at 50% 50%, rgba(16, 185, 129, 0.12), transparent 70%), #0b1120;">
+                <div class="h-48 sm:h-56 relative overflow-hidden flex items-center justify-center p-4 select-none border-b border-[var(--glass-border)]" style="background: radial-gradient(ellipse at 50% 50%, rgba(16, 185, 129, 0.15), transparent 70%), #090e17;">
                     
                     <!-- HUD Status Header -->
                     <div class="absolute top-3 inset-x-3 sm:inset-x-4 flex justify-between items-center z-30 pointer-events-none">
@@ -221,7 +226,7 @@ window.pages.orders = async function() {
                 </div>
 
                 <!-- Order Details & Tactile Progress -->
-                <div class="p-5 sm:p-6 space-y-4 glass-panel border-t-0">
+                <div class="p-5 sm:p-6 space-y-4">
                     <!-- Modified Order Notice -->
                     <div id="tracking-order-edited-banner" class="${activeEdit ? '' : 'hidden '}p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-slate-800 dark:text-slate-200 space-y-1 text-xs">
                         <div class="flex items-center justify-between">
@@ -276,7 +281,7 @@ window.pages.orders = async function() {
             </div>
         </section>
         ` : `
-        <section class="glass-card rounded-3xl p-8 sm:p-10 text-center shadow-lg space-y-4">
+        <section class="glass-panel card-pedestal rounded-3xl p-8 sm:p-12 text-center shadow-xl space-y-4 border border-[var(--glass-border)]">
             <div class="clay-card w-16 h-16 rounded-2xl text-slate-400 mx-auto flex items-center justify-center">
                 <span class="material-symbols-outlined text-3xl">directions_walk</span>
             </div>
@@ -284,7 +289,7 @@ window.pages.orders = async function() {
                 <p class="font-black text-base text-slate-900 dark:text-white tracking-tight">No active deliveries</p>
                 <p class="text-xs text-slate-500 dark:text-slate-400">Place an order to see live real-time campus runner tracking.</p>
             </div>
-            <a href="#/" class="clay-btn clay-btn-primary inline-block text-xs font-bold px-5 py-2.5 rounded-2xl active:scale-95 transition-transform shadow-md">Explore Campus Store</a>
+            <a href="#/" class="clay-btn clay-btn-primary inline-block text-xs font-black px-6 py-3 rounded-2xl active:scale-95 transition-transform shadow-xl tracking-wide uppercase">Explore Campus Store</a>
         </section>
         `}
 
@@ -295,87 +300,17 @@ window.pages.orders = async function() {
                     <span class="material-symbols-outlined text-base text-emerald">history</span>
                     <span>Past Orders</span>
                 </h2>
-                <span class="text-xs text-slate-400 font-semibold">${pastOrders.length} Completed</span>
+                <span class="clay-pill text-xs text-slate-400 font-bold px-3 py-1">${pastOrders.length} Completed</span>
             </div>
             <div class="space-y-3" id="past-orders-list">
-                ${pastRows || '<div class="glass-card rounded-2xl p-6 text-center text-xs text-slate-500">No past orders yet.</div>'}
+                ${pastRows || `
+                <div class="glass-panel rounded-2xl p-6 text-center text-xs text-slate-400 font-medium">
+                    No past orders yet. Your completed hostel orders will appear here.
+                </div>
+                `}
             </div>
         </section>
     </main>
-
-    <!-- Order Help Modal (Frosted Glass Panel) -->
-    <div id="order-help-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-md hidden flex items-center justify-center p-4">
-        <div class="glass-panel rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-[var(--glass-border)] space-y-4 animate-in fade-in zoom-in-95 duration-200">
-            <div class="flex items-center justify-between border-b border-[var(--glass-border)] pb-3">
-                <div class="flex items-center gap-2.5">
-                    <span class="clay-pill w-9 h-9 rounded-xl text-emerald-500 flex items-center justify-center">
-                        <span class="material-symbols-outlined text-lg">support_agent</span>
-                    </span>
-                    <div>
-                        <h3 class="font-black text-sm text-slate-900 dark:text-white tracking-tight">Order Support</h3>
-                        <p class="text-[10px] text-slate-400 font-semibold">Order #${activeOrder ? activeOrder.id.replace('order_', '').toUpperCase() : ''}</p>
-                    </div>
-                </div>
-                <button type="button" id="btn-close-help-modal" onclick="window.closeOrderHelpModal()" class="clay-pill w-8 h-8 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center justify-center cursor-pointer active:scale-95 transition-transform">
-                    <span class="material-symbols-outlined text-base">close</span>
-                </button>
-            </div>
-
-            <div class="space-y-2.5">
-                <!-- Option 1: Call Delivery Agent -->
-                <a href="tel:7671836211" class="clay-card p-3.5 rounded-2xl flex items-center justify-between hover:scale-[1.01] active:scale-95 transition-all">
-                    <div class="flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-xl clay-btn-primary text-white flex items-center justify-center shadow-md">
-                            <span class="material-symbols-outlined text-base">call</span>
-                        </div>
-                        <div>
-                            <h4 class="font-bold text-xs text-slate-900 dark:text-white">1. Call Delivery Agent</h4>
-                            <p class="text-[10px] text-slate-400 font-medium">${activeOrder?.rider_name || 'Alex'} · 7671836211</p>
-                        </div>
-                    </div>
-                    <span class="material-symbols-outlined text-slate-400 text-sm">chevron_right</span>
-                </a>
-
-                <!-- Option 2: Change Address -->
-                <button type="button" id="btn-help-change-address" onclick="window.changeHelpOrderAddress()" class="w-full text-left clay-card p-3.5 rounded-2xl flex items-center justify-between hover:scale-[1.01] active:scale-95 transition-all cursor-pointer">
-                    <div class="flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-xl bg-slate-800 text-white flex items-center justify-center shadow-md">
-                            <span class="material-symbols-outlined text-base">location_on</span>
-                        </div>
-                        <div>
-                            <h4 class="font-bold text-xs text-slate-900 dark:text-white">2. Change Address</h4>
-                            <p class="text-[10px] text-slate-400 font-medium truncate max-w-[180px]" id="help-current-address-label">${activeOrder?.delivery_address || hostelAddress}</p>
-                        </div>
-                    </div>
-                    <span class="material-symbols-outlined text-slate-400 text-sm">chevron_right</span>
-                </button>
-
-                <!-- Option 3: Cancel Order -->
-                ${(() => {
-                    const isFrozen = activeOrder && ['Out for Delivery', 'out for delivery', 'Delivered', 'delivered'].includes(activeOrder.status);
-                    return `
-                    <button type="button" id="btn-help-cancel-order" onclick="window.cancelHelpOrder()" ${isFrozen ? 'disabled' : ''} class="w-full text-left p-3.5 rounded-2xl flex items-center justify-between ${isFrozen ? 'bg-slate-500/10 opacity-50 border border-[var(--glass-border)] cursor-not-allowed' : 'bg-rose-500/10 hover:bg-rose-500/15 border border-rose-500/30 cursor-pointer'} transition-all">
-                        <div class="flex items-center gap-3">
-                            <div class="w-9 h-9 rounded-xl ${isFrozen ? 'bg-slate-400 text-slate-700' : 'bg-rose-600 text-white shadow-md'} flex items-center justify-center">
-                                <span class="material-symbols-outlined text-base">${isFrozen ? 'lock' : 'cancel'}</span>
-                            </div>
-                            <div>
-                                <h4 class="font-bold text-xs ${isFrozen ? 'text-slate-400' : 'text-rose-600 dark:text-rose-400'} flex items-center gap-1">
-                                    <span>3. Cancel Order</span>
-                                    ${isFrozen ? '<span class="text-[9px] bg-slate-500/20 text-slate-400 font-bold px-1.5 py-0.2 rounded-full ml-1">Locked</span>' : ''}
-                                </h4>
-                                <p class="text-[10px] text-slate-400 font-medium" id="help-cancel-desc">
-                                    ${isFrozen ? 'Order packed and out for delivery.' : 'Cancel delivery and receive refund'}
-                                </p>
-                            </div>
-                        </div>
-                        <span class="material-symbols-outlined ${isFrozen ? 'text-slate-400' : 'text-rose-500'} text-sm">${isFrozen ? 'lock' : 'chevron_right'}</span>
-                    </button>
-                    `;
-                })()}
-            </div>
-        </div>
-    </div>
 
     <!-- Floating Liquid Glass Bottom Navigation Dock -->
     <div class="fixed bottom-3 inset-x-0 z-40 px-4 sm:hidden pointer-events-none flex justify-center">
@@ -405,432 +340,76 @@ window.pages.orders = async function() {
 };
 
 window.pageInits.orders = function() {
-    const effectiveUserId = (window.isUserLoggedIn() ? window.CURRENT_USER_ID : (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : 'user_guest'));
-    const hostelShort = window.currentAddress || 'BH13';
-    const hostelAddress = window.currentAddressDetail?.label || 'BH13 (Block A), Room 304';
-    const activeOrderId = window.CURRENT_ACTIVE_ORDER_ID;
+    const userId = window.CURRENT_USER_ID;
 
-    // Reorder button click
+    // Reorder button click handlers
     document.querySelectorAll('.reorder-btn').forEach(btn => {
         btn.onclick = async (e) => {
-            e.preventDefault();
             e.stopPropagation();
             const orderId = btn.dataset.orderId;
             if (!orderId) return;
 
             btn.disabled = true;
-            btn.innerHTML = '<span class="material-symbols-outlined text-xs animate-spin">sync</span><span>Adding...</span>';
+            btn.innerHTML = `<span class="w-3.5 h-3.5 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin mr-1"></span> Adding...`;
+
             try {
-                const res = await window.api.reorder(orderId, effectiveUserId);
-                btn.innerHTML = '<span class="material-symbols-outlined text-xs">check</span><span>Added!</span>';
-                if (typeof showClientToast === 'function') {
-                    showClientToast('✓ Items added to cart!', 'success', 'shopping_cart');
-                }
-                setTimeout(() => {
-                    window.location.hash = '#/cart';
-                }, 350);
-            } catch (err) {
-                btn.textContent = 'Reorder';
-                btn.disabled = false;
-                console.error('[Reorder Error]:', err);
-                if (typeof showClientToast === 'function') {
-                    showClientToast('Could not reorder items: ' + err.message, 'error', 'error');
+                const res = await window.api.reorder(orderId, userId);
+                if (res && res.success) {
+                    if (typeof window.showClientToast === 'function') {
+                        window.showClientToast('Items added to cart! Redirecting...', 'success', 'shopping_cart');
+                    }
+                    setTimeout(() => {
+                        window.location.hash = '#/cart';
+                    }, 500);
                 } else {
-                    alert('Could not reorder items: ' + err.message);
+                    throw new Error(res?.error || 'Reorder failed');
+                }
+            } catch (err) {
+                console.error('[Reorder Error]:', err);
+                btn.disabled = false;
+                btn.innerHTML = `<span class="material-symbols-outlined text-xs">replay</span> <span>Reorder</span>`;
+                if (typeof window.showClientToast === 'function') {
+                    window.showClientToast('Could not reorder: ' + err.message, 'warning', 'error');
                 }
             }
         };
     });
 
-    const pin = document.getElementById('rider-pin');
-    const etaTimeEl = document.getElementById('tracking-eta-time');
-    const msgEl = document.getElementById('tracking-status-msg');
-    const progressBar = document.getElementById('order-progress-bar');
-    const stepPlaced = document.getElementById('step-placed');
-    const stepPacked = document.getElementById('step-packed');
-    const stepEnroute = document.getElementById('step-enroute');
-    const stepDelivered = document.getElementById('step-delivered');
-    const liveIndicator = document.getElementById('orders-live-indicator');
-    const riderNameDisplay = document.getElementById('rider-name-display');
-    const riderAvatar = document.getElementById('rider-avatar');
-    const riderBadge = document.getElementById('rider-badge');
-
-    let currentOrderStatus = window.CURRENT_ACTIVE_ORDER_STATUS || 'Order Placed';
-
-    window.updateHelpModalCancelState = function(status) {
-        currentOrderStatus = status;
-        window.CURRENT_ACTIVE_ORDER_STATUS = status;
-        const cancelBtn = document.getElementById('btn-help-cancel-order');
-        if (!cancelBtn) return;
-
-        const s = (status || '').toLowerCase();
-        const isFrozen = ['out for delivery', 'delivered'].includes(s);
-
-        if (isFrozen) {
-            cancelBtn.disabled = true;
-            cancelBtn.className = 'w-full text-left p-3.5 rounded-2xl flex items-center justify-between bg-slate-500/10 opacity-50 border border-[var(--glass-border)] cursor-not-allowed transition-all select-none';
-            cancelBtn.innerHTML = `
-                <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-xl bg-slate-400 text-slate-700 flex items-center justify-center">
-                        <span class="material-symbols-outlined text-base">lock</span>
-                    </div>
-                    <div>
-                        <h4 class="font-bold text-xs text-slate-400 flex items-center gap-1">
-                            <span>3. Cancel Order</span>
-                            <span class="text-[9px] bg-slate-500/20 text-slate-400 font-bold px-1.5 py-0.2 rounded-full ml-1">Locked</span>
-                        </h4>
-                        <p class="text-[10px] text-slate-400 font-medium" id="help-cancel-desc">
-                            Order packed and out for delivery.
-                        </p>
-                    </div>
-                </div>
-                <span class="material-symbols-outlined text-slate-400 text-sm">lock</span>
-            `;
-        } else {
-            cancelBtn.disabled = false;
-            cancelBtn.className = 'w-full text-left p-3.5 rounded-2xl flex items-center justify-between bg-rose-500/10 hover:bg-rose-500/15 border border-rose-500/30 cursor-pointer transition-all';
-            cancelBtn.innerHTML = `
-                <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center shadow-md">
-                        <span class="material-symbols-outlined text-base">cancel</span>
-                    </div>
-                    <div>
-                        <h4 class="font-bold text-xs text-rose-600 dark:text-rose-400">3. Cancel Order</h4>
-                        <p class="text-[10px] text-slate-400 font-medium" id="help-cancel-desc">
-                            Cancel delivery and receive refund
-                        </p>
-                    </div>
-                </div>
-                <span class="material-symbols-outlined text-rose-500 text-sm">chevron_right</span>
-            `;
-        }
-    };
-
-    window.openOrderHelpModal = function() {
-        const modal = document.getElementById('order-help-modal');
-        if (modal) {
-            window.updateHelpModalCancelState(window.CURRENT_ACTIVE_ORDER_STATUS || currentOrderStatus || 'Order Placed');
-            modal.classList.remove('hidden');
-        }
-    };
-
-    window.closeOrderHelpModal = function() {
-        const modal = document.getElementById('order-help-modal');
-        if (modal) modal.classList.add('hidden');
-    };
-
-    window.changeHelpOrderAddress = async function() {
-        const activeOrderId = window.CURRENT_ACTIVE_ORDER_ID;
-        if (!activeOrderId) return alert('No active order found.');
-
-        const currentLabel = document.getElementById('help-current-address-label');
-        const current = currentLabel ? currentLabel.textContent : (window.currentAddressDetail?.label || 'BH13 (Block A), Room 304');
-        const newRoom = prompt('Enter updated hostel block & room number for fast delivery:', current);
-        if (newRoom && newRoom.trim() && newRoom.trim() !== current) {
-            const trimmed = newRoom.trim();
-            try {
-                await window.api.changeOrderAddress(activeOrderId, trimmed);
-                if (currentLabel) currentLabel.textContent = trimmed;
-                const destLabel = document.getElementById('tracking-dest-label');
-                if (destLabel) destLabel.textContent = trimmed;
-                if (msgEl) {
-                    msgEl.innerHTML = `<span class="material-symbols-outlined text-sm text-emerald">directions_walk</span><span>Delivery address updated to <b>${trimmed}</b>. Runner notified!</span>`;
-                }
-                alert(`✓ Delivery address updated to: ${trimmed}`);
-                window.closeOrderHelpModal();
-            } catch (err) {
-                alert('Could not update address: ' + err.message);
-            }
-        }
-    };
-
-    window.cancelHelpOrder = async function() {
-        const activeOrderId = window.CURRENT_ACTIVE_ORDER_ID;
-        if (!activeOrderId) return alert('No active order found.');
-
-        const s = (window.CURRENT_ACTIVE_ORDER_STATUS || currentOrderStatus || '').toLowerCase();
-        if (['out for delivery', 'delivered'].includes(s)) {
-            alert('⚠️ Order is already packed and out for delivery with the campus runner. It can no longer be cancelled.');
-            return;
-        }
-
-        const confirmed = confirm('Are you sure you want to cancel this order? Instant refund will be initiated.');
-        if (!confirmed) return;
-
-        try {
-            const cancelBtn = document.getElementById('btn-help-cancel-order');
-            if (cancelBtn) {
-                cancelBtn.disabled = true;
-                cancelBtn.textContent = 'Cancelling...';
-            }
-            await window.api.cancelOrder(activeOrderId, 'Cancelled by student via Help Menu');
-            window.applyOrderStatusUI('Cancelled');
-            window.closeOrderHelpModal();
-        } catch (err) {
-            alert('Could not cancel order: ' + err.message);
-            const cancelBtn = document.getElementById('btn-help-cancel-order');
-            if (cancelBtn) cancelBtn.disabled = false;
-        }
-    };
-
-    function formatClientRiderName(raw) {
-        if (!raw || raw === 'unassigned') return 'Alex';
-        if (typeof raw === 'string' && raw.trim().startsWith('{')) {
-            try {
-                const parsed = JSON.parse(raw);
-                return parsed.name || parsed.assigned_to_name || 'Alex';
-            } catch (e) {}
-        }
-        return raw;
-    }
-
-    // Live status UI updater
-    window.applyOrderStatusUI = function(status, riderName) {
-        if (!status) return;
-        currentOrderStatus = status;
-        window.CURRENT_ACTIVE_ORDER_STATUS = status;
-        if (typeof window.updateHelpModalCancelState === 'function') {
-            window.updateHelpModalCancelState(status);
-        }
-        
-        const rider = formatClientRiderName(riderName);
-        const rName = document.getElementById('rider-name-display');
-        const rAvatar = document.getElementById('rider-avatar');
-        const rBadge = document.getElementById('rider-badge');
-        const pBar = document.getElementById('order-progress-bar');
-        const etaText = document.getElementById('tracking-eta-time');
+    // Real-time tracking telemetry simulation / poll
+    if (window.CURRENT_ACTIVE_ORDER_ID) {
+        const pin = document.getElementById('rider-pin');
+        const progressBar = document.getElementById('order-progress-bar');
         const statusMsg = document.getElementById('tracking-status-msg');
-        const riderPin = document.getElementById('rider-pin');
-        
-        const sPlaced = document.getElementById('step-placed');
-        const sPacked = document.getElementById('step-packed');
-        const sEnroute = document.getElementById('step-enroute');
-        const sDelivered = document.getElementById('step-delivered');
 
-        if (rName) rName.textContent = rider;
-        if (rAvatar) rAvatar.textContent = rider[0];
-        if (rBadge) rBadge.textContent = `${rider} · Walking`;
+        let tick = 0;
+        const trackingTimer = setInterval(async () => {
+            tick++;
+            // Subtle motion simulation along the corridor path
+            if (pin) {
+                const progress = Math.min(90, 40 + Math.sin(tick * 0.4) * 15 + tick * 2);
+                pin.style.left = `${progress}%`;
+            }
 
-        const s = status.trim().toLowerCase();
+            // Sync with backend every 6 ticks (12 seconds)
+            if (tick % 6 === 0) {
+                try {
+                    const activeRes = await window.api.getActiveOrder(userId);
+                    if (activeRes && activeRes.active) {
+                        const status = activeRes.active.status;
+                        const etaEl = document.getElementById('tracking-eta-time');
+                        if (etaEl) etaEl.textContent = `Status: ${status}`;
 
-        if (pBar) {
-            pBar.style.height = '100%';
-            pBar.style.transition = 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
-        }
+                        if (progressBar) {
+                            if (status === 'Order Placed') progressBar.style.width = '25%';
+                            else if (status === 'Order Packed' || status === 'Packed') progressBar.style.width = '50%';
+                            else if (status === 'En Route' || status === 'Out for Delivery') progressBar.style.width = '75%';
+                            else if (status === 'Delivered') progressBar.style.width = '100%';
+                        }
+                    }
+                } catch(e) {}
+            }
+        }, 2000);
 
-        if (s === 'order placed' || s === 'pending') {
-            if (pBar) {
-                pBar.style.width = '25%';
-                pBar.className = 'h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full shadow-[0_0_10px_#10b981]';
-            }
-            if (etaText) etaText.textContent = 'Status: Order Placed';
-            if (statusMsg) statusMsg.innerHTML = '<span class="material-symbols-outlined text-base text-emerald">storefront</span><span>BH13 Dark Store received your order and is verifying items.</span>';
-            if (riderPin) {
-                riderPin.style.left = '20%';
-                riderPin.style.top = '48%';
-            }
-            if (sPlaced) sPlaced.className = 'text-emerald font-black';
-            if (sPacked) sPacked.className = 'text-slate-400 font-bold';
-            if (sEnroute) sEnroute.className = 'text-slate-400 font-bold';
-            if (sDelivered) sDelivered.className = 'text-slate-400 font-bold';
-        } else if (s === 'order confirmed' || s === 'confirmed' || s === 'accepted') {
-            if (pBar) {
-                pBar.style.width = '45%';
-                pBar.className = 'h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full shadow-[0_0_10px_#10b981]';
-            }
-            if (etaText) etaText.textContent = 'Status: Confirmed (3 mins)';
-            if (statusMsg) statusMsg.innerHTML = '<span class="material-symbols-outlined text-base text-emerald">check_circle</span><span>BH13 Dark Store confirmed your order. Bag packing started!</span>';
-            if (riderPin) {
-                riderPin.style.left = '36%';
-                riderPin.style.top = '44%';
-            }
-            if (sPlaced) sPlaced.className = 'text-emerald font-black';
-            if (sPacked) sPacked.className = 'text-emerald font-black';
-            if (sEnroute) sEnroute.className = 'text-slate-400 font-bold';
-            if (sDelivered) sDelivered.className = 'text-slate-400 font-bold';
-        } else if (s === 'preparing' || s === 'packed') {
-            if (pBar) {
-                pBar.style.width = '65%';
-                pBar.className = 'h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full shadow-[0_0_10px_#10b981]';
-            }
-            if (etaText) etaText.textContent = 'Status: Packed & Ready (2 mins)';
-            if (statusMsg) statusMsg.innerHTML = `<span class="material-symbols-outlined text-base text-emerald">inventory_2</span><span>Snacks sealed in bag. Runner ${rider} at dispatch counter.</span>`;
-            if (riderPin) {
-                riderPin.style.left = '52%';
-                riderPin.style.top = '50%';
-            }
-            if (sPlaced) sPlaced.className = 'text-emerald font-black';
-            if (sPacked) sPacked.className = 'text-emerald font-black';
-            if (sEnroute) sEnroute.className = 'text-slate-400 font-bold';
-            if (sDelivered) sDelivered.className = 'text-slate-400 font-bold';
-        } else if (s === 'out for delivery' || s === 'en_route') {
-            if (pBar) {
-                pBar.style.width = '85%';
-                pBar.className = 'h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full shadow-[0_0_10px_#10b981]';
-            }
-            if (etaText) etaText.textContent = 'Status: Out for Delivery (1 min)';
-            if (statusMsg) statusMsg.innerHTML = `<span class="material-symbols-outlined text-base text-emerald">directions_walk</span><span>${rider} picked up your snacks and is walking to ${hostelAddress}!</span>`;
-            if (riderPin) {
-                riderPin.style.left = '68%';
-                riderPin.style.top = '45%';
-            }
-            if (sPlaced) sPlaced.className = 'text-emerald font-black';
-            if (sPacked) sPacked.className = 'text-emerald font-black';
-            if (sEnroute) sEnroute.className = 'text-emerald font-black';
-            if (sDelivered) sDelivered.className = 'text-slate-400 font-bold';
-        } else if (s === 'delivered') {
-            if (pBar) {
-                pBar.style.width = '100%';
-                pBar.className = 'h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full shadow-[0_0_12px_#10b981]';
-            }
-            if (etaText) etaText.textContent = 'Status: Delivered ✓';
-            if (statusMsg) statusMsg.innerHTML = `<span class="material-symbols-outlined text-base text-emerald">task_alt</span><span>Arrived at ${hostelAddress}! Please collect your items.</span>`;
-            if (riderPin) {
-                riderPin.style.left = '80%';
-                riderPin.style.top = '50%';
-            }
-            if (sPlaced) sPlaced.className = 'text-emerald font-black';
-            if (sPacked) sPacked.className = 'text-emerald font-black';
-            if (sEnroute) sEnroute.className = 'text-emerald font-black';
-            if (sDelivered) sDelivered.className = 'text-emerald font-black';
-
-            setTimeout(() => {
-                if (window.location.hash === '#/orders') {
-                    window.router();
-                }
-            }, 3500);
-        } else if (s === 'cancelled') {
-            if (pBar) {
-                pBar.style.width = '100%';
-                pBar.className = 'h-full bg-rose-600 rounded-full shadow-[0_0_12px_#e11d48]';
-            }
-            if (etaText) etaText.textContent = 'Status: Cancelled ✕';
-            if (statusMsg) {
-                statusMsg.innerHTML = '<span class="material-symbols-outlined text-base text-rose-600">cancel</span><span class="text-rose-600 font-bold">Order cancelled. Refund initiated.</span>';
-            }
-            if (riderPin) {
-                riderPin.style.left = '50%';
-                riderPin.style.top = '50%';
-            }
-            if (sPlaced) sPlaced.className = 'text-rose-600 font-black';
-            if (sPacked) sPacked.className = 'text-slate-400 font-bold';
-            if (sEnroute) sEnroute.className = 'text-slate-400 font-bold';
-            if (sDelivered) sDelivered.className = 'text-slate-400 font-bold';
-
-            setTimeout(() => {
-                if (window.location.hash === '#/orders') {
-                    window.router();
-                }
-            }, 3000);
-        }
-    };
-
-    window.applyOrderStatusUI(currentOrderStatus, 'Alex');
-
-    if (!activeOrderId) return;
-
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/track/${activeOrderId}`;
-    let ws = null;
-    let ordersPoll = null;
-
-    try {
-        ws = new WebSocket(wsUrl);
-
-        ws.onopen = () => {
-            if (liveIndicator) liveIndicator.textContent = 'Live GPS Sync';
-        };
-
-        function handleClientOrderEdited(data) {
-            if (!data) return;
-            const banner = document.getElementById('tracking-order-edited-banner');
-            const titleEl = document.getElementById('tracking-order-edited-title');
-            const totalEl = document.getElementById('tracking-order-edited-total-val');
-            const descEl = document.getElementById('tracking-order-edited-desc');
-            const totalText = document.getElementById('tracking-active-total');
-
-            const edit = data.edit || data.order?.delivery_assignment?.latest_edit || {};
-            const newTotal = data.order?.total !== undefined ? data.order.total : edit.new_total;
-
-            if (totalText && newTotal !== undefined) {
-                totalText.textContent = newTotal;
-            }
-            if (totalEl && newTotal !== undefined) {
-                totalEl.textContent = newTotal;
-            }
-            if (titleEl && edit.reason) {
-                titleEl.textContent = `Dark Store Notice: ${edit.reason}`;
-            }
-            if (descEl && (edit.notes || edit.reason)) {
-                descEl.textContent = edit.notes || 'One or more unavailable items were removed or adjusted by the Dark Store. Your bill has been updated.';
-            }
-            if (banner) {
-                banner.classList.remove('hidden');
-            }
-        }
-
-        ws.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                if (data && data.status) {
-                    window.applyOrderStatusUI(data.status, data.rider_name || data.riderName || 'Alex');
-                }
-                if (data && (data.type === 'ORDER_EDITED' || data.type === 'ORDER_MODIFIED')) {
-                    handleClientOrderEdited(data);
-                }
-            } catch (e) {
-                console.error('[Orders WS parse error]:', e);
-            }
-        };
-
-        ws.onerror = () => {
-            if (liveIndicator) liveIndicator.textContent = 'Syncing';
-            startPollingStatus();
-        };
-
-        ws.onclose = () => {
-            startPollingStatus();
-        };
-    } catch (e) {
-        startPollingStatus();
+        window.__ordersTrackingTimer = trackingTimer;
     }
-
-    function startPollingStatus() {
-        if (ordersPoll) clearInterval(ordersPoll);
-        const pollFn = async () => {
-            if (typeof document !== 'undefined' && document.hidden) return;
-            try {
-                const res = await window.api.getOrderDetail(activeOrderId);
-                const orderData = res?.order || res;
-                if (orderData && orderData.status) {
-                    if (orderData.status !== currentOrderStatus) {
-                        window.applyOrderStatusUI(orderData.status, orderData.rider_name || 'Alex');
-                    }
-                    if (orderData.delivery_assignment?.latest_edit) {
-                        handleClientOrderEdited({ order: orderData, edit: orderData.delivery_assignment.latest_edit });
-                    }
-                    if (['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(orderData.status)) {
-                        clearInterval(ordersPoll);
-                    }
-                }
-            } catch (err) {}
-        };
-
-        ordersPoll = setInterval(pollFn, 6000);
-    }
-
-    const handleVisibilityChange = () => {
-        if (!document.hidden && activeOrderId) {
-            window.api.getOrderDetail(activeOrderId).then(res => {
-                const orderData = res?.order || res;
-                if (orderData && orderData.status && orderData.status !== currentOrderStatus) {
-                    window.applyOrderStatusUI(orderData.status, orderData.rider_name || 'Alex');
-                }
-            }).catch(() => {});
-        }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange, { passive: true });
-    window.addEventListener('focus', handleVisibilityChange, { passive: true });
-
-    startPollingStatus();
 };

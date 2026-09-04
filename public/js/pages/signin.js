@@ -1,32 +1,35 @@
-// Sign In & Authentication Page — Glassmorphism, Claymorphism & Liquid Glass UI
+// Sign In & Campus Auth — Complete Ground-Up Refreshing Redesign (Floating Glassmorphic Authentication Portal)
 window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
 window.pages.signin = async function() {
     return `
 <div class="min-h-screen bg-background text-on-surface flex items-center justify-center py-10 px-4 relative overflow-hidden">
-    <!-- Centerpiece Glassmorphic Card with Tactile Clay Accents -->
+    <!-- Ambient Specular Glow Orbs -->
+    <div class="absolute top-1/4 -left-20 w-72 h-72 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute bottom-1/4 -right-20 w-72 h-72 bg-teal-500/15 rounded-full blur-3xl pointer-events-none"></div>
+
+    <!-- Centerpiece Glassmorphic Card -->
     <div class="w-full max-w-sm mx-auto space-y-6 relative z-10">
-        
-        <!-- Brand Header with Tactile Clay Icon -->
+        <!-- Brand Header -->
         <div class="text-center space-y-3">
             <a href="#/" class="inline-flex flex-col items-center justify-center gap-2 group">
-                <div class="clay-card w-16 h-16 rounded-3xl flex items-center justify-center shadow-lg group-hover:scale-105 active:scale-95 transition-transform relative overflow-hidden">
-                    <div class="absolute inset-0 bg-emerald-500/10 rounded-3xl animate-pulse pointer-events-none"></div>
+                <div class="glass-panel card-pedestal w-16 h-16 rounded-3xl flex items-center justify-center shadow-2xl group-hover:scale-105 active:scale-95 transition-transform relative overflow-hidden border border-[var(--glass-border)]">
+                    <div class="absolute inset-0 bg-emerald-500/15 rounded-3xl animate-pulse pointer-events-none"></div>
                     <img src="/logo.png" alt="LPUQuick" class="w-10 h-10 object-contain">
                 </div>
                 <div class="text-center">
                     <span class="text-2xl font-black tracking-tight text-slate-900 dark:text-white">LPUQuick</span>
-                    <span class="block text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mt-0.5">BH13 Express Quick-Commerce</span>
+                    <span class="block text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mt-0.5">BH13 Express Quick-Commerce</span>
                 </div>
             </a>
-            <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">
+            <p class="text-xs text-slate-500 dark:text-slate-400 font-semibold">
                 3-minute corridor delivery directly to your hostel room
             </p>
         </div>
 
         <!-- Frosted Liquid Glass Card -->
-        <div class="glass-panel rounded-3xl p-6 sm:p-8 shadow-2xl border border-[var(--glass-border)] w-full text-center space-y-5 relative overflow-hidden backdrop-blur-xl">
+        <div class="glass-panel card-pedestal rounded-3xl p-6 sm:p-8 shadow-2xl border border-[var(--glass-border)] w-full text-center space-y-5 relative overflow-hidden backdrop-blur-2xl">
             <div class="space-y-1.5">
                 <h2 class="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight">Sign In with Google</h2>
                 <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">
@@ -36,15 +39,15 @@ window.pages.signin = async function() {
 
             <!-- Features Summary (Tactile Clay Cards) -->
             <div class="space-y-2 text-left">
-                <div class="clay-card p-2.5 px-3 rounded-xl flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
+                <div class="clay-card p-3 rounded-2xl flex items-center gap-3 text-xs text-slate-700 dark:text-slate-300 font-bold">
                     <span class="material-symbols-outlined text-base text-emerald">bolt</span>
                     <span>3-Minute Express Hostel Delivery</span>
                 </div>
-                <div class="clay-card p-2.5 px-3 rounded-xl flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
+                <div class="clay-card p-3 rounded-2xl flex items-center gap-3 text-xs text-slate-700 dark:text-slate-300 font-bold">
                     <span class="material-symbols-outlined text-base text-emerald">storefront</span>
                     <span>BH13 Ground Floor Fulfillment</span>
                 </div>
-                <div class="clay-card p-2.5 px-3 rounded-xl flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
+                <div class="clay-card p-3 rounded-2xl flex items-center gap-3 text-xs text-slate-700 dark:text-slate-300 font-bold">
                     <span class="material-symbols-outlined text-base text-emerald">directions_walk</span>
                     <span>Live GPS Corridor Runner Tracking</span>
                 </div>
@@ -55,7 +58,7 @@ window.pages.signin = async function() {
 
             <!-- Google Sign-In Button (Tactile Clay Action) -->
             <div class="space-y-3 pt-1" id="custom-google-btn-wrapper">
-                <button class="clay-btn w-full h-12 rounded-2xl flex items-center justify-center gap-3 text-slate-900 dark:text-white font-bold text-xs active:scale-95 transition-transform shadow-md cursor-pointer group" type="button" id="btn-google">
+                <button class="clay-btn w-full h-12 rounded-2xl flex items-center justify-center gap-3 text-slate-900 dark:text-white font-black text-xs active:scale-95 transition-transform shadow-lg cursor-pointer group" type="button" id="btn-google">
                     <svg class="w-5 h-5 group-hover:scale-110 transition-transform" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                         <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -80,11 +83,10 @@ window.pages.signin = async function() {
             </p>
         </div>
 
-        <p class="text-center text-[11px] text-slate-400 font-medium flex items-center justify-center gap-1.5">
+        <p class="text-center text-[11px] text-slate-400 font-semibold flex items-center justify-center gap-1.5">
             <span class="material-symbols-outlined text-sm text-emerald">verified_user</span>
             <span>Secured for LPU Campus Students & Faculty</span>
         </p>
-
     </div>
 </div>
 `;
@@ -142,7 +144,6 @@ window.pageInits.signin = function() {
                 console.warn('[Google Auth Network Recovery]:', networkErr.message);
             }
 
-            // If backend returned error or failed, fallback gracefully with Google profile data
             if ((!res || !res.user || !res.user.id) && (userData.email || userData.name)) {
                 console.warn('[Google Auth Fallback to Local Verified Profile]:', res ? res.error : 'Network');
                 const rawName = userData.name || (userData.email ? userData.email.split('@')[0] : 'LPU Student');
@@ -203,7 +204,6 @@ window.pageInits.signin = function() {
             }
         } catch (err) {
             console.error('[Google Auth Error]:', err);
-            // If user data is available, complete sign-in without error
             if (userData && (userData.email || userData.name)) {
                 const rawName = userData.name || (userData.email ? userData.email.split('@')[0] : 'LPU Student');
                 const localUser = {
@@ -222,7 +222,6 @@ window.pageInits.signin = function() {
                 localStorage.setItem('lpuquick_user', JSON.stringify(localUser));
                 localStorage.setItem('lpuquick_last_active', Date.now().toString());
 
-                // Automatically activate Night Mode upon login
                 document.documentElement.classList.add('dark');
                 if (document.body) document.body.classList.add('dark');
                 localStorage.setItem('lpuquick_theme', 'dark');
@@ -259,7 +258,6 @@ window.pageInits.signin = function() {
         }
     }
 
-    // Try initializing immediately or wait for script load
     initGoogleServices();
     if (!window.google) {
         const checkInterval = setInterval(() => {
