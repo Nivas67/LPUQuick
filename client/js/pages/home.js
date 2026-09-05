@@ -316,135 +316,135 @@ window.pages.home = async function() {
             <div id="mobile-search-dropdown" class="hidden absolute top-12 left-0 w-full glass-panel rounded-2xl shadow-2xl z-50 max-h-80 overflow-y-auto p-2"></div>
         </section>
 
-        <!-- ====================        <!-- ============================================================
+        <!-- ============================================================
              NEXT-GEN PROMOTIONAL BANNER CAROUSEL (SWIPEABLE & AUTO-SLIDING)
              ============================================================ -->
-        <section class="hero-carousel-container relative" id="hero-banner-carousel">
+        <section class="hero-carousel-container relative overflow-hidden w-full rounded-3xl" id="hero-banner-carousel" style="position: relative; overflow: hidden; width: 100%; border-radius: 1.5rem; user-select: none; box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.12), 0 4px 12px -2px rgba(0, 0, 0, 0.06); touch-action: pan-y pinch-zoom;">
             <!-- Left & Right Arrow Navigation (Visible on laptop / desktop hover) -->
-            <button type="button" class="hero-carousel-arrow hero-carousel-prev hidden sm:flex" id="carousel-prev-btn" aria-label="Previous Slide">
-                <span class="material-symbols-outlined text-lg">chevron_left</span>
+            <button type="button" class="hero-carousel-arrow hero-carousel-prev hidden sm:flex" id="carousel-prev-btn" aria-label="Previous Slide" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 9999px; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid rgba(255, 255, 255, 0.35); color: #ffffff; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 25; transition: all 0.2s ease; box-shadow: 0 4px 14px rgba(0,0,0,0.3);">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"></path></svg>
             </button>
-            <button type="button" class="hero-carousel-arrow hero-carousel-next hidden sm:flex" id="carousel-next-btn" aria-label="Next Slide">
-                <span class="material-symbols-outlined text-lg">chevron_right</span>
+            <button type="button" class="hero-carousel-arrow hero-carousel-next hidden sm:flex" id="carousel-next-btn" aria-label="Next Slide" style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 9999px; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid rgba(255, 255, 255, 0.35); color: #ffffff; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 25; transition: all 0.2s ease; box-shadow: 0 4px 14px rgba(0,0,0,0.3);">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path></svg>
             </button>
 
-            <!-- Carousel Slides Track -->
-            <div class="hero-carousel-track" id="carousel-track">
+            <!-- Carousel Slides Track (Strict horizontal flex-row) -->
+            <div class="hero-carousel-track flex flex-row flex-nowrap w-full" id="carousel-track" style="display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; width: 100% !important; transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1) !important; will-change: transform !important;">
                 <!-- Slide 1: 3-Min Lightning Delivery -->
-                <div class="hero-carousel-slide" style="background: radial-gradient(ellipse at 85% 20%, rgba(16, 185, 129, 0.4), transparent 65%), linear-gradient(135deg, #064e3b 0%, #047857 60%, #059669 100%);">
+                <div class="hero-carousel-slide flex-shrink-0" style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; padding: 1.75rem 1.5rem; min-height: 200px; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff; cursor: pointer; background: linear-gradient(135deg, rgba(6, 78, 59, 0.96) 0%, rgba(4, 120, 87, 0.92) 50%, rgba(16, 185, 129, 0.88) 100%), radial-gradient(ellipse at 85% 20%, rgba(52, 211, 153, 0.35), transparent 65%);">
                     <div class="space-y-2 max-w-lg z-10">
                         <div class="flex items-center gap-2 flex-wrap">
-                            <span class="clay-pill px-3 py-0.5 text-[10px] font-black text-emerald-300 bg-black/30 border border-emerald-400/30 flex items-center gap-1.5">
-                                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <span class="clay-pill px-3 py-0.5 text-[10px] font-black text-emerald-300 bg-black/35 border border-emerald-400/35 flex items-center gap-1.5 backdrop-blur-md">
+                                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]"></span>
                                 <span>BH13 GROUND HUB</span>
                             </span>
-                            <span class="liquid-badge text-[10px] font-black px-2.5 py-0.5 shadow-sm">
+                            <span class="liquid-badge text-[10px] font-black px-2.5 py-0.5 shadow-sm bg-emerald-400/25 text-white border border-emerald-300/30 backdrop-blur-md">
                                 ⚡ 3-MIN ROOM DROP
                             </span>
                         </div>
-                        <h2 class="text-lg sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight">
+                        <h2 class="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight drop-shadow-sm">
                             Corridor Express Snacks & Munchies
                         </h2>
-                        <p class="text-xs sm:text-sm text-emerald-100/90 font-medium leading-relaxed max-w-md">
+                        <p class="text-xs sm:text-sm text-emerald-100/95 font-medium leading-relaxed max-w-md">
                             Instant noodles, chilled drinks, and snacks delivered right to your hostel room door in 3 minutes.
                         </p>
                     </div>
-                    <div class="pt-3 z-10 flex items-center gap-2">
-                        <a href="#/categories" class="clay-btn bg-white text-emerald-950 font-black text-xs px-4 py-2 rounded-full inline-flex items-center gap-1 shadow-md hover:scale-105 active:scale-95 transition-transform">
-                            <span>Browse Snacks</span>
-                            <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                    <div class="pt-3 z-10 flex items-center gap-2.5">
+                        <a href="#/categories" class="clay-btn text-xs px-4 py-2 rounded-full inline-flex items-center gap-1.5 shadow-md hover:scale-105 active:scale-95 transition-all" style="background: #ffffff !important; color: #047857 !important; font-weight: 800 !important;">
+                            <span style="color: #047857 !important; font-weight: 800 !important;">Browse Snacks</span>
+                            <svg class="w-3.5 h-3.5" style="color: #047857 !important;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                         </a>
-                        <a href="#/flow-assist" class="clay-pill bg-white/15 text-white font-bold text-xs px-3.5 py-2 rounded-full inline-flex items-center gap-1 hover:bg-white/25 transition-all">
-                            <span class="material-symbols-outlined text-xs text-amber-300">auto_awesome</span>
+                        <a href="#/flow-assist" class="clay-pill bg-white/20 text-white font-bold text-xs px-3.5 py-2 rounded-full inline-flex items-center gap-1.5 hover:bg-white/30 backdrop-blur-md border border-white/25 transition-all">
+                            <span class="text-amber-300 font-bold">✨</span>
                             <span>AI Assistant</span>
                         </a>
                     </div>
                 </div>
 
                 <!-- Slide 2: Midnight Cravings & Combos -->
-                <div class="hero-carousel-slide" style="background: radial-gradient(ellipse at 85% 20%, rgba(168, 85, 247, 0.45), transparent 65%), linear-gradient(135deg, #3b0764 0%, #581c87 60%, #7e22ce 100%);">
+                <div class="hero-carousel-slide flex-shrink-0" style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; padding: 1.75rem 1.5rem; min-height: 200px; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff; cursor: pointer; background: linear-gradient(135deg, rgba(59, 7, 100, 0.96) 0%, rgba(88, 28, 135, 0.92) 50%, rgba(126, 34, 206, 0.88) 100%), radial-gradient(ellipse at 85% 20%, rgba(192, 132, 252, 0.4), transparent 65%);">
                     <div class="space-y-2 max-w-lg z-10">
                         <div class="flex items-center gap-2 flex-wrap">
-                            <span class="clay-pill px-3 py-0.5 text-[10px] font-black text-purple-300 bg-black/30 border border-purple-400/30 flex items-center gap-1.5">
-                                <span class="material-symbols-outlined text-xs">dark_mode</span>
+                            <span class="clay-pill px-3 py-0.5 text-[10px] font-black text-purple-200 bg-black/35 border border-purple-400/35 flex items-center gap-1.5 backdrop-blur-md">
+                                <span class="text-purple-300">🌙</span>
                                 <span>MIDNIGHT FUEL</span>
                             </span>
-                            <span class="liquid-badge text-[10px] font-black px-2.5 py-0.5 shadow-sm">
+                            <span class="liquid-badge text-[10px] font-black px-2.5 py-0.5 shadow-sm bg-purple-400/25 text-white border border-purple-300/30 backdrop-blur-md">
                                 🌙 TILL 3 AM
                             </span>
                         </div>
-                        <h2 class="text-lg sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight">
+                        <h2 class="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight drop-shadow-sm">
                             Late Night Study & Gaming Fuel
                         </h2>
-                        <p class="text-xs sm:text-sm text-purple-100/90 font-medium leading-relaxed max-w-md">
-                            Hot Maggi, cold drinks, chocolate bars, and crunchy chips ready for your night grind.
+                        <p class="text-xs sm:text-sm text-purple-100/95 font-medium leading-relaxed max-w-md">
+                            Hot Maggi, cold drinks, chocolate bars, and crunchy chips ready for your midnight grind.
                         </p>
                     </div>
-                    <div class="pt-3 z-10 flex items-center gap-2">
-                        <a href="#/categories" class="clay-btn bg-white text-purple-950 font-black text-xs px-4 py-2 rounded-full inline-flex items-center gap-1 shadow-md hover:scale-105 active:scale-95 transition-transform">
-                            <span>Explore Combos</span>
-                            <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                    <div class="pt-3 z-10 flex items-center gap-2.5">
+                        <a href="#/categories" class="clay-btn text-xs px-4 py-2 rounded-full inline-flex items-center gap-1.5 shadow-md hover:scale-105 active:scale-95 transition-all" style="background: #ffffff !important; color: #581c87 !important; font-weight: 800 !important;">
+                            <span style="color: #581c87 !important; font-weight: 800 !important;">Explore Combos</span>
+                            <svg class="w-3.5 h-3.5" style="color: #581c87 !important;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                         </a>
                     </div>
                 </div>
 
                 <!-- Slide 3: 100% Free Campus Delivery -->
-                <div class="hero-carousel-slide" style="background: radial-gradient(ellipse at 85% 20%, rgba(245, 158, 11, 0.4), transparent 65%), linear-gradient(135deg, #78350f 0%, #b45309 60%, #d97706 100%);">
+                <div class="hero-carousel-slide flex-shrink-0" style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; padding: 1.75rem 1.5rem; min-height: 200px; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff; cursor: pointer; background: linear-gradient(135deg, rgba(120, 53, 15, 0.96) 0%, rgba(180, 83, 9, 0.92) 50%, rgba(217, 119, 6, 0.88) 100%), radial-gradient(ellipse at 85% 20%, rgba(251, 191, 36, 0.4), transparent 65%);">
                     <div class="space-y-2 max-w-lg z-10">
                         <div class="flex items-center gap-2 flex-wrap">
-                            <span class="clay-pill px-3 py-0.5 text-[10px] font-black text-amber-200 bg-black/30 border border-amber-400/30 flex items-center gap-1.5">
-                                <span class="material-symbols-outlined text-xs">local_shipping</span>
+                            <span class="clay-pill px-3 py-0.5 text-[10px] font-black text-amber-200 bg-black/35 border border-amber-400/35 flex items-center gap-1.5 backdrop-blur-md">
+                                <span class="text-amber-300">⚡</span>
                                 <span>CAMPUS PERK</span>
                             </span>
-                            <span class="liquid-badge text-[10px] font-black px-2.5 py-0.5 shadow-sm">
+                            <span class="liquid-badge text-[10px] font-black px-2.5 py-0.5 shadow-sm bg-amber-400/25 text-white border border-amber-300/30 backdrop-blur-md">
                                 🎉 ₹0 DELIVERY FEE
                             </span>
                         </div>
-                        <h2 class="text-lg sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight">
+                        <h2 class="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight drop-shadow-sm">
                             Zero Delivery Fees On Every Order
                         </h2>
-                        <p class="text-xs sm:text-sm text-amber-100/90 font-medium leading-relaxed max-w-md">
+                        <p class="text-xs sm:text-sm text-amber-100/95 font-medium leading-relaxed max-w-md">
                             No convenience charges, no minimum order traps. 100% calm commerce delivery.
                         </p>
                     </div>
-                    <div class="pt-3 z-10 flex items-center gap-2">
-                        <a href="#shop-catalog-section" class="clay-btn bg-white text-amber-950 font-black text-xs px-4 py-2 rounded-full inline-flex items-center gap-1 shadow-md hover:scale-105 active:scale-95 transition-transform">
-                            <span>Shop Now</span>
-                            <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                    <div class="pt-3 z-10 flex items-center gap-2.5">
+                        <a href="#shop-catalog-section" class="clay-btn text-xs px-4 py-2 rounded-full inline-flex items-center gap-1.5 shadow-md hover:scale-105 active:scale-95 transition-all" style="background: #ffffff !important; color: #b45309 !important; font-weight: 800 !important;">
+                            <span style="color: #b45309 !important; font-weight: 800 !important;">Shop Now</span>
+                            <svg class="w-3.5 h-3.5" style="color: #b45309 !important;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                         </a>
                     </div>
                 </div>
 
                 <!-- Slide 4: 100% Private & Discreet Packaging -->
-                <div class="hero-carousel-slide" style="background: radial-gradient(ellipse at 85% 20%, rgba(6, 182, 212, 0.4), transparent 65%), linear-gradient(135deg, #083344 0%, #0e7490 60%, #06b6d4 100%);">
+                <div class="hero-carousel-slide flex-shrink-0" style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; padding: 1.75rem 1.5rem; min-height: 200px; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff; cursor: pointer; background: linear-gradient(135deg, rgba(8, 51, 68, 0.96) 0%, rgba(14, 116, 144, 0.92) 50%, rgba(6, 182, 212, 0.88) 100%), radial-gradient(ellipse at 85% 20%, rgba(103, 232, 249, 0.4), transparent 65%);">
                     <div class="space-y-2 max-w-lg z-10">
                         <div class="flex items-center gap-2 flex-wrap">
-                            <span class="clay-pill px-3 py-0.5 text-[10px] font-black text-cyan-200 bg-black/30 border border-cyan-400/30 flex items-center gap-1.5">
-                                <span class="material-symbols-outlined text-xs">shield</span>
+                            <span class="clay-pill px-3 py-0.5 text-[10px] font-black text-cyan-200 bg-black/35 border border-cyan-400/35 flex items-center gap-1.5 backdrop-blur-md">
+                                <span class="text-cyan-300">🛡️</span>
                                 <span>100% PRIVATE</span>
                             </span>
-                            <span class="liquid-badge text-[10px] font-black px-2.5 py-0.5 shadow-sm">
+                            <span class="liquid-badge text-[10px] font-black px-2.5 py-0.5 shadow-sm bg-cyan-400/25 text-white border border-cyan-300/30 backdrop-blur-md">
                                 🔒 HOSTEL SAFE
                             </span>
                         </div>
-                        <h2 class="text-lg sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight">
+                        <h2 class="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight drop-shadow-sm">
                             Discreet Tamper-Proof Room Drop
                         </h2>
-                        <p class="text-xs sm:text-sm text-cyan-100/90 font-medium leading-relaxed max-w-md">
+                        <p class="text-xs sm:text-sm text-cyan-100/95 font-medium leading-relaxed max-w-md">
                             All hostel orders sealed in opaque bags for privacy and peace of mind.
                         </p>
                     </div>
-                    <div class="pt-3 z-10 flex items-center gap-2">
-                        <a href="#shop-catalog-section" class="clay-btn bg-white text-cyan-950 font-black text-xs px-4 py-2 rounded-full inline-flex items-center gap-1 shadow-md hover:scale-105 active:scale-95 transition-transform">
-                            <span>Order Confidentially</span>
-                            <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                    <div class="pt-3 z-10 flex items-center gap-2.5">
+                        <a href="#shop-catalog-section" class="clay-btn text-xs px-4 py-2 rounded-full inline-flex items-center gap-1.5 shadow-md hover:scale-105 active:scale-95 transition-all" style="background: #ffffff !important; color: #0e7490 !important; font-weight: 800 !important;">
+                            <span style="color: #0e7490 !important; font-weight: 800 !important;">Order Confidentially</span>
+                            <svg class="w-3.5 h-3.5" style="color: #0e7490 !important;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                         </a>
                     </div>
                 </div>
             </div>
 
             <!-- Bottom Pagination Dots -->
-            <div class="hero-carousel-dots" id="carousel-dots">
+            <div class="hero-carousel-dots" id="carousel-dots" style="position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; z-index: 25;">
                 <button type="button" class="hero-carousel-dot active" data-slide-index="0" aria-label="Slide 1"></button>
                 <button type="button" class="hero-carousel-dot" data-slide-index="1" aria-label="Slide 2"></button>
                 <button type="button" class="hero-carousel-dot" data-slide-index="2" aria-label="Slide 3"></button>

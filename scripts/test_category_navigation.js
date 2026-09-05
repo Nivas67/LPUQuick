@@ -92,6 +92,10 @@ async function runValidation() {
     console.log('Search mismatch empty state visible =', !document.getElementById('category-empty-state').classList.contains('hidden'));
 
     console.log('\n✓ ALL INSTAMART/BLINKIT CATEGORY FILTERING & SEARCH VALIDATIONS PASSED!');
+    process.exit(0);
 }
 
-runValidation().catch(e => console.error(e));
+runValidation().catch(e => {
+    console.error(e);
+    process.exit(1);
+});
