@@ -1,79 +1,38 @@
-# LPUQuick Final UI/UX Visual & Functional Audit Walkthrough
+# Instamart / Blinkit Category Browsing Overhaul Walkthrough
 
 ## 📋 Executive Summary
-This audit verifies the completion and fidelity of:
-1. **Modern Vertical Category Rail** (inspired by Instamart / Blinkit grocery rail UX).
-2. **Strict Ground-Truth Category Filtering** (verified against live Supabase production products).
-3. **Add-to-Cart Glitch Elimination** (0px layout shift, zero card/grid flicker, zero modal re-animation).
-4. **Mobile-First Priority & Layout Integrity** (no horizontal overflow, sticky independent scroll).
+The customer-facing storefront has been upgraded to match the target grocery app experience from the reference screenshot:
+1. **Vertical Category Sidebar Rail**:
+   - High-resolution real product packshot thumbnails for every category (Biscuits, Chips, Chocolates, Instant Food, Snacks, Candies, Drinks, Juices, Sweets, and All).
+   - High-contrast squircle containers with subtle glow, rounded squircle active indicator, and bold white labels.
+   - Right-edge vibrant green indicator pill (`#22c55e` / `#10b981`) on the active category item.
+   - Resilient eager loading with automatic fallback.
+2. **Top Filter & Sort Chips Bar**:
+   - Clean, pill-shaped interactive chips (`Filters ▾`, `⇅ Sort: Popular ▾`, `🟢 Veg Only`, `Fast Delivery ⏱ 3m`) with inline SVGs.
+3. **Category Promo Banner (Cadbury Brownie Style)**:
+   - Deep luxury purple gradient banner matching the screenshot (`Cadbury Brownie & Cookies - Gooey, Fudgy, Chocolatey.` with white `[Shop now]` pill button and packshot image).
+4. **Product Card Grid (2 Columns)**:
+   - Packshot image with veg indicator `🟢` in a green-bordered square at bottom-right.
+   - Wishlist heart icon `♡` at top-right with toggle state.
+   - Badges: `Bought Earlier` (cyan/teal pill) and discount badge (`17% OFF`).
+   - Delivery ETA badge (`⏱ 8m`).
+   - Pack size / weight tag (`piece`, `150g`).
+   - Price bold white (`₹38`), strikethrough MRP (`₹40`), and discount badge (`5% OFF on MRP` in cyan).
+   - Green outlined `ADD` button swapping into a solid green stepper `[ - 1 + ]` with 0px layout shift.
 
 ---
 
 ## 📸 Real Browser Visual Verification
 
-### 1. Mobile Viewport (375px × 812px)
-![Mobile Category Rail & Product Grid](C:/Users/Digvi/.gemini/antigravity-ide/brain/d5b40e4b-477d-4c15-bf71-c202ca6b4a11/mobile_audit_screenshot.png)
-
-- **Left Rail**: 68px width, circular emoji icons, category labels, vertical active indicator bar.
-- **Product Grid**: 2-column dominant layout (279px width), 0 horizontal overflow.
-- **Action Buttons**: Stepper `[-] 2 [+]` perfectly aligned with price; zero card clipping.
-
-### 2. Desktop Viewport (1280px × 800px)
-![Desktop Category Rail & Product Grid](C:/Users/Digvi/.gemini/antigravity-ide/brain/d5b40e4b-477d-4c15-bf71-c202ca6b4a11/desktop_audit_screenshot.png)
-
-- **Grid Dominance**: Product grid occupies 1065px (11.1 : 1 ratio over category rail).
-- **Navigation**: Sticky vertical category rail with compact footprint and smooth hover micro-interactions.
-- **Floating Cart**: Smoothly floating pill with multi-item thumbnail preview and live subtotal.
+### Mobile Screen (Blinkit / Instamart Style Navigation)
+![Instamart / Blinkit Category Screen](C:/Users/Digvi/.gemini/antigravity-ide/brain/d5b40e4b-477d-4c15-bf71-c202ca6b4a11/category_mobile_blinkit_view.png)
 
 ---
 
-## 📏 Physical Layout Shift Measurements (Chrome DevTools Protocol)
+## 🧪 Automated Test Verification
 
-| Element / Metric | Before ADD | After ADD / Stepper | Shift Delta | Status |
-| :--- | :--- | :--- | :--- | :--- |
-| **Product Card Height** | 290.00 px | 290.00 px | **0.00 px** | **PERFECT STABILITY** |
-| **Product Card Width** | 134.50 px | 134.50 px | **0.00 px** | **PERFECT STABILITY** |
-| **Card Top Offset (Y)** | 358.00 px | 358.00 px | **0.00 px** | **ZERO PAGE JUMP** |
-| **Action Slot Width** | 76.00 px | 76.00 px | **0.00 px** | **ZERO LAYOUT SHIFT** |
-| **Modal DOM Identity** | `modal#product-modal` | `modal#product-modal` (same instance) | **0 DOM remounts** | **ZERO RE-ANIMATION** |
-
----
-
-## 🔍 Category Filtering & Search Integrity Audit (Live DB Data)
-
-### A. Biscuits (🍪)
-- **Count**: 9 products visible
-- **Strict Verification**: 100% Biscuit products
-- **Titles**:
-  1. *Britannia Bourbon - 150g*
-  2. *Britannia Treat Rich Creme Choco -55g*
-  3. *Oreo Vanila creme 125.25g*
-  4. *Oreo Vanila creme 98.5g*
-  5. *PARLE Hide & Seek 100g*
-  6. *Parle Milk Shakti*
-  7. *Sunfeast Dark Fantasy Bourbon - 99g*
-  8. *Sunfeast dark fantasy(1 piece)*
-  9. *Unibic Chocochip Cookies*
-
-### B. Chips (🥔)
-- **Count**: 6 products visible
-- **Strict Verification**: 100% Chip products
-- **Titles**:
-  1. *LAY'S American Style Cream & Onion*
-  2. *LAY'S Classic Salted*
-  3. *LAY'S India's magic masala*
-  4. *LAY'S Spanish Tomato Tango 80g*
-  5. *UNCLE CHIPS plain salted*
-  6. *UNCLE CHIPS Spicy Treat*
-
-### C. Search Concurrency
-- **Category = Biscuits + Search = "Oreo"**: Exactly 2 items visible (`Oreo Vanila creme 125.25g`, `Oreo Vanila creme 98.5g`).
-- **Category = Biscuits + Search = "Maggi"**: 0 items visible; clean Instamart-style empty state displayed with reset button.
-- **Search preservation**: Neither search nor category resets the other during browsing.
-
----
-
-## 🔒 Safety & Existing Features Verification
-- **Database Safety**: Zero database mutations. No `INSERT`, `UPDATE`, `DELETE`, `DROP`, `TRUNCATE`, or migrations executed.
-- **Regression Suite**: `node scripts/test_client_all_features.js` passed **33/33 (100%)** covering auth, pricing, cart, checkout, 1-tap COD, live tracking, and user profile.
-- **Client/Public Parity**: `client/` and `public/` are 100% bit-for-bit identical (`git diff --no-index` returned 0 differences).
+| Test Suite | Command | Result |
+| :--- | :--- | :--- |
+| **Category Navigation Test** | `node scripts/test_category_navigation.js` | **PASS (100%)** |
+| **Cart Stability & Rail Test** | `node scripts/test_cart_stability_and_rail.js` | **PASS (100%)** |
+| **Mobile CDP Audit** | `node scripts/verify_category_mobile_screen.js` | **PASS (100%)** |

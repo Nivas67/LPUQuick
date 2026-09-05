@@ -105,6 +105,23 @@ body {
     transition: background-color 0.4s ease, color 0.4s ease;
 }
 
+/* Material Symbols Outlined Icon Font Definition */
+.material-symbols-outlined {
+    font-family: 'Material Symbols Outlined', sans-serif !important;
+    font-weight: normal;
+    font-style: normal;
+    font-size: 20px;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
+}
+
 /* Prevent iOS Safari / Android Chrome Auto-Zoom */
 @media screen and (max-width: 768px) {
     input, select, textarea {
@@ -1269,9 +1286,9 @@ html.dark .map-pattern {
 }
 
 .category-rail-icon-box {
-    width: 2.75rem;
-    height: 2.75rem;
-    border-radius: 9999px;
+    width: 2.85rem;
+    height: 2.85rem;
+    border-radius: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1281,13 +1298,30 @@ html.dark .map-pattern {
     transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     margin-bottom: 0.25rem;
     flex-shrink: 0;
+    overflow: hidden;
+    position: relative;
 }
 
 @media (min-width: 640px) {
     .category-rail-icon-box {
-        width: 3.1rem;
-        height: 3.1rem;
+        width: 3.25rem;
+        height: 3.25rem;
+        border-radius: 16px;
     }
+}
+
+.category-rail-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 3px;
+    border-radius: 12px;
+    pointer-events: none;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.category-rail-item:hover .category-rail-img {
+    transform: scale(1.08);
 }
 
 .category-rail-emoji {
@@ -1322,11 +1356,11 @@ html.dark .map-pattern {
     }
 }
 
-/* Active Category State with Obvious Vertical Strip Indicator (Inspired by Reference 2) */
+/* Active Category State with Instamart/Blinkit Green Rail Indicator */
 .category-rail-item.active {
-    background: rgba(16, 185, 129, 0.12) !important;
-    border-color: rgba(16, 185, 129, 0.35) !important;
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.12), inset 0 1px 1px rgba(255, 255, 255, 0.95);
+    background: rgba(16, 185, 129, 0.1) !important;
+    border-color: rgba(16, 185, 129, 0.25) !important;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.12);
 }
 
 .category-rail-item .category-rail-indicator {
@@ -1337,39 +1371,73 @@ html.dark .map-pattern {
     display: block;
     position: absolute;
     right: 0;
-    top: 0.35rem;
-    bottom: 0.35rem;
-    width: 3.5px;
-    background: var(--brand-emerald);
+    top: 12%;
+    bottom: 12%;
+    width: 4px;
+    background: #10b981;
     border-radius: 4px 0 0 4px;
-    box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.7);
 }
 
 .category-rail-item.active .category-rail-icon-box {
-    background: var(--brand-emerald-gradient);
-    border-color: rgba(255, 255, 255, 0.45);
-    transform: scale(1.08);
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    background: rgba(16, 185, 129, 0.12) !important;
+    border-color: #10b981 !important;
+    box-shadow: 0 0 0 1.5px #10b981, 0 4px 12px rgba(16, 185, 129, 0.25) !important;
+    transform: scale(1.06);
 }
 
 .category-rail-item.active .category-rail-label {
-    color: var(--brand-emerald-dark);
+    color: #0f172a;
     font-weight: 800;
 }
 
 /* Dark Mode Adjustments for Category Rail */
-.dark .category-rail-item.active {
-    background: rgba(16, 185, 129, 0.16);
-    border-color: rgba(52, 211, 153, 0.35);
+body.dark .category-rail-icon-box,
+html.dark .category-rail-icon-box {
+    background: #1e2026;
+    border-color: rgba(255, 255, 255, 0.08);
 }
 
-.dark .category-rail-item.active .category-rail-label {
-    color: #34d399;
+body.dark .category-rail-item.active,
+html.dark .category-rail-item.active {
+    background: rgba(16, 185, 129, 0.15) !important;
+    border-color: rgba(52, 211, 153, 0.3) !important;
 }
 
-.dark .category-rail-item.active .category-rail-indicator {
-    background: #10b981;
-    box-shadow: 0 0 10px rgba(52, 211, 153, 0.65);
+body.dark .category-rail-item.active .category-rail-label,
+html.dark .category-rail-item.active .category-rail-label {
+    color: #ffffff !important;
+    font-weight: 800;
+}
+
+body.dark .category-rail-item .category-rail-label,
+html.dark .category-rail-item .category-rail-label {
+    color: #94a3b8;
+}
+
+body.dark .category-rail-item.active .category-rail-indicator,
+html.dark .category-rail-item.active .category-rail-indicator {
+    background: #22c55e;
+    box-shadow: 0 0 12px rgba(34, 197, 94, 0.85);
+}
+
+/* Filter & Sort Chips Bar */
+.filter-chip-btn {
+    transition: all 0.15s ease;
+    user-select: none;
+    white-space: nowrap;
+}
+.filter-chip-btn:hover {
+    border-color: rgba(16, 185, 129, 0.4);
+    transform: translateY(-1px);
+}
+.filter-chip-btn:active {
+    transform: scale(0.96);
+}
+
+/* Category Promo Banner (Cadbury Brownie Style) */
+.category-promo-banner {
+    transition: background 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Legacy Alias Classes for Complete Backward Compatibility with Existing Automated Tests */

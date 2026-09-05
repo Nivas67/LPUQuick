@@ -3,17 +3,149 @@ window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
 const STORE_CATEGORIES = [
-    { id: 'all', name: 'All', emoji: '🛒' },
-    { id: 'biscuits', name: 'Biscuits', emoji: '🍪' },
-    { id: 'chips', name: 'Chips', emoji: '🥔' },
-    { id: 'chocolates', name: 'Chocolates', emoji: '🍫' },
-    { id: 'candies', name: 'Candies', emoji: '🍬' },
-    { id: 'drinks', name: 'Drinks', emoji: '🥤' },
-    { id: 'instant', name: 'Instant Food', emoji: '🍜' },
-    { id: 'snacks', name: 'Snacks', emoji: '🍿' },
-    { id: 'juices', name: 'Juices', emoji: '🧃' },
-    { id: 'sweets', name: 'Sweets', emoji: '🍭' },
-    { id: 'others', name: 'Others', emoji: '📦' }
+    { 
+        id: 'all', 
+        name: 'All', 
+        emoji: '🛒', 
+        img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=160&auto=format&fit=crop&q=80',
+        banner: {
+            title: 'Campus Supermart',
+            subtitle: '50+ fresh snacks & daily essentials.',
+            tag: '3 MIN DELIVERY',
+            img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=320&auto=format&fit=crop&q=80',
+            bg: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #064e3b 100%)'
+        }
+    },
+    { 
+        id: 'biscuits', 
+        name: 'Biscuits', 
+        emoji: '🍪', 
+        img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_124633c4_1788463612432.jpg',
+        banner: {
+            title: 'Cadbury Brownie & Cookies',
+            subtitle: 'Gooey, Fudgy, Chocolatey.',
+            tag: 'TOP CRUNCH',
+            img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_124633c4_1788463612432.jpg',
+            bg: 'linear-gradient(135deg, #2b0938 0%, #4a154b 50%, #6b1d5c 100%)'
+        }
+    },
+    { 
+        id: 'chips', 
+        name: 'Chips', 
+        emoji: '🥔', 
+        img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_73ad9ca2_1788463605585.webp',
+        banner: {
+            title: 'Mad Angles & Crisps',
+            subtitle: 'Tangy, Spicy & Loaded Crunch.',
+            tag: 'SNACK CRUNCH',
+            img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_73ad9ca2_1788463605585.webp',
+            bg: 'linear-gradient(135deg, #451a03 0%, #78350f 50%, #b45309 100%)'
+        }
+    },
+    { 
+        id: 'chocolates', 
+        name: 'Chocolates', 
+        emoji: '🍫', 
+        img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_e581ce64_1788463600537.jpg',
+        banner: {
+            title: 'Cadbury Silk & Bubbly',
+            subtitle: 'Gooey, Fudgy, Velvety Chocolate.',
+            tag: 'SWEET CRAVINGS',
+            img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_e581ce64_1788463600537.jpg',
+            bg: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)'
+        }
+    },
+    { 
+        id: 'candies', 
+        name: 'Candies', 
+        emoji: '🍬', 
+        img: 'https://images.unsplash.com/photo-1582058091505-f87a2e55a40f?w=160&auto=format&fit=crop&q=80',
+        banner: {
+            title: 'Sweet Toffees & Candies',
+            subtitle: 'Fruit Chews, Mints & Pops.',
+            tag: 'POCKET SWEETS',
+            img: 'https://images.unsplash.com/photo-1582058091505-f87a2e55a40f?w=320&auto=format&fit=crop&q=80',
+            bg: 'linear-gradient(135deg, #831843 0%, #be185d 50%, #db2777 100%)'
+        }
+    },
+    { 
+        id: 'drinks', 
+        name: 'Drinks', 
+        emoji: '🥤', 
+        img: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=160&auto=format&fit=crop&q=80',
+        banner: {
+            title: 'Ice Chilled Soft Drinks',
+            subtitle: 'Colas, Fizz & Energy Boosters.',
+            tag: 'CHILLED',
+            img: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=320&auto=format&fit=crop&q=80',
+            bg: 'linear-gradient(135deg, #082f49 0%, #0369a1 50%, #0284c7 100%)'
+        }
+    },
+    { 
+        id: 'instant', 
+        name: 'Instant Food', 
+        emoji: '🍜', 
+        img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/CUP_NOODLES_Mazedaar_masala__Delicious_Masala_Flavour__1788531084520.jpg',
+        banner: {
+            title: 'Cup Noodles & Maggi',
+            subtitle: 'Delicious Masala in 2 Minutes.',
+            tag: 'HOT MEALS',
+            img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/CUP_NOODLES_Mazedaar_masala__Delicious_Masala_Flavour__1788531084520.jpg',
+            bg: 'linear-gradient(135deg, #701a75 0%, #86198f 50%, #c026d3 100%)'
+        }
+    },
+    { 
+        id: 'snacks', 
+        name: 'Snacks', 
+        emoji: '🍿', 
+        img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_db41fad9_1788463611792.jpg',
+        banner: {
+            title: 'Tedhe Medhe & Munchies',
+            subtitle: 'Perfect Companion for Late Study.',
+            tag: 'CAMPUS MUNCH',
+            img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_db41fad9_1788463611792.jpg',
+            bg: 'linear-gradient(135deg, #14532d 0%, #166534 50%, #15803d 100%)'
+        }
+    },
+    { 
+        id: 'juices', 
+        name: 'Juices', 
+        emoji: '🧃', 
+        img: 'https://images.unsplash.com/photo-1600271886742-f049cd451bba?w=160&auto=format&fit=crop&q=80',
+        banner: {
+            title: 'Real Fruit Juices',
+            subtitle: '100% Fresh Pulpy Goodness.',
+            tag: 'REFRESH',
+            img: 'https://images.unsplash.com/photo-1600271886742-f049cd451bba?w=320&auto=format&fit=crop&q=80',
+            bg: 'linear-gradient(135deg, #7c2d12 0%, #9a3412 50%, #ea580c 100%)'
+        }
+    },
+    { 
+        id: 'sweets', 
+        name: 'Sweets', 
+        emoji: '🍭', 
+        img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/BRITANNIA_Gobbles_Cake_Fruity_Fun_100g_1788530879398.jpg',
+        banner: {
+            title: 'Britannia Gobbles Cake',
+            subtitle: 'Fruity Fun & Soft Sponge Delights.',
+            tag: 'SWEET BITES',
+            img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/BRITANNIA_Gobbles_Cake_Fruity_Fun_100g_1788530879398.jpg',
+            bg: 'linear-gradient(135deg, #831843 0%, #9d174d 50%, #f43f5e 100%)'
+        }
+    },
+    { 
+        id: 'others', 
+        name: 'Others', 
+        emoji: '📦', 
+        img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_78de005c_1788463606110.jpg',
+        banner: {
+            title: 'Popcorn & Essentials',
+            subtitle: 'Theater-Style Caramel Crunch.',
+            tag: 'QUICK SNACKS',
+            img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_78de005c_1788463606110.jpg',
+            bg: 'linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%)'
+        }
+    }
 ];
 
 function classifyProductCategory(p) {
@@ -67,61 +199,90 @@ function buildProductCardsHTML(items, isAboveFold = false) {
         const catTag = classifyProductCategory(p);
 
         return `
-        <div class="product-card-item product-detail-trigger p-2.5 sm:p-3.5 flex flex-col justify-between cursor-pointer group ${isOutOfStock ? 'opacity-75' : ''}" data-product-id="${p.id}" data-category="${catTag}" data-out-of-stock="${isOutOfStock}">
+        <div class="product-card-item product-detail-trigger p-2.5 sm:p-3 flex flex-col justify-between cursor-pointer group ${isOutOfStock ? 'opacity-75' : ''}" 
+             data-product-id="${p.id}" 
+             data-category="${catTag}" 
+             data-out-of-stock="${isOutOfStock}"
+             data-veg="${p.is_veg !== 0 ? '1' : '0'}"
+             data-price="${p.price}">
             <div>
-                <!-- 3D Recessed Pedestal with Category Ambient Glow -->
-                <div class="card-pedestal h-36 sm:h-40 rounded-2xl relative overflow-hidden flex items-center justify-center p-3 mb-3 border border-[var(--glass-border)]">
-                    <!-- Veg indicator -->
-                    <div class="absolute top-2.5 left-2.5 z-10 bg-white/95 dark:bg-slate-900/90 p-1 rounded-lg shadow-sm border border-[var(--glass-border)]">
+                <!-- 3D Recessed Pedestal with Packshot Display -->
+                <div class="card-pedestal h-36 sm:h-40 rounded-2xl relative overflow-hidden flex items-center justify-center p-2.5 mb-2.5 border border-[var(--glass-border)]">
+                    <!-- Veg indicator (🟢 green dot inside square) -->
+                    <div class="absolute bottom-2 right-2 z-10 bg-white/95 dark:bg-slate-900/90 p-0.5 rounded-md shadow-xs border border-emerald-600/40">
                         <span class="w-3.5 h-3.5 border ${p.is_veg !== 0 ? 'border-emerald-600' : 'border-rose-600'} rounded-xs flex items-center justify-center p-[1px]">
                             <span class="w-1.5 h-1.5 rounded-full ${p.is_veg !== 0 ? 'bg-emerald-600' : 'bg-rose-600'}"></span>
                         </span>
                     </div>
 
-                    <!-- Floating Specular Discount Badge -->
-                    ${discountPercent > 0 ? `
-                    <div class="liquid-badge absolute top-2.5 right-2.5 z-10 text-[10px] font-black px-2.5 py-0.5 shadow-sm">
+                    <!-- Wishlist Heart Outline -->
+                    <button type="button" class="wishlist-btn absolute top-2 right-2 z-10 w-7 h-7 rounded-full bg-white/85 dark:bg-slate-900/85 backdrop-blur-xs flex items-center justify-center text-slate-400 hover:text-rose-500 transition-colors shadow-xs" title="Save to favorites" onclick="event.stopPropagation(); this.classList.toggle('text-rose-500');">
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                    </button>
+
+                    <!-- Floating Tag: "Bought Earlier" or Discount Badge -->
+                    ${idx === 1 ? `
+                    <div class="absolute top-2 left-2 z-10 bg-teal-600 text-white text-[9px] font-black px-2 py-0.5 rounded-md shadow-xs uppercase tracking-wider">
+                        Bought Earlier
+                    </div>
+                    ` : (discountPercent > 0 ? `
+                    <div class="liquid-badge absolute top-2 left-2 z-10 text-[9px] font-black px-2 py-0.5 shadow-xs">
                         ${discountPercent}% OFF
                     </div>
-                    ` : ''}
+                    ` : '')}
+
+                    <!-- Delivery ETA badge -->
+                    <div class="absolute bottom-2 left-2 z-10 flex items-center gap-1 bg-slate-900/85 dark:bg-slate-800/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md backdrop-blur-xs">
+                        <svg class="w-2.5 h-2.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                        <span>8m</span>
+                    </div>
 
                     <!-- Stock Status Badge -->
                     ${isLowStock ? `
-                    <div class="absolute bottom-2.5 left-2.5 z-10 bg-amber-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                    <div class="absolute top-2 left-2 z-10 bg-amber-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm">
                         Only ${stockLeft} left
                     </div>
                     ` : (isOutOfStock ? `
-                    <div class="absolute bottom-2.5 left-2.5 z-10 bg-rose-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                    <div class="absolute top-2 left-2 z-10 bg-rose-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm">
                         Out of Stock
                     </div>
                     ` : '')}
 
-                    <img class="object-contain w-full h-full group-hover:scale-110 transition-transform duration-300" 
+                    <img class="object-contain w-full h-full group-hover:scale-105 transition-transform duration-300" 
                          src="${p.image_url}" 
                          alt="${p.name}" 
                          width="150" 
                          height="150" 
                          ${isLcpCandidate ? 'fetchpriority="high"' : 'loading="lazy"'} 
                          decoding="async" 
-                         onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300&auto=format&q=75'">
+                         onerror="this.onerror=null; this.src='/logo.png';">
                 </div>
 
                 <!-- Pack Size Pill -->
-                <span class="clay-pill text-[10px] font-semibold text-slate-500 dark:text-slate-400 px-2 py-0.5 inline-block mb-1.5">
-                    ${p.size || p.unit || '1 unit'}
+                <span class="clay-pill text-[10px] font-semibold text-slate-500 dark:text-slate-400 px-2 py-0.5 inline-block mb-1">
+                    ${p.size || p.unit || '1 pack'}
                 </span>
 
                 <!-- Title -->
                 <h3 class="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 line-clamp-2 leading-snug min-h-[34px] group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                     ${p.name}
                 </h3>
+
+                <!-- Rating line (Instamart style) -->
+                <div class="flex items-center gap-1 mt-1 text-[10px] text-slate-500 dark:text-slate-400 font-semibold">
+                    <span class="text-amber-500 font-bold">★ 4.8</span>
+                    <span>(40k+)</span>
+                </div>
             </div>
 
             <!-- Bottom Price & Tactile Action Slot -->
-            <div class="mt-2 sm:mt-3 pt-2 sm:pt-2.5 border-t border-[var(--glass-border)] flex items-center justify-between gap-1.5 sm:gap-2">
+            <div class="mt-2 sm:mt-2.5 pt-2 border-t border-[var(--glass-border)] flex items-center justify-between gap-1.5">
                 <div class="flex flex-col min-w-0">
-                    <span class="text-xs sm:text-base font-black text-slate-900 dark:text-white tracking-tight truncate">₹${p.price}</span>
-                    ${p.mrp && p.mrp > p.price ? `<span class="text-[9px] sm:text-[10px] text-slate-400 font-medium line-through">₹${p.mrp}</span>` : ''}
+                    <div class="flex items-baseline gap-1">
+                        <span class="text-xs sm:text-base font-black text-slate-900 dark:text-white tracking-tight">₹${p.price}</span>
+                        ${p.mrp && p.mrp > p.price ? `<span class="text-[9px] sm:text-[10px] text-slate-400 line-through">₹${p.mrp}</span>` : ''}
+                    </div>
+                    ${discountPercent > 0 ? `<span class="text-[8px] sm:text-[9px] font-bold text-cyan-600 dark:text-cyan-400">${discountPercent}% OFF on MRP</span>` : ''}
                 </div>
 
                 <div class="product-action-slot" data-id="${p.id}" data-out-of-stock="${isOutOfStock}" data-stock-left="${stockLeft}">
@@ -485,7 +646,7 @@ window.pages.home = async function() {
         <section class="pt-1 space-y-3" id="shop-catalog-section">
             <div class="flex items-start gap-2 sm:gap-4 lg:gap-6 pt-1">
                 <!-- Unified Modern Left Vertical Category Rail (Mobile & Desktop) -->
-                <aside class="w-[68px] sm:w-20 md:w-24 shrink-0 sticky top-16 md:top-20 z-10" id="category-rail-container">
+                <aside class="w-[72px] sm:w-20 md:w-24 shrink-0 sticky top-16 md:top-20 z-10" id="category-rail-container">
                     <nav class="vertical-category-rail max-h-[calc(100dvh-5rem)] overflow-y-auto no-scrollbar py-1 space-y-1" id="vertical-category-rail">
                         ${STORE_CATEGORIES.map(c => `
                         <button type="button" 
@@ -495,9 +656,10 @@ window.pages.home = async function() {
                             <!-- Active Indicator Strip on the right edge -->
                             <span class="category-rail-indicator"></span>
 
-                            <!-- Circular Category Icon -->
+                            <!-- Squircle Category Icon with Real Packshot Image -->
                             <div class="category-rail-icon-box">
-                                <span class="category-rail-emoji select-none">${c.emoji}</span>
+                                <img src="${c.img}" alt="${c.name}" class="category-rail-img" loading="eager" decoding="async" onerror="this.classList.add('hidden'); if(this.nextElementSibling) this.nextElementSibling.classList.remove('hidden');">
+                                <span class="category-rail-emoji select-none ${c.img ? 'hidden' : ''}">${c.emoji}</span>
                             </div>
 
                             <!-- Category Name Beneath -->
@@ -509,9 +671,66 @@ window.pages.home = async function() {
 
                 <!-- Right: Products Catalog Grid & Category Active View -->
                 <div class="flex-1 w-full min-w-0 space-y-3 sm:space-y-4">
+                    <!-- Filter & Sort Chips Row (Filters, Sort, Veg Only, Express) -->
+                    <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 filter-sort-chips-bar" id="catalog-filters-bar">
+                        <!-- Filters Chip -->
+                        <button type="button" class="filter-chip-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold clay-pill cursor-pointer shrink-0" id="filter-chip-toggle">
+                            <svg class="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
+                            <span>Filters</span>
+                            <span class="text-[10px] text-slate-400">▾</span>
+                        </button>
+
+                        <!-- Sort Select Chip -->
+                        <div class="relative shrink-0 flex items-center">
+                            <select id="catalog-sort-select" class="filter-chip-btn flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold clay-pill bg-transparent cursor-pointer appearance-none pr-6 text-slate-800 dark:text-slate-200">
+                                <option value="relevance">⇅ Sort: Popular</option>
+                                <option value="price_asc">Price: Low to High</option>
+                                <option value="price_desc">Price: High to Low</option>
+                                <option value="name">Name: A to Z</option>
+                            </select>
+                            <svg class="w-3.5 h-3.5 absolute right-2 pointer-events-none text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+
+                        <!-- Veg Preference Chip -->
+                        <button type="button" class="filter-chip-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold clay-pill cursor-pointer shrink-0" id="catalog-veg-filter-btn">
+                            <span class="w-3.5 h-3.5 border border-emerald-600 rounded-xs flex items-center justify-center p-[1px] bg-white dark:bg-slate-900">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                            </span>
+                            <span>Veg Only</span>
+                        </button>
+
+                        <!-- Express 3m Chip -->
+                        <button type="button" class="filter-chip-btn flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold clay-pill cursor-pointer shrink-0 text-emerald-600 dark:text-emerald-400" id="catalog-express-chip">
+                            <svg class="w-3.5 h-3.5 text-emerald-500" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+                            <span>Fast Delivery</span>
+                        </button>
+                    </div>
+
+                    <!-- Category Promo Banner (Cadbury Brownie Style) -->
+                    <div class="category-promo-banner rounded-2xl p-3 sm:p-4 text-white relative overflow-hidden flex items-center justify-between shadow-md" 
+                         id="category-promo-banner" 
+                         style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #064e3b 100%);">
+                        <div class="space-y-1 z-10 max-w-[65%]">
+                            <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/15 backdrop-blur-md text-[9px] font-black tracking-wider uppercase">
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                                <span id="promo-badge-text">CAMPUS FAVORITE</span>
+                            </div>
+                            <h3 class="text-sm sm:text-base font-black tracking-tight" id="promo-title">Campus Supermart</h3>
+                            <p class="text-[11px] sm:text-xs text-emerald-200 line-clamp-1 font-medium" id="promo-subtitle">50+ fresh snacks & daily essentials.</p>
+                            <div class="pt-1">
+                                <a href="#home-main-products-grid" class="inline-block px-3.5 py-1 rounded-full bg-white text-slate-900 text-[11px] sm:text-xs font-black hover:bg-slate-100 transition-transform active:scale-95 shadow-xs cursor-pointer" id="promo-shop-now-btn">
+                                    Shop now
+                                </a>
+                            </div>
+                        </div>
+                        <div class="relative w-24 h-18 sm:w-32 sm:h-22 shrink-0 flex items-center justify-center">
+                            <img src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=320&auto=format&fit=crop&q=80" alt="Featured" class="max-h-full max-w-full object-contain drop-shadow-xl" id="promo-image">
+                        </div>
+                    </div>
+
                     <!-- Active Category Header Card -->
-                    <div class="glass-panel rounded-2xl p-2.5 sm:p-3.5 px-3 sm:px-4.5 border border-[var(--glass-border)] flex items-center justify-between shadow-xs">
-                        <div class="flex items-center gap-2.5 sm:gap-3">
+                    <div class="glass-panel rounded-2xl p-2.5 sm:p-3 px-3 sm:px-4 border border-[var(--glass-border)] flex items-center justify-between shadow-xs">
+                        <div class="flex items-center gap-2.5">
                             <span class="text-xl sm:text-2xl select-none" id="active-category-emoji">🛒</span>
                             <div>
                                 <h2 class="text-xs sm:text-base font-black text-slate-900 dark:text-white tracking-tight" id="active-category-title">All Products</h2>
@@ -524,7 +743,7 @@ window.pages.home = async function() {
                     </div>
 
                     <!-- In-Stock Product Grid -->
-                    <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-4" id="home-main-products-grid">
+                    <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3.5" id="home-main-products-grid">
                         ${inStockProductCards || `
                         <div class="col-span-full py-12 text-center flex flex-col items-center justify-center glass-card rounded-3xl p-6">
                             <span class="material-symbols-outlined text-4xl text-emerald mb-2">storefront</span>
@@ -688,26 +907,48 @@ window.pageInits.home = function() {
     let currentCategory = 'all';
     let currentSearchQuery = '';
 
+    let isVegOnly = false;
+    let currentSort = 'relevance';
+
     function applyFilters() {
         if (!mainGrid) return;
         const query = currentSearchQuery.trim().toLowerCase();
-        const cards = mainGrid.querySelectorAll('.product-card-item');
+        const cards = Array.from(mainGrid.querySelectorAll('.product-card-item'));
         let visibleCount = 0;
 
         cards.forEach(card => {
             const cardCat = card.dataset.category;
             const title = (card.querySelector('h3')?.textContent || '').toLowerCase();
+            const isVeg = card.dataset.veg === '1';
             
             const matchesCategory = (currentCategory === 'all' || cardCat === currentCategory);
             const matchesSearch = (!query || title.includes(query));
+            const matchesVeg = (!isVegOnly || isVeg);
 
-            if (matchesCategory && matchesSearch) {
+            if (matchesCategory && matchesSearch && matchesVeg) {
                 card.classList.remove('hidden');
                 visibleCount++;
             } else {
                 card.classList.add('hidden');
             }
         });
+
+        // Handle Sorting if user selected a sort option
+        if (currentSort !== 'relevance') {
+            const visibleCards = cards.filter(c => !c.classList.contains('hidden'));
+            visibleCards.sort((a, b) => {
+                const priceA = parseFloat(a.dataset.price || 0);
+                const priceB = parseFloat(b.dataset.price || 0);
+                const nameA = (a.querySelector('h3')?.textContent || '').toLowerCase();
+                const nameB = (b.querySelector('h3')?.textContent || '').toLowerCase();
+
+                if (currentSort === 'price_asc') return priceA - priceB;
+                if (currentSort === 'price_desc') return priceB - priceA;
+                if (currentSort === 'name') return nameA.localeCompare(nameB);
+                return 0;
+            });
+            visibleCards.forEach(card => mainGrid.appendChild(card));
+        }
 
         const emptyState = document.getElementById('category-empty-state');
         const emptyEmoji = document.getElementById('empty-state-emoji');
@@ -731,20 +972,22 @@ window.pageInits.home = function() {
                 if (emptyTitle) {
                     if (query) {
                         emptyTitle.textContent = `No items matching "${query}" in ${catObj.name}`;
+                    } else if (isVegOnly) {
+                        emptyTitle.textContent = `No vegetarian items in ${catObj.name}.`;
                     } else {
                         emptyTitle.textContent = `No ${catObj.name.toLowerCase()} available right now.`;
                     }
                 }
-                if (emptyDesc) emptyDesc.textContent = 'Check another category.';
+                if (emptyDesc) emptyDesc.textContent = 'Check another category or turn off Veg Only.';
             }
         } else {
             if (emptyState) emptyState.classList.add('hidden');
         }
 
-        // Toggle secondary shelves: only visible when 'all' and no search
+        // Toggle secondary shelves: only visible when 'all' and no search/veg filter
         const shelves = document.querySelectorAll('.category-secondary-shelf');
         shelves.forEach(s => {
-            if (currentCategory === 'all' && !query) {
+            if (currentCategory === 'all' && !query && !isVegOnly) {
                 s.classList.remove('hidden');
             } else {
                 s.classList.add('hidden');
@@ -780,6 +1023,23 @@ window.pageInits.home = function() {
                 : `Showing ${catObj.name} in BH13 Campus Hub`;
         }
 
+        // Update Promo Banner (Cadbury Brownie Style)
+        const promoBanner = document.getElementById('category-promo-banner');
+        const promoTitle = document.getElementById('promo-title');
+        const promoSubtitle = document.getElementById('promo-subtitle');
+        const promoBadge = document.getElementById('promo-badge-text');
+        const promoImg = document.getElementById('promo-image');
+        if (catObj?.banner) {
+            if (promoBanner) promoBanner.style.background = catObj.banner.bg;
+            if (promoTitle) promoTitle.textContent = catObj.banner.title;
+            if (promoSubtitle) promoSubtitle.textContent = catObj.banner.subtitle;
+            if (promoBadge) promoBadge.textContent = catObj.banner.tag;
+            if (promoImg) {
+                promoImg.src = catObj.banner.img;
+                promoImg.alt = catObj.banner.title;
+            }
+        }
+
         applyFilters();
 
         // On mobile, scroll to catalog section if user tapped category
@@ -799,6 +1059,42 @@ window.pageInits.home = function() {
             if (catId) selectCategory(catId);
         };
     });
+
+    // Bind Veg Only Filter Chip
+    const vegBtn = document.getElementById('catalog-veg-filter-btn');
+    if (vegBtn) {
+        vegBtn.onclick = () => {
+            isVegOnly = !isVegOnly;
+            vegBtn.classList.toggle('active-filter', isVegOnly);
+            if (isVegOnly) {
+                vegBtn.style.background = 'rgba(16, 185, 129, 0.18)';
+                vegBtn.style.borderColor = '#10b981';
+                vegBtn.style.color = '#10b981';
+            } else {
+                vegBtn.style.background = '';
+                vegBtn.style.borderColor = '';
+                vegBtn.style.color = '';
+            }
+            applyFilters();
+        };
+    }
+
+    // Bind Sort Dropdown Chip
+    const sortSelect = document.getElementById('catalog-sort-select');
+    if (sortSelect) {
+        sortSelect.onchange = (e) => {
+            currentSort = e.target.value;
+            applyFilters();
+        };
+    }
+
+    // Bind Filter toggle chip
+    const filterChipToggle = document.getElementById('filter-chip-toggle');
+    if (filterChipToggle) {
+        filterChipToggle.onclick = () => {
+            if (vegBtn) vegBtn.click();
+        };
+    }
 
     // Shelf "See all" click triggers
     document.querySelectorAll('.home-shelf-link').forEach(link => {
