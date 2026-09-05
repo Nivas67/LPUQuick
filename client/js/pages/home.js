@@ -316,96 +316,162 @@ window.pages.home = async function() {
             <div id="mobile-search-dropdown" class="hidden absolute top-12 left-0 w-full glass-panel rounded-2xl shadow-2xl z-50 max-h-80 overflow-y-auto p-2"></div>
         </section>
 
-        <!-- ============================================================
-             NEXT-GEN HERO BENTO GRID (4 Distinct Interactive Campus Tiles)
+        <!-- ====================        <!-- ============================================================
+             NEXT-GEN PROMOTIONAL BANNER CAROUSEL (SWIPEABLE & AUTO-SLIDING)
              ============================================================ -->
-        <section class="bento-grid">
-            <!-- Bento Tile 1: Primary Campus Express Corridor -->
-            <div class="bento-tile col-span-12 lg:col-span-8 p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden group" style="background: radial-gradient(ellipse at 80% 20%, rgba(16, 185, 129, 0.25), transparent 60%), linear-gradient(135deg, rgba(6, 78, 59, 0.95), rgba(4, 120, 87, 0.85)); color: #fff;">
-                <div class="absolute -right-12 -bottom-12 w-64 h-64 bg-emerald-400/20 rounded-full blur-3xl pointer-events-none group-hover:scale-125 transition-transform duration-700"></div>
-                
-                <div class="space-y-3 z-10">
-                    <div class="flex items-center gap-2 flex-wrap">
-                        <span class="clay-pill px-3 py-0.5 text-[10px] font-black text-emerald-300 bg-black/30 border border-emerald-400/30 flex items-center gap-1.5">
-                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                            <span>BH13 GROUND FLOOR DISPATCH HUB</span>
-                        </span>
-                        <span class="liquid-badge text-[10px] font-black px-2.5 py-0.5 shadow-sm">
-                            ⚡ 3-MIN ROOM DROP
-                        </span>
-                    </div>
+        <section class="hero-carousel-container relative" id="hero-banner-carousel">
+            <!-- Left & Right Arrow Navigation (Visible on laptop / desktop hover) -->
+            <button type="button" class="hero-carousel-arrow hero-carousel-prev hidden sm:flex" id="carousel-prev-btn" aria-label="Previous Slide">
+                <span class="material-symbols-outlined text-lg">chevron_left</span>
+            </button>
+            <button type="button" class="hero-carousel-arrow hero-carousel-next hidden sm:flex" id="carousel-next-btn" aria-label="Next Slide">
+                <span class="material-symbols-outlined text-lg">chevron_right</span>
+            </button>
 
-                    <h1 class="text-xl sm:text-3xl font-black text-white tracking-tight leading-tight max-w-lg">
-                        Corridor Express Snacks, Iced Drinks & Study Munchies
-                    </h1>
-                    <p class="text-xs sm:text-sm text-emerald-100/90 font-medium max-w-md leading-relaxed">
-                        Order instant noodles, chilled Red Bull, crunchy chips and essentials delivered right to your hostel door in 3 minutes.
-                    </p>
+            <!-- Carousel Slides Track -->
+            <div class="hero-carousel-track" id="carousel-track">
+                <!-- Slide 1: 3-Min Lightning Delivery -->
+                <div class="hero-carousel-slide" style="background: radial-gradient(ellipse at 85% 20%, rgba(16, 185, 129, 0.4), transparent 65%), linear-gradient(135deg, #064e3b 0%, #047857 60%, #059669 100%);">
+                    <div class="space-y-2 max-w-lg z-10">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="clay-pill px-3 py-0.5 text-[10px] font-black text-emerald-300 bg-black/30 border border-emerald-400/30 flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                                <span>BH13 GROUND HUB</span>
+                            </span>
+                            <span class="liquid-badge text-[10px] font-black px-2.5 py-0.5 shadow-sm">
+                                ⚡ 3-MIN ROOM DROP
+                            </span>
+                        </div>
+                        <h2 class="text-lg sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight">
+                            Corridor Express Snacks & Munchies
+                        </h2>
+                        <p class="text-xs sm:text-sm text-emerald-100/90 font-medium leading-relaxed max-w-md">
+                            Instant noodles, chilled drinks, and snacks delivered right to your hostel room door in 3 minutes.
+                        </p>
+                    </div>
+                    <div class="pt-3 z-10 flex items-center gap-2">
+                        <a href="#/categories" class="clay-btn bg-white text-emerald-950 font-black text-xs px-4 py-2 rounded-full inline-flex items-center gap-1 shadow-md hover:scale-105 active:scale-95 transition-transform">
+                            <span>Browse Snacks</span>
+                            <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                        </a>
+                        <a href="#/flow-assist" class="clay-pill bg-white/15 text-white font-bold text-xs px-3.5 py-2 rounded-full inline-flex items-center gap-1 hover:bg-white/25 transition-all">
+                            <span class="material-symbols-outlined text-xs text-amber-300">auto_awesome</span>
+                            <span>AI Assistant</span>
+                        </a>
+                    </div>
                 </div>
 
-                <div class="mt-6 flex items-center gap-3 z-10 flex-wrap">
-                    <a href="#/categories" class="clay-btn bg-white hover:bg-white/95 text-emerald-900 font-black text-xs px-5 py-2.5 rounded-full transition-transform active:scale-95 inline-flex items-center gap-1.5 shadow-lg">
-                        <span>Browse Categories</span>
-                        <span class="material-symbols-outlined text-sm">arrow_forward</span>
-                    </a>
-                    <a href="#/flow-assist" class="clay-pill bg-white/10 hover:bg-white/20 text-white font-bold text-xs px-4 py-2.5 rounded-full border border-white/25 transition-all inline-flex items-center gap-1.5 backdrop-blur-md active:scale-95">
-                        <span class="material-symbols-outlined text-sm text-amber-300">auto_awesome</span>
-                        <span>AI Munchies Assistant</span>
-                    </a>
+                <!-- Slide 2: Midnight Cravings & Combos -->
+                <div class="hero-carousel-slide" style="background: radial-gradient(ellipse at 85% 20%, rgba(168, 85, 247, 0.45), transparent 65%), linear-gradient(135deg, #3b0764 0%, #581c87 60%, #7e22ce 100%);">
+                    <div class="space-y-2 max-w-lg z-10">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="clay-pill px-3 py-0.5 text-[10px] font-black text-purple-300 bg-black/30 border border-purple-400/30 flex items-center gap-1.5">
+                                <span class="material-symbols-outlined text-xs">dark_mode</span>
+                                <span>MIDNIGHT FUEL</span>
+                            </span>
+                            <span class="liquid-badge text-[10px] font-black px-2.5 py-0.5 shadow-sm">
+                                🌙 TILL 3 AM
+                            </span>
+                        </div>
+                        <h2 class="text-lg sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight">
+                            Late Night Study & Gaming Fuel
+                        </h2>
+                        <p class="text-xs sm:text-sm text-purple-100/90 font-medium leading-relaxed max-w-md">
+                            Hot Maggi, cold drinks, chocolate bars, and crunchy chips ready for your night grind.
+                        </p>
+                    </div>
+                    <div class="pt-3 z-10 flex items-center gap-2">
+                        <a href="#/categories" class="clay-btn bg-white text-purple-950 font-black text-xs px-4 py-2 rounded-full inline-flex items-center gap-1 shadow-md hover:scale-105 active:scale-95 transition-transform">
+                            <span>Explore Combos</span>
+                            <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Slide 3: 100% Free Campus Delivery -->
+                <div class="hero-carousel-slide" style="background: radial-gradient(ellipse at 85% 20%, rgba(245, 158, 11, 0.4), transparent 65%), linear-gradient(135deg, #78350f 0%, #b45309 60%, #d97706 100%);">
+                    <div class="space-y-2 max-w-lg z-10">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="clay-pill px-3 py-0.5 text-[10px] font-black text-amber-200 bg-black/30 border border-amber-400/30 flex items-center gap-1.5">
+                                <span class="material-symbols-outlined text-xs">local_shipping</span>
+                                <span>CAMPUS PERK</span>
+                            </span>
+                            <span class="liquid-badge text-[10px] font-black px-2.5 py-0.5 shadow-sm">
+                                🎉 ₹0 DELIVERY FEE
+                            </span>
+                        </div>
+                        <h2 class="text-lg sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight">
+                            Zero Delivery Fees On Every Order
+                        </h2>
+                        <p class="text-xs sm:text-sm text-amber-100/90 font-medium leading-relaxed max-w-md">
+                            No convenience charges, no minimum order traps. 100% calm commerce delivery.
+                        </p>
+                    </div>
+                    <div class="pt-3 z-10 flex items-center gap-2">
+                        <a href="#shop-catalog-section" class="clay-btn bg-white text-amber-950 font-black text-xs px-4 py-2 rounded-full inline-flex items-center gap-1 shadow-md hover:scale-105 active:scale-95 transition-transform">
+                            <span>Shop Now</span>
+                            <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Slide 4: 100% Private & Discreet Packaging -->
+                <div class="hero-carousel-slide" style="background: radial-gradient(ellipse at 85% 20%, rgba(6, 182, 212, 0.4), transparent 65%), linear-gradient(135deg, #083344 0%, #0e7490 60%, #06b6d4 100%);">
+                    <div class="space-y-2 max-w-lg z-10">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="clay-pill px-3 py-0.5 text-[10px] font-black text-cyan-200 bg-black/30 border border-cyan-400/30 flex items-center gap-1.5">
+                                <span class="material-symbols-outlined text-xs">shield</span>
+                                <span>100% PRIVATE</span>
+                            </span>
+                            <span class="liquid-badge text-[10px] font-black px-2.5 py-0.5 shadow-sm">
+                                🔒 HOSTEL SAFE
+                            </span>
+                        </div>
+                        <h2 class="text-lg sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight">
+                            Discreet Tamper-Proof Room Drop
+                        </h2>
+                        <p class="text-xs sm:text-sm text-cyan-100/90 font-medium leading-relaxed max-w-md">
+                            All hostel orders sealed in opaque bags for privacy and peace of mind.
+                        </p>
+                    </div>
+                    <div class="pt-3 z-10 flex items-center gap-2">
+                        <a href="#shop-catalog-section" class="clay-btn bg-white text-cyan-950 font-black text-xs px-4 py-2 rounded-full inline-flex items-center gap-1 shadow-md hover:scale-105 active:scale-95 transition-transform">
+                            <span>Order Confidentially</span>
+                            <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                        </a>
+                    </div>
                 </div>
             </div>
 
-            <!-- Bento Tile 2: Midnight Cravings & Combos -->
-            <div class="bento-tile col-span-12 sm:col-span-6 lg:col-span-4 p-5 sm:p-6 flex flex-col justify-between relative overflow-hidden" style="background: radial-gradient(circle at 90% 10%, rgba(168, 85, 247, 0.25), transparent 70%), var(--glass-bg);">
-                <div class="space-y-2">
-                    <div class="clay-pill px-2.5 py-0.5 text-[9px] font-black text-purple-600 dark:text-purple-400 bg-purple-500/10 border border-purple-500/25 inline-flex items-center gap-1">
-                        <span class="material-symbols-outlined text-xs">dark_mode</span>
-                        <span>MIDNIGHT FUEL</span>
-                    </div>
-                    <h2 class="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight leading-snug">
-                        Late Night Study & Gaming Combos
-                    </h2>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                        Maggi + Cold Drink combos ready for your night grind.
-                    </p>
-                </div>
-                <div class="pt-4">
-                    <a href="#/categories" class="clay-btn text-purple-700 dark:text-purple-300 text-xs font-bold px-4 py-2 rounded-full inline-flex items-center gap-1 active:scale-95 transition-transform shadow-xs">
-                        <span>View Combos</span>
-                        <span class="material-symbols-outlined text-xs">arrow_forward</span>
-                    </a>
-                </div>
+            <!-- Bottom Pagination Dots -->
+            <div class="hero-carousel-dots" id="carousel-dots">
+                <button type="button" class="hero-carousel-dot active" data-slide-index="0" aria-label="Slide 1"></button>
+                <button type="button" class="hero-carousel-dot" data-slide-index="1" aria-label="Slide 2"></button>
+                <button type="button" class="hero-carousel-dot" data-slide-index="2" aria-label="Slide 3"></button>
+                <button type="button" class="hero-carousel-dot" data-slide-index="3" aria-label="Slide 4"></button>
             </div>
+        </section>
 
-            <!-- Bento Tile 3: Flat ₹0 Delivery Fee Guarantee -->
-            <div class="bento-tile col-span-12 sm:col-span-6 lg:col-span-6 p-5 sm:p-6 flex items-center justify-between gap-4" style="background: radial-gradient(circle at 10% 50%, rgba(245, 158, 11, 0.18), transparent 70%), var(--glass-bg);">
+        <!-- Bento Highlights Row (Flat ₹0 & Discreet Packaging) -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div class="bento-tile p-4 sm:p-5 flex items-center justify-between gap-3" style="background: radial-gradient(circle at 10% 50%, rgba(245, 158, 11, 0.18), transparent 70%), var(--glass-bg);">
                 <div class="space-y-1">
-                    <span class="liquid-badge text-[9px] font-black px-2 py-0.5">CAMPUS EXCLUSIVE</span>
-                    <h3 class="text-sm sm:text-base font-black text-slate-900 dark:text-white tracking-tight">
-                        Zero Delivery Fees Forever
-                    </h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                        No convenience charges, no minimum order traps.
-                    </p>
+                    <span class="liquid-badge text-[9px] font-black px-2 py-0.5">CAMPUS PERK</span>
+                    <h3 class="text-sm font-black text-slate-900 dark:text-white tracking-tight">Zero Delivery Fees Forever</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Free 3-minute delivery to any room.</p>
                 </div>
-                <div class="w-12 h-12 rounded-2xl clay-card text-amber-500 flex items-center justify-center shrink-0 shadow-md">
-                    <span class="material-symbols-outlined text-2xl">local_shipping</span>
+                <div class="w-10 h-10 rounded-2xl clay-card text-amber-500 flex items-center justify-center shrink-0 shadow-xs">
+                    <span class="material-symbols-outlined text-xl">local_shipping</span>
                 </div>
             </div>
-
-            <!-- Bento Tile 4: Discreet Hostel Packaging -->
-            <div class="bento-tile col-span-12 lg:col-span-6 p-5 sm:p-6 flex items-center justify-between gap-4" style="background: radial-gradient(circle at 90% 50%, rgba(6, 182, 212, 0.18), transparent 70%), var(--glass-bg);">
+            <div class="bento-tile p-4 sm:p-5 flex items-center justify-between gap-3" style="background: radial-gradient(circle at 90% 50%, rgba(6, 182, 212, 0.18), transparent 70%), var(--glass-bg);">
                 <div class="space-y-1">
                     <span class="clay-pill px-2.5 py-0.5 text-[9px] font-bold text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 border border-cyan-500/25">100% PRIVATE</span>
-                    <h3 class="text-sm sm:text-base font-black text-slate-900 dark:text-white tracking-tight">
-                        Discreet Tamper-Proof Bags
-                    </h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                        All hostel orders sealed in opaque bags for privacy.
-                    </p>
+                    <h3 class="text-sm font-black text-slate-900 dark:text-white tracking-tight">Discreet Opaque Packaging</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Sealed bags for complete privacy.</p>
                 </div>
-                <div class="w-12 h-12 rounded-2xl clay-card text-cyan-500 flex items-center justify-center shrink-0 shadow-md">
-                    <span class="material-symbols-outlined text-2xl">shield</span>
+                <div class="w-10 h-10 rounded-2xl clay-card text-cyan-500 flex items-center justify-center shrink-0 shadow-xs">
+                    <span class="material-symbols-outlined text-xl">shield</span>
                 </div>
             </div>
         </section>
@@ -496,10 +562,17 @@ window.pages.home = async function() {
                         ${isPersonalizedBuyAgain ? `<span class="liquid-badge text-[10px] font-bold px-2.5 py-0.5">Your Favorites</span>` : `<span class="clay-pill text-[10px] font-bold px-2 py-0.5">Popular</span>`}
                     </h2>
                     <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">1-tap re-add to cart</p>
+                <div class="flex items-center gap-1.5 sm:gap-2">
+                    <span class="text-xs text-slate-400 font-semibold hidden sm:inline">Scroll →</span>
+                    <button type="button" class="shelf-scroll-btn shelf-scroll-left w-7 h-7 rounded-full clay-card flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-emerald transition-transform active:scale-90 shadow-xs cursor-pointer" title="Scroll left">
+                        <span class="material-symbols-outlined text-sm">chevron_left</span>
+                    </button>
+                    <button type="button" class="shelf-scroll-btn shelf-scroll-right w-7 h-7 rounded-full clay-card flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-emerald transition-transform active:scale-90 shadow-xs cursor-pointer" title="Scroll right">
+                        <span class="material-symbols-outlined text-sm">chevron_right</span>
+                    </button>
                 </div>
-                <span class="text-xs text-slate-400 font-semibold">Swipe →</span>
             </div>
-            <div class="flex overflow-x-auto gap-3 sm:gap-4 no-scrollbar pb-2 snap-x">${buyAgainCards}</div>
+            <div class="flex overflow-x-auto gap-3 sm:gap-4 no-scrollbar pb-2 snap-x shelf-scroll-track horizontal-slider">${buyAgainCards}</div>
         </section>
         ` : ''}
 
@@ -778,6 +851,142 @@ window.pageInits.home = function() {
             const searchInput = document.getElementById('desktop-search') || document.getElementById('mobile-search');
             if (searchInput) searchInput.focus();
         }
+    });
+
+    // ============================================================
+    // HERO PROMOTIONAL BANNER CAROUSEL CONTROLLER (SWIPE, ARROWS, AUTO-PLAY)
+    // ============================================================
+    const carouselTrack = document.getElementById('carousel-track');
+    const carouselContainer = document.getElementById('hero-banner-carousel');
+    const prevBtn = document.getElementById('carousel-prev-btn');
+    const nextBtn = document.getElementById('carousel-next-btn');
+    const dots = document.querySelectorAll('.hero-carousel-dot');
+    const totalSlides = 4;
+    let currentSlide = 0;
+    let autoSlideInterval = null;
+
+    function updateCarouselView() {
+        if (!carouselTrack) return;
+        carouselTrack.style.transform = `translateX(-${currentSlide * 100}%)`;
+        dots.forEach((d, idx) => {
+            if (idx === currentSlide) {
+                d.classList.add('active');
+            } else {
+                d.classList.remove('active');
+            }
+        });
+    }
+
+    function nextSlide() {
+        currentSlide = (currentSlide + 1) % totalSlides;
+        updateCarouselView();
+    }
+
+    function prevSlide() {
+        currentSlide = (currentSlide - 1 + totalSlides) % totalSlides;
+        updateCarouselView();
+    }
+
+    function startAutoSlide() {
+        stopAutoSlide();
+        autoSlideInterval = setInterval(nextSlide, 4500);
+    }
+
+    function stopAutoSlide() {
+        if (autoSlideInterval) {
+            clearInterval(autoSlideInterval);
+            autoSlideInterval = null;
+        }
+    }
+
+    if (carouselContainer && carouselTrack) {
+        startAutoSlide();
+
+        // Pause on mouseenter, resume on mouseleave (laptop / desktop)
+        carouselContainer.addEventListener('mouseenter', stopAutoSlide);
+        carouselContainer.addEventListener('mouseleave', startAutoSlide);
+
+        // Arrow buttons
+        if (prevBtn) {
+            prevBtn.onclick = (e) => {
+                e.preventDefault();
+                prevSlide();
+                startAutoSlide();
+            };
+        }
+        if (nextBtn) {
+            nextBtn.onclick = (e) => {
+                e.preventDefault();
+                nextSlide();
+                startAutoSlide();
+            };
+        }
+
+        // Dot buttons
+        dots.forEach(dot => {
+            dot.onclick = () => {
+                const targetIdx = Number(dot.dataset.slideIndex);
+                if (!isNaN(targetIdx)) {
+                    currentSlide = targetIdx;
+                    updateCarouselView();
+                    startAutoSlide();
+                }
+            };
+        });
+
+        // Touch & Swipe Support (Mobile & Touch Laptops)
+        let touchStartX = 0;
+        let touchEndX = 0;
+        carouselContainer.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            stopAutoSlide();
+        }, { passive: true });
+
+        carouselContainer.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].clientX;
+            const diffX = touchEndX - touchStartX;
+            if (Math.abs(diffX) > 40) {
+                if (diffX < 0) nextSlide();
+                else prevSlide();
+            }
+            startAutoSlide();
+        }, { passive: true });
+
+        // Mouse Drag Support (Laptops & Desktops)
+        let isMouseDown = false;
+        let mouseStartX = 0;
+        carouselContainer.addEventListener('mousedown', (e) => {
+            isMouseDown = true;
+            mouseStartX = e.clientX;
+        });
+
+        window.addEventListener('mouseup', (e) => {
+            if (!isMouseDown) return;
+            isMouseDown = false;
+            const mouseDiffX = e.clientX - mouseStartX;
+            if (Math.abs(mouseDiffX) > 50) {
+                if (mouseDiffX < 0) nextSlide();
+                else prevSlide();
+                startAutoSlide();
+            }
+        });
+    }
+
+    // ============================================================
+    // SHELF SCROLL CONTROLS (LAPTOP & DESKTOP SMOOTH SCROLL)
+    // ============================================================
+    document.querySelectorAll('.shelf-scroll-btn').forEach(btn => {
+        btn.onclick = () => {
+            const shelf = btn.closest('.category-secondary-shelf');
+            if (!shelf) return;
+            const track = shelf.querySelector('.shelf-scroll-track') || shelf.querySelector('.overflow-x-auto');
+            if (!track) return;
+            const isLeft = btn.classList.contains('shelf-scroll-left');
+            track.scrollBy({
+                left: isLeft ? -260 : 260,
+                behavior: 'smooth'
+            });
+        };
     });
 
     // Initial filter apply
