@@ -518,10 +518,10 @@ router.get('/admin/metrics', requireAdmin, async (req, res) => {
 router.get('/admin/delivery-staff', requireAdmin, async (req, res) => {
     try {
         const staff = await supabaseDb.staff.getAllStaff();
-        // Filter staff who have delivery_person or owner or store_manager roles
+        // Filter staff who have delivery_person or owner roles
         const deliveryStaff = staff.filter(s => 
             s.account_status === 'ACTIVE' && 
-            (s.roles.includes('delivery_person') || s.roles.includes('store_manager') || s.is_owner)
+            ((Array.isArray(s.roles) && (s.roles.includes('delivery_person') || s.roles.includes('owner'))) || Boolean(s.is_owner) || s.id === 'user_admin_bh13')
         );
 
         // Get currently active orders to calculate active load count per runner
@@ -848,64 +848,13 @@ router.get('/delivery-earnings', async (req, res) => {
 
         const now = new Date();
         const todayStr = formatISTDate(now);
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
         const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
         const fullMonthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
         const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
-        // 1. Calculate Platform-Wide Today Stats
-        const todayOrdersAll = allOrders.filter(o => {
-            if (!o.created_at || formatISTDate(o.created_at) !== todayStr) return false;
-            if (statsStartTs > 0 && new Date(o.created_at).getTime() < statsStartTs) return false;
-            return true;
-        });
-        const todayCompletedAll = todayOrdersAll.filter(o => isCompleted(o.status)).length;
-        const todayPendingAll = todayOrdersAll.filter(o => isPending(o.status)).length;
-        const todayCancelledAll = todayOrdersAll.filter(o => isCancelled(o.status)).length;
-        const todayPlatformPayout = todayCompletedAll * RATE_PER_ORDER;
-
-        // 2. Real-World Shift Breakdown for Platform & Partner Hub
-        const currentShiftId = getCurrentISTShiftId();
-        const shiftsDef = [
-            { id: 'morning', title: 'Morning Shift', hours: '08:00 AM – 02:00 PM', icon: 'wb_sunny' },
-            { id: 'evening', title: 'Evening Rush', hours: '02:00 PM – 08:00 PM', icon: 'solar_power' },
-            { id: 'night', title: 'Night Express', hours: '08:00 PM – 02:00 AM', icon: 'nightlight' },
-            { id: 'late_night', title: 'Late Night Overtime', hours: '02:00 AM – 08:00 AM', icon: 'bedtime' }
-        ];
-
-        const shiftsSummary = shiftsDef.map(s => {
-            const sOrders = todayOrdersAll.filter(o => getShiftInfo(o.created_at).id === s.id);
-            const comp = sOrders.filter(o => isCompleted(o.status)).length;
-            const pend = sOrders.filter(o => isPending(o.status)).length;
-            const canc = sOrders.filter(o => isCancelled(o.status)).length;
-            return {
-                id: s.id,
-                title: s.title,
-                hours: s.hours,
-                icon: s.icon,
-                is_current: s.id === currentShiftId,
-                completed_today: comp,
-                pending_today: pend,
-                cancelled_today: canc,
-                earned_wage: comp * RATE_PER_ORDER,
-                total_orders: sOrders.length
-            };
-        });
-
-        // 3. Calculate Platform-Wide Monthly Stats
-        const currentYear = now.getFullYear();
-        const currentMonth = now.getMonth();
-        const monthOrdersAll = allOrders.filter(o => {
-            if (!o.created_at) return false;
-            if (statsStartTs > 0 && new Date(o.created_at).getTime() < statsStartTs) return false;
-            const d = new Date(o.created_at);
-            return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
-        });
-        const monthCompletedAll = monthOrdersAll.filter(o => isCompleted(o.status)).length;
-        const monthPlatformExpense = monthCompletedAll * RATE_PER_ORDER;
-        const daysElapsedInMonth = Math.max(1, now.getDate());
-        const avgDeliveriesPerDayAll = (monthCompletedAll / daysElapsedInMonth).toFixed(1);
-
-        // 4. Load Staff and Build Partner Overview Roster
+        // 1. Load Staff and Build Delivery Partner Map
         let staffList = [];
         try {
             staffList = await supabaseDb.staff.getAllStaff();
@@ -914,15 +863,20 @@ router.get('/delivery-earnings', async (req, res) => {
         }
 
         const partnerMap = new Map();
-        // Register delivery staff from DB
+        // Register delivery staff from DB: strictly ACTIVE accounts with delivery_person or owner roles
         (Array.isArray(staffList) ? staffList : []).forEach(s => {
-            const hasDeliveryRole = (Array.isArray(s.roles) && (s.roles.includes('delivery_person') || s.roles.includes('store_manager'))) || s.is_owner;
+            const hasDeliveryRole = s.account_status === 'ACTIVE' && (
+                (Array.isArray(s.roles) && (s.roles.includes('delivery_person') || s.roles.includes('owner'))) ||
+                Boolean(s.is_owner) ||
+                s.id === 'user_admin_bh13' ||
+                s.email === 'admin@lpu.in'
+            );
             if (hasDeliveryRole) {
                 partnerMap.set(s.id, {
                     partner_id: s.id,
                     partner_name: s.name || 'Campus Partner',
                     phone: s.phone || 'N/A',
-                    is_owner: Boolean(s.is_owner),
+                    is_owner: Boolean(s.is_owner || (Array.isArray(s.roles) && s.roles.includes('owner')) || s.id === 'user_admin_bh13'),
                     today_deliveries: 0,
                     today_wage: 0.00,
                     monthly_deliveries: 0,
@@ -935,86 +889,75 @@ router.get('/delivery-earnings', async (req, res) => {
             }
         });
 
-        // Also gather distinct riders from actual order delivery assignments
-        allOrders.forEach(o => {
-            const meta = supabaseDb.orders.parseDeliveryMeta(o.rider_name);
-            const riderId = meta.assigned_to || (typeof o.rider_name === 'string' && o.rider_name.trim() && !o.rider_name.startsWith('{') ? o.rider_name.trim() : null);
-            const riderName = meta.name || meta.assigned_to_name || (typeof o.rider_name === 'string' && !o.rider_name.startsWith('{') ? o.rider_name : 'Campus Partner');
-
-            if (riderId && !partnerMap.has(riderId)) {
-                partnerMap.set(riderId, {
-                    partner_id: riderId,
-                    partner_name: riderName,
-                    phone: 'N/A',
-                    is_owner: false,
-                    today_deliveries: 0,
-                    today_wage: 0.00,
-                    monthly_deliveries: 0,
-                    monthly_payout: 0.00,
-                    total_completed: 0,
-                    availability_status: getRiderStatus(riderId),
-                    primary_shift: 'Night Express (08:00 PM – 02:00 AM)',
-                    shift_deliveries: { morning: 0, evening: 0, night: 0, late_night: 0 }
-                });
+        // Helper: Match an order to an assigned delivery partner (by ID, metadata, or known staff alias)
+        const findDeliveryPartner = (order) => {
+            if (!order) return null;
+            const meta = supabaseDb.orders.parseDeliveryMeta(order.rider_name);
+            if (meta.assigned_to && partnerMap.has(meta.assigned_to)) {
+                return partnerMap.get(meta.assigned_to);
             }
-        });
+            const candidateStrings = [
+                meta.name,
+                meta.assigned_to_name,
+                typeof order.rider_name === 'string' && !order.rider_name.startsWith('{') ? order.rider_name.trim() : null
+            ].filter(Boolean).map(s => s.toLowerCase());
 
-        // If partner map is still empty, populate standard default campus partner
-        if (partnerMap.size === 0) {
-            partnerMap.set('default_partner', {
-                partner_id: 'RIDER_BH13_01',
-                partner_name: 'BH13 Fast Runner',
-                phone: '+91 98765 43210',
-                is_owner: false,
-                today_deliveries: 0,
-                today_wage: 0.00,
-                monthly_deliveries: 0,
-                monthly_payout: 0.00,
-                total_completed: 0,
-                availability_status: getRiderStatus('RIDER_BH13_01'),
-                primary_shift: 'Night Express (08:00 PM – 02:00 AM)',
-                shift_deliveries: { morning: 0, evening: 0, night: 0, late_night: 0 }
-            });
-        }
+            if (candidateStrings.length === 0) return null;
 
-        // Tally deliveries, shifts and wages for each partner
+            for (const p of partnerMap.values()) {
+                const staffObj = (staffList || []).find(s => s.id === p.partner_id);
+                const pName = p.partner_name.toLowerCase();
+                const pEmailPrefix = staffObj && staffObj.email ? staffObj.email.split('@')[0].toLowerCase() : '';
+                
+                for (const cand of candidateStrings) {
+                    if (cand === pName || (pEmailPrefix && cand === pEmailPrefix) || pName.includes(cand)) {
+                        return p;
+                    }
+                    if (p.partner_id === 'admin_5dcb05eba7' && (cand.includes('flash') || cand.includes('jash'))) {
+                        return p;
+                    }
+                    if (p.partner_id === 'admin_214ff5d346' && (cand.includes('jhony') || cand.includes('yogesh'))) {
+                        return p;
+                    }
+                    if (p.is_owner && (cand.includes('jiguru') || cand.includes('nivas') || cand === 'owner')) {
+                        return p;
+                    }
+                }
+            }
+            return null;
+        };
+
+        // Real-World Shift Breakdown for Platform & Partner Hub
+        const currentShiftId = getCurrentISTShiftId();
+        const shiftsDef = [
+            { id: 'morning', title: 'Morning Shift', hours: '08:00 AM – 02:00 PM', icon: 'wb_sunny' },
+            { id: 'evening', title: 'Evening Rush', hours: '02:00 PM – 08:00 PM', icon: 'solar_power' },
+            { id: 'night', title: 'Night Express', hours: '08:00 PM – 02:00 AM', icon: 'nightlight' },
+            { id: 'late_night', title: 'Late Night Overtime', hours: '02:00 AM – 08:00 AM', icon: 'bedtime' }
+        ];
+
+        // 2. Tally deliveries, shifts and wages for each assigned partner
         allOrders.forEach(o => {
             if (!isCompleted(o.status)) return;
             if (statsStartTs > 0 && o.created_at && new Date(o.created_at).getTime() < statsStartTs) return;
-            const meta = supabaseDb.orders.parseDeliveryMeta(o.rider_name);
-            const riderId = meta.assigned_to || (typeof o.rider_name === 'string' && o.rider_name.trim() && !o.rider_name.startsWith('{') ? o.rider_name.trim() : null);
-            const riderName = meta.name || meta.assigned_to_name || (typeof o.rider_name === 'string' && !o.rider_name.startsWith('{') ? o.rider_name.trim() : null);
-            
-            let targetPartner = null;
-            if (riderId && partnerMap.has(riderId)) {
-                targetPartner = partnerMap.get(riderId);
-            } else if (riderName) {
-                const lowerName = riderName.toLowerCase();
-                for (const p of partnerMap.values()) {
-                    if (p.partner_name.toLowerCase() === lowerName) {
-                        targetPartner = p;
-                        break;
-                    }
-                }
+            const targetPartner = findDeliveryPartner(o);
+            if (!targetPartner) return; // Order was not completed by an assigned delivery staff member
+
+            targetPartner.total_completed += 1;
+            const shiftInfo = getShiftInfo(o.created_at);
+            if (targetPartner.shift_deliveries && targetPartner.shift_deliveries[shiftInfo.id] !== undefined) {
+                targetPartner.shift_deliveries[shiftInfo.id] += 1;
             }
 
-            if (targetPartner) {
-                targetPartner.total_completed += 1;
-                const shiftInfo = getShiftInfo(o.created_at);
-                if (targetPartner.shift_deliveries && targetPartner.shift_deliveries[shiftInfo.id] !== undefined) {
-                    targetPartner.shift_deliveries[shiftInfo.id] += 1;
+            const oDate = o.created_at ? new Date(o.created_at) : null;
+            if (oDate) {
+                if (formatISTDate(oDate) === todayStr) {
+                    targetPartner.today_deliveries += 1;
+                    targetPartner.today_wage = targetPartner.today_deliveries * RATE_PER_ORDER;
                 }
-
-                const oDate = o.created_at ? new Date(o.created_at) : null;
-                if (oDate) {
-                    if (formatISTDate(oDate) === todayStr) {
-                        targetPartner.today_deliveries += 1;
-                        targetPartner.today_wage = targetPartner.today_deliveries * RATE_PER_ORDER;
-                    }
-                    if (oDate.getFullYear() === currentYear && oDate.getMonth() === currentMonth) {
-                        targetPartner.monthly_deliveries += 1;
-                        targetPartner.monthly_payout = targetPartner.monthly_deliveries * RATE_PER_ORDER;
-                    }
+                if (oDate.getFullYear() === currentYear && oDate.getMonth() === currentMonth) {
+                    targetPartner.monthly_deliveries += 1;
+                    targetPartner.monthly_payout = targetPartner.monthly_deliveries * RATE_PER_ORDER;
                 }
             }
         });
@@ -1054,39 +997,82 @@ router.get('/delivery-earnings', async (req, res) => {
         const ownerStaff = (Array.isArray(staffList) ? staffList : []).find(s => s.is_owner || (Array.isArray(s.roles) && s.roles.includes('owner')));
         const ownerId = req.query.ownerId || ownerStaff?.id || 'user_admin_bh13';
         const ownerName = req.query.ownerName || ownerStaff?.name || 'Nivas Naidu';
-        const ownerNames = [ownerName, 'nivas naidu', 'owner'].map(s => s.toLowerCase());
+
+        // 3. Base Fleet Orders: Orders handled by any assigned delivery partner
+        const fleetOrdersAll = allOrders.filter(o => findDeliveryPartner(o) !== null);
+
+        // Calculate Platform-Wide Today Stats (from fleet orders)
+        const todayOrdersAll = fleetOrdersAll.filter(o => {
+            if (!o.created_at || formatISTDate(o.created_at) !== todayStr) return false;
+            if (statsStartTs > 0 && new Date(o.created_at).getTime() < statsStartTs) return false;
+            return true;
+        });
+        const todayCompletedAll = todayOrdersAll.filter(o => isCompleted(o.status)).length;
+        const todayPendingAll = todayOrdersAll.filter(o => isPending(o.status)).length;
+        const todayCancelledAll = todayOrdersAll.filter(o => isCancelled(o.status)).length;
+        const todayPlatformPayout = todayCompletedAll * RATE_PER_ORDER;
+
+        const shiftsSummary = shiftsDef.map(s => {
+            const sOrders = todayOrdersAll.filter(o => getShiftInfo(o.created_at).id === s.id);
+            const comp = sOrders.filter(o => isCompleted(o.status)).length;
+            const pend = sOrders.filter(o => isPending(o.status)).length;
+            const canc = sOrders.filter(o => isCancelled(o.status)).length;
+            return {
+                id: s.id,
+                title: s.title,
+                hours: s.hours,
+                icon: s.icon,
+                is_current: s.id === currentShiftId,
+                completed_today: comp,
+                pending_today: pend,
+                cancelled_today: canc,
+                earned_wage: comp * RATE_PER_ORDER,
+                total_orders: sOrders.length
+            };
+        });
+
+        // Platform-Wide Monthly Stats
+        const monthOrdersAll = fleetOrdersAll.filter(o => {
+            if (!o.created_at) return false;
+            if (statsStartTs > 0 && new Date(o.created_at).getTime() < statsStartTs) return false;
+            const d = new Date(o.created_at);
+            return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+        });
+        const monthCompletedAll = monthOrdersAll.filter(o => isCompleted(o.status)).length;
+        const monthPlatformExpense = monthCompletedAll * RATE_PER_ORDER;
+        const daysElapsedInMonth = Math.max(1, now.getDate());
+        const avgDeliveriesPerDayAll = (monthCompletedAll / daysElapsedInMonth).toFixed(1);
 
         // 4. Filter Orders by Selected Rider / Owner ('mine') / Individual Runner
-        let filteredOrders = allOrders;
-        if (statsStartTs > 0 && req.query.includeHistorical !== 'true') {
-            filteredOrders = filteredOrders.filter(o => o.created_at && new Date(o.created_at).getTime() >= statsStartTs);
+        let baseOrders = fleetOrdersAll;
+        if (statsStartTs > 0 && req.query.includeHistorical !== 'true' && req.query.allTime !== 'true') {
+            baseOrders = baseOrders.filter(o => o.created_at && new Date(o.created_at).getTime() >= statsStartTs);
         }
-        let selectedRiderName = 'All Delivery Staff';
+
+        let filteredOrders = [];
+        let selectedRiderName = 'All Delivery Fleet';
 
         if (selectedRiderId === 'mine') {
             selectedRiderName = `${ownerName} (Owner - My Deliveries)`;
-            filteredOrders = allOrders.filter(o => {
-                const meta = supabaseDb.orders.parseDeliveryMeta(o.rider_name);
-                const rId = meta.assigned_to;
-                const rName = (meta.name || meta.assigned_to_name || '').toLowerCase();
-                const raw = typeof o.rider_name === 'string' && !o.rider_name.startsWith('{') ? o.rider_name.trim().toLowerCase() : '';
-                return (rId && rId === ownerId) ||
-                       (rName && (rName === ownerId.toLowerCase() || ownerNames.includes(rName))) ||
-                       (raw && (raw === ownerId.toLowerCase() || ownerNames.includes(raw)));
+            filteredOrders = baseOrders.filter(o => {
+                const partner = findDeliveryPartner(o);
+                return partner && partner.is_owner;
             });
         } else if (selectedRiderId && selectedRiderId !== 'all') {
             const targetPartner = partnerMap.get(selectedRiderId);
-            selectedRiderName = targetPartner ? targetPartner.partner_name : selectedRiderId;
-            const targetNameLower = targetPartner ? targetPartner.partner_name.toLowerCase() : selectedRiderId.toLowerCase();
-            filteredOrders = allOrders.filter(o => {
-                const meta = supabaseDb.orders.parseDeliveryMeta(o.rider_name);
-                const rId = meta.assigned_to;
-                const rName = (meta.name || meta.assigned_to_name || '').toLowerCase();
-                const raw = typeof o.rider_name === 'string' && !o.rider_name.startsWith('{') ? o.rider_name.trim().toLowerCase() : '';
-                return (rId && rId === selectedRiderId) ||
-                       (rName && (rName === selectedRiderId.toLowerCase() || rName === targetNameLower)) ||
-                       (raw && (raw === selectedRiderId.toLowerCase() || raw === targetNameLower));
-            });
+            if (targetPartner) {
+                selectedRiderName = targetPartner.partner_name;
+                filteredOrders = baseOrders.filter(o => {
+                    const partner = findDeliveryPartner(o);
+                    return partner && partner.partner_id === selectedRiderId;
+                });
+            } else {
+                selectedRiderName = 'Unassigned';
+                filteredOrders = [];
+            }
+        } else {
+            selectedRiderName = 'All Delivery Fleet';
+            filteredOrders = baseOrders;
         }
 
         // Apply Shift Filter if specified
@@ -1369,9 +1355,9 @@ router.get('/delivery-earnings', async (req, res) => {
                 total_daily_payout: todayPlatformPayout,
                 total_monthly_expense: monthPlatformExpense,
                 total_active_fleet: partnerMap.size,
-                total_completed_all_time: allOrders.filter(o => isCompleted(o.status)).length,
-                total_pending_all_time: allOrders.filter(o => isPending(o.status)).length,
-                total_cancelled_all_time: allOrders.filter(o => isCancelled(o.status)).length
+                total_completed_all_time: fleetOrdersAll.filter(o => isCompleted(o.status)).length,
+                total_pending_all_time: fleetOrdersAll.filter(o => isPending(o.status)).length,
+                total_cancelled_all_time: fleetOrdersAll.filter(o => isCancelled(o.status)).length
             } : {
                 restricted: true,
                 total_daily_payout: riderTodayEarnings,
@@ -1454,7 +1440,7 @@ router.get('/delivery-earnings', async (req, res) => {
 });
 
 // POST /api/orders/:orderId/claim (First-Come-First-Served Delivery Acceptance)
-router.post('/:orderId/claim', requireAdmin, async (req, res) => {
+router.post('/:orderId/claim', requireAdmin, requireRole('delivery_person'), async (req, res) => {
     const { orderId } = req.params;
     const adminId = req.admin.id;
     // Prefer explicit adminName passed from active staff profile, fallback to req.admin.name
@@ -1525,6 +1511,17 @@ router.post('/:orderId/transfer/request', requireAdmin, async (req, res) => {
     if (toAdminId === fromAdminId) {
         return res.status(400).json({ success: false, error: 'Cannot transfer an order to yourself' });
     }
+
+    try {
+        const toUser = await supabaseDb.users.getUserById(toAdminId);
+        if (toUser) {
+            const toRoles = resolveAdminRoles(toUser);
+            const hasDelivery = toRoles.includes('delivery_person') || toRoles.includes('owner') || Boolean(toUser.is_owner) || toUser.id === 'user_admin_bh13';
+            if (!hasDelivery) {
+                return res.status(400).json({ success: false, error: 'Selected recipient is not assigned the delivery role' });
+            }
+        }
+    } catch (e) {}
 
     if (!isRiderOnline(fromAdminId)) {
         return res.status(400).json({
@@ -1642,6 +1639,17 @@ router.post('/:orderId/transfer/direct', requireAdmin, requireRole('owner', 'sto
     if (!targetAdminId) {
         return res.status(400).json({ success: false, error: 'Target delivery person is required' });
     }
+
+    try {
+        const targetUser = await supabaseDb.users.getUserById(targetAdminId);
+        if (targetUser) {
+            const targetRoles = resolveAdminRoles(targetUser);
+            const hasDelivery = targetRoles.includes('delivery_person') || targetRoles.includes('owner') || Boolean(targetUser.is_owner) || targetUser.id === 'user_admin_bh13';
+            if (!hasDelivery) {
+                return res.status(400).json({ success: false, error: 'Selected staff member is not assigned the delivery role' });
+            }
+        }
+    } catch (e) {}
 
     if (!isRiderOnline(targetAdminId)) {
         return res.status(400).json({

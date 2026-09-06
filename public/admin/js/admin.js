@@ -2251,11 +2251,19 @@ function updateDrawerDispatchCard(order) {
             badge.textContent = '⚡ Unassigned Pool';
             badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300';
         }
-        if (nameEl) nameEl.textContent = 'No delivery person assigned. Any admin can accept delivery.';
+        const canAcceptDelivery = Boolean(currentAdminProfile && (
+            currentAdminProfile.is_owner || 
+            (Array.isArray(currentAdminProfile.roles) && (currentAdminProfile.roles.includes('delivery_person') || currentAdminProfile.roles.includes('owner')))
+        ));
+        if (nameEl) nameEl.textContent = canAcceptDelivery ? 'No delivery person assigned. You can accept this delivery.' : 'No delivery person assigned. Waiting for active courier.';
         if (timeEl) timeEl.textContent = 'Waiting for runner acceptance';
         if (btnClaim) {
-            btnClaim.classList.remove('hidden');
-            btnClaim.innerHTML = '<span class="material-symbols-outlined text-sm">electric_bolt</span><span>Accept Delivery</span>';
+            if (canAcceptDelivery) {
+                btnClaim.classList.remove('hidden');
+                btnClaim.innerHTML = '<span class="material-symbols-outlined text-sm">electric_bolt</span><span>Accept Delivery</span>';
+            } else {
+                btnClaim.classList.add('hidden');
+            }
         }
     }
 }
@@ -2410,14 +2418,22 @@ function filterOrders() {
         }
 
         // Action / Dispatch buttons column
+        const canAcceptDelivery = Boolean(currentAdminProfile && (
+            currentAdminProfile.is_owner || 
+            (Array.isArray(currentAdminProfile.roles) && (currentAdminProfile.roles.includes('delivery_person') || currentAdminProfile.roles.includes('owner')))
+        ));
         let actionButtonsHtml = '';
         if (!isDone && isUnassigned) {
-            actionButtonsHtml = `
+            actionButtonsHtml = canAcceptDelivery ? `
                 <button onclick="event.stopPropagation(); claimOrder('${o.id}')" 
                     class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs active:scale-95 transition-all flex items-center gap-1 ml-auto">
                     <span class="material-symbols-outlined text-sm">electric_bolt</span>
                     <span>Accept Delivery</span>
                 </button>
+            ` : `
+                <span class="inline-flex items-center px-2 py-1 rounded-md text-[11px] font-semibold text-slate-400 bg-slate-50 border border-slate-200 ml-auto">
+                    Awaiting Courier
+                </span>
             `;
         } else if (!isDone && isOfferedToMe) {
             actionButtonsHtml = `
@@ -3851,6 +3867,9 @@ function initRealtimeWebSocket() {
             }
             // Trigger immediate server sync to ensure all admins see fresh delivery data
             setTimeout(() => { syncOrdersLive(); }, 500);
+            if (activeView === 'delivery' || activeView === 'earnings') {
+                loadDeliveryEarnings();
+            }
         }
 
         function handleRealtimeTransferRequested(data) {
@@ -3898,6 +3917,9 @@ function initRealtimeWebSocket() {
             // Sync fresh data to confirm the transfer update
             if (data.accepted) {
                 setTimeout(() => { syncOrdersLive(); }, 500);
+            }
+            if (activeView === 'delivery' || activeView === 'earnings') {
+                loadDeliveryEarnings();
             }
         }
 
@@ -4074,6 +4096,9 @@ function handleRealtimeStatusUpdate(data) {
 
     if (activeView === 'orders') {
         filterOrders();
+    }
+    if (activeView === 'delivery' || activeView === 'earnings') {
+        loadDeliveryEarnings();
     }
 }
 
@@ -6177,6 +6202,11 @@ async function loadDeliveryEarnings(customStart, customEnd) {
                 <option value="${escapeHtml(currentAdminProfile?.id || data.selected_rider?.id || 'mine')}" selected>👤 My Deliveries (${escapeHtml(currentAdminProfile?.name || 'Rider')})</option>
             `;
             if (isOwner && Array.isArray(data.available_riders)) {
+                // Auto-reset if previously selected rider was revoked or no longer in active delivery fleet
+                const isValidSelection = earningsSelectedRider === 'all' || earningsSelectedRider === 'mine' || data.available_riders.some(r => r.id === earningsSelectedRider);
+                if (!isValidSelection) {
+                    earningsSelectedRider = 'all';
+                }
                 data.available_riders.forEach(r => {
                     const ownerTag = r.is_owner ? ' (Owner)' : '';
                     const runsTag = r.total_completed ? ` • ${r.total_completed} runs` : '';
