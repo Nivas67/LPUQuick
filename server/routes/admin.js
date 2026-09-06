@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const fs = require('fs');
+const path = require('path');
 const supabaseDb = require('../db/supabaseDb');
 const requireAdmin = require('../middleware/adminAuth');
 const { requireRole } = require('../middleware/adminAuth');
@@ -492,6 +494,190 @@ router.delete('/staff/:id', requireRole('owner'), async (req, res) => {
             metadata: { targetId: id }
         });
         res.json({ success: true, message: 'Staff member removed successfully' });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// ============================================================
+// ADVERTISEMENTS & PROMOTIONAL POSTERS (ADMIN PANEL)
+// ============================================================
+const BANNERS_DATA_FILE = path.join(__dirname, '..', 'data', 'banners.json');
+
+function loadAdminBannersData() {
+    try {
+        if (!fs.existsSync(BANNERS_DATA_FILE)) {
+            return {
+                banners: [],
+                settings: { autoplay_delay: 4500, autoplay_enabled: true }
+            };
+        }
+        const content = fs.readFileSync(BANNERS_DATA_FILE, 'utf8');
+        const parsed = JSON.parse(content);
+        if (!Array.isArray(parsed.banners)) parsed.banners = [];
+        if (!parsed.settings) parsed.settings = { autoplay_delay: 4500, autoplay_enabled: true };
+        return parsed;
+    } catch (err) {
+        console.error('[Admin Advertisements] Error reading banners data:', err);
+        return {
+            banners: [],
+            settings: { autoplay_delay: 4500, autoplay_enabled: true }
+        };
+    }
+}
+
+function saveAdminBannersData(data) {
+    try {
+        data.updated_at = new Date().toISOString();
+        fs.writeFileSync(BANNERS_DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
+        return true;
+    } catch (err) {
+        console.error('[Admin Advertisements] Error saving banners data:', err);
+        return false;
+    }
+}
+
+// GET /api/admin/advertisements - Fetch all promotional posters & carousel settings
+router.get('/advertisements', (req, res) => {
+    try {
+        const data = loadAdminBannersData();
+        res.json({
+            success: true,
+            posters: data.banners || [],
+            settings: data.settings || { autoplay_delay: 4500, autoplay_enabled: true }
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// POST /api/admin/advertisements - Create or Update a promotional poster
+router.post('/advertisements', requireRole('owner,store_manager'), (req, res) => {
+    try {
+        const { id, title, subtitle, badge, pill, link_url, link_text, image_url, is_full_poster, is_active, display_order, gradient } = req.body;
+        
+        if (!image_url && !title) {
+            return res.status(400).json({ success: false, error: 'Poster image or title is required' });
+        }
+
+        const data = loadAdminBannersData();
+        const now = new Date().toISOString();
+
+        if (id) {
+            // Update existing poster
+            const index = data.banners.findIndex(b => b.id === id);
+            if (index !== -1) {
+                data.banners[index] = {
+                    ...data.banners[index],
+                    title: title !== undefined ? title : data.banners[index].title || '',
+                    subtitle: subtitle !== undefined ? subtitle : data.banners[index].subtitle || '',
+                    badge: badge !== undefined ? badge : data.banners[index].badge || '',
+                    pill: pill !== undefined ? pill : data.banners[index].pill || '',
+                    link_url: link_url !== undefined ? link_url : data.banners[index].link_url || '#shop-catalog-section',
+                    link_text: link_text !== undefined ? link_text : data.banners[index].link_text || 'Shop Now',
+                    image_url: image_url !== undefined ? image_url : data.banners[index].image_url || '',
+                    is_full_poster: is_full_poster !== undefined ? Boolean(is_full_poster) : (data.banners[index].is_full_poster || false),
+                    is_active: is_active !== undefined ? Boolean(is_active) : (data.banners[index].is_active !== false),
+                    display_order: display_order !== undefined ? Number(display_order) : (data.banners[index].display_order || 1),
+                    gradient: gradient || data.banners[index].gradient || 'emerald',
+                    updated_at: now
+                };
+            } else {
+                data.banners.push({
+                    id,
+                    title: title || 'Campus Promotion',
+                    subtitle: subtitle || '',
+                    badge: badge || '⚡ SPECIAL PERK',
+                    pill: pill || 'CAMPUS DEALS',
+                    link_url: link_url || '#shop-catalog-section',
+                    link_text: link_text || 'Shop Now',
+                    image_url: image_url || '',
+                    is_full_poster: Boolean(is_full_poster),
+                    is_active: is_active !== undefined ? Boolean(is_active) : true,
+                    display_order: display_order !== undefined ? Number(display_order) : (data.banners.length + 1),
+                    gradient: gradient || 'emerald',
+                    created_at: now
+                });
+            }
+        } else {
+            // Create brand new poster
+            const newId = `poster_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+            data.banners.push({
+                id: newId,
+                title: title || 'Campus Promotion',
+                subtitle: subtitle || '',
+                badge: badge || '⚡ SPECIAL PERK',
+                pill: pill || 'CAMPUS DEALS',
+                link_url: link_url || '#shop-catalog-section',
+                link_text: link_text || 'Shop Now',
+                image_url: image_url || '',
+                is_full_poster: Boolean(is_full_poster),
+                is_active: is_active !== undefined ? Boolean(is_active) : true,
+                display_order: display_order !== undefined ? Number(display_order) : (data.banners.length + 1),
+                gradient: gradient || 'emerald',
+                created_at: now
+            });
+        }
+
+        // Keep sorted by display order
+        data.banners.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+
+        saveAdminBannersData(data);
+
+        res.json({
+            success: true,
+            message: 'Advertisement poster saved successfully',
+            posters: data.banners
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// DELETE /api/admin/advertisements/:id - Remove a poster
+router.delete('/advertisements/:id', requireRole('owner,store_manager'), (req, res) => {
+    try {
+        const { id } = req.params;
+        const data = loadAdminBannersData();
+        const initialCount = data.banners.length;
+        data.banners = data.banners.filter(b => b.id !== id);
+
+        if (data.banners.length === initialCount) {
+            return res.status(404).json({ success: false, error: 'Poster not found' });
+        }
+
+        saveAdminBannersData(data);
+        res.json({
+            success: true,
+            message: 'Advertisement poster removed successfully',
+            posters: data.banners
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// POST /api/admin/advertisements/settings - Update carousel delay and autoplay
+router.post('/advertisements/settings', requireRole('owner,store_manager'), (req, res) => {
+    try {
+        const { autoplay_delay, autoplay_enabled } = req.body;
+        const data = loadAdminBannersData();
+
+        if (autoplay_delay !== undefined) {
+            const delayNum = Math.max(1000, Math.min(30000, Number(autoplay_delay) || 4500));
+            data.settings.autoplay_delay = delayNum;
+        }
+
+        if (autoplay_enabled !== undefined) {
+            data.settings.autoplay_enabled = Boolean(autoplay_enabled);
+        }
+
+        saveAdminBannersData(data);
+        res.json({
+            success: true,
+            message: 'Carousel sliding settings updated',
+            settings: data.settings
+        });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }

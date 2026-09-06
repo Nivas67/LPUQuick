@@ -560,6 +560,7 @@ function switchView(viewName) {
             'blacklist': ['owner', 'store_manager'],
             'analytics': ['owner', 'store_manager'],
             'staff': ['owner'],
+            'advertisements': ['owner', 'store_manager'],
             'settings': ['owner']
         };
 
@@ -594,6 +595,7 @@ function switchView(viewName) {
         'blacklist': 'Blacklist & Fraud Prevention',
         'analytics': 'Business Analytics & Reports',
         'staff': 'Admin Team & Access Levels',
+        'advertisements': 'Promotional Advertisements & Posters',
         'settings': 'Store Settings'
     };
     document.getElementById('top-title').textContent = titles[viewName] || 'Dashboard';
@@ -607,6 +609,7 @@ function switchView(viewName) {
     else if (viewName === 'blacklist') loadBlacklistData();
     else if (viewName === 'analytics') loadAnalytics();
     else if (viewName === 'staff') loadStaffList();
+    else if (viewName === 'advertisements') loadAdvertisementsView();
 }
 
 // Master Live Real-Time Refresh Controller
@@ -650,6 +653,8 @@ async function refreshCurrentView() {
             promises.push(loadBlacklistData());
         } else if (activeView === 'analytics') {
             promises.push(loadAnalytics());
+        } else if (activeView === 'advertisements') {
+            promises.push(loadAdvertisementsView());
         }
 
         await Promise.allSettled(promises);
@@ -4913,5 +4918,867 @@ window.lockFinancialData = async function() {
 document.getElementById('btn-unlock-fin')?.addEventListener('click', () => window.openFinancialUnlockModal());
 document.getElementById('btn-configure-fin-pin')?.addEventListener('click', () => window.openFinancialSetupModal());
 document.getElementById('btn-manual-relock')?.addEventListener('click', () => window.lockFinancialData());
+
+// ============================================================
+// ADVERTISEMENTS & PROMOTIONAL POSTERS ENGINE (ADMIN PANEL)
+// ============================================================
+let adminPosters = [];
+let adminCarouselDelay = 4500;
+let adminCarouselAutoplay = true;
+let adminCurrentSlide = 0;
+let adminSlideInterval = null;
+let isCarouselHovered = false;
+
+const DEFAULT_ADMIN_POSTERS = [
+    {
+        id: 'banner_default_1',
+        title: 'Corridor Express Snacks & Munchies',
+        subtitle: 'Instant noodles, chilled drinks, and snacks delivered right to your hostel room door in 3 minutes.',
+        badge: '⚡ 3-MIN ROOM DROP',
+        pill: 'BH13 GROUND HUB',
+        link_url: '#shop-catalog-section',
+        link_text: 'Browse Snacks',
+        image_url: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80',
+        is_active: true,
+        display_order: 1
+    },
+    {
+        id: 'banner_default_2',
+        title: 'Late Night Study & Gaming Fuel',
+        subtitle: 'Hot Maggi, cold drinks, chocolate bars, and crunchy chips ready for your midnight grind.',
+        badge: '🌙 TILL 3 AM',
+        pill: 'MIDNIGHT FUEL',
+        link_url: '#shop-catalog-section',
+        link_text: 'Explore Combos',
+        image_url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&auto=format&fit=crop&q=80',
+        is_active: true,
+        display_order: 2
+    },
+    {
+        id: 'banner_default_3',
+        title: 'Zero Delivery Fees On Every Order',
+        subtitle: 'No convenience charges, no minimum order traps. 100% calm commerce delivery.',
+        badge: '🎉 ₹0 DELIVERY FEE',
+        pill: 'CAMPUS PERK',
+        link_url: '#shop-catalog-section',
+        link_text: 'Shop Now',
+        image_url: 'https://images.unsplash.com/photo-1607344645866-009c320c5ab8?w=800&auto=format&fit=crop&q=80',
+        is_active: true,
+        display_order: 3
+    },
+    {
+        id: 'banner_default_4',
+        title: 'Discreet Tamper-Proof Room Drop',
+        subtitle: 'All hostel orders sealed in opaque bags for privacy and peace of mind.',
+        badge: '🔒 HOSTEL SAFE',
+        pill: '100% PRIVATE',
+        link_url: '#shop-catalog-section',
+        link_text: 'Order Confidentially',
+        image_url: 'https://images.unsplash.com/photo-1526367790999-0150786686a2?w=800&auto=format&fit=crop&q=80',
+        is_active: true,
+        display_order: 4
+    }
+];
+
+function escapeHtmlStr(str) {
+    return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+async function loadAdvertisementsView() {
+    try {
+        let loaded = false;
+        try {
+            const res = await fetch('/api/admin/advertisements', {
+                headers: getAuthHeaders()
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.success && Array.isArray(data.posters)) {
+                    adminPosters = data.posters;
+                    if (data.settings) {
+                        if (data.settings.autoplay_delay) {
+                            adminCarouselDelay = Math.max(1000, Number(data.settings.autoplay_delay));
+                        }
+                        if (data.settings.autoplay_enabled !== undefined) {
+                            adminCarouselAutoplay = Boolean(data.settings.autoplay_enabled);
+                        }
+                    }
+                    loaded = true;
+                }
+            }
+        } catch (netErr) {
+            console.warn('[Advertisements] Network fetch failed, using local cache:', netErr);
+        }
+
+        if (!loaded) {
+            const cachedPosters = localStorage.getItem('lpuquick_admin_posters');
+            const cachedSettings = localStorage.getItem('lpuquick_admin_carousel_settings');
+            if (cachedPosters) {
+                try { adminPosters = JSON.parse(cachedPosters); } catch (e) {}
+            }
+            if (cachedSettings) {
+                try {
+                    const parsed = JSON.parse(cachedSettings);
+                    if (parsed.autoplay_delay) adminCarouselDelay = Number(parsed.autoplay_delay);
+                    if (parsed.autoplay_enabled !== undefined) adminCarouselAutoplay = Boolean(parsed.autoplay_enabled);
+                } catch (e) {}
+            }
+            if (!adminPosters || adminPosters.length === 0) {
+                adminPosters = JSON.parse(JSON.stringify(DEFAULT_ADMIN_POSTERS));
+            }
+        }
+
+        // Keep sorted by display order
+        adminPosters.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+
+        // Update Slider & Delay Badges
+        const slider = document.getElementById('admin-carousel-delay-slider');
+        const delayBadge = document.getElementById('admin-delay-display-badge');
+        const speedPill = document.getElementById('admin-carousel-speed-pill');
+        const delaySeconds = (adminCarouselDelay / 1000).toFixed(1);
+
+        if (slider) slider.value = delaySeconds;
+        if (delayBadge) delayBadge.textContent = `${delaySeconds} seconds`;
+        if (speedPill) speedPill.textContent = `⚡ ${delaySeconds}s delay`;
+
+        // Update Play/Pause icon
+        const playPauseIcon = document.getElementById('admin-carousel-playpause-icon');
+        if (playPauseIcon) {
+            playPauseIcon.textContent = adminCarouselAutoplay ? 'pause' : 'play_arrow';
+        }
+
+        // Update counts
+        const navBadge = document.getElementById('nav-ads-badge');
+        const countBadge = document.getElementById('admin-posters-count-badge');
+        const activeCount = adminPosters.filter(p => p.is_active !== false).length;
+        if (navBadge) navBadge.textContent = String(adminPosters.length);
+        if (countBadge) countBadge.textContent = `${adminPosters.length} poster${adminPosters.length === 1 ? '' : 's'} (${activeCount} active)`;
+
+        // Render Slides and Grid
+        renderAdminCarouselSlides();
+        renderAdminPostersGrid();
+
+        // Start Auto-sliding
+        adminCurrentSlide = 0;
+        updateAdminCarouselView();
+        startAdminCarouselAutoSlide();
+
+        // Attach hover & touch listeners once
+        initAdminCarouselGestures();
+    } catch (err) {
+        console.error('[Advertisements] Error loading advertisements view:', err);
+        showToast('Error loading advertisements: ' + err.message, 'warning');
+    }
+}
+
+function renderAdminCarouselSlides() {
+    const track = document.getElementById('admin-carousel-track');
+    const dotsContainer = document.getElementById('admin-carousel-dots');
+    if (!track) return;
+
+    const activePosters = adminPosters.filter(p => p.is_active !== false);
+
+    if (activePosters.length === 0) {
+        track.innerHTML = `
+            <div class="hero-carousel-slide flex-shrink-0 flex items-center justify-center p-8 text-center text-white"
+                style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; min-height: 220px; background: linear-gradient(135deg, #1e293b, #0f172a);">
+                <div class="space-y-2">
+                    <span class="material-symbols-outlined text-4xl text-emerald-400 animate-bounce">add_photo_alternate</span>
+                    <h3 class="text-lg font-bold">No Active Posters In Carousel</h3>
+                    <p class="text-xs text-slate-400 max-w-sm">Add or enable image posters below to display them here with live auto-sliding.</p>
+                    <button type="button" onclick="openPosterModal()" class="mt-2 px-4 py-1.5 rounded-full bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-500 shadow-md">
+                        + Add Image Poster
+                    </button>
+                </div>
+            </div>`;
+        if (dotsContainer) dotsContainer.innerHTML = '';
+        const counter = document.getElementById('admin-carousel-counter');
+        if (counter) counter.textContent = '0 Slides Active';
+        return;
+    }
+
+    // Render each slide
+    track.innerHTML = activePosters.map((poster, index) => {
+        const title = escapeHtmlStr(poster.title || 'Campus Promotion');
+        const pill = escapeHtmlStr(poster.pill || 'CAMPUS PERK');
+        const badge = escapeHtmlStr(poster.badge || '⚡ INSTANT DELIVERY');
+        const subtitle = escapeHtmlStr(poster.subtitle || '');
+        const linkText = escapeHtmlStr(poster.link_text || 'Shop Now');
+        const imageUrl = poster.image_url ? poster.image_url : '';
+
+        // Default background gradients if no image
+        const gradients = [
+            'linear-gradient(135deg, rgba(6, 78, 59, 0.96) 0%, rgba(4, 120, 87, 0.92) 50%, rgba(16, 185, 129, 0.88) 100%)',
+            'linear-gradient(135deg, rgba(88, 28, 135, 0.96) 0%, rgba(109, 40, 217, 0.92) 50%, rgba(139, 92, 246, 0.88) 100%)',
+            'linear-gradient(135deg, rgba(120, 53, 15, 0.96) 0%, rgba(180, 83, 9, 0.92) 50%, rgba(217, 119, 6, 0.88) 100%)',
+            'linear-gradient(135deg, rgba(8, 51, 68, 0.96) 0%, rgba(14, 116, 144, 0.92) 50%, rgba(6, 182, 212, 0.88) 100%)'
+        ];
+        const bgGradient = gradients[index % gradients.length];
+
+        return `
+            <div class="hero-carousel-slide flex-shrink-0"
+                style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; padding: 2rem 1.75rem; min-height: 240px; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff; cursor: pointer; overflow: hidden; border-radius: 1.5rem; background: ${bgGradient};">
+                
+                ${imageUrl ? `
+                    <img src="${imageUrl}" alt="${title}" class="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 hover:scale-105" style="filter: brightness(0.72);" onerror="this.style.display='none'">
+                    <div class="absolute inset-0 bg-gradient-to-r from-black/85 via-black/45 to-transparent z-[1]"></div>
+                ` : ''}
+
+                <div class="space-y-2 max-w-lg z-10 relative">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        ${pill ? `
+                            <span class="clay-pill px-3 py-0.5 text-[10px] font-black text-emerald-300 bg-black/45 border border-emerald-400/40 flex items-center gap-1.5 backdrop-blur-md rounded-full">
+                                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                                <span>${pill}</span>
+                            </span>` : ''}
+                        ${badge ? `
+                            <span class="liquid-badge text-[10px] font-black px-2.5 py-0.5 shadow-sm bg-white/20 text-white border border-white/30 backdrop-blur-md rounded-full">
+                                ${badge}
+                            </span>` : ''}
+                    </div>
+                    <h2 class="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight drop-shadow-md">
+                        ${title}
+                    </h2>
+                    ${subtitle ? `
+                        <p class="text-xs sm:text-sm text-slate-100 font-medium leading-relaxed max-w-md drop-shadow-sm">
+                            ${subtitle}
+                        </p>` : ''}
+                </div>
+
+                <div class="pt-3 z-10 relative flex items-center gap-3">
+                    <span class="px-4 py-2 rounded-full inline-flex items-center gap-1.5 shadow-lg font-extrabold text-xs bg-white text-emerald-900">
+                        <span>${linkText}</span>
+                        <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                    </span>
+                    <span class="text-[10px] font-semibold text-white/80 bg-black/40 backdrop-blur-sm px-2.5 py-1 rounded-full">
+                        Slide #${index + 1}
+                    </span>
+                </div>
+            </div>`;
+    }).join('');
+
+    // Render dots
+    if (dotsContainer) {
+        dotsContainer.innerHTML = activePosters.map((_, idx) => `
+            <button type="button" class="hero-carousel-dot ${idx === adminCurrentSlide ? 'active' : ''}"
+                onclick="goToAdminSlide(${idx})"
+                data-slide-index="${idx}"
+                aria-label="Slide ${idx + 1}"
+                style="width: ${idx === adminCurrentSlide ? '22px' : '8px'}; height: 8px; border-radius: 9999px; background: ${idx === adminCurrentSlide ? '#ffffff' : 'rgba(255,255,255,0.45)'}; transition: all 0.25s ease; border: none; cursor: pointer;"></button>
+        `).join('');
+    }
+}
+
+function updateAdminCarouselView() {
+    const track = document.getElementById('admin-carousel-track');
+    if (!track) return;
+
+    const activePosters = adminPosters.filter(p => p.is_active !== false);
+    const totalSlides = activePosters.length;
+
+    if (totalSlides <= 1) {
+        adminCurrentSlide = 0;
+        track.style.transform = 'translateX(0%)';
+    } else {
+        if (adminCurrentSlide >= totalSlides) adminCurrentSlide = 0;
+        if (adminCurrentSlide < 0) adminCurrentSlide = totalSlides - 1;
+        track.style.transform = `translateX(-${adminCurrentSlide * 100}%)`;
+    }
+
+    // Update dots
+    const dots = document.querySelectorAll('#admin-carousel-dots .hero-carousel-dot');
+    dots.forEach((dot, idx) => {
+        const isActive = idx === adminCurrentSlide;
+        dot.classList.toggle('active', isActive);
+        dot.style.width = isActive ? '22px' : '8px';
+        dot.style.background = isActive ? '#ffffff' : 'rgba(255,255,255,0.45)';
+    });
+
+    // Update Counter
+    const counter = document.getElementById('admin-carousel-counter');
+    if (counter) {
+        counter.textContent = totalSlides > 0 ? `Slide ${adminCurrentSlide + 1} of ${totalSlides}` : '0 Slides';
+    }
+}
+
+function nextAdminSlide() {
+    const activePosters = adminPosters.filter(p => p.is_active !== false);
+    if (activePosters.length <= 1) return;
+    adminCurrentSlide = (adminCurrentSlide + 1) % activePosters.length;
+    updateAdminCarouselView();
+}
+
+function prevAdminSlide() {
+    const activePosters = adminPosters.filter(p => p.is_active !== false);
+    if (activePosters.length <= 1) return;
+    adminCurrentSlide = (adminCurrentSlide - 1 + activePosters.length) % activePosters.length;
+    updateAdminCarouselView();
+}
+
+function goToAdminSlide(idx) {
+    adminCurrentSlide = idx;
+    updateAdminCarouselView();
+    if (adminCarouselAutoplay && !isCarouselHovered) {
+        startAdminCarouselAutoSlide();
+    }
+}
+
+function startAdminCarouselAutoSlide() {
+    stopAdminCarouselAutoSlide();
+    const activePosters = adminPosters.filter(p => p.is_active !== false);
+    if (!adminCarouselAutoplay || activePosters.length <= 1 || isCarouselHovered) return;
+
+    const delay = Math.max(1000, Number(adminCarouselDelay) || 4500);
+    adminSlideInterval = setInterval(nextAdminSlide, delay);
+}
+
+function stopAdminCarouselAutoSlide() {
+    if (adminSlideInterval) {
+        clearInterval(adminSlideInterval);
+        adminSlideInterval = null;
+    }
+}
+
+function toggleAdminCarouselAutoplay() {
+    adminCarouselAutoplay = !adminCarouselAutoplay;
+    const icon = document.getElementById('admin-carousel-playpause-icon');
+    if (icon) icon.textContent = adminCarouselAutoplay ? 'pause' : 'play_arrow';
+
+    if (adminCarouselAutoplay) {
+        startAdminCarouselAutoSlide();
+        showToast('Auto-sliding resumed', 'info');
+    } else {
+        stopAdminCarouselAutoSlide();
+        showToast('Auto-sliding paused for review', 'info');
+    }
+}
+
+function handleAdminDelaySlider(val) {
+    const sec = Math.max(1.0, Math.min(12.0, Number(val)));
+    adminCarouselDelay = Math.round(sec * 1000);
+
+    const delayBadge = document.getElementById('admin-delay-display-badge');
+    const speedPill = document.getElementById('admin-carousel-speed-pill');
+
+    if (delayBadge) delayBadge.textContent = `${sec.toFixed(1)} seconds`;
+    if (speedPill) speedPill.textContent = `⚡ ${sec.toFixed(1)}s delay`;
+
+    // Restart timer with new delay immediately
+    if (adminCarouselAutoplay && !isCarouselHovered) {
+        startAdminCarouselAutoSlide();
+    }
+}
+
+function setAdminDelayPreset(sec) {
+    const slider = document.getElementById('admin-carousel-delay-slider');
+    if (slider) slider.value = sec;
+    handleAdminDelaySlider(sec);
+}
+
+async function saveAdminCarouselSettings() {
+    try {
+        const payload = {
+            autoplay_delay: adminCarouselDelay,
+            autoplay_enabled: adminCarouselAutoplay
+        };
+
+        localStorage.setItem('lpuquick_admin_carousel_settings', JSON.stringify(payload));
+
+        try {
+            await fetch('/api/admin/advertisements/settings', {
+                method: 'POST',
+                headers: {
+                    ...getAuthHeaders(),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+        } catch (netErr) {
+            console.warn('[Advertisements] Server settings save offline fallback:', netErr);
+        }
+
+        const sec = (adminCarouselDelay / 1000).toFixed(1);
+        showToast(`✓ Carousel sliding delay saved at ${sec} seconds!`, 'success');
+    } catch (err) {
+        showToast('Failed to save settings: ' + err.message, 'warning');
+    }
+}
+
+let adminCarouselGesturesAttached = false;
+function initAdminCarouselGestures() {
+    if (adminCarouselGesturesAttached) return;
+    const carouselEl = document.getElementById('admin-hero-banner-carousel');
+    if (!carouselEl) return;
+
+    adminCarouselGesturesAttached = true;
+
+    carouselEl.addEventListener('mouseenter', () => {
+        isCarouselHovered = true;
+        stopAdminCarouselAutoSlide();
+    });
+
+    carouselEl.addEventListener('mouseleave', () => {
+        isCarouselHovered = false;
+        if (adminCarouselAutoplay) startAdminCarouselAutoSlide();
+    });
+
+    let touchStart = 0;
+    carouselEl.addEventListener('touchstart', (e) => {
+        touchStart = e.changedTouches[0].screenX;
+        stopAdminCarouselAutoSlide();
+    }, { passive: true });
+
+    carouselEl.addEventListener('touchend', (e) => {
+        const touchEnd = e.changedTouches[0].screenX;
+        if (touchStart - touchEnd > 45) nextAdminSlide();
+        else if (touchEnd - touchStart > 45) prevAdminSlide();
+        if (adminCarouselAutoplay && !isCarouselHovered) startAdminCarouselAutoSlide();
+    }, { passive: true });
+}
+
+function renderAdminPostersGrid() {
+    const grid = document.getElementById('admin-posters-grid');
+    if (!grid) return;
+
+    if (adminPosters.length === 0) {
+        grid.innerHTML = `
+            <div class="col-span-full p-8 text-center bg-white rounded-2xl border border-dashed border-[#DADCE0]">
+                <span class="material-symbols-outlined text-4xl text-slate-400">image_not_supported</span>
+                <p class="font-bold text-sm text-[#181c1f] mt-1">No posters added yet</p>
+                <p class="text-xs text-[#5c5f60] mb-3">Upload your first promotional banner poster image.</p>
+                <button type="button" onclick="openPosterModal()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm">
+                    + Upload First Poster
+                </button>
+            </div>`;
+        return;
+    }
+
+    let cardsHtml = adminPosters.map((poster, index) => {
+        const title = escapeHtmlStr(poster.title || 'Untitled Poster');
+        const badge = escapeHtmlStr(poster.badge || '');
+        const pill = escapeHtmlStr(poster.pill || '');
+        const subtitle = escapeHtmlStr(poster.subtitle || '');
+        const imageUrl = poster.image_url || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800';
+        const isActive = poster.is_active !== false;
+
+        return `
+            <div class="bg-white rounded-2xl border ${isActive ? 'border-[#DADCE0]' : 'border-dashed border-slate-300 opacity-75'} shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md group">
+                <!-- Thumbnail with Status Badges -->
+                <div class="relative w-full h-36 bg-slate-900 overflow-hidden">
+                    <img src="${imageUrl}" alt="${title}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" onerror="this.src='https://images.unsplash.com/photo-1542838132-92c53300491e?w=800'">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30"></div>
+                    
+                    <!-- Top Badges -->
+                    <div class="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none">
+                        <span class="text-[10px] font-black px-2 py-0.5 rounded-full ${isActive ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-700 text-slate-300'}">
+                            ${isActive ? '● ACTIVE' : '○ PAUSED'}
+                        </span>
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-black/60 text-white backdrop-blur-sm">
+                            Slide #${poster.display_order || index + 1}
+                        </span>
+                    </div>
+
+                    <!-- Bottom Overlay Text -->
+                    <div class="absolute bottom-2 left-2.5 right-2.5">
+                        ${badge ? `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/20 text-white backdrop-blur-xs">${badge}</span>` : ''}
+                        <h4 class="font-bold text-white text-xs truncate drop-shadow-sm mt-0.5">${title}</h4>
+                    </div>
+                </div>
+
+                <!-- Body Details -->
+                <div class="p-3.5 flex-1 flex flex-col justify-between space-y-2.5">
+                    <div>
+                        <div class="flex items-center justify-between text-[11px] text-[#5c5f60] mb-1">
+                            <span class="font-semibold truncate">Target: ${escapeHtmlStr(poster.link_url || '#shop-catalog-section')}</span>
+                            ${pill ? `<span class="text-[9px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">${pill}</span>` : ''}
+                        </div>
+                        ${subtitle ? `<p class="text-[11px] text-[#5c5f60] line-clamp-2">${subtitle}</p>` : ''}
+                    </div>
+
+                    <!-- Action Toolbar -->
+                    <div class="pt-2 border-t border-[#f1f4f7] flex items-center justify-between gap-1">
+                        <!-- Reorder buttons -->
+                        <div class="flex items-center gap-1">
+                            <button type="button" onclick="movePosterOrder('${poster.id}', -1)" title="Move earlier in carousel"
+                                class="p-1 rounded-lg border border-[#DADCE0] hover:bg-[#f1f4f7] text-[#5c5f60] text-xs flex items-center justify-center">
+                                <span class="material-symbols-outlined text-sm">arrow_upward</span>
+                            </button>
+                            <button type="button" onclick="movePosterOrder('${poster.id}', 1)" title="Move later in carousel"
+                                class="p-1 rounded-lg border border-[#DADCE0] hover:bg-[#f1f4f7] text-[#5c5f60] text-xs flex items-center justify-center">
+                                <span class="material-symbols-outlined text-sm">arrow_downward</span>
+                            </button>
+                        </div>
+
+                        <div class="flex items-center gap-1">
+                            <!-- Toggle Active/Pause -->
+                            <button type="button" onclick="togglePosterActive('${poster.id}')"
+                                class="px-2.5 py-1 rounded-lg text-xs font-bold border ${isActive ? 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100' : 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'} transition-all"
+                                title="${isActive ? 'Pause poster from appearing in carousel' : 'Activate poster in carousel'}">
+                                ${isActive ? 'Pause' : 'Activate'}
+                            </button>
+
+                            <!-- Edit Button -->
+                            <button type="button" onclick="openPosterModal('${poster.id}')"
+                                class="p-1.5 rounded-lg border border-[#DADCE0] hover:bg-[#f1f4f7] text-[#181c1f]" title="Edit poster">
+                                <span class="material-symbols-outlined text-sm">edit</span>
+                            </button>
+
+                            <!-- Delete Button -->
+                            <button type="button" onclick="quickDeletePoster('${poster.id}')"
+                                class="p-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600" title="Delete poster">
+                                <span class="material-symbols-outlined text-sm">delete</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+    }).join('');
+
+    // Add New Poster Dropzone Card at end of grid
+    cardsHtml += `
+        <div onclick="openPosterModal()"
+            class="rounded-2xl border-2 border-dashed border-[#DADCE0] hover:border-emerald-500 hover:bg-emerald-50/20 p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all min-h-[220px] group">
+            <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                <span class="material-symbols-outlined text-2xl">add_photo_alternate</span>
+            </div>
+            <h4 class="font-bold text-xs sm:text-sm text-[#181c1f]">Upload Image Poster</h4>
+            <p class="text-[11px] text-[#5c5f60] mt-1">Add new promotion to the carousel</p>
+        </div>`;
+
+    grid.innerHTML = cardsHtml;
+}
+
+// ================= POSTER MODAL (ADD / EDIT & IMAGE UPLOAD) =================
+function handlePosterFileSelect(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        alert('Please select an image file (PNG, JPG, WEBP, GIF).');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+            const maxDim = 1200;
+            let width = img.width;
+            let height = img.height;
+            if (width > maxDim || height > maxDim) {
+                if (width > height) {
+                    height = Math.round((height * maxDim) / width);
+                    width = maxDim;
+                } else {
+                    width = Math.round((width * maxDim) / height);
+                    height = maxDim;
+                }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressed = canvas.toDataURL('image/jpeg', 0.85);
+
+            const preview = document.getElementById('poster-img-preview');
+            const placeholder = document.getElementById('poster-img-placeholder');
+            const removeBtn = document.getElementById('btn-remove-poster-img');
+            const urlInput = document.getElementById('form-poster-image-url');
+
+            if (preview) {
+                preview.src = compressed;
+                preview.classList.remove('hidden');
+            }
+            if (placeholder) placeholder.classList.add('hidden');
+            if (removeBtn) removeBtn.classList.remove('hidden');
+            if (urlInput) urlInput.value = compressed;
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+function handlePosterUrlInput(url) {
+    const trimmed = (url || '').trim();
+    const preview = document.getElementById('poster-img-preview');
+    const placeholder = document.getElementById('poster-img-placeholder');
+    const removeBtn = document.getElementById('btn-remove-poster-img');
+
+    if (trimmed) {
+        if (preview) {
+            preview.src = trimmed;
+            preview.classList.remove('hidden');
+        }
+        if (placeholder) placeholder.classList.add('hidden');
+        if (removeBtn) removeBtn.classList.remove('hidden');
+    }
+}
+
+function clearPosterImage() {
+    const preview = document.getElementById('poster-img-preview');
+    const placeholder = document.getElementById('poster-img-placeholder');
+    const removeBtn = document.getElementById('btn-remove-poster-img');
+    const urlInput = document.getElementById('form-poster-image-url');
+    const fileInput = document.getElementById('form-poster-file');
+
+    if (preview) {
+        preview.src = '';
+        preview.classList.add('hidden');
+    }
+    if (placeholder) placeholder.classList.remove('hidden');
+    if (removeBtn) removeBtn.classList.add('hidden');
+    if (urlInput) urlInput.value = '';
+    if (fileInput) fileInput.value = '';
+}
+
+function openPosterModal(posterId = null) {
+    editingPosterId = posterId;
+    const modal = document.getElementById('poster-modal');
+    const titleEl = document.getElementById('modal-poster-title');
+    const delBtn = document.getElementById('btn-modal-delete-poster');
+
+    clearPosterImage();
+
+    if (posterId) {
+        const poster = adminPosters.find(p => p.id === posterId);
+        if (poster) {
+            if (titleEl) titleEl.textContent = 'Edit Promotional Poster';
+            document.getElementById('form-poster-id').value = poster.id;
+            document.getElementById('form-poster-title').value = poster.title || '';
+            document.getElementById('form-poster-pill').value = poster.pill || '';
+            document.getElementById('form-poster-badge').value = poster.badge || '';
+            document.getElementById('form-poster-subtitle').value = poster.subtitle || '';
+            document.getElementById('form-poster-cta-text').value = poster.link_text || 'Shop Now';
+            document.getElementById('form-poster-cta-url').value = poster.link_url || '#shop-catalog-section';
+            document.getElementById('form-poster-order').value = poster.display_order || 1;
+            document.getElementById('form-poster-active').checked = poster.is_active !== false;
+
+            if (poster.image_url) {
+                handlePosterUrlInput(poster.image_url);
+                document.getElementById('form-poster-image-url').value = poster.image_url;
+            }
+
+            if (delBtn) delBtn.classList.remove('hidden');
+        }
+    } else {
+        if (titleEl) titleEl.textContent = 'Add Promotional Image Poster';
+        document.getElementById('form-poster-id').value = '';
+        document.getElementById('form-poster-title').value = '';
+        document.getElementById('form-poster-pill').value = 'CAMPUS PERK';
+        document.getElementById('form-poster-badge').value = '⚡ 3-MIN ROOM DROP';
+        document.getElementById('form-poster-subtitle').value = '';
+        document.getElementById('form-poster-cta-text').value = 'Shop Now';
+        document.getElementById('form-poster-cta-url').value = '#shop-catalog-section';
+        document.getElementById('form-poster-order').value = adminPosters.length + 1;
+        document.getElementById('form-poster-active').checked = true;
+
+        if (delBtn) delBtn.classList.add('hidden');
+    }
+
+    if (modal) modal.classList.remove('hidden');
+}
+
+function closePosterModal() {
+    const modal = document.getElementById('poster-modal');
+    if (modal) modal.classList.add('hidden');
+    editingPosterId = null;
+}
+
+async function handlePosterSubmit(e) {
+    e.preventDefault();
+    const id = document.getElementById('form-poster-id').value.trim();
+    const title = document.getElementById('form-poster-title').value.trim();
+    const pill = document.getElementById('form-poster-pill').value.trim();
+    const badge = document.getElementById('form-poster-badge').value.trim();
+    const subtitle = document.getElementById('form-poster-subtitle').value.trim();
+    const link_text = document.getElementById('form-poster-cta-text').value.trim() || 'Shop Now';
+    const link_url = document.getElementById('form-poster-cta-url').value.trim() || '#shop-catalog-section';
+    const display_order = parseInt(document.getElementById('form-poster-order').value, 10) || (adminPosters.length + 1);
+    const is_active = document.getElementById('form-poster-active').checked;
+    const image_url = document.getElementById('form-poster-image-url').value.trim();
+
+    if (!title && !image_url) {
+        showToast('Please provide a poster title or upload an image', 'warning');
+        return;
+    }
+
+    const payload = {
+        id: id || undefined,
+        title,
+        pill,
+        badge,
+        subtitle,
+        link_text,
+        link_url,
+        display_order,
+        is_active,
+        image_url
+    };
+
+    const saveBtn = document.getElementById('btn-save-poster');
+    if (saveBtn) saveBtn.disabled = true;
+
+    try {
+        let savedSuccessfully = false;
+        try {
+            const res = await fetch('/api/admin/advertisements', {
+                method: 'POST',
+                headers: {
+                    ...getAuthHeaders(),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.success && Array.isArray(data.posters)) {
+                    adminPosters = data.posters;
+                    savedSuccessfully = true;
+                }
+            }
+        } catch (netErr) {
+            console.warn('[Advertisements] Network save failed, saving to local cache:', netErr);
+        }
+
+        if (!savedSuccessfully) {
+            if (id) {
+                const idx = adminPosters.findIndex(p => p.id === id);
+                if (idx !== -1) {
+                    adminPosters[idx] = { ...adminPosters[idx], ...payload, updated_at: new Date().toISOString() };
+                } else {
+                    adminPosters.push({ ...payload, id });
+                }
+            } else {
+                const newId = `poster_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+                adminPosters.push({ ...payload, id: newId, created_at: new Date().toISOString() });
+            }
+        }
+
+        adminPosters.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+        localStorage.setItem('lpuquick_admin_posters', JSON.stringify(adminPosters));
+
+        closePosterModal();
+        renderAdminCarouselSlides();
+        renderAdminPostersGrid();
+        updateAdminCarouselView();
+        startAdminCarouselAutoSlide();
+
+        const navBadge = document.getElementById('nav-ads-badge');
+        const countBadge = document.getElementById('admin-posters-count-badge');
+        const activeCount = adminPosters.filter(p => p.is_active !== false).length;
+        if (navBadge) navBadge.textContent = String(adminPosters.length);
+        if (countBadge) countBadge.textContent = `${adminPosters.length} poster${adminPosters.length === 1 ? '' : 's'} (${activeCount} active)`;
+
+        showToast('✓ Poster saved successfully to carousel!', 'success');
+    } catch (err) {
+        showToast('Failed to save poster: ' + err.message, 'warning');
+    } finally {
+        if (saveBtn) saveBtn.disabled = false;
+    }
+}
+
+async function handleModalDeletePoster() {
+    if (!editingPosterId) return;
+    await quickDeletePoster(editingPosterId);
+    closePosterModal();
+}
+
+async function quickDeletePoster(id) {
+    if (!confirm('Are you sure you want to delete this promotional poster?')) return;
+
+    try {
+        try {
+            await fetch(`/api/admin/advertisements/${id}`, {
+                method: 'DELETE',
+                headers: getAuthHeaders()
+            });
+        } catch (netErr) {
+            console.warn('[Advertisements] Network delete failed, falling back to local:', netErr);
+        }
+
+        adminPosters = adminPosters.filter(p => p.id !== id);
+        localStorage.setItem('lpuquick_admin_posters', JSON.stringify(adminPosters));
+
+        renderAdminCarouselSlides();
+        renderAdminPostersGrid();
+        updateAdminCarouselView();
+        startAdminCarouselAutoSlide();
+
+        const navBadge = document.getElementById('nav-ads-badge');
+        const countBadge = document.getElementById('admin-posters-count-badge');
+        const activeCount = adminPosters.filter(p => p.is_active !== false).length;
+        if (navBadge) navBadge.textContent = String(adminPosters.length);
+        if (countBadge) countBadge.textContent = `${adminPosters.length} poster${adminPosters.length === 1 ? '' : 's'} (${activeCount} active)`;
+
+        showToast('Poster deleted successfully', 'info');
+    } catch (err) {
+        showToast('Failed to delete poster: ' + err.message, 'warning');
+    }
+}
+
+async function togglePosterActive(id) {
+    const poster = adminPosters.find(p => p.id === id);
+    if (!poster) return;
+
+    poster.is_active = poster.is_active === false ? true : false;
+    localStorage.setItem('lpuquick_admin_posters', JSON.stringify(adminPosters));
+
+    try {
+        await fetch('/api/admin/advertisements', {
+            method: 'POST',
+            headers: {
+                ...getAuthHeaders(),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(poster)
+        });
+    } catch (netErr) {}
+
+    renderAdminCarouselSlides();
+    renderAdminPostersGrid();
+    updateAdminCarouselView();
+    startAdminCarouselAutoSlide();
+
+    showToast(`Poster ${poster.is_active ? 'activated' : 'paused'}`, 'info');
+}
+
+async function movePosterOrder(id, delta) {
+    const index = adminPosters.findIndex(p => p.id === id);
+    if (index === -1) return;
+
+    const targetIndex = index + delta;
+    if (targetIndex < 0 || targetIndex >= adminPosters.length) return;
+
+    // Swap positions
+    const temp = adminPosters[index];
+    adminPosters[index] = adminPosters[targetIndex];
+    adminPosters[targetIndex] = temp;
+
+    // Re-index display_order
+    adminPosters.forEach((p, i) => { p.display_order = i + 1; });
+    localStorage.setItem('lpuquick_admin_posters', JSON.stringify(adminPosters));
+
+    renderAdminCarouselSlides();
+    renderAdminPostersGrid();
+    updateAdminCarouselView();
+
+    // Sync to server in background
+    try {
+        await Promise.allSettled(adminPosters.map(p => fetch('/api/admin/advertisements', {
+            method: 'POST',
+            headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify(p)
+        })));
+    } catch (e) {}
+
+    showToast('Poster order updated', 'info');
+}
+
 
 
