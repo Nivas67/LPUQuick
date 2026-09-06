@@ -2058,19 +2058,92 @@
             </div>
 
             <!-- Order Status Action -->
-            <div class="p-4 rounded-xl border border-[#DADCE0] space-y-2 bg-[#ebeef2]/50">
-                <label class="font-semibold text-xs text-[#181c1f] block">Update Status in Real-Time:</label>
-                <select id="drawer-status-select"
-                    class="w-full bg-white border border-[#DADCE0] rounded-lg p-2.5 text-xs font-bold text-[#3c4043] outline-none">
-                    <option value="Order Placed">Order Placed (Incoming)</option>
-                    <option value="Order Confirmed">Order Confirmed</option>
-                    <option value="Preparing">Preparing (Packing Items)</option>
-                    <option value="Out for Delivery">Out for Delivery (Rider Dispatched)</option>
-                    <option value="Delivered">Delivered ✓</option>
-                    <option value="Cancelled">Cancelled</option>
-                </select>
-                <button onclick="applyDrawerStatusUpdate()"
-                    class="w-full bg-[#3c4043] hover:bg-[#262a2d] text-white font-bold py-2 rounded-lg text-xs transition-all">
+            <div id="drawer-status-action-box" class="p-4 rounded-xl border border-[#DADCE0] space-y-3 bg-[#ebeef2]/50 transition-all">
+                <div>
+                    <label class="font-semibold text-xs text-[#181c1f] block mb-1">Update Status in Real-Time:</label>
+                    <select id="drawer-status-select" onchange="handleDrawerStatusChange(this.value)"
+                        class="w-full bg-white border border-[#DADCE0] rounded-lg p-2.5 text-xs font-bold text-[#3c4043] outline-none transition-all">
+                        <option value="Order Placed">Order Placed (Incoming)</option>
+                        <option value="Order Confirmed">Order Confirmed</option>
+                        <option value="Preparing">Preparing (Packing Items)</option>
+                        <option value="Out for Delivery">Out for Delivery (Rider Dispatched)</option>
+                        <option value="Delivered">Delivered ✓</option>
+                        <option value="Cancelled">Cancelled</option>
+                    </select>
+                </div>
+
+                <!-- Payment Collection Mode (Mandatory for Delivery: Cash, UPI, Both) -->
+                <div id="drawer-payment-section" class="pt-2 border-t border-[#DADCE0] space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <label class="font-bold text-xs text-[#181c1f] flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-[15px] text-emerald-700">payments</span>
+                            <span>Payment Received Via:</span>
+                            <span class="text-rose-600 font-extrabold text-[10px] bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">* Required</span>
+                        </label>
+                        <span id="drawer-payment-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">Select Option</span>
+                    </div>
+
+                    <!-- 3 Mandatory Options: Cash, UPI, Both -->
+                    <div class="grid grid-cols-3 gap-2" id="drawer-payment-buttons">
+                        <button type="button" id="drawer-pay-btn-cash" onclick="selectDrawerPaymentMode('Cash')"
+                            class="drawer-pay-btn flex flex-col items-center justify-center p-2 rounded-xl border-2 border-slate-300 bg-white hover:border-emerald-500 hover:bg-emerald-50/50 text-slate-700 transition-all active:scale-95 shadow-2xs cursor-pointer">
+                            <span class="text-lg">💵</span>
+                            <span class="text-xs font-bold mt-0.5">Cash</span>
+                        </button>
+                        <button type="button" id="drawer-pay-btn-upi" onclick="selectDrawerPaymentMode('UPI')"
+                            class="drawer-pay-btn flex flex-col items-center justify-center p-2 rounded-xl border-2 border-slate-300 bg-white hover:border-blue-500 hover:bg-blue-50/50 text-slate-700 transition-all active:scale-95 shadow-2xs cursor-pointer">
+                            <span class="text-lg">📱</span>
+                            <span class="text-xs font-bold mt-0.5">UPI</span>
+                        </button>
+                        <button type="button" id="drawer-pay-btn-both" onclick="selectDrawerPaymentMode('Both')"
+                            class="drawer-pay-btn flex flex-col items-center justify-center p-2 rounded-xl border-2 border-slate-300 bg-white hover:border-amber-500 hover:bg-amber-50/50 text-slate-700 transition-all active:scale-95 shadow-2xs cursor-pointer">
+                            <span class="text-lg">🔄</span>
+                            <span class="text-xs font-bold mt-0.5">Both</span>
+                        </button>
+                    </div>
+
+                    <!-- Split Amount Breakdown (shown when 'Both' is selected) -->
+                    <div id="drawer-split-container" class="hidden p-3 rounded-xl bg-amber-50 border border-amber-300 space-y-2 text-xs">
+                        <div class="flex justify-between items-center text-[11px] font-bold text-amber-900">
+                            <span class="flex items-center gap-1">
+                                <span class="material-symbols-outlined text-sm text-amber-700">call_split</span>
+                                <span>Split Payment (Cash + UPI)</span>
+                            </span>
+                            <span id="drawer-split-total-info" class="text-emerald-700 font-extrabold text-[11px]">Total: ₹0</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-700 mb-1">Cash Received (₹)</label>
+                                <div class="relative">
+                                    <span class="absolute left-2.5 top-1.5 text-slate-400 font-bold text-xs">₹</span>
+                                    <input type="number" id="drawer-split-cash-input" min="0" step="1"
+                                        class="w-full bg-white border border-slate-300 rounded-lg pl-6 pr-2 py-1.5 text-xs font-bold text-slate-800 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                                        placeholder="0" oninput="handleDrawerSplitChange('cash')">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-700 mb-1">UPI Received (₹)</label>
+                                <div class="relative">
+                                    <span class="absolute left-2.5 top-1.5 text-slate-400 font-bold text-xs">₹</span>
+                                    <input type="number" id="drawer-split-upi-input" min="0" step="1"
+                                        class="w-full bg-white border border-slate-300 rounded-lg pl-6 pr-2 py-1.5 text-xs font-bold text-slate-800 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                                        placeholder="0" oninput="handleDrawerSplitChange('upi')">
+                                </div>
+                            </div>
+                        </div>
+                        <p id="drawer-split-calc-hint" class="text-[10px] text-amber-800 font-medium"></p>
+                        <p id="drawer-split-error-msg" class="hidden text-[11px] text-rose-600 font-bold"></p>
+                    </div>
+
+                    <!-- Validation Error Alert -->
+                    <div id="drawer-payment-validation-alert" class="hidden p-2.5 rounded-lg bg-rose-50 border border-rose-300 text-rose-700 text-xs font-bold flex items-center gap-2">
+                        <span class="material-symbols-outlined text-base shrink-0">error</span>
+                        <span id="drawer-payment-validation-text">Please select payment option (Cash, UPI, or Both) before marking as Delivered!</span>
+                    </div>
+                </div>
+
+                <button id="btn-drawer-apply-status" onclick="applyDrawerStatusUpdate()"
+                    class="w-full bg-[#3c4043] hover:bg-[#262a2d] text-white font-bold py-2 rounded-lg text-xs transition-all flex items-center justify-center gap-1 shadow-xs active:scale-98 cursor-pointer">
                     Update Order Status
                 </button>
             </div>

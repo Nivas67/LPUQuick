@@ -790,7 +790,7 @@ const supabaseDb = {
             });
         },
 
-        async updateStatus(orderId, status) {
+        async updateStatus(orderId, status, options = {}) {
             const supabase = getSupabaseClient();
             if (!supabase) throw new Error('PostgreSQL client unavailable');
 
@@ -803,9 +803,13 @@ const supabaseDb = {
 
             const wasNotCancelled = prevOrder && prevOrder.status !== 'Cancelled';
 
+            const updatePayload = { status };
+            if (options.payment_method) updatePayload.payment_method = options.payment_method;
+            if (options.payment_status) updatePayload.payment_status = options.payment_status;
+
             const { data, error } = await supabase
                 .from('orders')
-                .update({ status })
+                .update(updatePayload)
                 .eq('id', orderId)
                 .select()
                 .single();

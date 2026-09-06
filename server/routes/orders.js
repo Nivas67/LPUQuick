@@ -448,9 +448,16 @@ router.get('/admin/detail/:orderId', requireAdmin, async (req, res) => {
 
 // POST /api/orders/admin/status (Update order status from admin drawer)
 router.post('/admin/status', requireAdmin, async (req, res) => {
-    const { orderId, status } = req.body;
+    const { orderId, status, paymentMethod, paymentStatus, paymentCollection } = req.body;
     if (!orderId || !status) {
         return res.status(400).json({ error: 'orderId and status are required' });
+    }
+
+    // Strict validation: if marking as Delivered, paymentMethod is required
+    if (status === 'Delivered' && !paymentMethod) {
+        return res.status(400).json({ 
+            error: 'Payment collection mode (Cash, UPI, or Both) is mandatory before marking order as Delivered.' 
+        });
     }
     
     // 1. Immediately update memory cache for zero latency
@@ -459,26 +466,38 @@ router.post('/admin/status', requireAdmin, async (req, res) => {
         const o = fallbackOrdersCache.find(x => x.id === orderId);
         if (o) {
             o.status = status;
+            if (paymentMethod) o.payment_method = paymentMethod;
+            if (paymentStatus) o.payment_status = paymentStatus;
             if (o.rider_name) riderName = typeof o.rider_name === 'string' && o.rider_name.startsWith('{') ? (JSON.parse(o.rider_name).name || 'Alex') : o.rider_name;
         }
     }
 
     try {
+        const updateOptions = {};
+        if (paymentMethod) updateOptions.payment_method = paymentMethod;
+        if (paymentStatus) updateOptions.payment_status = paymentStatus;
+
         const updated = await withTimeout(
-            supabaseDb.orders.updateStatus(orderId, status),
+            supabaseDb.orders.updateStatus(orderId, status, updateOptions),
             6000,
-            { id: orderId, status }
+            { id: orderId, status, ...updateOptions }
         );
         if (updated && updated.rider_name) {
             riderName = typeof updated.rider_name === 'string' && updated.rider_name.startsWith('{') ? (JSON.parse(updated.rider_name).name || riderName) : updated.rider_name;
         }
         cache.invalidateOrders();
-        broadcastStatusUpdate(orderId, status, riderName);
+        broadcastStatusUpdate(orderId, status, riderName, {
+            payment_method: paymentMethod || updated?.payment_method,
+            payment_status: paymentStatus || updated?.payment_status
+        });
         res.json({ success: true, order: updated });
     } catch (err) {
         console.error('[Admin Status Update Exception]:', err.message);
-        broadcastStatusUpdate(orderId, status, riderName);
-        res.json({ success: true, order: { id: orderId, status }, note: 'Updated in active cache.' });
+        broadcastStatusUpdate(orderId, status, riderName, {
+            payment_method: paymentMethod,
+            payment_status: paymentStatus
+        });
+        res.json({ success: true, order: { id: orderId, status, payment_method: paymentMethod, payment_status: paymentStatus }, note: 'Updated in active cache.' });
     }
 });
 

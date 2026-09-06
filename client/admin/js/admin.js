@@ -2649,6 +2649,7 @@ async function openOrderDrawer(orderId) {
         document.getElementById('drawer-status-select').value = cachedOrder.status;
 
         updateDrawerDispatchCard(cachedOrder);
+        initDrawerPaymentMode(cachedOrder);
 
         const itemsList = document.getElementById('drawer-items-list');
         if (cachedOrder.items && cachedOrder.items.length > 0) {
@@ -2680,6 +2681,7 @@ async function openOrderDrawer(orderId) {
         document.getElementById('drawer-order-total').textContent = '--';
         document.getElementById('drawer-items-list').innerHTML = '<p class="text-xs text-[#5c5f60] p-3 text-center">Loading items breakdown...</p>';
         updateDrawerDispatchCard({ id: orderId, status: 'Loading...', delivery_assignment: null });
+        initDrawerPaymentMode(null);
     }
 
     try {
@@ -2708,6 +2710,7 @@ async function openOrderDrawer(orderId) {
         document.getElementById('drawer-status-select').value = o.status;
 
         updateDrawerDispatchCard(o);
+        initDrawerPaymentMode(o);
 
         // Update Order Modified Banner if modified by store
         const modBanner = document.getElementById('drawer-order-modified-banner');
@@ -2765,18 +2768,232 @@ async function openOrderDrawer(orderId) {
 }
 
 function closeOrderDrawer() {
-    document.getElementById('order-drawer').classList.add('hidden');
+    const drawer = document.getElementById('order-drawer');
+    if (drawer) drawer.classList.add('hidden');
+}
+
+// ==========================================
+// PAYMENT COLLECTION MODE HANDLERS (Cash, UPI, Both)
+// ==========================================
+let currentDrawerPaymentMode = null;
+
+function selectDrawerPaymentMode(mode) {
+    currentDrawerPaymentMode = mode;
+    const btnCash = document.getElementById('drawer-pay-btn-cash');
+    const btnUpi = document.getElementById('drawer-pay-btn-upi');
+    const btnBoth = document.getElementById('drawer-pay-btn-both');
+    const badge = document.getElementById('drawer-payment-badge');
+    const splitWrap = document.getElementById('drawer-split-container');
+    const alertBox = document.getElementById('drawer-payment-validation-alert');
+    const statusBox = document.getElementById('drawer-status-action-box');
+
+    if (alertBox) alertBox.classList.add('hidden');
+    if (statusBox) statusBox.classList.remove('ring-2', 'ring-rose-500');
+
+    // Default base classes
+    const defaultBtnClass = 'drawer-pay-btn flex flex-col items-center justify-center p-2 rounded-xl border-2 border-slate-300 bg-white hover:border-slate-400 text-slate-700 transition-all active:scale-95 shadow-2xs cursor-pointer';
+
+    if (btnCash) btnCash.className = defaultBtnClass;
+    if (btnUpi) btnUpi.className = defaultBtnClass;
+    if (btnBoth) btnBoth.className = defaultBtnClass;
+
+    const targetOrder = ordersCache.find(x => x.id === currentDrawerOrderId);
+    const orderTotal = targetOrder ? Number(targetOrder.total || 0) : 0;
+
+    if (mode === 'Cash') {
+        if (btnCash) {
+            btnCash.className = 'drawer-pay-btn flex flex-col items-center justify-center p-2 rounded-xl border-2 border-emerald-600 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-500/40 font-extrabold shadow-sm active:scale-95 cursor-pointer';
+        }
+        if (badge) {
+            badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800';
+            badge.textContent = `💵 Cash (₹${orderTotal})`;
+        }
+        if (splitWrap) splitWrap.classList.add('hidden');
+    } else if (mode === 'UPI') {
+        if (btnUpi) {
+            btnUpi.className = 'drawer-pay-btn flex flex-col items-center justify-center p-2 rounded-xl border-2 border-blue-600 bg-blue-50 text-blue-900 ring-2 ring-blue-500/40 font-extrabold shadow-sm active:scale-95 cursor-pointer';
+        }
+        if (badge) {
+            badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800';
+            badge.textContent = `📱 UPI (₹${orderTotal})`;
+        }
+        if (splitWrap) splitWrap.classList.add('hidden');
+    } else if (mode === 'Both') {
+        if (btnBoth) {
+            btnBoth.className = 'drawer-pay-btn flex flex-col items-center justify-center p-2 rounded-xl border-2 border-amber-600 bg-amber-50 text-amber-900 ring-2 ring-amber-500/40 font-extrabold shadow-sm active:scale-95 cursor-pointer';
+        }
+        if (badge) {
+            badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800';
+            badge.textContent = `🔄 Both (Split)`;
+        }
+        if (splitWrap) {
+            splitWrap.classList.remove('hidden');
+            const totalInfo = document.getElementById('drawer-split-total-info');
+            if (totalInfo) totalInfo.textContent = `Total: ₹${orderTotal}`;
+
+            const cashInput = document.getElementById('drawer-split-cash-input');
+            const upiInput = document.getElementById('drawer-split-upi-input');
+
+            let initialCash = Math.floor(orderTotal / 2);
+            let initialUpi = orderTotal - initialCash;
+
+            if (targetOrder?.payment_method && targetOrder.payment_method.includes('Cash:') && targetOrder.payment_method.includes('UPI:')) {
+                const matchCash = targetOrder.payment_method.match(/Cash:\s*₹?(\d+(?:\.\d+)?)/i);
+                const matchUpi = targetOrder.payment_method.match(/UPI:\s*₹?(\d+(?:\.\d+)?)/i);
+                if (matchCash) initialCash = Number(matchCash[1]);
+                if (matchUpi) initialUpi = Number(matchUpi[1]);
+            }
+
+            if (cashInput) cashInput.value = initialCash;
+            if (upiInput) upiInput.value = initialUpi;
+            updateDrawerSplitHint(initialCash, initialUpi, orderTotal);
+        }
+    } else {
+        if (badge) {
+            badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700';
+            badge.textContent = 'Select Option';
+        }
+        if (splitWrap) splitWrap.classList.add('hidden');
+    }
+}
+
+function handleDrawerSplitChange(changedSource) {
+    const targetOrder = ordersCache.find(x => x.id === currentDrawerOrderId);
+    const orderTotal = targetOrder ? Number(targetOrder.total || 0) : 0;
+    const cashInput = document.getElementById('drawer-split-cash-input');
+    const upiInput = document.getElementById('drawer-split-upi-input');
+
+    let cash = parseFloat(cashInput?.value) || 0;
+    let upi = parseFloat(upiInput?.value) || 0;
+
+    if (changedSource === 'cash') {
+        if (cash > orderTotal) cash = orderTotal;
+        if (cash < 0) cash = 0;
+        if (cashInput) cashInput.value = cash;
+        upi = Math.max(0, orderTotal - cash);
+        if (upiInput) upiInput.value = upi;
+    } else if (changedSource === 'upi') {
+        if (upi > orderTotal) upi = orderTotal;
+        if (upi < 0) upi = 0;
+        if (upiInput) upiInput.value = upi;
+        cash = Math.max(0, orderTotal - upi);
+        if (cashInput) cashInput.value = cash;
+    }
+
+    updateDrawerSplitHint(cash, upi, orderTotal);
+}
+
+function updateDrawerSplitHint(cash, upi, total) {
+    const hint = document.getElementById('drawer-split-calc-hint');
+    const badge = document.getElementById('drawer-payment-badge');
+    const errorMsg = document.getElementById('drawer-split-error-msg');
+    
+    if (Math.abs((cash + upi) - total) > 0.01) {
+        if (errorMsg) {
+            errorMsg.textContent = `⚠️ Cash (₹${cash}) + UPI (₹${upi}) = ₹${cash + upi}, must equal Total ₹${total}`;
+            errorMsg.classList.remove('hidden');
+        }
+    } else {
+        if (errorMsg) errorMsg.classList.add('hidden');
+        if (hint) hint.textContent = `✓ ₹${cash} Cash + ₹${upi} UPI = ₹${total} Total`;
+        if (badge) badge.textContent = `🔄 ₹${cash} Cash + ₹${upi} UPI`;
+    }
+}
+
+function handleDrawerStatusChange(val) {
+    const alertBox = document.getElementById('drawer-payment-validation-alert');
+    const statusBox = document.getElementById('drawer-status-action-box');
+    if (alertBox) alertBox.classList.add('hidden');
+    if (statusBox) statusBox.classList.remove('ring-2', 'ring-rose-500');
+
+    if (val === 'Delivered') {
+        if (!currentDrawerPaymentMode) {
+            const badge = document.getElementById('drawer-payment-badge');
+            if (badge) {
+                badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 animate-pulse';
+                badge.textContent = '* Please Select';
+            }
+        }
+    }
+}
+
+function initDrawerPaymentMode(order) {
+    currentDrawerPaymentMode = null;
+    const alertBox = document.getElementById('drawer-payment-validation-alert');
+    if (alertBox) alertBox.classList.add('hidden');
+    const statusBox = document.getElementById('drawer-status-action-box');
+    if (statusBox) statusBox.classList.remove('ring-2', 'ring-rose-500');
+
+    const method = (order?.payment_method || '').toLowerCase();
+    if (method.includes('both')) {
+        selectDrawerPaymentMode('Both');
+    } else if (method.includes('upi')) {
+        selectDrawerPaymentMode('UPI');
+    } else if (method.includes('cash')) {
+        selectDrawerPaymentMode('Cash');
+    } else {
+        selectDrawerPaymentMode(null);
+    }
 }
 
 async function applyDrawerStatusUpdate() {
     if (!currentDrawerOrderId) return;
     const newStatus = document.getElementById('drawer-status-select').value;
     const targetOrderId = currentDrawerOrderId;
+    const o = ordersCache.find(x => x.id === targetOrderId);
+    const orderTotal = o ? Number(o.total || 0) : 0;
+
+    let finalPaymentMethod = o?.payment_method || 'Cash on Delivery';
+    let splitMeta = null;
+
+    // MANDATORY VALIDATION: If selecting 'Delivered', one of Cash, UPI, or Both is mandatory!
+    if (newStatus === 'Delivered') {
+        if (!currentDrawerPaymentMode) {
+            const alertBox = document.getElementById('drawer-payment-validation-alert');
+            const alertText = document.getElementById('drawer-payment-validation-text');
+            if (alertBox) {
+                if (alertText) alertText.textContent = '⚠️ Payment collection mode (Cash, UPI, or Both) is mandatory before marking order as Delivered!';
+                alertBox.classList.remove('hidden');
+                alertBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+            const statusBox = document.getElementById('drawer-status-action-box');
+            if (statusBox) {
+                statusBox.classList.add('ring-2', 'ring-rose-500');
+            }
+            showToast('⚠️ Payment mode (Cash, UPI, or Both) is mandatory for delivery!', 'error');
+            return;
+        }
+
+        if (currentDrawerPaymentMode === 'Both') {
+            const cashVal = parseFloat(document.getElementById('drawer-split-cash-input')?.value) || 0;
+            const upiVal = parseFloat(document.getElementById('drawer-split-upi-input')?.value) || 0;
+            if (Math.abs((cashVal + upiVal) - orderTotal) > 0.01) {
+                const errorMsg = document.getElementById('drawer-split-error-msg');
+                if (errorMsg) {
+                    errorMsg.textContent = `⚠️ Cash (₹${cashVal}) + UPI (₹${upiVal}) must equal total ₹${orderTotal}`;
+                    errorMsg.classList.remove('hidden');
+                }
+                showToast(`⚠️ Cash (₹${cashVal}) + UPI (₹${upiVal}) must equal total ₹${orderTotal}`, 'error');
+                return;
+            }
+            finalPaymentMethod = `Both (Cash: ₹${cashVal}, UPI: ₹${upiVal})`;
+            splitMeta = { mode: 'Both', cash_amount: cashVal, upi_amount: upiVal, total: orderTotal };
+        } else if (currentDrawerPaymentMode === 'Cash') {
+            finalPaymentMethod = 'Cash';
+            splitMeta = { mode: 'Cash', cash_amount: orderTotal, upi_amount: 0, total: orderTotal };
+        } else if (currentDrawerPaymentMode === 'UPI') {
+            finalPaymentMethod = 'UPI';
+            splitMeta = { mode: 'UPI', cash_amount: 0, upi_amount: orderTotal, total: orderTotal };
+        }
+    }
 
     // 1. Optimistic instant local update
-    const o = ordersCache.find(x => x.id === targetOrderId);
     if (o) {
         o.status = newStatus;
+        if (newStatus === 'Delivered') {
+            o.payment_method = finalPaymentMethod;
+            o.payment_status = 'PAID';
+        }
         updateDrawerDispatchCard(o);
         if (typeof getOrderSignature === 'function') {
             knownOrderMap.set(targetOrderId, getOrderSignature(o));
@@ -2788,9 +3005,16 @@ async function applyDrawerStatusUpdate() {
     if (pill1) pill1.innerHTML = getStatusPill(newStatus);
     const pill2 = document.getElementById(`dash-status-pill-${targetOrderId}`);
     if (pill2) pill2.innerHTML = getStatusPill(newStatus);
+    const drawerPayEl = document.getElementById('drawer-payment-method');
+    if (drawerPayEl && newStatus === 'Delivered') {
+        drawerPayEl.textContent = `${finalPaymentMethod} (Collected)`;
+    }
 
     const shortId = targetOrderId.replace('order_', '').toUpperCase();
-    showToast(`✓ Order #${shortId} status updated to: ${newStatus}`, 'success');
+    const toastMsg = newStatus === 'Delivered'
+        ? `✓ Order #${shortId} Delivered & Payment recorded via ${finalPaymentMethod}!`
+        : `✓ Order #${shortId} status updated to: ${newStatus}`;
+    showToast(toastMsg, 'success');
 
     if (activeView === 'orders') filterOrders();
     else if (activeView === 'dashboard') loadDashboard();
@@ -2801,7 +3025,13 @@ async function applyDrawerStatusUpdate() {
         await fetchWithTimeout('/api/orders/admin/status', {
             method: 'POST',
             headers: getAuthHeaders(),
-            body: JSON.stringify({ orderId: targetOrderId, status: newStatus })
+            body: JSON.stringify({
+                orderId: targetOrderId,
+                status: newStatus,
+                paymentMethod: newStatus === 'Delivered' ? finalPaymentMethod : undefined,
+                paymentStatus: newStatus === 'Delivered' ? 'PAID' : undefined,
+                paymentCollection: splitMeta
+            })
         }, 5000);
     } catch (err) {
         console.warn('Status synced in local cache, server ping returned:', err.message);

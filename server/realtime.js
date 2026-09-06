@@ -311,7 +311,7 @@ async function notifyAdminNewOrder(orderData) {
 }
 
 // Broadcast status update to tracking clients, admin sockets, AND client sockets
-function broadcastStatusUpdate(orderId, newStatus, riderName = 'Alex') {
+function broadcastStatusUpdate(orderId, newStatus, riderName = 'Alex', extraMeta = {}) {
     const now = new Date();
 
     // Payload for student tracking clients
@@ -324,7 +324,8 @@ function broadcastStatusUpdate(orderId, newStatus, riderName = 'Alex') {
         riderName: riderName,
         step: getStepNumber(newStatus),
         message: getStatusMessage(newStatus, riderName),
-        timestamp: now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+        timestamp: now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+        ...extraMeta
     });
 
     const trackingClients = orderTrackingSockets.get(orderId);
@@ -342,7 +343,8 @@ function broadcastStatusUpdate(orderId, newStatus, riderName = 'Alex') {
         riderName: riderName,
         step: getStepNumber(newStatus),
         message: getStatusMessage(newStatus, riderName),
-        timestamp: now.toISOString()
+        timestamp: now.toISOString(),
+        ...extraMeta
     });
 
     chunkedBroadcast(adminSockets, adminPayload);
