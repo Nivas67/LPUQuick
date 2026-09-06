@@ -393,13 +393,127 @@ const DEFAULT_HOME_BANNERS = [
     }
 ];
 
+// ============================================================
+// UNIVERSAL BANNER TARGET CLICK & NAVIGATION HANDLER
+// ============================================================
+window.handleBannerTargetClick = function(targetUrl, event) {
+    if (event) {
+        if (typeof event.preventDefault === 'function') event.preventDefault();
+        if (typeof event.stopPropagation === 'function') event.stopPropagation();
+    }
+
+    // Guard: ignore accidental clicks right after dragging or swiping the carousel
+    if (window.__carouselSwipedTimestamp && (Date.now() - window.__carouselSwipedTimestamp < 400)) {
+        return false;
+    }
+
+    let url = (targetUrl || '').trim();
+    if (!url) {
+        url = '#shop-catalog-section';
+    }
+
+    // 1. WhatsApp, Protocol, and External Web links
+    const isTelOrMail = /^(tel:|mailto:|whatsapp:)/i.test(url);
+    const isWhatsAppShort = /^wa\.me\//i.test(url) || /^api\.whatsapp\.com\//i.test(url);
+    const isExternalHttp = /^(https?:|\/\/)/i.test(url) || isWhatsAppShort;
+
+    if (isWhatsAppShort) {
+        url = 'https://' + url;
+    }
+
+    if (isTelOrMail) {
+        window.location.href = url;
+        return;
+    }
+
+    if (isExternalHttp) {
+        try {
+            const newWin = window.open(url, '_blank', 'noopener,noreferrer');
+            if (!newWin || newWin.closed || typeof newWin.closed === 'undefined') {
+                window.location.href = url;
+            }
+        } catch (e) {
+            window.location.href = url;
+        }
+        return;
+    }
+
+    // 2. In-Page Section Anchors on Current Page (e.g. #shop-catalog-section)
+    const cleanAnchorId = url.replace(/^[#/]+/, '');
+    const isAnchorRequest = url.startsWith('#') && !url.startsWith('#/');
+    const targetEl = document.getElementById(cleanAnchorId) || (isAnchorRequest ? document.querySelector(url) : null);
+
+    if (targetEl) {
+        const headerOffset = 76;
+        const elementPosition = targetEl.getBoundingClientRect().top;
+        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+        window.scrollTo({
+            top: Math.max(0, offsetPosition),
+            behavior: 'smooth'
+        });
+
+        // Subtle focus highlight ring
+        targetEl.classList.add('ring-2', 'ring-emerald-500/60', 'transition-all');
+        setTimeout(() => {
+            targetEl.classList.remove('ring-2', 'ring-emerald-500/60');
+        }, 1500);
+        return;
+    }
+
+    // 3. Category Filter Shortcuts (e.g. category:chips, cat:chips, #cat-drinks, chips)
+    const catMatch = url.match(/^(category:|cat:|#cat-)?(all|chips|biscuits|chocolates|instant|snacks|sweets|candies|drinks|juices)$/i);
+    if (catMatch) {
+        const catId = catMatch[2].toLowerCase();
+        if (typeof window.selectHomeCategory === 'function') {
+            window.selectHomeCategory(catId);
+        } else {
+            const catBtn = document.querySelector(`[data-cat-id="${catId}"]`);
+            if (catBtn) catBtn.click();
+        }
+        const catalogSec = document.getElementById('shop-catalog-section');
+        if (catalogSec) {
+            const headerOffset = 76;
+            const offsetPosition = catalogSec.getBoundingClientRect().top + window.pageYOffset - headerOffset;
+            window.scrollTo({ top: Math.max(0, offsetPosition), behavior: 'smooth' });
+        }
+        return;
+    }
+
+    // 4. Anchor on Home Page when currently on another page
+    if (cleanAnchorId === 'shop-catalog-section' || cleanAnchorId === 'home-main-products-grid') {
+        sessionStorage.setItem('lpuquick_pending_scroll', cleanAnchorId);
+        window.location.hash = '#/';
+        return;
+    }
+
+    // 5. SPA Route Navigation (e.g. #/categories, /categories, categories, #/flow-assist, etc.)
+    let routePath = url;
+    if (routePath.startsWith('#/')) {
+        routePath = routePath.slice(2);
+    } else if (routePath.startsWith('#')) {
+        routePath = routePath.slice(1);
+    } else if (routePath.startsWith('/')) {
+        routePath = routePath.slice(1);
+    }
+
+    const targetHash = '#/' + (routePath || '');
+    if (window.location.hash === targetHash) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (typeof window.router === 'function') window.router();
+    } else {
+        window.location.hash = targetHash;
+    }
+};
+
 function renderHomeBannerSlideHTML(poster, index) {
     const title = (poster.title || 'Campus Promotion').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const pill = (poster.pill || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const badge = (poster.badge || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const subtitle = (poster.subtitle || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const linkText = (poster.link_text || 'Shop Now').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const linkUrl = poster.link_url || '#shop-catalog-section';
+    const rawLinkUrl = poster.link_url || '#shop-catalog-section';
+    const escapedLinkUrl = rawLinkUrl.replace(/"/g, '&quot;');
+    const safeJsUrl = rawLinkUrl.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     const imageUrl = poster.image_url ? poster.image_url : '';
     const keys = ['emerald', 'purple', 'amber', 'cyan'];
     const themeKey = (poster.gradient && HOME_GRADIENT_THEMES[poster.gradient]) 
@@ -407,17 +521,24 @@ function renderHomeBannerSlideHTML(poster, index) {
         : keys[index % keys.length];
     const theme = HOME_GRADIENT_THEMES[themeKey] || HOME_GRADIENT_THEMES.emerald;
 
+    const isExternal = /^(https?:|\/\/|wa\.me|tel:|mailto:|whatsapp:)/i.test(rawLinkUrl);
+    const hrefAttr = isExternal ? (rawLinkUrl.startsWith('wa.me') ? 'https://' + rawLinkUrl : rawLinkUrl) : 'javascript:void(0);';
+    const targetAttr = isExternal ? 'target="_blank" rel="noopener noreferrer"' : '';
+
     return `
-        <div class="hero-carousel-slide flex-shrink-0"
-            onclick="window.location.hash='${linkUrl}'"
-            style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; padding: 1.75rem 1.5rem; min-height: 200px; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff; cursor: pointer; overflow: hidden; background: ${theme.bg};">
+        <div class="hero-carousel-slide flex-shrink-0 cursor-pointer"
+            onclick="window.handleBannerTargetClick('${safeJsUrl}', event)"
+            data-link-url="${escapedLinkUrl}"
+            role="button"
+            tabindex="0"
+            style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; padding: 1.75rem 1.5rem; min-height: 200px; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff; overflow: hidden; background: ${theme.bg};">
             
             ${imageUrl ? `
                 <img src="${imageUrl}" alt="${title}" class="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 hover:scale-105" style="filter: brightness(0.72);" onerror="this.style.display='none'">
                 <div class="absolute inset-0 bg-gradient-to-r from-black/85 via-black/45 to-transparent z-[1]"></div>
             ` : ''}
 
-            <div class="space-y-2 max-w-lg z-10 relative">
+            <div class="space-y-2 max-w-lg z-10 relative pointer-events-none">
                 <div class="flex items-center gap-2 flex-wrap">
                     ${pill ? `
                         <span class="clay-pill px-3 py-0.5 text-[10px] font-black ${theme.pillClass} flex items-center gap-1.5 backdrop-blur-md">
@@ -439,7 +560,9 @@ function renderHomeBannerSlideHTML(poster, index) {
             </div>
 
             <div class="pt-3 z-10 relative flex items-center gap-2.5">
-                <a href="${linkUrl}" onclick="event.stopPropagation()" class="clay-btn text-xs px-4 py-2 rounded-full inline-flex items-center gap-1.5 shadow-md hover:scale-105 active:scale-95 transition-all"
+                <a href="${hrefAttr}" ${targetAttr}
+                    onclick="window.handleBannerTargetClick('${safeJsUrl}', event)" 
+                    class="clay-btn text-xs px-4 py-2 rounded-full inline-flex items-center gap-1.5 shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer"
                     style="background: #ffffff !important; color: ${theme.btnColor} !important; font-weight: 800 !important;">
                     <span style="color: ${theme.btnColor} !important; font-weight: 800 !important;">${linkText}</span>
                     <svg class="w-3.5 h-3.5" style="color: ${theme.btnColor} !important;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
@@ -1218,6 +1341,7 @@ window.pageInits.home = function() {
             }
         }
     }
+    window.selectHomeCategory = selectCategory;
 
     // Bind category click on vertical category rail & aliases
     document.querySelectorAll('.category-rail-item, .category-sidebar-item, .category-mobile-pill').forEach(btn => {
@@ -1710,6 +1834,7 @@ window.pageInits.home = function() {
             touchEndX = e.changedTouches[0].clientX;
             const diffX = touchEndX - touchStartX;
             if (Math.abs(diffX) > 40) {
+                window.__carouselSwipedTimestamp = Date.now();
                 if (diffX < 0) nextSlide();
                 else prevSlide();
             }
@@ -1728,7 +1853,8 @@ window.pageInits.home = function() {
             if (!isMouseDown) return;
             isMouseDown = false;
             const mouseDiffX = e.clientX - mouseStartX;
-            if (Math.abs(mouseDiffX) > 50) {
+            if (Math.abs(mouseDiffX) > 40) {
+                window.__carouselSwipedTimestamp = Date.now();
                 if (mouseDiffX < 0) nextSlide();
                 else prevSlide();
                 startAutoSlide();
@@ -1785,6 +1911,22 @@ window.pageInits.home = function() {
 
     // Initial filter apply
     applyFilters();
+
+    // Check for pending scroll target (e.g. from banner click on another page)
+    const pendingScrollId = sessionStorage.getItem('lpuquick_pending_scroll');
+    if (pendingScrollId) {
+        sessionStorage.removeItem('lpuquick_pending_scroll');
+        setTimeout(() => {
+            const el = document.getElementById(pendingScrollId);
+            if (el) {
+                const headerOffset = 76;
+                const offsetPosition = el.getBoundingClientRect().top + window.pageYOffset - headerOffset;
+                window.scrollTo({ top: Math.max(0, offsetPosition), behavior: 'smooth' });
+                el.classList.add('ring-2', 'ring-emerald-500/60', 'transition-all');
+                setTimeout(() => el.classList.remove('ring-2', 'ring-emerald-500/60'), 1500);
+            }
+        }, 180);
+    }
 
     // Sync PWA Install State
     if (typeof window.updateInstallUIState === 'function') {

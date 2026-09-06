@@ -206,6 +206,49 @@ function navigate(path) {
 }
 window.navigate = navigate;
 
+// Global fallback for banner target navigation
+window.handleBannerTargetClick = window.handleBannerTargetClick || function(targetUrl, event) {
+    if (event) {
+        if (typeof event.preventDefault === 'function') event.preventDefault();
+        if (typeof event.stopPropagation === 'function') event.stopPropagation();
+    }
+    let url = (targetUrl || '').trim() || '#shop-catalog-section';
+    const isTelOrMail = /^(tel:|mailto:|whatsapp:)/i.test(url);
+    const isWhatsAppShort = /^wa\.me\//i.test(url) || /^api\.whatsapp\.com\//i.test(url);
+    const isExternalHttp = /^(https?:|\/\/)/i.test(url) || isWhatsAppShort;
+
+    if (isWhatsAppShort) url = 'https://' + url;
+    if (isTelOrMail) { window.location.href = url; return; }
+    if (isExternalHttp) {
+        try {
+            const win = window.open(url, '_blank', 'noopener,noreferrer');
+            if (!win || win.closed || typeof win.closed === 'undefined') window.location.href = url;
+        } catch (e) { window.location.href = url; }
+        return;
+    }
+
+    const cleanAnchorId = url.replace(/^[#/]+/, '');
+    const isAnchorRequest = url.startsWith('#') && !url.startsWith('#/');
+    const targetEl = document.getElementById(cleanAnchorId) || (isAnchorRequest ? document.querySelector(url) : null);
+    if (targetEl) {
+        const headerOffset = 76;
+        const offsetPos = targetEl.getBoundingClientRect().top + window.pageYOffset - headerOffset;
+        window.scrollTo({ top: Math.max(0, offsetPos), behavior: 'smooth' });
+        targetEl.classList.add('ring-2', 'ring-emerald-500/60', 'transition-all');
+        setTimeout(() => targetEl.classList.remove('ring-2', 'ring-emerald-500/60'), 1500);
+        return;
+    }
+
+    if (cleanAnchorId === 'shop-catalog-section' || cleanAnchorId === 'home-main-products-grid') {
+        sessionStorage.setItem('lpuquick_pending_scroll', cleanAnchorId);
+        window.location.hash = '#/';
+        return;
+    }
+
+    let routePath = url.replace(/^[#/]+/, '');
+    window.location.hash = '#/' + (routePath || '');
+};
+
 function getCurrentRoute() {
     const hash = window.location.hash.slice(1) || '/';
     return hash;
@@ -1593,6 +1636,26 @@ let lastActiveRoute = null;
 const routeScrollPositions = new Map();
 
 async function router() {
+    const rawHash = window.location.hash || '';
+
+    // Handle in-page anchor links on currently loaded page (e.g. #shop-catalog-section)
+    if (rawHash && !rawHash.startsWith('#/')) {
+        const cleanAnchor = rawHash.replace(/^#/, '');
+        const anchorEl = document.getElementById(cleanAnchor);
+        if (anchorEl) {
+            const headerOffset = 76;
+            const elementPosition = anchorEl.getBoundingClientRect().top;
+            const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+            window.scrollTo({
+                top: Math.max(0, offsetPosition),
+                behavior: 'smooth'
+            });
+            anchorEl.classList.add('ring-2', 'ring-emerald-500/60', 'transition-all');
+            setTimeout(() => anchorEl.classList.remove('ring-2', 'ring-emerald-500/60'), 1500);
+            return;
+        }
+    }
+
     const path = getCurrentRoute();
     
     // Save previous scroll position before transition

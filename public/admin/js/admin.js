@@ -5730,8 +5730,10 @@ async function handlePosterSubmit(e) {
     const pill = document.getElementById('form-poster-pill').value.trim();
     const badge = document.getElementById('form-poster-badge').value.trim();
     const subtitle = document.getElementById('form-poster-subtitle').value.trim();
-    const link_text = document.getElementById('form-poster-cta-text').value.trim() || 'Shop Now';
-    const link_url = document.getElementById('form-poster-cta-url').value.trim() || '#shop-catalog-section';
+    let link_url = document.getElementById('form-poster-cta-url').value.trim() || '#shop-catalog-section';
+    if (/^wa\.me\//i.test(link_url) || /^api\.whatsapp\.com\//i.test(link_url)) {
+        link_url = 'https://' + link_url;
+    }
     const display_order = parseInt(document.getElementById('form-poster-order').value, 10) || (adminPosters.length + 1);
     const is_active = document.getElementById('form-poster-active').checked;
     const image_url = document.getElementById('form-poster-image-url').value.trim();
