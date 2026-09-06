@@ -385,6 +385,14 @@ window.fetchClientDeliveryEarnings = async function () {
 
         state.data = data;
 
+        // Sync Rider Availability Duty Status
+        if (typeof data.is_on_duty === 'boolean') {
+            state.isOnDuty = data.is_on_duty;
+            if (typeof window.updateClientDutyUI === 'function') {
+                window.updateClientDutyUI(state.isOnDuty);
+            }
+        }
+
         // Sync Delivery Partner Profile & Drawer Info
         const drawerName = document.getElementById('client-drawer-rider-name');
         if (drawerName) {
@@ -541,10 +549,7 @@ window.filterClientOrdersByDate = function (dateStr) {
     }
 };
 
-window.toggleClientDutyStatus = function () {
-    const state = window.__riderEarningsState;
-    state.isOnDuty = !state.isOnDuty;
-
+window.updateClientDutyUI = function (isOnDuty) {
     const dot = document.getElementById('client-status-dot');
     const txt = document.getElementById('client-status-text');
     const btn = document.getElementById('client-status-toggle-btn');
@@ -553,7 +558,7 @@ window.toggleClientDutyStatus = function () {
     const drawerBtn = document.getElementById('client-duty-toggle-btn');
     const drawerTxt = document.getElementById('client-duty-toggle-text');
 
-    if (state.isOnDuty) {
+    if (isOnDuty) {
         if (dot) dot.className = 'w-3 h-3 rounded-full bg-emerald-500 animate-pulse';
         if (txt) txt.textContent = 'Active (Accepting Orders)';
         if (btn) btn.className = 'px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-all cursor-pointer';
@@ -561,8 +566,6 @@ window.toggleClientDutyStatus = function () {
 
         if (drawerBtn) drawerBtn.className = 'w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer';
         if (drawerTxt) drawerTxt.textContent = 'ON DUTY (Active)';
-
-        if (window.showToast) window.showToast('🟢 Partner duty status: ACTIVE (Receiving Orders)', 'success');
     } else {
         if (dot) dot.className = 'w-3 h-3 rounded-full bg-slate-400';
         if (txt) txt.textContent = 'Offline (On Break)';
@@ -571,8 +574,52 @@ window.toggleClientDutyStatus = function () {
 
         if (drawerBtn) drawerBtn.className = 'w-full py-2 px-3 rounded-xl bg-slate-600 hover:bg-slate-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer';
         if (drawerTxt) drawerTxt.textContent = 'OFF DUTY (Paused)';
+    }
+};
 
-        if (window.showToast) window.showToast('⚪ Partner duty status: OFFLINE (Shift Paused)', 'info');
+window.toggleClientDutyStatus = async function () {
+    const state = window.__riderEarningsState;
+    state.isOnDuty = !state.isOnDuty;
+    const newStatus = state.isOnDuty ? 'Active' : 'Offline';
+
+    window.updateClientDutyUI(state.isOnDuty);
+
+    let currentRider = null;
+    try {
+        const rawUser = localStorage.getItem('lpuquick_user');
+        if (rawUser) currentRider = JSON.parse(rawUser);
+    } catch (e) {}
+
+    const riderId = currentRider?.id || currentRider?.phone || currentRider?.name;
+
+    try {
+        const headers = { 'Content-Type': 'application/json' };
+        const adminToken = localStorage.getItem('lpuquick_admin_token');
+        if (adminToken) headers['Authorization'] = `Bearer ${adminToken}`;
+
+        const res = await fetch('/api/orders/delivery-duty-status', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+                riderId: riderId,
+                status: newStatus
+            })
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data && typeof data.is_on_duty === 'boolean') {
+                state.isOnDuty = data.is_on_duty;
+                window.updateClientDutyUI(state.isOnDuty);
+            }
+        }
+    } catch (err) {
+        console.warn('[Duty Status POST Error]:', err);
+    }
+
+    if (state.isOnDuty) {
+        if (window.showToast) window.showToast('🟢 Partner duty status: ACTIVE (Receiving Orders)', 'success');
+    } else {
+        if (window.showToast) window.showToast('⚪ Partner duty status: OFFLINE (Shift Paused - No Orders)', 'info');
     }
 };
 
@@ -778,23 +825,7 @@ window.closeClientPartnerDrawer = function () {
     }
 };
 
-window.toggleClientDutyStatus = function () {
-    const state = window.__riderEarningsState;
-    state.isOnDuty = !state.isOnDuty;
-    const btn = document.getElementById('client-duty-toggle-btn');
-    const txt = document.getElementById('client-duty-toggle-text');
-    if (btn && txt) {
-        if (state.isOnDuty) {
-            btn.className = 'w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer';
-            txt.textContent = 'ON DUTY (Active)';
-            alert('🟢 You are now ON DUTY. You will receive express delivery alerts.');
-        } else {
-            btn.className = 'w-full py-2 px-3 rounded-xl bg-slate-600 hover:bg-slate-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer';
-            txt.textContent = 'OFF DUTY (Paused)';
-            alert('⚪ You are now OFF DUTY.');
-        }
-    }
-};
+
 
 // Modals
 window.openClientPartnerShiftModal = function () {

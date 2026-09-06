@@ -510,6 +510,20 @@ function broadcastAdvertisementsUpdate(posters, settings) {
     chunkedBroadcast(clientSockets, payload);
 }
 
+// Broadcast when a delivery runner updates their duty availability (Active / Offline)
+function broadcastDutyStatusChanged(data) {
+    const payload = JSON.stringify({
+        type: 'DUTY_STATUS_CHANGED',
+        riderId: data.riderId,
+        riderName: data.riderName,
+        status: data.status,
+        is_on_duty: data.is_on_duty,
+        timestamp: new Date().toISOString()
+    });
+    chunkedBroadcast(adminSockets, payload);
+    chunkedBroadcast(clientSockets, payload);
+}
+
 module.exports = {
     setupRealtime,
     broadcastOrderPlaced: notifyAdminNewOrder,
@@ -522,7 +536,8 @@ module.exports = {
     broadcastTransferRequested,
     broadcastTransferResolved,
     broadcastOrderEdited,
-    broadcastAdvertisementsUpdate
+    broadcastAdvertisementsUpdate,
+    broadcastDutyStatusChanged
 };
 
 

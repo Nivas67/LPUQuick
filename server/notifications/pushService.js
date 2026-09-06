@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const webpush = require('web-push');
+const { isRiderOnline } = require('../services/riderAvailability');
 
 // Directory paths
 const CONFIG_DIR = path.join(__dirname, '..', 'config');
@@ -130,8 +131,14 @@ class PushNotificationService {
 
     async sendToRoles(roles, payload) {
         const targetRoles = Array.isArray(roles) ? roles : [roles];
+        const isNewOrder = payload?.data?.action === 'new_order';
         const targets = subscriptions.filter(s => {
             if (!s.roles || !Array.isArray(s.roles)) return false;
+            // If this is a new delivery order, skip delivery runners who are OFFLINE
+            if (isNewOrder && s.adminId && !isRiderOnline(s.adminId)) {
+                const isOnlyRider = s.roles.includes('delivery_person') && !s.roles.includes('owner') && !s.roles.includes('store_manager');
+                if (isOnlyRider) return false;
+            }
             return targetRoles.some(r => s.roles.includes(r) || s.roles.includes('owner'));
         });
 
@@ -206,6 +213,11 @@ class PushNotificationService {
     }
 
     async notifyTransferRequest(transfer) {
+        if (!isRiderOnline(transfer.toId)) {
+            console.log(`[Push] Suppressed transfer alert: Recipient ${transfer.toId} is OFFLINE.`);
+            return { delivered: 0, total: 0 };
+        }
+
         const orderShortId = (transfer.orderId || '').replace('order_', '').slice(0, 8).toUpperCase();
         const payload = {
             title: `🔄 Order Transfer Request!`,

@@ -3,10 +3,11 @@ const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const supabaseDb = require('../db/supabaseDb');
-const { broadcastStatusUpdate, broadcastOrderClaimed, broadcastTransferRequested, broadcastTransferResolved, broadcastOrderEdited } = require('../realtime');
+const { broadcastStatusUpdate, broadcastOrderClaimed, broadcastTransferRequested, broadcastTransferResolved, broadcastOrderEdited, broadcastDutyStatusChanged } = require('../realtime');
 const { getSupabaseClient } = require('../supabase');
 const requireAdmin = require('../middleware/adminAuth');
 const { requireRole, verifyAdminToken, resolveAdminRoles } = require('../middleware/adminAuth');
+const { getRiderStatus, isRiderOnline, setRiderStatus, getAllRiderStatuses } = require('../services/riderAvailability');
 const pushService = require('../notifications/pushService');
 const cache = require('../cache');
 
@@ -25,6 +26,7 @@ function getDeliveryPricingSettings() {
                 daily_bonus_threshold: Number(data.daily_bonus_threshold) || 20,
                 daily_bonus_amount: Number(data.daily_bonus_amount) || 20.00,
                 base_payout_rule: data.base_payout_rule || 'per_delivered_order',
+                stats_start_timestamp: data.stats_start_timestamp || '2026-09-06T14:22:35.000Z',
                 updated_at: data.updated_at || new Date().toISOString(),
                 updated_by: data.updated_by || 'Owner'
             };
@@ -40,6 +42,7 @@ function getDeliveryPricingSettings() {
         daily_bonus_threshold: 20,
         daily_bonus_amount: 20.00,
         base_payout_rule: 'per_delivered_order',
+        stats_start_timestamp: '2026-09-06T14:22:35.000Z',
         updated_at: new Date().toISOString(),
         updated_by: 'Owner'
     };
@@ -53,6 +56,7 @@ function saveDeliveryPricingSettings(newSettings) {
         rate_per_order: Math.max(0.50, Number(newSettings.rate_per_order !== undefined ? newSettings.rate_per_order : current.rate_per_order)),
         daily_bonus_threshold: Math.max(1, Number(newSettings.daily_bonus_threshold !== undefined ? newSettings.daily_bonus_threshold : current.daily_bonus_threshold)),
         daily_bonus_amount: Math.max(0, Number(newSettings.daily_bonus_amount !== undefined ? newSettings.daily_bonus_amount : current.daily_bonus_amount)),
+        stats_start_timestamp: newSettings.stats_start_timestamp !== undefined ? newSettings.stats_start_timestamp : current.stats_start_timestamp,
         updated_at: new Date().toISOString()
     };
     const dir = path.dirname(DELIVERY_SETTINGS_PATH);
@@ -535,15 +539,20 @@ router.get('/admin/delivery-staff', requireAdmin, async (req, res) => {
             }
         });
 
-        const enrichedStaff = deliveryStaff.map(s => ({
-            id: s.id,
-            name: s.name,
-            email: s.email,
-            phone: s.phone || '',
-            roles: s.roles,
-            is_owner: s.is_owner,
-            active_deliveries: loadMap[s.id] || 0
-        }));
+        const enrichedStaff = deliveryStaff.map(s => {
+            const status = getRiderStatus(s.id);
+            return {
+                id: s.id,
+                name: s.name,
+                email: s.email,
+                phone: s.phone || '',
+                roles: s.roles,
+                is_owner: s.is_owner,
+                active_deliveries: loadMap[s.id] || 0,
+                availability_status: status,
+                is_available: status === 'Active'
+            };
+        });
 
         res.json({ success: true, staff: enrichedStaff });
     } catch (err) {
@@ -594,12 +603,16 @@ router.post('/delivery-pricing-config', async (req, res) => {
             });
         }
 
-        const { rate_per_order, daily_bonus_threshold, daily_bonus_amount, surge_rate, night_surcharge, updated_by } = req.body || {};
+        const { rate_per_order, daily_bonus_threshold, daily_bonus_amount, surge_rate, night_surcharge, updated_by, reset_stats_baseline, stats_start_timestamp } = req.body || {};
         if (rate_per_order !== undefined) {
             const num = Number(rate_per_order);
             if (isNaN(num) || num < 0.50 || num > 500) {
                 return res.status(400).json({ success: false, error: 'Rate per order must be a valid number between ₹0.50 and ₹500.00' });
             }
+        }
+        let resolvedStatsStart = stats_start_timestamp;
+        if (reset_stats_baseline) {
+            resolvedStatsStart = new Date().toISOString();
         }
         const updated = saveDeliveryPricingSettings({
             rate_per_order: rate_per_order !== undefined ? Number(rate_per_order) : undefined,
@@ -607,6 +620,7 @@ router.post('/delivery-pricing-config', async (req, res) => {
             daily_bonus_amount: daily_bonus_amount !== undefined ? Number(daily_bonus_amount) : undefined,
             surge_rate: surge_rate !== undefined ? Number(surge_rate) : undefined,
             night_surcharge: night_surcharge !== undefined ? Number(night_surcharge) : undefined,
+            stats_start_timestamp: resolvedStatsStart !== undefined ? resolvedStatsStart : undefined,
             updated_by: updated_by || 'store_owner'
         });
 
@@ -617,6 +631,82 @@ router.post('/delivery-pricing-config', async (req, res) => {
         });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// GET /api/orders/delivery-duty-status (Check current rider duty status)
+router.get('/delivery-duty-status', async (req, res) => {
+    try {
+        const authHeader = req.headers['authorization'] || req.headers['x-admin-token'] || '';
+        const adminToken = typeof authHeader === 'string' ? authHeader.replace(/^Bearer\s+/i, '').trim() : '';
+        let adminId = null;
+        if (adminToken) {
+            const verified = verifyAdminToken(adminToken);
+            if (verified && verified.sub) adminId = verified.sub;
+        }
+        if (!adminId && req.query.riderId) {
+            adminId = req.query.riderId;
+        }
+        if (!adminId) {
+            return res.json({ success: true, is_on_duty: true, status: 'Active' });
+        }
+        const status = getRiderStatus(adminId);
+        res.json({
+            success: true,
+            rider_id: adminId,
+            is_on_duty: status === 'Active',
+            status
+        });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// POST /api/orders/delivery-duty-status (Toggle Active / Offline duty availability)
+router.post('/delivery-duty-status', async (req, res) => {
+    try {
+        const authHeader = req.headers['authorization'] || req.headers['x-admin-token'] || '';
+        const adminToken = typeof authHeader === 'string' ? authHeader.replace(/^Bearer\s+/i, '').trim() : '';
+        let adminId = null;
+        let adminName = 'Delivery Rider';
+        if (adminToken) {
+            const verified = verifyAdminToken(adminToken);
+            if (verified && verified.sub) {
+                adminId = verified.sub;
+                try {
+                    const u = await supabaseDb.users.getUserById(adminId);
+                    if (u) adminName = u.name || adminName;
+                } catch (err) {}
+            }
+        }
+        if (!adminId && req.body.riderId) {
+            adminId = req.body.riderId;
+            adminName = req.body.riderName || adminName;
+        }
+        if (!adminId) {
+            return res.status(401).json({ success: false, error: 'Authentication required to toggle duty status' });
+        }
+        const requestedStatus = req.body.status || (req.body.is_on_duty === false ? 'Offline' : 'Active');
+        const updated = setRiderStatus(adminId, requestedStatus);
+
+        broadcastDutyStatusChanged({
+            riderId: adminId,
+            riderName: adminName,
+            status: updated.status,
+            is_on_duty: updated.status === 'Active'
+        });
+
+        res.json({
+            success: true,
+            rider_id: adminId,
+            status: updated.status,
+            is_on_duty: updated.status === 'Active',
+            message: updated.status === 'Active' 
+                ? '🟢 You are now ON DUTY. You will receive express delivery orders and transfer requests.'
+                : '⚪ You are now OFFLINE. Delivery orders and transfers paused.'
+        });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
     }
 });
 
@@ -684,6 +774,9 @@ router.get('/delivery-earnings', async (req, res) => {
         // Dynamic Configurable Delivery Pricing Engine
         const pricingConfig = getDeliveryPricingSettings();
         const RATE_PER_ORDER = (Number(req.query.rate) > 0) ? Number(req.query.rate) : (pricingConfig.rate_per_order || 3.00);
+        const statsStartTs = (req.query.includeHistorical === 'true' || req.query.allTime === 'true')
+            ? 0
+            : (pricingConfig.stats_start_timestamp ? new Date(pricingConfig.stats_start_timestamp).getTime() : 0);
 
         const supabase = getSupabaseClient();
         // Query orders across all states
@@ -760,7 +853,11 @@ router.get('/delivery-earnings', async (req, res) => {
         const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
         // 1. Calculate Platform-Wide Today Stats
-        const todayOrdersAll = allOrders.filter(o => o.created_at && formatISTDate(o.created_at) === todayStr);
+        const todayOrdersAll = allOrders.filter(o => {
+            if (!o.created_at || formatISTDate(o.created_at) !== todayStr) return false;
+            if (statsStartTs > 0 && new Date(o.created_at).getTime() < statsStartTs) return false;
+            return true;
+        });
         const todayCompletedAll = todayOrdersAll.filter(o => isCompleted(o.status)).length;
         const todayPendingAll = todayOrdersAll.filter(o => isPending(o.status)).length;
         const todayCancelledAll = todayOrdersAll.filter(o => isCancelled(o.status)).length;
@@ -799,6 +896,7 @@ router.get('/delivery-earnings', async (req, res) => {
         const currentMonth = now.getMonth();
         const monthOrdersAll = allOrders.filter(o => {
             if (!o.created_at) return false;
+            if (statsStartTs > 0 && new Date(o.created_at).getTime() < statsStartTs) return false;
             const d = new Date(o.created_at);
             return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
         });
@@ -830,7 +928,7 @@ router.get('/delivery-earnings', async (req, res) => {
                     monthly_deliveries: 0,
                     monthly_payout: 0.00,
                     total_completed: 0,
-                    availability_status: 'Active',
+                    availability_status: getRiderStatus(s.id),
                     primary_shift: 'Night Express (08:00 PM – 02:00 AM)',
                     shift_deliveries: { morning: 0, evening: 0, night: 0, late_night: 0 }
                 });
@@ -854,7 +952,7 @@ router.get('/delivery-earnings', async (req, res) => {
                     monthly_deliveries: 0,
                     monthly_payout: 0.00,
                     total_completed: 0,
-                    availability_status: 'Active',
+                    availability_status: getRiderStatus(riderId),
                     primary_shift: 'Night Express (08:00 PM – 02:00 AM)',
                     shift_deliveries: { morning: 0, evening: 0, night: 0, late_night: 0 }
                 });
@@ -873,7 +971,7 @@ router.get('/delivery-earnings', async (req, res) => {
                 monthly_deliveries: 0,
                 monthly_payout: 0.00,
                 total_completed: 0,
-                availability_status: 'Active',
+                availability_status: getRiderStatus('RIDER_BH13_01'),
                 primary_shift: 'Night Express (08:00 PM – 02:00 AM)',
                 shift_deliveries: { morning: 0, evening: 0, night: 0, late_night: 0 }
             });
@@ -882,6 +980,7 @@ router.get('/delivery-earnings', async (req, res) => {
         // Tally deliveries, shifts and wages for each partner
         allOrders.forEach(o => {
             if (!isCompleted(o.status)) return;
+            if (statsStartTs > 0 && o.created_at && new Date(o.created_at).getTime() < statsStartTs) return;
             const meta = supabaseDb.orders.parseDeliveryMeta(o.rider_name);
             const riderId = meta.assigned_to || (typeof o.rider_name === 'string' && o.rider_name.trim() && !o.rider_name.startsWith('{') ? o.rider_name.trim() : null);
             const riderName = meta.name || meta.assigned_to_name || (typeof o.rider_name === 'string' && !o.rider_name.startsWith('{') ? o.rider_name.trim() : null);
@@ -936,14 +1035,19 @@ router.get('/delivery-earnings', async (req, res) => {
             }
         });
 
-        const partnersSummary = Array.from(partnerMap.values());
+        const partnersSummary = Array.from(partnerMap.values()).map(p => ({
+            ...p,
+            availability_status: getRiderStatus(p.partner_id)
+        }));
         const availableRiders = partnersSummary.map(p => ({
             id: p.partner_id,
             name: p.partner_name,
             is_owner: Boolean(p.is_owner),
             phone: p.phone,
             total_completed: p.total_completed,
-            today_deliveries: p.today_deliveries
+            today_deliveries: p.today_deliveries,
+            availability_status: p.availability_status,
+            is_available: p.availability_status === 'Active'
         }));
 
         // Identify Owner details
@@ -954,6 +1058,9 @@ router.get('/delivery-earnings', async (req, res) => {
 
         // 4. Filter Orders by Selected Rider / Owner ('mine') / Individual Runner
         let filteredOrders = allOrders;
+        if (statsStartTs > 0 && req.query.includeHistorical !== 'true') {
+            filteredOrders = filteredOrders.filter(o => o.created_at && new Date(o.created_at).getTime() >= statsStartTs);
+        }
         let selectedRiderName = 'All Delivery Staff';
 
         if (selectedRiderId === 'mine') {
@@ -1301,6 +1408,9 @@ router.get('/delivery-earnings', async (req, res) => {
 
             // Visual Chart Days
             days: daysList,
+            my_duty_status: requesterAdmin ? getRiderStatus(requesterAdmin.id) : 'Active',
+            is_on_duty: requesterAdmin ? isRiderOnline(requesterAdmin.id) : true,
+            stats_start_timestamp: pricingConfig.stats_start_timestamp || null,
 
             // Itemized Order Details (Consistent IST date, exact state, and earned payout)
             all_orders: periodOrders.map(o => {
@@ -1326,7 +1436,9 @@ router.get('/delivery-earnings', async (req, res) => {
                     is_owner: false,
                     phone: requesterAdmin ? requesterAdmin.phone || '' : '',
                     total_completed: filteredOrders.filter(o => isCompleted(o.status)).length,
-                    today_deliveries: riderTodayCompleted
+                    today_deliveries: riderTodayCompleted,
+                    availability_status: requesterAdmin ? getRiderStatus(requesterAdmin.id) : 'Active',
+                    is_available: requesterAdmin ? isRiderOnline(requesterAdmin.id) : true
                 }],
             store_info: {
                 store_id: '66365',
@@ -1349,6 +1461,13 @@ router.post('/:orderId/claim', requireAdmin, async (req, res) => {
     const adminName = (req.body && req.body.adminName && typeof req.body.adminName === 'string' && req.body.adminName.trim())
         ? req.body.adminName.trim()
         : (req.admin.name || 'Delivery Rider');
+
+    if (!isRiderOnline(adminId)) {
+        return res.status(400).json({
+            success: false,
+            error: 'You are currently OFFLINE. Please switch your duty status to ON DUTY to accept delivery orders.'
+        });
+    }
 
     try {
         const updated = await supabaseDb.orders.claimOrder(orderId, adminId, adminName);
@@ -1407,6 +1526,20 @@ router.post('/:orderId/transfer/request', requireAdmin, async (req, res) => {
         return res.status(400).json({ success: false, error: 'Cannot transfer an order to yourself' });
     }
 
+    if (!isRiderOnline(fromAdminId)) {
+        return res.status(400).json({
+            success: false,
+            error: 'You cannot transfer deliveries while OFFLINE. Switch your duty status to ON DUTY first.'
+        });
+    }
+
+    if (!isRiderOnline(toAdminId)) {
+        return res.status(400).json({
+            success: false,
+            error: `Cannot transfer delivery to ${toAdminName || 'selected partner'}: Delivery partner is currently OFFLINE and cannot receive orders.`
+        });
+    }
+
     try {
         const updated = await supabaseDb.orders.requestTransfer(
             orderId,
@@ -1455,6 +1588,13 @@ router.post('/:orderId/transfer/respond', requireAdmin, async (req, res) => {
     const adminId = req.admin.id;
     const adminName = req.admin.name || 'Delivery Rider';
 
+    if (accept && !isRiderOnline(adminId)) {
+        return res.status(400).json({
+            success: false,
+            error: 'You cannot accept delivery transfers while OFFLINE. Please switch your duty status to ON DUTY first.'
+        });
+    }
+
     try {
         const updated = await supabaseDb.orders.respondTransfer(
             orderId,
@@ -1501,6 +1641,13 @@ router.post('/:orderId/transfer/direct', requireAdmin, requireRole('owner', 'sto
 
     if (!targetAdminId) {
         return res.status(400).json({ success: false, error: 'Target delivery person is required' });
+    }
+
+    if (!isRiderOnline(targetAdminId)) {
+        return res.status(400).json({
+            success: false,
+            error: `Cannot assign delivery to ${targetAdminName || 'selected partner'}: Delivery partner is currently OFFLINE and cannot receive orders.`
+        });
     }
 
     try {

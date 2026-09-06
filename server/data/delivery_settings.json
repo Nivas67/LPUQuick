@@ -4,6 +4,7 @@
   "daily_bonus_threshold": 20,
   "daily_bonus_amount": 20,
   "base_payout_rule": "per_delivered_order",
-  "updated_at": "2026-09-06T14:12:20.153Z",
+  "stats_start_timestamp": "2026-09-06T14:22:35.000Z",
+  "updated_at": "2026-09-06T14:22:35.000Z",
   "updated_by": "Owner"
 }

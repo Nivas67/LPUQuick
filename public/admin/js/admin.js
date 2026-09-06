@@ -1735,11 +1735,20 @@ async function loadDeliveryStaffForTransfer() {
                 select.innerHTML = '<option value="">No other delivery admins available</option>';
                 return;
             }
-            select.innerHTML = availableStaff.map(s => {
-                const loadBadge = s.active_deliveries > 0 ? ` (${s.active_deliveries} active orders)` : ' (Available)';
+            const onlineStaff = availableStaff.filter(s => s.availability_status !== 'Offline' && s.is_available !== false);
+            let optionsHtml = '';
+            if (onlineStaff.length === 0) {
+                optionsHtml += '<option value="" disabled selected>⚠️ All delivery partners are currently OFFLINE</option>';
+            }
+            optionsHtml += availableStaff.map(s => {
+                const isOffline = s.availability_status === 'Offline' || s.is_available === false;
+                const statusBadge = isOffline ? ' [OFFLINE - Cannot receive transfers]' : '';
+                const loadBadge = isOffline ? '' : (s.active_deliveries > 0 ? ` (${s.active_deliveries} active orders)` : ' (Available)');
                 const roleBadge = s.is_owner ? ' [Owner]' : (s.roles.includes('store_manager') ? ' [Store Mgr]' : ' [Rider]');
-                return `<option value="${s.id}" data-name="${s.name}">${s.name}${roleBadge}${loadBadge}</option>`;
+                const disabledAttr = isOffline ? ' disabled class="text-slate-400 bg-slate-100"' : '';
+                return `<option value="${s.id}" data-name="${s.name}"${disabledAttr}>${s.name}${roleBadge}${statusBadge}${loadBadge}</option>`;
             }).join('');
+            select.innerHTML = optionsHtml;
         } else {
             select.innerHTML = '<option value="">Failed to load staff list</option>';
         }
@@ -6239,6 +6248,14 @@ async function loadDeliveryEarnings(customStart, customEnd) {
             if (filterBanner) filterBanner.classList.add('hidden');
         }
 
+        // Sync Rider Availability Duty Status with server
+        if (typeof data.is_on_duty === 'boolean') {
+            partnerIsOnDuty = data.is_on_duty;
+            if (typeof updatePartnerDutyUI === 'function') {
+                updatePartnerDutyUI(partnerIsOnDuty);
+            }
+        }
+
         // Update Partner Drawer details
         const drawerStore = document.getElementById('drawer-store-name');
         if (drawerStore && data.store_info) {
@@ -6657,25 +6674,58 @@ function inspectPartnerFromFleet(partnerId) {
 }
 
 // Partner Duty Toggle in Dashboard
-function togglePartnerDutyStatus() {
-    partnerIsOnDuty = !partnerIsOnDuty;
+function updatePartnerDutyUI(isOnDuty) {
     const dot = document.getElementById('partner-status-dot');
     const txt = document.getElementById('partner-status-text');
     const btnLabel = document.getElementById('partner-duty-btn-label');
     const btn = document.getElementById('partner-duty-toggle-btn');
 
-    if (partnerIsOnDuty) {
+    if (isOnDuty) {
         if (dot) dot.className = 'w-3 h-3 rounded-full bg-emerald-500 animate-pulse';
         if (txt) txt.textContent = 'Active';
         if (btnLabel) btnLabel.textContent = 'Switch to Offline';
         if (btn) btn.className = 'w-full py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer';
-        showToast('🟢 Delivery Partner status set to ACTIVE (Online & Taking Deliveries)', 'success');
     } else {
         if (dot) dot.className = 'w-3 h-3 rounded-full bg-slate-400';
         if (txt) txt.textContent = 'Offline';
         if (btnLabel) btnLabel.textContent = 'Switch to Active';
         if (btn) btn.className = 'w-full py-1.5 px-3 rounded-xl bg-slate-600 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer';
-        showToast('⚪ Delivery Partner status set to OFFLINE (Shift Paused)', 'info');
+    }
+}
+
+// Partner Duty Toggle in Dashboard
+async function togglePartnerDutyStatus() {
+    partnerIsOnDuty = !partnerIsOnDuty;
+    const newStatus = partnerIsOnDuty ? 'Active' : 'Offline';
+    updatePartnerDutyUI(partnerIsOnDuty);
+
+    try {
+        const res = await fetchWithTimeout('/api/orders/delivery-duty-status', {
+            method: 'POST',
+            headers: {
+                ...getAuthHeaders(),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                riderId: currentAdminProfile?.id,
+                status: newStatus
+            })
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data && typeof data.is_on_duty === 'boolean') {
+                partnerIsOnDuty = data.is_on_duty;
+                updatePartnerDutyUI(partnerIsOnDuty);
+            }
+        }
+    } catch (e) {
+        console.warn('[Duty Status POST error]:', e.message);
+    }
+
+    if (partnerIsOnDuty) {
+        showToast('🟢 Delivery Partner status set to ACTIVE (Online & Taking Deliveries)', 'success');
+    } else {
+        showToast('⚪ Delivery Partner status set to OFFLINE (Shift Paused - No Orders)', 'info');
     }
 }
 
