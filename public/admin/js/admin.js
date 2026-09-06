@@ -1744,7 +1744,17 @@ async function loadDeliveryStaffForTransfer() {
                 const isOffline = s.availability_status === 'Offline' || s.is_available === false;
                 const statusBadge = isOffline ? ' [OFFLINE - Cannot receive transfers]' : '';
                 const loadBadge = isOffline ? '' : (s.active_deliveries > 0 ? ` (${s.active_deliveries} active orders)` : ' (Available)');
-                const roleBadge = s.is_owner ? ' [Owner]' : (s.roles.includes('store_manager') ? ' [Store Mgr]' : ' [Rider]');
+                const isOwnerRole = s.is_owner || (Array.isArray(s.roles) && s.roles.includes('owner'));
+                const isRiderRole = Array.isArray(s.roles) && s.roles.includes('delivery_person');
+                const isStoreMgrRole = Array.isArray(s.roles) && s.roles.includes('store_manager');
+                let roleBadge = ' [Delivery Partner]';
+                if (isOwnerRole) {
+                    roleBadge = ' [Owner & Delivery]';
+                } else if (isStoreMgrRole && isRiderRole) {
+                    roleBadge = ' [Store Mgr & Delivery Partner]';
+                } else if (isStoreMgrRole) {
+                    roleBadge = ' [Store Mgr]';
+                }
                 const disabledAttr = isOffline ? ' disabled class="text-slate-400 bg-slate-100"' : '';
                 return `<option value="${s.id}" data-name="${s.name}"${disabledAttr}>${s.name}${roleBadge}${statusBadge}${loadBadge}</option>`;
             }).join('');
@@ -6208,10 +6218,19 @@ async function loadDeliveryEarnings(customStart, customEnd) {
                     earningsSelectedRider = 'all';
                 }
                 data.available_riders.forEach(r => {
-                    const ownerTag = r.is_owner ? ' (Owner)' : '';
+                    let roleTag = '';
+                    if (r.is_owner) {
+                        roleTag = ' (Owner & Delivery)';
+                    } else if (r.is_store_manager || (Array.isArray(r.roles) && r.roles.includes('store_manager'))) {
+                        roleTag = ' (Store Mgr & Delivery)';
+                    } else if (r.is_inventory_manager || (Array.isArray(r.roles) && r.roles.includes('inventory_manager'))) {
+                        roleTag = ' (Inventory & Delivery)';
+                    } else {
+                        roleTag = ' (Delivery Partner)';
+                    }
                     const runsTag = r.total_completed ? ` • ${r.total_completed} runs` : '';
                     const isSel = earningsSelectedRider === r.id ? 'selected' : '';
-                    optionsHtml += `<option value="${escapeHtml(r.id)}" ${isSel}>🏃 ${escapeHtml(r.name)}${ownerTag}${runsTag}</option>`;
+                    optionsHtml += `<option value="${escapeHtml(r.id)}" ${isSel}>🏃 ${escapeHtml(r.name)}${roleTag}${runsTag}</option>`;
                 });
             }
             riderSelect.innerHTML = optionsHtml;

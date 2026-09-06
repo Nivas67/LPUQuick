@@ -26,7 +26,7 @@ function getDeliveryPricingSettings() {
                 daily_bonus_threshold: Number(data.daily_bonus_threshold) || 20,
                 daily_bonus_amount: Number(data.daily_bonus_amount) || 20.00,
                 base_payout_rule: data.base_payout_rule || 'per_delivered_order',
-                stats_start_timestamp: data.stats_start_timestamp || '2026-09-06T14:22:35.000Z',
+                stats_start_timestamp: data.stats_start_timestamp || null,
                 updated_at: data.updated_at || new Date().toISOString(),
                 updated_by: data.updated_by || 'Owner'
             };
@@ -42,7 +42,7 @@ function getDeliveryPricingSettings() {
         daily_bonus_threshold: 20,
         daily_bonus_amount: 20.00,
         base_payout_rule: 'per_delivered_order',
-        stats_start_timestamp: '2026-09-06T14:22:35.000Z',
+        stats_start_timestamp: null,
         updated_at: new Date().toISOString(),
         updated_by: 'Owner'
     };
@@ -896,6 +896,10 @@ router.get('/delivery-earnings', async (req, res) => {
             if (meta.assigned_to && partnerMap.has(meta.assigned_to)) {
                 return partnerMap.get(meta.assigned_to);
             }
+            // Link legacy admin ID for Harsha / Caption America to current active account
+            if (meta.assigned_to === 'admin_f31d8bcd80' && partnerMap.has('user_2dae5b56')) {
+                return partnerMap.get('user_2dae5b56');
+            }
             const candidateStrings = [
                 meta.name,
                 meta.assigned_to_name,
@@ -910,16 +914,19 @@ router.get('/delivery-earnings', async (req, res) => {
                 const pEmailPrefix = staffObj && staffObj.email ? staffObj.email.split('@')[0].toLowerCase() : '';
                 
                 for (const cand of candidateStrings) {
-                    if (cand === pName || (pEmailPrefix && cand === pEmailPrefix) || pName.includes(cand)) {
+                    if (cand === pName || (pEmailPrefix && cand === pEmailPrefix) || pName.includes(cand) || cand.includes(pName)) {
                         return p;
                     }
-                    if (p.partner_id === 'admin_5dcb05eba7' && (cand.includes('flash') || cand.includes('jash'))) {
+                    if (p.partner_id === 'user_2dae5b56' && (cand.includes('caption') || cand.includes('harsha') || cand.includes('jiguru-less man 2.0'))) {
                         return p;
                     }
-                    if (p.partner_id === 'admin_214ff5d346' && (cand.includes('jhony') || cand.includes('yogesh'))) {
+                    if (p.partner_id === 'admin_5dcb05eba7' && (cand.includes('flash') || cand.includes('jash') || cand.includes('royyala'))) {
                         return p;
                     }
-                    if (p.is_owner && (cand.includes('jiguru') || cand.includes('nivas') || cand === 'owner')) {
+                    if (p.partner_id === 'admin_214ff5d346' && (cand.includes('jhony') || cand.includes('yogesh') || cand.includes('chutiya'))) {
+                        return p;
+                    }
+                    if (p.is_owner && (cand.includes('jiguru') || cand.includes('nivas') || cand.includes('mia kalifa') || cand === 'owner')) {
                         return p;
                     }
                 }
@@ -982,16 +989,23 @@ router.get('/delivery-earnings', async (req, res) => {
             ...p,
             availability_status: getRiderStatus(p.partner_id)
         }));
-        const availableRiders = partnersSummary.map(p => ({
-            id: p.partner_id,
-            name: p.partner_name,
-            is_owner: Boolean(p.is_owner),
-            phone: p.phone,
-            total_completed: p.total_completed,
-            today_deliveries: p.today_deliveries,
-            availability_status: p.availability_status,
-            is_available: p.availability_status === 'Active'
-        }));
+        const availableRiders = partnersSummary.map(p => {
+            const staffObj = (staffList || []).find(s => s.id === p.partner_id);
+            const roles = staffObj ? (Array.isArray(staffObj.roles) ? staffObj.roles : [staffObj.role]) : [];
+            return {
+                id: p.partner_id,
+                name: p.partner_name,
+                is_owner: Boolean(p.is_owner),
+                is_store_manager: roles.includes('store_manager'),
+                is_inventory_manager: roles.includes('inventory_manager'),
+                roles: roles,
+                phone: p.phone,
+                total_completed: p.total_completed,
+                today_deliveries: p.today_deliveries,
+                availability_status: p.availability_status,
+                is_available: p.availability_status === 'Active'
+            };
+        });
 
         // Identify Owner details
         const ownerStaff = (Array.isArray(staffList) ? staffList : []).find(s => s.is_owner || (Array.isArray(s.roles) && s.roles.includes('owner')));
