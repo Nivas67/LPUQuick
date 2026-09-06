@@ -343,7 +343,14 @@ window.pages.home = async function() {
     
     const address = window.currentAddress || 'BH13';
 
-    const inStockProductCards = buildProductCardsHTML(inStockProducts, true);
+    // Order products: In-Stock items first, followed by Out-of-Stock items so all items are searchable
+    const sortedCatalogProducts = [...allProductsFromApi].sort((a, b) => {
+        const aInStock = (a.in_stock !== false && (a.stock_left === undefined || a.stock_left === null || a.stock_left > 0)) ? 1 : 0;
+        const bInStock = (b.in_stock !== false && (b.stock_left === undefined || b.stock_left === null || b.stock_left > 0)) ? 1 : 0;
+        return bInStock - aInStock;
+    });
+
+    const inStockProductCards = buildProductCardsHTML(sortedCatalogProducts, true);
     const biscuitCards = buildProductCardsHTML(biscuits);
     const chipCards = buildProductCardsHTML(chips);
     const chocolateCards = buildProductCardsHTML(chocolates);
@@ -391,7 +398,7 @@ window.pages.home = async function() {
     return `
 <div class="min-h-screen pb-32">
     <!-- Sticky Mobile Web Smart App Banner (Industry standard for mobile web) -->
-    <div id="home-mobile-smart-banner" class="btn-install-app sm:hidden w-full bg-slate-900 text-white px-3.5 py-2 border-b border-emerald-500/30 flex items-center justify-between gap-2 shadow-lg z-50">
+    <div id="home-mobile-smart-banner" onclick="window.showInstallPrompt()" class="btn-install-app sm:hidden w-full bg-slate-900 text-white px-3.5 py-2 border-b border-emerald-500/30 flex items-center justify-between gap-2 shadow-lg z-50 cursor-pointer">
         <div class="flex items-center gap-2.5 min-w-0">
             <img src="/logo.png" class="w-8 h-8 rounded-xl object-contain shadow-xs border border-white/20 shrink-0" alt="LPUQuick">
             <div class="truncate">
@@ -403,11 +410,11 @@ window.pages.home = async function() {
             </div>
         </div>
         <div class="flex items-center gap-2 shrink-0">
-            <button type="button" onclick="window.showInstallPrompt()" class="bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-black text-[11px] px-3.5 py-1 rounded-full shadow-md flex items-center gap-1 cursor-pointer transition-all">
+            <button type="button" onclick="event.stopPropagation(); window.showInstallPrompt()" class="bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-black text-[11px] px-3.5 py-1 rounded-full shadow-md flex items-center gap-1 cursor-pointer transition-all">
                 <span class="material-symbols-outlined text-xs">download</span>
                 <span>INSTALL</span>
             </button>
-            <button type="button" onclick="this.closest('#home-mobile-smart-banner').remove()" class="text-slate-400 hover:text-white p-0.5 cursor-pointer" title="Close">
+            <button type="button" onclick="event.stopPropagation(); this.closest('#home-mobile-smart-banner').remove()" class="text-slate-400 hover:text-white p-0.5 cursor-pointer" title="Close">
                 <span class="material-symbols-outlined text-sm">close</span>
             </button>
         </div>
@@ -437,25 +444,35 @@ window.pages.home = async function() {
         </div>
 
         <!-- Search Capsule (Desktop) -->
-        <div class="hidden md:flex flex-1 max-w-md relative mx-2">
-            <input class="w-full pl-9 pr-12 py-1.5 rounded-full border border-[var(--glass-border)] bg-slate-100/60 dark:bg-slate-800/60 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition-all" 
+        <div class="hidden md:flex flex-1 max-w-md relative mx-2 items-center" id="desktop-search-container">
+            <button type="button" 
+                    id="btn-desktop-search" 
+                    class="absolute left-2.5 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-slate-400 hover:text-emerald-500 transition-colors cursor-pointer active:scale-90 z-10" 
+                    title="Search Catalog">
+                <span class="material-symbols-outlined text-base">search</span>
+            </button>
+            <input class="w-full pl-9 pr-14 py-1.5 rounded-full border border-[var(--glass-border)] bg-slate-100/60 dark:bg-slate-800/60 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition-all" 
                    placeholder="Search snacks, drinks, maggi, chocolates..." 
                    type="text" 
                    id="desktop-search" 
                    autocomplete="off">
-            <span class="material-symbols-outlined absolute left-3 top-2 text-slate-400 text-sm">search</span>
-            <span class="absolute right-3 top-1.5 text-[10px] font-bold text-slate-400 clay-pill px-1.5 py-0.2">/</span>
-            <div id="desktop-search-dropdown" class="hidden absolute top-10 left-0 w-full glass-panel rounded-2xl shadow-2xl z-50 max-h-80 overflow-y-auto p-2"></div>
+            <button type="button" 
+                    id="btn-clear-desktop-search" 
+                    class="hidden absolute right-8 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center text-[10px] font-bold transition-all cursor-pointer active:scale-90 z-10"
+                    title="Clear search">✕</button>
+            <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 clay-pill px-1.5 py-0.2 pointer-events-none">/</span>
+            <div id="desktop-search-dropdown" class="hidden absolute top-full mt-2 left-0 w-full rounded-2xl shadow-2xl z-50 max-h-96 overflow-y-auto p-2 border border-[var(--glass-border)] bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl"></div>
         </div>
 
         <!-- Quick Actions (Theme, Orders, Cart, Profile) -->
         <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <!-- Install App Shortcut (Visible on both Mobile & Desktop) -->
             <button type="button" 
+                    id="btn-header-install-app" 
                     onclick="window.showInstallPrompt()" 
-                    class="btn-install-app clay-pill px-2.5 py-1 text-xs font-black text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/15 transition-transform active:scale-95 cursor-pointer flex items-center gap-1 shrink-0 shadow-xs" 
+                    class="btn-install-app clay-pill px-2.5 py-1 text-xs font-black text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/15 border border-emerald-500/30 transition-transform active:scale-95 cursor-pointer flex items-center gap-1.5 shrink-0 shadow-xs" 
                     title="Install LPUQuick App">
-                <span class="material-symbols-outlined text-sm">download</span>
+                <span class="material-symbols-outlined text-sm text-emerald-500">install_mobile</span>
                 <span class="text-[11px] font-black">Install</span>
             </button>
 
@@ -488,11 +505,6 @@ window.pages.home = async function() {
             <a href="#/settings" class="clay-pill w-8 h-8 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-emerald transition-transform active:scale-95" title="Settings">
                 <span class="material-symbols-outlined text-base">account_circle</span>
             </a>
-
-            <!-- Admin Portal Shortcut -->
-            <a href="/admin" target="_blank" rel="noopener noreferrer" class="clay-pill w-8 h-8 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-emerald hover:border-emerald-500/50 transition-transform active:scale-95" title="Admin Portal">
-                <span class="material-symbols-outlined text-base">admin_panel_settings</span>
-            </a>
         </div>
     </header>
 
@@ -502,16 +514,25 @@ window.pages.home = async function() {
         <div id="store-closed-banner-slot" class="hidden"></div>
 
         <!-- Mobile Search Capsule (Visible on mobile only) -->
-        <section class="md:hidden relative w-full pt-1">
-            <div class="relative">
-                <input class="w-full pl-9 pr-4 py-2.5 rounded-2xl border border-[var(--glass-border)] bg-slate-100/70 dark:bg-slate-800/70 backdrop-blur-md text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 shadow-xs font-medium" 
+        <section class="md:hidden relative w-full pt-1 z-30" id="mobile-search-container">
+            <div class="relative flex items-center">
+                <button type="button" 
+                        id="btn-mobile-search" 
+                        class="absolute left-3 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center text-slate-400 hover:text-emerald-500 transition-colors cursor-pointer active:scale-90 z-10"
+                        title="Search Catalog">
+                    <span class="material-symbols-outlined text-lg">search</span>
+                </button>
+                <input class="w-full pl-10 pr-10 py-2.5 rounded-2xl border border-[var(--glass-border)] bg-slate-100/70 dark:bg-slate-800/70 backdrop-blur-md text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 shadow-xs font-medium" 
                        placeholder="Search snacks, drinks, maggi, chips..." 
                        type="text" 
                        id="mobile-search" 
                        autocomplete="off">
-                <span class="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-base">search</span>
+                <button type="button" 
+                        id="btn-clear-mobile-search" 
+                        class="hidden absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center text-xs font-bold transition-all cursor-pointer active:scale-90 z-10"
+                        title="Clear search">✕</button>
             </div>
-            <div id="mobile-search-dropdown" class="hidden absolute top-12 left-0 w-full glass-panel rounded-2xl shadow-2xl z-50 max-h-80 overflow-y-auto p-2"></div>
+            <div id="mobile-search-dropdown" class="hidden absolute top-full mt-2 left-0 w-full rounded-2xl shadow-2xl z-50 max-h-80 overflow-y-auto p-2 border border-[var(--glass-border)] bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl"></div>
         </section>
 
         <!-- ============================================================
@@ -674,24 +695,24 @@ window.pages.home = async function() {
             </div>
         </section>
 
-        <!-- High-Visibility In-Feed Mobile Install Card (Blinkit/Zepto PWA Style) -->
-        <section class="btn-install-app p-4 sm:p-5 rounded-3xl border-2 border-emerald-500/40 dark:border-emerald-500/30 bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-emerald-600/15 dark:from-emerald-950/40 dark:to-teal-950/30 backdrop-blur-xl shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 transition-all">
+        <!-- High-Visibility In-Feed Install Card (Blinkit/Zepto PWA Style) -->
+        <section class="btn-install-app p-4 sm:p-5 rounded-3xl border-2 border-emerald-500/40 dark:border-emerald-500/30 bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-emerald-600/15 dark:from-emerald-950/40 dark:to-teal-950/30 backdrop-blur-xl shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 transition-all cursor-pointer select-none" onclick="window.showInstallPrompt()">
             <div class="flex items-center gap-3.5 min-w-0">
                 <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30 shrink-0">
                     <span class="material-symbols-outlined text-2xl">install_mobile</span>
                 </div>
                 <div class="space-y-0.5 min-w-0">
                     <div class="flex items-center gap-2">
-                        <h3 class="text-sm sm:text-base font-black text-slate-900 dark:text-white tracking-tight">Install LPUQuick Mobile App</h3>
-                        <span class="liquid-badge text-[9px] font-black px-2 py-0.5 bg-emerald-500 text-white">PWA</span>
+                        <h3 class="text-sm sm:text-base font-black text-slate-900 dark:text-white tracking-tight">Install LPUQuick Web App</h3>
+                        <span class="liquid-badge text-[9px] font-black px-2 py-0.5 bg-emerald-500 text-white">⚡ 1-Tap</span>
                     </div>
                     <p class="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
-                        ⚡ Add to phone home screen for 1-tap ordering, instant corridor alerts & offline speed.
+                        Install on your phone or PC for lightning-fast 3-min delivery, instant hostel tracking & offline speed.
                     </p>
                 </div>
             </div>
             <div class="w-full sm:w-auto flex items-center justify-end shrink-0">
-                <button type="button" onclick="window.showInstallPrompt()" class="w-full sm:w-auto clay-btn clay-btn-primary px-4 py-2 sm:py-2.5 rounded-xl font-black text-xs text-white shadow-md active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer transition-all">
+                <button type="button" onclick="event.stopPropagation(); window.showInstallPrompt()" class="w-full sm:w-auto clay-btn clay-btn-primary px-4 py-2 sm:py-2.5 rounded-xl font-black text-xs text-white shadow-md active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer transition-all">
                     <span class="material-symbols-outlined text-base">download</span>
                     <span>Install App Now</span>
                 </button>
@@ -982,8 +1003,9 @@ window.pageInits.home = function() {
             const title = (card.querySelector('h3')?.textContent || '').toLowerCase();
             const isVeg = card.dataset.veg === '1';
             
-            const matchesCategory = (currentCategory === 'all' || cardCat === currentCategory);
-            const matchesSearch = (!query || title.includes(query));
+            // If user typed a search query, search across ALL categories in store
+            const matchesCategory = (!query && currentCategory !== 'all') ? (cardCat === currentCategory) : true;
+            const matchesSearch = (!query || title.includes(query) || (cardCat && cardCat.includes(query)));
             const matchesVeg = (!isVegOnly || isVeg);
 
             if (matchesCategory && matchesSearch && matchesVeg) {
@@ -1019,6 +1041,21 @@ window.pageInits.home = function() {
         const activeCatBadge = document.getElementById('active-category-badge');
         const catObj = STORE_CATEGORIES.find(c => c.id === currentCategory) || STORE_CATEGORIES[0];
 
+        // Update active category title & subtitle with live search state
+        const titleEl = document.getElementById('active-category-title');
+        const subtitleEl = document.getElementById('active-category-subtitle');
+        if (query) {
+            if (titleEl) titleEl.textContent = `Search: "${currentSearchQuery}"`;
+            if (subtitleEl) subtitleEl.textContent = `Found ${visibleCount} snacks in BH13 Campus Hub`;
+        } else {
+            if (titleEl) titleEl.textContent = catObj.id === 'all' ? 'All Products' : catObj.name;
+            if (subtitleEl) {
+                subtitleEl.textContent = catObj.id === 'all' 
+                    ? 'Showing all available products in BH13 Campus Hub' 
+                    : `Showing ${catObj.name} in BH13 Campus Hub`;
+            }
+        }
+
         if (catBadge) {
             catBadge.textContent = `${visibleCount} Items`;
         }
@@ -1029,17 +1066,17 @@ window.pageInits.home = function() {
         if (visibleCount === 0) {
             if (emptyState) {
                 emptyState.classList.remove('hidden');
-                if (emptyEmoji) emptyEmoji.textContent = catObj.emoji;
+                if (emptyEmoji) emptyEmoji.textContent = query ? '🔍' : catObj.emoji;
                 if (emptyTitle) {
                     if (query) {
-                        emptyTitle.textContent = `No items matching "${query}" in ${catObj.name}`;
+                        emptyTitle.textContent = `No snacks matching "${currentSearchQuery}"`;
                     } else if (isVegOnly) {
                         emptyTitle.textContent = `No vegetarian items in ${catObj.name}.`;
                     } else {
                         emptyTitle.textContent = `No ${catObj.name.toLowerCase()} available right now.`;
                     }
                 }
-                if (emptyDesc) emptyDesc.textContent = 'Check another category or turn off Veg Only.';
+                if (emptyDesc) emptyDesc.textContent = query ? 'Try searching another snack like chips, maggi, chocolates, or cold drinks.' : 'Check another category or turn off Veg Only.';
             }
         } else {
             if (emptyState) emptyState.classList.add('hidden');
@@ -1188,17 +1225,234 @@ window.pageInits.home = function() {
         };
     });
 
-    // Search inputs handler (works seamlessly together with category filter)
-    const searchInputs = [document.getElementById('desktop-search'), document.getElementById('mobile-search')].filter(Boolean);
-    searchInputs.forEach(input => {
+    // ============================================================
+    // ADVANCED SEARCH CONTROLLER (BUTTON CLICK, ENTER, LIVE DROPDOWN, SMOOTH SCROLL)
+    // ============================================================
+    const desktopSearch = document.getElementById('desktop-search');
+    const mobileSearch = document.getElementById('mobile-search');
+    const desktopClearBtn = document.getElementById('btn-clear-desktop-search');
+    const mobileClearBtn = document.getElementById('btn-clear-mobile-search');
+    const desktopSearchBtn = document.getElementById('btn-desktop-search');
+    const mobileSearchBtn = document.getElementById('btn-mobile-search');
+    const desktopDropdown = document.getElementById('desktop-search-dropdown');
+    const mobileDropdown = document.getElementById('mobile-search-dropdown');
+
+    function closeSearchDropdowns() {
+        if (desktopDropdown) {
+            desktopDropdown.classList.add('hidden');
+            desktopDropdown.innerHTML = '';
+        }
+        if (mobileDropdown) {
+            mobileDropdown.classList.add('hidden');
+            mobileDropdown.innerHTML = '';
+        }
+    }
+
+    function executeSearch(query) {
+        currentSearchQuery = (query !== undefined ? query : (desktopSearch?.value || mobileSearch?.value || '')).trim();
+        if (desktopSearch) desktopSearch.value = currentSearchQuery;
+        if (mobileSearch) mobileSearch.value = currentSearchQuery;
+
+        if (desktopClearBtn) desktopClearBtn.classList.toggle('hidden', !currentSearchQuery);
+        if (mobileClearBtn) mobileClearBtn.classList.toggle('hidden', !currentSearchQuery);
+
+        closeSearchDropdowns();
+
+        if (currentSearchQuery) {
+            // When searching, switch category to 'all' so category rail reflects whole-store search
+            if (currentCategory !== 'all') {
+                currentCategory = 'all';
+                document.querySelectorAll('.category-rail-item, .category-sidebar-item, .category-mobile-pill').forEach(item => {
+                    item.classList.toggle('active', item.dataset.catId === 'all');
+                });
+            }
+            applyFilters();
+        } else {
+            if (desktopSearch) desktopSearch.focus();
+            if (mobileSearch) mobileSearch.focus();
+        }
+
+        // Smooth scroll directly to catalog products
+        const target = document.getElementById('shop-catalog-split-row') || document.getElementById('shop-catalog-section');
+        if (target) {
+            const headerOffset = 70;
+            const elementPosition = target.getBoundingClientRect().top;
+            const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+            window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+        }
+    }
+
+    function renderLiveSearchDropdown(dropdownEl, query) {
+        if (!dropdownEl) return;
+        const q = (query || '').trim().toLowerCase();
+        if (!q) {
+            dropdownEl.classList.add('hidden');
+            dropdownEl.innerHTML = '';
+            return;
+        }
+
+        const allCards = Array.from(mainGrid ? mainGrid.querySelectorAll('.product-card-item') : []);
+        const matchingCards = allCards.filter(card => {
+            const title = (card.querySelector('h3')?.textContent || '').toLowerCase();
+            const cat = (card.dataset.category || '').toLowerCase();
+            return title.includes(q) || cat.includes(q);
+        });
+
+        dropdownEl.classList.remove('hidden');
+
+        if (matchingCards.length === 0) {
+            dropdownEl.innerHTML = `
+                <div class="p-3 text-center text-xs text-slate-500 dark:text-slate-400">
+                    <p class="font-bold text-slate-800 dark:text-slate-100 mb-1">No items found for "${query}"</p>
+                    <p class="text-[11px]">Try searching "maggi", "chips", "cold drink", "biscuit"...</p>
+                </div>
+            `;
+            return;
+        }
+
+        const topMatches = matchingCards.slice(0, 6);
+        const itemsHtml = topMatches.map(card => {
+            const pid = card.dataset.productId;
+            const title = card.querySelector('h3')?.textContent?.trim() || 'Product';
+            const price = card.dataset.price || '0';
+            const img = card.querySelector('img')?.src || '/logo.png';
+            const isOut = card.dataset.outOfStock === 'true';
+            const packSize = card.querySelector('.clay-pill')?.textContent?.trim() || '1 unit';
+
+            return `
+                <div class="flex items-center justify-between gap-2.5 p-2 rounded-xl hover:bg-emerald-500/10 dark:hover:bg-emerald-500/20 transition-colors cursor-pointer search-dropdown-item" data-id="${pid}">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <img src="${img}" alt="${title}" class="w-9 h-9 object-contain rounded-lg bg-white dark:bg-slate-900 p-0.5 border border-[var(--glass-border)] shrink-0" onerror="this.src='/logo.png'">
+                        <div class="min-w-0">
+                            <p class="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">${title}</p>
+                            <div class="flex items-center gap-2 text-[10px] text-slate-500 dark:text-slate-400">
+                                <span>${packSize}</span>
+                                <span class="font-black text-emerald-600 dark:text-emerald-400">₹${price}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="shrink-0">
+                        ${isOut ? `
+                            <span class="text-[9px] font-bold text-slate-400 px-2 py-0.5 rounded-full clay-pill">Out</span>
+                        ` : `
+                            <button type="button" class="clay-pill px-2.5 py-1 text-[10px] font-black text-emerald-600 dark:text-emerald-300 hover:bg-emerald-500/20 active:scale-95 transition-all cursor-pointer add-to-cart-btn" data-id="${pid}">
+                                + ADD
+                            </button>
+                        `}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        dropdownEl.innerHTML = `
+            <div class="space-y-1">
+                <div class="px-2 py-1 flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[var(--glass-border)] pb-1">
+                    <span>Snacks (${matchingCards.length})</span>
+                    <span class="text-[9px] text-emerald-500 font-black">⚡ Instant</span>
+                </div>
+                ${itemsHtml}
+                <button type="button" class="w-full mt-1 py-1.5 px-3 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 active:scale-98 text-emerald-700 dark:text-emerald-300 text-xs font-black flex items-center justify-between transition-all cursor-pointer btn-view-all-search">
+                    <span>View all ${matchingCards.length} results</span>
+                    <span>↵ Enter</span>
+                </button>
+            </div>
+        `;
+
+        dropdownEl.querySelectorAll('.search-dropdown-item').forEach(el => {
+            el.onclick = (e) => {
+                if (e.target.closest('.add-to-cart-btn')) return;
+                const pid = el.dataset.id;
+                const targetCard = mainGrid.querySelector(`.product-card-item[data-product-id="${pid}"]`);
+                if (targetCard) {
+                    closeSearchDropdowns();
+                    targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    targetCard.classList.add('ring-2', 'ring-emerald-500');
+                    setTimeout(() => targetCard.classList.remove('ring-2', 'ring-emerald-500'), 2500);
+                }
+            };
+        });
+
+        const viewAllBtn = dropdownEl.querySelector('.btn-view-all-search');
+        if (viewAllBtn) {
+            viewAllBtn.onclick = () => executeSearch(query);
+        }
+    }
+
+    // Bind search input events
+    [desktopSearch, mobileSearch].filter(Boolean).forEach(input => {
+        const isDesktop = input === desktopSearch;
+        const targetDropdown = isDesktop ? desktopDropdown : mobileDropdown;
+        const targetClearBtn = isDesktop ? desktopClearBtn : mobileClearBtn;
+
         input.oninput = (e) => {
             currentSearchQuery = e.target.value;
-            // Sync both search inputs
-            searchInputs.forEach(other => {
-                if (other !== input) other.value = currentSearchQuery;
-            });
+            // Sync values across inputs
+            if (desktopSearch && desktopSearch !== input) desktopSearch.value = currentSearchQuery;
+            if (mobileSearch && mobileSearch !== input) mobileSearch.value = currentSearchQuery;
+
+            // Toggle clear button
+            if (desktopClearBtn) desktopClearBtn.classList.toggle('hidden', !currentSearchQuery);
+            if (mobileClearBtn) mobileClearBtn.classList.toggle('hidden', !currentSearchQuery);
+
             applyFilters();
+            renderLiveSearchDropdown(targetDropdown, currentSearchQuery);
         };
+
+        input.onfocus = () => {
+            if (currentSearchQuery) {
+                renderLiveSearchDropdown(targetDropdown, currentSearchQuery);
+            }
+        };
+
+        input.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                executeSearch(input.value);
+            } else if (e.key === 'Escape') {
+                closeSearchDropdowns();
+            }
+        };
+    });
+
+    // Bind Search Icon Buttons
+    if (desktopSearchBtn) {
+        desktopSearchBtn.onclick = () => executeSearch(desktopSearch?.value);
+    }
+    if (mobileSearchBtn) {
+        mobileSearchBtn.onclick = () => executeSearch(mobileSearch?.value);
+    }
+
+    // Bind Clear Buttons
+    if (desktopClearBtn) {
+        desktopClearBtn.onclick = () => {
+            if (desktopSearch) desktopSearch.value = '';
+            if (mobileSearch) mobileSearch.value = '';
+            desktopClearBtn.classList.add('hidden');
+            if (mobileClearBtn) mobileClearBtn.classList.add('hidden');
+            currentSearchQuery = '';
+            closeSearchDropdowns();
+            applyFilters();
+            if (desktopSearch) desktopSearch.focus();
+        };
+    }
+    if (mobileClearBtn) {
+        mobileClearBtn.onclick = () => {
+            if (desktopSearch) desktopSearch.value = '';
+            if (mobileSearch) mobileSearch.value = '';
+            mobileClearBtn.classList.add('hidden');
+            if (desktopClearBtn) desktopClearBtn.classList.add('hidden');
+            currentSearchQuery = '';
+            closeSearchDropdowns();
+            applyFilters();
+            if (mobileSearch) mobileSearch.focus();
+        };
+    }
+
+    // Click outside to close search dropdowns
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#desktop-search-container') && !e.target.closest('#mobile-search-container')) {
+            closeSearchDropdowns();
+        }
     });
 
     // Keyboard shortcut '/' to focus search

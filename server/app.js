@@ -76,11 +76,11 @@ const staticOptions = {
     etag: true,
     lastModified: true,
     setHeaders: (res, filePath) => {
-        if (filePath.endsWith('.html')) {
-            // HTML files should revalidate quickly for SPA route updates
+        if (filePath.endsWith('.html') || filePath.match(/\.(css|js)$/)) {
+            // HTML, JS, and CSS files revalidate immediately for SPA code updates
             res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
-        } else if (filePath.match(/\.(css|js|png|jpg|jpeg|svg|webp|woff2?)$/)) {
-            // Static assets cached with stale revalidation
+        } else if (filePath.match(/\.(png|jpg|jpeg|svg|webp|woff2?)$/)) {
+            // Static media assets cached with stale revalidation
             res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
         }
     }

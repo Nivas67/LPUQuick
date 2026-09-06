@@ -163,13 +163,19 @@ window.pages.categories = async function() {
         </div>
 
         <!-- Search Bar (Desktop / Tablet) -->
-        <div class="relative flex-1 max-w-md hidden md:block mx-2">
-            <input class="w-full pl-9 pr-4 py-1.5 rounded-full border border-[var(--glass-border)] bg-slate-100/70 dark:bg-slate-800/70 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition-all font-medium" 
+        <div class="relative flex-1 max-w-md hidden md:flex items-center mx-2">
+            <button type="button" 
+                    id="btn-desktop-cat-search" 
+                    class="absolute left-2.5 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-slate-400 hover:text-emerald-500 transition-colors cursor-pointer active:scale-90 z-10" 
+                    title="Search Category">
+                <span class="material-symbols-outlined text-sm">search</span>
+            </button>
+            <input class="w-full pl-9 pr-9 py-1.5 rounded-full border border-[var(--glass-border)] bg-slate-100/70 dark:bg-slate-800/70 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition-all font-medium" 
                    placeholder="Search biscuits, chips, chocolates, maggi..." 
                    type="text" 
                    id="desktop-cat-search" 
                    autocomplete="off">
-            <span class="material-symbols-outlined absolute left-2.5 top-2 text-slate-400 text-sm">search</span>
+            <button type="button" id="desktop-cat-search-clear" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 hidden text-xs cursor-pointer">✕</button>
         </div>
 
         <!-- Right Controls: Install, Theme Toggle & Cart -->
@@ -177,9 +183,9 @@ window.pages.categories = async function() {
             <!-- Install Shortcut -->
             <button type="button" 
                     onclick="window.showInstallPrompt()" 
-                    class="btn-install-app clay-pill px-2.5 py-1 text-xs font-black text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/15 transition-transform active:scale-95 cursor-pointer flex items-center gap-1 shrink-0 shadow-xs" 
+                    class="btn-install-app clay-pill px-2.5 py-1 text-xs font-black text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/15 border border-emerald-500/30 transition-transform active:scale-95 cursor-pointer flex items-center gap-1.5 shrink-0 shadow-xs" 
                     title="Install LPUQuick App">
-                <span class="material-symbols-outlined text-sm">download</span>
+                <span class="material-symbols-outlined text-sm text-emerald-500">install_mobile</span>
                 <span class="text-[11px] font-black">Install</span>
             </button>
             <!-- Theme Toggle Switch -->
@@ -367,6 +373,8 @@ window.pageInits.categories = async function() {
     const vegToggleBtn = document.getElementById('cat-veg-toggle');
     const sortSelect = document.getElementById('cat-sort-select');
     const desktopSearch = document.getElementById('desktop-cat-search');
+    const desktopSearchClear = document.getElementById('desktop-cat-search-clear');
+    const desktopSearchBtn = document.getElementById('btn-desktop-cat-search');
     const mobileSearch = document.getElementById('mobile-cat-search');
     const mobileSearchClear = document.getElementById('mobile-cat-search-clear');
     const promoBanner = document.getElementById('cat-promo-banner');
@@ -662,21 +670,38 @@ window.pageInits.categories = async function() {
     // Search Handlers
     const handleSearch = () => {
         const val = (desktopSearch?.value || mobileSearch?.value || '').trim();
-        if (mobileSearchClear) {
-            if (val) mobileSearchClear.classList.remove('hidden');
-            else mobileSearchClear.classList.add('hidden');
-        }
+        if (mobileSearchClear) mobileSearchClear.classList.toggle('hidden', !val);
+        if (desktopSearchClear) desktopSearchClear.classList.toggle('hidden', !val);
         filterAndRenderProducts();
     };
 
     desktopSearch?.addEventListener('input', handleSearch);
     mobileSearch?.addEventListener('input', handleSearch);
-    mobileSearchClear?.addEventListener('click', () => {
+
+    const triggerCatalogScroll = () => {
+        filterAndRenderProducts();
+        if (productsGrid) productsGrid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    desktopSearchBtn?.addEventListener('click', triggerCatalogScroll);
+    desktopSearch?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') triggerCatalogScroll();
+    });
+    mobileSearch?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') triggerCatalogScroll();
+    });
+
+    const clearCatSearch = () => {
         if (mobileSearch) mobileSearch.value = '';
         if (desktopSearch) desktopSearch.value = '';
-        mobileSearchClear.classList.add('hidden');
+        if (mobileSearchClear) mobileSearchClear.classList.add('hidden');
+        if (desktopSearchClear) desktopSearchClear.classList.add('hidden');
         filterAndRenderProducts();
-    });
+        if (desktopSearch) desktopSearch.focus();
+    };
+
+    mobileSearchClear?.addEventListener('click', clearCatSearch);
+    desktopSearchClear?.addEventListener('click', clearCatSearch);
 
     // Promo "Shop now" button
     promoShopNowBtn?.addEventListener('click', () => {

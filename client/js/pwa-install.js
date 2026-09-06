@@ -12,7 +12,7 @@
     function isStandaloneMode() {
         return (
             window.matchMedia('(display-mode: standalone)').matches ||
-            window.matchMedia('(display-mode: fullscreen)').matches ||
+            window.matchMedia('(display-mode: window-controls-overlay)').matches ||
             window.navigator.standalone === true ||
             document.referrer.includes('android-app://')
         );
@@ -270,29 +270,47 @@
         closeAllInstallModals();
 
         const modalHtml = `
-        <div id="generic-install-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-            <div class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-emerald/30 relative space-y-4">
+        <div id="generic-install-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in select-none">
+            <div class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-3xl p-6 max-w-sm sm:max-w-md w-full shadow-2xl border border-emerald-500/30 relative space-y-4">
                 <button type="button" onclick="window.closeInstallModal()" class="absolute top-4 right-4 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
                     <span class="material-symbols-outlined text-xl">close</span>
                 </button>
 
                 <div class="flex items-center gap-3">
-                    <img src="/logo.png" alt="LPUQuick" class="w-12 h-12 rounded-2xl shadow-md border border-emerald/20 flex-shrink-0">
+                    <img src="/logo.png" alt="LPUQuick" class="w-12 h-12 rounded-2xl shadow-md border border-emerald-500/30 flex-shrink-0">
                     <div>
-                        <h3 class="font-bold text-base text-slate-900 dark:text-white">Install LPUQuick App</h3>
-                        <p class="text-xs text-emerald font-semibold">Campus Quick Commerce</p>
+                        <h3 class="font-black text-base text-slate-900 dark:text-white">Install LPUQuick App</h3>
+                        <p class="text-xs text-emerald-600 dark:text-emerald-400 font-bold">⚡ 1-Tap 3-Min Campus Delivery</p>
                     </div>
                 </div>
 
-                <div class="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 space-y-2">
-                    <p class="font-semibold text-slate-900 dark:text-white">Install directly from your browser:</p>
-                    <p>• <b>Desktop Chrome/Edge:</b> Click the Install icon <span class="inline-block align-middle font-bold text-emerald">⊕</span> in the right of the address bar.</p>
-                    <p>• <b>Mobile (Android/iOS):</b> Use 'Add to Home screen' from your browser menu.</p>
+                <div class="space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
+                    <div class="flex items-start gap-3 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
+                        <div class="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm mt-0.5">
+                            <span class="material-symbols-outlined text-lg">download</span>
+                        </div>
+                        <div>
+                            <p class="font-bold text-slate-900 dark:text-white">Method 1: Address Bar (Fastest)</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400">Look for the <b class="text-emerald-600 dark:text-emerald-400">Install icon (⊕ or 💻)</b> on the right side of your browser's address bar and click <b>Install</b>.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start gap-3 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
+                        <div class="w-8 h-8 rounded-xl bg-blue-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm mt-0.5">
+                            <span class="material-symbols-outlined text-lg">more_vert</span>
+                        </div>
+                        <div>
+                            <p class="font-bold text-slate-900 dark:text-white">Method 2: Browser Menu</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400">Click the browser menu <b>(⋮ or ⋯)</b> → Select <b>"Install LPUQuick"</b> or <b>"Add to Home Screen"</b>.</p>
+                        </div>
+                    </div>
                 </div>
 
-                <button type="button" onclick="window.closeInstallModal()" class="w-full py-2.5 bg-emerald text-white font-bold rounded-2xl text-xs shadow-md hover:bg-emerald-600 active:scale-95 transition-all cursor-pointer">
-                    Close
-                </button>
+                <div class="pt-1 flex items-center gap-2">
+                    <button type="button" onclick="window.closeInstallModal()" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl text-xs shadow-md active:scale-95 transition-all cursor-pointer">
+                        Got it, thanks!
+                    </button>
+                </div>
             </div>
         </div>
         `;
