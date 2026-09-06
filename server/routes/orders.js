@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const fs = require('fs');
+const path = require('path');
 const supabaseDb = require('../db/supabaseDb');
 const { broadcastStatusUpdate, broadcastOrderClaimed, broadcastTransferRequested, broadcastTransferResolved, broadcastOrderEdited } = require('../realtime');
 const { getSupabaseClient } = require('../supabase');
@@ -7,6 +9,59 @@ const requireAdmin = require('../middleware/adminAuth');
 const { requireRole } = require('../middleware/adminAuth');
 const pushService = require('../notifications/pushService');
 const cache = require('../cache');
+
+const DELIVERY_SETTINGS_PATH = path.join(__dirname, '../data/delivery_settings.json');
+
+function getDeliveryPricingSettings() {
+    try {
+        if (fs.existsSync(DELIVERY_SETTINGS_PATH)) {
+            const raw = fs.readFileSync(DELIVERY_SETTINGS_PATH, 'utf8');
+            const data = JSON.parse(raw);
+            return {
+                rate_per_order: typeof data.rate_per_order === 'number' && data.rate_per_order > 0 ? data.rate_per_order : 3.00,
+                currency: data.currency || 'INR',
+                surge_rate: Number(data.surge_rate) || 0.00,
+                night_surcharge: Number(data.night_surcharge) || 0.00,
+                daily_bonus_threshold: Number(data.daily_bonus_threshold) || 20,
+                daily_bonus_amount: Number(data.daily_bonus_amount) || 20.00,
+                base_payout_rule: data.base_payout_rule || 'per_delivered_order',
+                updated_at: data.updated_at || new Date().toISOString(),
+                updated_by: data.updated_by || 'Owner'
+            };
+        }
+    } catch (e) {
+        console.warn('[Delivery Settings Read Warning]:', e.message);
+    }
+    return {
+        rate_per_order: 3.00,
+        currency: 'INR',
+        surge_rate: 0.00,
+        night_surcharge: 0.00,
+        daily_bonus_threshold: 20,
+        daily_bonus_amount: 20.00,
+        base_payout_rule: 'per_delivered_order',
+        updated_at: new Date().toISOString(),
+        updated_by: 'Owner'
+    };
+}
+
+function saveDeliveryPricingSettings(newSettings) {
+    const current = getDeliveryPricingSettings();
+    const updated = {
+        ...current,
+        ...newSettings,
+        rate_per_order: Math.max(0.50, Number(newSettings.rate_per_order !== undefined ? newSettings.rate_per_order : current.rate_per_order)),
+        daily_bonus_threshold: Math.max(1, Number(newSettings.daily_bonus_threshold !== undefined ? newSettings.daily_bonus_threshold : current.daily_bonus_threshold)),
+        daily_bonus_amount: Math.max(0, Number(newSettings.daily_bonus_amount !== undefined ? newSettings.daily_bonus_amount : current.daily_bonus_amount)),
+        updated_at: new Date().toISOString()
+    };
+    const dir = path.dirname(DELIVERY_SETTINGS_PATH);
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(DELIVERY_SETTINGS_PATH, JSON.stringify(updated, null, 2), 'utf8');
+    return updated;
+}
 
 const ACTIVE_STATUSES = ['Order Placed', 'Order Confirmed', 'Preparing', 'Out for Delivery', 'pending', 'confirmed', 'accepted', 'packed', 'en_route'];
 
@@ -59,9 +114,6 @@ function resolveOrderCustomerName(order, user) {
 
     return 'Student';
 }
-
-const path = require('path');
-const fs = require('fs');
 
 // Memory fallback caches to protect against Cloudflare 522 / Supabase sleep stalls
 let fallbackOrdersCache = [];
@@ -500,7 +552,45 @@ router.get('/admin/delivery-staff', requireAdmin, async (req, res) => {
 });
 
 // ============================================================
-// DELIVERY PARTNER EARNINGS & ACCURATE ORDER CHARGES (₹3/ORDER)
+// DELIVERY PRICING CONFIGURATION (DYNAMIC RATE ENGINE)
+// ============================================================
+
+// GET /api/orders/delivery-pricing-config
+router.get('/delivery-pricing-config', (req, res) => {
+    try {
+        const config = getDeliveryPricingSettings();
+        res.json({ success: true, config });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// POST /api/orders/delivery-pricing-config
+router.post('/delivery-pricing-config', (req, res) => {
+    try {
+        const { rate_per_order, daily_bonus_threshold, daily_bonus_amount, surge_rate, night_surcharge, updated_by } = req.body || {};
+        if (rate_per_order !== undefined) {
+            const num = Number(rate_per_order);
+            if (isNaN(num) || num < 0.50 || num > 500) {
+                return res.status(400).json({ success: false, error: 'Rate per order must be a valid number between ₹0.50 and ₹500.00' });
+            }
+        }
+        const updated = saveDeliveryPricingSettings({
+            rate_per_order: rate_per_order !== undefined ? Number(rate_per_order) : undefined,
+            daily_bonus_threshold: daily_bonus_threshold !== undefined ? Number(daily_bonus_threshold) : undefined,
+            daily_bonus_amount: daily_bonus_amount !== undefined ? Number(daily_bonus_amount) : undefined,
+            surge_rate: surge_rate !== undefined ? Number(surge_rate) : undefined,
+            night_surcharge: night_surcharge !== undefined ? Number(night_surcharge) : undefined,
+            updated_by: updated_by || 'Owner'
+        });
+        res.json({ success: true, message: 'Delivery pricing configuration updated successfully', config: updated });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// ============================================================
+// DELIVERY PARTNER EARNINGS & DYNAMIC PRICING ENGINE
 // ============================================================
 router.get('/delivery-earnings', async (req, res) => {
     try {
@@ -512,7 +602,10 @@ router.get('/delivery-earnings', async (req, res) => {
         const selectedShift = (req.query.shift || 'all').toLowerCase();
         const customStartDate = req.query.startDate;
         const customEndDate = req.query.endDate;
-        const RATE_PER_ORDER = 3.00; // Fixed payout rate: ₹3 per completed delivery
+
+        // Dynamic Configurable Delivery Pricing Engine
+        const pricingConfig = getDeliveryPricingSettings();
+        const RATE_PER_ORDER = (Number(req.query.rate) > 0) ? Number(req.query.rate) : (pricingConfig.rate_per_order || 3.00);
 
         const supabase = getSupabaseClient();
         // Query orders across all states
@@ -527,7 +620,7 @@ router.get('/delivery-earnings', async (req, res) => {
 
         const allOrders = Array.isArray(rawOrders) ? rawOrders : [];
 
-        // State categorizers: Completed yields ₹3, Pending yields ₹0, Cancelled yields ₹0
+        // State categorizers: Completed yields configured payout, Pending yields ₹0, Cancelled yields ₹0
         const isCompleted = (st) => ['delivered', 'completed'].includes(String(st || '').toLowerCase());
         const isCancelled = (st) => ['cancelled', 'rejected'].includes(String(st || '').toLowerCase());
         const isPending = (st) => !isCompleted(st) && !isCancelled(st);
@@ -587,7 +680,7 @@ router.get('/delivery-earnings', async (req, res) => {
         const todayCompletedAll = todayOrdersAll.filter(o => isCompleted(o.status)).length;
         const todayPendingAll = todayOrdersAll.filter(o => isPending(o.status)).length;
         const todayCancelledAll = todayOrdersAll.filter(o => isCancelled(o.status)).length;
-        const todayPlatformPayout = todayCompletedAll * RATE_PER_ORDER; // Formula: Completed (Day) * ₹3
+        const todayPlatformPayout = todayCompletedAll * RATE_PER_ORDER;
 
         // 2. Real-World Shift Breakdown for Platform & Partner Hub
         const currentShiftId = getCurrentISTShiftId();
@@ -626,7 +719,7 @@ router.get('/delivery-earnings', async (req, res) => {
             return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
         });
         const monthCompletedAll = monthOrdersAll.filter(o => isCompleted(o.status)).length;
-        const monthPlatformExpense = monthCompletedAll * RATE_PER_ORDER; // Formula: Completed (Month) * ₹3
+        const monthPlatformExpense = monthCompletedAll * RATE_PER_ORDER;
         const daysElapsedInMonth = Math.max(1, now.getDate());
         const avgDeliveriesPerDayAll = (monthCompletedAll / daysElapsedInMonth).toFixed(1);
 
@@ -647,6 +740,7 @@ router.get('/delivery-earnings', async (req, res) => {
                     partner_id: s.id,
                     partner_name: s.name || 'Campus Partner',
                     phone: s.phone || 'N/A',
+                    is_owner: Boolean(s.is_owner),
                     today_deliveries: 0,
                     today_wage: 0.00,
                     monthly_deliveries: 0,
@@ -670,6 +764,7 @@ router.get('/delivery-earnings', async (req, res) => {
                     partner_id: riderId,
                     partner_name: riderName,
                     phone: 'N/A',
+                    is_owner: false,
                     today_deliveries: 0,
                     today_wage: 0.00,
                     monthly_deliveries: 0,
@@ -688,6 +783,7 @@ router.get('/delivery-earnings', async (req, res) => {
                 partner_id: 'RIDER_BH13_01',
                 partner_name: 'BH13 Fast Runner',
                 phone: '+91 98765 43210',
+                is_owner: false,
                 today_deliveries: 0,
                 today_wage: 0.00,
                 monthly_deliveries: 0,
@@ -704,11 +800,20 @@ router.get('/delivery-earnings', async (req, res) => {
             if (!isCompleted(o.status)) return;
             const meta = supabaseDb.orders.parseDeliveryMeta(o.rider_name);
             const riderId = meta.assigned_to || (typeof o.rider_name === 'string' && o.rider_name.trim() && !o.rider_name.startsWith('{') ? o.rider_name.trim() : null);
+            const riderName = meta.name || meta.assigned_to_name || (typeof o.rider_name === 'string' && !o.rider_name.startsWith('{') ? o.rider_name.trim() : null);
             
-            // If rider identified in map, credit them; else credit first partner
-            const targetPartner = riderId && partnerMap.has(riderId) 
-                ? partnerMap.get(riderId) 
-                : partnerMap.values().next().value;
+            let targetPartner = null;
+            if (riderId && partnerMap.has(riderId)) {
+                targetPartner = partnerMap.get(riderId);
+            } else if (riderName) {
+                const lowerName = riderName.toLowerCase();
+                for (const p of partnerMap.values()) {
+                    if (p.partner_name.toLowerCase() === lowerName) {
+                        targetPartner = p;
+                        break;
+                    }
+                }
+            }
 
             if (targetPartner) {
                 targetPartner.total_completed += 1;
@@ -748,27 +853,60 @@ router.get('/delivery-earnings', async (req, res) => {
         });
 
         const partnersSummary = Array.from(partnerMap.values());
-        const availableRiders = partnersSummary.map(p => ({ id: p.partner_id, name: p.partner_name }));
+        const availableRiders = partnersSummary.map(p => ({
+            id: p.partner_id,
+            name: p.partner_name,
+            is_owner: Boolean(p.is_owner),
+            phone: p.phone,
+            total_completed: p.total_completed,
+            today_deliveries: p.today_deliveries
+        }));
 
-        // 4. Filter Orders by Selected Rider if requested
+        // Identify Owner details
+        const ownerStaff = (Array.isArray(staffList) ? staffList : []).find(s => s.is_owner || (Array.isArray(s.roles) && s.roles.includes('owner')));
+        const ownerId = req.query.ownerId || ownerStaff?.id || 'user_admin_bh13';
+        const ownerName = req.query.ownerName || ownerStaff?.name || 'Nivas Naidu';
+        const ownerNames = [ownerName, 'nivas naidu', 'owner'].map(s => s.toLowerCase());
+
+        // 4. Filter Orders by Selected Rider / Owner ('mine') / Individual Runner
         let filteredOrders = allOrders;
-        if (selectedRiderId && selectedRiderId !== 'all') {
+        let selectedRiderName = 'All Delivery Staff';
+
+        if (selectedRiderId === 'mine') {
+            selectedRiderName = `${ownerName} (Owner - My Deliveries)`;
             filteredOrders = allOrders.filter(o => {
                 const meta = supabaseDb.orders.parseDeliveryMeta(o.rider_name);
-                return meta.assigned_to === selectedRiderId || 
-                       meta.name === selectedRiderId || 
-                       o.rider_name === selectedRiderId;
+                const rId = meta.assigned_to;
+                const rName = (meta.name || meta.assigned_to_name || '').toLowerCase();
+                const raw = typeof o.rider_name === 'string' && !o.rider_name.startsWith('{') ? o.rider_name.trim().toLowerCase() : '';
+                return (rId && rId === ownerId) ||
+                       (rName && (rName === ownerId.toLowerCase() || ownerNames.includes(rName))) ||
+                       (raw && (raw === ownerId.toLowerCase() || ownerNames.includes(raw)));
             });
-            // If none matched, fallback to all orders to prevent blanking when rider IDs are simulated
-            if (filteredOrders.length === 0 && allOrders.length > 0) {
-                filteredOrders = allOrders;
-            }
+        } else if (selectedRiderId && selectedRiderId !== 'all') {
+            const targetPartner = partnerMap.get(selectedRiderId);
+            selectedRiderName = targetPartner ? targetPartner.partner_name : selectedRiderId;
+            const targetNameLower = targetPartner ? targetPartner.partner_name.toLowerCase() : selectedRiderId.toLowerCase();
+            filteredOrders = allOrders.filter(o => {
+                const meta = supabaseDb.orders.parseDeliveryMeta(o.rider_name);
+                const rId = meta.assigned_to;
+                const rName = (meta.name || meta.assigned_to_name || '').toLowerCase();
+                const raw = typeof o.rider_name === 'string' && !o.rider_name.startsWith('{') ? o.rider_name.trim().toLowerCase() : '';
+                return (rId && rId === selectedRiderId) ||
+                       (rName && (rName === selectedRiderId.toLowerCase() || rName === targetNameLower)) ||
+                       (raw && (raw === selectedRiderId.toLowerCase() || raw === targetNameLower));
+            });
+        }
+
+        // Apply Shift Filter if specified
+        if (selectedShift && selectedShift !== 'all') {
+            filteredOrders = filteredOrders.filter(o => getShiftInfo(o.created_at).id === selectedShift);
         }
 
         // 5. Rider/Filtered Specific Today & Monthly Stats
         const riderTodayOrders = filteredOrders.filter(o => o.created_at && formatLocalDate(new Date(o.created_at)) === todayStr);
         const riderTodayCompleted = riderTodayOrders.filter(o => isCompleted(o.status)).length;
-        const riderTodayEarnings = riderTodayCompleted * RATE_PER_ORDER; // Formula: Completed * ₹3
+        const riderTodayEarnings = riderTodayCompleted * RATE_PER_ORDER;
         const riderTodayPending = riderTodayOrders.filter(o => isPending(o.status)).length;
         const riderTodayCancelled = riderTodayOrders.filter(o => isCancelled(o.status)).length;
 
@@ -778,7 +916,7 @@ router.get('/delivery-earnings', async (req, res) => {
             return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
         });
         const riderMonthCompleted = riderMonthOrders.filter(o => isCompleted(o.status)).length;
-        const riderMonthlyPayout = riderMonthCompleted * RATE_PER_ORDER; // Formula: Completed * ₹3
+        const riderMonthlyPayout = riderMonthCompleted * RATE_PER_ORDER;
         const riderAvgPerDay = (riderMonthCompleted / daysElapsedInMonth).toFixed(1);
 
         // 6. Range and Chart Calculations
@@ -934,7 +1072,7 @@ router.get('/delivery-earnings', async (req, res) => {
         const periodCancelledOrders = periodOrders.filter(o => isCancelled(o.status));
 
         const totalOrders = periodCompletedOrders.length;
-        const totalPayout = totalOrders * RATE_PER_ORDER; // Formula: Completed * ₹3
+        const totalPayout = totalOrders * RATE_PER_ORDER;
 
         // Calculate Single Runs vs Multi Runs on completed orders
         let multiRunsCount = 0;
@@ -952,17 +1090,20 @@ router.get('/delivery-earnings', async (req, res) => {
         }
         const singleRunsCount = Math.max(0, totalOrders - multiRunsCount);
 
-        // Incentive tier calculation (₹20 bonus if daily orders >= 20)
+        // Incentive tier calculation (bonus if daily orders >= threshold)
+        const bonusThreshold = pricingConfig.daily_bonus_threshold || 20;
+        const bonusAmount = pricingConfig.daily_bonus_amount || 20.00;
         let totalIncentive = 0;
         daysList.forEach(d => {
-            if (d.order_count >= 20) {
-                totalIncentive += 20;
+            if (d.order_count >= bonusThreshold) {
+                totalIncentive += bonusAmount;
             }
         });
 
-        // 7. Itemized Recent Payout Ledger (Unique Dates grouped newest first)
+        // 7. Itemized Recent Payout Ledger (Filtered to selected rider or all fleet, newest first)
+        const ledgerOrders = filteredOrders;
         const ledgerMap = new Map();
-        allOrders.forEach(o => {
+        ledgerOrders.forEach(o => {
             if (!o.created_at) return;
             const dStr = formatLocalDate(new Date(o.created_at));
             if (!ledgerMap.has(dStr)) {
@@ -1001,6 +1142,17 @@ router.get('/delivery-earnings', async (req, res) => {
             month_offset: monthOffset,
             range_label: rangeLabel,
             rate_per_order: RATE_PER_ORDER,
+            pricing_config: pricingConfig,
+            selected_rider: {
+                id: selectedRiderId,
+                name: selectedRiderName,
+                is_mine: selectedRiderId === 'mine',
+                is_all: selectedRiderId === 'all'
+            },
+            owner_info: {
+                id: ownerId,
+                name: ownerName
+            },
             
             // Today's KPI Metrics
             today_stats: {

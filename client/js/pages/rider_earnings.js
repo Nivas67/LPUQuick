@@ -43,7 +43,7 @@ window.pages.rider_earnings = function () {
                     </div>
                     <div class="pt-2 border-t border-slate-100 mt-2 flex items-center justify-between">
                         <span class="text-[9px] text-[#64748b]">Daily Revenue</span>
-                        <span class="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">₹3/Ord</span>
+                        <span id="client-kpi-rate-badge" class="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">₹3/Ord</span>
                     </div>
                 </div>
 
@@ -76,7 +76,7 @@ window.pages.rider_earnings = function () {
                     <span class="text-[10px] font-black uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full">Monthly Snapshot</span>
                     <span id="client-snapshot-month-name" class="text-xs font-bold text-blue-100">September 2026</span>
                 </div>
-                <p class="text-[10px] text-blue-100">Formula: <strong class="text-white">Monthly Revenue = Completed Deliveries × ₹3</strong></p>
+                <p class="text-[10px] text-blue-100">Formula: <strong id="client-snapshot-formula" class="text-white">Monthly Revenue = Completed Deliveries × ₹3</strong></p>
 
                 <div class="grid grid-cols-3 gap-2 bg-white/10 backdrop-blur-xs p-2.5 rounded-2xl border border-white/20 text-center pt-2">
                     <div>
@@ -411,6 +411,10 @@ window.fetchClientDeliveryEarnings = async function () {
             kpiTodayEarnings.textContent = `₹${(data.today_stats?.today_earnings || 0).toFixed(2)}`;
         }
 
+        const activeRate = Number(data.rate_per_order) || 3.00;
+        const rateBadge = document.getElementById('client-kpi-rate-badge');
+        if (rateBadge) rateBadge.textContent = `₹${activeRate.toFixed(0)}/Ord`;
+
         const kpiTodayCompleted = document.getElementById('client-kpi-today-completed');
         if (kpiTodayCompleted) {
             kpiTodayCompleted.textContent = String(data.today_stats?.completed_today || 0);
@@ -427,6 +431,11 @@ window.fetchClientDeliveryEarnings = async function () {
         const snapshotMonthName = document.getElementById('client-snapshot-month-name');
         if (snapshotMonthName) {
             snapshotMonthName.textContent = data.monthly_stats?.month_name || 'September 2026';
+        }
+
+        const snapshotFormula = document.getElementById('client-snapshot-formula');
+        if (snapshotFormula) {
+            snapshotFormula.textContent = `Monthly Revenue = Completed Deliveries × ₹${activeRate.toFixed(2)}`;
         }
 
         const snapshotDeliveries = document.getElementById('client-snapshot-deliveries');
@@ -1037,7 +1046,7 @@ window.openClientPartnerShiftModal = function () {
 
                 <div class="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 text-[11px] text-emerald-900 flex items-center gap-2">
                     <span class="material-symbols-outlined text-emerald-700 text-base">verified</span>
-                    <span>₹3.00 auto-credited on each delivered order</span>
+                    <span>₹${(Number(window.__riderEarningsState?.data?.rate_per_order) || 3.00).toFixed(2)} auto-credited on each delivered order</span>
                 </div>
 
                 <button onclick="window.closeClientPartnerModal()" class="w-full py-2.5 rounded-xl bg-[#181c1f] text-white font-bold text-xs">Close</button>
@@ -1060,6 +1069,7 @@ window.openClientPartnerProfileModal = function () {
     const name = user?.name || 'Campus Delivery Partner';
     const phone = user?.phone || '+91 98765 43210';
     const partnerId = user?.id ? `ID_${String(user.id).slice(-8)}` : '2000516247_DPI66365';
+    const activeRate = Number(window.__riderEarningsState?.data?.rate_per_order) || 3.00;
 
     container.innerHTML = `
         <div class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
@@ -1092,7 +1102,7 @@ window.openClientPartnerProfileModal = function () {
                     </div>
                     <div class="flex justify-between py-1.5 border-b border-slate-100">
                         <span class="text-slate-500">Delivery Wage</span>
-                        <span class="font-bold text-emerald-700">₹3.00 / Delivered Order</span>
+                        <span class="font-bold text-emerald-700">₹${activeRate.toFixed(2)} / Delivered Order</span>
                     </div>
                 </div>
                 <button onclick="window.closeClientPartnerModal()" class="w-full py-2.5 rounded-xl bg-[#0066cc] text-white font-bold text-xs">Done</button>

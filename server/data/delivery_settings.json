@@ -1,0 +1,9 @@
+{
+  "rate_per_order": 3,
+  "currency": "INR",
+  "daily_bonus_threshold": 20,
+  "daily_bonus_amount": 20,
+  "base_payout_rule": "per_delivered_order",
+  "updated_at": "2026-09-06T13:45:39.835Z",
+  "updated_by": "Owner"
+}

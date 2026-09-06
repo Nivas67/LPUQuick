@@ -6101,6 +6101,9 @@ async function loadDeliveryEarnings(customStart, customEnd) {
             _t: Date.now()
         });
 
+        if (currentAdminProfile?.id) queryParams.set('ownerId', currentAdminProfile.id);
+        if (currentAdminProfile?.name) queryParams.set('ownerName', currentAdminProfile.name);
+
         if (customStart && customEnd) {
             queryParams.set('startDate', customStart);
             queryParams.set('endDate', customEnd);
@@ -6119,18 +6122,84 @@ async function loadDeliveryEarnings(customStart, customEnd) {
 
         currentEarningsData = data;
 
-        // Populate Rider Dropdown if not already populated or updated
+        // Populate Rider Dropdown with All Fleet, Only Mine (Owner), and Individual Runners
         const riderSelect = document.getElementById('earnings-rider-select');
-        if (riderSelect && data.available_riders) {
-            const currentVal = riderSelect.value;
-            let optionsHtml = '<option value="all">All Delivery Staff</option>';
-            data.available_riders.forEach(r => {
-                optionsHtml += `<option value="${escapeHtml(r.id)}">${escapeHtml(r.name)}</option>`;
-            });
-            riderSelect.innerHTML = optionsHtml;
-            if (currentVal && Array.from(riderSelect.options).some(o => o.value === currentVal)) {
-                riderSelect.value = currentVal;
+        if (riderSelect) {
+            const ownerName = data.owner_info?.name || currentAdminProfile?.name || 'Owner';
+            let optionsHtml = `
+                <option value="all" ${earningsSelectedRider === 'all' ? 'selected' : ''}>🌐 All Delivery Fleet</option>
+                <option value="mine" ${earningsSelectedRider === 'mine' ? 'selected' : ''}>👤 Only Mine (${escapeHtml(ownerName)} - Deliveries)</option>
+            `;
+            if (Array.isArray(data.available_riders)) {
+                data.available_riders.forEach(r => {
+                    const ownerTag = r.is_owner ? ' (Owner)' : '';
+                    const runsTag = r.total_completed ? ` • ${r.total_completed} runs` : '';
+                    const isSel = earningsSelectedRider === r.id ? 'selected' : '';
+                    optionsHtml += `<option value="${escapeHtml(r.id)}" ${isSel}>🏃 ${escapeHtml(r.name)}${ownerTag}${runsTag}</option>`;
+                });
             }
+            riderSelect.innerHTML = optionsHtml;
+            riderSelect.value = earningsSelectedRider;
+        }
+
+        // Update Hub Header dynamic rate badge
+        const headerRate = document.getElementById('hub-header-rate-display');
+        if (headerRate) {
+            headerRate.textContent = `₹${(data.rate_per_order || 3.00).toFixed(2)}`;
+        }
+
+        // Update Monthly Snapshot formula label
+        const formulaEl = document.getElementById('partner-snapshot-formula');
+        if (formulaEl) {
+            formulaEl.textContent = `Monthly Revenue = Completed Deliveries × ₹${(data.rate_per_order || 3.00).toFixed(2)}`;
+        }
+
+        // Update Active Filter indicators and banner
+        const btnAll = document.getElementById('btn-filter-all-fleet');
+        const btnMine = document.getElementById('btn-filter-only-mine');
+        const riderBadge = document.getElementById('active-rider-indicator-badge');
+        const filterBanner = document.getElementById('partner-filter-alert-banner');
+        const filterTitle = document.getElementById('partner-filter-banner-title');
+        const filterType = document.getElementById('partner-filter-banner-type');
+
+        if (earningsSelectedRider === 'mine') {
+            if (btnAll) btnAll.className = 'flex-1 py-1 px-2 rounded-lg bg-[#F0F4F9] hover:bg-blue-50 text-[#5c5f60] font-bold text-[11px] border border-[#DADCE0] transition-all cursor-pointer text-center';
+            if (btnMine) btnMine.className = 'flex-1 py-1 px-2 rounded-lg bg-indigo-600 text-white font-black text-[11px] border border-indigo-700 transition-all cursor-pointer text-center shadow-xs';
+            if (riderBadge) {
+                riderBadge.textContent = 'Only Mine';
+                riderBadge.className = 'text-[10px] font-black text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200';
+            }
+            if (filterBanner) {
+                filterBanner.classList.remove('hidden');
+                if (filterTitle) filterTitle.textContent = `Viewing Stats: ${data.selected_rider?.name || 'Owner (My Deliveries)'}`;
+                if (filterType) {
+                    filterType.textContent = 'Owner Only';
+                    filterType.className = 'text-[10px] bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded-full';
+                }
+            }
+        } else if (earningsSelectedRider && earningsSelectedRider !== 'all') {
+            if (btnAll) btnAll.className = 'flex-1 py-1 px-2 rounded-lg bg-[#F0F4F9] hover:bg-blue-50 text-[#5c5f60] font-bold text-[11px] border border-[#DADCE0] transition-all cursor-pointer text-center';
+            if (btnMine) btnMine.className = 'flex-1 py-1 px-2 rounded-lg bg-[#F0F4F9] hover:bg-indigo-50 text-[#5c5f60] font-bold text-[11px] border border-[#DADCE0] transition-all cursor-pointer text-center';
+            if (riderBadge) {
+                riderBadge.textContent = 'Individual Partner';
+                riderBadge.className = 'text-[10px] font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200';
+            }
+            if (filterBanner) {
+                filterBanner.classList.remove('hidden');
+                if (filterTitle) filterTitle.textContent = `Viewing Stats: ${data.selected_rider?.name || 'Individual Runner'}`;
+                if (filterType) {
+                    filterType.textContent = 'Partner Filter Active';
+                    filterType.className = 'text-[10px] bg-blue-100 text-[#0066cc] font-bold px-2 py-0.5 rounded-full';
+                }
+            }
+        } else {
+            if (btnAll) btnAll.className = 'flex-1 py-1 px-2 rounded-lg bg-[#0066cc] text-white font-black text-[11px] border border-blue-700 transition-all cursor-pointer text-center shadow-xs';
+            if (btnMine) btnMine.className = 'flex-1 py-1 px-2 rounded-lg bg-[#F0F4F9] hover:bg-indigo-50 text-[#5c5f60] font-bold text-[11px] border border-[#DADCE0] transition-all cursor-pointer text-center';
+            if (riderBadge) {
+                riderBadge.textContent = 'All Fleet';
+                riderBadge.className = 'text-[10px] font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200';
+            }
+            if (filterBanner) filterBanner.classList.add('hidden');
         }
 
         // Update Partner Drawer details
@@ -6608,11 +6677,12 @@ function exportPartnerPayoutCSV() {
     const ledger = currentEarningsData.recent_ledger || [];
     const now = new Date();
     const timestampStr = now.toISOString().slice(0, 10);
+    const activeRate = Number(currentEarningsData.rate_per_order) || 3.00;
 
     let csv = '\uFEFF'; // UTF-8 BOM for Microsoft Excel
     csv += 'LPUQuick - Delivery Fleet Partner Payout Sheet\n';
     csv += `Generated On,${now.toLocaleString('en-IN')}\n`;
-    csv += `Fixed Rate Per Delivered Order,INR 3.00\n`;
+    csv += `Fixed Rate Per Delivered Order,INR ${activeRate.toFixed(2)}\n`;
     csv += `Total Daily Payout Platform-Wide,INR ${(currentEarningsData.platform_metrics?.total_daily_payout || 0).toFixed(2)}\n`;
     csv += `Total Monthly Partner Expense,INR ${(currentEarningsData.platform_metrics?.total_monthly_expense || 0).toFixed(2)}\n\n`;
 
@@ -6648,7 +6718,7 @@ function exportPartnerPayoutCSV() {
             l.completed_deliveries || 0,
             l.pending_deliveries || 0,
             l.cancelled_deliveries || 0,
-            '3.00',
+            activeRate.toFixed(2),
             (l.amount_credited || 0).toFixed(2),
             `"${l.settlement_status || 'Credited'}"`
         ];
@@ -6667,6 +6737,162 @@ function exportPartnerPayoutCSV() {
 
     showToast('📥 Delivery partner payout sheet exported to CSV successfully!', 'success');
 }
+
+// =========================================================================
+// DELIVERY PRICING ENGINE MODAL & RATE CONFIGURATION
+// =========================================================================
+function openDeliveryPricingModal() {
+    closePartnerDrawer();
+    const modalContainer = document.getElementById('partner-modal-container');
+    if (!modalContainer) return;
+
+    const currentRate = Number(currentEarningsData?.rate_per_order) || 3.00;
+    const currentThreshold = Number(currentEarningsData?.pricing_config?.daily_bonus_threshold) || 20;
+    const currentBonus = Number(currentEarningsData?.pricing_config?.daily_bonus_amount) || 20.00;
+
+    modalContainer.innerHTML = `
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-5">
+                <!-- Header -->
+                <div class="flex items-center justify-between border-b pb-3">
+                    <div class="flex items-center gap-2.5">
+                        <span class="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+                            <span class="material-symbols-outlined text-2xl">payments</span>
+                        </span>
+                        <div>
+                            <h3 class="font-black text-base text-[#181c1f]">Delivery Pricing Engine</h3>
+                            <p class="text-[11px] text-[#5c5f60]">Configure per-order payout rate & performance incentives</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="closePartnerModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 font-bold cursor-pointer">✕</button>
+                </div>
+
+                <!-- Rate per Order Form -->
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-black text-[#181c1f] mb-1.5">Delivery Payout Rate Per Order (₹)</label>
+                        <div class="relative">
+                            <span class="absolute left-3.5 top-1/2 -translate-y-1/2 font-black text-slate-500 text-base">₹</span>
+                            <input type="number" id="pricing-rate-input" step="0.5" min="0.5" max="200" value="${currentRate}" oninput="updatePricingPreview()" class="w-full pl-8 pr-4 py-2.5 bg-[#F8FAFD] border border-[#DADCE0] rounded-2xl font-black text-xl text-[#181c1f] focus:bg-white focus:border-[#0066cc] outline-none transition-all">
+                        </div>
+                    </div>
+
+                    <!-- Quick Preset Rate Chips -->
+                    <div>
+                        <span class="text-[11px] text-[#5c5f60] font-bold block mb-1.5">Quick Presets:</span>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            ${[3.00, 4.00, 5.00, 7.00, 10.00, 15.00].map(r => `
+                                <button type="button" onclick="setPricingPreset(${r})" class="px-3 py-1.5 rounded-xl border ${currentRate === r ? 'border-[#0066cc] bg-blue-50 text-[#0066cc] font-black' : 'border-[#DADCE0] bg-white text-[#181c1f] font-bold hover:bg-slate-50'} text-xs transition-all cursor-pointer active:scale-95">
+                                    ₹${r.toFixed(2)}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Daily Incentive Tier Inputs -->
+                    <div class="grid grid-cols-2 gap-3 pt-1">
+                        <div>
+                            <label class="block text-[11px] font-bold text-[#5c5f60] mb-1">Daily Target Orders</label>
+                            <input type="number" id="pricing-target-input" min="1" max="100" value="${currentThreshold}" oninput="updatePricingPreview()" class="w-full px-3 py-2 bg-[#F8FAFD] border border-[#DADCE0] rounded-xl font-bold text-xs text-[#181c1f] outline-none focus:bg-white focus:border-[#0066cc]">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-[#5c5f60] mb-1">Bonus Cash (₹)</label>
+                            <input type="number" id="pricing-bonus-input" min="0" max="500" value="${currentBonus}" oninput="updatePricingPreview()" class="w-full px-3 py-2 bg-[#F8FAFD] border border-[#DADCE0] rounded-xl font-bold text-xs text-[#181c1f] outline-none focus:bg-white focus:border-[#0066cc]">
+                        </div>
+                    </div>
+
+                    <!-- Live Real-Time Formula Preview Card -->
+                    <div class="p-3.5 bg-emerald-50 rounded-2xl border border-emerald-200 space-y-1.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-black text-emerald-950 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-sm text-emerald-700">calculate</span>
+                                <span>Real-World Earnings Simulation</span>
+                            </span>
+                            <span id="pricing-preview-badge" class="text-xs font-black text-emerald-800 bg-white px-2 py-0.5 rounded-lg border border-emerald-300">₹${currentRate.toFixed(2)} / order</span>
+                        </div>
+                        <p id="pricing-preview-desc" class="text-[11px] text-emerald-800 leading-relaxed font-medium">
+                            A runner completing <strong>20 orders</strong> today will earn: <strong>₹${(20 * currentRate).toFixed(2)}</strong> direct wage + <strong>₹${currentBonus.toFixed(2)}</strong> daily bonus = <strong>₹${((20 * currentRate) + currentBonus).toFixed(2)}</strong> total.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex items-center gap-2 pt-2">
+                    <button type="button" onclick="closePartnerModal()" class="flex-1 py-2.5 rounded-xl border border-[#DADCE0] bg-[#F8FAFD] hover:bg-white text-[#181c1f] font-bold text-xs cursor-pointer transition-all">Cancel</button>
+                    <button type="button" onclick="saveDeliveryPricingConfig()" class="flex-1 py-2.5 rounded-xl bg-[#0066cc] hover:bg-[#0052a3] text-white font-black text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95">
+                        <span class="material-symbols-outlined text-sm">save</span>
+                        <span>Save & Apply Pricing</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function setPricingPreset(rate) {
+    const input = document.getElementById('pricing-rate-input');
+    if (input) {
+        input.value = rate;
+        updatePricingPreview();
+    }
+}
+
+function updatePricingPreview() {
+    const input = document.getElementById('pricing-rate-input');
+    const badge = document.getElementById('pricing-preview-badge');
+    const desc = document.getElementById('pricing-preview-desc');
+    const bonusInput = document.getElementById('pricing-bonus-input');
+
+    const rate = Math.max(0.5, parseFloat(input?.value) || 3.00);
+    const bonus = parseFloat(bonusInput?.value) || 20.00;
+
+    if (badge) badge.textContent = `₹${rate.toFixed(2)} / order`;
+    if (desc) {
+        desc.innerHTML = `A runner completing <strong>20 orders</strong> today will earn: <strong>₹${(20 * rate).toFixed(2)}</strong> direct wage + <strong>₹${bonus.toFixed(2)}</strong> daily bonus = <strong>₹${((20 * rate) + bonus).toFixed(2)}</strong> total.`;
+    }
+}
+
+async function saveDeliveryPricingConfig() {
+    const rateInput = document.getElementById('pricing-rate-input');
+    const targetInput = document.getElementById('pricing-target-input');
+    const bonusInput = document.getElementById('pricing-bonus-input');
+
+    const rate = parseFloat(rateInput?.value);
+    const target = parseInt(targetInput?.value, 10);
+    const bonus = parseFloat(bonusInput?.value);
+
+    if (isNaN(rate) || rate < 0.50 || rate > 500) {
+        showToast('Please enter a valid rate between ₹0.50 and ₹500.00', 'warning');
+        return;
+    }
+
+    try {
+        const res = await fetchWithTimeout('/api/orders/delivery-pricing-config', {
+            method: 'POST',
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({
+                rate_per_order: rate,
+                daily_bonus_threshold: isNaN(target) ? 20 : target,
+                daily_bonus_amount: isNaN(bonus) ? 20.00 : bonus,
+                updated_by: currentAdminProfile?.name || 'Owner'
+            })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Failed to update pricing');
+
+        closePartnerModal();
+        showToast(`⚡ Delivery rate updated to ₹${rate.toFixed(2)} / order! Recalculating all metrics...`, 'success');
+        await loadDeliveryEarnings();
+    } catch (err) {
+        console.error('[Save Delivery Pricing Error]:', err);
+        showToast('Error saving delivery rate: ' + err.message, 'error');
+    }
+}
+
+window.openDeliveryPricingModal = openDeliveryPricingModal;
+window.setPricingPreset = setPricingPreset;
+window.updatePricingPreview = updatePricingPreview;
+window.saveDeliveryPricingConfig = saveDeliveryPricingConfig;
 
 // Partner Drawer Slide-over Controls (Screenshot 2)
 function openPartnerDrawer() {
