@@ -80,14 +80,15 @@
         const statusBadge = document.getElementById('settings-install-status');
         if (statusBadge) {
             if (installed) {
+                statusBadge.classList.remove('hidden');
                 statusBadge.textContent = 'Installed';
-                statusBadge.className = 'text-[11px] bg-emerald/15 text-emerald font-bold px-2.5 py-0.5 rounded-full border border-emerald/30';
+                statusBadge.className = 'text-[11px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400 font-bold px-2.5 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-800';
             } else {
-                statusBadge.textContent = 'Tap to Install';
-                statusBadge.className = 'text-[11px] bg-amber-500/15 text-amber-500 font-bold px-2.5 py-0.5 rounded-full border border-amber-500/30';
+                statusBadge.classList.add('hidden');
             }
         }
     }
+    window.updateInstallUIState = updateInstallUIState;
 
     // 5. Global Install Trigger
     window.showInstallPrompt = async function () {
@@ -310,34 +311,34 @@
         });
     }
 
-    // 9. Smart Floating Bottom Install Banner
+    // 9. Smart Floating Mobile Install Banner
     function showInstallBanner() {
         if (isStandaloneMode()) return;
 
-        const dismissedAt = Number(localStorage.getItem(DISMISS_KEY)) || 0;
-        if (Date.now() - dismissedAt < DISMISS_DURATION_MS) {
-            return; // Snoozed for 7 days
+        // Check if user explicitly dismissed during this session
+        if (sessionStorage.getItem('lpuquick_install_banner_dismissed') === 'true') {
+            return;
         }
 
         if (document.getElementById('pwa-floating-install-banner')) return;
 
         const bannerHtml = `
-        <div id="pwa-floating-install-banner" class="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 animate-slide-up transition-all duration-300">
-            <div class="glass-card p-3 sm:p-3.5 rounded-3xl border border-emerald/50 shadow-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl flex items-center justify-between gap-3 text-xs">
-                <div class="flex items-center gap-3 min-w-0">
-                    <img src="/logo.png" alt="LPUQuick" class="w-10 h-10 rounded-2xl shadow-md border border-emerald/20 flex-shrink-0 object-contain">
+        <div id="pwa-floating-install-banner" class="fixed bottom-[74px] sm:bottom-6 left-1/2 -translate-x-1/2 w-[94%] max-w-md z-40 animate-slide-up transition-all duration-300">
+            <div class="glass-card p-3 sm:p-3.5 rounded-2xl border-2 border-emerald-500/60 shadow-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl flex items-center justify-between gap-3 text-xs">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <img src="/logo.png" alt="LPUQuick" class="w-10 h-10 rounded-xl shadow-md border border-emerald-500/30 flex-shrink-0 object-contain">
                     <div class="truncate">
-                        <div class="flex items-center gap-1 font-bold text-slate-900 dark:text-white">
-                            <span>Install LPUQuick</span>
-                            <span class="text-[10px] bg-emerald/15 text-emerald font-extrabold px-1.5 py-0.2 rounded-full">App</span>
+                        <div class="flex items-center gap-1.5 font-black text-slate-900 dark:text-white">
+                            <span class="text-xs">Install LPUQuick App</span>
+                            <span class="text-[9px] bg-emerald-500 text-white font-extrabold px-1.5 py-0.2 rounded-full">3 MIN</span>
                         </div>
-                        <p class="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                            ⚡ 3-min deliveries with 1 tap from home screen
+                        <p class="text-[11px] text-slate-600 dark:text-slate-300 font-medium truncate mt-0.5">
+                            ⚡ 1-Tap 3-min deliveries to your hostel room
                         </p>
                     </div>
                 </div>
-                <div class="flex items-center gap-2 flex-shrink-0">
-                    <button type="button" onclick="window.showInstallPrompt()" class="bg-emerald text-white px-3.5 py-1.5 rounded-full font-bold text-xs shadow-md hover:bg-emerald-600 active:scale-95 transition-all flex items-center gap-1 cursor-pointer">
+                <div class="flex items-center gap-1.5 flex-shrink-0">
+                    <button type="button" onclick="window.showInstallPrompt()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-full font-black text-xs shadow-md active:scale-95 transition-all flex items-center gap-1 cursor-pointer">
                         <span class="material-symbols-outlined text-sm">download</span>
                         <span>Install</span>
                     </button>
@@ -351,6 +352,7 @@
 
         document.body.insertAdjacentHTML('beforeend', bannerHtml);
     }
+    window.showInstallBanner = showInstallBanner;
 
     function hideInstallBanner() {
         const el = document.getElementById('pwa-floating-install-banner');
@@ -361,15 +363,15 @@
     }
 
     window.dismissInstallBanner = function () {
-        localStorage.setItem(DISMISS_KEY, Date.now().toString());
+        sessionStorage.setItem('lpuquick_install_banner_dismissed', 'true');
         hideInstallBanner();
     };
 
-    // Initialize Auto-Banner after 3.5s delay
+    // Initialize Auto-Banner promptly (400ms delay)
     setTimeout(() => {
         showInstallBanner();
         updateInstallUIState(false);
-    }, 3500);
+    }, 400);
 
     // Initial check
     document.addEventListener('DOMContentLoaded', () => {

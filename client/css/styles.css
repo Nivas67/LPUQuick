@@ -241,7 +241,7 @@ header {
     transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
-nav {
+nav.liquid-dock-pill {
     background: var(--nav-bg) !important;
     backdrop-filter: var(--glass-blur) !important;
     -webkit-backdrop-filter: var(--glass-blur) !important;
@@ -396,7 +396,7 @@ header {
 }
 
 /* Floating Bottom Navigation Bar */
-nav {
+nav.liquid-dock-pill {
     background: var(--nav-bg) !important;
     backdrop-filter: var(--glass-blur) !important;
     -webkit-backdrop-filter: var(--glass-blur) !important;
@@ -505,20 +505,68 @@ nav {
 
 /* Digital Student Campus Pass Card */
 .student-pass-card {
-    background: linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(240,245,255,0.7) 100%);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 248, 255, 0.90) 100%);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
-    border: 1px solid rgba(255,255,255,0.9);
+    border: 1px solid rgba(255, 255, 255, 0.98);
     border-radius: 2rem;
-    box-shadow: 0 20px 40px -10px rgba(16, 185, 129, 0.15), 0 8px 20px rgba(0,0,0,0.06);
+    box-shadow: 0 16px 36px -8px rgba(15, 23, 42, 0.08), 0 4px 14px rgba(16, 185, 129, 0.12);
     position: relative;
     overflow: hidden;
+    color: var(--text-primary);
 }
 
 .dark .student-pass-card {
-    background: linear-gradient(135deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.9) 100%);
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%);
     border-color: rgba(255, 255, 255, 0.12);
-    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.55);
+    color: #ffffff;
+}
+
+/* Tactile Clay Pills & Badges for Light & Dark Mode */
+.clay-pill {
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05), inset 0 1px 1px rgba(255, 255, 255, 1);
+    color: var(--text-primary);
+    transition: var(--transition-smooth);
+}
+
+.dark .clay-pill {
+    background: rgba(30, 41, 59, 0.85);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.08);
+    color: #f8fafc;
+}
+
+.clay-card {
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06), inset 0 1px 1px rgba(255, 255, 255, 1);
+    color: var(--text-primary);
+    transition: var(--transition-smooth);
+}
+
+.dark .clay-card {
+    background: rgba(30, 41, 59, 0.85);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.08);
+    color: #f8fafc;
+}
+
+.liquid-badge {
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius: 9999px;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+}
+
+.dark .liquid-badge {
+    background: rgba(30, 41, 59, 0.7);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 
 .holographic-strip {
@@ -642,8 +690,8 @@ html.dark header {
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45) !important;
 }
 
-body.dark nav,
-html.dark nav {
+body.dark nav.liquid-dock-pill,
+html.dark nav.liquid-dock-pill {
     background: var(--nav-bg) !important;
     backdrop-filter: var(--glass-blur) !important;
     -webkit-backdrop-filter: var(--glass-blur) !important;
@@ -1253,14 +1301,47 @@ html.dark .map-pattern {
 
 /* ============================================================
    MODERN VERTICAL CATEGORY RAIL (INSTAMART / BLINKIT UX)
+   Full-height column extending until the end of the products
    ============================================================ */
+#category-rail-container {
+    align-self: stretch !important;
+    min-height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    position: relative !important;
+    background: rgba(255, 255, 255, 0.65);
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    border-radius: 1.5rem;
+    padding: 0.5rem 0.25rem 2rem 0.25rem;
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+    transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+body.dark #category-rail-container,
+html.dark #category-rail-container {
+    background: rgba(15, 23, 42, 0.55);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
+
 .vertical-category-rail {
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
     padding: 0.25rem 0;
     user-select: none;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
     -webkit-overflow-scrolling: touch;
+    position: sticky;
+    top: 5rem;
+    max-height: calc(100vh - 6rem);
+    overflow-y: auto;
+    width: 100%;
 }
 
 .category-rail-item {
@@ -1421,6 +1502,101 @@ html.dark .category-rail-item.active .category-rail-indicator {
     box-shadow: 0 0 12px rgba(34, 197, 94, 0.85);
 }
 
+/* ─── Coming Soon Category Rail Items ─── */
+.category-rail-item.coming-soon {
+    cursor: not-allowed;
+    pointer-events: auto; /* Keep for tooltip */
+    position: relative;
+    opacity: 1;
+}
+
+.category-rail-item.coming-soon .category-rail-icon-box {
+    position: relative;
+    background: rgba(148, 163, 184, 0.08);
+    border-color: rgba(148, 163, 184, 0.15);
+    overflow: hidden;
+}
+
+.category-rail-item.coming-soon .category-rail-icon-box::after {
+    content: '\1F512';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    border-radius: inherit;
+    z-index: 2;
+}
+
+.category-rail-item.coming-soon .category-rail-img {
+    filter: grayscale(0.7) brightness(0.7);
+    opacity: 0.5;
+}
+
+.category-rail-item.coming-soon .category-rail-label {
+    color: var(--text-muted, #94a3b8);
+    font-size: 0.56rem;
+    opacity: 0.7;
+}
+
+.category-rail-item.coming-soon:hover {
+    background: transparent;
+    transform: none;
+}
+
+.coming-soon-badge {
+    display: inline-block;
+    font-size: 0.45rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    border-radius: 6px;
+    padding: 1px 5px;
+    margin-top: 2px;
+    line-height: 1.4;
+    white-space: nowrap;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+/* Dark Mode Coming Soon */
+body.dark .category-rail-item.coming-soon .category-rail-icon-box,
+html.dark .category-rail-item.coming-soon .category-rail-icon-box {
+    background: rgba(30, 32, 38, 0.7);
+    border-color: rgba(255, 255, 255, 0.05);
+}
+
+body.dark .category-rail-item.coming-soon .category-rail-icon-box::after,
+html.dark .category-rail-item.coming-soon .category-rail-icon-box::after {
+    background: rgba(0, 0, 0, 0.5);
+}
+
+body.dark .coming-soon-badge,
+html.dark .coming-soon-badge {
+    color: #fbbf24;
+    background: rgba(251, 191, 36, 0.1);
+    border-color: rgba(251, 191, 36, 0.2);
+}
+
+/* Divider between coming-soon and active categories */
+.category-rail-item.coming-soon + .category-rail-item:not(.coming-soon) {
+    margin-top: 0.5rem;
+    padding-top: 0.55rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+body.dark .category-rail-item.coming-soon + .category-rail-item:not(.coming-soon),
+html.dark .category-rail-item.coming-soon + .category-rail-item:not(.coming-soon) {
+    border-top-color: rgba(255, 255, 255, 0.07);
+}
+
 /* Filter & Sort Chips Bar */
 .filter-chip-btn {
     transition: all 0.15s ease;
@@ -1438,6 +1614,26 @@ html.dark .category-rail-item.active .category-rail-indicator {
 /* Category Promo Banner (Cadbury Brownie Style) */
 .category-promo-banner {
     transition: background 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Category Page Split Rail & Content Container */
+#category-sidebar-rail {
+    background: var(--bg-surface);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border-right: 1px solid var(--border-color);
+    box-shadow: 2px 0 16px -4px rgba(15, 23, 42, 0.04);
+}
+
+body.dark #category-sidebar-rail,
+html.dark #category-sidebar-rail {
+    background: rgba(11, 15, 25, 0.85);
+    border-right-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.35);
+}
+
+#category-main-pane {
+    background: transparent;
 }
 
 /* Legacy Alias Classes for Complete Backward Compatibility with Existing Automated Tests */

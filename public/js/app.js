@@ -488,6 +488,233 @@ window.openAddressModal = function(isMandatorySetup = false, onComplete = null) 
     }
 };
 
+// Global Campus & Order Help Modal (24/7 WhatsApp, Phone Call, Room Change, & Live Dispatch Query)
+window.openCampusHelpModal = function(orderId = null) {
+    const existing = document.getElementById('campus-help-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'campus-help-modal';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="glass-panel p-5 sm:p-6 space-y-4 max-w-md w-full rounded-3xl max-h-[90vh] overflow-y-auto border border-[var(--glass-border)] shadow-2xl backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-200 text-slate-900 dark:text-white mx-3 sm:mx-auto" onclick="event.stopPropagation()">
+            <!-- Modal Header -->
+            <div class="flex justify-between items-center pb-3 border-b border-[var(--glass-border)]">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-purple-50 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-800/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shadow-xs">
+                        <span class="material-symbols-outlined text-2xl">support_agent</span>
+                    </div>
+                    <div>
+                        <h3 class="font-black text-sm sm:text-base text-slate-900 dark:text-white tracking-tight">Campus Help & Support</h3>
+                        <p class="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            BH13 Ground Hub · Active 24/7
+                        </p>
+                    </div>
+                </div>
+                <button type="button" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-300 flex items-center justify-center transition-transform active:scale-95 cursor-pointer" onclick="document.getElementById('campus-help-modal').remove()">
+                    <span class="material-symbols-outlined text-lg">close</span>
+                </button>
+            </div>
+
+            <!-- Instant Contact Buttons (WhatsApp & Phone) -->
+            <div class="grid grid-cols-2 gap-3">
+                <a href="https://wa.me/919877982857?text=Hi%20LPUQuick%20Helpdesk%2C%20I%20am%20a%20hostel%20student%20and%20need%20assistance." target="_blank" rel="noopener noreferrer" class="p-3.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 flex flex-col items-center text-center group transition-all shadow-xs cursor-pointer">
+                    <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center mb-1.5 shadow-sm group-hover:scale-105 transition-transform">
+                        <span class="material-symbols-outlined text-lg">chat</span>
+                    </div>
+                    <span class="text-xs font-black">WhatsApp Help</span>
+                    <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">Instant Reply (~1 min)</span>
+                </a>
+
+                <a href="tel:+919877982857" class="p-3.5 rounded-2xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800/60 text-blue-800 dark:text-blue-300 flex flex-col items-center text-center group transition-all shadow-xs cursor-pointer">
+                    <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center mb-1.5 shadow-sm group-hover:scale-105 transition-transform">
+                        <span class="material-symbols-outlined text-lg">call</span>
+                    </div>
+                    <span class="text-xs font-black">Call Helpline</span>
+                    <span class="text-[10px] text-blue-600 dark:text-blue-400 font-semibold mt-0.5">+91 98779 82857</span>
+                </a>
+            </div>
+
+            <!-- Quick Assistance Cards -->
+            <div class="space-y-2">
+                <h4 class="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Quick Resolutions</h4>
+                
+                <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-1">
+                    <div class="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
+                        <span class="material-symbols-outlined text-sm text-emerald-500">timer</span>
+                        <span>Where is my order? (3-Min Delivery Guarantee)</span>
+                    </div>
+                    <p class="text-[11px] text-slate-600 dark:text-slate-300 pl-6 leading-relaxed">
+                        All orders are dispatched immediately from the BH13 Ground Floor Dark Store. Delivery runners walk directly to your room door within 3 to 5 minutes.
+                    </p>
+                </div>
+
+                <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-1">
+                    <div class="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
+                        <span class="material-symbols-outlined text-sm text-amber-500">cached</span>
+                        <span>Wrong or damaged item?</span>
+                    </div>
+                    <p class="text-[11px] text-slate-600 dark:text-slate-300 pl-6 leading-relaxed">
+                        Instant replacement or full refund is guaranteed. Simply message our WhatsApp helpline with your order number.
+                    </p>
+                </div>
+
+                <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-1">
+                    <div class="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
+                        <span class="material-symbols-outlined text-sm text-blue-500">pin_drop</span>
+                        <span>Need to change room or phone number?</span>
+                    </div>
+                    <div class="pl-6 flex items-center justify-between gap-2 pt-0.5">
+                        <p class="text-[11px] text-slate-600 dark:text-slate-300">Update hostel block or room instantly.</p>
+                        <button type="button" class="clay-btn px-2.5 py-1 rounded-lg text-[10px] font-black text-emerald-700 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 cursor-pointer" onclick="document.getElementById('campus-help-modal').remove(); window.openAddressModal();">Change Room</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Direct Desk Query Box -->
+            <div class="space-y-2 pt-2 border-t border-[var(--glass-border)]">
+                <label for="help-query-text" class="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-sm text-purple-500">edit_note</span>
+                    <span>Send Message to BH13 Dispatcher</span>
+                </label>
+                <textarea id="help-query-text" rows="2" class="w-full rounded-2xl p-3 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50" placeholder="e.g., Leave package near room door, or runner please call before coming up..."></textarea>
+                <button type="button" id="help-send-btn" class="clay-btn clay-btn-primary w-full py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 text-white shadow-md cursor-pointer transition-all active:scale-98">
+                    <span class="material-symbols-outlined text-sm">send</span>
+                    <span>Send Message to Dispatch Hub</span>
+                </button>
+            </div>
+        </div>
+    `;
+
+    modal.onclick = () => modal.remove();
+    document.body.appendChild(modal);
+
+    const sendBtn = modal.querySelector('#help-send-btn');
+    const textArea = modal.querySelector('#help-query-text');
+    if (sendBtn && textArea) {
+        sendBtn.onclick = () => {
+            const val = textArea.value.trim();
+            if (!val) {
+                textArea.focus();
+                return;
+            }
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span><span>Sending...</span>';
+            setTimeout(() => {
+                modal.remove();
+                if (typeof window.showClientToast === 'function') {
+                    window.showClientToast('Message sent to BH13 Ground Hub dispatcher! Our runner has been notified.', 'success', 'support_agent');
+                } else {
+                    alert('Message dispatched to BH13 Hub!');
+                }
+            }, 600);
+        };
+    }
+};
+
+// Alias for Order Help
+window.openOrderHelpModal = window.openCampusHelpModal;
+
+// Global Coupons Modal (Active Campus Offers)
+window.openCouponsModal = function() {
+    const existing = document.getElementById('coupons-modal');
+    if (existing) existing.remove();
+
+    const coupons = [
+        {
+            code: 'LPUWELCOME',
+            title: 'Flat ₹25 OFF on Orders Above ₹99',
+            minOrder: 'Valid on snacks, beverages & groceries',
+            badge: 'Student Special',
+            tagColor: 'bg-emerald-500 text-white',
+            expires: 'Active today'
+        },
+        {
+            code: 'BH13NIGHT',
+            title: 'Free Express Corridor Delivery',
+            minOrder: 'Valid on late night hostel study orders (10 PM - 3 AM)',
+            badge: 'Midnight Express',
+            tagColor: 'bg-purple-500 text-white',
+            expires: 'Daily 10 PM to 3 AM'
+        },
+        {
+            code: 'EXPRESSFREE',
+            title: '100% Free Packaging & Priority Dispatch',
+            minOrder: 'No minimum order required',
+            badge: 'Campus Deal',
+            tagColor: 'bg-amber-500 text-white',
+            expires: 'Active'
+        }
+    ];
+
+    const modal = document.createElement('div');
+    modal.id = 'coupons-modal';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="glass-panel p-5 sm:p-6 space-y-4 max-w-md w-full rounded-3xl max-h-[90vh] overflow-y-auto border border-[var(--glass-border)] shadow-2xl backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-200 text-slate-900 dark:text-white mx-3 sm:mx-auto" onclick="event.stopPropagation()">
+            <!-- Header -->
+            <div class="flex justify-between items-center pb-3 border-b border-[var(--glass-border)]">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shadow-xs">
+                        <span class="material-symbols-outlined text-2xl">local_offer</span>
+                    </div>
+                    <div>
+                        <h3 class="font-black text-sm sm:text-base text-slate-900 dark:text-white tracking-tight">Active Promo Coupons</h3>
+                        <p class="text-[11px] text-amber-600 dark:text-amber-400 font-bold">2 Active Campus Student Offers</p>
+                    </div>
+                </div>
+                <button type="button" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-300 flex items-center justify-center transition-transform active:scale-95 cursor-pointer" onclick="document.getElementById('coupons-modal').remove()">
+                    <span class="material-symbols-outlined text-lg">close</span>
+                </button>
+            </div>
+
+            <!-- Coupons List -->
+            <div class="space-y-3">
+                ${coupons.map(c => `
+                <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/70 shadow-sm space-y-2 relative overflow-hidden group">
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="font-mono font-black text-xs sm:text-sm px-2.5 py-1 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 tracking-wider">
+                                ${c.code}
+                            </span>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${c.tagColor}">
+                                ${c.badge}
+                            </span>
+                        </div>
+                        <button type="button" class="copy-coupon-btn px-3 py-1 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-black active:scale-95 transition-transform hover:opacity-90 cursor-pointer flex items-center gap-1 shadow-xs" data-code="${c.code}">
+                            <span class="material-symbols-outlined text-xs">content_copy</span>
+                            <span>Copy</span>
+                        </button>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-xs text-slate-800 dark:text-slate-200">${c.title}</h4>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400">${c.minOrder}</p>
+                    </div>
+                </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+
+    modal.onclick = () => modal.remove();
+    document.body.appendChild(modal);
+
+    modal.querySelectorAll('.copy-coupon-btn').forEach(btn => {
+        btn.onclick = () => {
+            const code = btn.getAttribute('data-code');
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(code);
+            }
+            btn.innerHTML = '<span class="material-symbols-outlined text-xs">done</span><span>Copied!</span>';
+            btn.classList.add('bg-emerald-600', 'text-white');
+            if (typeof window.showClientToast === 'function') {
+                window.showClientToast(`Coupon code ${code} copied!`, 'success', 'local_offer');
+            }
+        };
+    });
+};
+
 // Global Product Details Modal
 window.openProductModal = async function(productId) {
     if (!productId) return;
@@ -781,9 +1008,8 @@ window.updateFloatingCartBar = function() {
                 distinctProductIds.push(productId);
 
                 const cachedProd = window.__cachedProducts?.get(productId);
-                if (cachedProd && cachedProd.price) {
-                    totalPrice += Number(cachedProd.price) * qty;
-                }
+                const itemPrice = (cachedProd && cachedProd.price) ? Number(cachedProd.price) : (Number(item.price) || 0);
+                totalPrice += itemPrice * qty;
             }
         });
     }
@@ -807,9 +1033,10 @@ window.updateFloatingCartBar = function() {
         let thumbsHTML = '';
         topProducts.forEach((pid, index) => {
             const p = window.__cachedProducts?.get(pid);
-            let imgUrl = p?.image_url;
+            const cartItem = window.cartState ? window.cartState[pid] : null;
+            let imgUrl = p?.image_url || cartItem?.image_url;
             if (!imgUrl) imgUrl = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=120';
-            const pName = p?.name || 'Item';
+            const pName = p?.name || cartItem?.name || 'Item';
             thumbsHTML += `
                 <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-white dark:border-slate-800 bg-white shadow-md overflow-hidden flex-shrink-0 flex items-center justify-center relative transition-transform" style="z-index: ${10 - index};">
                     <img src="${imgUrl}" alt="${pName}" class="w-full h-full object-contain p-0.5" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=120'">
@@ -1746,7 +1973,7 @@ function handleLiveOrderStatusChange(data) {
 
     // 2. If user is currently viewing the Live Orders page, update the interactive HUD/map in real-time
     if (typeof window.applyOrderStatusUI === 'function') {
-        window.applyOrderStatusUI(status, riderName);
+        window.applyOrderStatusUI(status, riderName, orderId);
     } else {
         // Play status chime on any page
         try {

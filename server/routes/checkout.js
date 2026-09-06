@@ -108,8 +108,16 @@ async function handlePlaceOrder(req, res) {
         }
 
         const subtotal = orderItems.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 1)), 0);
+        const MIN_ORDER_VALUE = 35;
+        if (subtotal < MIN_ORDER_VALUE) {
+            return res.status(400).json({
+                error: `Minimum order value is ₹${MIN_ORDER_VALUE}. Please add items worth ₹${MIN_ORDER_VALUE - subtotal} more to place your order.`
+            });
+        }
+
+        const handlingFee = 5;
         const discount5 = subtotal >= 350 ? Math.round(subtotal * 0.05) : 0;
-        const total = Math.max(0, subtotal - discount5);
+        const total = Math.max(0, subtotal - discount5 + handlingFee);
 
         const orderId = customOrderId || `order_${uuidv4().slice(0, 8)}`;
         const initialStatus = 'Order Placed';
@@ -164,7 +172,7 @@ async function handlePlaceOrder(req, res) {
             status: initialStatus,
             subtotal,
             delivery_fee: 0,
-            platform_fee: 0,
+            platform_fee: handlingFee,
             tax: 0,
             total,
             payment_method: method,

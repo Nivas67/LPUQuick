@@ -289,24 +289,44 @@ const supabaseDb = {
                 };
             });
 
+            const totalQuantity = items.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
+            const totalMrp = items.reduce((sum, item) => sum + ((Number(item.mrp) || Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
             const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const mrpDiscount = Math.max(0, totalMrp - subtotal);
+            const hasDiscount = subtotal >= 350;
+            const discount5 = hasDiscount ? Math.round(subtotal * 0.05) : 0;
             const delivery_fee = 0;
-            const platform_fee = 0;
+            const platform_fee = items.length > 0 ? 5 : 0;
             const tax = 0;
-            const total = subtotal + delivery_fee + platform_fee + tax;
-            const total_savings = subtotal > 0 ? 30 : 0;
+            const total = Math.max(0, subtotal - discount5 + platform_fee + delivery_fee + tax);
+            const deliverySavings = subtotal > 0 ? 25 : 0;
+            const total_savings = mrpDiscount + discount5 + deliverySavings;
+            const min_order_value = 35;
+            const is_min_order_met = subtotal >= min_order_value;
+            const min_order_shortfall = Math.max(0, min_order_value - subtotal);
 
             return {
                 items,
+                item_count: totalQuantity,
+                total_items: totalQuantity,
                 pricing: {
                     subtotal,
+                    total_mrp: totalMrp,
+                    mrp_discount: mrpDiscount,
+                    discount5,
+                    bulk_discount: discount5,
                     delivery_fee,
                     platform_fee,
                     tax,
                     total,
                     total_savings,
                     deliveryFee: delivery_fee,
-                    platformFee: platform_fee
+                    platformFee: platform_fee,
+                    min_order_value,
+                    is_min_order_met,
+                    min_order_shortfall,
+                    item_count: totalQuantity,
+                    total_items: totalQuantity
                 }
             };
         },
@@ -511,7 +531,7 @@ const supabaseDb = {
             const formattedItems = items.map(item => {
                 const matched = stockUpdates.find(s => s.productId === item.product_id);
                 return {
-                    id: item.id || `item_${uuidv4().slice(0, 8)}`,
+                    id: `oi_${uuidv4().replace(/-/g, '').slice(0, 16)}`,
                     order_id: orderId,
                     product_id: item.product_id || null,
                     quantity: matched ? matched.quantity : (Number(item.quantity) || 1),

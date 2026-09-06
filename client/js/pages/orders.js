@@ -1,6 +1,198 @@
-// Orders Page — Complete Ground-Up Refreshing Redesign (Campus Radar Flight-Tracker HUD & Tactile Orders Deck)
+// Orders Page — Campus Radar Flight-Tracker HUD & Real-Time Dynamic Sync
 window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
+
+function formatClientRiderName(raw) {
+    if (!raw || raw === 'unassigned') return 'Alex';
+    if (typeof raw === 'string' && raw.trim().startsWith('{')) {
+        try {
+            const parsed = JSON.parse(raw);
+            return parsed.name || parsed.assigned_to_name || 'Alex';
+        } catch (e) {}
+    }
+    return raw;
+}
+
+// Compute exact corridor positioning and HUD attributes for each admin order status
+function getOrderTrackingDetails(status, riderName = 'Alex', address = 'BH13') {
+    const s = (status || '').toLowerCase().trim();
+    
+    // Default fallback (Order Placed / Incoming)
+    let percent = 25;
+    let pinLeft = '14%';
+    let pinTop = '50%';
+    let step = 1;
+    let icon = 'inventory_2';
+    let badge = `${riderName} · Order Placed`;
+    let msg = `Order placed! BH13 Dark Store received your items.`;
+    let eta = '3 Mins';
+
+    if (s.includes('confirm') || s === 'accepted') {
+        percent = 40;
+        pinLeft = '20%';
+        pinTop = '45%';
+        step = 2;
+        icon = 'thumb_up';
+        badge = `${riderName} · Confirmed`;
+        msg = `Order confirmed by BH13 Dark Store. Runner ${riderName} assigned.`;
+        eta = '2.5 Mins';
+    } else if (s.includes('prepar') || s.includes('pack')) {
+        percent = 60;
+        pinLeft = '32%';
+        pinTop = '42%';
+        step = 3;
+        icon = 'package_2';
+        badge = `${riderName} · Packing Items`;
+        msg = `${riderName} is packing your items in a tamper-proof bag at BH13 Hub.`;
+        eta = '2 Mins';
+    } else if (s.includes('out') || s.includes('route') || s.includes('dispatch')) {
+        percent = 80;
+        pinLeft = '62%';
+        pinTop = '46%';
+        step = 4;
+        icon = 'directions_walk';
+        badge = `${riderName} · Walking to Room`;
+        msg = `${riderName} picked up your snacks from BH13 Hub and is walking to ${address}.`;
+        eta = '1 Min';
+    } else if (s.includes('deliver')) {
+        percent = 100;
+        pinLeft = '86%';
+        pinTop = '50%';
+        step = 5;
+        icon = 'task_alt';
+        badge = `Delivered to Door 🏁`;
+        msg = `🎉 Order delivered to your hostel room door! Enjoy your snacks.`;
+        eta = 'Delivered';
+    } else if (s.includes('cancel')) {
+        percent = 0;
+        pinLeft = '14%';
+        pinTop = '50%';
+        step = 0;
+        icon = 'cancel';
+        badge = `Order Cancelled`;
+        msg = `❌ This order was cancelled.`;
+        eta = 'Cancelled';
+    }
+
+    return { percent, pinLeft, pinTop, step, icon, badge, msg, eta };
+}
+
+// Global In-Place UI Updater called immediately via WebSocket when Admin changes status
+window.applyOrderStatusUI = function(newStatus, riderName, targetOrderId) {
+    console.log(`[Orders Page UI] ⚡ Applying admin status update in real-time: ${newStatus} (${riderName})`);
+
+    const card = document.getElementById('active-order-tracking-card');
+    if (!card) return;
+
+    const currentOrderId = card.dataset.orderId || window.CURRENT_ACTIVE_ORDER_ID;
+    if (targetOrderId && currentOrderId && targetOrderId !== currentOrderId) {
+        if (typeof window.renderPage === 'function') window.renderPage();
+        return;
+    }
+
+    window.CURRENT_ACTIVE_ORDER_STATUS = newStatus;
+    window.__lastWsStatusTime = Date.now();
+    const effectiveRider = riderName || 'Alex';
+    const savedRoom = localStorage.getItem('lpuquick_room') || window.currentRoom;
+    const savedBlock = localStorage.getItem('lpuquick_block') || window.currentBlock || 'Block A';
+    const address = savedRoom ? `BH13 (${savedBlock}), Room ${savedRoom}` : 'BH13';
+
+    const details = getOrderTrackingDetails(newStatus, effectiveRider, address);
+
+    // 1. Status Badge & ETA Display
+    const etaTime = document.getElementById('tracking-eta-time');
+    if (etaTime) etaTime.textContent = `Status: ${newStatus}`;
+
+    // 2. Progress Bar
+    const progressBar = document.getElementById('order-progress-bar');
+    if (progressBar) {
+        progressBar.style.width = `${details.percent}%`;
+        if (newStatus.toLowerCase().includes('cancel')) {
+            progressBar.className = 'h-full bg-rose-500 rounded-full transition-all duration-700';
+        } else {
+            progressBar.className = 'h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-700 shadow-[0_0_12px_#10b981]';
+        }
+    }
+
+    // 3. Step Indicators
+    const stepPlaced = document.getElementById('step-placed');
+    const stepPacked = document.getElementById('step-packed');
+    const stepEnroute = document.getElementById('step-enroute');
+    const stepDelivered = document.getElementById('step-delivered');
+
+    const updateStep = (el, active) => {
+        if (!el) return;
+        if (active) {
+            el.className = 'text-emerald-500 dark:text-emerald-400 font-black transition-colors';
+        } else {
+            el.className = 'text-slate-400 dark:text-slate-500 font-medium transition-colors';
+        }
+    };
+
+    updateStep(stepPlaced, details.step >= 1);
+    updateStep(stepPacked, details.step >= 3);
+    updateStep(stepEnroute, details.step >= 4);
+    updateStep(stepDelivered, details.step >= 5);
+
+    // 4. Map Runner Pin Position, Icon & Badge
+    const pin = document.getElementById('rider-pin');
+    if (pin) {
+        pin.style.left = details.pinLeft;
+        pin.style.top = details.pinTop;
+    }
+    const pinIcon = document.getElementById('rider-pin-icon');
+    if (pinIcon) pinIcon.textContent = details.icon;
+    const pinBox = document.getElementById('rider-icon-box');
+    if (pinBox) {
+        if (details.step === 4) pinBox.classList.add('animate-bounce');
+        else pinBox.classList.remove('animate-bounce');
+    }
+    const pinBadge = document.getElementById('rider-badge');
+    if (pinBadge) pinBadge.textContent = details.badge;
+
+    // 5. Status Description Message
+    const statusMsg = document.getElementById('tracking-status-msg');
+    if (statusMsg) {
+        statusMsg.innerHTML = `
+            <span class="material-symbols-outlined text-base text-emerald">${details.icon}</span>
+            <span>${details.msg}</span>
+        `;
+    }
+
+    // 6. Runner Profile Info
+    const riderNameDisplay = document.getElementById('rider-name-display');
+    if (riderNameDisplay && effectiveRider) riderNameDisplay.textContent = effectiveRider;
+    const riderAvatar = document.getElementById('rider-avatar');
+    if (riderAvatar && effectiveRider) riderAvatar.textContent = effectiveRider[0].toUpperCase();
+
+    // 7. Soft Arrival Audio Chime
+    try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+            const ctx = new AudioCtx();
+            if (ctx.state === 'suspended') ctx.resume();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(details.step === 5 ? 880 : 659.25, ctx.currentTime);
+            gain.gain.setValueAtTime(0.12, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.4);
+        }
+    } catch (e) {}
+
+    // 8. If order delivered or cancelled, refresh past orders list after 2.5s
+    if (details.step === 5 || details.step === 0) {
+        setTimeout(() => {
+            if (typeof window.renderPage === 'function' && window.location.hash.includes('orders')) {
+                window.renderPage();
+            }
+        }, 2800);
+    }
+};
 
 window.pages.orders = async function() {
     if (!window.isUserLoggedIn()) {
@@ -76,17 +268,6 @@ window.pages.orders = async function() {
     const ordersData = ordersDataRes.status === 'fulfilled' ? ordersDataRes.value : { active: [], past: [] };
     const activeData = activeDataRes.status === 'fulfilled' ? activeDataRes.value : { active: null };
 
-    function formatClientRiderName(raw) {
-        if (!raw || raw === 'unassigned') return 'Alex';
-        if (typeof raw === 'string' && raw.trim().startsWith('{')) {
-            try {
-                const parsed = JSON.parse(raw);
-                return parsed.name || parsed.assigned_to_name || 'Alex';
-            } catch (e) {}
-        }
-        return raw;
-    }
-
     const activeOrder = activeData?.active || (ordersData?.active && ordersData.active[0]) || null;
     const activeRiderName = activeOrder ? formatClientRiderName(activeOrder.rider_name) : 'Alex';
     const activeEdit = activeOrder?.delivery_assignment?.latest_edit || null;
@@ -95,6 +276,16 @@ window.pages.orders = async function() {
     const savedBlock = localStorage.getItem('lpuquick_block') || window.currentBlock || 'Block A';
     const hostelAddress = savedRoom ? `BH13 (${savedBlock}), Room ${savedRoom}` : 'BH13 (Block A)';
     const hostelShort = window.currentAddress || 'BH13';
+
+    window.CURRENT_ACTIVE_ORDER_ID = activeOrder ? activeOrder.id : null;
+    window.CURRENT_ACTIVE_ORDER_STATUS = activeOrder ? activeOrder.status : 'Order Placed';
+
+    // Accurate calculation for initial screen render based on real activeOrder status
+    const initialTracking = getOrderTrackingDetails(
+        activeOrder ? activeOrder.status : 'Order Placed', 
+        activeRiderName, 
+        activeOrder?.delivery_address || hostelAddress
+    );
 
     const pastRows = pastOrders.map(o => {
         const isCancelled = ['Cancelled', 'cancelled'].includes(o.status);
@@ -124,9 +315,6 @@ window.pages.orders = async function() {
         </div>
         `;
     }).join('');
-
-    window.CURRENT_ACTIVE_ORDER_ID = activeOrder ? activeOrder.id : null;
-    window.CURRENT_ACTIVE_ORDER_STATUS = activeOrder ? activeOrder.status : 'Order Placed';
 
     return `
 <div class="bg-background text-on-background min-h-screen pb-32">
@@ -159,8 +347,9 @@ window.pages.orders = async function() {
                     <span>Live Campus Delivery (3 Mins)</span>
                 </h2>
                 <div class="flex items-center gap-2">
-                    <span class="liquid-badge text-xs font-bold px-3 py-1 flex items-center gap-1 shadow-sm" id="tracking-eta">
-                        <span class="material-symbols-outlined text-xs">bolt</span>
+                    <!-- High-Contrast Status Pill (Vibrant in both Dark and Light mode) -->
+                    <span class="clay-pill px-3 py-1 flex items-center gap-1.5 text-xs font-black text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 dark:bg-slate-900/90 border border-emerald-500/40 shadow-sm" id="tracking-eta">
+                        <span class="material-symbols-outlined text-xs text-emerald-500 animate-pulse">bolt</span>
                         <span id="tracking-eta-time">Status: ${activeOrder.status}</span>
                     </span>
                     <button type="button" id="btn-order-help" onclick="window.openOrderHelpModal()" class="clay-pill text-xs text-slate-700 dark:text-slate-200 font-bold px-3 py-1 flex items-center gap-1.5 active:scale-95 transition-transform cursor-pointer" title="Order Help">
@@ -202,14 +391,14 @@ window.pages.orders = async function() {
                         </span>
                     </div>
 
-                    <!-- Active Runner Pin -->
-                    <div class="absolute -translate-x-1/2 -translate-y-1/2 z-30 transition-all duration-700 ease-out" id="rider-pin" style="left: 60%; top: 46%;">
+                    <!-- Active Runner Pin (Positioned according to real order status) -->
+                    <div class="absolute -translate-x-1/2 -translate-y-1/2 z-30 transition-all duration-700 ease-out" id="rider-pin" style="left: ${initialTracking.pinLeft}; top: ${initialTracking.pinTop};">
                         <div class="relative flex flex-col items-center">
-                            <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-full clay-btn-primary flex items-center justify-center shadow-2xl border-2 border-white/80 ring-4 ring-emerald-500/30 animate-bounce">
-                                <span class="material-symbols-outlined text-2xl text-white">directions_walk</span>
+                            <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-full clay-btn-primary flex items-center justify-center shadow-2xl border-2 border-white/80 ring-4 ring-emerald-500/30 ${initialTracking.step === 4 ? 'animate-bounce' : ''}" id="rider-icon-box">
+                                <span class="material-symbols-outlined text-2xl text-white" id="rider-pin-icon">${initialTracking.icon}</span>
                             </div>
                             <div class="mt-1.5 clay-pill px-2.5 py-0.5 text-[10px] font-black text-white bg-slate-950/90 border border-emerald-500/50 whitespace-nowrap shadow-md" id="rider-badge">
-                                ${activeRiderName} · Walking
+                                ${initialTracking.badge}
                             </div>
                         </div>
                     </div>
@@ -246,8 +435,8 @@ window.pages.orders = async function() {
                     <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                         <div class="space-y-1">
                             <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium flex items-center gap-2" id="tracking-status-msg">
-                                <span class="material-symbols-outlined text-base text-emerald">directions_walk</span>
-                                <span>${activeRiderName} picked up your snacks from BH13 Hub and is walking to ${activeOrder.delivery_address || hostelAddress}.</span>
+                                <span class="material-symbols-outlined text-base text-emerald">${initialTracking.icon}</span>
+                                <span>${initialTracking.msg}</span>
                             </p>
                             <h3 class="font-black text-sm sm:text-base text-slate-900 dark:text-white tracking-tight" id="tracking-order-title">Order #${activeOrder.id.replace('order_', '').toUpperCase()} · Total ₹<span id="tracking-active-total">${activeOrder.total}</span> (${activeOrder.payment_method || 'Cash on Delivery'})</h3>
                         </div>
@@ -265,16 +454,16 @@ window.pages.orders = async function() {
                         </div>
                     </div>
 
-                    <!-- Fluid Liquid Progress Step Indicator -->
+                    <!-- Fluid Liquid Progress Step Indicator (Filled according to real status) -->
                     <div class="space-y-2 pt-2">
                         <div class="w-full bg-slate-200/50 dark:bg-slate-800/60 h-2.5 rounded-full overflow-hidden p-0.5 shadow-inner border border-[var(--glass-border)]">
-                            <div class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-700 shadow-[0_0_12px_#10b981]" id="order-progress-bar" style="width: 25%;"></div>
+                            <div class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-700 shadow-[0_0_12px_#10b981]" id="order-progress-bar" style="width: ${initialTracking.percent}%;"></div>
                         </div>
-                        <div class="flex justify-between text-[11px] font-bold text-slate-400 px-1">
-                            <span class="text-emerald" id="step-placed">Accepted ✓</span>
-                            <span id="step-packed">Packed 📦</span>
-                            <span id="step-enroute">En Route 🚶</span>
-                            <span id="step-delivered">Delivered 🏁</span>
+                        <div class="flex justify-between text-[11px] font-bold px-1 select-none">
+                            <span class="${initialTracking.step >= 1 ? 'text-emerald-500 dark:text-emerald-400 font-black' : 'text-slate-400 dark:text-slate-500 font-medium'}" id="step-placed">Accepted ✓</span>
+                            <span class="${initialTracking.step >= 3 ? 'text-emerald-500 dark:text-emerald-400 font-black' : 'text-slate-400 dark:text-slate-500 font-medium'}" id="step-packed">Packed 📦</span>
+                            <span class="${initialTracking.step >= 4 ? 'text-emerald-500 dark:text-emerald-400 font-black' : 'text-slate-400 dark:text-slate-500 font-medium'}" id="step-enroute">En Route 🚶</span>
+                            <span class="${initialTracking.step >= 5 ? 'text-emerald-500 dark:text-emerald-400 font-black' : 'text-slate-400 dark:text-slate-500 font-medium'}" id="step-delivered">Delivered 🏁</span>
                         </div>
                     </div>
                 </div>
@@ -342,6 +531,12 @@ window.pages.orders = async function() {
 window.pageInits.orders = function() {
     const userId = window.CURRENT_USER_ID;
 
+    // Clean up any existing tracking timer
+    if (window.__ordersTrackingTimer) {
+        clearInterval(window.__ordersTrackingTimer);
+        window.__ordersTrackingTimer = null;
+    }
+
     // Reorder button click handlers
     document.querySelectorAll('.reorder-btn').forEach(btn => {
         btn.onclick = async (e) => {
@@ -375,40 +570,44 @@ window.pageInits.orders = function() {
         };
     });
 
-    // Real-time tracking telemetry simulation / poll
+    // Real-time tracking telemetry and admin synchronization loop (every 3 seconds)
     if (window.CURRENT_ACTIVE_ORDER_ID) {
-        const pin = document.getElementById('rider-pin');
-        const progressBar = document.getElementById('order-progress-bar');
-        const statusMsg = document.getElementById('tracking-status-msg');
-
-        let tick = 0;
+        let runnerWalkStep = 0;
         const trackingTimer = setInterval(async () => {
-            tick++;
-            // Subtle motion simulation along the corridor path
-            if (pin) {
-                const progress = Math.min(90, 40 + Math.sin(tick * 0.4) * 15 + tick * 2);
-                pin.style.left = `${progress}%`;
-            }
+            try {
+                // If order is actively "Out for Delivery", add gentle live walking motion along corridor
+                const curStatus = (window.CURRENT_ACTIVE_ORDER_STATUS || '').toLowerCase();
+                if (curStatus.includes('out') || curStatus.includes('route')) {
+                    runnerWalkStep++;
+                    const pin = document.getElementById('rider-pin');
+                    if (pin) {
+                        const walkOffset = 62 + Math.sin(runnerWalkStep * 0.4) * 3;
+                        pin.style.left = `${walkOffset}%`;
+                    }
+                }
 
-            // Sync with backend every 6 ticks (12 seconds)
-            if (tick % 6 === 0) {
-                try {
+                // Poll active order from database as a failsafe to WebSocket
+                if (userId && window.api && window.api.getActiveOrder) {
                     const activeRes = await window.api.getActiveOrder(userId);
-                    if (activeRes && activeRes.active) {
-                        const status = activeRes.active.status;
-                        const etaEl = document.getElementById('tracking-eta-time');
-                        if (etaEl) etaEl.textContent = `Status: ${status}`;
-
-                        if (progressBar) {
-                            if (status === 'Order Placed') progressBar.style.width = '25%';
-                            else if (status === 'Order Packed' || status === 'Packed') progressBar.style.width = '50%';
-                            else if (status === 'En Route' || status === 'Out for Delivery') progressBar.style.width = '75%';
-                            else if (status === 'Delivered') progressBar.style.width = '100%';
+                    const currentActive = activeRes?.active;
+                    if (currentActive) {
+                        const newStatus = currentActive.status;
+                        const rName = formatClientRiderName(currentActive.rider_name);
+                        if (newStatus !== window.CURRENT_ACTIVE_ORDER_STATUS && (Date.now() - (window.__lastWsStatusTime || 0) > 4000)) {
+                            window.applyOrderStatusUI(newStatus, rName, currentActive.id);
+                        }
+                    } else if (window.CURRENT_ACTIVE_ORDER_STATUS && 
+                              !['Delivered', 'Cancelled', 'delivered', 'cancelled'].includes(window.CURRENT_ACTIVE_ORDER_STATUS)) {
+                        // Order completed or cleared - refresh orders page
+                        if (typeof window.renderPage === 'function' && window.location.hash.includes('orders')) {
+                            window.renderPage();
                         }
                     }
-                } catch(e) {}
+                }
+            } catch(e) {
+                // Silent catch for polling
             }
-        }, 2000);
+        }, 3000);
 
         window.__ordersTrackingTimer = trackingTimer;
     }

@@ -318,7 +318,7 @@ async function notifyAdminNewOrder(orderData) {
 }
 
 // Broadcast status update to tracking clients, admin sockets, AND client sockets
-function broadcastStatusUpdate(orderId, newStatus) {
+function broadcastStatusUpdate(orderId, newStatus, riderName = 'Alex') {
     const now = new Date();
 
     // Payload for student tracking clients
@@ -327,8 +327,10 @@ function broadcastStatusUpdate(orderId, newStatus) {
         order_id: orderId,
         orderId: orderId,
         status: newStatus,
+        rider_name: riderName,
+        riderName: riderName,
         step: getStepNumber(newStatus),
-        message: getStatusMessage(newStatus, 'Alex'),
+        message: getStatusMessage(newStatus, riderName),
         timestamp: now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
     });
 
@@ -343,8 +345,10 @@ function broadcastStatusUpdate(orderId, newStatus) {
         orderId: orderId,
         order_id: orderId,
         status: newStatus,
+        rider_name: riderName,
+        riderName: riderName,
         step: getStepNumber(newStatus),
-        message: getStatusMessage(newStatus, 'Alex'),
+        message: getStatusMessage(newStatus, riderName),
         timestamp: now.toISOString()
     });
 

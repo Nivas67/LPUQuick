@@ -32,7 +32,10 @@ function updateLocalCartState(cartData) {
                 const isPending = window.__pendingCartSync[i.product_id];
                 nextState[i.product_id] = {
                     cart_id: i.cart_id || i.id,
-                    quantity: isPending ? isPending.targetQty : (Number(i.quantity) || 0)
+                    quantity: isPending ? isPending.targetQty : (Number(i.quantity) || 0),
+                    price: Number(i.price) || 0,
+                    name: i.name || '',
+                    image_url: i.image_url || ''
                 };
             }
         });
@@ -441,6 +444,19 @@ const api = {
             cartMemoryCache = result;
             cartMemoryCacheTime = Date.now();
             updateLocalCartState(result);
+        }
+        return result;
+    },
+    async clearCart(userId) {
+        const uid = userId || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : window.CURRENT_USER_ID);
+        const res = await fetch(`${API_BASE}/cart/user/${uid}`, {
+            method: 'DELETE'
+        });
+        const result = await res.json();
+        cartMemoryCache = { items: [], item_count: 0, total_items: 0, pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 } };
+        window.cartState = {};
+        if (typeof window.updateGlobalCartBadges === 'function') {
+            window.updateGlobalCartBadges();
         }
         return result;
     },

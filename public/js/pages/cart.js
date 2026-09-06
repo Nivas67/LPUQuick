@@ -14,20 +14,26 @@ window.pages.cart = async function() {
     const items = cartData.items || [];
     const p = cartData.pricing || { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 };
     
-    // Accurate MRP & Subtotal calculations
-    const totalMrp = items.reduce((sum, item) => sum + ((Number(item.mrp) || Number(item.price) || 0) * item.quantity), 0);
-    const subtotal = items.reduce((sum, item) => sum + (Number(item.price || 0) * item.quantity), 0);
+    // Accurate MRP, Subtotal & Quantity calculations
+    const totalQuantity = items.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
+    const totalMrp = items.reduce((sum, item) => sum + ((Number(item.mrp) || Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
+    const subtotal = items.reduce((sum, item) => sum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
     const mrpDiscount = Math.max(0, totalMrp - subtotal);
     
+    // Minimum Order Value (₹35) & Handling Fee (₹5 for every order)
+    const MIN_ORDER_VALUE = 35;
+    const isMinOrderMet = subtotal >= MIN_ORDER_VALUE;
+    const minOrderShortfall = Math.max(0, MIN_ORDER_VALUE - subtotal);
+    const handlingFee = items.length > 0 ? 5 : 0;
+
     // 5% Campus Bulk Offer for orders above ₹350
     const hasDiscount = subtotal >= 350;
     const discount5 = hasDiscount ? Math.round(subtotal * 0.05) : 0;
-    const exactTotal = Math.max(0, subtotal - discount5);
+    const exactTotal = Math.max(0, subtotal - discount5 + handlingFee);
     
-    // Total Real Savings: MRP discount + 5% offer + ₹25 delivery + ₹5 handling
+    // Total Real Savings: MRP discount + 5% offer + ₹25 delivery
     const deliverySavings = subtotal > 0 ? 25 : 0;
-    const handlingSavings = subtotal > 0 ? 5 : 0;
-    const totalSavings = mrpDiscount + discount5 + deliverySavings + handlingSavings;
+    const totalSavings = mrpDiscount + discount5 + deliverySavings;
 
     const itemCards = items.length === 0 ? `
         <div class="glass-panel card-pedestal rounded-3xl p-8 sm:p-14 text-center my-6 shadow-2xl border border-[var(--glass-border)]">
@@ -72,10 +78,11 @@ window.pages.cart = async function() {
                         Only ${stockLeft} left in stock
                     </p>
                     ` : ''}
-                    <div class="flex items-center gap-2 mt-1">
-                        <span class="font-black text-sm text-slate-900 dark:text-white tracking-tight">₹${itemPrice}</span>
+                    <div class="flex items-baseline gap-1.5 mt-1">
+                        <span class="font-black text-sm text-slate-900 dark:text-white tracking-tight">₹${itemPrice * item.quantity}</span>
+                        ${item.quantity > 1 ? `<span class="text-[10px] text-slate-400 font-medium">(₹${itemPrice} × ${item.quantity})</span>` : ''}
                         ${hasItemDiscount ? `
-                        <span class="line-through text-slate-400 text-[11px]">₹${itemMrp}</span>
+                        <span class="line-through text-slate-400 text-[11px]">₹${itemMrp * item.quantity}</span>
                         <span class="liquid-badge text-[9px] text-emerald-800 dark:text-emerald-300 font-black px-1.5 py-0.5">${discPercent}% OFF</span>
                         ` : ''}
                     </div>
@@ -105,7 +112,7 @@ window.pages.cart = async function() {
                 </a>
                 <div>
                     <h1 class="text-sm sm:text-base font-black text-slate-900 dark:text-white tracking-tight leading-tight">Your Cart</h1>
-                    <p class="text-[10px] sm:text-[11px] text-slate-500 font-semibold">${cartData.item_count || 0} items · Delivering to ${window.currentAddress || 'BH13'} (3 mins)</p>
+                    <p class="text-[10px] sm:text-[11px] text-slate-500 font-semibold">${totalQuantity} ${totalQuantity === 1 ? 'item' : 'items'} · Delivering to ${window.currentAddress || 'BH13'} (3 mins)</p>
                 </div>
             </div>
             <div class="flex items-center gap-2">
@@ -123,6 +130,22 @@ window.pages.cart = async function() {
     <main class="px-3 sm:px-6 max-w-5xl mx-auto pt-5 grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6">
         <!-- Left: Cart Items & Campus Perks -->
         <div class="lg:col-span-2 space-y-3.5">
+            <!-- Minimum Order Value Alert (₹35) -->
+            ${!isMinOrderMet && subtotal > 0 ? `
+            <div class="glass-panel rounded-2xl p-3.5 flex items-center justify-between text-xs border border-amber-500/40 bg-amber-500/10 shadow-sm backdrop-blur-xl">
+                <div class="flex items-center gap-2.5 font-bold text-amber-700 dark:text-amber-300">
+                    <span class="material-symbols-outlined text-lg text-amber-500 animate-bounce">shopping_bag</span>
+                    <div>
+                        <p class="font-black text-xs">Minimum Order Value is ₹35</p>
+                        <p class="text-[11px] text-amber-600/90 dark:text-amber-400 font-medium">Add items worth ₹${minOrderShortfall} more to place your hostel order.</p>
+                    </div>
+                </div>
+                <a href="#/" class="clay-btn clay-btn-primary px-3 py-1.5 text-[11px] font-black rounded-xl text-white shrink-0 shadow-sm">
+                    + Add Items
+                </a>
+            </div>
+            ` : ''}
+
             <!-- 5% Campus Bulk Banner -->
             ${hasDiscount ? `
             <div class="glass-panel rounded-2xl p-3.5 flex items-center justify-between text-xs border border-emerald-500/30 bg-emerald-500/10 shadow-sm backdrop-blur-xl">
@@ -221,12 +244,12 @@ window.pages.cart = async function() {
                         </div>
                     </div>
 
-                    <div class="flex justify-between items-center text-slate-600 dark:text-slate-400 font-medium">
-                        <span>Handling & Bag</span>
-                        <div class="flex items-center gap-1.5">
-                            <span class="line-through text-[11px] text-slate-400">₹5</span>
-                            <span class="font-black text-emerald-600 dark:text-emerald-400">FREE</span>
+                    <div class="flex justify-between items-center text-slate-700 dark:text-slate-300 font-medium">
+                        <div class="flex items-center gap-1">
+                            <span>Handling Fee</span>
+                            <span class="text-[10px] text-slate-400" title="Pack & handling fee">ℹ️</span>
                         </div>
+                        <span class="font-black text-slate-900 dark:text-white">₹${handlingFee}</span>
                     </div>
                     
                     <div class="border-t border-[var(--glass-border)] pt-3.5 mt-2 flex justify-between items-center text-sm font-black">
@@ -252,12 +275,19 @@ window.pages.cart = async function() {
                 <button disabled class="w-full clay-card text-slate-400 rounded-2xl py-3.5 font-bold text-xs cursor-not-allowed">
                     Checkout Disabled
                 </button>
-                ` : (items.length > 0 ? `
-                <a href="#/checkout" id="proceed-to-checkout-btn" class="clay-btn clay-btn-primary w-full py-4 rounded-2xl font-black text-xs sm:text-sm text-center flex items-center justify-center gap-2 shadow-2xl tracking-wide uppercase active:scale-95 transition-transform">
-                    <span>Proceed to Checkout (₹${exactTotal})</span>
-                    <span class="material-symbols-outlined text-base">arrow_forward</span>
-                </a>
-                ` : `
+                ` : (items.length > 0 ? (
+                    !isMinOrderMet ? `
+                    <button disabled class="w-full clay-card text-slate-400 dark:text-slate-500 rounded-2xl py-4 font-bold text-xs text-center cursor-not-allowed flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-700 opacity-90 shadow-none">
+                        <span class="material-symbols-outlined text-sm">lock</span>
+                        <span>Min Order Value ₹35 (Add ₹${minOrderShortfall} more)</span>
+                    </button>
+                    ` : `
+                    <a href="#/checkout" id="proceed-to-checkout-btn" class="clay-btn clay-btn-primary w-full py-4 rounded-2xl font-black text-xs sm:text-sm text-center flex items-center justify-center gap-2 shadow-2xl tracking-wide uppercase active:scale-95 transition-transform">
+                        <span>Proceed to Checkout (₹${exactTotal})</span>
+                        <span class="material-symbols-outlined text-base">arrow_forward</span>
+                    </a>
+                    `
+                ) : `
                 <button disabled class="w-full clay-card text-slate-400 rounded-2xl py-4 font-bold text-xs text-center cursor-not-allowed">
                     Cart is Empty
                 </button>
@@ -267,20 +297,35 @@ window.pages.cart = async function() {
     </main>
 
     <!-- Mobile Sticky Checkout Capsule (Liquid Glass) -->
-    ${items.length > 0 && !window.__isUserBlocked ? `
-    <div class="lg:hidden fixed bottom-16 inset-x-3 z-30 pointer-events-none flex justify-center">
-        <div class="pointer-events-auto liquid-dock-pill max-w-md w-full p-3.5 px-4 flex items-center justify-between gap-3 rounded-3xl shadow-2xl">
-            <div>
-                <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400">${cartData.item_count || items.length} items</span>
-                <p class="text-lg font-black text-slate-900 dark:text-white leading-none mt-0.5">₹${exactTotal}</p>
+    ${items.length > 0 && !window.__isUserBlocked ? (
+        !isMinOrderMet ? `
+        <div class="lg:hidden fixed bottom-16 inset-x-3 z-30 pointer-events-none flex justify-center">
+            <div class="pointer-events-auto liquid-dock-pill max-w-md w-full p-3 px-4 flex items-center justify-between gap-3 rounded-3xl shadow-2xl border border-amber-500/40">
+                <div>
+                    <span class="text-[10px] font-bold text-amber-500">Min Order ₹35</span>
+                    <p class="text-xs font-black text-slate-900 dark:text-white leading-tight mt-0.5">Add ₹${minOrderShortfall} more</p>
+                </div>
+                <a href="#/" class="clay-btn clay-btn-primary px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md active:scale-95 transition-transform">
+                    <span>Add Items</span>
+                    <span class="material-symbols-outlined text-sm">add</span>
+                </a>
             </div>
-            <a href="#/checkout" class="clay-btn clay-btn-primary px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md active:scale-95 transition-transform">
-                <span>Proceed</span>
-                <span class="material-symbols-outlined text-sm">arrow_forward</span>
-            </a>
         </div>
-    </div>
-    ` : ''}
+        ` : `
+        <div class="lg:hidden fixed bottom-16 inset-x-3 z-30 pointer-events-none flex justify-center">
+            <div class="pointer-events-auto liquid-dock-pill max-w-md w-full p-3.5 px-4 flex items-center justify-between gap-3 rounded-3xl shadow-2xl">
+                <div>
+                    <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400">${totalQuantity} ${totalQuantity === 1 ? 'item' : 'items'}</span>
+                    <p class="text-lg font-black text-slate-900 dark:text-white leading-none mt-0.5">₹${exactTotal}</p>
+                </div>
+                <a href="#/checkout" class="clay-btn clay-btn-primary px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md active:scale-95 transition-transform">
+                    <span>Proceed</span>
+                    <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                </a>
+            </div>
+        </div>
+        `
+    ) : ''}
 
     <!-- Floating Liquid Glass Bottom Navigation Dock -->
     <div class="fixed bottom-3 inset-x-0 z-40 px-4 sm:hidden pointer-events-none flex justify-center">
@@ -311,6 +356,28 @@ window.pages.cart = async function() {
 
 window.pageInits.cart = function() {
     const userId = window.getEffectiveUserId();
+
+    const clearBtn = document.getElementById('clear-cart-btn');
+    if (clearBtn) {
+        clearBtn.onclick = async (e) => {
+            e.preventDefault();
+            try {
+                if (window.api?.clearCart) {
+                    await window.api.clearCart(userId);
+                }
+                window.cartState = {};
+                if (typeof window.updateGlobalCartBadges === 'function') {
+                    window.updateGlobalCartBadges();
+                }
+                if (typeof window.showClientToast === 'function') {
+                    window.showClientToast('🗑️ Cart cleared successfully', 'info', 'delete');
+                }
+                if (window.router) window.router();
+            } catch (err) {
+                console.error('Failed to clear cart:', err);
+            }
+        };
+    }
 
     const proceedBtn = document.getElementById('proceed-to-checkout-btn');
     if (proceedBtn) {
@@ -423,15 +490,4 @@ window.pageInits.cart = function() {
         };
     });
 
-    const clearBtn = document.getElementById('clear-cart-btn');
-    if (clearBtn) {
-        clearBtn.onclick = async () => {
-            const rows = document.querySelectorAll('.cart-row');
-            rows.forEach(r => r.remove());
-            refreshCartBill();
-            for (const row of rows) {
-                if (row.dataset.cartId) await window.api.removeCartItem(row.dataset.cartId);
-            }
-        };
-    }
 };

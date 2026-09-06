@@ -390,6 +390,29 @@ window.pages.home = async function() {
 
     return `
 <div class="min-h-screen pb-32">
+    <!-- Sticky Mobile Web Smart App Banner (Industry standard for mobile web) -->
+    <div id="home-mobile-smart-banner" class="btn-install-app sm:hidden w-full bg-slate-900 text-white px-3.5 py-2 border-b border-emerald-500/30 flex items-center justify-between gap-2 shadow-lg z-50">
+        <div class="flex items-center gap-2.5 min-w-0">
+            <img src="/logo.png" class="w-8 h-8 rounded-xl object-contain shadow-xs border border-white/20 shrink-0" alt="LPUQuick">
+            <div class="truncate">
+                <p class="text-[11px] font-black text-white leading-tight flex items-center gap-1.5">
+                    <span>LPUQuick App</span>
+                    <span class="text-[9px] bg-emerald-500 text-white font-black px-1.5 py-0.2 rounded-full">3 MIN</span>
+                </p>
+                <p class="text-[10px] text-emerald-400 font-bold truncate">⚡ 1-Tap 3-Min Hostel Delivery</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+            <button type="button" onclick="window.showInstallPrompt()" class="bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-black text-[11px] px-3.5 py-1 rounded-full shadow-md flex items-center gap-1 cursor-pointer transition-all">
+                <span class="material-symbols-outlined text-xs">download</span>
+                <span>INSTALL</span>
+            </button>
+            <button type="button" onclick="this.closest('#home-mobile-smart-banner').remove()" class="text-slate-400 hover:text-white p-0.5 cursor-pointer" title="Close">
+                <span class="material-symbols-outlined text-sm">close</span>
+            </button>
+        </div>
+    </div>
+
     <!-- Floating Dynamic Island Header (Next-Gen Translucent Capsule) -->
     <header class="dynamic-island-nav flex items-center justify-between gap-3 sm:gap-4 select-none">
         <!-- Brand + Location Capsule -->
@@ -427,6 +450,15 @@ window.pages.home = async function() {
 
         <!-- Quick Actions (Theme, Orders, Cart, Profile) -->
         <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <!-- Install App Shortcut (Visible on both Mobile & Desktop) -->
+            <button type="button" 
+                    onclick="window.showInstallPrompt()" 
+                    class="btn-install-app clay-pill px-2.5 py-1 text-xs font-black text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/15 transition-transform active:scale-95 cursor-pointer flex items-center gap-1 shrink-0 shadow-xs" 
+                    title="Install LPUQuick App">
+                <span class="material-symbols-outlined text-sm">download</span>
+                <span class="text-[11px] font-black">Install</span>
+            </button>
+
             <!-- Sleek Theme Toggle -->
             <button type="button" 
                     class="theme-toggle-switch relative inline-flex items-center w-[48px] h-[26px] rounded-full p-[2px] transition-all cursor-pointer select-none clay-pill shrink-0 shadow-xs" 
@@ -455,6 +487,11 @@ window.pages.home = async function() {
             <!-- Profile Shortcut -->
             <a href="#/settings" class="clay-pill w-8 h-8 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-emerald transition-transform active:scale-95" title="Settings">
                 <span class="material-symbols-outlined text-base">account_circle</span>
+            </a>
+
+            <!-- Admin Portal Shortcut -->
+            <a href="/admin" target="_blank" rel="noopener noreferrer" class="clay-pill w-8 h-8 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-emerald hover:border-emerald-500/50 transition-transform active:scale-95" title="Admin Portal">
+                <span class="material-symbols-outlined text-base">admin_panel_settings</span>
             </a>
         </div>
     </header>
@@ -637,6 +674,30 @@ window.pages.home = async function() {
             </div>
         </section>
 
+        <!-- High-Visibility In-Feed Mobile Install Card (Blinkit/Zepto PWA Style) -->
+        <section class="btn-install-app p-4 sm:p-5 rounded-3xl border-2 border-emerald-500/40 dark:border-emerald-500/30 bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-emerald-600/15 dark:from-emerald-950/40 dark:to-teal-950/30 backdrop-blur-xl shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 transition-all">
+            <div class="flex items-center gap-3.5 min-w-0">
+                <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30 shrink-0">
+                    <span class="material-symbols-outlined text-2xl">install_mobile</span>
+                </div>
+                <div class="space-y-0.5 min-w-0">
+                    <div class="flex items-center gap-2">
+                        <h3 class="text-sm sm:text-base font-black text-slate-900 dark:text-white tracking-tight">Install LPUQuick Mobile App</h3>
+                        <span class="liquid-badge text-[9px] font-black px-2 py-0.5 bg-emerald-500 text-white">PWA</span>
+                    </div>
+                    <p class="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
+                        ⚡ Add to phone home screen for 1-tap ordering, instant corridor alerts & offline speed.
+                    </p>
+                </div>
+            </div>
+            <div class="w-full sm:w-auto flex items-center justify-end shrink-0">
+                <button type="button" onclick="window.showInstallPrompt()" class="w-full sm:w-auto clay-btn clay-btn-primary px-4 py-2 sm:py-2.5 rounded-xl font-black text-xs text-white shadow-md active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer transition-all">
+                    <span class="material-symbols-outlined text-base">download</span>
+                    <span>Install App Now</span>
+                </button>
+            </div>
+        </section>
+
         <!-- ============================================================
              INSTAMART / BLINKIT-STYLE CATEGORY NAVIGATION & PRODUCT LAYOUT
              ============================================================ -->
@@ -644,10 +705,10 @@ window.pages.home = async function() {
              MODERN VERTICAL CATEGORY RAIL & PRODUCT BROWSING SECTION
              ============================================================ -->
         <section class="pt-1 space-y-3" id="shop-catalog-section">
-            <div class="flex items-start gap-2 sm:gap-4 lg:gap-6 pt-1">
-                <!-- Unified Modern Left Vertical Category Rail (Mobile & Desktop) -->
-                <aside class="w-[72px] sm:w-20 md:w-24 shrink-0 sticky top-16 md:top-20 z-10" id="category-rail-container">
-                    <nav class="vertical-category-rail max-h-[calc(100dvh-5rem)] overflow-y-auto no-scrollbar py-1 space-y-1" id="vertical-category-rail">
+            <div class="flex items-stretch gap-2 sm:gap-4 lg:gap-6 pt-1 relative" id="shop-catalog-split-row">
+                <!-- Unified Modern Left Vertical Category Rail (Full-Height Column extending until end of products) -->
+                <aside class="w-[72px] sm:w-20 md:w-24 shrink-0 self-stretch min-h-full flex flex-col" id="category-rail-container">
+                    <nav class="vertical-category-rail sticky top-20 max-h-[calc(100dvh-5.5rem)] overflow-y-auto no-scrollbar py-1 space-y-1 w-full" id="vertical-category-rail">
                         ${STORE_CATEGORIES.map(c => `
                         <button type="button" 
                                 class="category-rail-item category-sidebar-item category-mobile-pill ${c.id === 'all' ? 'active' : ''}" 
@@ -1287,4 +1348,9 @@ window.pageInits.home = function() {
 
     // Initial filter apply
     applyFilters();
+
+    // Sync PWA Install State
+    if (typeof window.updateInstallUIState === 'function') {
+        window.updateInstallUIState();
+    }
 };

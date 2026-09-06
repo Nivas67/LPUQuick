@@ -391,9 +391,13 @@ router.post('/admin/status', requireAdmin, async (req, res) => {
     }
     
     // 1. Immediately update memory cache for zero latency
+    let riderName = 'Alex';
     if (Array.isArray(fallbackOrdersCache)) {
         const o = fallbackOrdersCache.find(x => x.id === orderId);
-        if (o) o.status = status;
+        if (o) {
+            o.status = status;
+            if (o.rider_name) riderName = typeof o.rider_name === 'string' && o.rider_name.startsWith('{') ? (JSON.parse(o.rider_name).name || 'Alex') : o.rider_name;
+        }
     }
 
     try {
@@ -402,12 +406,15 @@ router.post('/admin/status', requireAdmin, async (req, res) => {
             6000,
             { id: orderId, status }
         );
+        if (updated && updated.rider_name) {
+            riderName = typeof updated.rider_name === 'string' && updated.rider_name.startsWith('{') ? (JSON.parse(updated.rider_name).name || riderName) : updated.rider_name;
+        }
         cache.invalidateOrders();
-        broadcastStatusUpdate(orderId, status);
+        broadcastStatusUpdate(orderId, status, riderName);
         res.json({ success: true, order: updated });
     } catch (err) {
         console.error('[Admin Status Update Exception]:', err.message);
-        broadcastStatusUpdate(orderId, status);
+        broadcastStatusUpdate(orderId, status, riderName);
         res.json({ success: true, order: { id: orderId, status }, note: 'Updated in active cache.' });
     }
 });
@@ -778,11 +785,19 @@ router.get('/detail/:orderId', async (req, res) => {
     }
 });
 
-// GET /api/orders/:userId (Fetch all orders for user)
+// GET /api/orders/:userId (User orders)
 router.get('/:userId', async (req, res) => {
     const { userId } = req.params;
     try {
-        const { active, past } = await supabaseDb.orders.getOrdersByUser(userId);
+        let { active, past } = await supabaseDb.orders.getOrdersByUser(userId);
+        if (Array.isArray(fallbackOrdersCache) && fallbackOrdersCache.length > 0) {
+            const syncItem = o => {
+                const cached = fallbackOrdersCache.find(x => x.id === o.id);
+                return (cached && cached.status) ? { ...o, status: cached.status } : o;
+            };
+            active = (active || []).map(syncItem);
+            past = (past || []).map(syncItem);
+        }
         res.json({ active, past });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -793,12 +808,24 @@ router.get('/:userId', async (req, res) => {
 router.get('/:userId/active', async (req, res) => {
     const { userId } = req.params;
     try {
-        const { active } = await supabaseDb.orders.getOrdersByUser(userId);
+        let { active } = await supabaseDb.orders.getOrdersByUser(userId);
+        if (Array.isArray(fallbackOrdersCache) && fallbackOrdersCache.length > 0) {
+            active = (active || []).map(o => {
+                const cached = fallbackOrdersCache.find(x => x.id === o.id);
+                return (cached && cached.status) ? { ...o, status: cached.status } : o;
+            });
+        }
+        // Filter out completed if cached status changed to Delivered or Cancelled
+        active = (active || []).filter(o => !['Delivered', 'Cancelled', 'delivered', 'cancelled'].includes(o.status));
         if (!active || active.length === 0) {
             return res.json({ active: null });
         }
         const detailed = await supabaseDb.orders.getOrderById(active[0].id);
-        res.json({ active: detailed });
+        if (detailed && Array.isArray(fallbackOrdersCache)) {
+            const cached = fallbackOrdersCache.find(x => x.id === detailed.id);
+            if (cached && cached.status) detailed.status = cached.status;
+        }
+        res.json({ active: detailed || active[0] });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

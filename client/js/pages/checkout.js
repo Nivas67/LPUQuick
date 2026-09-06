@@ -14,21 +14,28 @@ window.pages.checkout = async function() {
     const items = cartData.items || [];
     const p = cartData.pricing || { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 };
     
-    // Accurate MRP & Subtotal calculations
-    const totalMrp = items.reduce((sum, item) => sum + ((Number(item.mrp) || Number(item.price) || 0) * item.quantity), 0);
-    const subtotal = items.reduce((sum, item) => sum + (Number(item.price || 0) * item.quantity), 0);
+    // Accurate MRP, Subtotal & Quantity calculations
+    const totalQuantity = items.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
+    const totalMrp = items.reduce((sum, item) => sum + ((Number(item.mrp) || Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
+    const subtotal = items.reduce((sum, item) => sum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
     const mrpDiscount = Math.max(0, totalMrp - subtotal);
     
+    // Minimum Order Value (₹35) & Handling Fee (₹5 for every order)
+    const MIN_ORDER_VALUE = 35;
+    const isMinOrderMet = subtotal >= MIN_ORDER_VALUE;
+    const minOrderShortfall = Math.max(0, MIN_ORDER_VALUE - subtotal);
+    const handlingFee = items.length > 0 ? 5 : 0;
+
     // 5% Campus Bulk Offer for orders above ₹350
     const hasDiscount = subtotal >= 350;
     const discount5 = hasDiscount ? Math.round(subtotal * 0.05) : 0;
-    const exactTotal = Math.max(0, subtotal - discount5);
+    const exactTotal = Math.max(0, subtotal - discount5 + handlingFee);
     window.cartTotalCache = exactTotal;
+    window.cartSubtotalCache = subtotal;
 
-    // Total Real Savings: MRP discount + 5% offer + ₹25 delivery + ₹5 handling
+    // Total Real Savings: MRP discount + 5% offer + ₹25 delivery
     const deliverySavings = subtotal > 0 ? 25 : 0;
-    const handlingSavings = subtotal > 0 ? 5 : 0;
-    const totalSavings = mrpDiscount + discount5 + deliverySavings + handlingSavings;
+    const totalSavings = mrpDiscount + discount5 + deliverySavings;
 
     const savedRoom = localStorage.getItem('lpuquick_room') || window.currentRoom;
     const savedBlock = localStorage.getItem('lpuquick_block') || window.currentBlock || 'Block A';
@@ -164,7 +171,7 @@ window.pages.checkout = async function() {
                 <div class="flex items-center justify-between mb-2 pb-2.5 border-b border-[var(--glass-border)]">
                     <h3 class="font-black text-xs sm:text-sm text-slate-900 dark:text-white flex items-center gap-2 tracking-tight">
                         <span class="material-symbols-outlined text-base text-emerald">shopping_bag</span>
-                        Order Items (${cartData.item_count || 0})
+                        Order Items (${totalQuantity})
                     </h3>
                     <span class="text-[11px] text-slate-400 font-semibold">Corridor Dispatch</span>
                 </div>
@@ -216,12 +223,12 @@ window.pages.checkout = async function() {
                         </div>
                     </div>
 
-                    <div class="flex justify-between items-center text-slate-600 dark:text-slate-400 font-medium">
-                        <span>Handling & Bag</span>
-                        <div class="flex items-center gap-1.5">
-                            <span class="line-through text-[11px] text-slate-400">₹5</span>
-                            <span class="font-black text-emerald-600 dark:text-emerald-400">FREE</span>
+                    <div class="flex justify-between items-center text-slate-700 dark:text-slate-300 font-medium">
+                        <div class="flex items-center gap-1">
+                            <span>Handling Fee</span>
+                            <span class="text-[10px] text-slate-400" title="Corridor pack & dispatch fee">ℹ️</span>
                         </div>
+                        <span class="font-black text-slate-900 dark:text-white" id="checkout-handling-val">₹${handlingFee}</span>
                     </div>
                     
                     <div class="border-t border-[var(--glass-border)] pt-3.5 mt-2 flex justify-between items-center text-sm font-black">
@@ -297,7 +304,23 @@ window.pages.checkout = async function() {
 
             <!-- Slide or Tap to Place Order (Liquid Glass Track & Tactile Button) -->
             <div class="pt-2">
-                ${!window.hasUserConfiguredAddress() ? `
+                ${!isMinOrderMet ? `
+                <div class="space-y-3">
+                    <div class="p-4 bg-amber-500/15 border border-amber-500/40 rounded-2xl flex items-center justify-between text-xs text-amber-900 dark:text-amber-200 backdrop-blur-md">
+                        <div class="flex items-center gap-2.5">
+                            <span class="material-symbols-outlined text-2xl text-amber-500 animate-bounce">shopping_bag</span>
+                            <div>
+                                <p class="font-black text-xs sm:text-sm">Minimum Order Value is ₹35</p>
+                                <p class="text-[11px] text-slate-600 dark:text-slate-400 font-medium">Your current subtotal is ₹${subtotal}. Add ₹${minOrderShortfall} more to place this order.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <a href="#/" class="clay-btn clay-btn-primary w-full py-4 px-5 rounded-2xl text-white font-black text-xs sm:text-sm shadow-xl flex items-center justify-center gap-2 cursor-pointer transition-all">
+                        <span class="material-symbols-outlined text-base">add_shopping_cart</span>
+                        <span>Add Items Worth ₹${minOrderShortfall} More</span>
+                    </a>
+                </div>
+                ` : (!window.hasUserConfiguredAddress() ? `
                 <button type="button" onclick="window.openAddressModal(true, () => { if (typeof window.router === 'function') window.router(); })" class="clay-btn clay-btn-primary w-full py-4 px-5 rounded-2xl text-white font-black text-xs sm:text-sm shadow-xl flex items-center justify-center gap-2 cursor-pointer transition-all">
                     <span class="material-symbols-outlined text-base">home_pin</span>
                     <span>Set Hostel Room Address to Complete Order (₹${exactTotal})</span>
@@ -323,7 +346,7 @@ window.pages.checkout = async function() {
                         <span>3-Min Corridor Dispatch • Pay cash on room delivery</span>
                     </div>
                 </div>
-                `}
+                `)}
             </div>
         </div>
 
@@ -430,6 +453,16 @@ window.pageInits.checkout = function() {
         if (isSubmitting) return;
         isSubmitting = true;
 
+        if ((window.cartSubtotalCache !== undefined) && window.cartSubtotalCache < 35) {
+            isSubmitting = false;
+            const shortfall = 35 - (window.cartSubtotalCache || 0);
+            if (typeof window.showClientToast === 'function') {
+                window.showClientToast(`⚠️ Minimum order value is ₹35. Please add items worth ₹${shortfall} more.`, 'warning', 'shopping_bag');
+            }
+            window.location.hash = '#/cart';
+            return;
+        }
+
         const savedRoom = localStorage.getItem('lpuquick_room') || window.currentRoom;
         const savedBlock = localStorage.getItem('lpuquick_block') || window.currentBlock || 'Block A';
         const savedPhone = (localStorage.getItem('lpuquick_phone') || window.currentPhone || '').replace(/\D/g, '');
@@ -500,7 +533,7 @@ window.pageInits.checkout = function() {
         };
     }
 
-    // Interactive Slider Logic
+    // Interactive Slider Logic with Robust Pointer Events (100% Laptop & Mobile Support)
     const sliderTrack = document.getElementById('pay-slider-track');
     const sliderThumb = document.getElementById('pay-slider-thumb');
     const sliderProgress = document.getElementById('pay-slider-progress');
@@ -508,58 +541,179 @@ window.pageInits.checkout = function() {
 
     if (sliderTrack && sliderThumb) {
         let isDragging = false;
-        let startX = 0;
-        let maxDrag = 0;
+        let startPointerX = 0;
+        let startOffset = 0;
+        let currentOffset = 0;
+        let confirmed = false;
 
-        function updateMaxDrag() {
-            maxDrag = sliderTrack.clientWidth - sliderThumb.clientWidth - 8;
+        function getMaxDrag() {
+            const trackRect = sliderTrack.getBoundingClientRect();
+            const thumbRect = sliderThumb.getBoundingClientRect();
+            const trackWidth = trackRect.width || sliderTrack.clientWidth;
+            const thumbWidth = thumbRect.width || sliderThumb.clientWidth || 50;
+            return Math.max(0, trackWidth - thumbWidth - 8);
         }
 
-        updateMaxDrag();
-        window.addEventListener('resize', updateMaxDrag);
-
-        function onStart(e) {
-            if (isSubmitting) return;
-            isDragging = true;
-            startX = (e.touches ? e.touches[0].clientX : e.clientX) - sliderThumb.offsetLeft;
-            sliderThumb.style.transition = 'none';
-            if (sliderProgress) sliderProgress.style.transition = 'none';
-        }
-
-        function onMove(e) {
-            if (!isDragging) return;
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            let left = clientX - startX;
-            if (left < 4) left = 4;
-            if (left > maxDrag) left = maxDrag;
-
-            sliderThumb.style.transform = `translateX(${left}px)`;
-            if (sliderProgress) sliderProgress.style.width = `${left + sliderThumb.clientWidth / 2}px`;
-
-            if (left >= maxDrag - 5) {
-                isDragging = false;
-                sliderThumb.style.transform = `translateX(${maxDrag}px)`;
-                if (sliderText) sliderText.textContent = 'Order Confirmed!';
-                executeOrderPlacement();
-            }
-        }
-
-        function onEnd() {
-            if (!isDragging) return;
-            isDragging = false;
-            sliderThumb.style.transition = 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)';
-            sliderThumb.style.transform = 'translateX(4px)';
+        function setSliderPosition(offset, smooth = false) {
+            const maxDrag = getMaxDrag();
+            currentOffset = Math.max(0, Math.min(maxDrag, offset));
+            
+            sliderThumb.style.transition = smooth ? 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)' : 'none';
+            sliderThumb.style.transform = `translateX(${currentOffset}px)`;
+            
             if (sliderProgress) {
-                sliderProgress.style.transition = 'width 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)';
-                sliderProgress.style.width = '0px';
+                sliderProgress.style.transition = smooth ? 'width 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)' : 'none';
+                sliderProgress.style.width = `${currentOffset + 25}px`;
             }
         }
 
-        sliderThumb.addEventListener('mousedown', onStart);
-        sliderThumb.addEventListener('touchstart', onStart, { passive: true });
-        window.addEventListener('mousemove', onMove);
-        window.addEventListener('touchmove', onMove, { passive: true });
-        window.addEventListener('mouseup', onEnd);
-        window.addEventListener('touchend', onEnd);
+        function triggerConfirmation() {
+            if (confirmed || isSubmitting) return;
+            confirmed = true;
+            isDragging = false;
+            
+            const maxDrag = getMaxDrag();
+            setSliderPosition(maxDrag, true);
+            
+            if (sliderText) {
+                sliderText.textContent = '✓ Order Confirmed!';
+                sliderText.style.color = '#10b981';
+            }
+            if (sliderThumb) {
+                sliderThumb.style.cursor = 'default';
+                const icon = sliderThumb.querySelector('.material-symbols-outlined');
+                if (icon) icon.textContent = 'check';
+            }
+            
+            executeOrderPlacement();
+        }
+
+        function onPointerDown(e) {
+            if (confirmed || isSubmitting) return;
+            if (e.button !== undefined && e.button !== 0) return; // Only left mouse click or touch
+            
+            isDragging = true;
+            e.preventDefault();
+            
+            const maxDrag = getMaxDrag();
+            const trackRect = sliderTrack.getBoundingClientRect();
+            const thumbRect = sliderThumb.getBoundingClientRect();
+            
+            // If user clicked directly on track ahead of thumb (common on laptop trackpads)
+            const clickPosOnTrack = e.clientX - trackRect.left - (thumbRect.width / 2);
+            if (e.target !== sliderThumb && !sliderThumb.contains(e.target)) {
+                if (clickPosOnTrack >= maxDrag * 0.75) {
+                    // Clicked near end on laptop -> confirm immediately!
+                    triggerConfirmation();
+                    return;
+                } else {
+                    setSliderPosition(clickPosOnTrack, true);
+                }
+            }
+            
+            startPointerX = e.clientX;
+            startOffset = currentOffset;
+            
+            try {
+                sliderThumb.setPointerCapture(e.pointerId);
+            } catch (err) {}
+            
+            sliderThumb.style.cursor = 'grabbing';
+            document.body.style.userSelect = 'none';
+        }
+
+        function onPointerMove(e) {
+            if (!isDragging || confirmed || isSubmitting) return;
+            e.preventDefault();
+            
+            const deltaX = e.clientX - startPointerX;
+            const targetOffset = startOffset + deltaX;
+            setSliderPosition(targetOffset, false);
+            
+            const maxDrag = getMaxDrag();
+            if (maxDrag > 0 && currentOffset >= maxDrag * 0.85) {
+                triggerConfirmation();
+            }
+        }
+
+        function onPointerUp(e) {
+            if (!isDragging || confirmed) return;
+            isDragging = false;
+            document.body.style.userSelect = '';
+            sliderThumb.style.cursor = 'grab';
+            
+            try {
+                sliderThumb.releasePointerCapture(e.pointerId);
+            } catch (err) {}
+            
+            const maxDrag = getMaxDrag();
+            if (maxDrag > 0 && currentOffset >= maxDrag * 0.65) {
+                // If dragged at least 65% across on laptop trackpad/mouse, snap to finish!
+                triggerConfirmation();
+            } else {
+                // Return smoothly to start
+                setSliderPosition(0, true);
+            }
+        }
+
+        // Unified event listeners supporting Pointer Events, Mouse Events, Touch, and Clicks
+        let lastInputTime = 0;
+        function handleStart(e) {
+            const now = Date.now();
+            if (e.type === 'mousedown' && (now - lastInputTime < 100)) return; // Avoid duplicate pointer+mouse
+            lastInputTime = now;
+            onPointerDown(e);
+        }
+
+        // Pointer event listeners (Modern laptops, trackpads, touchscreens)
+        sliderThumb.addEventListener('pointerdown', handleStart);
+        sliderTrack.addEventListener('pointerdown', handleStart);
+        sliderThumb.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointermove', onPointerMove);
+        sliderThumb.addEventListener('pointerup', onPointerUp);
+        sliderThumb.addEventListener('pointercancel', onPointerUp);
+        window.addEventListener('pointerup', onPointerUp);
+
+        // Standard Mouse event listeners (Laptops, trackpads & desktops fallback)
+        sliderThumb.addEventListener('mousedown', handleStart);
+        sliderTrack.addEventListener('mousedown', handleStart);
+        window.addEventListener('mousemove', (e) => {
+            if (isDragging) onPointerMove(e);
+        });
+        window.addEventListener('mouseup', (e) => {
+            if (isDragging) onPointerUp(e);
+        });
+
+        // Direct track click for easy 1-click confirmation on laptops
+        sliderTrack.addEventListener('click', (e) => {
+            if (confirmed || isSubmitting) return;
+            const trackRect = sliderTrack.getBoundingClientRect();
+            const clickX = e.clientX - trackRect.left;
+            if (clickX >= trackRect.width * 0.5) {
+                triggerConfirmation();
+            }
+        });
+
+        // Fallback touch listeners for mobile WebKit
+        sliderThumb.addEventListener('touchstart', (e) => {
+            if (e.touches && e.touches[0]) handleStart(e.touches[0]);
+        }, { passive: true });
+        window.addEventListener('touchmove', (e) => {
+            if (isDragging && e.touches && e.touches[0]) onPointerMove(e.touches[0]);
+        }, { passive: true });
+        window.addEventListener('touchend', (e) => {
+            if (isDragging) onPointerUp(e.changedTouches ? e.changedTouches[0] : e);
+        });
+
+        // Keyboard accessibility for laptop / desktop users
+        sliderTrack.setAttribute('tabindex', '0');
+        sliderTrack.setAttribute('role', 'slider');
+        sliderTrack.setAttribute('aria-label', 'Slide to confirm order');
+        sliderTrack.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                triggerConfirmation();
+            }
+        });
     }
 };
