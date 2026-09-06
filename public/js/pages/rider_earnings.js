@@ -686,16 +686,24 @@ window.renderClientOrdersList = function (orders, dayFilter) {
         if (headerEl) headerEl.textContent = 'Delivered Orders Breakdown';
     }
 
+    const deliveredOrders = filtered.filter(o => o.delivery_state === 'Completed' || o.status === 'delivered' || o.status === 'completed');
+    const cancelledOrders = filtered.filter(o => o.delivery_state === 'Cancelled' || o.status === 'cancelled');
+    const activeRate = Number(window.__riderEarningsState?.data?.rate_per_order) || 3.00;
+    const totalEarned = deliveredOrders.reduce((sum, o) => sum + (typeof o.payout === 'number' ? o.payout : activeRate), 0).toFixed(2);
+
     if (badgeEl) {
-        const total = (filtered.length * 3.00).toFixed(2);
-        badgeEl.textContent = `${filtered.length} Orders • ₹${total}`;
+        let badgeText = `${deliveredOrders.length} Delivered • ₹${totalEarned}`;
+        if (cancelledOrders.length > 0) {
+            badgeText += ` (${cancelledOrders.length} Cancelled)`;
+        }
+        badgeEl.textContent = badgeText;
     }
 
     if (filtered.length === 0) {
         listEl.innerHTML = `
             <div class="p-6 text-center text-slate-400 bg-slate-50 rounded-2xl border border-slate-100">
                 <span class="material-symbols-outlined text-2xl">receipt_long</span>
-                <p class="text-xs font-bold mt-1">No orders delivered on this date.</p>
+                <p class="text-xs font-bold mt-1">No orders on this date.</p>
             </div>
         `;
         return;
@@ -703,11 +711,31 @@ window.renderClientOrdersList = function (orders, dayFilter) {
 
     let html = '';
     filtered.forEach(o => {
+        const isCancelled = o.delivery_state === 'Cancelled' || o.status === 'cancelled';
+        const isDelivered = o.delivery_state === 'Completed' || o.status === 'delivered' || o.status === 'completed';
+
+        let iconBg = 'bg-blue-100 text-[#0066cc]';
+        let iconName = 'check_circle';
+        let badgeHtml = `<div class="text-xs font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">+₹${(typeof o.payout === 'number' ? o.payout : activeRate).toFixed(2)}</div>`;
+        let subtextHtml = `<div class="text-[10px] text-slate-500 font-semibold mt-1">Order: ₹${o.total}</div>`;
+
+        if (isCancelled) {
+            iconBg = 'bg-rose-100 text-rose-600';
+            iconName = 'cancel';
+            badgeHtml = `<div class="text-xs font-black text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200">Cancelled • ₹0.00</div>`;
+            subtextHtml = `<div class="text-[10px] text-rose-600 font-semibold mt-1">Order: ₹${o.total} (₹0 payout)</div>`;
+        } else if (!isDelivered) {
+            iconBg = 'bg-amber-100 text-amber-600';
+            iconName = 'schedule';
+            badgeHtml = `<div class="text-xs font-black text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">Pending • ₹0.00</div>`;
+            subtextHtml = `<div class="text-[10px] text-slate-500 font-semibold mt-1">Order: ₹${o.total} (Pending)</div>`;
+        }
+
         html += `
         <div class="p-3 bg-slate-50 hover:bg-blue-50/50 rounded-2xl border border-slate-100 flex items-center justify-between gap-3 transition-colors">
             <div class="flex items-center gap-2.5 min-w-0">
-                <div class="w-8 h-8 rounded-xl bg-blue-100 text-[#0066cc] flex items-center justify-center font-bold text-xs shrink-0">
-                    <span class="material-symbols-outlined text-base">check_circle</span>
+                <div class="w-8 h-8 rounded-xl ${iconBg} flex items-center justify-center font-bold text-xs shrink-0">
+                    <span class="material-symbols-outlined text-base">${iconName}</span>
                 </div>
                 <div class="min-w-0">
                     <div class="flex items-center gap-1.5">
@@ -719,10 +747,8 @@ window.renderClientOrdersList = function (orders, dayFilter) {
             </div>
 
             <div class="text-right shrink-0">
-                <div class="text-xs font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
-                    +₹3.00
-                </div>
-                <div class="text-[10px] text-slate-500 font-semibold mt-1">₹${o.total}</div>
+                ${badgeHtml}
+                ${subtextHtml}
             </div>
         </div>
         `;

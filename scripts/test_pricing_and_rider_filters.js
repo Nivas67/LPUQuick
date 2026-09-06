@@ -6,8 +6,10 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const { generateAdminToken } = require('../server/middleware/adminAuth');
 
 const BASE_URL = 'http://localhost:3000';
+const ownerToken = generateAdminToken('user_admin_bh13', 'admin');
 
 async function runTests() {
     console.log('🚀 Starting Delivery Pricing & Rider Stats Verification Suite...\n');
@@ -32,7 +34,10 @@ async function runTests() {
     console.log('\n--- TEST 2: POST /api/orders/delivery-pricing-config (Update to ₹5.00) ---');
     const updateRes = await fetch(`${BASE_URL}/api/orders/delivery-pricing-config`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${ownerToken}`
+        },
         body: JSON.stringify({
             rate_per_order: 5.00,
             daily_bonus_threshold: 15,
@@ -77,7 +82,10 @@ async function runTests() {
     console.log('\n--- TEST 4: Invalid Rate Validation ---');
     const invalidRes = await fetch(`${BASE_URL}/api/orders/delivery-pricing-config`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${ownerToken}`
+        },
         body: JSON.stringify({ rate_per_order: -10 })
     });
     assert.strictEqual(invalidRes.status, 400, 'Negative rate must be rejected with 400');
@@ -131,7 +139,10 @@ async function runTests() {
     console.log('\n--- TEST 7: Reset Pricing Rate back to ₹3.00 ---');
     const resetRes = await fetch(`${BASE_URL}/api/orders/delivery-pricing-config`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${ownerToken}`
+        },
         body: JSON.stringify({
             rate_per_order: 3.00,
             daily_bonus_threshold: 20,

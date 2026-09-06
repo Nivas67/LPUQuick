@@ -975,7 +975,7 @@
                             <div>
                                 <div class="flex items-center gap-2 flex-wrap">
                                     <h2 class="text-xl font-black text-[#181c1f] tracking-tight">Delivery Partner Hub</h2>
-                                    <button type="button" onclick="openDeliveryPricingModal()" class="text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-black px-3 py-1 rounded-full border border-emerald-300 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95 group" title="Click to configure delivery pricing per order">
+                                    <button type="button" id="btn-header-pricing-pill" onclick="openDeliveryPricingModal()" class="text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-black px-3 py-1 rounded-full border border-emerald-300 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95 group" title="Click to configure delivery pricing per order">
                                         <span class="material-symbols-outlined text-sm text-emerald-700">payments</span>
                                         <span id="hub-header-rate-display">₹3.00</span>
                                         <span class="text-[10px] font-semibold text-emerald-700">/ Completed Delivery</span>
@@ -1001,7 +1001,7 @@
                         </div>
 
                         <!-- Configure Pricing Button -->
-                        <button type="button" onclick="openDeliveryPricingModal()" class="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-[#181c1f] border border-[#DADCE0] text-xs font-black flex items-center gap-1.5 shadow-xs transition-all cursor-pointer active:scale-95" title="Configure Delivery Payout Rate">
+                        <button type="button" id="btn-open-pricing-modal" onclick="openDeliveryPricingModal()" class="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-[#181c1f] border border-[#DADCE0] text-xs font-black flex items-center gap-1.5 shadow-xs transition-all cursor-pointer active:scale-95" title="Configure Delivery Payout Rate">
                             <span class="material-symbols-outlined text-sm text-[#0066cc]">tune</span>
                             <span>Pricing Engine</span>
                         </button>

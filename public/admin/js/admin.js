@@ -6122,15 +6122,52 @@ async function loadDeliveryEarnings(customStart, customEnd) {
 
         currentEarningsData = data;
 
-        // Populate Rider Dropdown with All Fleet, Only Mine (Owner), and Individual Runners
+        // Role-based visibility: Except owner, non-owner admins cannot see other admins' revenue or fleet aggregates
+        const isOwner = Boolean(data.is_owner ?? (currentAdminProfile?.is_owner || currentAdminProfile?.roles?.includes('owner')));
+        const fleetTabBtn = document.getElementById('subtab-fleet-btn');
+        const pricingBtn = document.getElementById('btn-open-pricing-modal');
+        const allFleetBtn = document.getElementById('btn-filter-all-fleet');
+        const onlyMineBtn = document.getElementById('btn-filter-only-mine');
         const riderSelect = document.getElementById('earnings-rider-select');
+        const headerRateBtn = document.getElementById('btn-header-pricing-pill');
+
+        if (!isOwner) {
+            if (fleetTabBtn) fleetTabBtn.classList.add('hidden');
+            if (pricingBtn) pricingBtn.classList.add('hidden');
+            if (allFleetBtn) allFleetBtn.classList.add('hidden');
+            if (onlyMineBtn) onlyMineBtn.classList.add('hidden');
+            if (riderSelect) riderSelect.classList.add('hidden');
+            if (headerRateBtn) {
+                headerRateBtn.onclick = null;
+                headerRateBtn.style.cursor = 'default';
+                headerRateBtn.title = 'Configured delivery fee per completed order';
+            }
+            if (partnerDashboardSubTab === 'fleet') {
+                setPartnerDashboardSubTab('partner');
+            }
+        } else {
+            if (fleetTabBtn) fleetTabBtn.classList.remove('hidden');
+            if (pricingBtn) pricingBtn.classList.remove('hidden');
+            if (allFleetBtn) allFleetBtn.classList.remove('hidden');
+            if (onlyMineBtn) onlyMineBtn.classList.remove('hidden');
+            if (riderSelect) riderSelect.classList.remove('hidden');
+            if (headerRateBtn) {
+                headerRateBtn.onclick = openDeliveryPricingModal;
+                headerRateBtn.style.cursor = 'pointer';
+                headerRateBtn.title = 'Click to open Delivery Pricing Engine';
+            }
+        }
+
+        // Populate Rider Dropdown with All Fleet, Only Mine (Owner), and Individual Runners
         if (riderSelect) {
             const ownerName = data.owner_info?.name || currentAdminProfile?.name || 'Owner';
-            let optionsHtml = `
+            let optionsHtml = isOwner ? `
                 <option value="all" ${earningsSelectedRider === 'all' ? 'selected' : ''}>🌐 All Delivery Fleet</option>
                 <option value="mine" ${earningsSelectedRider === 'mine' ? 'selected' : ''}>👤 Only Mine (${escapeHtml(ownerName)} - Deliveries)</option>
+            ` : `
+                <option value="${escapeHtml(currentAdminProfile?.id || data.selected_rider?.id || 'mine')}" selected>👤 My Deliveries (${escapeHtml(currentAdminProfile?.name || 'Rider')})</option>
             `;
-            if (Array.isArray(data.available_riders)) {
+            if (isOwner && Array.isArray(data.available_riders)) {
                 data.available_riders.forEach(r => {
                     const ownerTag = r.is_owner ? ' (Owner)' : '';
                     const runsTag = r.total_completed ? ` • ${r.total_completed} runs` : '';
@@ -6406,16 +6443,24 @@ function renderEarningsOrders(orders, dateFilter) {
         if (headingEl) headingEl.textContent = 'Delivered Orders Breakdown';
     }
 
+    const deliveredOrders = filtered.filter(o => o.delivery_state === 'Completed' || o.status === 'delivered' || o.status === 'completed');
+    const cancelledOrders = filtered.filter(o => o.delivery_state === 'Cancelled' || o.status === 'cancelled');
+    const activeRate = currentEarningsData?.pricing_config?.rate_per_order || 3.00;
+    const totalEarned = deliveredOrders.reduce((sum, o) => sum + (typeof o.payout === 'number' ? o.payout : activeRate), 0).toFixed(2);
+
     if (countEl) {
-        const totalEarned = (filtered.length * 3.00).toFixed(2);
-        countEl.textContent = `${filtered.length} Orders • ₹${totalEarned}`;
+        let badgeText = `${deliveredOrders.length} Delivered • ₹${totalEarned}`;
+        if (cancelledOrders.length > 0) {
+            badgeText += ` (${cancelledOrders.length} Cancelled)`;
+        }
+        countEl.textContent = badgeText;
     }
 
     if (filtered.length === 0) {
         listEl.innerHTML = `
             <div class="p-6 text-center text-[#5c5f60] bg-[#F8FAFD] rounded-2xl border border-[#EBF0F7]">
                 <span class="material-symbols-outlined text-3xl text-slate-400">receipt</span>
-                <p class="text-xs font-bold mt-1">No delivered orders on this selected day.</p>
+                <p class="text-xs font-bold mt-1">No orders on this selected day.</p>
             </div>
         `;
         return;
@@ -6423,26 +6468,44 @@ function renderEarningsOrders(orders, dateFilter) {
 
     let html = '';
     filtered.forEach(o => {
+        const isCancelled = o.delivery_state === 'Cancelled' || o.status === 'cancelled';
+        const isDelivered = o.delivery_state === 'Completed' || o.status === 'delivered' || o.status === 'completed';
+
+        let iconBg = 'bg-blue-100 text-[#0066cc]';
+        let iconName = 'check_circle';
+        let badgeHtml = `<div class="text-xs font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">+₹${(typeof o.payout === 'number' ? o.payout : activeRate).toFixed(2)}</div>`;
+        let subtextHtml = `<div class="text-[10px] text-[#5c5f60] font-semibold mt-1">Order: ₹${o.total}</div>`;
+
+        if (isCancelled) {
+            iconBg = 'bg-rose-100 text-rose-600';
+            iconName = 'cancel';
+            badgeHtml = `<div class="text-xs font-black text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200">Cancelled • ₹0.00</div>`;
+            subtextHtml = `<div class="text-[10px] text-rose-600 font-semibold mt-1">Order: ₹${o.total} (₹0 payout)</div>`;
+        } else if (!isDelivered) {
+            iconBg = 'bg-amber-100 text-amber-600';
+            iconName = 'schedule';
+            badgeHtml = `<div class="text-xs font-black text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">Pending • ₹0.00</div>`;
+            subtextHtml = `<div class="text-[10px] text-[#5c5f60] font-semibold mt-1">Order: ₹${o.total} (Pending)</div>`;
+        }
+
         html += `
         <div class="p-3 bg-[#F8FAFD] hover:bg-[#F0F4F9] rounded-2xl border border-[#EBF0F7] flex items-center justify-between gap-3 transition-colors">
             <div class="flex items-center gap-3 min-w-0">
-                <div class="w-9 h-9 rounded-xl bg-blue-100 text-[#0066cc] flex items-center justify-center font-black text-xs shrink-0">
-                    <span class="material-symbols-outlined text-lg">check_circle</span>
+                <div class="w-9 h-9 rounded-xl ${iconBg} flex items-center justify-center font-black text-xs shrink-0">
+                    <span class="material-symbols-outlined text-lg">${iconName}</span>
                 </div>
                 <div class="min-w-0">
                     <div class="flex items-center gap-2">
-                        <span class="font-black text-xs text-[#181c1f]">#${escapeHtml(o.id.slice(-8))}</span>
-                        <span class="text-[10px] text-[#5c5f60] font-semibold">${escapeHtml(o.time)}</span>
+                        <span class="font-black text-xs text-[#181c1f]">#${escapeHtml((o.id || '').slice(-8))}</span>
+                        <span class="text-[10px] text-[#5c5f60] font-semibold">${escapeHtml(o.time || '')}</span>
                     </div>
                     <p class="text-[11px] text-[#5c5f60] truncate font-medium mt-0.5">${escapeHtml(o.address || 'BH13 Campus')}</p>
                 </div>
             </div>
 
             <div class="text-right shrink-0">
-                <div class="text-xs font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">
-                    +₹3.00
-                </div>
-                <div class="text-[10px] text-[#5c5f60] font-semibold mt-1">Order: ₹${o.total}</div>
+                ${badgeHtml}
+                ${subtextHtml}
             </div>
         </div>
         `;

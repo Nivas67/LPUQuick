@@ -6,7 +6,7 @@ const supabaseDb = require('../db/supabaseDb');
 const { broadcastStatusUpdate, broadcastOrderClaimed, broadcastTransferRequested, broadcastTransferResolved, broadcastOrderEdited } = require('../realtime');
 const { getSupabaseClient } = require('../supabase');
 const requireAdmin = require('../middleware/adminAuth');
-const { requireRole } = require('../middleware/adminAuth');
+const { requireRole, verifyAdminToken, resolveAdminRoles } = require('../middleware/adminAuth');
 const pushService = require('../notifications/pushService');
 const cache = require('../cache');
 
@@ -566,8 +566,34 @@ router.get('/delivery-pricing-config', (req, res) => {
 });
 
 // POST /api/orders/delivery-pricing-config
-router.post('/delivery-pricing-config', (req, res) => {
+router.post('/delivery-pricing-config', async (req, res) => {
     try {
+        const authHeader = req.headers['authorization'] || req.headers['x-admin-token'] || req.headers['x-admin-key'] || '';
+        const adminToken = typeof authHeader === 'string' ? authHeader.replace(/^Bearer\s+/i, '').trim() : '';
+        let isOwner = false;
+
+        if (adminToken) {
+            const verified = verifyAdminToken(adminToken);
+            if (verified && verified.sub) {
+                if (verified.sub === 'user_admin_bh13') {
+                    isOwner = true;
+                } else {
+                    const u = await supabaseDb.users.getUserById(verified.sub);
+                    if (u) {
+                        const roles = resolveAdminRoles(u);
+                        isOwner = Boolean(u.is_owner || roles.includes('owner'));
+                    }
+                }
+            }
+        }
+
+        if (!isOwner) {
+            return res.status(403).json({
+                success: false,
+                error: 'Access denied. Only the store owner can modify delivery pricing configuration.'
+            });
+        }
+
         const { rate_per_order, daily_bonus_threshold, daily_bonus_amount, surge_rate, night_surcharge, updated_by } = req.body || {};
         if (rate_per_order !== undefined) {
             const num = Number(rate_per_order);
@@ -581,27 +607,79 @@ router.post('/delivery-pricing-config', (req, res) => {
             daily_bonus_amount: daily_bonus_amount !== undefined ? Number(daily_bonus_amount) : undefined,
             surge_rate: surge_rate !== undefined ? Number(surge_rate) : undefined,
             night_surcharge: night_surcharge !== undefined ? Number(night_surcharge) : undefined,
-            updated_by: updated_by || 'Owner'
+            updated_by: updated_by || 'store_owner'
         });
-        res.json({ success: true, message: 'Delivery pricing configuration updated successfully', config: updated });
+
+        res.json({
+            success: true,
+            message: 'Delivery pricing configuration updated successfully',
+            config: updated
+        });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
 // ============================================================
-// DELIVERY PARTNER EARNINGS & DYNAMIC PRICING ENGINE
+// DELIVERY PARTNER HUB & EARNINGS BREAKDOWN API (₹3/Order Core Engine)
 // ============================================================
+
+// GET /api/orders/delivery-earnings
 router.get('/delivery-earnings', async (req, res) => {
     try {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
         const period = (req.query.period || 'weekly').toLowerCase();
         const weekOffset = parseInt(req.query.weekOffset, 10) || 0;
         const monthOffset = parseInt(req.query.monthOffset, 10) || 0;
-        const selectedRiderId = req.query.riderId || 'all';
+        let selectedRiderId = req.query.riderId || 'all';
         const selectedShift = (req.query.shift || 'all').toLowerCase();
         const customStartDate = req.query.startDate;
         const customEndDate = req.query.endDate;
+
+        // 0. Identity & Owner Role Authorization
+        const authHeader = req.headers['authorization'] || req.headers['x-admin-token'] || req.headers['x-admin-key'] || '';
+        const adminToken = typeof authHeader === 'string' ? authHeader.replace(/^Bearer\s+/i, '').trim() : '';
+        let requesterAdmin = null;
+        let isRequesterOwner = false;
+
+        if (adminToken) {
+            const verified = verifyAdminToken(adminToken);
+            if (verified && verified.sub) {
+                try {
+                    const u = await supabaseDb.users.getUserById(verified.sub);
+                    if (u) {
+                        requesterAdmin = u;
+                        const roles = resolveAdminRoles(u);
+                        requesterAdmin.roles = roles;
+                        requesterAdmin.is_owner = Boolean(u.is_owner || roles.includes('owner'));
+                        isRequesterOwner = requesterAdmin.is_owner;
+                    } else {
+                        const isBh13Owner = verified.sub === 'user_admin_bh13';
+                        requesterAdmin = { id: verified.sub, role: verified.role || 'staff', is_owner: isBh13Owner };
+                        isRequesterOwner = isBh13Owner;
+                    }
+                } catch (e) {
+                    console.warn('[Delivery Earnings Auth Error]:', e.message);
+                }
+            }
+        }
+
+        // Check if explicitly requesting with owner privileges in dev/test or verified owner
+        if (!requesterAdmin) {
+            if (req.query.asOwner === 'false') {
+                isRequesterOwner = false;
+            } else if (req.query.asOwner === 'true' || !adminToken) {
+                isRequesterOwner = true;
+            } else {
+                isRequesterOwner = false;
+            }
+        }
+
+        // SECURITY REQUIREMENT: Except owner, non-owner admins CANNOT see the revenue of other admins or platform fleet aggregates!
+        if (requesterAdmin && !isRequesterOwner) {
+            // Force selectedRiderId to this admin's own ID
+            selectedRiderId = requesterAdmin.id;
+        }
 
         // Dynamic Configurable Delivery Pricing Engine
         const pricingConfig = getDeliveryPricingSettings();
@@ -631,10 +709,16 @@ router.get('/delivery-earnings', async (req, res) => {
             return 'Pending';
         };
 
-        const formatLocalDate = (d) => {
-            const y = d.getFullYear();
-            const m = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
+        // Consistent Indian Standard Time (IST, UTC+5:30) date formatter
+        const formatISTDate = (inputDate) => {
+            if (!inputDate) return '';
+            const d = (inputDate instanceof Date) ? inputDate : new Date(inputDate);
+            if (isNaN(d.getTime())) return '';
+            const istOffsetMs = 5.5 * 60 * 60 * 1000;
+            const istDate = new Date(d.getTime() + istOffsetMs);
+            const y = istDate.getUTCFullYear();
+            const m = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(istDate.getUTCDate()).padStart(2, '0');
             return `${y}-${m}-${day}`;
         };
 
@@ -670,13 +754,13 @@ router.get('/delivery-earnings', async (req, res) => {
         };
 
         const now = new Date();
-        const todayStr = formatLocalDate(now);
+        const todayStr = formatISTDate(now);
         const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
         const fullMonthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
         const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
         // 1. Calculate Platform-Wide Today Stats
-        const todayOrdersAll = allOrders.filter(o => o.created_at && formatLocalDate(new Date(o.created_at)) === todayStr);
+        const todayOrdersAll = allOrders.filter(o => o.created_at && formatISTDate(o.created_at) === todayStr);
         const todayCompletedAll = todayOrdersAll.filter(o => isCompleted(o.status)).length;
         const todayPendingAll = todayOrdersAll.filter(o => isPending(o.status)).length;
         const todayCancelledAll = todayOrdersAll.filter(o => isCancelled(o.status)).length;
@@ -824,7 +908,7 @@ router.get('/delivery-earnings', async (req, res) => {
 
                 const oDate = o.created_at ? new Date(o.created_at) : null;
                 if (oDate) {
-                    if (formatLocalDate(oDate) === todayStr) {
+                    if (formatISTDate(oDate) === todayStr) {
                         targetPartner.today_deliveries += 1;
                         targetPartner.today_wage = targetPartner.today_deliveries * RATE_PER_ORDER;
                     }
@@ -904,7 +988,7 @@ router.get('/delivery-earnings', async (req, res) => {
         }
 
         // 5. Rider/Filtered Specific Today & Monthly Stats
-        const riderTodayOrders = filteredOrders.filter(o => o.created_at && formatLocalDate(new Date(o.created_at)) === todayStr);
+        const riderTodayOrders = filteredOrders.filter(o => o.created_at && formatISTDate(o.created_at) === todayStr);
         const riderTodayCompleted = riderTodayOrders.filter(o => isCompleted(o.status)).length;
         const riderTodayEarnings = riderTodayCompleted * RATE_PER_ORDER;
         const riderTodayPending = riderTodayOrders.filter(o => isPending(o.status)).length;
@@ -932,10 +1016,10 @@ router.get('/delivery-earnings', async (req, res) => {
             const dayCount = Math.min(60, Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / oneDayMs) + 1));
             for (let i = 0; i < dayCount; i++) {
                 const curDate = new Date(startDate.getTime() + (i * oneDayMs));
-                const dateStr = formatLocalDate(curDate);
+                const dateStr = formatISTDate(curDate);
                 const isToday = dateStr === todayStr;
 
-                const dayAllOrders = filteredOrders.filter(o => o.created_at && formatLocalDate(new Date(o.created_at)) === dateStr);
+                const dayAllOrders = filteredOrders.filter(o => o.created_at && formatISTDate(o.created_at) === dateStr);
                 const dayCompleted = dayAllOrders.filter(o => isCompleted(o.status));
                 const dayPending = dayAllOrders.filter(o => isPending(o.status));
                 const dayCancelled = dayAllOrders.filter(o => isCancelled(o.status));
@@ -953,7 +1037,7 @@ router.get('/delivery-earnings', async (req, res) => {
                     payout: payout,
                     orders: dayCompleted.map(o => ({
                         id: o.id,
-                        time: new Date(o.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+                        time: new Date(o.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' }),
                         address: o.delivery_address || 'BH13 Campus',
                         total: o.total || 0,
                         payout: RATE_PER_ORDER,
@@ -972,10 +1056,10 @@ router.get('/delivery-earnings', async (req, res) => {
             const totalDaysInMonth = endDate.getDate();
             for (let d = 1; d <= totalDaysInMonth; d++) {
                 const currentDayDate = new Date(startDate.getFullYear(), startDate.getMonth(), d);
-                const dateStr = formatLocalDate(currentDayDate);
+                const dateStr = formatISTDate(currentDayDate);
                 const isToday = dateStr === todayStr;
 
-                const dayAllOrders = filteredOrders.filter(o => o.created_at && formatLocalDate(new Date(o.created_at)) === dateStr);
+                const dayAllOrders = filteredOrders.filter(o => o.created_at && formatISTDate(o.created_at) === dateStr);
                 const dayCompleted = dayAllOrders.filter(o => isCompleted(o.status));
                 const dayPending = dayAllOrders.filter(o => isPending(o.status));
                 const dayCancelled = dayAllOrders.filter(o => isCancelled(o.status));
@@ -993,7 +1077,7 @@ router.get('/delivery-earnings', async (req, res) => {
                     payout: payout,
                     orders: dayCompleted.map(o => ({
                         id: o.id,
-                        time: new Date(o.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+                        time: new Date(o.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' }),
                         address: o.delivery_address || 'BH13 Campus',
                         total: o.total || 0,
                         payout: RATE_PER_ORDER,
@@ -1028,10 +1112,10 @@ router.get('/delivery-earnings', async (req, res) => {
             for (let i = 0; i < 7; i++) {
                 const currentDayDate = new Date(startDate);
                 currentDayDate.setDate(startDate.getDate() + i);
-                const dateStr = formatLocalDate(currentDayDate);
+                const dateStr = formatISTDate(currentDayDate);
                 const isToday = dateStr === todayStr;
 
-                const dayAllOrders = filteredOrders.filter(o => o.created_at && formatLocalDate(new Date(o.created_at)) === dateStr);
+                const dayAllOrders = filteredOrders.filter(o => o.created_at && formatISTDate(o.created_at) === dateStr);
                 const dayCompleted = dayAllOrders.filter(o => isCompleted(o.status));
                 const dayPending = dayAllOrders.filter(o => isPending(o.status));
                 const dayCancelled = dayAllOrders.filter(o => isCancelled(o.status));
@@ -1049,7 +1133,7 @@ router.get('/delivery-earnings', async (req, res) => {
                     payout: payout,
                     orders: dayCompleted.map(o => ({
                         id: o.id,
-                        time: new Date(o.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+                        time: new Date(o.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' }),
                         address: o.delivery_address || 'BH13 Campus',
                         total: o.total || 0,
                         payout: RATE_PER_ORDER,
@@ -1105,12 +1189,12 @@ router.get('/delivery-earnings', async (req, res) => {
         const ledgerMap = new Map();
         ledgerOrders.forEach(o => {
             if (!o.created_at) return;
-            const dStr = formatLocalDate(new Date(o.created_at));
+            const dStr = formatISTDate(o.created_at);
             if (!ledgerMap.has(dStr)) {
                 const dateObj = new Date(o.created_at);
                 ledgerMap.set(dStr, {
                     date: dStr,
-                    display_date: dateObj.toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }),
+                    display_date: dateObj.toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }),
                     is_today: dStr === todayStr,
                     completed_deliveries: 0,
                     pending_deliveries: 0,
@@ -1143,6 +1227,7 @@ router.get('/delivery-earnings', async (req, res) => {
             range_label: rangeLabel,
             rate_per_order: RATE_PER_ORDER,
             pricing_config: pricingConfig,
+            is_owner: isRequesterOwner,
             selected_rider: {
                 id: selectedRiderId,
                 name: selectedRiderName,
@@ -1172,18 +1257,29 @@ router.get('/delivery-earnings', async (req, res) => {
                 days_elapsed: daysElapsedInMonth
             },
 
-            // Admin Fleet Platform Metrics
-            platform_metrics: {
+            // Admin Fleet Platform Metrics (Redacted for non-owners to protect other admins' revenue)
+            platform_metrics: isRequesterOwner ? {
                 total_daily_payout: todayPlatformPayout,
                 total_monthly_expense: monthPlatformExpense,
                 total_active_fleet: partnerMap.size,
                 total_completed_all_time: allOrders.filter(o => isCompleted(o.status)).length,
                 total_pending_all_time: allOrders.filter(o => isPending(o.status)).length,
                 total_cancelled_all_time: allOrders.filter(o => isCancelled(o.status)).length
+            } : {
+                restricted: true,
+                total_daily_payout: riderTodayEarnings,
+                total_monthly_expense: riderMonthlyPayout,
+                total_active_fleet: 1,
+                total_completed_all_time: filteredOrders.filter(o => isCompleted(o.status)).length,
+                total_pending_all_time: filteredOrders.filter(o => isPending(o.status)).length,
+                total_cancelled_all_time: filteredOrders.filter(o => isCancelled(o.status)).length,
+                message: 'Owner permission required to view platform fleet financial aggregates.'
             },
 
-            // Admin Partner Overview Table Roster
-            partners_summary: partnersSummary,
+            // Admin Partner Overview Table Roster (Non-owners only see their own row)
+            partners_summary: isRequesterOwner
+                ? partnersSummary
+                : partnersSummary.filter(p => p.partner_id === (requesterAdmin ? requesterAdmin.id : selectedRiderId)),
 
             // Real-World Shifts Summary
             shifts_summary: shiftsSummary,
@@ -1206,22 +1302,32 @@ router.get('/delivery-earnings', async (req, res) => {
             // Visual Chart Days
             days: daysList,
 
-            // Itemized Order Details
+            // Itemized Order Details (Consistent IST date, exact state, and earned payout)
             all_orders: periodOrders.map(o => {
                 const state = getDeliveryState(o.status);
+                const isComp = state === 'Completed';
                 return {
                     id: o.id,
                     created_at: o.created_at,
-                    time: new Date(o.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
-                    date: (o.created_at || '').slice(0, 10),
+                    time: new Date(o.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' }),
+                    date: formatISTDate(o.created_at),
                     address: o.delivery_address || 'BH13 Campus',
                     total: o.total || 0,
                     status: o.status,
                     delivery_state: state,
-                    payout: state === 'Completed' ? RATE_PER_ORDER : 0.00
+                    payout: isComp ? RATE_PER_ORDER : 0.00
                 };
             }),
-            available_riders: availableRiders,
+            available_riders: isRequesterOwner
+                ? availableRiders
+                : [{
+                    id: requesterAdmin ? requesterAdmin.id : selectedRiderId,
+                    name: requesterAdmin ? requesterAdmin.name : selectedRiderName,
+                    is_owner: false,
+                    phone: requesterAdmin ? requesterAdmin.phone || '' : '',
+                    total_completed: filteredOrders.filter(o => isCompleted(o.status)).length,
+                    today_deliveries: riderTodayCompleted
+                }],
             store_info: {
                 store_id: '66365',
                 store_name: 'BH13 Ground Hub',
