@@ -2,7 +2,7 @@
 window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
-window.pages.settings = async function() {
+window.pages.settings = async function () {
     const isLoggedIn = window.isUserLoggedIn();
     const userName = isLoggedIn ? (window.CURRENT_USER_NAME || 'LPU Student') : 'Guest Student';
     const userEmail = isLoggedIn ? (window.CURRENT_USER_EMAIL || '') : 'Sign in with Google to place campus orders';
@@ -13,8 +13,8 @@ window.pages.settings = async function() {
     const currentBlock = localStorage.getItem('lpuquick_block') || 'Block A';
     const currentRoom = localStorage.getItem('lpuquick_room') || '';
     const currentPhone = (localStorage.getItem('lpuquick_phone') || '').replace(/\D/g, '');
-    const currentDetail = (currentRoom && currentPhone.length === 10) 
-        ? `BH13 (${currentBlock}), Room ${currentRoom} • 📞 +91 ${currentPhone}` 
+    const currentDetail = (currentRoom && currentPhone.length === 10)
+        ? `BH13 (${currentBlock}), Room ${currentRoom} • 📞 +91 ${currentPhone}`
         : (currentRoom ? `BH13 (${currentBlock}), Room ${currentRoom} (Mobile Mandatory)` : 'No address configured yet');
 
     return `
@@ -224,26 +224,6 @@ window.pages.settings = async function() {
             </div>
             <span class="liquid-badge text-[10px] font-black text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800/80 px-2.5 py-1 border border-slate-200 dark:border-slate-700">v2.4 Pro</span>
         </div>
-
-        <!-- Admin Management Portal Quick Link -->
-        <div class="glass-panel card-pedestal rounded-3xl p-5 border border-emerald-500/30 dark:border-emerald-400/30 flex items-center justify-between shadow-lg bg-gradient-to-r from-emerald-500/5 to-teal-500/5 hover:border-emerald-500/60 transition-all">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/30">
-                    <span class="material-symbols-outlined text-xl">admin_panel_settings</span>
-                </div>
-                <div>
-                    <h4 class="font-black text-xs sm:text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
-                        Admin Portal
-                        <span class="text-[10px] bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold px-2 py-0.5 rounded-md">Live Control</span>
-                    </h4>
-                    <p class="text-[11px] text-slate-600 dark:text-slate-400 font-medium">Manage inventory, monitor riders, orders & analytics</p>
-                </div>
-            </div>
-            <a href="/admin" target="_blank" rel="noopener noreferrer" class="clay-btn clay-btn-primary px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 text-white shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer">
-                <span>Open Admin</span>
-                <span class="material-symbols-outlined text-sm">open_in_new</span>
-            </a>
-        </div>
     </main>
 
     <!-- Floating Liquid Glass Bottom Navigation Dock -->
@@ -273,7 +253,7 @@ window.pages.settings = async function() {
 </div>`;
 };
 
-window.pageInits.settings = function() {
+window.pageInits.settings = function () {
     // Theme toggle init
     const themeToggle = document.getElementById('toggle-darkmode');
     if (themeToggle) {
