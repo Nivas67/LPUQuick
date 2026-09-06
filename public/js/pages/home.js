@@ -43,6 +43,19 @@ const STORE_CATEGORIES = [
         }
     },
     { 
+        id: 'namkeen', 
+        name: 'Namkeen', 
+        emoji: '🥜', 
+        img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/Bikaji_Chowpati_Bhelpuri_1788533073973.jpg',
+        banner: {
+            title: 'Bikaji Chowpati & Namkeen',
+            subtitle: 'Crunchy, Tangy Bhelpuri, Bhujia & Sev.',
+            tag: 'DESI CHOWPATI',
+            img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/Bikaji_Chowpati_Bhelpuri_1788533073973.jpg',
+            bg: 'linear-gradient(135deg, #78350f 0%, #9a3412 50%, #c2410c 100%)'
+        }
+    },
+    { 
         id: 'chocolates', 
         name: 'Chocolates', 
         emoji: '🍫', 
@@ -108,6 +121,19 @@ const STORE_CATEGORIES = [
         }
     },
     { 
+        id: 'bakery', 
+        name: 'Bakery', 
+        emoji: '🧁', 
+        img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/BRITANNIA_Gobbles_Cake_Fruity_Fun_100g_1788530879398.jpg',
+        banner: {
+            title: 'Britannia Gobbles & Cakes',
+            subtitle: 'Fruity Fun, Choco Chill & Soft Sponge Treats.',
+            tag: 'FRESH BAKE',
+            img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/BRITANNIA_Gobbles_Cake_Fruity_Fun_100g_1788530879398.jpg',
+            bg: 'linear-gradient(135deg, #831843 0%, #9d174d 50%, #e11d48 100%)'
+        }
+    },
+    { 
         id: 'juices', 
         name: 'Juices', 
         emoji: '🧃', 
@@ -124,13 +150,26 @@ const STORE_CATEGORIES = [
         id: 'sweets', 
         name: 'Sweets', 
         emoji: '🍭', 
-        img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/BRITANNIA_Gobbles_Cake_Fruity_Fun_100g_1788530879398.jpg',
+        img: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=160&auto=format&fit=crop&q=80',
         banner: {
-            title: 'Britannia Gobbles Cake',
-            subtitle: 'Fruity Fun & Soft Sponge Delights.',
+            title: 'Indian Sweets & Desserts',
+            subtitle: 'Melt-in-mouth Delicious Treats.',
             tag: 'SWEET BITES',
-            img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/BRITANNIA_Gobbles_Cake_Fruity_Fun_100g_1788530879398.jpg',
+            img: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=320&auto=format&fit=crop&q=80',
             bg: 'linear-gradient(135deg, #831843 0%, #9d174d 50%, #f43f5e 100%)'
+        }
+    },
+    { 
+        id: 'popcorn', 
+        name: 'Popcorn', 
+        emoji: '🌽', 
+        img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_78de005c_1788463606110.jpg',
+        banner: {
+            title: 'Act II Caramel Popcorn',
+            subtitle: 'Theater-Style Golden Caramel Crunch.',
+            tag: 'MOVIE NIGHT',
+            img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_78de005c_1788463606110.jpg',
+            bg: 'linear-gradient(135deg, #713f12 0%, #854d0e 50%, #ca8a04 100%)'
         }
     },
     { 
@@ -140,7 +179,7 @@ const STORE_CATEGORIES = [
         img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_78de005c_1788463606110.jpg',
         banner: {
             title: 'Popcorn & Essentials',
-            subtitle: 'Theater-Style Caramel Crunch.',
+            subtitle: 'Theater-Style Caramel Crunch & Daily Essentials.',
             tag: 'QUICK SNACKS',
             img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_78de005c_1788463606110.jpg',
             bg: 'linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%)'
@@ -154,15 +193,18 @@ function classifyProductCategory(p) {
     const text = (p.name || '').toLowerCase();
 
     // 1. Ground Truth Priority: Check existing database subcategory first
+    if (subcat === 'popcorn') return 'popcorn';
+    if (subcat === 'cake' || subcat === 'choco pie') return 'bakery';
+    if (subcat === 'namkeen') return 'namkeen';
     if (subcat === 'biscuits' || subcat === 'biscuit') return 'biscuits';
     if (subcat === 'chips' || subcat === 'wafers') return 'chips';
-    if (subcat === 'chocolates' || subcat === 'chocolate' || subcat === 'choco pie') return 'chocolates';
+    if (subcat === 'chocolates' || subcat === 'chocolate') return 'chocolates';
     if (subcat === 'noodles' || subcat === 'instant food' || subcat === 'instant') return 'instant';
-    if (subcat === 'snacks' || subcat === 'namkeen' || subcat === 'popcorn') return 'snacks';
-    if (subcat === 'cake' || subcat === 'sweets' || subcat === 'dessert') return 'sweets';
+    if (subcat === 'snacks') return 'snacks';
     if (subcat === 'candies' || subcat === 'candy') return 'candies';
     if (subcat === 'drinks' || subcat === 'beverages' || subcat === 'cold drinks') return 'drinks';
     if (subcat === 'juices' || subcat === 'juice') return 'juices';
+    if (subcat === 'sweets' || subcat === 'dessert') return 'sweets';
 
     // 2. Existing Database category field fallback
     if (cat === 'biscuits') return 'biscuits';
@@ -175,15 +217,18 @@ function classifyProductCategory(p) {
     if (cat === 'candies') return 'candies';
 
     // 3. Fallback classification for legacy items without DB subcategory
-    if (/noodle|pasta|maggi|cup noodles|soup|macroni|penne/i.test(text)) return 'instant';
-    if (/cadbury|dairy milk|silk|snickers/i.test(text)) return 'chocolates';
+    if (/popcorn/i.test(text)) return 'popcorn';
+    if (/bhelpuri|namkeen|bhujia|sev|snac lite|munchy/i.test(text)) return 'namkeen';
+    if (/gobbles|cake|choco pie|bread/i.test(text)) return 'bakery';
+    if (/noodle|pasta|passta|pazzta|maggi|cup noodles|soup|macroni|penne/i.test(text)) return 'instant';
+    if (/cadbury|dairy milk|silk|snickers|yoga bar|chocolate/i.test(text)) return 'chocolates';
     if (/biscuit|cookie|cookies|wafer|bourbon|bikis|mom's magic|jimjam|hide & seek|hide and seek|milk shakti|treat rich creme|oreo|milano|fab bourbon|dark fantasy/i.test(text)) return 'biscuits';
-    if (/chips|tedhe medhe|mad angles|doritos|lay's|lays|uncle chips/i.test(text)) return 'chips';
-    if (/popcorn|snac lite|bhelpuri|munchy|kurkure/i.test(text)) return 'snacks';
-    if (/cake|gobbles|sweet|dessert|mithai/i.test(text)) return 'sweets';
+    if (/chips|mad angles|doritos|lay's|lays|uncle chips/i.test(text)) return 'chips';
+    if (/crax|tedhe medhe|kurkure|curls|cheese balls/i.test(text)) return 'snacks';
     if (/candy|candies|toffee|lollipop|eclairs|mint|chew|pulse|mentos|alpenliebe/i.test(text)) return 'candies';
     if (/\b(drink|drinks|coke|pepsi|sprite|thums up|fanta|sting|red bull|monster|water|soda|redbull|beverage|cola|dew)\b/i.test(text)) return 'drinks';
     if (/\b(juice|juices|frooti|maaza|real|tropicana|appy|fizz)\b/i.test(text)) return 'juices';
+    if (/sweet|dessert|mithai|gulab|rasgulla/i.test(text)) return 'sweets';
 
     return 'others';
 }
@@ -461,7 +506,7 @@ window.handleBannerTargetClick = function(targetUrl, event) {
     }
 
     // 3. Category Filter Shortcuts (e.g. category:chips, cat:chips, #cat-drinks, chips)
-    const catMatch = url.match(/^(category:|cat:|#cat-)?(all|chips|biscuits|chocolates|instant|snacks|sweets|candies|drinks|juices)$/i);
+    const catMatch = url.match(/^(category:|cat:|#cat-)?(all|chips|biscuits|namkeen|chocolates|instant|snacks|bakery|sweets|candies|drinks|juices|popcorn|others)$/i);
     if (catMatch) {
         const catId = catMatch[2].toLowerCase();
         if (typeof window.selectHomeCategory === 'function') {
@@ -920,8 +965,12 @@ window.pages.home = async function() {
         <section class="pt-1 space-y-3" id="shop-catalog-section">
             <div class="flex items-stretch gap-2 sm:gap-4 lg:gap-6 pt-1 relative" id="shop-catalog-split-row">
                 <!-- Unified Modern Left Vertical Category Rail (Full-Height Column extending until end of products) -->
-                <aside class="w-[72px] sm:w-20 md:w-24 shrink-0 self-stretch min-h-full flex flex-col" id="category-rail-container">
-                    <nav class="vertical-category-rail sticky top-20 max-h-[calc(100dvh-5.5rem)] overflow-y-auto no-scrollbar py-1 space-y-1 w-full" id="vertical-category-rail">
+                <aside class="w-[72px] sm:w-20 md:w-24 shrink-0 self-stretch min-h-full flex flex-col relative" id="category-rail-container">
+                    <!-- Continuous Vertical Rail Guide Line extending until product end list -->
+                    <div class="category-rail-track-line" aria-hidden="true"></div>
+
+                    <!-- Category Items (Rendered in full line with ZERO scroll container) -->
+                    <nav class="vertical-category-rail py-1 space-y-1 w-full flex-1 flex flex-col relative z-10" id="vertical-category-rail">
                         ${STORE_CATEGORIES.map(c => `
                         <button type="button" 
                                 class="category-rail-item category-sidebar-item category-mobile-pill ${c.id === 'all' ? 'active' : ''}" 
@@ -940,6 +989,52 @@ window.pages.home = async function() {
                             <span class="category-rail-label">${c.name}</span>
                         </button>
                         `).join('')}
+
+                        <!-- Quick Campus Tags along the continuous line -->
+                        <div class="pt-3 pb-1 flex flex-col items-center gap-2 w-full border-t border-[var(--glass-border)]/60 my-1">
+                            <span class="text-[8px] font-black uppercase tracking-wider text-slate-400 select-none">Quick</span>
+                            
+                            <!-- Under 20 Pocket Bites -->
+                            <button type="button" 
+                                    class="category-rail-tag-btn w-[54px] sm:w-[62px] py-1.5 px-1 rounded-xl clay-pill flex flex-col items-center justify-center text-center cursor-pointer hover:border-emerald-500/40 transition-transform active:scale-95 group" 
+                                    id="rail-tag-under20"
+                                    title="Under ₹20 snacks">
+                                <span class="text-xs">🪙</span>
+                                <span class="text-[8px] font-black text-slate-600 dark:text-slate-300 leading-tight mt-0.5">≤ ₹20</span>
+                            </button>
+
+                            <!-- Veg Only -->
+                            <button type="button" 
+                                    class="category-rail-tag-btn w-[54px] sm:w-[62px] py-1.5 px-1 rounded-xl clay-pill flex flex-col items-center justify-center text-center cursor-pointer hover:border-emerald-500/40 transition-transform active:scale-95 group" 
+                                    id="rail-tag-veg"
+                                    title="Veg Only snacks">
+                                <span class="w-3.5 h-3.5 border border-emerald-600 rounded-xs flex items-center justify-center p-[1px] bg-white dark:bg-slate-900">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                                </span>
+                                <span class="text-[8px] font-black text-emerald-600 dark:text-emerald-400 leading-tight mt-0.5">Veg</span>
+                            </button>
+
+                            <!-- Fast Delivery 3m -->
+                            <button type="button" 
+                                    class="category-rail-tag-btn w-[54px] sm:w-[62px] py-1.5 px-1 rounded-xl clay-pill flex flex-col items-center justify-center text-center cursor-pointer hover:border-emerald-500/40 transition-transform active:scale-95 group" 
+                                    id="rail-tag-fast"
+                                    title="3-min delivery items">
+                                <span class="text-xs text-amber-500">⚡</span>
+                                <span class="text-[8px] font-black text-amber-600 dark:text-amber-400 leading-tight mt-0.5">3 Min</span>
+                            </button>
+                        </div>
+
+                        <!-- Terminal Anchor at the bottom of the line (End of Product List) -->
+                        <div class="mt-auto pt-6 pb-2 flex flex-col items-center justify-center w-full select-none" id="rail-bottom-terminal">
+                            <button type="button" 
+                                    class="w-10 h-10 rounded-full clay-pill flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 hover:text-emerald hover:border-emerald-500/40 transition-transform active:scale-90 cursor-pointer shadow-xs" 
+                                    id="rail-back-to-top-btn" 
+                                    title="Back to Top">
+                                <span class="material-symbols-outlined text-sm">arrow_upward</span>
+                                <span class="text-[7px] font-black uppercase tracking-tighter">Top</span>
+                            </button>
+                            <span class="w-2 h-2 rounded-full bg-emerald-500/50 mt-2"></span>
+                        </div>
                     </nav>
                 </aside>
 
@@ -1384,6 +1479,47 @@ window.pageInits.home = function() {
     if (filterChipToggle) {
         filterChipToggle.onclick = () => {
             if (vegBtn) vegBtn.click();
+        };
+    }
+
+    // Bind Rail Quick Tags and Terminal Back-to-Top Button
+    const railTopBtn = document.getElementById('rail-back-to-top-btn');
+    if (railTopBtn) {
+        railTopBtn.onclick = () => {
+            const catalogSec = document.getElementById('shop-catalog-section');
+            if (catalogSec) {
+                catalogSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        };
+    }
+
+    const railTagVeg = document.getElementById('rail-tag-veg');
+    if (railTagVeg) {
+        railTagVeg.onclick = () => {
+            if (vegBtn) vegBtn.click();
+        };
+    }
+
+    const railTagUnder20 = document.getElementById('rail-tag-under20');
+    if (railTagUnder20) {
+        railTagUnder20.onclick = () => {
+            currentSort = 'price_asc';
+            if (sortSelect) sortSelect.value = 'price_asc';
+            applyFilters();
+            const catalogSec = document.getElementById('shop-catalog-section');
+            if (catalogSec && window.innerWidth < 1024) {
+                catalogSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        };
+    }
+
+    const railTagFast = document.getElementById('rail-tag-fast');
+    if (railTagFast) {
+        railTagFast.onclick = () => {
+            const fastBtn = document.getElementById('catalog-express-chip');
+            if (fastBtn) fastBtn.click();
         };
     }
 

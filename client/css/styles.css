@@ -1336,16 +1336,46 @@ html.dark #category-rail-container {
     box-shadow: none !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    -webkit-overflow-scrolling: touch;
-    position: sticky;
-    top: 5rem;
-    max-height: calc(100vh - 6rem);
-    overflow-y: auto;
     width: 100%;
+    min-height: 100%;
+    position: relative;
+    overflow: visible !important;
+    max-height: none !important;
+    z-index: 1;
+}
+
+/* Continuous Vertical Rail Track Line extending until product end */
+.category-rail-track-line {
+    position: absolute;
+    top: 1.5rem;
+    bottom: 2.5rem;
+    left: 50%;
+    width: 2px;
+    transform: translateX(-50%);
+    background: linear-gradient(180deg, 
+        rgba(16, 185, 129, 0.5) 0%, 
+        rgba(16, 185, 129, 0.25) 25%, 
+        rgba(148, 163, 184, 0.2) 60%, 
+        rgba(16, 185, 129, 0.4) 100%
+    );
+    border-radius: 9999px;
+    pointer-events: none;
+    z-index: 0;
+}
+
+body.dark .category-rail-track-line,
+html.dark .category-rail-track-line {
+    background: linear-gradient(180deg, 
+        rgba(16, 185, 129, 0.5) 0%, 
+        rgba(16, 185, 129, 0.2) 25%, 
+        rgba(255, 255, 255, 0.08) 60%, 
+        rgba(16, 185, 129, 0.45) 100%
+    );
 }
 
 .category-rail-item {
     position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1417,18 +1447,21 @@ html.dark #category-rail-container {
 }
 
 .category-rail-label {
-    font-size: 0.625rem;
+    font-size: 0.54rem;
     font-weight: 700;
     line-height: 1.15;
+    letter-spacing: -0.01em;
     color: var(--text-secondary);
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: normal;
+    word-break: break-word;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     transition: color 0.15s ease;
+    padding: 0 1px;
 }
 
 @media (min-width: 640px) {
