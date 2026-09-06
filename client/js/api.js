@@ -248,6 +248,17 @@ const api = {
         return data;
     },
 
+    // Promotional Banners & Carousel Rotation Settings
+    async fetchBanners() {
+        try {
+            const res = await fetch(`${API_BASE}/banners`);
+            return await res.json();
+        } catch (e) {
+            console.warn('[API] Failed to fetch banners:', e);
+            return { success: false, banners: [], settings: { autoplay_delay: 4500, autoplay_enabled: true } };
+        }
+    },
+
     // Search with 0ms In-Memory Fast-Path + 60s Query Cache
     async searchProducts(query) {
         const q = (query || '').trim().toLowerCase();

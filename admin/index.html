@@ -84,6 +84,13 @@
                 <span class="material-symbols-outlined">inventory_2</span>
                 <span>Inventory</span>
             </button>
+            <button onclick="switchView('advertisements')" data-view="advertisements" data-required-role="owner,store_manager"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+                <span class="material-symbols-outlined text-emerald-600">campaign</span>
+                <span class="flex-1 font-semibold">Advertisements</span>
+                <span id="nav-banners-badge"
+                    class="text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-bold">4</span>
+            </button>
             <button onclick="switchView('orders')" data-view="orders" data-required-role="owner,store_manager,delivery_person"
                 class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined">receipt_long</span>
@@ -877,6 +884,118 @@
                         </table>
                     </div>
                 </div>
+            <!-- ================= VIEW: ADVERTISEMENTS & PROMOTIONAL BANNERS ================= -->
+            <div id="view-advertisements" class="space-y-6 max-w-[1440px] mx-auto hidden">
+                <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 uppercase tracking-wider">
+                                <span class="material-symbols-outlined text-xs">campaign</span> Storefront Marketing
+                            </span>
+                        </div>
+                        <h2 class="text-2xl font-bold text-[#181c1f]">Advertisements & Promotional Banners</h2>
+                        <p class="text-sm text-[#5c5f60]">Upload promotional posters, configure campaign slides, and adjust carousel rotation speed on the student storefront.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="loadBannersAdmin()" class="p-2 border border-[#DADCE0] rounded-xl bg-white hover:bg-[#f1f4f7] text-[#3c4043]" title="Reload Banners">
+                            <span class="material-symbols-outlined text-lg">refresh</span>
+                        </button>
+                        <button onclick="openBannerModal()"
+                            class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-full font-semibold text-xs flex items-center gap-2 shadow-sm transition-all active:scale-95">
+                            <span class="material-symbols-outlined text-[18px]">add_photo_alternate</span>
+                            <span>Add New Poster / Banner</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Carousel Rotation & Timing Control Card -->
+                <div class="glass-panel p-5 space-y-4 border border-emerald-500/20 bg-gradient-to-r from-emerald-50/30 via-white to-teal-50/30">
+                    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-3 border-b border-[#DADCE0]">
+                        <div>
+                            <h3 class="font-bold text-sm text-[#181c1f] flex items-center gap-2">
+                                <span class="material-symbols-outlined text-emerald-600 text-lg">timer</span>
+                                <span>Promotional Carousel Rotation & Speed Settings</span>
+                            </h3>
+                            <p class="text-xs text-[#5c5f60]">Adjust how quickly promotional banner posters cycle automatically on the student storefront.</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <label class="flex items-center gap-2 cursor-pointer text-xs font-semibold text-[#181c1f]">
+                                <input type="checkbox" id="banner-autoplay-toggle" checked class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-[#DADCE0]">
+                                <span>Auto-Slide Enabled</span>
+                            </label>
+                            <button onclick="saveBannerSettings()" id="btn-save-banner-settings"
+                                class="bg-[#181c1f] hover:bg-black text-white px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all active:scale-95">
+                                <span class="material-symbols-outlined text-sm">save</span>
+                                <span>Save Timing</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                        <!-- Delay Slider & Quick Presets -->
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-[#181c1f]">Current Rotation Delay:</span>
+                                <span id="banner-delay-display" class="text-xs font-extrabold px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">4.5 seconds</span>
+                            </div>
+                            <input type="range" id="banner-delay-slider" min="2" max="15" step="0.5" value="4.5"
+                                class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
+                                oninput="handleDelaySliderChange(this.value)">
+                            <div class="flex justify-between text-[11px] text-[#74777a] font-medium px-1">
+                                <span>2s (Fast)</span>
+                                <span>5s (Standard)</span>
+                                <span>10s</span>
+                                <span>15s (Slow)</span>
+                            </div>
+
+                            <!-- Quick Speed Presets -->
+                            <div class="pt-2 flex flex-wrap items-center gap-2" id="delay-preset-buttons">
+                                <span class="text-[11px] font-semibold text-[#5c5f60]">Quick Presets:</span>
+                                <button type="button" onclick="setDelayPreset(3)" data-preset="3" class="delay-preset-btn px-2.5 py-1 rounded-lg border border-[#DADCE0] hover:border-emerald-500 hover:bg-emerald-50 text-[11px] font-bold text-[#3c4043]">3s ⚡ Fast</button>
+                                <button type="button" onclick="setDelayPreset(4.5)" data-preset="4.5" class="delay-preset-btn px-2.5 py-1 rounded-lg border border-emerald-500 bg-emerald-50 text-[11px] font-bold text-emerald-800">4.5s • Standard</button>
+                                <button type="button" onclick="setDelayPreset(6)" data-preset="6" class="delay-preset-btn px-2.5 py-1 rounded-lg border border-[#DADCE0] hover:border-emerald-500 hover:bg-emerald-50 text-[11px] font-bold text-[#3c4043]">6s ☕ Relaxed</button>
+                                <button type="button" onclick="setDelayPreset(8)" data-preset="8" class="delay-preset-btn px-2.5 py-1 rounded-lg border border-[#DADCE0] hover:border-emerald-500 hover:bg-emerald-50 text-[11px] font-bold text-[#3c4043]">8s 🐢 Extended</button>
+                                <button type="button" onclick="setDelayPreset(10)" data-preset="10" class="delay-preset-btn px-2.5 py-1 rounded-lg border border-[#DADCE0] hover:border-emerald-500 hover:bg-emerald-50 text-[11px] font-bold text-[#3c4043]">10s ⏳ Long</button>
+                            </div>
+                        </div>
+
+                        <!-- Live Speed Visualization / Hint -->
+                        <div class="rounded-2xl p-4 bg-white border border-[#DADCE0] shadow-sm flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shrink-0">
+                                <span class="material-symbols-outlined text-2xl animate-spin" style="animation-duration: 4.5s;" id="banner-speed-icon">autorenew</span>
+                            </div>
+                            <div class="space-y-1">
+                                <p class="text-xs font-bold text-[#181c1f]">Live Storefront Sync</p>
+                                <p class="text-[11px] text-[#5c5f60] leading-relaxed">
+                                    Changing this rotation interval applies dynamically to student sessions on the home page when they load or view the carousel.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Posters & Banners List / Grid -->
+                <div class="glass-panel p-5 space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#DADCE0]">
+                        <div>
+                            <h3 class="font-bold text-sm text-[#181c1f]">Active Carousel Posters & Slides (<span id="banner-count-badge">0</span>)</h3>
+                            <p class="text-xs text-[#5c5f60]">Slides are displayed in the promotional carousel in the exact order shown below.</p>
+                        </div>
+                        <div class="flex items-center gap-2" id="banner-filter-tabs">
+                            <button onclick="filterBannersAdmin('all')" data-status="all" class="banner-filter-btn px-3 py-1 rounded-full bg-[#3c4043] text-white text-xs font-semibold">All</button>
+                            <button onclick="filterBannersAdmin('active')" data-status="active" class="banner-filter-btn px-3 py-1 rounded-full border border-[#DADCE0] text-[#5c5f60] text-xs font-medium hover:bg-[#f1f4f7]">Active</button>
+                            <button onclick="filterBannersAdmin('paused')" data-status="paused" class="banner-filter-btn px-3 py-1 rounded-full border border-[#DADCE0] text-[#5c5f60] text-xs font-medium hover:bg-[#f1f4f7]">Paused</button>
+                        </div>
+                    </div>
+
+                    <!-- Grid Container -->
+                    <div id="banners-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div class="col-span-full p-8 text-center text-[#5c5f60]">
+                            <span class="material-symbols-outlined text-3xl animate-spin text-emerald-600">progress_activity</span>
+                            <p class="text-xs font-semibold mt-2">Loading promotional banners...</p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- ================= VIEW 4: ORDERS ================= -->
@@ -1367,6 +1486,194 @@
                         <button type="submit" id="btn-save-product"
                             class="px-5 py-2 rounded-lg bg-[#3c4043] hover:bg-[#262a2d] text-white font-semibold flex items-center gap-1">
                             <span>Save Product</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= MODAL: PROMOTIONAL BANNER / POSTER ================= -->
+    <div id="banner-modal"
+        class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div
+            class="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-[#DADCE0] space-y-4 max-h-[92vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-[#DADCE0] pb-3">
+                <div>
+                    <h3 class="font-bold text-base text-[#181c1f]" id="modal-banner-title">Add Promotional Banner</h3>
+                    <p class="text-xs text-[#5c5f60]">Upload graphic poster or configure card banner for student storefront</p>
+                </div>
+                <button onclick="closeBannerModal()" class="text-[#5c5f60] hover:text-[#181c1f]">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form id="banner-form" onsubmit="handleBannerSubmit(event)" class="space-y-4 text-xs">
+                <input type="hidden" id="form-banner-id" value="">
+
+                <!-- Poster Image Upload / Live Preview Box -->
+                <div class="space-y-2">
+                    <label class="font-semibold text-[#262a2d] block text-xs sm:text-sm">Poster Image / Graphic</label>
+                    <div class="rounded-2xl border border-[#DADCE0] p-3 bg-[#f8f9fa] space-y-3">
+                        <!-- Live Banner Graphic Preview -->
+                        <div class="relative w-full h-36 rounded-xl overflow-hidden border border-[#DADCE0] bg-slate-900 flex items-center justify-center group" id="form-banner-preview-card">
+                            <img id="form-banner-preview-img" src="" alt="Banner Preview" class="w-full h-full object-cover hidden">
+                            <div id="form-banner-preview-overlay" class="absolute inset-0 p-4 flex flex-col justify-between text-white z-10">
+                                <div>
+                                    <div class="flex items-center gap-1.5 flex-wrap mb-1">
+                                        <span id="form-preview-pill" class="text-[9px] font-black px-2 py-0.5 rounded-full bg-black/40 border border-white/20">BH13 HUB</span>
+                                        <span id="form-preview-badge" class="text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-400/30 text-emerald-200 border border-emerald-300/30">⚡ 3-MIN DROP</span>
+                                    </div>
+                                    <h4 id="form-preview-title" class="text-sm font-black tracking-tight leading-tight line-clamp-1">Corridor Express Snacks</h4>
+                                    <p id="form-preview-subtitle" class="text-[10px] text-white/90 line-clamp-1 mt-0.5">Instant delivery to your hostel room</p>
+                                </div>
+                                <div>
+                                    <span id="form-preview-btn-text" class="text-[10px] font-black px-3 py-1 rounded-full bg-white text-emerald-800 shadow-sm inline-block">Order Now</span>
+                                </div>
+                            </div>
+                            <div id="form-banner-empty-placeholder" class="text-center text-slate-400 py-4 hidden">
+                                <span class="material-symbols-outlined text-3xl">image</span>
+                                <p class="text-[11px] font-semibold mt-1">Upload poster file or enter image URL</p>
+                            </div>
+                            <button type="button" id="btn-remove-banner-img" onclick="clearBannerImage()" title="Remove image"
+                                class="absolute top-2 right-2 w-7 h-7 bg-black/70 hover:bg-black text-white rounded-full flex items-center justify-center z-20 hidden">
+                                <span class="material-symbols-outlined text-sm">close</span>
+                            </button>
+                        </div>
+
+                        <!-- Upload Zone & File Picker -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <label class="cursor-pointer border-2 border-dashed border-[#DADCE0] hover:border-emerald-500 rounded-xl p-3 flex items-center gap-2.5 bg-white transition-colors">
+                                <input type="file" id="form-banner-file" accept="image/*" class="hidden" onchange="handleBannerFileSelect(event)">
+                                <span class="material-symbols-outlined text-emerald-600 text-xl">upload_file</span>
+                                <div class="min-w-0">
+                                    <p class="font-bold text-[#181c1f] text-[11px] truncate">Upload Poster File</p>
+                                    <p class="text-[10px] text-[#74777a] truncate">JPG, PNG, WebP (Max 10MB)</p>
+                                </div>
+                            </label>
+                            <div>
+                                <input id="form-banner-image" placeholder="Or paste Image URL (https://...)"
+                                    oninput="handleBannerUrlInput(this.value)"
+                                    class="w-full h-full border border-[#DADCE0] rounded-xl px-3 py-2 focus:border-emerald-600 outline-none text-xs bg-white">
+                            </div>
+                        </div>
+
+                        <!-- Poster Mode Toggle -->
+                        <div class="flex items-center justify-between pt-1 border-t border-[#DADCE0]/60">
+                            <label class="flex items-center gap-2 cursor-pointer font-semibold text-[#181c1f]">
+                                <input type="checkbox" id="form-banner-full-poster" onchange="toggleFullPosterMode(this.checked)" class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-[#DADCE0]">
+                                <span>Full-Bleed Graphic Poster (Hide text overlay, display image poster only)</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Text & Content Fields (Hidden if Full-Bleed Graphic is selected) -->
+                <div id="banner-text-fields-container" class="space-y-3">
+                    <div>
+                        <label class="font-semibold text-[#262a2d] block mb-1">Headline / Title *</label>
+                        <input id="form-banner-heading" placeholder="e.g. Midnight Cravings & Hot Maggi"
+                            oninput="updateBannerLivePreview()"
+                            class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
+                    </div>
+
+                    <div>
+                        <label class="font-semibold text-[#262a2d] block mb-1">Subtitle / Description</label>
+                        <textarea id="form-banner-subtitle" rows="2" placeholder="e.g. Cold drinks, snacks & instant noodles delivered in 3 mins."
+                            oninput="updateBannerLivePreview()"
+                            class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none"></textarea>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="font-semibold text-[#262a2d] block mb-1">Top Pill Label</label>
+                            <input id="form-banner-pill" placeholder="e.g. BH13 GROUND HUB"
+                                oninput="updateBannerLivePreview()"
+                                class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
+                        </div>
+                        <div>
+                            <label class="font-semibold text-[#262a2d] block mb-1">Highlight Badge</label>
+                            <input id="form-banner-badge" placeholder="e.g. ⚡ 3-MIN ROOM DROP"
+                                oninput="updateBannerLivePreview()"
+                                class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="font-semibold text-[#262a2d] block mb-1">Action Button Text</label>
+                            <input id="form-banner-cta-text" placeholder="e.g. Browse Snacks"
+                                oninput="updateBannerLivePreview()"
+                                class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
+                        </div>
+                        <div>
+                            <label class="font-semibold text-[#262a2d] block mb-1">Action Link URL</label>
+                            <input id="form-banner-cta-url" placeholder="e.g. #/categories or #shop-catalog-section"
+                                class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
+                        </div>
+                    </div>
+
+                    <!-- Background Gradient Theme -->
+                    <div>
+                        <label class="font-semibold text-[#262a2d] block mb-1.5">Background Style / Theme Gradient</label>
+                        <div class="grid grid-cols-3 sm:grid-cols-6 gap-2" id="banner-gradient-picker">
+                            <label class="cursor-pointer">
+                                <input type="radio" name="banner-gradient" value="emerald" checked onchange="updateBannerLivePreview()" class="hidden peer">
+                                <div class="p-2 rounded-xl border-2 peer-checked:border-emerald-600 peer-checked:ring-2 peer-checked:ring-emerald-200 text-center bg-gradient-to-br from-emerald-800 to-teal-600 text-white font-bold text-[10px]">Emerald</div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="banner-gradient" value="purple" onchange="updateBannerLivePreview()" class="hidden peer">
+                                <div class="p-2 rounded-xl border-2 peer-checked:border-purple-600 peer-checked:ring-2 peer-checked:ring-purple-200 text-center bg-gradient-to-br from-purple-900 to-purple-600 text-white font-bold text-[10px]">Purple</div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="banner-gradient" value="amber" onchange="updateBannerLivePreview()" class="hidden peer">
+                                <div class="p-2 rounded-xl border-2 peer-checked:border-amber-600 peer-checked:ring-2 peer-checked:ring-amber-200 text-center bg-gradient-to-br from-amber-800 to-amber-600 text-white font-bold text-[10px]">Amber</div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="banner-gradient" value="cyan" onchange="updateBannerLivePreview()" class="hidden peer">
+                                <div class="p-2 rounded-xl border-2 peer-checked:border-cyan-600 peer-checked:ring-2 peer-checked:ring-cyan-200 text-center bg-gradient-to-br from-cyan-900 to-cyan-600 text-white font-bold text-[10px]">Cyan</div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="banner-gradient" value="rose" onchange="updateBannerLivePreview()" class="hidden peer">
+                                <div class="p-2 rounded-xl border-2 peer-checked:border-rose-600 peer-checked:ring-2 peer-checked:ring-rose-200 text-center bg-gradient-to-br from-rose-900 to-rose-600 text-white font-bold text-[10px]">Rose</div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="banner-gradient" value="slate" onchange="updateBannerLivePreview()" class="hidden peer">
+                                <div class="p-2 rounded-xl border-2 peer-checked:border-slate-800 peer-checked:ring-2 peer-checked:ring-slate-300 text-center bg-gradient-to-br from-slate-900 to-slate-700 text-white font-bold text-[10px]">Slate Dark</div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Display Order & Active Toggle -->
+                <div class="grid grid-cols-2 gap-3 items-center pt-2 border-t border-[#DADCE0]">
+                    <div>
+                        <label class="font-semibold text-[#262a2d] block mb-1">Display Order #</label>
+                        <input id="form-banner-order" type="number" min="1" step="1" value="1"
+                            class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
+                    </div>
+                    <div class="pt-4">
+                        <label class="flex items-center gap-2 cursor-pointer font-semibold text-[#181c1f]">
+                            <input type="checkbox" id="form-banner-active" checked class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-[#DADCE0]">
+                            <span>Active in Storefront</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Modal Actions -->
+                <div class="flex items-center justify-between pt-3 border-t border-[#DADCE0]">
+                    <button type="button" id="btn-modal-delete-banner" onclick="handleModalDeleteBanner()"
+                        class="px-3 py-2 rounded-lg bg-[#ffdad6] text-[#ba1a1a] font-semibold hover:bg-[#ffdad6]/80 flex items-center gap-1 hidden">
+                        <span class="material-symbols-outlined text-[16px]">delete</span>
+                        <span>Delete Banner</span>
+                    </button>
+                    <div class="flex items-center gap-2 ml-auto">
+                        <button type="button" onclick="closeBannerModal()"
+                            class="px-4 py-2 rounded-lg border border-[#DADCE0] text-[#5c5f60] font-semibold hover:bg-[#f1f4f7]">Cancel</button>
+                        <button type="submit" id="btn-save-banner"
+                            class="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">save</span>
+                            <span>Save Banner</span>
                         </button>
                     </div>
                 </div>

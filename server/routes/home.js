@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const supabaseDb = require('../db/supabaseDb');
+const bannersDb = require('../db/bannersDb');
 const cache = require('../cache');
 
 // Time-based content mapping
@@ -142,9 +143,14 @@ router.get('/', async (req, res) => {
             }
         }
 
-        // 3. Fast shallow merge and send
+        // 3. Attach dynamic promotional banners & rotation delay settings
+        const bannersData = await bannersDb.getStorefrontBanners().catch(() => ({ banners: [], settings: { autoplay_delay: 4500, autoplay_enabled: true } }));
+
+        // 4. Fast shallow merge and send
         res.json({
             ...baseFeed,
+            banners: bannersData.banners,
+            banner_settings: bannersData.settings,
             buy_again: buyAgain,
             is_personalized_buy_again: isPersonalizedBuyAgain
         });
