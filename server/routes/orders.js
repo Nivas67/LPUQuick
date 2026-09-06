@@ -1559,7 +1559,9 @@ router.post('/:orderId/claim', requireAdmin, requireRole('delivery_person'), asy
 // POST /api/orders/:orderId/transfer/request (Initiate delivery transfer to another admin)
 router.post('/:orderId/transfer/request', requireAdmin, async (req, res) => {
     const { orderId } = req.params;
-    const { toAdminId, toAdminName, reason } = req.body;
+    const { reason } = req.body;
+    const toAdminId = req.body.toAdminId || req.body.to_admin_id;
+    const toAdminName = req.body.toAdminName || req.body.to_admin_name;
     const reqAdminId = req.admin.id;
     const reqAdminName = req.admin.name || 'Delivery Rider';
 
