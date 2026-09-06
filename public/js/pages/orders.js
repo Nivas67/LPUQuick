@@ -13,6 +13,16 @@ function formatClientRiderName(raw) {
     return raw;
 }
 
+function isOrderCancellable(status) {
+    if (!status) return false;
+    const s = String(status).toLowerCase().trim();
+    // Stop working if order is out for delivery, en route, dispatched, transit, delivered, or already cancelled
+    if (s.includes('out') || s.includes('route') || s.includes('dispatch') || s.includes('transit') || s.includes('deliver') || s.includes('cancel')) {
+        return false;
+    }
+    return true;
+}
+
 // Compute exact corridor positioning and HUD attributes for each admin order status
 function getOrderTrackingDetails(status, riderName = 'Alex', address = 'BH13') {
     const s = (status || '').toLowerCase().trim();
@@ -102,6 +112,30 @@ window.applyOrderStatusUI = function(newStatus, riderName, targetOrderId) {
     // 1. Status Badge & ETA Display
     const etaTime = document.getElementById('tracking-eta-time');
     if (etaTime) etaTime.textContent = `Status: ${newStatus}`;
+
+    // Update Cancel Option at top of the map
+    const cancelContainer = document.getElementById('tracking-cancel-container');
+    if (cancelContainer) {
+        const orderIdToCancel = targetOrderId || currentOrderId;
+        if (isOrderCancellable(newStatus)) {
+            cancelContainer.innerHTML = `
+                <button type="button" id="btn-cancel-active-order" onclick="window.promptCancelActiveOrder('${orderIdToCancel}')" class="clay-pill px-2.5 sm:px-3 py-1 flex items-center gap-1 text-xs font-black text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-all cursor-pointer active:scale-95 shadow-xs" title="Cancel this order">
+                    <span class="material-symbols-outlined text-xs text-rose-500">cancel</span>
+                    <span>Cancel</span>
+                </button>
+            `;
+        } else {
+            const reason = newStatus.toLowerCase().includes('cancel') 
+                ? 'Order is cancelled' 
+                : (newStatus.toLowerCase().includes('deliver') ? 'Order is delivered' : 'Order is out for delivery');
+            cancelContainer.innerHTML = `
+                <button type="button" id="btn-cancel-active-order" disabled class="clay-pill px-2 sm:px-2.5 py-1 flex items-center gap-1 text-[11px] font-bold text-slate-400 dark:text-slate-500 bg-slate-100/60 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/50 cursor-not-allowed opacity-60 select-none" title="Cancellation unavailable: ${reason}">
+                    <span class="material-symbols-outlined text-xs">block</span>
+                    <span>Cancel Unavailable</span>
+                </button>
+            `;
+        }
+    }
 
     // 2. Progress Bar
     const progressBar = document.getElementById('order-progress-bar');
@@ -352,6 +386,20 @@ window.pages.orders = async function() {
                         <span class="material-symbols-outlined text-xs text-emerald-500 animate-pulse">bolt</span>
                         <span id="tracking-eta-time">Status: ${activeOrder.status}</span>
                     </span>
+                    <!-- Cancel Order Option at top of the map -->
+                    <div id="tracking-cancel-container">
+                        ${isOrderCancellable(activeOrder.status) ? `
+                        <button type="button" id="btn-cancel-active-order" onclick="window.promptCancelActiveOrder('${activeOrder.id}')" class="clay-pill px-2.5 sm:px-3 py-1 flex items-center gap-1 text-xs font-black text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-all cursor-pointer active:scale-95 shadow-xs" title="Cancel this order">
+                            <span class="material-symbols-outlined text-xs text-rose-500">cancel</span>
+                            <span>Cancel</span>
+                        </button>
+                        ` : `
+                        <button type="button" id="btn-cancel-active-order" disabled class="clay-pill px-2 sm:px-2.5 py-1 flex items-center gap-1 text-[11px] font-bold text-slate-400 dark:text-slate-500 bg-slate-100/60 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/50 cursor-not-allowed opacity-60 select-none" title="Cancellation unavailable: Order is out for delivery">
+                            <span class="material-symbols-outlined text-xs">block</span>
+                            <span>Cancel Unavailable</span>
+                        </button>
+                        `}
+                    </div>
                     <button type="button" id="btn-order-help" onclick="window.openOrderHelpModal()" class="clay-pill text-xs text-slate-700 dark:text-slate-200 font-bold px-3 py-1 flex items-center gap-1.5 active:scale-95 transition-transform cursor-pointer" title="Order Help">
                         <span class="material-symbols-outlined text-sm text-emerald">support_agent</span>
                         <span>Help</span>
@@ -612,3 +660,121 @@ window.pageInits.orders = function() {
         window.__ordersTrackingTimer = trackingTimer;
     }
 };
+
+// Cancel Order Modal Handlers & Actions
+window.promptCancelActiveOrder = function(orderId) {
+    if (!orderId) orderId = window.CURRENT_ACTIVE_ORDER_ID;
+    if (!orderId) return;
+
+    if (!isOrderCancellable(window.CURRENT_ACTIVE_ORDER_STATUS)) {
+        if (typeof window.showClientToast === 'function') {
+            window.showClientToast('Cannot cancel order: Your order is already out for delivery.', 'warning', 'block');
+        } else {
+            alert('Cannot cancel order: Your order is already out for delivery.');
+        }
+        return;
+    }
+
+    const shortId = String(orderId).replace('order_', '').slice(0, 8).toUpperCase();
+    let modal = document.getElementById('cancel-order-modal');
+    if (modal) modal.remove();
+
+    modal = document.createElement('div');
+    modal.id = 'cancel-order-modal';
+    modal.onclick = function(e) {
+        if (e.target === modal) window.closeCancelOrderModal();
+    };
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150';
+    modal.innerHTML = `
+        <div class="glass-panel card-pedestal bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 max-w-sm w-full shadow-2xl space-y-4 animate-in zoom-in-95 duration-200" onclick="event.stopPropagation()">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-2xl">cancel</span>
+                </div>
+                <div>
+                    <h3 class="font-black text-base text-slate-900 dark:text-white tracking-tight">Cancel Order #${shortId}?</h3>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400">BH13 Campus Express Delivery</p>
+                </div>
+            </div>
+
+            <p class="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
+                Are you sure you want to cancel this order? It will not be prepared or delivered to your room.
+            </p>
+
+            <div class="space-y-1.5">
+                <label for="cancel-order-reason-select" class="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Reason (Optional)</label>
+                <select id="cancel-order-reason-select" class="w-full text-xs font-bold p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500/50">
+                    <option value="Changed mind">Changed mind</option>
+                    <option value="Placed order by mistake">Placed order by mistake</option>
+                    <option value="Taking too long">Taking too long</option>
+                    <option value="Need to change hostel room / items">Need to change hostel room / items</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+
+            <div class="flex items-center gap-2 pt-2">
+                <button type="button" onclick="window.closeCancelOrderModal()" class="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+                    Keep Order
+                </button>
+                <button type="button" id="btn-confirm-cancel-order" onclick="window.executeCancelActiveOrder('${orderId}')" class="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-1 cursor-pointer">
+                    <span>Yes, Cancel</span>
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+};
+
+window.closeCancelOrderModal = function() {
+    const modal = document.getElementById('cancel-order-modal');
+    if (modal) modal.remove();
+};
+
+window.executeCancelActiveOrder = async function(orderId) {
+    const confirmBtn = document.getElementById('btn-confirm-cancel-order');
+    const reasonSelect = document.getElementById('cancel-order-reason-select');
+    const reason = reasonSelect ? reasonSelect.value : 'User requested cancellation';
+
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = `<span class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span> <span>Cancelling...</span>`;
+    }
+
+    try {
+        const res = await window.api.cancelOrder(orderId, reason);
+        window.closeCancelOrderModal();
+
+        if (res && res.success) {
+            if (typeof window.showClientToast === 'function') {
+                window.showClientToast('Order cancelled successfully', 'info', 'cancel');
+            }
+            window.applyOrderStatusUI('Cancelled', 'Alex', orderId);
+            setTimeout(() => {
+                if (typeof window.renderPage === 'function' && window.location.hash.includes('orders')) {
+                    window.renderPage();
+                }
+            }, 1200);
+        } else {
+            const errMsg = res?.error || 'Failed to cancel order';
+            if (typeof window.showClientToast === 'function') {
+                window.showClientToast(errMsg, 'warning', 'error');
+            } else {
+                alert(errMsg);
+            }
+            // If error indicates out for delivery, update UI to disabled state
+            if (errMsg.toLowerCase().includes('out for delivery') || errMsg.toLowerCase().includes('delivered')) {
+                window.applyOrderStatusUI(errMsg.includes('delivered') ? 'Delivered' : 'Out for Delivery', 'Alex', orderId);
+            }
+        }
+    } catch (err) {
+        console.error('[Cancel Order Error]:', err);
+        window.closeCancelOrderModal();
+        if (typeof window.showClientToast === 'function') {
+            window.showClientToast('Error: ' + err.message, 'warning', 'error');
+        } else {
+            alert('Error: ' + err.message);
+        }
+    }
+};
+

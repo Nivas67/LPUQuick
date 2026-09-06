@@ -1843,12 +1843,41 @@ router.post('/:orderId/cancel', async (req, res) => {
     const { reason } = req.body;
 
     try {
+        const order = await supabaseDb.orders.getOrderById(orderId);
+        if (!order) {
+            return res.status(404).json({ success: false, error: 'Order not found' });
+        }
+
+        const currentStatus = (order.status || '').toLowerCase().trim();
+
+        // Cancellation is strictly disallowed once the order is Out for Delivery or later
+        if (currentStatus.includes('out') || currentStatus.includes('route') || currentStatus.includes('dispatch') || currentStatus.includes('transit')) {
+            return res.status(400).json({
+                success: false,
+                error: 'Cannot cancel order: Your order is already out for delivery.'
+            });
+        }
+
+        if (currentStatus.includes('deliver')) {
+            return res.status(400).json({
+                success: false,
+                error: 'Cannot cancel order: Your order has already been delivered.'
+            });
+        }
+
+        if (currentStatus.includes('cancel')) {
+            return res.status(400).json({
+                success: false,
+                error: 'This order is already cancelled.'
+            });
+        }
+
         const updated = await supabaseDb.orders.updateStatus(orderId, 'Cancelled');
         cache.invalidateOrders();
         broadcastStatusUpdate(orderId, 'Cancelled');
         res.json({ success: true, message: 'Order cancelled successfully', reason: reason || 'User requested cancellation' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 
