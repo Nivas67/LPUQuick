@@ -1560,16 +1560,28 @@ router.post('/:orderId/claim', requireAdmin, requireRole('delivery_person'), asy
 router.post('/:orderId/transfer/request', requireAdmin, async (req, res) => {
     const { orderId } = req.params;
     const { toAdminId, toAdminName, reason } = req.body;
-    const fromAdminId = req.admin.id;
-    const fromAdminName = req.admin.name || 'Delivery Rider';
+    const reqAdminId = req.admin.id;
+    const reqAdminName = req.admin.name || 'Delivery Rider';
 
     if (!toAdminId) {
         return res.status(400).json({ success: false, error: 'Recipient admin is required' });
     }
 
-    if (toAdminId === fromAdminId) {
-        return res.status(400).json({ success: false, error: 'Cannot transfer an order to yourself' });
+    const order = await supabaseDb.orders.getOrderById(orderId);
+    if (!order) {
+        return res.status(404).json({ success: false, error: 'Order not found' });
     }
+
+    const currentMeta = supabaseDb.orders.parseDeliveryMeta(order.rider_name);
+    const currentlyAssignedId = currentMeta.assigned_to;
+
+    // Prevent transferring to the runner who already holds the order
+    if (currentlyAssignedId && toAdminId === currentlyAssignedId) {
+        return res.status(400).json({ success: false, error: 'Order is already assigned to this delivery partner' });
+    }
+
+    const adminRoles = req.admin.roles || [];
+    const isOwnerOrStoreMgr = adminRoles.includes('owner') || adminRoles.includes('store_manager') || Boolean(req.admin.is_owner) || req.admin.id === 'user_admin_bh13';
 
     try {
         const toUser = await supabaseDb.users.getUserById(toAdminId);
@@ -1582,17 +1594,55 @@ router.post('/:orderId/transfer/request', requireAdmin, async (req, res) => {
         }
     } catch (e) {}
 
-    if (!isRiderOnline(fromAdminId)) {
-        return res.status(400).json({
-            success: false,
-            error: 'You cannot transfer deliveries while OFFLINE. Switch your duty status to ON DUTY first.'
-        });
-    }
-
     if (!isRiderOnline(toAdminId)) {
         return res.status(400).json({
             success: false,
             error: `Cannot transfer delivery to ${toAdminName || 'selected partner'}: Delivery partner is currently OFFLINE and cannot receive orders.`
+        });
+    }
+
+    // Direct assignment if owner/store manager OR if taking over an order to oneself
+    if (isOwnerOrStoreMgr || toAdminId === reqAdminId) {
+        try {
+            const updated = await supabaseDb.orders.directAssign(
+                orderId,
+                toAdminId,
+                toAdminName || reqAdminName,
+                reqAdminName
+            );
+            cache.invalidateOrders();
+
+            broadcastOrderClaimed({
+                orderId,
+                adminId: toAdminId,
+                adminName: toAdminName || reqAdminName,
+                claimedAt: updated.delivery_assignment?.claimed_at || new Date().toISOString()
+            });
+
+            if (updated.status) {
+                broadcastStatusUpdate(orderId, updated.status);
+            }
+
+            pushService.notifyOrderClaimed(orderId, toAdminName || reqAdminName).catch(() => {});
+
+            return res.json({
+                success: true,
+                message: `Order successfully assigned to ${toAdminName || reqAdminName}`,
+                order: updated
+            });
+        } catch (err) {
+            return res.status(500).json({ success: false, error: err.message });
+        }
+    }
+
+    // Standard peer-to-peer transfer request from one runner to another
+    const fromAdminId = currentlyAssignedId || reqAdminId;
+    const fromAdminName = currentMeta.assigned_to_name || reqAdminName;
+
+    if (!isRiderOnline(fromAdminId)) {
+        return res.status(400).json({
+            success: false,
+            error: 'You cannot transfer deliveries while OFFLINE. Switch your duty status to ON DUTY first.'
         });
     }
 

@@ -1775,7 +1775,7 @@ async function claimOrder(orderId) {
     }
 }
 
-async function loadDeliveryStaffForTransfer() {
+async function loadDeliveryStaffForTransfer(order = null) {
     const select = document.getElementById('transfer-target-admin');
     if (!select) return;
     select.innerHTML = '<option value="">Loading available staff...</option>';
@@ -1786,23 +1786,31 @@ async function loadDeliveryStaffForTransfer() {
         });
         const data = await res.json();
         if (res.ok && data.staff) {
-            const availableStaff = data.staff.filter(s => s.id !== currentAdminProfile?.id);
+            const currentAssignedId = order?.delivery_assignment?.assigned_to || null;
+            const currentAssignedName = (order?.delivery_assignment?.assigned_to_name || order?.rider_name || '').trim().toLowerCase();
+
+            // Include all delivery staff so the logged-in admin can always see and select themselves.
+            // Only the currently assigned runner for this specific order is marked disabled.
+            const availableStaff = data.staff;
             if (availableStaff.length === 0) {
-                select.innerHTML = '<option value="">No other delivery admins available</option>';
+                select.innerHTML = '<option value="">No delivery staff found</option>';
                 return;
             }
-            const onlineStaff = availableStaff.filter(s => s.availability_status !== 'Offline' && s.is_available !== false);
+
             let optionsHtml = '';
-            if (onlineStaff.length === 0) {
-                optionsHtml += '<option value="" disabled selected>⚠️ All delivery partners are currently OFFLINE</option>';
-            }
+            let hasSelectableOnline = false;
+
             optionsHtml += availableStaff.map(s => {
                 const isOffline = s.availability_status === 'Offline' || s.is_available === false;
-                const statusBadge = isOffline ? ' [OFFLINE - Cannot receive transfers]' : '';
-                const loadBadge = isOffline ? '' : (s.active_deliveries > 0 ? ` (${s.active_deliveries} active orders)` : ' (Available)');
+                const isCurrentlyAssigned = Boolean(
+                    (currentAssignedId && s.id === currentAssignedId) ||
+                    (currentAssignedName && s.name && s.name.trim().toLowerCase() === currentAssignedName && currentAssignedName !== 'unassigned')
+                );
+
                 const isOwnerRole = s.is_owner || (Array.isArray(s.roles) && s.roles.includes('owner'));
                 const isRiderRole = Array.isArray(s.roles) && s.roles.includes('delivery_person');
                 const isStoreMgrRole = Array.isArray(s.roles) && s.roles.includes('store_manager');
+
                 let roleBadge = ' [Delivery Partner]';
                 if (isOwnerRole) {
                     roleBadge = ' [Owner & Delivery]';
@@ -1811,10 +1819,37 @@ async function loadDeliveryStaffForTransfer() {
                 } else if (isStoreMgrRole) {
                     roleBadge = ' [Store Mgr]';
                 }
-                const disabledAttr = isOffline ? ' disabled class="text-slate-400 bg-slate-100"' : '';
-                return `<option value="${s.id}" data-name="${s.name}"${disabledAttr}>${s.name}${roleBadge}${statusBadge}${loadBadge}</option>`;
+
+                const isMe = (currentAdminProfile?.id && s.id === currentAdminProfile.id) ? ' (You)' : '';
+
+                let statusBadge = '';
+                let isDisabled = false;
+
+                if (isCurrentlyAssigned) {
+                    statusBadge = ' [Currently Assigned - Cannot transfer to current runner]';
+                    isDisabled = true;
+                } else if (isOffline) {
+                    statusBadge = ' [OFFLINE - Cannot receive transfers]';
+                    isDisabled = true;
+                } else {
+                    hasSelectableOnline = true;
+                }
+
+                const loadBadge = (isOffline || isCurrentlyAssigned) ? '' : (s.active_deliveries > 0 ? ` (${s.active_deliveries} active orders)` : ' (Available)');
+                const disabledAttr = isDisabled ? ' disabled class="text-slate-400 bg-slate-100"' : '';
+
+                return `<option value="${s.id}" data-name="${s.name}"${disabledAttr}>${s.name}${roleBadge}${isMe}${statusBadge}${loadBadge}</option>`;
             }).join('');
+
+            if (!hasSelectableOnline) {
+                optionsHtml = '<option value="" disabled selected>⚠️ All other delivery partners are currently OFFLINE</option>' + optionsHtml;
+            }
+
             select.innerHTML = optionsHtml;
+
+            // Auto-select the first non-disabled option
+            const firstEnabled = select.querySelector('option:not([disabled])');
+            if (firstEnabled) firstEnabled.selected = true;
         } else {
             select.innerHTML = '<option value="">Failed to load staff list</option>';
         }
@@ -1837,7 +1872,7 @@ function openTransferModal(orderId) {
     const errorDiv = document.getElementById('transfer-form-error');
     if (errorDiv) errorDiv.classList.add('hidden');
 
-    loadDeliveryStaffForTransfer();
+    loadDeliveryStaffForTransfer(order);
     document.getElementById('modal-transfer-order').classList.remove('hidden');
 }
 
@@ -1886,7 +1921,9 @@ async function submitOrderTransfer(e) {
         });
         const data = await res.json();
         if (res.ok && data.success) {
-            showToast(`Transfer request sent to ${toAdminName}!`, 'success');
+            const isMe = toAdminId === currentAdminProfile?.id;
+            const successMsg = isMe ? 'Order successfully assigned to you!' : (data.message || `Transfer request sent to ${toAdminName}!`);
+            showToast(successMsg, 'success');
             closeTransferModal();
             const idx = ordersCache.findIndex(o => o.id === orderId);
             if (idx >= 0 && data.order) {
