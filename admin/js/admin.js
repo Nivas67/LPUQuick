@@ -555,7 +555,7 @@ function switchView(viewName) {
             'client-lock': ['owner', 'store_manager'],
             'products': ['owner', 'store_manager', 'inventory_manager'],
             'inventory': ['owner', 'store_manager', 'inventory_manager'],
-            'advertisements': ['owner', 'store_manager'],
+            'advertisements': ['owner', 'store_manager', 'inventory_manager', 'delivery_person', 'admin', 'staff', 'viewer'],
             'orders': ['owner', 'store_manager', 'delivery_person'],
             'customers': ['owner', 'store_manager'],
             'blacklist': ['owner', 'store_manager'],
@@ -573,6 +573,17 @@ function switchView(viewName) {
                 return;
             }
         }
+    }
+
+    // Auto-close mobile drawer on navigation
+    if (window.innerWidth < 768) {
+        const aside = document.getElementById('admin-sidebar') || document.querySelector('aside');
+        const backdrop = document.getElementById('sidebar-backdrop');
+        if (aside && !aside.classList.contains('hidden')) {
+            aside.classList.add('hidden');
+            aside.classList.remove('fixed', 'inset-y-0', 'left-0', 'z-50', 'w-64', 'shadow-2xl');
+        }
+        if (backdrop) backdrop.classList.add('hidden');
     }
 
     activeView = viewName;
@@ -598,9 +609,13 @@ function switchView(viewName) {
         'staff': 'Admin Team & Access Levels',
         'settings': 'Store Settings'
     };
+
     document.getElementById('top-title').textContent = titles[viewName] || 'Dashboard';
 
-    if (viewName === 'dashboard') loadDashboard();
+    if (viewName === 'dashboard') {
+        loadDashboard();
+        if (typeof updateDashboardBannersWidget === 'function') updateDashboardBannersWidget();
+    }
     else if (viewName === 'client-lock') loadClientLockState();
     else if (viewName === 'products') loadProducts();
     else if (viewName === 'inventory') loadInventory();
@@ -734,6 +749,7 @@ async function loadDashboard() {
         // Load and sync store lock state
         loadClientLockState();
         checkFinancialStatus();
+        if (typeof updateDashboardBannersWidget === 'function') updateDashboardBannersWidget();
 
         // Cache & Render Recent Orders (preserve if network had temporary hiccup)
         if (ordersData.orders && Array.isArray(ordersData.orders) && ordersData.orders.length > 0) {
@@ -4928,17 +4944,169 @@ let currentBannerFilter = 'all';
 
 // Toggle mobile menu drawer
 function toggleMobileMenu() {
-    const aside = document.querySelector('aside');
+    const aside = document.getElementById('admin-sidebar') || document.querySelector('aside');
+    const backdrop = document.getElementById('sidebar-backdrop');
     if (!aside) return;
-    if (aside.classList.contains('hidden')) {
+
+    const isHidden = aside.classList.contains('hidden');
+    if (isHidden) {
         aside.classList.remove('hidden');
-        aside.classList.add('fixed', 'inset-y-0', 'left-0', 'z-50', 'w-64');
+        aside.classList.add('fixed', 'inset-y-0', 'left-0', 'z-50', 'w-64', 'shadow-2xl');
+        if (backdrop) backdrop.classList.remove('hidden');
     } else {
         aside.classList.add('hidden');
-        aside.classList.remove('fixed', 'inset-y-0', 'left-0', 'z-50', 'w-64');
+        aside.classList.remove('fixed', 'inset-y-0', 'left-0', 'z-50', 'w-64', 'shadow-2xl');
+        if (backdrop) backdrop.classList.add('hidden');
     }
 }
 window.toggleMobileMenu = toggleMobileMenu;
+
+async function updateDashboardBannersWidget() {
+    try {
+        let banners = adminBannersList;
+        let settings = adminBannerSettings;
+
+        // If not loaded yet, fetch from API
+        if (!banners || banners.length === 0) {
+            const res = await fetchWithTimeout('/api/banners/admin', {
+                headers: getAuthHeaders()
+            }, 5000);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.success) {
+                    adminBannersList = data.banners || [];
+                    adminBannerSettings = data.settings || { autoplay_delay: 4500, autoplay_enabled: true };
+                    banners = adminBannersList;
+                    settings = adminBannerSettings;
+                }
+            }
+        }
+
+        const activeBanners = (banners || []).filter(b => b.is_active !== false);
+        const activeCount = activeBanners.length;
+        const delaySec = ((settings?.autoplay_delay || 4500) / 1000);
+
+        // Update KPI Card
+        const kpiCountEl = document.getElementById('dash-active-banners-count');
+        const kpiSpeedBadge = document.getElementById('dash-banner-speed-badge');
+        if (kpiCountEl) kpiCountEl.textContent = activeCount;
+        if (kpiSpeedBadge) kpiSpeedBadge.textContent = `${delaySec}s delay`;
+
+        // Update Widget counts & delay
+        const dashPostersCount = document.getElementById('dash-posters-count');
+        const dashDelayDisplay = document.getElementById('dash-delay-display');
+        const navBadge = document.getElementById('nav-banners-badge');
+
+        if (dashPostersCount) dashPostersCount.textContent = activeCount;
+        if (dashDelayDisplay) dashDelayDisplay.textContent = `${delaySec} seconds`;
+        if (navBadge) navBadge.textContent = activeCount;
+
+        // Highlight active preset button on dashboard widget
+        document.querySelectorAll('.dash-preset-btn').forEach(btn => {
+            const preset = parseFloat(btn.dataset.dashPreset);
+            if (Math.abs(preset - delaySec) < 0.1) {
+                btn.classList.add('border-emerald-500', 'bg-emerald-50', 'text-emerald-800', 'font-bold');
+                btn.classList.remove('border-[#DADCE0]', 'font-semibold');
+            } else {
+                btn.classList.remove('border-emerald-500', 'bg-emerald-50', 'text-emerald-800', 'font-bold');
+                btn.classList.add('border-[#DADCE0]', 'font-semibold');
+            }
+        });
+
+        // Render preview strip on dashboard
+        const stripContainer = document.getElementById('dash-banners-preview-strip');
+        if (stripContainer) {
+            if (!banners || banners.length === 0) {
+                stripContainer.innerHTML = `
+                    <div class="col-span-full p-4 text-center bg-white/70 rounded-xl border border-dashed border-slate-300">
+                        <p class="text-xs text-slate-500 mb-2">No promotional banners active. Add posters to show on storefront!</p>
+                        <button onclick="openBannerModal()" class="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold cursor-pointer">+ Add First Poster</button>
+                    </div>
+                `;
+                return;
+            }
+
+            stripContainer.innerHTML = banners.slice(0, 4).map((b, idx) => {
+                const isActive = b.is_active !== false;
+                const hasImage = Boolean(b.image_url);
+                const bgGradient = b.background_gradient || 'from-emerald-600 to-teal-700';
+
+                return `
+                    <div class="bg-white rounded-xl border border-[#DADCE0] overflow-hidden shadow-2xs hover:shadow-sm transition-all group flex flex-col justify-between">
+                        <div class="relative h-28 overflow-hidden ${hasImage ? 'bg-slate-100' : 'bg-gradient-to-r ' + bgGradient + ' p-3 flex flex-col justify-between text-white'}">
+                            ${hasImage ? `
+                                <img src="${escapeHtml(b.image_url)}" alt="${escapeHtml(b.title || 'Banner')}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80';">
+                            ` : `
+                                <div>
+                                    <span class="text-[9px] font-black uppercase tracking-wider bg-black/20 px-2 py-0.5 rounded-full">${escapeHtml(b.tag || 'PROMO')}</span>
+                                    <h4 class="font-black text-xs leading-tight mt-1 text-white line-clamp-2">${escapeHtml(b.title || 'Untitled Banner')}</h4>
+                                </div>
+                                <p class="text-[10px] font-medium text-white/90 line-clamp-1">${escapeHtml(b.subtitle || '')}</p>
+                            `}
+                            <div class="absolute top-2 right-2">
+                                <span class="text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs ${isActive ? 'bg-emerald-600 text-white' : 'bg-slate-500 text-white'}">
+                                    ${isActive ? 'Active' : 'Draft'}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="p-2.5 bg-white flex items-center justify-between gap-1 border-t border-slate-100">
+                            <div class="min-w-0 flex-1">
+                                <p class="text-xs font-bold text-[#181c1f] truncate">${escapeHtml(b.title || 'Banner #' + (idx + 1))}</p>
+                                <p class="text-[10px] text-slate-500 truncate">${escapeHtml(b.tag || (b.badge_text || 'Storefront Poster'))}</p>
+                            </div>
+                            <button onclick="editBanner('${escapeHtml(b.id)}')" title="Edit Poster" class="p-1.5 rounded-lg border border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 text-slate-600 transition-all cursor-pointer">
+                                <span class="material-symbols-outlined text-sm">edit</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    } catch (err) {
+        console.warn('[Dashboard Banners Widget Error]:', err);
+    }
+}
+window.updateDashboardBannersWidget = updateDashboardBannersWidget;
+
+async function quickSetDelay(sec) {
+    try {
+        const ms = Math.round(sec * 1000);
+        showToast(`Updating carousel rotation speed to ${sec}s...`, 'info');
+
+        const res = await fetchWithTimeout('/api/banners/admin/settings', {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                autoplay_delay: ms,
+                autoplay_enabled: true
+            })
+        }, 5000);
+
+        const data = await res.json();
+        if (data.success) {
+            adminBannerSettings = data.settings;
+            showToast(`✓ Carousel speed updated to ${sec} seconds per poster!`, 'success');
+
+            const delayDisplay = document.getElementById('dash-delay-display');
+            if (delayDisplay) delayDisplay.textContent = `${sec} seconds`;
+            const kpiBadge = document.getElementById('dash-banner-speed-badge');
+            if (kpiBadge) kpiBadge.textContent = `${sec}s delay`;
+
+            const studioSlider = document.getElementById('banner-delay-slider');
+            const studioDisplay = document.getElementById('banner-delay-display');
+            if (studioSlider) studioSlider.value = sec;
+            if (studioDisplay) studioDisplay.textContent = `${sec} seconds`;
+
+            highlightActivePresetButton(sec);
+            updateDashboardBannersWidget();
+        } else {
+            showToast(data.error || 'Failed to update delay', 'warning');
+        }
+    } catch (err) {
+        showToast('Error updating delay: ' + err.message, 'warning');
+    }
+}
+window.quickSetDelay = quickSetDelay;
 
 async function loadBannersAdmin() {
     try {
@@ -4974,6 +5142,7 @@ async function loadBannersAdmin() {
 
             highlightActivePresetButton(currentDelaySec);
             renderBannersGrid();
+            updateDashboardBannersWidget();
         }
     } catch (err) {
         console.error('[Load Banners Admin Error]:', err);
@@ -5043,6 +5212,7 @@ async function saveBannerSettings() {
         if (data.success) {
             adminBannerSettings = data.settings;
             showToast(`✓ Carousel speed saved: ${delaySec}s rotation interval`, 'success');
+            updateDashboardBannersWidget();
         } else {
             showToast(data.error || 'Failed to update settings', 'warning');
         }
