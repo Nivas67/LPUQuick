@@ -33,6 +33,67 @@ window.pages.rider_earnings = function () {
         </header>
 
         <main class="max-w-md mx-auto px-4 py-4 space-y-4">
+            <!-- 1. Top KPI Cards Row -->
+            <div class="grid grid-cols-2 gap-3">
+                <!-- KPI Card 1: Today's Earnings -->
+                <div class="bg-white rounded-3xl p-4 border border-[#E2E8F0] shadow-sm flex flex-col justify-between">
+                    <div>
+                        <span class="text-[10px] font-bold text-[#64748b] uppercase tracking-wider">Today's Earnings</span>
+                        <div id="client-kpi-today-earnings" class="text-2xl font-black text-[#0066cc] mt-1">₹0.00</div>
+                    </div>
+                    <div class="pt-2 border-t border-slate-100 mt-2 flex items-center justify-between">
+                        <span class="text-[9px] text-[#64748b]">Daily Revenue</span>
+                        <span class="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">₹3/Ord</span>
+                    </div>
+                </div>
+
+                <!-- KPI Card 2: Completed Deliveries Today -->
+                <div class="bg-white rounded-3xl p-4 border border-[#E2E8F0] shadow-sm flex flex-col justify-between">
+                    <div>
+                        <span class="text-[10px] font-bold text-[#64748b] uppercase tracking-wider">Completed Today</span>
+                        <div id="client-kpi-today-completed" class="text-2xl font-black text-[#181c1f] mt-1">0</div>
+                    </div>
+                    <div class="pt-2 border-t border-slate-100 mt-2 flex items-center justify-between">
+                        <span id="client-kpi-today-breakdown" class="text-[9px] text-[#64748b] truncate">0 Pending • 0 Cancelled</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active / Offline Status Toggle Card -->
+            <div class="bg-white rounded-2xl p-3 border border-[#E2E8F0] shadow-sm flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span id="client-status-dot" class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span id="client-status-text" class="text-xs font-black text-[#181c1f]">Active (Accepting Orders)</span>
+                </div>
+                <button type="button" id="client-status-toggle-btn" onclick="window.toggleClientDutyStatus()" class="px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-all cursor-pointer">
+                    <span id="client-status-toggle-label">Switch to Offline</span>
+                </button>
+            </div>
+
+            <!-- 2. Monthly Snapshot Card -->
+            <div class="bg-gradient-to-r from-[#0066cc] to-[#004c99] text-white rounded-3xl p-4 shadow-md space-y-2 relative overflow-hidden">
+                <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-black uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full">Monthly Snapshot</span>
+                    <span id="client-snapshot-month-name" class="text-xs font-bold text-blue-100">September 2026</span>
+                </div>
+                <p class="text-[10px] text-blue-100">Formula: <strong class="text-white">Monthly Revenue = Completed Deliveries × ₹3</strong></p>
+
+                <div class="grid grid-cols-3 gap-2 bg-white/10 backdrop-blur-xs p-2.5 rounded-2xl border border-white/20 text-center pt-2">
+                    <div>
+                        <div class="text-[9px] text-blue-100 uppercase">Month Orders</div>
+                        <div id="client-snapshot-deliveries" class="text-lg font-black text-white mt-0.5">0</div>
+                    </div>
+                    <div class="border-x border-white/20 px-1">
+                        <div class="text-[9px] text-blue-100 uppercase">Accumulated Payout</div>
+                        <div id="client-snapshot-payout" class="text-lg font-black text-emerald-300 mt-0.5">₹0.00</div>
+                    </div>
+                    <div>
+                        <div class="text-[9px] text-blue-100 uppercase">Avg / Day</div>
+                        <div id="client-snapshot-avg" class="text-lg font-black text-white mt-0.5">0.0</div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Period Toggle Pills (WEEKLY / MONTHLY) (Screenshot 1) -->
             <div class="grid grid-cols-2 p-1 bg-[#EDF2F7] rounded-2xl border border-[#E2E8F0] text-center text-xs font-black shadow-inner">
                 <button type="button" id="client-tab-weekly" onclick="window.setClientEarningsPeriod('weekly')" class="py-2.5 rounded-xl bg-white text-[#0066cc] shadow-xs tracking-wider transition-all cursor-pointer">
@@ -139,6 +200,21 @@ window.pages.rider_earnings = function () {
                         <p class="font-bold text-xs">Incentive not available yet, or still loading...</p>
                         <p class="text-[10px] text-[#718096] mt-0.5 font-medium">Deliver 20+ orders in a single calendar day to unlock ₹20 daily incentive.</p>
                     </div>
+                </div>
+            </div>
+
+            <!-- 4. Recent Payout Ledger (Itemized Dates & Credited Wages) -->
+            <div class="bg-white rounded-3xl p-4 border border-[#E2E8F0] shadow-md space-y-3">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="font-black text-sm text-[#181c1f]">Recent Payout Ledger</h3>
+                        <p class="text-[10px] text-[#64748b]">Itemized dates showing completed runs & payout credited</p>
+                    </div>
+                    <span class="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-300">₹3/Ord</span>
+                </div>
+
+                <div id="client-ledger-container" class="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    <div class="p-4 text-center text-slate-400 text-xs font-bold">Loading ledger...</div>
                 </div>
             </div>
 
@@ -284,7 +360,46 @@ window.fetchClientDeliveryEarnings = async function () {
 
         state.data = data;
 
-        // Update range badge & big totals
+        // 1. Update Top KPI Cards
+        const kpiTodayEarnings = document.getElementById('client-kpi-today-earnings');
+        if (kpiTodayEarnings) {
+            kpiTodayEarnings.textContent = `₹${(data.today_stats?.today_earnings || 0).toFixed(2)}`;
+        }
+
+        const kpiTodayCompleted = document.getElementById('client-kpi-today-completed');
+        if (kpiTodayCompleted) {
+            kpiTodayCompleted.textContent = String(data.today_stats?.completed_today || 0);
+        }
+
+        const kpiTodayBreakdown = document.getElementById('client-kpi-today-breakdown');
+        if (kpiTodayBreakdown) {
+            const p = data.today_stats?.pending_today || 0;
+            const c = data.today_stats?.cancelled_today || 0;
+            kpiTodayBreakdown.textContent = `${p} Pending • ${c} Cancelled`;
+        }
+
+        // 2. Update Monthly Snapshot Card
+        const snapshotMonthName = document.getElementById('client-snapshot-month-name');
+        if (snapshotMonthName) {
+            snapshotMonthName.textContent = data.monthly_stats?.month_name || 'September 2026';
+        }
+
+        const snapshotDeliveries = document.getElementById('client-snapshot-deliveries');
+        if (snapshotDeliveries) {
+            snapshotDeliveries.textContent = String(data.monthly_stats?.completed_month || 0);
+        }
+
+        const snapshotPayout = document.getElementById('client-snapshot-payout');
+        if (snapshotPayout) {
+            snapshotPayout.textContent = `₹${(data.monthly_stats?.monthly_payout || 0).toFixed(2)}`;
+        }
+
+        const snapshotAvg = document.getElementById('client-snapshot-avg');
+        if (snapshotAvg) {
+            snapshotAvg.textContent = `${data.monthly_stats?.avg_deliveries_per_day || 0}`;
+        }
+
+        // 3. Update Period Range Badge & Big Totals
         const rangeBadge = document.getElementById('client-earnings-range-badge');
         if (rangeBadge) rangeBadge.textContent = data.range_label || 'Current Period';
 
@@ -309,11 +424,101 @@ window.fetchClientDeliveryEarnings = async function () {
         // Render Bar Chart
         window.renderClientBarChart(data.days || []);
 
+        // Render Recent Payout Ledger
+        window.renderClientLedger(data.recent_ledger || []);
+
         // Render Orders List
         window.renderClientOrdersList(data.all_orders || [], state.selectedDay);
 
     } catch (err) {
         console.error('[Client Earnings Error]:', err);
+    }
+};
+
+window.renderClientLedger = function (ledger) {
+    const container = document.getElementById('client-ledger-container');
+    if (!container) return;
+
+    if (!Array.isArray(ledger) || ledger.length === 0) {
+        container.innerHTML = '<div class="p-4 text-center text-slate-400 text-xs font-bold">No payout ledger records found.</div>';
+        return;
+    }
+
+    let html = '';
+    ledger.forEach(entry => {
+        const isToday = entry.is_today;
+        const rowBg = isToday ? 'bg-blue-50/70 border-blue-200' : 'bg-[#F8FAFC] border-[#E2E8F0]';
+        const tag = isToday ? '<span class="text-[9px] bg-[#0066cc] text-white px-1.5 py-0.5 rounded font-black ml-1">TODAY</span>' : '';
+
+        html += `
+        <div class="p-3 ${rowBg} rounded-2xl border flex items-center justify-between gap-3 cursor-pointer hover:bg-blue-50/50 transition-colors" onclick="window.filterClientOrdersByDate('${entry.date}')" title="Click to view orders for ${entry.display_date}">
+            <div>
+                <div class="font-bold text-xs text-[#181c1f] flex items-center">
+                    <span>${entry.display_date}</span>
+                    ${tag}
+                </div>
+                <div class="text-[10px] text-[#64748b] mt-0.5">
+                    ${entry.pending_deliveries > 0 ? `<span class="text-amber-600 font-semibold">${entry.pending_deliveries} Pending</span> • ` : ''}
+                    ${entry.cancelled_deliveries > 0 ? `<span class="text-rose-600 font-semibold">${entry.cancelled_deliveries} Cancelled</span>` : '0 Cancelled'}
+                </div>
+            </div>
+            <div class="text-right">
+                <div class="text-xs font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
+                    +₹${(entry.amount_credited || 0).toFixed(2)}
+                </div>
+                <div class="text-[10px] text-[#64748b] mt-1 font-bold">${entry.completed_deliveries} Runs • Credited</div>
+            </div>
+        </div>
+        `;
+    });
+
+    container.innerHTML = html;
+};
+
+window.filterClientOrdersByDate = function (dateStr) {
+    const state = window.__riderEarningsState;
+    if (state.selectedDay === dateStr) {
+        state.selectedDay = null;
+    } else {
+        state.selectedDay = dateStr;
+    }
+    if (state.data) {
+        window.renderClientOrdersList(state.data.all_orders || [], state.selectedDay);
+    }
+};
+
+window.toggleClientDutyStatus = function () {
+    const state = window.__riderEarningsState;
+    state.isOnDuty = !state.isOnDuty;
+
+    const dot = document.getElementById('client-status-dot');
+    const txt = document.getElementById('client-status-text');
+    const btn = document.getElementById('client-status-toggle-btn');
+    const label = document.getElementById('client-status-toggle-label');
+
+    const drawerBtn = document.getElementById('client-duty-toggle-btn');
+    const drawerTxt = document.getElementById('client-duty-toggle-text');
+
+    if (state.isOnDuty) {
+        if (dot) dot.className = 'w-3 h-3 rounded-full bg-emerald-500 animate-pulse';
+        if (txt) txt.textContent = 'Active (Accepting Orders)';
+        if (btn) btn.className = 'px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-all cursor-pointer';
+        if (label) label.textContent = 'Switch to Offline';
+
+        if (drawerBtn) drawerBtn.className = 'w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer';
+        if (drawerTxt) drawerTxt.textContent = 'ON DUTY (Active)';
+
+        if (window.showToast) window.showToast('🟢 Partner duty status: ACTIVE (Receiving Orders)', 'success');
+    } else {
+        if (dot) dot.className = 'w-3 h-3 rounded-full bg-slate-400';
+        if (txt) txt.textContent = 'Offline (On Break)';
+        if (btn) btn.className = 'px-3 py-1 rounded-xl bg-slate-600 hover:bg-slate-700 text-white font-bold text-xs shadow-xs transition-all cursor-pointer';
+        if (label) label.textContent = 'Switch to Active';
+
+        if (drawerBtn) drawerBtn.className = 'w-full py-2 px-3 rounded-xl bg-slate-600 hover:bg-slate-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer';
+        if (drawerTxt) drawerTxt.textContent = 'OFF DUTY (Paused)';
+
+        if (window.showToast) window.showToast('⚪ Partner duty status: OFFLINE (Shift Paused)', 'info');
     }
 };
 

@@ -6047,8 +6047,11 @@ let earningsSelectedRider = 'all';
 let currentEarningsData = null;
 let selectedDayFilter = null;
 let partnerIsOnDuty = true;
+let partnerDashboardSubTab = 'partner';
+let fleetCustomStartDate = null;
+let fleetCustomEndDate = null;
 
-async function loadDeliveryEarnings() {
+async function loadDeliveryEarnings(customStart, customEnd) {
     try {
         const queryParams = new URLSearchParams({
             period: earningsPeriod,
@@ -6057,6 +6060,14 @@ async function loadDeliveryEarnings() {
             riderId: earningsSelectedRider,
             _t: Date.now()
         });
+
+        if (customStart && customEnd) {
+            queryParams.set('startDate', customStart);
+            queryParams.set('endDate', customEnd);
+        } else if (fleetCustomStartDate && fleetCustomEndDate) {
+            queryParams.set('startDate', fleetCustomStartDate);
+            queryParams.set('endDate', fleetCustomEndDate);
+        }
 
         const res = await fetchWithTimeout(`/api/orders/delivery-earnings?${queryParams.toString()}`, {
             headers: getAuthHeaders()
@@ -6093,20 +6104,58 @@ async function loadDeliveryEarnings() {
             drawerEmp.textContent = `${data.store_info.employee_id} (${riderName})`;
         }
 
-        // Update Period Buttons Active State
+        // 1. Partner Dashboard: Top KPI Cards
+        const kpiEarnings = document.getElementById('partner-kpi-today-earnings');
+        if (kpiEarnings) {
+            kpiEarnings.textContent = `₹${(data.today_stats?.today_earnings || 0).toFixed(2)}`;
+        }
+
+        const kpiCompleted = document.getElementById('partner-kpi-today-completed');
+        if (kpiCompleted) {
+            kpiCompleted.textContent = String(data.today_stats?.completed_today || 0);
+        }
+
+        const kpiBreakdown = document.getElementById('partner-kpi-today-breakdown');
+        if (kpiBreakdown) {
+            const pCount = data.today_stats?.pending_today || 0;
+            const cCount = data.today_stats?.cancelled_today || 0;
+            kpiBreakdown.textContent = `${pCount} Pending • ${cCount} Cancelled`;
+        }
+
+        // 2. Partner Dashboard: Monthly Snapshot Card
+        const snapshotMonthName = document.getElementById('partner-snapshot-month-name');
+        if (snapshotMonthName) {
+            snapshotMonthName.textContent = data.monthly_stats?.month_name || 'September 2026';
+        }
+
+        const snapshotDeliveries = document.getElementById('partner-snapshot-deliveries');
+        if (snapshotDeliveries) {
+            snapshotDeliveries.textContent = String(data.monthly_stats?.completed_month || 0);
+        }
+
+        const snapshotPayout = document.getElementById('partner-snapshot-payout');
+        if (snapshotPayout) {
+            snapshotPayout.textContent = `₹${(data.monthly_stats?.monthly_payout || 0).toFixed(2)}`;
+        }
+
+        const snapshotAvg = document.getElementById('partner-snapshot-avg');
+        if (snapshotAvg) {
+            snapshotAvg.textContent = `${data.monthly_stats?.avg_deliveries_per_day || 0} / day`;
+        }
+
+        // 3. Visual Chart & Period Indicators
         const weeklyBtn = document.getElementById('tab-earnings-weekly');
         const monthlyBtn = document.getElementById('tab-earnings-monthly');
         if (weeklyBtn && monthlyBtn) {
             if (earningsPeriod === 'weekly') {
-                weeklyBtn.className = 'py-2.5 rounded-xl bg-white text-[#0066cc] shadow-xs transition-all tracking-wider cursor-pointer font-black';
-                monthlyBtn.className = 'py-2.5 rounded-xl text-[#5c5f60] hover:text-[#181c1f] transition-all tracking-wider cursor-pointer font-bold';
+                weeklyBtn.className = 'px-3 py-1.5 rounded-xl bg-white text-[#0066cc] shadow-xs transition-all tracking-wider cursor-pointer font-black';
+                monthlyBtn.className = 'px-3 py-1.5 rounded-xl text-[#5c5f60] hover:text-[#181c1f] transition-all tracking-wider cursor-pointer font-bold';
             } else {
-                monthlyBtn.className = 'py-2.5 rounded-xl bg-white text-[#0066cc] shadow-xs transition-all tracking-wider cursor-pointer font-black';
-                weeklyBtn.className = 'py-2.5 rounded-xl text-[#5c5f60] hover:text-[#181c1f] transition-all tracking-wider cursor-pointer font-bold';
+                monthlyBtn.className = 'px-3 py-1.5 rounded-xl bg-white text-[#0066cc] shadow-xs transition-all tracking-wider cursor-pointer font-black';
+                weeklyBtn.className = 'px-3 py-1.5 rounded-xl text-[#5c5f60] hover:text-[#181c1f] transition-all tracking-wider cursor-pointer font-bold';
             }
         }
 
-        // Update Range Badge & Totals (Screenshot 1)
         const rangeBadge = document.getElementById('earnings-range-badge');
         if (rangeBadge) rangeBadge.textContent = data.range_label || 'Current Period';
 
@@ -6119,10 +6168,6 @@ async function loadDeliveryEarnings() {
         const incentivesEl = document.getElementById('earnings-incentives');
         if (incentivesEl) incentivesEl.textContent = `₹${(data.incentives || 0)}`;
 
-        const cardPayoutAmount = document.getElementById('card-payout-amount');
-        if (cardPayoutAmount) cardPayoutAmount.textContent = `₹${(data.order_payout || 0).toFixed(2)}`;
-
-        // Summary Cards stats
         const statTotal = document.getElementById('stat-total-orders');
         if (statTotal) statTotal.textContent = data.total_orders || 0;
 
@@ -6132,9 +6177,33 @@ async function loadDeliveryEarnings() {
         const statMulti = document.getElementById('stat-multi-runs');
         if (statMulti) statMulti.textContent = data.multi_runs || 0;
 
-        // Render Bar Chart & Orders List
+        // Render Bar Chart, Recent Ledger & Orders List
         renderEarningsBarChart(data.days || [], data.period);
+        renderPartnerLedger(data.recent_ledger || []);
         renderEarningsOrders(data.all_orders || [], selectedDayFilter);
+
+        // 4. Admin Fleet Overview: Platform Aggregated Metrics & Overview Table
+        const fleetDailyPayout = document.getElementById('fleet-metric-daily-payout');
+        if (fleetDailyPayout) {
+            fleetDailyPayout.textContent = `₹${(data.platform_metrics?.total_daily_payout || 0).toFixed(2)}`;
+        }
+
+        const fleetMonthlyExpense = document.getElementById('fleet-metric-monthly-expense');
+        if (fleetMonthlyExpense) {
+            fleetMonthlyExpense.textContent = `₹${(data.platform_metrics?.total_monthly_expense || 0).toFixed(2)}`;
+        }
+
+        const fleetTotalFleet = document.getElementById('fleet-metric-total-fleet');
+        if (fleetTotalFleet) {
+            fleetTotalFleet.textContent = `${data.platform_metrics?.total_active_fleet || 0} Partners`;
+        }
+
+        const fleetTotalOrders = document.getElementById('fleet-metric-total-orders');
+        if (fleetTotalOrders) {
+            fleetTotalOrders.textContent = `${data.platform_metrics?.total_completed_all_time || 0} Orders`;
+        }
+
+        renderFleetPartnersTable(data.partners_summary || []);
 
     } catch (err) {
         console.error('[Delivery Earnings Error]:', err);
@@ -6291,6 +6360,264 @@ function renderEarningsOrders(orders, dateFilter) {
     });
 
     listEl.innerHTML = html;
+}
+
+// Sub-Tab Switcher between Partner Dashboard and Fleet Overview
+function setPartnerDashboardSubTab(subTab) {
+    partnerDashboardSubTab = subTab;
+    const partnerView = document.getElementById('earnings-subview-partner');
+    const fleetView = document.getElementById('earnings-subview-fleet');
+    const partnerBtn = document.getElementById('subtab-partner-btn');
+    const fleetBtn = document.getElementById('subtab-fleet-btn');
+
+    if (subTab === 'partner') {
+        if (partnerView) partnerView.classList.remove('hidden');
+        if (fleetView) fleetView.classList.add('hidden');
+        if (partnerBtn) partnerBtn.className = 'px-4 py-2 rounded-xl bg-white text-[#0066cc] font-black text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer';
+        if (fleetBtn) fleetBtn.className = 'px-4 py-2 rounded-xl text-[#5c5f60] hover:text-[#181c1f] font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer';
+    } else {
+        if (fleetView) fleetView.classList.remove('hidden');
+        if (partnerView) partnerView.classList.add('hidden');
+        if (fleetBtn) fleetBtn.className = 'px-4 py-2 rounded-xl bg-white text-[#0066cc] font-black text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer';
+        if (partnerBtn) partnerBtn.className = 'px-4 py-2 rounded-xl text-[#5c5f60] hover:text-[#181c1f] font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer';
+    }
+}
+
+// Render Itemized Recent Payout Ledger in Partner Dashboard
+function renderPartnerLedger(ledger) {
+    const tbody = document.getElementById('partner-ledger-tbody');
+    if (!tbody) return;
+
+    if (!Array.isArray(ledger) || ledger.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="3" class="py-6 text-center text-[#5c5f60]">
+                    <span class="material-symbols-outlined text-2xl text-slate-400">receipt_long</span>
+                    <p class="text-xs font-bold mt-1">No ledger entries recorded yet.</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    let html = '';
+    ledger.forEach(entry => {
+        const isSelected = selectedDayFilter === entry.date;
+        const rowBg = isSelected ? 'bg-blue-50/70 font-bold' : (entry.is_today ? 'bg-blue-50/30' : 'hover:bg-[#F8FAFD]');
+        const tag = entry.is_today ? '<span class="text-[9px] bg-[#0066cc] text-white px-1.5 py-0.5 rounded font-black ml-1">TODAY</span>' : '';
+        const statusBadge = entry.completed_deliveries > 0
+            ? '<span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded-full border border-emerald-300">Credited</span>'
+            : '<span class="text-[10px] bg-slate-100 text-slate-600 font-bold px-1.5 py-0.5 rounded-full">Settled</span>';
+
+        html += `
+            <tr class="${rowBg} cursor-pointer transition-colors" onclick="toggleEarningsDayFilter('${entry.date}')" title="Click to view orders for ${escapeHtml(entry.display_date)}">
+                <td class="py-2.5 pr-2">
+                    <div class="font-bold text-xs text-[#181c1f] flex items-center">
+                        <span>${escapeHtml(entry.display_date)}</span>
+                        ${tag}
+                    </div>
+                    <div class="text-[10px] text-[#5c5f60] mt-0.5">
+                        ${entry.pending_deliveries > 0 ? `<span class="text-amber-600 font-semibold">${entry.pending_deliveries} Pending</span> • ` : ''}
+                        ${entry.cancelled_deliveries > 0 ? `<span class="text-rose-600 font-semibold">${entry.cancelled_deliveries} Cancelled</span>` : '0 Cancelled'}
+                    </div>
+                </td>
+                <td class="py-2.5 text-center">
+                    <span class="font-black text-xs text-[#181c1f]">${entry.completed_deliveries}</span>
+                    <span class="text-[10px] text-[#5c5f60] block font-medium">runs</span>
+                </td>
+                <td class="py-2.5 text-right pl-2">
+                    <div class="text-xs font-black text-emerald-700">+₹${(entry.amount_credited || 0).toFixed(2)}</div>
+                    <div class="mt-0.5">${statusBadge}</div>
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
+
+// Render Admin Fleet Overview Table
+function renderFleetPartnersTable(partners) {
+    const tbody = document.getElementById('fleet-partners-tbody');
+    if (!tbody) return;
+
+    if (!Array.isArray(partners) || partners.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="p-8 text-center text-[#5c5f60]">
+                    <span class="material-symbols-outlined text-3xl text-slate-400">group_off</span>
+                    <p class="text-xs font-bold mt-1">No delivery partners found in fleet roster.</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    let html = '';
+    partners.forEach(p => {
+        const isOnline = p.availability_status === 'Active';
+        const statusPill = isOnline
+            ? '<span class="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-300"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>Active</span>'
+            : '<span class="inline-flex items-center gap-1 text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>Offline</span>';
+
+        html += `
+            <tr class="hover:bg-[#f9fafb] transition-colors">
+                <td class="p-4 font-mono font-bold text-xs text-[#181c1f]">#${escapeHtml(String(p.partner_id).slice(-8))}</td>
+                <td class="p-4">
+                    <div class="font-bold text-xs text-[#181c1f]">${escapeHtml(p.partner_name || 'Delivery Partner')}</div>
+                    <div class="text-[10px] text-[#5c5f60] font-medium">${escapeHtml(p.phone || 'N/A')}</div>
+                </td>
+                <td class="p-4">${statusPill}</td>
+                <td class="p-4 text-center font-black text-xs text-[#181c1f]">${p.today_deliveries || 0}</td>
+                <td class="p-4 text-center font-black text-xs text-emerald-700 bg-emerald-50/50">₹${(p.today_wage || 0).toFixed(2)}</td>
+                <td class="p-4 text-center font-black text-xs text-[#181c1f]">${p.monthly_deliveries || 0}</td>
+                <td class="p-4 text-center font-black text-xs text-[#0066cc] bg-blue-50/50">₹${(p.monthly_payout || 0).toFixed(2)}</td>
+                <td class="p-4 text-right">
+                    <button type="button" onclick="inspectPartnerFromFleet('${escapeHtml(p.partner_id)}')" class="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#0066cc] font-bold text-xs border border-blue-200 transition-colors cursor-pointer" title="View Partner Dashboard">
+                        Inspect
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
+
+function inspectPartnerFromFleet(partnerId) {
+    const riderSelect = document.getElementById('earnings-rider-select');
+    if (riderSelect) riderSelect.value = partnerId;
+    earningsSelectedRider = partnerId;
+    setPartnerDashboardSubTab('partner');
+    loadDeliveryEarnings();
+}
+
+// Partner Duty Toggle in Dashboard
+function togglePartnerDutyStatus() {
+    partnerIsOnDuty = !partnerIsOnDuty;
+    const dot = document.getElementById('partner-status-dot');
+    const txt = document.getElementById('partner-status-text');
+    const btnLabel = document.getElementById('partner-duty-btn-label');
+    const btn = document.getElementById('partner-duty-toggle-btn');
+
+    if (partnerIsOnDuty) {
+        if (dot) dot.className = 'w-3 h-3 rounded-full bg-emerald-500 animate-pulse';
+        if (txt) txt.textContent = 'Active';
+        if (btnLabel) btnLabel.textContent = 'Switch to Offline';
+        if (btn) btn.className = 'w-full py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer';
+        showToast('🟢 Delivery Partner status set to ACTIVE (Online & Taking Deliveries)', 'success');
+    } else {
+        if (dot) dot.className = 'w-3 h-3 rounded-full bg-slate-400';
+        if (txt) txt.textContent = 'Offline';
+        if (btnLabel) btnLabel.textContent = 'Switch to Active';
+        if (btn) btn.className = 'w-full py-1.5 px-3 rounded-xl bg-slate-600 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer';
+        showToast('⚪ Delivery Partner status set to OFFLINE (Shift Paused)', 'info');
+    }
+}
+
+// Fleet Preset & Custom Date Filtering
+function setFleetPresetFilter(preset) {
+    document.querySelectorAll('.fleet-preset-btn').forEach(btn => {
+        btn.className = 'fleet-preset-btn px-3 py-1.5 rounded-xl border border-[#DADCE0] bg-[#F8FAFD] hover:bg-white text-[#181c1f] font-bold transition-all cursor-pointer';
+    });
+
+    fleetCustomStartDate = null;
+    fleetCustomEndDate = null;
+
+    if (preset === 'today') {
+        switchEarningsPeriod('daily');
+    } else if (preset === 'month') {
+        switchEarningsPeriod('monthly');
+    } else {
+        switchEarningsPeriod('weekly');
+    }
+
+    if (event && event.currentTarget) {
+        event.currentTarget.className = 'fleet-preset-btn px-3 py-1.5 rounded-xl border border-[#0066cc] bg-[#0066cc] text-white font-bold transition-all cursor-pointer';
+    }
+}
+
+function applyFleetCustomDateRange() {
+    const startInput = document.getElementById('fleet-start-date');
+    const endInput = document.getElementById('fleet-end-date');
+    if (!startInput || !endInput || !startInput.value || !endInput.value) {
+        showToast('Please select both start date and end date', 'warning');
+        return;
+    }
+    fleetCustomStartDate = startInput.value;
+    fleetCustomEndDate = endInput.value;
+    loadDeliveryEarnings(fleetCustomStartDate, fleetCustomEndDate);
+}
+
+// CSV/Excel Export for Delivery Partner Payouts
+function exportPartnerPayoutCSV() {
+    if (!currentEarningsData) {
+        showToast('No delivery earnings data loaded to export', 'error');
+        return;
+    }
+
+    const partners = currentEarningsData.partners_summary || [];
+    const ledger = currentEarningsData.recent_ledger || [];
+    const now = new Date();
+    const timestampStr = now.toISOString().slice(0, 10);
+
+    let csv = '\uFEFF'; // UTF-8 BOM for Microsoft Excel
+    csv += 'LPUQuick - Delivery Fleet Partner Payout Sheet\n';
+    csv += `Generated On,${now.toLocaleString('en-IN')}\n`;
+    csv += `Fixed Rate Per Delivered Order,INR 3.00\n`;
+    csv += `Total Daily Payout Platform-Wide,INR ${(currentEarningsData.platform_metrics?.total_daily_payout || 0).toFixed(2)}\n`;
+    csv += `Total Monthly Partner Expense,INR ${(currentEarningsData.platform_metrics?.total_monthly_expense || 0).toFixed(2)}\n\n`;
+
+    csv += 'SECTION 1: PARTNER PERFORMANCE & WAGE ROSTER\n';
+    csv += 'Partner ID,Partner Name,Phone,Availability Status,Today Deliveries,Today Wage (INR),Month Deliveries,Month Payout (INR),Total Deliveries\n';
+
+    if (partners.length === 0) {
+        csv += 'No registered partners found\n';
+    } else {
+        partners.forEach(p => {
+            const row = [
+                `"${p.partner_id || ''}"`,
+                `"${(p.partner_name || '').replace(/"/g, '""')}"`,
+                `"${p.phone || 'N/A'}"`,
+                `"${p.availability_status || 'Active'}"`,
+                p.today_deliveries || 0,
+                (p.today_wage || 0).toFixed(2),
+                p.monthly_deliveries || 0,
+                (p.monthly_payout || 0).toFixed(2),
+                p.total_completed || 0
+            ];
+            csv += row.join(',') + '\n';
+        });
+    }
+
+    csv += '\nSECTION 2: ITEMIZED RECENT PAYOUT LEDGER\n';
+    csv += 'Date,Day,Completed Deliveries,Pending Deliveries,Cancelled Deliveries,Rate (INR),Amount Credited (INR),Settlement Status\n';
+
+    ledger.forEach(l => {
+        const row = [
+            `"${l.date}"`,
+            `"${(l.display_date || '').replace(/"/g, '""')}"`,
+            l.completed_deliveries || 0,
+            l.pending_deliveries || 0,
+            l.cancelled_deliveries || 0,
+            '3.00',
+            (l.amount_credited || 0).toFixed(2),
+            `"${l.settlement_status || 'Credited'}"`
+        ];
+        csv += row.join(',') + '\n';
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `LPUQuick_Delivery_Payout_Sheet_${timestampStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    showToast('📥 Delivery partner payout sheet exported to CSV successfully!', 'success');
 }
 
 // Partner Drawer Slide-over Controls (Screenshot 2)
