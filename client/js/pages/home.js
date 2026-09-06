@@ -963,11 +963,11 @@ window.pages.home = async function() {
              MODERN VERTICAL CATEGORY RAIL & PRODUCT BROWSING SECTION
              ============================================================ -->
         <section class="pt-1 space-y-3" id="shop-catalog-section">
-            <div class="flex items-stretch gap-2 sm:gap-4 lg:gap-6 pt-1 relative" id="shop-catalog-split-row">
-                <!-- Unified Modern Left Vertical Category Rail (Full-Height Column extending until end of products) -->
-                <aside class="w-[72px] sm:w-20 md:w-24 shrink-0 self-stretch min-h-full flex flex-col relative" id="category-rail-container">
+            <div class="flex items-start gap-2 sm:gap-4 lg:gap-6 pt-1 relative" id="shop-catalog-split-row">
+                <!-- Unified Modern Left Vertical Category Rail (Cut at content end without stretching into empty space) -->
+                <aside class="w-[72px] sm:w-20 md:w-24 shrink-0 self-start h-fit flex flex-col relative" id="category-rail-container">
                     <!-- Category Items (Rendered in full line with ZERO scroll container) -->
-                    <nav class="vertical-category-rail py-1 space-y-1 w-full flex-1 flex flex-col relative z-10" id="vertical-category-rail">
+                    <nav class="vertical-category-rail py-1 space-y-1 w-full h-fit flex flex-col relative z-10" id="vertical-category-rail">
                         ${STORE_CATEGORIES.map(c => `
                         <button type="button" 
                                 class="category-rail-item category-sidebar-item category-mobile-pill ${c.id === 'all' ? 'active' : ''}" 
@@ -1021,8 +1021,8 @@ window.pages.home = async function() {
                             </button>
                         </div>
 
-                        <!-- Terminal Anchor at the bottom of the line (End of Product List) -->
-                        <div class="mt-auto pt-6 pb-2 flex flex-col items-center justify-center w-full select-none" id="rail-bottom-terminal">
+                        <!-- Terminal Anchor at the bottom of the line (End of Categories) -->
+                        <div class="pt-2 pb-1 flex flex-col items-center justify-center w-full select-none" id="rail-bottom-terminal">
                             <button type="button" 
                                     class="w-10 h-10 rounded-full clay-pill flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 hover:text-emerald hover:border-emerald-500/40 transition-transform active:scale-90 cursor-pointer shadow-xs" 
                                     id="rail-back-to-top-btn" 
