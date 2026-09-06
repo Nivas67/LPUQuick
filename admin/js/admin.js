@@ -3774,6 +3774,8 @@ function initRealtimeWebSocket() {
                     showToast(`User ${data.userId} blocked (${data.reason})`, 'warning');
                     if (activeView === 'customers') loadCustomers();
                     if (activeView === 'blacklist') loadBlacklistData();
+                } else if (data.type === 'ADVERTISEMENTS_UPDATED') {
+                    handleRealtimeAdvertisementsUpdated(data);
                 } else if (data.type === 'CONNECTED') {
                     console.log('[Admin WS] Server confirmed connection:', data.message);
                 }
@@ -5258,6 +5260,8 @@ function toggleAdminCarouselAutoplay() {
     }
 }
 
+let adminDelaySaveTimer = null;
+
 function handleAdminDelaySlider(val) {
     const sec = Math.max(1.0, Math.min(12.0, Number(val)));
     adminCarouselDelay = Math.round(sec * 1000);
@@ -5272,6 +5276,12 @@ function handleAdminDelaySlider(val) {
     if (adminCarouselAutoplay && !isCarouselHovered) {
         startAdminCarouselAutoSlide();
     }
+
+    // Auto-save quietly after 700ms so changes sync in real-time even without clicking save
+    clearTimeout(adminDelaySaveTimer);
+    adminDelaySaveTimer = setTimeout(() => {
+        saveAdminCarouselSettingsQuietly();
+    }, 700);
 }
 
 function setAdminDelayPreset(sec) {
@@ -5280,7 +5290,28 @@ function setAdminDelayPreset(sec) {
     handleAdminDelaySlider(sec);
 }
 
+async function saveAdminCarouselSettingsQuietly() {
+    try {
+        const payload = {
+            autoplay_delay: adminCarouselDelay,
+            autoplay_enabled: adminCarouselAutoplay
+        };
+        localStorage.setItem('lpuquick_admin_carousel_settings', JSON.stringify(payload));
+        notifyLocalAdsUpdated();
+
+        await fetch('/api/admin/advertisements/settings', {
+            method: 'POST',
+            headers: {
+                ...getAuthHeaders(),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+    } catch (e) {}
+}
+
 async function saveAdminCarouselSettings() {
+    clearTimeout(adminDelaySaveTimer);
     try {
         const payload = {
             autoplay_delay: adminCarouselDelay,
@@ -5288,6 +5319,7 @@ async function saveAdminCarouselSettings() {
         };
 
         localStorage.setItem('lpuquick_admin_carousel_settings', JSON.stringify(payload));
+        notifyLocalAdsUpdated();
 
         try {
             await fetch('/api/admin/advertisements/settings', {
@@ -5537,6 +5569,36 @@ function clearPosterImage() {
     if (fileInput) fileInput.value = '';
 }
 
+function initPosterDropzone() {
+    const box = document.getElementById('poster-img-preview-box');
+    if (!box || box.dataset.dropzoneAttached) return;
+    box.dataset.dropzoneAttached = 'true';
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        box.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            box.classList.add('border-emerald-500', 'bg-emerald-50/40');
+        }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        box.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            box.classList.remove('border-emerald-500', 'bg-emerald-50/40');
+        }, false);
+    });
+
+    box.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt?.files;
+        if (files && files.length > 0) {
+            handlePosterFileSelect({ target: { files: [files[0]] } });
+        }
+    }, false);
+}
+
 function openPosterModal(posterId = null) {
     editingPosterId = posterId;
     const modal = document.getElementById('poster-modal');
@@ -5544,6 +5606,13 @@ function openPosterModal(posterId = null) {
     const delBtn = document.getElementById('btn-modal-delete-poster');
 
     clearPosterImage();
+    initPosterDropzone();
+
+    if (modal) {
+        modal.onclick = (e) => {
+            if (e.target === modal) closePosterModal();
+        };
+    }
 
     if (posterId) {
         const poster = adminPosters.find(p => p.id === posterId);
@@ -5593,7 +5662,7 @@ function closePosterModal() {
 async function handlePosterSubmit(e) {
     e.preventDefault();
     const id = document.getElementById('form-poster-id').value.trim();
-    const title = document.getElementById('form-poster-title').value.trim();
+    let title = document.getElementById('form-poster-title').value.trim();
     const pill = document.getElementById('form-poster-pill').value.trim();
     const badge = document.getElementById('form-poster-badge').value.trim();
     const subtitle = document.getElementById('form-poster-subtitle').value.trim();
@@ -5604,8 +5673,11 @@ async function handlePosterSubmit(e) {
     const image_url = document.getElementById('form-poster-image-url').value.trim();
 
     if (!title && !image_url) {
-        showToast('Please provide a poster title or upload an image', 'warning');
+        showToast('Please provide a poster image or title', 'warning');
         return;
+    }
+    if (!title && image_url) {
+        title = 'Campus Promotion';
     }
 
     const payload = {
@@ -5662,6 +5734,7 @@ async function handlePosterSubmit(e) {
 
         adminPosters.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
         localStorage.setItem('lpuquick_admin_posters', JSON.stringify(adminPosters));
+        notifyLocalAdsUpdated();
 
         closePosterModal();
         renderAdminCarouselSlides();
@@ -5704,6 +5777,7 @@ async function quickDeletePoster(id) {
 
         adminPosters = adminPosters.filter(p => p.id !== id);
         localStorage.setItem('lpuquick_admin_posters', JSON.stringify(adminPosters));
+        notifyLocalAdsUpdated();
 
         renderAdminCarouselSlides();
         renderAdminPostersGrid();
@@ -5728,6 +5802,7 @@ async function togglePosterActive(id) {
 
     poster.is_active = poster.is_active === false ? true : false;
     localStorage.setItem('lpuquick_admin_posters', JSON.stringify(adminPosters));
+    notifyLocalAdsUpdated();
 
     try {
         await fetch('/api/admin/advertisements', {
@@ -5745,7 +5820,7 @@ async function togglePosterActive(id) {
     updateAdminCarouselView();
     startAdminCarouselAutoSlide();
 
-    showToast(`Poster ${poster.is_active ? 'activated' : 'paused'}`, 'info');
+    showToast(`Poster ${poster.is_active ? 'activated' : 'paused'} in carousel`, 'info');
 }
 
 async function movePosterOrder(id, delta) {
@@ -5763,22 +5838,120 @@ async function movePosterOrder(id, delta) {
     // Re-index display_order
     adminPosters.forEach((p, i) => { p.display_order = i + 1; });
     localStorage.setItem('lpuquick_admin_posters', JSON.stringify(adminPosters));
+    notifyLocalAdsUpdated();
 
     renderAdminCarouselSlides();
     renderAdminPostersGrid();
     updateAdminCarouselView();
 
-    // Sync to server in background
+    // Fast atomic reorder endpoint
     try {
-        await Promise.allSettled(adminPosters.map(p => fetch('/api/admin/advertisements', {
+        await fetch('/api/admin/advertisements/reorder', {
             method: 'POST',
             headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-            body: JSON.stringify(p)
-        })));
+            body: JSON.stringify({ ordered_ids: adminPosters.map(p => p.id) })
+        });
     } catch (e) {}
 
     showToast('Poster order updated', 'info');
 }
+
+// ================= REAL-TIME SYNCHRONIZATION HANDLERS =================
+function handleRealtimeAdvertisementsUpdated(data) {
+    try {
+        let changed = false;
+        if (Array.isArray(data.posters)) {
+            adminPosters = data.posters;
+            adminPosters.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+            localStorage.setItem('lpuquick_admin_posters', JSON.stringify(adminPosters));
+            changed = true;
+        }
+
+        if (data.settings) {
+            if (data.settings.autoplay_delay) {
+                adminCarouselDelay = Math.max(1000, Number(data.settings.autoplay_delay));
+            }
+            if (data.settings.autoplay_enabled !== undefined) {
+                adminCarouselAutoplay = Boolean(data.settings.autoplay_enabled);
+            }
+            localStorage.setItem('lpuquick_admin_carousel_settings', JSON.stringify(data.settings));
+            changed = true;
+        }
+
+        if (changed) {
+            const slider = document.getElementById('admin-carousel-delay-slider');
+            const delayBadge = document.getElementById('admin-delay-display-badge');
+            const speedPill = document.getElementById('admin-carousel-speed-pill');
+            const delaySec = (adminCarouselDelay / 1000).toFixed(1);
+
+            if (slider && document.activeElement !== slider) slider.value = delaySec;
+            if (delayBadge) delayBadge.textContent = `${delaySec} seconds`;
+            if (speedPill) speedPill.textContent = `⚡ ${delaySec}s delay`;
+
+            const playPauseIcon = document.getElementById('admin-carousel-playpause-icon');
+            if (playPauseIcon) {
+                playPauseIcon.textContent = adminCarouselAutoplay ? 'pause' : 'play_arrow';
+            }
+
+            const navBadge = document.getElementById('nav-ads-badge');
+            const countBadge = document.getElementById('admin-posters-count-badge');
+            const activeCount = adminPosters.filter(p => p.is_active !== false).length;
+            if (navBadge) navBadge.textContent = String(adminPosters.length);
+            if (countBadge) countBadge.textContent = `${adminPosters.length} poster${adminPosters.length === 1 ? '' : 's'} (${activeCount} active)`;
+
+            renderAdminCarouselSlides();
+            renderAdminPostersGrid();
+            updateAdminCarouselView();
+            startAdminCarouselAutoSlide();
+
+            if (activeView === 'advertisements') {
+                showToast('⚡ Live promotional banner sync received', 'info');
+            }
+        }
+    } catch (err) {
+        console.error('[Advertisements Realtime] Error handling update:', err);
+    }
+}
+
+// Multi-Tab Real-time Broadcast Channel
+let adsBroadcastChannel = null;
+try {
+    if (typeof BroadcastChannel !== 'undefined') {
+        adsBroadcastChannel = new BroadcastChannel('lpuquick_ads_sync');
+        adsBroadcastChannel.onmessage = (event) => {
+            if (event.data && event.data.type === 'ADVERTISEMENTS_UPDATED') {
+                handleRealtimeAdvertisementsUpdated(event.data);
+            }
+        };
+    }
+} catch (e) {}
+
+function notifyLocalAdsUpdated() {
+    try {
+        adsBroadcastChannel?.postMessage({
+            type: 'ADVERTISEMENTS_UPDATED',
+            posters: adminPosters,
+            settings: {
+                autoplay_delay: adminCarouselDelay,
+                autoplay_enabled: adminCarouselAutoplay
+            }
+        });
+    } catch (e) {}
+}
+
+// Cross-tab storage event listener
+window.addEventListener('storage', (e) => {
+    if (e.key === 'lpuquick_admin_posters' || e.key === 'lpuquick_admin_carousel_settings') {
+        try {
+            const cachedPosters = localStorage.getItem('lpuquick_admin_posters');
+            const cachedSettings = localStorage.getItem('lpuquick_admin_carousel_settings');
+            handleRealtimeAdvertisementsUpdated({
+                posters: cachedPosters ? JSON.parse(cachedPosters) : undefined,
+                settings: cachedSettings ? JSON.parse(cachedSettings) : undefined
+            });
+        } catch (err) {}
+    }
+});
 
 
 

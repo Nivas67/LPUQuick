@@ -5,7 +5,7 @@ const path = require('path');
 const supabaseDb = require('../db/supabaseDb');
 const requireAdmin = require('../middleware/adminAuth');
 const { requireRole } = require('../middleware/adminAuth');
-const { broadcastClientLockUpdate, broadcastUserBlocked, broadcastUserUnblocked } = require('../realtime');
+const { broadcastClientLockUpdate, broadcastUserBlocked, broadcastUserUnblocked, broadcastAdvertisementsUpdate } = require('../realtime');
 const cache = require('../cache');
 
 // All routes in this file require Administrator Authorization
@@ -623,11 +623,55 @@ router.post('/advertisements', requireRole('owner,store_manager'), (req, res) =>
         data.banners.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
 
         saveAdminBannersData(data);
+        try { broadcastAdvertisementsUpdate(data.banners, data.settings); } catch (e) {}
 
         res.json({
             success: true,
             message: 'Advertisement poster saved successfully',
-            posters: data.banners
+            posters: data.banners,
+            settings: data.settings
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// POST /api/admin/advertisements/reorder - Fast batch reorder of posters
+router.post('/advertisements/reorder', requireRole('owner,store_manager'), (req, res) => {
+    try {
+        const { ordered_ids } = req.body;
+        if (!Array.isArray(ordered_ids)) {
+            return res.status(400).json({ success: false, error: 'ordered_ids array required' });
+        }
+
+        const data = loadAdminBannersData();
+        const map = new Map(data.banners.map(b => [b.id, b]));
+
+        const reordered = [];
+        ordered_ids.forEach((id, index) => {
+            if (map.has(id)) {
+                const item = map.get(id);
+                item.display_order = index + 1;
+                reordered.push(item);
+                map.delete(id);
+            }
+        });
+
+        // Append any not explicitly listed
+        for (const remaining of map.values()) {
+            remaining.display_order = reordered.length + 1;
+            reordered.push(remaining);
+        }
+
+        data.banners = reordered;
+        saveAdminBannersData(data);
+        try { broadcastAdvertisementsUpdate(data.banners, data.settings); } catch (e) {}
+
+        res.json({
+            success: true,
+            message: 'Posters reordered successfully',
+            posters: data.banners,
+            settings: data.settings
         });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -647,10 +691,13 @@ router.delete('/advertisements/:id', requireRole('owner,store_manager'), (req, r
         }
 
         saveAdminBannersData(data);
+        try { broadcastAdvertisementsUpdate(data.banners, data.settings); } catch (e) {}
+
         res.json({
             success: true,
             message: 'Advertisement poster removed successfully',
-            posters: data.banners
+            posters: data.banners,
+            settings: data.settings
         });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -673,6 +720,8 @@ router.post('/advertisements/settings', requireRole('owner,store_manager'), (req
         }
 
         saveAdminBannersData(data);
+        try { broadcastAdvertisementsUpdate(data.banners, data.settings); } catch (e) {}
+
         res.json({
             success: true,
             message: 'Carousel sliding settings updated',

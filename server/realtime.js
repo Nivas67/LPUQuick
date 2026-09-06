@@ -495,6 +495,21 @@ function broadcastOrderEdited(orderId, updatedOrder, editData) {
     chunkedBroadcast(clientSockets, payload);
 }
 
+// Broadcast promotional advertisements & carousel updates to all admins & clients
+function broadcastAdvertisementsUpdate(posters, settings) {
+    const payload = JSON.stringify({
+        type: 'ADVERTISEMENTS_UPDATED',
+        posters: posters || [],
+        settings: settings || { autoplay_delay: 4500, autoplay_enabled: true },
+        timestamp: new Date().toISOString()
+    });
+
+    // Broadcast to connected admin consoles
+    chunkedBroadcast(adminSockets, payload);
+    // Broadcast to connected client storefronts
+    chunkedBroadcast(clientSockets, payload);
+}
+
 module.exports = {
     setupRealtime,
     broadcastOrderPlaced: notifyAdminNewOrder,
@@ -506,7 +521,8 @@ module.exports = {
     broadcastOrderClaimed,
     broadcastTransferRequested,
     broadcastTransferResolved,
-    broadcastOrderEdited
+    broadcastOrderEdited,
+    broadcastAdvertisementsUpdate
 };
 
 

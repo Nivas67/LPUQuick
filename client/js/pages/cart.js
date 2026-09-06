@@ -20,11 +20,11 @@ window.pages.cart = async function() {
     const subtotal = items.reduce((sum, item) => sum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
     const mrpDiscount = Math.max(0, totalMrp - subtotal);
     
-    // Minimum Order Value (₹35) & Handling Fee (₹5 for every order)
+    // Minimum Order Value (₹35) & Handling Fee (₹3 for every order)
     const MIN_ORDER_VALUE = 35;
     const isMinOrderMet = subtotal >= MIN_ORDER_VALUE;
     const minOrderShortfall = Math.max(0, MIN_ORDER_VALUE - subtotal);
-    const handlingFee = items.length > 0 ? 5 : 0;
+    const handlingFee = items.length > 0 ? 3 : 0;
 
     // 5% Campus Bulk Offer for orders above ₹350
     const hasDiscount = subtotal >= 350;

@@ -115,7 +115,7 @@ async function handlePlaceOrder(req, res) {
             });
         }
 
-        const handlingFee = 5;
+        const handlingFee = 3;
         const discount5 = subtotal >= 350 ? Math.round(subtotal * 0.05) : 0;
         const total = Math.max(0, subtotal - discount5 + handlingFee);
 

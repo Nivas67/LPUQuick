@@ -1,1 +1,19 @@
-[]
+[
+  {
+    "endpoint": "https://fcm.googleapis.com/fcm/send/d-sMKWrco38:APA91bEbAGBvMSJa5-Lq0lMuV_UJOYVbl-I5TJcIipyNgNOR5ChGm9b90jQiLmSXlphAuq-8q-XZMJFyQcvYgA4U2JidaGz87yjLFel3ThYaJmBH_715dCKZnRbPPtGJBNgIWUc04DZS",
+    "keys": {
+      "p256dh": "BNuux-udjl62yeyVUvZOKlgjHa3oUvR7Nwhxb8c8FmAngmY1oF0ei9lXU86Hh32xzJeSkaaWSsmEvLJ4kAVA1KY",
+      "auth": "8gIKwouzNNPQEC3q6ko1Zw"
+    },
+    "adminId": "user_admin_bh13",
+    "adminName": "Nivas",
+    "roles": [
+      "owner",
+      "store_manager",
+      "inventory_manager",
+      "delivery_person"
+    ],
+    "updatedAt": "2026-09-06T07:53:53.752Z",
+    "createdAt": "2026-09-06T07:53:53.752Z"
+  }
+]

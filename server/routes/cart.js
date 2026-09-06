@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const supabaseDb = require('../db/supabaseDb');
 
-// Pricing Calculation Engine (Zero GST, Free Delivery Offer, 5% Bulk Discount >= ₹350, ₹5 Handling Fee, Min Order ₹35)
+// Pricing Calculation Engine (Zero GST, Free Delivery Offer, 5% Bulk Discount >= ₹350, ₹3 Handling Fee, Min Order ₹35)
 function calculatePricing(items = []) {
     const list = Array.isArray(items) ? items : [];
     const totalQuantity = list.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
@@ -12,7 +12,7 @@ function calculatePricing(items = []) {
     const hasDiscount = subtotal >= 350;
     const discount5 = hasDiscount ? Math.round(subtotal * 0.05) : 0;
     const delivery_fee = 0; // Free Campus Delivery
-    const platform_fee = list.length > 0 ? 5 : 0; // ₹5 Handling Fee for every order
+    const platform_fee = list.length > 0 ? 3 : 0; // ₹3 Handling Fee for every order
     const tax = 0; // Zero hidden taxes
     const total = Math.max(0, subtotal - discount5 + platform_fee + delivery_fee + tax);
     const deliverySavings = subtotal > 0 ? 25 : 0; // ₹25 free campus delivery offer
