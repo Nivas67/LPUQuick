@@ -4931,6 +4931,49 @@ let adminCurrentSlide = 0;
 let adminSlideInterval = null;
 let isCarouselHovered = false;
 
+const ADMIN_GRADIENT_THEMES = {
+    emerald: {
+        bg: 'linear-gradient(135deg, rgba(6, 78, 59, 0.96) 0%, rgba(4, 120, 87, 0.92) 50%, rgba(16, 185, 129, 0.88) 100%), radial-gradient(ellipse at 85% 20%, rgba(52, 211, 153, 0.35), transparent 65%)',
+        pillClass: 'text-emerald-300 bg-black/35 border border-emerald-400/35',
+        dot: '<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]"></span>',
+        badgeClass: 'bg-emerald-400/25 text-white border border-emerald-300/30',
+        subtitleClass: 'text-emerald-100/95',
+        btnColor: '#047857'
+    },
+    purple: {
+        bg: 'linear-gradient(135deg, rgba(59, 7, 100, 0.96) 0%, rgba(88, 28, 135, 0.92) 50%, rgba(126, 34, 206, 0.88) 100%), radial-gradient(ellipse at 85% 20%, rgba(192, 132, 252, 0.4), transparent 65%)',
+        pillClass: 'text-purple-200 bg-black/35 border border-purple-400/35',
+        dot: '<span class="text-purple-300">🌙</span>',
+        badgeClass: 'bg-purple-400/25 text-white border border-purple-300/30',
+        subtitleClass: 'text-purple-100/95',
+        btnColor: '#581c87'
+    },
+    amber: {
+        bg: 'linear-gradient(135deg, rgba(120, 53, 15, 0.96) 0%, rgba(180, 83, 9, 0.92) 50%, rgba(217, 119, 6, 0.88) 100%), radial-gradient(ellipse at 85% 20%, rgba(251, 191, 36, 0.4), transparent 65%)',
+        pillClass: 'text-amber-200 bg-black/35 border border-amber-400/35',
+        dot: '<span class="text-amber-300">⚡</span>',
+        badgeClass: 'bg-amber-400/25 text-white border border-amber-300/30',
+        subtitleClass: 'text-amber-100/95',
+        btnColor: '#b45309'
+    },
+    cyan: {
+        bg: 'linear-gradient(135deg, rgba(8, 51, 68, 0.96) 0%, rgba(14, 116, 144, 0.92) 50%, rgba(6, 182, 212, 0.88) 100%), radial-gradient(ellipse at 85% 20%, rgba(103, 232, 249, 0.4), transparent 65%)',
+        pillClass: 'text-cyan-200 bg-black/35 border border-cyan-400/35',
+        dot: '<span class="text-cyan-300">🛡️</span>',
+        badgeClass: 'bg-cyan-400/25 text-white border border-cyan-300/30',
+        subtitleClass: 'text-cyan-100/95',
+        btnColor: '#0e7490'
+    }
+};
+
+function getAdminGradientTheme(poster, index) {
+    const keys = ['emerald', 'purple', 'amber', 'cyan'];
+    const key = (poster.gradient && ADMIN_GRADIENT_THEMES[poster.gradient]) 
+        ? poster.gradient 
+        : keys[index % keys.length];
+    return { key, ...(ADMIN_GRADIENT_THEMES[key] || ADMIN_GRADIENT_THEMES.emerald) };
+}
+
 const DEFAULT_ADMIN_POSTERS = [
     {
         id: 'banner_default_1',
@@ -4938,9 +4981,11 @@ const DEFAULT_ADMIN_POSTERS = [
         subtitle: 'Instant noodles, chilled drinks, and snacks delivered right to your hostel room door in 3 minutes.',
         badge: '⚡ 3-MIN ROOM DROP',
         pill: 'BH13 GROUND HUB',
-        link_url: '#shop-catalog-section',
+        link_url: '#/categories',
         link_text: 'Browse Snacks',
-        image_url: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80',
+        gradient: 'emerald',
+        has_assistant_btn: true,
+        image_url: '',
         is_active: true,
         display_order: 1
     },
@@ -4950,9 +4995,11 @@ const DEFAULT_ADMIN_POSTERS = [
         subtitle: 'Hot Maggi, cold drinks, chocolate bars, and crunchy chips ready for your midnight grind.',
         badge: '🌙 TILL 3 AM',
         pill: 'MIDNIGHT FUEL',
-        link_url: '#shop-catalog-section',
+        link_url: '#/categories',
         link_text: 'Explore Combos',
-        image_url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&auto=format&fit=crop&q=80',
+        gradient: 'purple',
+        has_assistant_btn: false,
+        image_url: '',
         is_active: true,
         display_order: 2
     },
@@ -4964,7 +5011,9 @@ const DEFAULT_ADMIN_POSTERS = [
         pill: 'CAMPUS PERK',
         link_url: '#shop-catalog-section',
         link_text: 'Shop Now',
-        image_url: 'https://images.unsplash.com/photo-1607344645866-009c320c5ab8?w=800&auto=format&fit=crop&q=80',
+        gradient: 'amber',
+        has_assistant_btn: false,
+        image_url: '',
         is_active: true,
         display_order: 3
     },
@@ -4976,7 +5025,9 @@ const DEFAULT_ADMIN_POSTERS = [
         pill: '100% PRIVATE',
         link_url: '#shop-catalog-section',
         link_text: 'Order Confidentially',
-        image_url: 'https://images.unsplash.com/photo-1526367790999-0150786686a2?w=800&auto=format&fit=crop&q=80',
+        gradient: 'cyan',
+        has_assistant_btn: false,
+        image_url: '',
         is_active: true,
         display_order: 4
     }
@@ -5104,7 +5155,7 @@ function renderAdminCarouselSlides() {
         return;
     }
 
-    // Render each slide
+    // Render each slide exactly matching customer home page aesthetic
     track.innerHTML = activePosters.map((poster, index) => {
         const title = escapeHtmlStr(poster.title || 'Campus Promotion');
         const pill = escapeHtmlStr(poster.pill || 'CAMPUS PERK');
@@ -5112,19 +5163,11 @@ function renderAdminCarouselSlides() {
         const subtitle = escapeHtmlStr(poster.subtitle || '');
         const linkText = escapeHtmlStr(poster.link_text || 'Shop Now');
         const imageUrl = poster.image_url ? poster.image_url : '';
-
-        // Default background gradients if no image
-        const gradients = [
-            'linear-gradient(135deg, rgba(6, 78, 59, 0.96) 0%, rgba(4, 120, 87, 0.92) 50%, rgba(16, 185, 129, 0.88) 100%)',
-            'linear-gradient(135deg, rgba(88, 28, 135, 0.96) 0%, rgba(109, 40, 217, 0.92) 50%, rgba(139, 92, 246, 0.88) 100%)',
-            'linear-gradient(135deg, rgba(120, 53, 15, 0.96) 0%, rgba(180, 83, 9, 0.92) 50%, rgba(217, 119, 6, 0.88) 100%)',
-            'linear-gradient(135deg, rgba(8, 51, 68, 0.96) 0%, rgba(14, 116, 144, 0.92) 50%, rgba(6, 182, 212, 0.88) 100%)'
-        ];
-        const bgGradient = gradients[index % gradients.length];
+        const theme = getAdminGradientTheme(poster, index);
 
         return `
             <div class="hero-carousel-slide flex-shrink-0"
-                style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; padding: 2rem 1.75rem; min-height: 240px; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff; cursor: pointer; overflow: hidden; border-radius: 1.5rem; background: ${bgGradient};">
+                style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; padding: 1.75rem 1.5rem; min-height: 220px; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff; cursor: pointer; overflow: hidden; background: ${theme.bg};">
                 
                 ${imageUrl ? `
                     <img src="${imageUrl}" alt="${title}" class="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 hover:scale-105" style="filter: brightness(0.72);" onerror="this.style.display='none'">
@@ -5134,30 +5177,37 @@ function renderAdminCarouselSlides() {
                 <div class="space-y-2 max-w-lg z-10 relative">
                     <div class="flex items-center gap-2 flex-wrap">
                         ${pill ? `
-                            <span class="clay-pill px-3 py-0.5 text-[10px] font-black text-emerald-300 bg-black/45 border border-emerald-400/40 flex items-center gap-1.5 backdrop-blur-md rounded-full">
-                                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <span class="clay-pill px-3 py-0.5 text-[10px] font-black ${theme.pillClass} flex items-center gap-1.5 backdrop-blur-md rounded-full">
+                                ${theme.dot || ''}
                                 <span>${pill}</span>
                             </span>` : ''}
                         ${badge ? `
-                            <span class="liquid-badge text-[10px] font-black px-2.5 py-0.5 shadow-sm bg-white/20 text-white border border-white/30 backdrop-blur-md rounded-full">
+                            <span class="liquid-badge text-[10px] font-black px-2.5 py-0.5 shadow-sm ${theme.badgeClass} backdrop-blur-md rounded-full">
                                 ${badge}
                             </span>` : ''}
                     </div>
-                    <h2 class="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight drop-shadow-md">
+                    <h2 class="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight drop-shadow-sm">
                         ${title}
                     </h2>
                     ${subtitle ? `
-                        <p class="text-xs sm:text-sm text-slate-100 font-medium leading-relaxed max-w-md drop-shadow-sm">
+                        <p class="text-xs sm:text-sm ${theme.subtitleClass} font-medium leading-relaxed max-w-md drop-shadow-sm">
                             ${subtitle}
                         </p>` : ''}
                 </div>
 
-                <div class="pt-3 z-10 relative flex items-center gap-3">
-                    <span class="px-4 py-2 rounded-full inline-flex items-center gap-1.5 shadow-lg font-extrabold text-xs bg-white text-emerald-900">
-                        <span>${linkText}</span>
-                        <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                <div class="pt-3 z-10 relative flex items-center gap-2.5">
+                    <span class="clay-btn text-xs px-4 py-2 rounded-full inline-flex items-center gap-1.5 shadow-md"
+                        style="background: #ffffff !important; color: ${theme.btnColor} !important; font-weight: 800 !important;">
+                        <span style="color: ${theme.btnColor} !important; font-weight: 800 !important;">${linkText}</span>
+                        <svg class="w-3.5 h-3.5" style="color: ${theme.btnColor} !important;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                     </span>
-                    <span class="text-[10px] font-semibold text-white/80 bg-black/40 backdrop-blur-sm px-2.5 py-1 rounded-full">
+                    ${poster.has_assistant_btn ? `
+                        <span class="clay-pill bg-white/20 text-white font-bold text-xs px-3.5 py-2 rounded-full inline-flex items-center gap-1.5 backdrop-blur-md border border-white/25">
+                            <span class="text-amber-300 font-bold">✨</span>
+                            <span>AI Assistant</span>
+                        </span>
+                    ` : ''}
+                    <span class="text-[10px] font-semibold text-white/80 bg-black/40 backdrop-blur-sm px-2.5 py-1 rounded-full ml-auto">
                         Slide #${index + 1}
                     </span>
                 </div>
@@ -5395,18 +5445,26 @@ function renderAdminPostersGrid() {
         const badge = escapeHtmlStr(poster.badge || '');
         const pill = escapeHtmlStr(poster.pill || '');
         const subtitle = escapeHtmlStr(poster.subtitle || '');
-        const imageUrl = poster.image_url || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800';
+        const imageUrl = poster.image_url ? poster.image_url : '';
         const isActive = poster.is_active !== false;
+        const theme = getAdminGradientTheme(poster, index);
 
         return `
             <div class="bg-white rounded-2xl border ${isActive ? 'border-[#DADCE0]' : 'border-dashed border-slate-300 opacity-75'} shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md group">
                 <!-- Thumbnail with Status Badges -->
-                <div class="relative w-full h-36 bg-slate-900 overflow-hidden">
-                    <img src="${imageUrl}" alt="${title}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" onerror="this.src='https://images.unsplash.com/photo-1542838132-92c53300491e?w=800'">
-                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30"></div>
+                <div class="relative w-full h-36 overflow-hidden flex items-center justify-center p-4" style="background: ${theme.bg};">
+                    ${imageUrl ? `
+                        <img src="${imageUrl}" alt="${title}" class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" onerror="this.style.display='none'">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30"></div>
+                    ` : `
+                        <div class="space-y-1 text-center z-10">
+                            <span class="text-[10px] font-black px-2 py-0.5 rounded-full ${theme.badgeClass}">${badge || theme.key.toUpperCase()}</span>
+                            <h5 class="text-xs font-bold text-white drop-shadow-sm">${title}</h5>
+                        </div>
+                    `}
                     
                     <!-- Top Badges -->
-                    <div class="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none">
+                    <div class="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none z-10">
                         <span class="text-[10px] font-black px-2 py-0.5 rounded-full ${isActive ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-700 text-slate-300'}">
                             ${isActive ? '● ACTIVE' : '○ PAUSED'}
                         </span>
@@ -5415,11 +5473,13 @@ function renderAdminPostersGrid() {
                         </span>
                     </div>
 
-                    <!-- Bottom Overlay Text -->
-                    <div class="absolute bottom-2 left-2.5 right-2.5">
-                        ${badge ? `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/20 text-white backdrop-blur-xs">${badge}</span>` : ''}
-                        <h4 class="font-bold text-white text-xs truncate drop-shadow-sm mt-0.5">${title}</h4>
-                    </div>
+                    <!-- Bottom Overlay Text if Image is Present -->
+                    ${imageUrl ? `
+                        <div class="absolute bottom-2 left-2.5 right-2.5 z-10">
+                            ${badge ? `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/20 text-white backdrop-blur-xs">${badge}</span>` : ''}
+                            <h4 class="font-bold text-white text-xs truncate drop-shadow-sm mt-0.5">${title}</h4>
+                        </div>
+                    ` : ''}
                 </div>
 
                 <!-- Body Details -->
@@ -5627,6 +5687,8 @@ function openPosterModal(posterId = null) {
             document.getElementById('form-poster-cta-url').value = poster.link_url || '#shop-catalog-section';
             document.getElementById('form-poster-order').value = poster.display_order || 1;
             document.getElementById('form-poster-active').checked = poster.is_active !== false;
+            const gradEl = document.getElementById('form-poster-gradient');
+            if (gradEl) gradEl.value = poster.gradient || 'emerald';
 
             if (poster.image_url) {
                 handlePosterUrlInput(poster.image_url);
@@ -5646,6 +5708,8 @@ function openPosterModal(posterId = null) {
         document.getElementById('form-poster-cta-url').value = '#shop-catalog-section';
         document.getElementById('form-poster-order').value = adminPosters.length + 1;
         document.getElementById('form-poster-active').checked = true;
+        const gradEl = document.getElementById('form-poster-gradient');
+        if (gradEl) gradEl.value = 'emerald';
 
         if (delBtn) delBtn.classList.add('hidden');
     }
@@ -5671,6 +5735,7 @@ async function handlePosterSubmit(e) {
     const display_order = parseInt(document.getElementById('form-poster-order').value, 10) || (adminPosters.length + 1);
     const is_active = document.getElementById('form-poster-active').checked;
     const image_url = document.getElementById('form-poster-image-url').value.trim();
+    const gradient = document.getElementById('form-poster-gradient')?.value || 'emerald';
 
     if (!title && !image_url) {
         showToast('Please provide a poster image or title', 'warning');
@@ -5690,7 +5755,8 @@ async function handlePosterSubmit(e) {
         link_url,
         display_order,
         is_active,
-        image_url
+        image_url,
+        gradient
     };
 
     const saveBtn = document.getElementById('btn-save-poster');

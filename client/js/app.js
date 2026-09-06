@@ -1872,7 +1872,13 @@ function initGlobalClientWebSocket() {
                         showClientToast('🎉 Your account access has been restored!', 'success', 'bolt');
                     }
                 }
-
+                // 7. Live Promotional Banner Carousel Updates from Admin
+                else if (data.type === 'ADVERTISEMENTS_UPDATED') {
+                    window.dispatchEvent(new CustomEvent('advertisementsUpdated', { detail: data }));
+                    if (typeof window.refreshHomeCarousel === 'function') {
+                        window.refreshHomeCarousel(data);
+                    }
+                }
             } catch (err) {
                 console.error('[LPUQuick WS Parse Error]:', err);
             }

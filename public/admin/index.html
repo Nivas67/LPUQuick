@@ -108,6 +108,13 @@
                 <span class="material-symbols-outlined">analytics</span>
                 <span>Analytics</span>
             </button>
+            <button onclick="switchView('advertisements')" data-view="advertisements" data-required-role="owner,store_manager"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+                <span class="material-symbols-outlined">campaign</span>
+                <span class="flex-1">Advertisements</span>
+                <span id="nav-ads-badge"
+                    class="text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-bold">4</span>
+            </button>
             <button onclick="switchView('staff')" data-view="staff" data-required-role="owner"
                 class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined text-[#1a73e8]">manage_accounts</span>
@@ -1248,6 +1255,160 @@
                 </div>
             </div>
 
+            <!-- ================= VIEW: ADVERTISEMENTS & PROMOTIONAL CAROUSEL ================= -->
+            <div id="view-advertisements" class="space-y-6 max-w-[1440px] mx-auto hidden">
+                <!-- Header Banner -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 uppercase tracking-wider">
+                                <span class="material-symbols-outlined text-xs">campaign</span> Promotional Hub
+                            </span>
+                        </div>
+                        <h2 class="text-2xl font-bold text-[#181c1f] flex items-center gap-2">
+                            <span>Promotional Advertisements & Posters</span>
+                        </h2>
+                        <p class="text-xs text-[#5c5f60]">Upload promotional poster graphics, manage active slides, and configure auto-sliding delays.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="loadAdvertisementsView()"
+                            class="p-2 border border-[#DADCE0] rounded-xl bg-white hover:bg-[#f1f4f7] text-[#3c4043]"
+                            title="Reload Posters & Settings">
+                            <span class="material-symbols-outlined text-lg">refresh</span>
+                        </button>
+                        <button onclick="openPosterModal()"
+                            class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all active:scale-95">
+                            <span class="material-symbols-outlined text-sm">add_photo_alternate</span>
+                            <span>Add Image Poster</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Section 1: Live Promotional Banner Carousel Preview -->
+                <div class="glass-panel p-5 sm:p-6 space-y-4 rounded-3xl border border-[#DADCE0] bg-white shadow-sm">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#DADCE0] pb-3">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                                <span class="material-symbols-outlined text-lg">view_carousel</span>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-sm text-[#181c1f] flex items-center gap-2">
+                                    <span>Current Promotional Banner Carousel</span>
+                                    <span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span> Live Preview
+                                    </span>
+                                </h3>
+                                <p class="text-[11px] text-[#5c5f60]">This is the exact carousel and sliding animation used for campus promotions.</p>
+                            </div>
+                        </div>
+
+                        <!-- Carousel Controls & Status -->
+                        <div class="flex items-center gap-2 shrink-0">
+                            <span id="admin-carousel-counter" class="text-xs font-bold text-[#5c5f60] bg-[#f1f4f7] px-2.5 py-1 rounded-lg">Slide 1 of 4</span>
+                            <span id="admin-carousel-speed-pill" class="text-xs font-bold px-2.5 py-1 rounded-lg bg-blue-50 text-[#1a73e8] border border-blue-200">⚡ 4.5s delay</span>
+                            <button id="btn-admin-carousel-playpause" onclick="toggleAdminCarouselAutoplay()"
+                                class="p-1.5 rounded-lg border border-[#DADCE0] bg-white hover:bg-[#f1f4f7] text-[#3c4043] flex items-center justify-center"
+                                title="Pause / Play Slides">
+                                <span class="material-symbols-outlined text-base" id="admin-carousel-playpause-icon">pause</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- The Actual Carousel Component -->
+                    <div class="relative w-full max-w-4xl mx-auto">
+                        <section class="hero-carousel-container relative overflow-hidden w-full rounded-3xl" id="admin-hero-banner-carousel"
+                            style="position: relative; overflow: hidden; width: 100%; border-radius: 1.5rem; user-select: none; box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.15); touch-action: pan-y pinch-zoom; background: #0f172a; min-height: 220px;">
+                            
+                            <!-- Left & Right Arrow Navigation -->
+                            <button type="button" class="hero-carousel-arrow hero-carousel-prev" id="admin-carousel-prev-btn" onclick="prevAdminSlide()" aria-label="Previous Slide"
+                                style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 38px; height: 38px; border-radius: 9999px; background: rgba(0, 0, 0, 0.45); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.35); color: #ffffff; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 25; transition: all 0.2s ease;">
+                                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"></path></svg>
+                            </button>
+                            <button type="button" class="hero-carousel-arrow hero-carousel-next" id="admin-carousel-next-btn" onclick="nextAdminSlide()" aria-label="Next Slide"
+                                style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); width: 38px; height: 38px; border-radius: 9999px; background: rgba(0, 0, 0, 0.45); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.35); color: #ffffff; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 25; transition: all 0.2s ease;">
+                                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path></svg>
+                            </button>
+
+                            <!-- Carousel Slides Track -->
+                            <div class="hero-carousel-track flex flex-row flex-nowrap w-full" id="admin-carousel-track"
+                                style="display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; width: 100% !important; transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1) !important; will-change: transform !important;">
+                                <!-- Dynamically populated by renderAdminCarouselSlides() -->
+                            </div>
+
+                            <!-- Bottom Pagination Dots -->
+                            <div class="hero-carousel-dots" id="admin-carousel-dots"
+                                style="position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; z-index: 25;">
+                                <!-- Dynamically populated -->
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- Slide Timing & Delay Adjustment Bar -->
+                    <div class="p-4 sm:p-5 rounded-2xl bg-[#f8fafd] border border-[#e2e8f0] space-y-3">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-[#181c1f] flex items-center gap-1.5">
+                                    <span class="material-symbols-outlined text-base text-emerald-600">timer</span>
+                                    <span>Carousel Slide Change Delay</span>
+                                </h4>
+                                <p class="text-[11px] text-[#5c5f60]">Adjust how many seconds each image poster stays on screen before sliding to the next.</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs text-[#5c5f60] font-medium">Selected Delay:</span>
+                                <span id="admin-delay-display-badge" class="px-3 py-1 rounded-xl bg-emerald-600 text-white font-extrabold text-xs shadow-xs">4.5 seconds</span>
+                            </div>
+                        </div>
+
+                        <!-- Slider & Controls -->
+                        <div class="flex flex-col sm:flex-row items-center gap-4">
+                            <div class="flex-1 w-full flex items-center gap-3">
+                                <span class="text-[10px] font-bold text-[#5c5f60]">1.0s</span>
+                                <input type="range" id="admin-carousel-delay-slider" min="1.0" max="12.0" step="0.5" value="4.5"
+                                    oninput="handleAdminDelaySlider(this.value)"
+                                    class="flex-1 accent-emerald-600 h-2 bg-slate-200 rounded-lg cursor-pointer">
+                                <span class="text-[10px] font-bold text-[#5c5f60]">12.0s</span>
+                            </div>
+
+                            <!-- Presets -->
+                            <div class="flex items-center gap-1.5 shrink-0 flex-wrap">
+                                <button type="button" onclick="setAdminDelayPreset(2.5)" class="px-2.5 py-1 rounded-lg border border-[#DADCE0] bg-white hover:bg-emerald-50 hover:text-emerald-700 text-[11px] font-bold text-[#3c4043] transition-all">⚡ 2.5s</button>
+                                <button type="button" onclick="setAdminDelayPreset(4.5)" class="px-2.5 py-1 rounded-lg border border-[#DADCE0] bg-white hover:bg-emerald-50 hover:text-emerald-700 text-[11px] font-bold text-[#3c4043] transition-all">🎯 4.5s</button>
+                                <button type="button" onclick="setAdminDelayPreset(7.0)" class="px-2.5 py-1 rounded-lg border border-[#DADCE0] bg-white hover:bg-emerald-50 hover:text-emerald-700 text-[11px] font-bold text-[#3c4043] transition-all">☕ 7.0s</button>
+                                <button type="button" onclick="setAdminDelayPreset(10.0)" class="px-2.5 py-1 rounded-lg border border-[#DADCE0] bg-white hover:bg-emerald-50 hover:text-emerald-700 text-[11px] font-bold text-[#3c4043] transition-all">🐢 10s</button>
+                                <button type="button" onclick="saveAdminCarouselSettings()"
+                                    class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm active:scale-95 transition-all">
+                                    <span class="material-symbols-outlined text-[14px]">check</span>
+                                    <span>Save Delay</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 2: Uploaded Image Posters List & Management -->
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="font-bold text-base text-[#181c1f] flex items-center gap-2">
+                                <span>Image Posters In Carousel</span>
+                                <span id="admin-posters-count-badge" class="text-xs px-2.5 py-0.5 rounded-full bg-[#ebeef2] text-[#3c4043] font-bold">0 posters</span>
+                            </h3>
+                            <p class="text-xs text-[#5c5f60]">Add, reorder, preview or pause image posters appearing in the promotional carousel.</p>
+                        </div>
+                        <button onclick="openPosterModal()"
+                            class="px-3.5 py-2 bg-white hover:bg-[#f1f4f7] border border-[#DADCE0] text-[#181c1f] rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all">
+                            <span class="material-symbols-outlined text-sm text-emerald-600">add_circle</span>
+                            <span>Upload Poster</span>
+                        </button>
+                    </div>
+
+                    <!-- Posters Grid -->
+                    <div id="admin-posters-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        <!-- Dynamically populated by renderAdminPostersGrid() -->
+                    </div>
+                </div>
+            </div>
+
         </main>
     </div>
 
@@ -2054,6 +2215,8 @@
                 </div>
             </form>
         </div>
+    </div>
+
     <!-- ================= MODAL: EDIT ORDER (UNAVAILABLE ITEMS / STOCK RECONCILIATION) ================= -->
     <div id="modal-edit-order" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col p-6 shadow-2xl border border-[#DADCE0] space-y-4 overflow-hidden">
@@ -2150,8 +2313,157 @@
         </div>
     </div>
 
+    <!-- ================= MODAL: ADD / EDIT ADVERTISEMENT POSTER ================= -->
+    <div id="poster-modal"
+        class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#DADCE0] space-y-4 max-h-[92vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-[#DADCE0] pb-3">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-base">add_photo_alternate</span>
+                    </div>
+                    <h3 class="font-bold text-base text-[#181c1f]" id="modal-poster-title">Add Promotional Image Poster</h3>
+                </div>
+                <button onclick="closePosterModal()" class="text-[#5c5f60] hover:text-[#181c1f]">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form id="poster-form" onsubmit="handlePosterSubmit(event)" class="space-y-4 text-xs">
+                <input type="hidden" id="form-poster-id" value="">
+
+                <!-- Poster Image Upload Zone & Instant Canvas Preview -->
+                <div class="space-y-1.5">
+                    <label class="font-semibold text-[#262a2d] block">Poster Graphic Image *</label>
+                    
+                    <!-- Live Image Preview Box -->
+                    <div id="poster-img-preview-box"
+                        onclick="document.getElementById('form-poster-file').click()"
+                        class="relative w-full h-44 rounded-2xl border-2 border-dashed border-[#DADCE0] hover:border-emerald-500 bg-[#f8f9fa] hover:bg-emerald-50/20 flex items-center justify-center overflow-hidden group transition-all cursor-pointer">
+                        <img id="poster-img-preview" src="" alt="Poster Preview" class="w-full h-full object-cover hidden">
+                        <div id="poster-img-placeholder" class="flex flex-col items-center justify-center text-center p-4 text-[#74777a] space-y-1">
+                            <span class="material-symbols-outlined text-3xl text-emerald-600">cloud_upload</span>
+                            <p class="font-bold text-xs text-[#181c1f]">Click to upload poster image</p>
+                            <p class="text-[10px] text-[#5c5f60]">PNG, JPG, WEBP, GIF (widescreen 16:9 recommended)</p>
+                        </div>
+                        <button type="button" id="btn-remove-poster-img" onclick="event.stopPropagation(); clearPosterImage();"
+                            title="Remove image"
+                            class="absolute top-2 right-2 w-7 h-7 bg-black/70 hover:bg-black text-white rounded-full flex items-center justify-center hidden transition-all shadow-md z-20">
+                            <span class="material-symbols-outlined text-sm">close</span>
+                        </button>
+                    </div>
+
+                    <!-- Hidden File Input -->
+                    <input type="file" id="form-poster-file" accept="image/*" class="hidden"
+                        onchange="handlePosterFileSelect(event)">
+
+                    <!-- Action Buttons for Upload -->
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="document.getElementById('form-poster-file').click()"
+                            class="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-xs flex items-center gap-1 transition-all">
+                            <span class="material-symbols-outlined text-sm">upload</span>
+                            <span>Choose Image File</span>
+                        </button>
+                        <span class="text-[11px] text-[#74777a]">or paste image URL below:</span>
+                    </div>
+
+                    <!-- Direct URL input -->
+                    <input id="form-poster-image-url" placeholder="https://images.unsplash.com/... or paste image URL"
+                        oninput="handlePosterUrlInput(this.value)"
+                        class="w-full border border-[#DADCE0] rounded-xl px-3 py-2 text-xs text-[#181c1f] focus:border-emerald-600 outline-none">
+                </div>
+
+                <!-- Poster Title & Details -->
+                <div class="space-y-3 pt-2 border-t border-[#DADCE0]">
+                    <div>
+                        <label class="font-semibold text-[#262a2d] block mb-1">Poster Title <span class="text-[#74777a] font-normal">(Optional if Image provided)</span></label>
+                        <input id="form-poster-title" placeholder="e.g. 50% Off Midnight Hostel Munchies"
+                            class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-emerald-600 outline-none font-semibold">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="font-semibold text-[#262a2d] block mb-1">Top Pill Label</label>
+                            <input id="form-poster-pill" placeholder="e.g. BH13 GROUND HUB"
+                                class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-emerald-600 outline-none">
+                        </div>
+                        <div>
+                            <label class="font-semibold text-[#262a2d] block mb-1">Highlight Badge</label>
+                            <input id="form-poster-badge" placeholder="e.g. ⚡ 3-MIN ROOM DROP"
+                                class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-emerald-600 outline-none">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="font-semibold text-[#262a2d] block mb-1">Subtitle / Description</label>
+                        <input id="form-poster-subtitle" placeholder="e.g. Instant noodles, snacks and chilled drinks delivered to your room."
+                            class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-emerald-600 outline-none">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="font-semibold text-[#262a2d] block mb-1">Action Button Text</label>
+                            <input id="form-poster-cta-text" placeholder="e.g. Shop Now"
+                                class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-emerald-600 outline-none">
+                        </div>
+                        <div>
+                            <label class="font-semibold text-[#262a2d] block mb-1">Action Target URL</label>
+                            <input id="form-poster-cta-url" placeholder="e.g. #shop-catalog-section or #/categories"
+                                class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-emerald-600 outline-none">
+                        </div>
+                    </div>
+
+                    <!-- Theme Gradient (for slide theme background) -->
+                    <div>
+                        <label class="font-semibold text-[#262a2d] block mb-1">Theme Gradient (slide theme & styling)</label>
+                        <select id="form-poster-gradient" class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-emerald-600 outline-none font-medium">
+                            <option value="emerald">Emerald Gradient (BH13 Ground Hub style)</option>
+                            <option value="purple">Purple Gradient (Midnight Fuel style)</option>
+                            <option value="amber">Amber Gradient (Campus Perk style)</option>
+                            <option value="cyan">Cyan Gradient (100% Private style)</option>
+                        </select>
+                    </div>
+
+                    <!-- Display Order & Active Toggle -->
+                    <div class="grid grid-cols-2 gap-3 items-center pt-2">
+                        <div>
+                            <label class="font-semibold text-[#262a2d] block mb-1">Slide Order #</label>
+                            <input id="form-poster-order" type="number" min="1" step="1" value="1"
+                                class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-emerald-600 outline-none">
+                        </div>
+                        <div class="pt-4">
+                            <label class="flex items-center gap-2 cursor-pointer font-semibold text-[#181c1f]">
+                                <input type="checkbox" id="form-poster-active" checked
+                                    class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-[#DADCE0]">
+                                <span>Active in Carousel</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Actions -->
+                <div class="flex items-center justify-between pt-3 border-t border-[#DADCE0]">
+                    <button type="button" id="btn-modal-delete-poster" onclick="handleModalDeletePoster()"
+                        class="px-3 py-2 rounded-lg bg-[#ffdad6] text-[#ba1a1a] font-semibold hover:bg-[#ffdad6]/80 flex items-center gap-1 hidden">
+                        <span class="material-symbols-outlined text-[16px]">delete</span>
+                        <span>Delete Poster</span>
+                    </button>
+                    <div class="flex items-center gap-2 ml-auto">
+                        <button type="button" onclick="closePosterModal()"
+                            class="px-4 py-2 rounded-lg border border-[#DADCE0] text-[#5c5f60] font-semibold hover:bg-[#f1f4f7]">Cancel</button>
+                        <button type="submit" id="btn-save-poster"
+                            class="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">save</span>
+                            <span>Save Poster</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Application Script Reference -->
-    <script src="/admin/js/admin.js?v=20260901r25"></script>
+    <script src="/admin/js/admin.js?v=20260906r36"></script>
 </body>
 
 </html>

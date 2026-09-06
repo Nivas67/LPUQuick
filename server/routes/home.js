@@ -1,7 +1,29 @@
 const express = require('express');
 const router = express.Router();
+const fs = require('fs');
+const path = require('path');
 const supabaseDb = require('../db/supabaseDb');
 const cache = require('../cache');
+
+const BANNERS_FILE = path.join(__dirname, '..', 'data', 'banners.json');
+
+function getActiveBannersData() {
+    try {
+        if (!fs.existsSync(BANNERS_FILE)) {
+            return { posters: [], settings: { autoplay_delay: 4500, autoplay_enabled: true } };
+        }
+        const parsed = JSON.parse(fs.readFileSync(BANNERS_FILE, 'utf8'));
+        const posters = (parsed.banners || [])
+            .filter(b => b.is_active !== false)
+            .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+        return {
+            posters,
+            settings: parsed.settings || { autoplay_delay: 4500, autoplay_enabled: true }
+        };
+    } catch (e) {
+        return { posters: [], settings: { autoplay_delay: 4500, autoplay_enabled: true } };
+    }
+}
 
 // Time-based content mapping
 const TIME_SECTIONS = [
@@ -142,14 +164,32 @@ router.get('/', async (req, res) => {
             }
         }
 
+        const bannerData = getActiveBannersData();
+
         // 3. Fast shallow merge and send
         res.json({
             ...baseFeed,
             buy_again: buyAgain,
-            is_personalized_buy_again: isPersonalizedBuyAgain
+            is_personalized_buy_again: isPersonalizedBuyAgain,
+            banners: bannerData.posters,
+            banner_settings: bannerData.settings
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/home/banners - Public endpoint for active promotional posters & carousel settings
+router.get('/banners', (req, res) => {
+    try {
+        const bannerData = getActiveBannersData();
+        res.json({
+            success: true,
+            posters: bannerData.posters,
+            settings: bannerData.settings
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 

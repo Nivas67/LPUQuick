@@ -299,6 +299,161 @@ function buildProductCardsHTML(items, isAboveFold = false) {
     }).join('');
 }
 
+const HOME_GRADIENT_THEMES = {
+    emerald: {
+        bg: 'linear-gradient(135deg, rgba(6, 78, 59, 0.96) 0%, rgba(4, 120, 87, 0.92) 50%, rgba(16, 185, 129, 0.88) 100%), radial-gradient(ellipse at 85% 20%, rgba(52, 211, 153, 0.35), transparent 65%)',
+        pillClass: 'text-emerald-300 bg-black/35 border border-emerald-400/35',
+        dot: '<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]"></span>',
+        badgeClass: 'bg-emerald-400/25 text-white border border-emerald-300/30',
+        subtitleClass: 'text-emerald-100/95',
+        btnColor: '#047857'
+    },
+    purple: {
+        bg: 'linear-gradient(135deg, rgba(59, 7, 100, 0.96) 0%, rgba(88, 28, 135, 0.92) 50%, rgba(126, 34, 206, 0.88) 100%), radial-gradient(ellipse at 85% 20%, rgba(192, 132, 252, 0.4), transparent 65%)',
+        pillClass: 'text-purple-200 bg-black/35 border border-purple-400/35',
+        dot: '<span class="text-purple-300">🌙</span>',
+        badgeClass: 'bg-purple-400/25 text-white border border-purple-300/30',
+        subtitleClass: 'text-purple-100/95',
+        btnColor: '#581c87'
+    },
+    amber: {
+        bg: 'linear-gradient(135deg, rgba(120, 53, 15, 0.96) 0%, rgba(180, 83, 9, 0.92) 50%, rgba(217, 119, 6, 0.88) 100%), radial-gradient(ellipse at 85% 20%, rgba(251, 191, 36, 0.4), transparent 65%)',
+        pillClass: 'text-amber-200 bg-black/35 border border-amber-400/35',
+        dot: '<span class="text-amber-300">⚡</span>',
+        badgeClass: 'bg-amber-400/25 text-white border border-amber-300/30',
+        subtitleClass: 'text-amber-100/95',
+        btnColor: '#b45309'
+    },
+    cyan: {
+        bg: 'linear-gradient(135deg, rgba(8, 51, 68, 0.96) 0%, rgba(14, 116, 144, 0.92) 50%, rgba(6, 182, 212, 0.88) 100%), radial-gradient(ellipse at 85% 20%, rgba(103, 232, 249, 0.4), transparent 65%)',
+        pillClass: 'text-cyan-200 bg-black/35 border border-cyan-400/35',
+        dot: '<span class="text-cyan-300">🛡️</span>',
+        badgeClass: 'bg-cyan-400/25 text-white border border-cyan-300/30',
+        subtitleClass: 'text-cyan-100/95',
+        btnColor: '#0e7490'
+    }
+};
+
+const DEFAULT_HOME_BANNERS = [
+    {
+        id: 'banner_default_1',
+        title: 'Corridor Express Snacks & Munchies',
+        subtitle: 'Instant noodles, chilled drinks, and snacks delivered right to your hostel room door in 3 minutes.',
+        badge: '⚡ 3-MIN ROOM DROP',
+        pill: 'BH13 GROUND HUB',
+        link_url: '#/categories',
+        link_text: 'Browse Snacks',
+        gradient: 'emerald',
+        has_assistant_btn: true,
+        image_url: '',
+        is_active: true,
+        display_order: 1
+    },
+    {
+        id: 'banner_default_2',
+        title: 'Late Night Study & Gaming Fuel',
+        subtitle: 'Hot Maggi, cold drinks, chocolate bars, and crunchy chips ready for your midnight grind.',
+        badge: '🌙 TILL 3 AM',
+        pill: 'MIDNIGHT FUEL',
+        link_url: '#/categories',
+        link_text: 'Explore Combos',
+        gradient: 'purple',
+        has_assistant_btn: false,
+        image_url: '',
+        is_active: true,
+        display_order: 2
+    },
+    {
+        id: 'banner_default_3',
+        title: 'Zero Delivery Fees On Every Order',
+        subtitle: 'No convenience charges, no minimum order traps. 100% calm commerce delivery.',
+        badge: '🎉 ₹0 DELIVERY FEE',
+        pill: 'CAMPUS PERK',
+        link_url: '#shop-catalog-section',
+        link_text: 'Shop Now',
+        gradient: 'amber',
+        has_assistant_btn: false,
+        image_url: '',
+        is_active: true,
+        display_order: 3
+    },
+    {
+        id: 'banner_default_4',
+        title: 'Discreet Tamper-Proof Room Drop',
+        subtitle: 'All hostel orders sealed in opaque bags for privacy and peace of mind.',
+        badge: '🔒 HOSTEL SAFE',
+        pill: '100% PRIVATE',
+        link_url: '#shop-catalog-section',
+        link_text: 'Order Confidentially',
+        gradient: 'cyan',
+        has_assistant_btn: false,
+        image_url: '',
+        is_active: true,
+        display_order: 4
+    }
+];
+
+function renderHomeBannerSlideHTML(poster, index) {
+    const title = (poster.title || 'Campus Promotion').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const pill = (poster.pill || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const badge = (poster.badge || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const subtitle = (poster.subtitle || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const linkText = (poster.link_text || 'Shop Now').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const linkUrl = poster.link_url || '#shop-catalog-section';
+    const imageUrl = poster.image_url ? poster.image_url : '';
+    const keys = ['emerald', 'purple', 'amber', 'cyan'];
+    const themeKey = (poster.gradient && HOME_GRADIENT_THEMES[poster.gradient]) 
+        ? poster.gradient 
+        : keys[index % keys.length];
+    const theme = HOME_GRADIENT_THEMES[themeKey] || HOME_GRADIENT_THEMES.emerald;
+
+    return `
+        <div class="hero-carousel-slide flex-shrink-0"
+            onclick="window.location.hash='${linkUrl}'"
+            style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; padding: 1.75rem 1.5rem; min-height: 200px; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff; cursor: pointer; overflow: hidden; background: ${theme.bg};">
+            
+            ${imageUrl ? `
+                <img src="${imageUrl}" alt="${title}" class="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 hover:scale-105" style="filter: brightness(0.72);" onerror="this.style.display='none'">
+                <div class="absolute inset-0 bg-gradient-to-r from-black/85 via-black/45 to-transparent z-[1]"></div>
+            ` : ''}
+
+            <div class="space-y-2 max-w-lg z-10 relative">
+                <div class="flex items-center gap-2 flex-wrap">
+                    ${pill ? `
+                        <span class="clay-pill px-3 py-0.5 text-[10px] font-black ${theme.pillClass} flex items-center gap-1.5 backdrop-blur-md">
+                            ${theme.dot || ''}
+                            <span>${pill}</span>
+                        </span>` : ''}
+                    ${badge ? `
+                        <span class="liquid-badge text-[10px] font-black px-2.5 py-0.5 shadow-sm ${theme.badgeClass} backdrop-blur-md">
+                            ${badge}
+                        </span>` : ''}
+                </div>
+                <h2 class="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight drop-shadow-sm">
+                    ${title}
+                </h2>
+                ${subtitle ? `
+                    <p class="text-xs sm:text-sm ${theme.subtitleClass} font-medium leading-relaxed max-w-md">
+                        ${subtitle}
+                    </p>` : ''}
+            </div>
+
+            <div class="pt-3 z-10 relative flex items-center gap-2.5">
+                <a href="${linkUrl}" onclick="event.stopPropagation()" class="clay-btn text-xs px-4 py-2 rounded-full inline-flex items-center gap-1.5 shadow-md hover:scale-105 active:scale-95 transition-all"
+                    style="background: #ffffff !important; color: ${theme.btnColor} !important; font-weight: 800 !important;">
+                    <span style="color: ${theme.btnColor} !important; font-weight: 800 !important;">${linkText}</span>
+                    <svg class="w-3.5 h-3.5" style="color: ${theme.btnColor} !important;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                </a>
+                ${poster.has_assistant_btn ? `
+                    <a href="#/flow-assist" onclick="event.stopPropagation()" class="clay-pill bg-white/20 text-white font-bold text-xs px-3.5 py-2 rounded-full inline-flex items-center gap-1.5 hover:bg-white/30 backdrop-blur-md border border-white/25 transition-all">
+                        <span class="text-amber-300 font-bold">✨</span>
+                        <span>AI Assistant</span>
+                    </a>
+                ` : ''}
+            </div>
+        </div>`;
+}
+
 window.pages.home = async function() {
     const effectiveUserId = (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : window.CURRENT_USER_ID) || null;
     let data = null;
@@ -356,6 +511,33 @@ window.pages.home = async function() {
     const chocolateCards = buildProductCardsHTML(chocolates);
     const instantFoodCards = buildProductCardsHTML(instantFood);
     const snackCards = buildProductCardsHTML(snacks);
+
+    // Prepare promotional carousel banners (support dynamically added admin posters & gradients)
+    let activeBanners = (data?.banners && Array.isArray(data.banners) && data.banners.length > 0)
+        ? data.banners.filter(b => b.is_active !== false)
+        : null;
+
+    if (!activeBanners || activeBanners.length === 0) {
+        try {
+            const cached = localStorage.getItem('lpuquick_active_banners');
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    activeBanners = parsed.filter(b => b.is_active !== false);
+                }
+            }
+        } catch (e) {}
+    }
+
+    if (!activeBanners || activeBanners.length === 0) {
+        activeBanners = DEFAULT_HOME_BANNERS;
+    }
+
+    activeBanners.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+    const carouselSlidesHTML = activeBanners.map(renderHomeBannerSlideHTML).join('');
+    const carouselDotsHTML = activeBanners.map((_, idx) => `
+        <button type="button" class="hero-carousel-dot ${idx === 0 ? 'active' : ''}" data-slide-index="${idx}" aria-label="Slide ${idx + 1}"></button>
+    `).join('');
 
     const buyAgainCards = buyAgain.map(p => {
         const isOutOfStock = !p.in_stock || (p.stock_left !== undefined && p.stock_left <= 0);
@@ -549,125 +731,12 @@ window.pages.home = async function() {
 
             <!-- Carousel Slides Track (Strict horizontal flex-row) -->
             <div class="hero-carousel-track flex flex-row flex-nowrap w-full" id="carousel-track" style="display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; width: 100% !important; transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1) !important; will-change: transform !important;">
-                <!-- Slide 1: 3-Min Lightning Delivery -->
-                <div class="hero-carousel-slide flex-shrink-0" style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; padding: 1.75rem 1.5rem; min-height: 200px; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff; cursor: pointer; background: linear-gradient(135deg, rgba(6, 78, 59, 0.96) 0%, rgba(4, 120, 87, 0.92) 50%, rgba(16, 185, 129, 0.88) 100%), radial-gradient(ellipse at 85% 20%, rgba(52, 211, 153, 0.35), transparent 65%);">
-                    <div class="space-y-2 max-w-lg z-10">
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <span class="clay-pill px-3 py-0.5 text-[10px] font-black text-emerald-300 bg-black/35 border border-emerald-400/35 flex items-center gap-1.5 backdrop-blur-md">
-                                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]"></span>
-                                <span>BH13 GROUND HUB</span>
-                            </span>
-                            <span class="liquid-badge text-[10px] font-black px-2.5 py-0.5 shadow-sm bg-emerald-400/25 text-white border border-emerald-300/30 backdrop-blur-md">
-                                ⚡ 3-MIN ROOM DROP
-                            </span>
-                        </div>
-                        <h2 class="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight drop-shadow-sm">
-                            Corridor Express Snacks & Munchies
-                        </h2>
-                        <p class="text-xs sm:text-sm text-emerald-100/95 font-medium leading-relaxed max-w-md">
-                            Instant noodles, chilled drinks, and snacks delivered right to your hostel room door in 3 minutes.
-                        </p>
-                    </div>
-                    <div class="pt-3 z-10 flex items-center gap-2.5">
-                        <a href="#/categories" class="clay-btn text-xs px-4 py-2 rounded-full inline-flex items-center gap-1.5 shadow-md hover:scale-105 active:scale-95 transition-all" style="background: #ffffff !important; color: #047857 !important; font-weight: 800 !important;">
-                            <span style="color: #047857 !important; font-weight: 800 !important;">Browse Snacks</span>
-                            <svg class="w-3.5 h-3.5" style="color: #047857 !important;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-                        </a>
-                        <a href="#/flow-assist" class="clay-pill bg-white/20 text-white font-bold text-xs px-3.5 py-2 rounded-full inline-flex items-center gap-1.5 hover:bg-white/30 backdrop-blur-md border border-white/25 transition-all">
-                            <span class="text-amber-300 font-bold">✨</span>
-                            <span>AI Assistant</span>
-                        </a>
-                    </div>
-                </div>
-
-                <!-- Slide 2: Midnight Cravings & Combos -->
-                <div class="hero-carousel-slide flex-shrink-0" style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; padding: 1.75rem 1.5rem; min-height: 200px; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff; cursor: pointer; background: linear-gradient(135deg, rgba(59, 7, 100, 0.96) 0%, rgba(88, 28, 135, 0.92) 50%, rgba(126, 34, 206, 0.88) 100%), radial-gradient(ellipse at 85% 20%, rgba(192, 132, 252, 0.4), transparent 65%);">
-                    <div class="space-y-2 max-w-lg z-10">
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <span class="clay-pill px-3 py-0.5 text-[10px] font-black text-purple-200 bg-black/35 border border-purple-400/35 flex items-center gap-1.5 backdrop-blur-md">
-                                <span class="text-purple-300">🌙</span>
-                                <span>MIDNIGHT FUEL</span>
-                            </span>
-                            <span class="liquid-badge text-[10px] font-black px-2.5 py-0.5 shadow-sm bg-purple-400/25 text-white border border-purple-300/30 backdrop-blur-md">
-                                🌙 TILL 3 AM
-                            </span>
-                        </div>
-                        <h2 class="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight drop-shadow-sm">
-                            Late Night Study & Gaming Fuel
-                        </h2>
-                        <p class="text-xs sm:text-sm text-purple-100/95 font-medium leading-relaxed max-w-md">
-                            Hot Maggi, cold drinks, chocolate bars, and crunchy chips ready for your midnight grind.
-                        </p>
-                    </div>
-                    <div class="pt-3 z-10 flex items-center gap-2.5">
-                        <a href="#/categories" class="clay-btn text-xs px-4 py-2 rounded-full inline-flex items-center gap-1.5 shadow-md hover:scale-105 active:scale-95 transition-all" style="background: #ffffff !important; color: #581c87 !important; font-weight: 800 !important;">
-                            <span style="color: #581c87 !important; font-weight: 800 !important;">Explore Combos</span>
-                            <svg class="w-3.5 h-3.5" style="color: #581c87 !important;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-                        </a>
-                    </div>
-                </div>
-
-                <!-- Slide 3: 100% Free Campus Delivery -->
-                <div class="hero-carousel-slide flex-shrink-0" style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; padding: 1.75rem 1.5rem; min-height: 200px; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff; cursor: pointer; background: linear-gradient(135deg, rgba(120, 53, 15, 0.96) 0%, rgba(180, 83, 9, 0.92) 50%, rgba(217, 119, 6, 0.88) 100%), radial-gradient(ellipse at 85% 20%, rgba(251, 191, 36, 0.4), transparent 65%);">
-                    <div class="space-y-2 max-w-lg z-10">
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <span class="clay-pill px-3 py-0.5 text-[10px] font-black text-amber-200 bg-black/35 border border-amber-400/35 flex items-center gap-1.5 backdrop-blur-md">
-                                <span class="text-amber-300">⚡</span>
-                                <span>CAMPUS PERK</span>
-                            </span>
-                            <span class="liquid-badge text-[10px] font-black px-2.5 py-0.5 shadow-sm bg-amber-400/25 text-white border border-amber-300/30 backdrop-blur-md">
-                                🎉 ₹0 DELIVERY FEE
-                            </span>
-                        </div>
-                        <h2 class="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight drop-shadow-sm">
-                            Zero Delivery Fees On Every Order
-                        </h2>
-                        <p class="text-xs sm:text-sm text-amber-100/95 font-medium leading-relaxed max-w-md">
-                            No convenience charges, no minimum order traps. 100% calm commerce delivery.
-                        </p>
-                    </div>
-                    <div class="pt-3 z-10 flex items-center gap-2.5">
-                        <a href="#shop-catalog-section" class="clay-btn text-xs px-4 py-2 rounded-full inline-flex items-center gap-1.5 shadow-md hover:scale-105 active:scale-95 transition-all" style="background: #ffffff !important; color: #b45309 !important; font-weight: 800 !important;">
-                            <span style="color: #b45309 !important; font-weight: 800 !important;">Shop Now</span>
-                            <svg class="w-3.5 h-3.5" style="color: #b45309 !important;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-                        </a>
-                    </div>
-                </div>
-
-                <!-- Slide 4: 100% Private & Discreet Packaging -->
-                <div class="hero-carousel-slide flex-shrink-0" style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; padding: 1.75rem 1.5rem; min-height: 200px; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff; cursor: pointer; background: linear-gradient(135deg, rgba(8, 51, 68, 0.96) 0%, rgba(14, 116, 144, 0.92) 50%, rgba(6, 182, 212, 0.88) 100%), radial-gradient(ellipse at 85% 20%, rgba(103, 232, 249, 0.4), transparent 65%);">
-                    <div class="space-y-2 max-w-lg z-10">
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <span class="clay-pill px-3 py-0.5 text-[10px] font-black text-cyan-200 bg-black/35 border border-cyan-400/35 flex items-center gap-1.5 backdrop-blur-md">
-                                <span class="text-cyan-300">🛡️</span>
-                                <span>100% PRIVATE</span>
-                            </span>
-                            <span class="liquid-badge text-[10px] font-black px-2.5 py-0.5 shadow-sm bg-cyan-400/25 text-white border border-cyan-300/30 backdrop-blur-md">
-                                🔒 HOSTEL SAFE
-                            </span>
-                        </div>
-                        <h2 class="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight drop-shadow-sm">
-                            Discreet Tamper-Proof Room Drop
-                        </h2>
-                        <p class="text-xs sm:text-sm text-cyan-100/95 font-medium leading-relaxed max-w-md">
-                            All hostel orders sealed in opaque bags for privacy and peace of mind.
-                        </p>
-                    </div>
-                    <div class="pt-3 z-10 flex items-center gap-2.5">
-                        <a href="#shop-catalog-section" class="clay-btn text-xs px-4 py-2 rounded-full inline-flex items-center gap-1.5 shadow-md hover:scale-105 active:scale-95 transition-all" style="background: #ffffff !important; color: #0e7490 !important; font-weight: 800 !important;">
-                            <span style="color: #0e7490 !important; font-weight: 800 !important;">Order Confidentially</span>
-                            <svg class="w-3.5 h-3.5" style="color: #0e7490 !important;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-                        </a>
-                    </div>
-                </div>
+                ${carouselSlidesHTML}
             </div>
 
             <!-- Bottom Pagination Dots -->
             <div class="hero-carousel-dots" id="carousel-dots" style="position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; z-index: 25;">
-                <button type="button" class="hero-carousel-dot active" data-slide-index="0" aria-label="Slide 1"></button>
-                <button type="button" class="hero-carousel-dot" data-slide-index="1" aria-label="Slide 2"></button>
-                <button type="button" class="hero-carousel-dot" data-slide-index="2" aria-label="Slide 3"></button>
-                <button type="button" class="hero-carousel-dot" data-slide-index="3" aria-label="Slide 4"></button>
+                ${carouselDotsHTML}
             </div>
         </section>
 
@@ -1465,20 +1534,33 @@ window.pageInits.home = function() {
     });
 
     // ============================================================
-    // HERO PROMOTIONAL BANNER CAROUSEL CONTROLLER (SWIPE, ARROWS, AUTO-PLAY)
+    // HERO PROMOTIONAL BANNER CAROUSEL CONTROLLER (SWIPE, ARROWS, AUTO-PLAY, REAL-TIME SYNC)
     // ============================================================
     const carouselTrack = document.getElementById('carousel-track');
     const carouselContainer = document.getElementById('hero-banner-carousel');
     const prevBtn = document.getElementById('carousel-prev-btn');
     const nextBtn = document.getElementById('carousel-next-btn');
-    const dots = document.querySelectorAll('.hero-carousel-dot');
-    const totalSlides = 4;
     let currentSlide = 0;
     let autoSlideInterval = null;
+    let isCarouselHovered = false;
+
+    let totalSlides = document.querySelectorAll('#carousel-track .hero-carousel-slide').length || 4;
+    let autoplayDelay = 4500;
+    let autoplayEnabled = true;
+
+    try {
+        const cachedSettings = localStorage.getItem('lpuquick_carousel_settings');
+        if (cachedSettings) {
+            const parsed = JSON.parse(cachedSettings);
+            if (parsed.autoplay_delay) autoplayDelay = Math.max(1000, Number(parsed.autoplay_delay));
+            if (parsed.autoplay_enabled !== undefined) autoplayEnabled = Boolean(parsed.autoplay_enabled);
+        }
+    } catch (e) {}
 
     function updateCarouselView() {
         if (!carouselTrack) return;
         carouselTrack.style.transform = `translateX(-${currentSlide * 100}%)`;
+        const dots = document.querySelectorAll('#carousel-dots .hero-carousel-dot');
         dots.forEach((d, idx) => {
             if (idx === currentSlide) {
                 d.classList.add('active');
@@ -1489,18 +1571,21 @@ window.pageInits.home = function() {
     }
 
     function nextSlide() {
+        if (totalSlides <= 1) return;
         currentSlide = (currentSlide + 1) % totalSlides;
         updateCarouselView();
     }
 
     function prevSlide() {
+        if (totalSlides <= 1) return;
         currentSlide = (currentSlide - 1 + totalSlides) % totalSlides;
         updateCarouselView();
     }
 
     function startAutoSlide() {
         stopAutoSlide();
-        autoSlideInterval = setInterval(nextSlide, 4500);
+        if (!autoplayEnabled || totalSlides <= 1 || isCarouselHovered) return;
+        autoSlideInterval = setInterval(nextSlide, autoplayDelay);
     }
 
     function stopAutoSlide() {
@@ -1510,12 +1595,92 @@ window.pageInits.home = function() {
         }
     }
 
+    function rebindCarouselDots() {
+        const dots = document.querySelectorAll('#carousel-dots .hero-carousel-dot');
+        dots.forEach(dot => {
+            dot.onclick = () => {
+                const targetIdx = Number(dot.dataset.slideIndex);
+                if (!isNaN(targetIdx)) {
+                    currentSlide = targetIdx;
+                    updateCarouselView();
+                    startAutoSlide();
+                }
+            };
+        });
+    }
+
+    function syncHomeCarousel(banners, settings) {
+        if (!carouselTrack) return;
+
+        let active = [];
+        if (Array.isArray(banners) && banners.length > 0) {
+            active = banners.filter(b => b.is_active !== false);
+            active.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+        }
+
+        if (settings) {
+            if (settings.autoplay_delay) {
+                autoplayDelay = Math.max(1000, Number(settings.autoplay_delay));
+            }
+            if (settings.autoplay_enabled !== undefined) {
+                autoplayEnabled = Boolean(settings.autoplay_enabled);
+            }
+        }
+
+        if (active.length > 0) {
+            totalSlides = active.length;
+            carouselTrack.innerHTML = active.map(renderHomeBannerSlideHTML).join('');
+
+            const dotsContainer = document.getElementById('carousel-dots');
+            if (dotsContainer) {
+                dotsContainer.innerHTML = active.map((_, idx) => `
+                    <button type="button" class="hero-carousel-dot ${idx === currentSlide ? 'active' : ''}" data-slide-index="${idx}" aria-label="Slide ${idx + 1}"></button>
+                `).join('');
+            }
+            rebindCarouselDots();
+
+            if (currentSlide >= totalSlides) {
+                currentSlide = 0;
+            }
+            updateCarouselView();
+        }
+
+        if (autoplayEnabled && !isCarouselHovered) {
+            startAutoSlide();
+        } else {
+            stopAutoSlide();
+        }
+    }
+
+    // Expose global refresh function for real-time WebSocket & BroadcastChannel
+    window.refreshHomeCarousel = function(payload) {
+        if (!payload) return;
+        const banners = payload.banners || payload.posters;
+        const settings = payload.settings;
+        syncHomeCarousel(banners, settings);
+        try {
+            if (Array.isArray(banners)) {
+                localStorage.setItem('lpuquick_active_banners', JSON.stringify(banners));
+            }
+            if (settings) {
+                localStorage.setItem('lpuquick_carousel_settings', JSON.stringify(settings));
+            }
+        } catch (e) {}
+    };
+
     if (carouselContainer && carouselTrack) {
+        rebindCarouselDots();
         startAutoSlide();
 
         // Pause on mouseenter, resume on mouseleave (laptop / desktop)
-        carouselContainer.addEventListener('mouseenter', stopAutoSlide);
-        carouselContainer.addEventListener('mouseleave', startAutoSlide);
+        carouselContainer.addEventListener('mouseenter', () => {
+            isCarouselHovered = true;
+            stopAutoSlide();
+        });
+        carouselContainer.addEventListener('mouseleave', () => {
+            isCarouselHovered = false;
+            startAutoSlide();
+        });
 
         // Arrow buttons
         if (prevBtn) {
@@ -1532,18 +1697,6 @@ window.pageInits.home = function() {
                 startAutoSlide();
             };
         }
-
-        // Dot buttons
-        dots.forEach(dot => {
-            dot.onclick = () => {
-                const targetIdx = Number(dot.dataset.slideIndex);
-                if (!isNaN(targetIdx)) {
-                    currentSlide = targetIdx;
-                    updateCarouselView();
-                    startAutoSlide();
-                }
-            };
-        });
 
         // Touch & Swipe Support (Mobile & Touch Laptops)
         let touchStartX = 0;
@@ -1581,6 +1734,36 @@ window.pageInits.home = function() {
                 startAutoSlide();
             }
         });
+
+        // Background fetch for fresh banners on page initialization
+        fetch('/api/home/banners')
+            .then(r => r.json())
+            .then(res => {
+                if (res && res.success && Array.isArray(res.posters)) {
+                    syncHomeCarousel(res.posters, res.settings);
+                    try {
+                        localStorage.setItem('lpuquick_active_banners', JSON.stringify(res.posters));
+                        if (res.settings) {
+                            localStorage.setItem('lpuquick_carousel_settings', JSON.stringify(res.settings));
+                        }
+                    } catch (e) {}
+                }
+            })
+            .catch(() => {});
+
+        // Listen for Realtime Events
+        window.addEventListener('advertisementsUpdated', (e) => {
+            if (e.detail) window.refreshHomeCarousel(e.detail);
+        });
+
+        try {
+            const syncChannel = new BroadcastChannel('lpuquick_ads_sync');
+            syncChannel.onmessage = (e) => {
+                if (e.data && (e.data.posters || e.data.banners || e.data.settings)) {
+                    window.refreshHomeCarousel(e.data);
+                }
+            };
+        } catch (e) {}
     }
 
     // ============================================================

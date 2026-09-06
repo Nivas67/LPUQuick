@@ -98,6 +98,7 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/admin/financial', require('./routes/financial'));
 app.use('/api/client/status', require('./routes/client-status'));
 app.use('/api/home', require('./routes/home'));
+app.get('/api/banners', (req, res) => res.redirect('/api/home/banners'));
 app.use('/api/search', require('./routes/search'));
 app.use('/api/flow-assist', require('./routes/flowassist'));
 app.use('/api/cart', require('./routes/cart'));
