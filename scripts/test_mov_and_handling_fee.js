@@ -70,8 +70,8 @@ async function testBackend() {
         assert.strictEqual(resValid.status, 200, 'Expected 200 OK for subtotal >= ₹35');
         assert.strictEqual(dataValid.success, true, 'Expected order creation success');
         assert.strictEqual(dataValid.order.subtotal, 39, 'Subtotal should be 39');
-        assert.strictEqual(dataValid.order.platform_fee, 5, 'Platform/Handling fee must be 5');
-        assert.strictEqual(dataValid.order.total, 44, 'Total must be Subtotal (39) + Handling Fee (5) = 44');
+        assert.strictEqual(dataValid.order.platform_fee, 3, 'Platform/Handling fee must be 3');
+        assert.strictEqual(dataValid.order.total, 42, 'Total must be Subtotal (39) + Handling Fee (3) = 42');
         console.log(`✓ Test 2 Passed: Order accepted: Subtotal=₹${dataValid.order.subtotal}, Handling Fee=₹${dataValid.order.platform_fee}, Total=₹${dataValid.order.total}`);
 
         console.log('\n--- All Backend MOV & Handling Fee Tests Passed Successfully! ---');

@@ -218,23 +218,20 @@ window.pages.cart = async function() {
                         <span class="line-through text-slate-400">₹${totalMrp}</span>
                     </div>
 
-                    <div class="flex justify-between items-center text-emerald-700 dark:text-emerald-400 font-bold">
+                    <div id="bill-mrp-discount-row" class="flex justify-between items-center text-emerald-700 dark:text-emerald-400 font-bold ${mrpDiscount > 0 ? '' : 'hidden'}">
                         <span>Product Discount</span>
-                        <span>-₹${mrpDiscount}</span>
+                        <span id="bill-mrp-discount-val">-₹${mrpDiscount}</span>
                     </div>
-                    ` : ''}
 
                     <div class="flex justify-between items-center text-slate-700 dark:text-slate-300 font-medium">
                         <span>Item Subtotal</span>
                         <span class="font-black text-slate-900 dark:text-white" id="bill-subtotal-val">₹${subtotal}</span>
                     </div>
 
-                    ${hasDiscount ? `
-                    <div class="flex justify-between items-center text-emerald-700 dark:text-emerald-400 font-bold">
+                    <div id="bill-discount-row" class="flex justify-between items-center text-emerald-700 dark:text-emerald-400 font-bold ${hasDiscount ? '' : 'hidden'}">
                         <span>5% Bulk Offer</span>
                         <span id="bill-discount-val">-₹${discount5}</span>
                     </div>
-                    ` : ''}
 
                     <div class="flex justify-between items-center text-slate-600 dark:text-slate-400 font-medium">
                         <span>Delivery Fee</span>
@@ -267,6 +264,7 @@ window.pages.cart = async function() {
                     <span id="bill-savings-val">Total Real Savings: ₹${totalSavings}</span>
                 </div>
 
+                <div id="cart-checkout-action-container">
                 ${window.__isUserBlocked ? `
                 <div class="p-3 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-center space-y-1">
                     <p class="font-black text-xs text-rose-600 dark:text-rose-400">Account Restricted</p>
@@ -277,7 +275,7 @@ window.pages.cart = async function() {
                 </button>
                 ` : (items.length > 0 ? (
                     !isMinOrderMet ? `
-                    <button disabled class="w-full clay-card text-slate-400 dark:text-slate-500 rounded-2xl py-4 font-bold text-xs text-center cursor-not-allowed flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-700 opacity-90 shadow-none">
+                    <button disabled class="w-full clay-card text-slate-400 dark:text-slate-500 rounded-2xl py-4 font-bold text-xs text-center cursor-not-allowed flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-700 opacity-90 shadow-none" id="proceed-to-checkout-btn">
                         <span class="material-symbols-outlined text-sm">lock</span>
                         <span>Min Order Value ₹35 (Add ₹${minOrderShortfall} more)</span>
                     </button>
@@ -292,18 +290,20 @@ window.pages.cart = async function() {
                     Cart is Empty
                 </button>
                 `)}
+                </div>
             </div>
         </div>
     </main>
 
     <!-- Mobile Sticky Checkout Capsule (Liquid Glass) -->
+    <div id="cart-mobile-checkout-container">
     ${items.length > 0 && !window.__isUserBlocked ? (
         !isMinOrderMet ? `
         <div class="lg:hidden fixed bottom-16 inset-x-3 z-30 pointer-events-none flex justify-center">
             <div class="pointer-events-auto liquid-dock-pill max-w-md w-full p-3 px-4 flex items-center justify-between gap-3 rounded-3xl shadow-2xl border border-amber-500/40">
                 <div>
                     <span class="text-[10px] font-bold text-amber-500">Min Order ₹35</span>
-                    <p class="text-xs font-black text-slate-900 dark:text-white leading-tight mt-0.5">Add ₹${minOrderShortfall} more</p>
+                    <p class="text-xs font-black text-slate-900 dark:text-white leading-tight mt-0.5" id="mobile-min-order-val">Add ₹${minOrderShortfall} more</p>
                 </div>
                 <a href="#/" class="clay-btn clay-btn-primary px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md active:scale-95 transition-transform">
                     <span>Add Items</span>
@@ -326,6 +326,7 @@ window.pages.cart = async function() {
         </div>
         `
     ) : ''}
+    </div>
 
     <!-- Floating Liquid Glass Bottom Navigation Dock -->
     <div class="fixed bottom-3 inset-x-0 z-40 px-4 sm:hidden pointer-events-none flex justify-center">
@@ -446,38 +447,101 @@ window.pageInits.cart = function() {
         }
 
         // Bill details
+        const mrpRow = document.getElementById('bill-mrp-discount-row');
+        const mrpVal = document.getElementById('bill-mrp-discount-val');
+        if (mrpRow && mrpVal) {
+            if (mrpDiscount > 0) {
+                mrpRow.classList.remove('hidden');
+                mrpVal.textContent = `-₹${mrpDiscount}`;
+            } else {
+                mrpRow.classList.add('hidden');
+            }
+        }
+
         const billSubtotal = document.getElementById('bill-subtotal-val');
         if (billSubtotal) billSubtotal.textContent = `₹${subtotal}`;
+        
+        const discountRow = document.getElementById('bill-discount-row');
         const billDiscount = document.getElementById('bill-discount-val');
-        if (billDiscount) billDiscount.textContent = `-₹${discount5}`;
+        if (discountRow && billDiscount) {
+            if (hasDiscount) {
+                discountRow.classList.remove('hidden');
+                billDiscount.textContent = `-₹${discount5}`;
+            } else {
+                discountRow.classList.add('hidden');
+            }
+        }
+
         const billTotal = document.getElementById('bill-total-val');
         if (billTotal) billTotal.textContent = `₹${exactTotal}`;
         const billSavings = document.getElementById('bill-savings-val');
         if (billSavings) billSavings.textContent = `Total Real Savings: ₹${totalSavings}`;
 
-        // Proceed buttons
-        const proceedBtn = document.getElementById('proceed-to-checkout-btn');
-        if (proceedBtn) {
+        // Proceed buttons in Action Container
+        const actionContainer = document.getElementById('cart-checkout-action-container');
+        if (actionContainer && !window.__isUserBlocked) {
             if (!isMinOrderMet) {
-                proceedBtn.outerHTML = `
+                actionContainer.innerHTML = `
                     <button disabled class="w-full clay-card text-slate-400 dark:text-slate-500 rounded-2xl py-4 font-bold text-xs text-center cursor-not-allowed flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-700 opacity-90 shadow-none" id="proceed-to-checkout-btn">
                         <span class="material-symbols-outlined text-sm">lock</span>
                         <span>Min Order Value ₹35 (Add ₹${minOrderShortfall} more)</span>
                     </button>
                 `;
             } else {
-                proceedBtn.innerHTML = `
-                    <span>Proceed to Checkout (₹${exactTotal})</span>
-                    <span class="material-symbols-outlined text-base">arrow_forward</span>
+                actionContainer.innerHTML = `
+                    <a href="#/checkout" id="proceed-to-checkout-btn" class="clay-btn clay-btn-primary w-full py-4 rounded-2xl font-black text-xs sm:text-sm text-center flex items-center justify-center gap-2 shadow-2xl tracking-wide uppercase active:scale-95 transition-transform">
+                        <span>Proceed to Checkout (₹${exactTotal})</span>
+                        <span class="material-symbols-outlined text-base">arrow_forward</span>
+                    </a>
                 `;
+                const btn = document.getElementById('proceed-to-checkout-btn');
+                if (btn) {
+                    btn.onclick = (e) => {
+                        if (!window.isUserLoggedIn()) {
+                            e.preventDefault();
+                            localStorage.setItem('lpuquick_redirect', '#/checkout');
+                            window.location.hash = '#/signin';
+                        }
+                    };
+                }
             }
         }
 
-        // Mobile capsule
-        const mobileTotal = document.getElementById('mobile-cart-total-val');
-        if (mobileTotal) mobileTotal.textContent = `₹${exactTotal}`;
-        const mobileQty = document.getElementById('mobile-cart-qty-val');
-        if (mobileQty) mobileQty.textContent = `${totalQty} ${totalQty === 1 ? 'item' : 'items'}`;
+        // Mobile Checkout Capsule Container
+        const mobileContainer = document.getElementById('cart-mobile-checkout-container');
+        if (mobileContainer && !window.__isUserBlocked) {
+            if (!isMinOrderMet) {
+                mobileContainer.innerHTML = `
+                    <div class="lg:hidden fixed bottom-16 inset-x-3 z-30 pointer-events-none flex justify-center">
+                        <div class="pointer-events-auto liquid-dock-pill max-w-md w-full p-3 px-4 flex items-center justify-between gap-3 rounded-3xl shadow-2xl border border-amber-500/40">
+                            <div>
+                                <span class="text-[10px] font-bold text-amber-500">Min Order ₹35</span>
+                                <p class="text-xs font-black text-slate-900 dark:text-white leading-tight mt-0.5" id="mobile-min-order-val">Add ₹${minOrderShortfall} more</p>
+                            </div>
+                            <a href="#/" class="clay-btn clay-btn-primary px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md active:scale-95 transition-transform">
+                                <span>Add Items</span>
+                                <span class="material-symbols-outlined text-sm">add</span>
+                            </a>
+                        </div>
+                    </div>
+                `;
+            } else {
+                mobileContainer.innerHTML = `
+                    <div class="lg:hidden fixed bottom-16 inset-x-3 z-30 pointer-events-none flex justify-center">
+                        <div class="pointer-events-auto liquid-dock-pill max-w-md w-full p-3.5 px-4 flex items-center justify-between gap-3 rounded-3xl shadow-2xl">
+                            <div>
+                                <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400" id="mobile-cart-qty-val">${totalQty} ${totalQty === 1 ? 'item' : 'items'}</span>
+                                <p class="text-lg font-black text-slate-900 dark:text-white leading-none mt-0.5" id="mobile-cart-total-val">₹${exactTotal}</p>
+                            </div>
+                            <a href="#/checkout" class="clay-btn clay-btn-primary px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md active:scale-95 transition-transform">
+                                <span>Proceed</span>
+                                <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                            </a>
+                        </div>
+                    </div>
+                `;
+            }
+        }
     }
 
     document.querySelectorAll('.qty-inc-btn').forEach(btn => {
