@@ -67,11 +67,41 @@
       "display_order": 4,
       "created_at": "2026-09-06T06:58:49.653Z",
       "updated_at": "2026-09-06T10:15:00.000Z"
+    },
+    {
+      "id": "poster_1788699022749_zmok",
+      "title": "CAMPUS Fast Track Repair",
+      "subtitle": "Special student laptop and mobile repair",
+      "badge": "⚡ 10-MIN Pickup",
+      "pill": "CAMPUS Fast Track Repa",
+      "link_url": "https://wa.me/9181064229",
+      "link_text": "Shop Now",
+      "image_url": "",
+      "is_full_poster": false,
+      "is_active": true,
+      "display_order": 5,
+      "gradient": "emerald",
+      "created_at": "2026-09-06T12:50:22.749Z"
+    },
+    {
+      "id": "poster_1788699042849_mwga",
+      "title": "CAMPUS Fast Track Repair",
+      "subtitle": "Instant hostel room pickup & repair",
+      "badge": "⚡ 10-MIN Pickup",
+      "pill": "CAMPUS Fast Track Repa",
+      "link_url": "https://wa.me/9181064229",
+      "link_text": "Shop Now",
+      "image_url": "",
+      "is_full_poster": false,
+      "is_active": true,
+      "display_order": 5,
+      "gradient": "emerald",
+      "created_at": "2026-09-06T12:50:42.849Z"
     }
   ],
   "settings": {
     "autoplay_delay": 4500,
     "autoplay_enabled": true
   },
-  "updated_at": "2026-09-06T12:44:44.051Z"
+  "updated_at": "2026-09-06T12:50:42.849Z"
 }

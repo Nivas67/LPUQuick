@@ -200,13 +200,14 @@ function requireRole(...allowedRoles) {
                 return next();
             }
 
-            const hasPermission = allowedRoles.some(role => userRoles.includes(role));
+            const flatRoles = allowedRoles.flatMap(r => typeof r === 'string' ? r.split(',').map(s => s.trim()) : r);
+            const hasPermission = flatRoles.some(role => userRoles.includes(role));
             if (!hasPermission) {
-                console.warn(`[SECURITY AUDIT] ROLE_ACCESS_DENIED | userId: ${adminUser.id} | required: ${allowedRoles.join(',')} | actual: ${userRoles.join(',')} | path: ${req.originalUrl || req.path}`);
+                console.warn(`[SECURITY AUDIT] ROLE_ACCESS_DENIED | userId: ${adminUser.id} | required: ${flatRoles.join(',')} | actual: ${userRoles.join(',')} | path: ${req.originalUrl || req.path}`);
                 return res.status(403).json({
                     success: false,
                     code: 'FORBIDDEN_ROLE',
-                    error: `Access denied. Requires one of the following permissions: ${allowedRoles.join(', ')}.`
+                    error: `Access denied. Requires one of the following permissions: ${flatRoles.join(', ')}.`
                 });
             }
 

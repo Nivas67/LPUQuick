@@ -5727,19 +5727,24 @@ function closePosterModal() {
 }
 
 async function handlePosterSubmit(e) {
-    e.preventDefault();
-    const id = document.getElementById('form-poster-id').value.trim();
-    let title = document.getElementById('form-poster-title').value.trim();
-    const pill = document.getElementById('form-poster-pill').value.trim();
-    const badge = document.getElementById('form-poster-badge').value.trim();
-    const subtitle = document.getElementById('form-poster-subtitle').value.trim();
-    let link_url = document.getElementById('form-poster-cta-url').value.trim() || '#shop-catalog-section';
+    if (e) {
+        if (typeof e.preventDefault === 'function') e.preventDefault();
+        if (typeof e.stopPropagation === 'function') e.stopPropagation();
+    }
+
+    const id = document.getElementById('form-poster-id')?.value.trim() || '';
+    let title = document.getElementById('form-poster-title')?.value.trim() || '';
+    const pill = document.getElementById('form-poster-pill')?.value.trim() || '';
+    const badge = document.getElementById('form-poster-badge')?.value.trim() || '';
+    const subtitle = document.getElementById('form-poster-subtitle')?.value.trim() || '';
+    const link_text = document.getElementById('form-poster-cta-text')?.value.trim() || 'Shop Now';
+    let link_url = document.getElementById('form-poster-cta-url')?.value.trim() || '#shop-catalog-section';
     if (/^wa\.me\//i.test(link_url) || /^api\.whatsapp\.com\//i.test(link_url)) {
         link_url = 'https://' + link_url;
     }
-    const display_order = parseInt(document.getElementById('form-poster-order').value, 10) || (adminPosters.length + 1);
-    const is_active = document.getElementById('form-poster-active').checked;
-    const image_url = document.getElementById('form-poster-image-url').value.trim();
+    const display_order = parseInt(document.getElementById('form-poster-order')?.value, 10) || (adminPosters.length + 1);
+    const is_active = document.getElementById('form-poster-active') ? document.getElementById('form-poster-active').checked : true;
+    const image_url = document.getElementById('form-poster-image-url')?.value.trim() || '';
     const gradient = document.getElementById('form-poster-gradient')?.value || 'emerald';
 
     if (!title && !image_url) {
@@ -5761,11 +5766,16 @@ async function handlePosterSubmit(e) {
         display_order,
         is_active,
         image_url,
-        gradient
+        gradient,
+        is_full_poster: Boolean(image_url && !subtitle)
     };
 
     const saveBtn = document.getElementById('btn-save-poster');
-    if (saveBtn) saveBtn.disabled = true;
+    const origBtnHtml = saveBtn ? saveBtn.innerHTML : '';
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span><span>Saving...</span>';
+    }
 
     try {
         let savedSuccessfully = false;
@@ -5823,7 +5833,10 @@ async function handlePosterSubmit(e) {
     } catch (err) {
         showToast('Failed to save poster: ' + err.message, 'warning');
     } finally {
-        if (saveBtn) saveBtn.disabled = false;
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            if (origBtnHtml) saveBtn.innerHTML = origBtnHtml;
+        }
     }
 }
 
