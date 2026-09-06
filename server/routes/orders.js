@@ -155,12 +155,19 @@ try {
 } catch (e) {}
 
 function withTimeout(promise, ms = 6000, fallback = null) {
-    return Promise.race([
-        promise,
-        new Promise((resolve) => setTimeout(() => {
+    let timer = null;
+    const timeoutPromise = new Promise((resolve) => {
+        timer = setTimeout(() => {
             console.warn(`[Supabase Query Timeout]: Exceeded ${ms}ms limit, using fallback.`);
             resolve(fallback);
-        }, ms))
+        }, ms);
+    });
+
+    return Promise.race([
+        Promise.resolve(promise).finally(() => {
+            if (timer) clearTimeout(timer);
+        }),
+        timeoutPromise
     ]);
 }
 
