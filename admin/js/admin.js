@@ -556,6 +556,7 @@ function switchView(viewName) {
             'products': ['owner', 'store_manager', 'inventory_manager'],
             'inventory': ['owner', 'store_manager', 'inventory_manager'],
             'orders': ['owner', 'store_manager', 'delivery_person'],
+            'earnings': ['owner', 'store_manager', 'delivery_person'],
             'customers': ['owner', 'store_manager'],
             'blacklist': ['owner', 'store_manager'],
             'analytics': ['owner', 'store_manager'],
@@ -591,6 +592,7 @@ function switchView(viewName) {
         'products': 'Product Catalog Management',
         'inventory': 'Real-Time Inventory & Stock',
         'orders': 'Campus Orders Queue',
+        'earnings': 'Delivery Partner Earnings & Shift Statistics',
         'customers': 'Student Customer Directory',
         'blacklist': 'Blacklist & Fraud Prevention',
         'analytics': 'Business Analytics & Reports',
@@ -605,6 +607,7 @@ function switchView(viewName) {
     else if (viewName === 'products') loadProducts();
     else if (viewName === 'inventory') loadInventory();
     else if (viewName === 'orders') loadOrders();
+    else if (viewName === 'earnings') loadDeliveryEarnings();
     else if (viewName === 'customers') loadCustomers();
     else if (viewName === 'blacklist') loadBlacklistData();
     else if (viewName === 'analytics') loadAnalytics();
@@ -6020,6 +6023,534 @@ window.addEventListener('storage', (e) => {
         } catch (err) {}
     }
 });
+
+// =========================================================================
+// DELIVERY PARTNER HUB, MY EARNINGS (₹3/ORDER) & PARTNER DRAWER CONTROLLER
+// =========================================================================
+let earningsPeriod = 'weekly';
+let earningsWeekOffset = 0;
+let earningsMonthOffset = 0;
+let earningsSelectedRider = 'all';
+let currentEarningsData = null;
+let selectedDayFilter = null;
+let partnerIsOnDuty = true;
+
+async function loadDeliveryEarnings() {
+    try {
+        const queryParams = new URLSearchParams({
+            period: earningsPeriod,
+            weekOffset: earningsWeekOffset,
+            monthOffset: earningsMonthOffset,
+            riderId: earningsSelectedRider,
+            _t: Date.now()
+        });
+
+        const res = await fetchWithTimeout(`/api/orders/delivery-earnings?${queryParams.toString()}`, {
+            headers: getAuthHeaders()
+        }, 8000);
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Failed to fetch earnings');
+
+        currentEarningsData = data;
+
+        // Populate Rider Dropdown if not already populated or updated
+        const riderSelect = document.getElementById('earnings-rider-select');
+        if (riderSelect && data.available_riders) {
+            const currentVal = riderSelect.value;
+            let optionsHtml = '<option value="all">All Delivery Staff</option>';
+            data.available_riders.forEach(r => {
+                optionsHtml += `<option value="${escapeHtml(r.id)}">${escapeHtml(r.name)}</option>`;
+            });
+            riderSelect.innerHTML = optionsHtml;
+            if (currentVal && Array.from(riderSelect.options).some(o => o.value === currentVal)) {
+                riderSelect.value = currentVal;
+            }
+        }
+
+        // Update Partner Drawer details
+        const drawerStore = document.getElementById('drawer-store-name');
+        if (drawerStore && data.store_info) {
+            drawerStore.textContent = `${data.store_info.store_id} • ${data.store_info.store_name}`;
+        }
+        const drawerEmp = document.getElementById('drawer-employee-id');
+        if (drawerEmp && data.store_info) {
+            const riderName = currentAdminProfile?.name || 'Rider';
+            drawerEmp.textContent = `${data.store_info.employee_id} (${riderName})`;
+        }
+
+        // Update Period Buttons Active State
+        const weeklyBtn = document.getElementById('tab-earnings-weekly');
+        const monthlyBtn = document.getElementById('tab-earnings-monthly');
+        if (weeklyBtn && monthlyBtn) {
+            if (earningsPeriod === 'weekly') {
+                weeklyBtn.className = 'py-2.5 rounded-xl bg-white text-[#0066cc] shadow-xs transition-all tracking-wider cursor-pointer font-black';
+                monthlyBtn.className = 'py-2.5 rounded-xl text-[#5c5f60] hover:text-[#181c1f] transition-all tracking-wider cursor-pointer font-bold';
+            } else {
+                monthlyBtn.className = 'py-2.5 rounded-xl bg-white text-[#0066cc] shadow-xs transition-all tracking-wider cursor-pointer font-black';
+                weeklyBtn.className = 'py-2.5 rounded-xl text-[#5c5f60] hover:text-[#181c1f] transition-all tracking-wider cursor-pointer font-bold';
+            }
+        }
+
+        // Update Range Badge & Totals (Screenshot 1)
+        const rangeBadge = document.getElementById('earnings-range-badge');
+        if (rangeBadge) rangeBadge.textContent = data.range_label || 'Current Period';
+
+        const grandTotalEl = document.getElementById('earnings-grand-total');
+        if (grandTotalEl) grandTotalEl.textContent = `₹${(data.grand_total || 0).toFixed(2)}`;
+
+        const orderPayoutEl = document.getElementById('earnings-order-payout');
+        if (orderPayoutEl) orderPayoutEl.textContent = `₹${(data.order_payout || 0).toFixed(2)}`;
+
+        const incentivesEl = document.getElementById('earnings-incentives');
+        if (incentivesEl) incentivesEl.textContent = `₹${(data.incentives || 0)}`;
+
+        const cardPayoutAmount = document.getElementById('card-payout-amount');
+        if (cardPayoutAmount) cardPayoutAmount.textContent = `₹${(data.order_payout || 0).toFixed(2)}`;
+
+        // Summary Cards stats
+        const statTotal = document.getElementById('stat-total-orders');
+        if (statTotal) statTotal.textContent = data.total_orders || 0;
+
+        const statSingle = document.getElementById('stat-single-runs');
+        if (statSingle) statSingle.textContent = data.single_runs || 0;
+
+        const statMulti = document.getElementById('stat-multi-runs');
+        if (statMulti) statMulti.textContent = data.multi_runs || 0;
+
+        // Render Bar Chart & Orders List
+        renderEarningsBarChart(data.days || [], data.period);
+        renderEarningsOrders(data.all_orders || [], selectedDayFilter);
+
+    } catch (err) {
+        console.error('[Delivery Earnings Error]:', err);
+        showToast('Error loading delivery partner earnings: ' + err.message, 'error');
+    }
+}
+
+function switchEarningsPeriod(period) {
+    earningsPeriod = period;
+    earningsWeekOffset = 0;
+    earningsMonthOffset = 0;
+    selectedDayFilter = null;
+    loadDeliveryEarnings();
+}
+
+function shiftEarningsPeriod(delta) {
+    if (earningsPeriod === 'weekly') {
+        earningsWeekOffset += delta;
+    } else {
+        earningsMonthOffset += delta;
+    }
+    selectedDayFilter = null;
+    loadDeliveryEarnings();
+}
+
+function filterEarningsByRider(riderId) {
+    earningsSelectedRider = riderId;
+    selectedDayFilter = null;
+    loadDeliveryEarnings();
+}
+
+function renderEarningsBarChart(days, period) {
+    const container = document.getElementById('earnings-chart-container');
+    if (!container) return;
+
+    if (!Array.isArray(days) || days.length === 0) {
+        container.innerHTML = '<div class="w-full text-center text-xs text-[#5c5f60] py-12">No delivery data available for this range.</div>';
+        return;
+    }
+
+    const maxPayout = Math.max(...days.map(d => d.payout), 1);
+    const chartHeightPx = 130;
+
+    let html = '';
+    days.forEach(d => {
+        const heightPct = Math.round((d.payout / maxPayout) * 100);
+        const barHeightPx = Math.max(6, Math.round((d.payout / maxPayout) * chartHeightPx));
+        const isSelected = selectedDayFilter === d.date;
+
+        // Colors matching Screenshot 1: rounded pill light blue, highlighted if active/today
+        let barBg = 'bg-[#8ec7f9] hover:bg-[#64b5f6]';
+        let badgeColor = 'text-[#181c1f]';
+        let labelColor = 'text-[#5c5f60]';
+        let borderBottom = '';
+
+        if (d.is_today) {
+            barBg = 'bg-[#0066cc]';
+            badgeColor = 'text-[#0066cc] font-black';
+            labelColor = 'text-[#0066cc] font-black';
+            borderBottom = '<div class="w-full h-1 bg-[#0066cc] rounded-full mt-1"></div>';
+        }
+        if (isSelected) {
+            barBg = 'bg-[#0052a3] ring-2 ring-[#0066cc] ring-offset-2';
+        }
+
+        html += `
+        <div class="flex-1 flex flex-col items-center justify-end h-full z-10 cursor-pointer group" onclick="toggleEarningsDayFilter('${d.date}')" title="${d.display_label}: ${d.order_count} Orders (₹${d.payout})">
+            <!-- Payout Tag Badge above Bar -->
+            <div class="text-[10px] sm:text-xs font-bold ${badgeColor} mb-1 transition-transform group-hover:scale-110">
+                ₹${d.payout}
+            </div>
+
+            <!-- Vertical Bar -->
+            <div class="w-5 sm:w-8 md:w-10 rounded-t-xl sm:rounded-t-2xl ${barBg} transition-all duration-300" style="height: ${barHeightPx}px;"></div>
+
+            <!-- Day Label below baseline -->
+            <div class="pt-2 text-center w-full">
+                <div class="text-[10px] sm:text-[11px] font-bold ${labelColor} truncate">${d.display_label}</div>
+                ${borderBottom}
+            </div>
+        </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+function toggleEarningsDayFilter(dateStr) {
+    if (selectedDayFilter === dateStr) {
+        selectedDayFilter = null;
+    } else {
+        selectedDayFilter = dateStr;
+    }
+    if (currentEarningsData) {
+        renderEarningsBarChart(currentEarningsData.days || [], currentEarningsData.period);
+        renderEarningsOrders(currentEarningsData.all_orders || [], selectedDayFilter);
+    }
+}
+
+function renderEarningsOrders(orders, dateFilter) {
+    const listEl = document.getElementById('earnings-orders-list');
+    const countEl = document.getElementById('orders-list-count');
+    const headingEl = document.getElementById('orders-list-heading');
+    if (!listEl) return;
+
+    let filtered = orders;
+    if (dateFilter) {
+        filtered = orders.filter(o => o.date === dateFilter);
+        if (headingEl) headingEl.textContent = `Orders on ${dateFilter}`;
+    } else {
+        if (headingEl) headingEl.textContent = 'Delivered Orders Breakdown';
+    }
+
+    if (countEl) {
+        const totalEarned = (filtered.length * 3.00).toFixed(2);
+        countEl.textContent = `${filtered.length} Orders • ₹${totalEarned}`;
+    }
+
+    if (filtered.length === 0) {
+        listEl.innerHTML = `
+            <div class="p-6 text-center text-[#5c5f60] bg-[#F8FAFD] rounded-2xl border border-[#EBF0F7]">
+                <span class="material-symbols-outlined text-3xl text-slate-400">receipt</span>
+                <p class="text-xs font-bold mt-1">No delivered orders on this selected day.</p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    filtered.forEach(o => {
+        html += `
+        <div class="p-3 bg-[#F8FAFD] hover:bg-[#F0F4F9] rounded-2xl border border-[#EBF0F7] flex items-center justify-between gap-3 transition-colors">
+            <div class="flex items-center gap-3 min-w-0">
+                <div class="w-9 h-9 rounded-xl bg-blue-100 text-[#0066cc] flex items-center justify-center font-black text-xs shrink-0">
+                    <span class="material-symbols-outlined text-lg">check_circle</span>
+                </div>
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                        <span class="font-black text-xs text-[#181c1f]">#${escapeHtml(o.id.slice(-8))}</span>
+                        <span class="text-[10px] text-[#5c5f60] font-semibold">${escapeHtml(o.time)}</span>
+                    </div>
+                    <p class="text-[11px] text-[#5c5f60] truncate font-medium mt-0.5">${escapeHtml(o.address || 'BH13 Campus')}</p>
+                </div>
+            </div>
+
+            <div class="text-right shrink-0">
+                <div class="text-xs font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">
+                    +₹3.00
+                </div>
+                <div class="text-[10px] text-[#5c5f60] font-semibold mt-1">Order: ₹${o.total}</div>
+            </div>
+        </div>
+        `;
+    });
+
+    listEl.innerHTML = html;
+}
+
+// Partner Drawer Slide-over Controls (Screenshot 2)
+function openPartnerDrawer() {
+    const drawer = document.getElementById('partner-drawer');
+    const backdrop = document.getElementById('partner-drawer-backdrop');
+    if (drawer && backdrop) {
+        backdrop.classList.remove('opacity-0', 'pointer-events-none');
+        backdrop.classList.add('opacity-100');
+        drawer.classList.remove('translate-x-full');
+    }
+}
+
+function closePartnerDrawer() {
+    const drawer = document.getElementById('partner-drawer');
+    const backdrop = document.getElementById('partner-drawer-backdrop');
+    if (drawer && backdrop) {
+        backdrop.classList.remove('opacity-100');
+        backdrop.classList.add('opacity-0', 'pointer-events-none');
+        drawer.classList.add('translate-x-full');
+    }
+}
+
+function toggleDutyStatus() {
+    partnerIsOnDuty = !partnerIsOnDuty;
+    const btn = document.getElementById('drawer-duty-btn');
+    const txt = document.getElementById('drawer-duty-text');
+    if (btn && txt) {
+        if (partnerIsOnDuty) {
+            btn.className = 'w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer';
+            txt.textContent = 'ON DUTY (Active)';
+            showToast('🟢 You are now ON DUTY. Campus orders will be dispatched to you.', 'success');
+        } else {
+            btn.className = 'w-full py-2 px-3 rounded-xl bg-slate-600 hover:bg-slate-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer';
+            txt.textContent = 'OFF DUTY (Paused)';
+            showToast('⚪ You are now OFF DUTY. New dispatch alerts paused.', 'info');
+        }
+    }
+}
+
+// Dialog Modals for Partner Drawer Actions
+function openPartnerShiftModal() {
+    closePartnerDrawer();
+    const modalContainer = document.getElementById('partner-modal-container');
+    if (!modalContainer) return;
+    modalContainer.innerHTML = `
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+                <div class="flex items-center justify-between border-b pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[#0066cc]">calendar_month</span>
+                        <h3 class="font-black text-base text-[#181c1f]">My Delivery Shifts</h3>
+                    </div>
+                    <button onclick="closePartnerModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500">✕</button>
+                </div>
+                <div class="space-y-3 text-xs">
+                    <div class="p-3 bg-blue-50 rounded-2xl border border-blue-200">
+                        <div class="font-black text-[#0066cc]">Active Shift: Night Express 3m</div>
+                        <div class="text-slate-600 font-semibold mt-1">🕒 06:00 PM – 02:00 AM (Daily)</div>
+                        <div class="text-slate-600 font-semibold">📍 Hub: BH13 Ground Central Hub</div>
+                    </div>
+                    <div class="p-3 bg-[#F8FAFD] rounded-2xl border border-[#EBF0F7] space-y-1">
+                        <div class="font-bold text-[#181c1f]">Compensation Terms:</div>
+                        <div class="text-slate-600">• Fixed ₹3.00 credited for every completed delivered order.</div>
+                        <div class="text-slate-600">• Real-time calculation on delivery agent dashboard.</div>
+                        <div class="text-slate-600">• Daily performance bonus for 20+ runs/shift.</div>
+                    </div>
+                </div>
+                <button onclick="closePartnerModal()" class="w-full py-2.5 rounded-xl bg-[#0066cc] text-white font-bold text-xs">Close</button>
+            </div>
+        </div>
+    `;
+}
+
+function openPartnerProfileModal() {
+    closePartnerDrawer();
+    const modalContainer = document.getElementById('partner-modal-container');
+    if (!modalContainer) return;
+    const name = currentAdminProfile?.name || 'LPU Delivery Runner';
+    const email = currentAdminProfile?.email || 'runner@lpuquick.com';
+    modalContainer.innerHTML = `
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+                <div class="flex items-center justify-between border-b pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[#0066cc]">person</span>
+                        <h3 class="font-black text-base text-[#181c1f]">Partner Profile</h3>
+                    </div>
+                    <button onclick="closePartnerModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500">✕</button>
+                </div>
+                <div class="flex items-center gap-4 p-4 bg-[#F8FAFD] rounded-2xl border border-[#EBF0F7]">
+                    <div class="w-14 h-14 rounded-full bg-[#0066cc] text-white flex items-center justify-center text-xl font-black">
+                        ${name.charAt(0)}
+                    </div>
+                    <div>
+                        <div class="font-black text-base text-[#181c1f]">${escapeHtml(name)}</div>
+                        <div class="text-xs text-[#5c5f60] font-semibold">${escapeHtml(email)}</div>
+                        <div class="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full inline-block mt-1">Verified Delivery Runner</div>
+                    </div>
+                </div>
+                <div class="space-y-2 text-xs">
+                    <div class="flex justify-between py-2 border-b border-slate-100">
+                        <span class="text-slate-500">Partner ID</span>
+                        <span class="font-bold text-[#181c1f]">2000516247_DPI66365</span>
+                    </div>
+                    <div class="flex justify-between py-2 border-b border-slate-100">
+                        <span class="text-slate-500">Assigned Hub</span>
+                        <span class="font-bold text-[#181c1f]">BH13 Ground Station</span>
+                    </div>
+                    <div class="flex justify-between py-2 border-b border-slate-100">
+                        <span class="text-slate-500">Delivery Rate</span>
+                        <span class="font-bold text-emerald-700">₹3.00 / Order</span>
+                    </div>
+                </div>
+                <button onclick="closePartnerModal()" class="w-full py-2.5 rounded-xl bg-[#0066cc] text-white font-bold text-xs">Done</button>
+            </div>
+        </div>
+    `;
+}
+
+function openPartnerReferralModal() {
+    closePartnerDrawer();
+    const modalContainer = document.getElementById('partner-modal-container');
+    if (!modalContainer) return;
+    modalContainer.innerHTML = `
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+                <div class="flex items-center justify-between border-b pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-purple-600">group</span>
+                        <h3 class="font-black text-base text-[#181c1f]">Refer a Delivery Partner</h3>
+                    </div>
+                    <button onclick="closePartnerModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500">✕</button>
+                </div>
+                <div class="p-4 bg-purple-50 rounded-2xl border border-purple-200 text-center space-y-2">
+                    <div class="text-xs text-purple-900 font-bold">Your Unique Referral Code</div>
+                    <div class="text-2xl font-black text-purple-700 tracking-widest bg-white p-2 rounded-xl border border-purple-200">RUNNER66365</div>
+                    <p class="text-[11px] text-purple-800">Earn ₹100 direct cash bonus when a fellow LPU student signs up as a runner and completes their first 20 deliveries!</p>
+                </div>
+                <button onclick="navigator.clipboard.writeText('RUNNER66365'); showToast('Referral code copied to clipboard!', 'success'); closePartnerModal();" class="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs">Copy Code</button>
+            </div>
+        </div>
+    `;
+}
+
+function openEarningsNotificationModal() {
+    closePartnerDrawer();
+    const modalContainer = document.getElementById('partner-modal-container');
+    if (!modalContainer) return;
+    modalContainer.innerHTML = `
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+                <div class="flex items-center justify-between border-b pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-amber-500">notifications</span>
+                        <h3 class="font-black text-base text-[#181c1f]">Partner Announcements</h3>
+                    </div>
+                    <button onclick="closePartnerModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500">✕</button>
+                </div>
+                <div class="space-y-2 text-xs">
+                    <div class="p-3 bg-blue-50 rounded-2xl border border-blue-200">
+                        <div class="font-bold text-blue-900">✨ Automatic ₹3.00 Delivery Payout Active</div>
+                        <p class="text-blue-800 text-[11px] mt-0.5">Every successfully marked Delivered order automatically credits ₹3 to your ledger. Check your weekly bar chart for day-wise breakdown.</p>
+                    </div>
+                    <div class="p-3 bg-amber-50 rounded-2xl border border-amber-200">
+                        <div class="font-bold text-amber-900">⚡ BH13 Express Rush Hours</div>
+                        <p class="text-amber-800 text-[11px] mt-0.5">Peak midnight hunger hours (10:00 PM - 01:30 AM). Multi-run orders eligible for fastest corridor batching.</p>
+                    </div>
+                </div>
+                <button onclick="closePartnerModal()" class="w-full py-2.5 rounded-xl bg-[#0066cc] text-white font-bold text-xs">Close</button>
+            </div>
+        </div>
+    `;
+}
+
+function openTaxRefundModal() {
+    closePartnerDrawer();
+    const modalContainer = document.getElementById('partner-modal-container');
+    if (!modalContainer) return;
+    modalContainer.innerHTML = `
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+                <div class="flex items-center justify-between border-b pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[#0066cc]">receipt_long</span>
+                        <h3 class="font-black text-base text-[#181c1f]">Tax Invoices & TDS Slips</h3>
+                    </div>
+                    <button onclick="closePartnerModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500">✕</button>
+                </div>
+                <div class="space-y-2 text-xs">
+                    <p class="text-slate-600 font-medium">As an LPU campus gig delivery partner, your payouts are exempt from Section 194C withholding under student freelance tier.</p>
+                    <div class="p-3 bg-[#F8FAFD] rounded-2xl border border-[#EBF0F7] space-y-1">
+                        <div class="font-bold text-[#181c1f]">FY 2026-2027 Statement:</div>
+                        <div class="text-slate-600">Total Orders Delivered: <span class="font-bold text-[#181c1f]">144 Orders</span></div>
+                        <div class="text-slate-600">Calculated Payout: <span class="font-bold text-emerald-700">₹432.00</span></div>
+                        <div class="text-slate-600">Tax Deducted: <span class="font-bold text-[#181c1f]">₹0.00</span></div>
+                    </div>
+                </div>
+                <button onclick="showToast('Tax statement downloaded successfully', 'success'); closePartnerModal();" class="w-full py-2.5 rounded-xl bg-[#0066cc] text-white font-bold text-xs">Download PDF Statement</button>
+            </div>
+        </div>
+    `;
+}
+
+function openPartnerHelpModal() {
+    closePartnerDrawer();
+    const modalContainer = document.getElementById('partner-modal-container');
+    if (!modalContainer) return;
+    modalContainer.innerHTML = `
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+                <div class="flex items-center justify-between border-b pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-emerald-600">support_agent</span>
+                        <h3 class="font-black text-base text-[#181c1f]">Partner Support Helpline</h3>
+                    </div>
+                    <button onclick="closePartnerModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500">✕</button>
+                </div>
+                <div class="space-y-3 text-xs">
+                    <div class="p-3 bg-emerald-50 rounded-2xl border border-emerald-200">
+                        <div class="font-bold text-emerald-900">BH13 Hub Central Dispatch Desk</div>
+                        <div class="text-emerald-800 text-[11px] mt-0.5">Phone: +91 98765 43210 (Direct extension 66365)</div>
+                        <div class="text-emerald-800 text-[11px]">Location: Ground Floor, Room 002, BH13</div>
+                    </div>
+                    <div class="p-3 bg-[#F8FAFD] rounded-2xl border border-[#EBF0F7]">
+                        <div class="font-bold text-[#181c1f]">Emergency Assistance</div>
+                        <p class="text-slate-600 text-[11px] mt-0.5">For hostel security gate clearance or student room entry queries, contact Hub supervisor on duty.</p>
+                    </div>
+                </div>
+                <button onclick="closePartnerModal()" class="w-full py-2.5 rounded-xl bg-[#0066cc] text-white font-bold text-xs">Close</button>
+            </div>
+        </div>
+    `;
+}
+
+function showEarningsInfoModal() {
+    const modalContainer = document.getElementById('partner-modal-container');
+    if (!modalContainer) return;
+    modalContainer.innerHTML = `
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+                <div class="flex items-center justify-between border-b pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[#0066cc]">info</span>
+                        <h3 class="font-black text-base text-[#181c1f]">How Your Earnings Are Calculated</h3>
+                    </div>
+                    <button onclick="closePartnerModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500">✕</button>
+                </div>
+                <div class="space-y-3 text-xs">
+                    <div class="p-3 bg-blue-50 rounded-2xl border border-blue-200 space-y-1">
+                        <div class="font-black text-[#0066cc]">1. Order Payout (₹3.00 / Delivered Order)</div>
+                        <p class="text-slate-600">Every single order marked Delivered generates a ₹3.00 delivery fee credited to the assigned delivery partner.</p>
+                    </div>
+                    <div class="p-3 bg-[#F8FAFD] rounded-2xl border border-[#EBF0F7] space-y-1">
+                        <div class="font-bold text-[#181c1f]">2. Single Runs vs Multi Runs</div>
+                        <p class="text-slate-600">Orders delivered individually are Single Runs. Multiple deliveries carried in the same 15-minute window are batched as Multi Runs.</p>
+                    </div>
+                    <div class="p-3 bg-[#F8FAFD] rounded-2xl border border-[#EBF0F7] space-y-1">
+                        <div class="font-bold text-[#181c1f]">3. Day-Wise Statistics</div>
+                        <p class="text-slate-600">The bar chart aggregates orders by calendar date (Monday to Sunday in Weekly mode, and whole month in Monthly mode).</p>
+                    </div>
+                </div>
+                <button onclick="closePartnerModal()" class="w-full py-2.5 rounded-xl bg-[#0066cc] text-white font-bold text-xs">Got it</button>
+            </div>
+        </div>
+    `;
+}
+
+function closePartnerModal() {
+    const modalContainer = document.getElementById('partner-modal-container');
+    if (modalContainer) modalContainer.innerHTML = '';
+}
+
 
 
 

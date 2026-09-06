@@ -191,7 +191,8 @@ const routes = {
     '/checkout': 'checkout',
     '/flow-assist': 'flowassist',
     '/orders': 'orders',
-    '/settings': 'settings'
+    '/settings': 'settings',
+    '/rider-earnings': 'rider_earnings'
 };
 
 function navigate(path) {

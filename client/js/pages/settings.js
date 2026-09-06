@@ -224,6 +224,24 @@ window.pages.settings = async function () {
             </div>
             <span class="liquid-badge text-[10px] font-black text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800/80 px-2.5 py-1 border border-slate-200 dark:border-slate-700">v2.4 Pro</span>
         </div>
+        <!-- Delivery Partner Hub & Earnings (₹3/Order) -->
+        <a href="#/rider-earnings" class="glass-panel card-pedestal rounded-3xl p-5 border border-blue-200 dark:border-blue-900/60 bg-gradient-to-r from-blue-50/70 to-indigo-50/50 dark:from-blue-950/30 dark:to-indigo-950/20 flex items-center justify-between shadow-md hover:scale-[1.01] active:scale-98 transition-all group cursor-pointer">
+            <div class="flex items-center gap-3.5">
+                <div class="w-12 h-12 rounded-2xl bg-[#0066cc] text-white flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
+                    <span class="material-symbols-outlined text-2xl">sports_motorsports</span>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h4 class="font-black text-xs sm:text-sm text-slate-900 dark:text-white">Delivery Partner Hub</h4>
+                        <span class="text-[9px] font-black bg-blue-100 text-[#0066cc] dark:bg-blue-900/60 dark:text-blue-300 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">₹3/Order</span>
+                    </div>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">My Earnings, weekly bar chart & shift statistics</p>
+                </div>
+            </div>
+            <div class="w-8 h-8 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center text-[#0066cc] shadow-xs group-hover:translate-x-1 transition-transform">
+                <span class="material-symbols-outlined text-lg">arrow_forward</span>
+            </div>
+        </a>
     </main>
 
     <!-- Floating Liquid Glass Bottom Navigation Dock -->

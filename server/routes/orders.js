@@ -499,6 +499,232 @@ router.get('/admin/delivery-staff', requireAdmin, async (req, res) => {
     }
 });
 
+// ============================================================
+// DELIVERY PARTNER EARNINGS & ACCURATE ORDER CHARGES (₹3/ORDER)
+// ============================================================
+router.get('/delivery-earnings', async (req, res) => {
+    try {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+        const period = (req.query.period || 'weekly').toLowerCase();
+        const weekOffset = parseInt(req.query.weekOffset, 10) || 0;
+        const monthOffset = parseInt(req.query.monthOffset, 10) || 0;
+        const selectedRiderId = req.query.riderId || 'all';
+        const RATE_PER_ORDER = 3.00; // ₹3 per delivered order as specified
+
+        const supabase = getSupabaseClient();
+        const { data: rawOrders, error } = await supabase
+            .from('orders')
+            .select('id, user_id, status, subtotal, delivery_fee, total, payment_method, rider_name, delivery_address, created_at')
+            .in('status', ['Delivered', 'delivered'])
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.warn('[Delivery Earnings DB Query Error]:', error.message);
+        }
+
+        const deliveredOrders = Array.isArray(rawOrders) ? rawOrders : [];
+
+        // Gather all distinct riders for dropdown filter
+        const riderMap = new Map();
+        deliveredOrders.forEach(o => {
+            const meta = supabaseDb.orders.parseDeliveryMeta(o.rider_name);
+            const riderId = meta.assigned_to || (typeof o.rider_name === 'string' && o.rider_name.trim() ? o.rider_name.trim() : 'unassigned');
+            const riderName = meta.name || meta.assigned_to_name || (typeof o.rider_name === 'string' && !o.rider_name.startsWith('{') ? o.rider_name : 'Campus Runner');
+            if (riderId && !riderMap.has(riderId)) {
+                riderMap.set(riderId, { id: riderId, name: riderName });
+            }
+        });
+        const availableRiders = Array.from(riderMap.values());
+
+        // Filter orders by selected rider if requested
+        let filteredOrders = deliveredOrders;
+        if (selectedRiderId && selectedRiderId !== 'all') {
+            filteredOrders = deliveredOrders.filter(o => {
+                const meta = supabaseDb.orders.parseDeliveryMeta(o.rider_name);
+                return meta.assigned_to === selectedRiderId || 
+                       meta.name === selectedRiderId || 
+                       o.rider_name === selectedRiderId;
+            });
+        }
+
+        // Date calculations
+        const now = new Date();
+        const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+        const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+
+        const formatLocalDate = (d) => {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        };
+
+        let startDate, endDate, rangeLabel, daysList = [];
+
+        if (period === 'monthly') {
+            // Target month
+            const targetYear = now.getFullYear();
+            const targetMonth = now.getMonth() + monthOffset;
+            startDate = new Date(targetYear, targetMonth, 1, 0, 0, 0, 0);
+            endDate = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59, 999);
+            rangeLabel = `${monthNames[startDate.getMonth()]} ${startDate.getFullYear()}`;
+
+            // Build all days in the month
+            const totalDaysInMonth = endDate.getDate();
+            for (let d = 1; d <= totalDaysInMonth; d++) {
+                const currentDayDate = new Date(startDate.getFullYear(), startDate.getMonth(), d);
+                const dateStr = formatLocalDate(currentDayDate);
+                const isToday = currentDayDate.toDateString() === now.toDateString();
+
+                const dayOrders = filteredOrders.filter(o => o.created_at && formatLocalDate(new Date(o.created_at)) === dateStr);
+                const orderCount = dayOrders.length;
+                const payout = orderCount * RATE_PER_ORDER;
+
+                daysList.push({
+                    date: dateStr,
+                    day_number: String(d).padStart(2, '0'),
+                    day_name: dayNames[currentDayDate.getDay()],
+                    display_label: `${String(d).padStart(2, '0')} ${dayNames[currentDayDate.getDay()]}`,
+                    is_today: isToday,
+                    order_count: orderCount,
+                    payout: payout,
+                    orders: dayOrders.map(o => ({
+                        id: o.id,
+                        time: new Date(o.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+                        address: o.delivery_address || 'BH13 Campus',
+                        total: o.total || 0,
+                        payout: RATE_PER_ORDER,
+                        status: o.status
+                    }))
+                });
+            }
+        } else {
+            // Weekly view (Default): Monday to Sunday
+            const targetTime = now.getTime() + (weekOffset * 7 * 24 * 60 * 60 * 1000);
+            const targetDate = new Date(targetTime);
+            const dayOfWeek = targetDate.getDay();
+            const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+
+            startDate = new Date(targetDate);
+            startDate.setDate(targetDate.getDate() + diffToMonday);
+            startDate.setHours(0, 0, 0, 0);
+
+            endDate = new Date(startDate);
+            endDate.setDate(startDate.getDate() + 6);
+            endDate.setHours(23, 59, 59, 999);
+
+            const startM = monthNames[startDate.getMonth()];
+            const startD = String(startDate.getDate()).padStart(2, '0');
+            const endM = monthNames[endDate.getMonth()];
+            const endD = String(endDate.getDate()).padStart(2, '0');
+            rangeLabel = (startDate.getMonth() === endDate.getMonth())
+                ? `${startM} ${startD} - ${endD}`
+                : `${startM} ${startD} - ${endM} ${endD}`;
+
+            // Build 7 days (MON to SUN)
+            for (let i = 0; i < 7; i++) {
+                const currentDayDate = new Date(startDate);
+                currentDayDate.setDate(startDate.getDate() + i);
+                const dateStr = formatLocalDate(currentDayDate);
+                const isToday = currentDayDate.toDateString() === now.toDateString();
+
+                const dayOrders = filteredOrders.filter(o => o.created_at && formatLocalDate(new Date(o.created_at)) === dateStr);
+                const orderCount = dayOrders.length;
+                const payout = orderCount * RATE_PER_ORDER;
+
+                daysList.push({
+                    date: dateStr,
+                    day_number: String(currentDayDate.getDate()).padStart(2, '0'),
+                    day_name: dayNames[currentDayDate.getDay()],
+                    display_label: isToday ? 'TODAY' : `${String(currentDayDate.getDate()).padStart(2, '0')} ${dayNames[currentDayDate.getDay()]}`,
+                    is_today: isToday,
+                    order_count: orderCount,
+                    payout: payout,
+                    orders: dayOrders.map(o => ({
+                        id: o.id,
+                        time: new Date(o.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+                        address: o.delivery_address || 'BH13 Campus',
+                        total: o.total || 0,
+                        payout: RATE_PER_ORDER,
+                        status: o.status
+                    }))
+                });
+            }
+        }
+
+        // Orders within current period range
+        const periodOrders = filteredOrders.filter(o => {
+            const oTime = new Date(o.created_at).getTime();
+            return oTime >= startDate.getTime() && oTime <= endDate.getTime();
+        });
+
+        const totalOrders = periodOrders.length;
+        const totalPayout = totalOrders * RATE_PER_ORDER;
+
+        // Calculate Single Runs vs Multi Runs
+        // Orders created within 15 minutes of each other in the same delivery batch count as Multi Runs
+        let multiRunsCount = 0;
+        for (let i = 0; i < periodOrders.length; i++) {
+            const t1 = new Date(periodOrders[i].created_at).getTime();
+            for (let j = 0; j < periodOrders.length; j++) {
+                if (i !== j) {
+                    const t2 = new Date(periodOrders[j].created_at).getTime();
+                    if (Math.abs(t1 - t2) <= 15 * 60 * 1000) {
+                        multiRunsCount++;
+                        break;
+                    }
+                }
+            }
+        }
+        const singleRunsCount = Math.max(0, totalOrders - multiRunsCount);
+
+        // Incentive tier calculation (e.g. ₹20 bonus if daily orders >= 20)
+        let totalIncentive = 0;
+        daysList.forEach(d => {
+            if (d.order_count >= 20) {
+                totalIncentive += 20;
+            }
+        });
+
+        res.json({
+            success: true,
+            period,
+            week_offset: weekOffset,
+            month_offset: monthOffset,
+            range_label: rangeLabel,
+            rate_per_order: RATE_PER_ORDER,
+            total_orders: totalOrders,
+            order_payout: totalPayout,
+            incentives: totalIncentive,
+            others: 0,
+            grand_total: totalPayout + totalIncentive,
+            single_runs: singleRunsCount,
+            multi_runs: multiRunsCount,
+            days: daysList,
+            all_orders: periodOrders.map(o => ({
+                id: o.id,
+                created_at: o.created_at,
+                time: new Date(o.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+                date: (o.created_at || '').slice(0, 10),
+                address: o.delivery_address || 'BH13 Campus',
+                total: o.total || 0,
+                payout: RATE_PER_ORDER,
+                status: o.status
+            })),
+            available_riders: availableRiders,
+            store_info: {
+                store_id: '66365',
+                store_name: 'BH13 Ground Hub',
+                employee_id: '2000516247_DPI66365',
+                service: 'Domino’s / LPUQuick Express 3m Delivery'
+            }
+        });
+    } catch (err) {
+        console.error('[Delivery Earnings Error]:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 // POST /api/orders/:orderId/claim (First-Come-First-Served Delivery Acceptance)
 router.post('/:orderId/claim', requireAdmin, async (req, res) => {
     const { orderId } = req.params;

@@ -91,6 +91,12 @@
                 <span id="nav-pending-badge"
                     class="hidden text-[10px] bg-[#ba1a1a] text-white px-2 py-0.5 rounded-full font-bold">0</span>
             </button>
+            <button onclick="switchView('earnings')" data-view="earnings" data-required-role="owner,store_manager,delivery_person"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+                <span class="material-symbols-outlined text-[#1a73e8]">payments</span>
+                <span class="flex-1 font-semibold text-[#1a73e8]">Partner Earnings</span>
+                <span class="text-[10px] bg-blue-100 text-blue-800 font-bold px-1.5 py-0.5 rounded">₹3/Ord</span>
+            </button>
             <button onclick="switchView('customers')" data-view="customers" data-required-role="owner,store_manager"
                 class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined">group</span>
@@ -953,6 +959,175 @@
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW: DELIVERY PARTNER EARNINGS & ACCURATE CHARGES (₹3/ORDER) ================= -->
+            <div id="view-earnings" class="space-y-6 max-w-4xl mx-auto hidden pb-12">
+                <!-- Top Toolbar -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-[#DADCE0] shadow-xs">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h2 class="text-xl font-bold text-[#181c1f]">Delivery Partner Hub</h2>
+                            <span class="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full border border-emerald-300">₹3.00 / Order</span>
+                        </div>
+                        <p class="text-xs text-[#5c5f60] mt-0.5">Real-time verified delivery statistics, day-wise calculations & shift payouts</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <!-- Rider Dropdown Filter -->
+                        <div class="flex items-center gap-1.5 bg-[#F0F4F9] px-3 py-1.5 rounded-xl border border-[#DADCE0]">
+                            <span class="material-symbols-outlined text-sm text-[#5c5f60]">sports_motorsports</span>
+                            <select id="earnings-rider-select" onchange="filterEarningsByRider(this.value)" class="bg-transparent text-xs font-bold text-[#181c1f] outline-none cursor-pointer">
+                                <option value="all">All Delivery Staff</option>
+                            </select>
+                        </div>
+                        <!-- Open Partner Drawer Button (Screenshot 2) -->
+                        <button onclick="openPartnerDrawer()" class="px-3.5 py-2 rounded-xl bg-[#0066cc] hover:bg-[#0052a3] text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer">
+                            <span class="material-symbols-outlined text-sm">menu</span>
+                            <span>Partner Menu</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Earnings Mobile Preview Pedestal (Matching Screenshot 1) -->
+                <div class="bg-white rounded-3xl border border-[#DADCE0] shadow-xl overflow-hidden max-w-md mx-auto">
+                    <!-- Screen Header -->
+                    <div class="p-4 flex items-center justify-between border-b border-[#F0F4F9]">
+                        <button onclick="switchView('orders')" class="w-9 h-9 rounded-full hover:bg-[#F0F4F9] text-[#181c1f] flex items-center justify-center transition-colors">
+                            <span class="material-symbols-outlined text-xl">arrow_back</span>
+                        </button>
+                        <h3 class="font-black text-base text-[#181c1f] tracking-tight">My Earnings</h3>
+                        <div class="flex items-center gap-1">
+                            <button onclick="openEarningsNotificationModal()" class="w-9 h-9 rounded-full hover:bg-[#F0F4F9] text-[#5c5f60] flex items-center justify-center transition-colors relative">
+                                <span class="material-symbols-outlined text-xl">notifications</span>
+                                <span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500"></span>
+                            </button>
+                            <button onclick="openPartnerDrawer()" class="w-9 h-9 rounded-full hover:bg-[#F0F4F9] text-[#5c5f60] flex items-center justify-center transition-colors">
+                                <span class="material-symbols-outlined text-xl">menu</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Period Selector Tabs (WEEKLY / MONTHLY) -->
+                    <div class="p-4 pb-2">
+                        <div class="grid grid-cols-2 p-1 bg-[#F0F4F9] rounded-2xl border border-[#E1E6EB] text-center text-xs font-black">
+                            <button id="tab-earnings-weekly" onclick="switchEarningsPeriod('weekly')" class="py-2.5 rounded-xl bg-white text-[#0066cc] shadow-xs transition-all tracking-wider cursor-pointer">
+                                WEEKLY
+                            </button>
+                            <button id="tab-earnings-monthly" onclick="switchEarningsPeriod('monthly')" class="py-2.5 rounded-xl text-[#5c5f60] hover:text-[#181c1f] transition-all tracking-wider cursor-pointer">
+                                MONTHLY
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Date Range Navigator Pill & Big Hero Payout -->
+                    <div class="p-4 pt-2 text-center space-y-2 bg-gradient-to-b from-[#F0F8FF]/60 to-transparent">
+                        <div class="flex items-center justify-center gap-2">
+                            <button onclick="shiftEarningsPeriod(-1)" class="w-8 h-8 rounded-lg bg-[#F0F4F9] hover:bg-[#E1E6EB] text-[#5c5f60] font-black flex items-center justify-center text-lg active:scale-95 transition-all">
+                                ‹
+                            </button>
+                            <span id="earnings-range-badge" class="px-3.5 py-1 rounded-full bg-[#E1F0FF] text-[#0066cc] font-black text-xs tracking-wider uppercase shadow-xs">
+                                AUG 31 - SEP 06
+                            </span>
+                            <button onclick="showEarningsInfoModal()" class="w-5 h-5 rounded-full text-[#8c9199] hover:text-[#0066cc] text-xs font-bold flex items-center justify-center" title="Payout Breakdown Info">
+                                ⓘ
+                            </button>
+                            <button onclick="shiftEarningsPeriod(1)" class="w-8 h-8 rounded-lg bg-[#F0F4F9] hover:bg-[#E1E6EB] text-[#5c5f60] font-black flex items-center justify-center text-lg active:scale-95 transition-all">
+                                ›
+                            </button>
+                        </div>
+
+                        <!-- Grand Total Payout -->
+                        <div class="pt-2">
+                            <h1 id="earnings-grand-total" class="text-4xl sm:text-5xl font-black text-[#0066cc] tracking-tight">₹432.00</h1>
+                        </div>
+
+                        <!-- 3-Column Metrics Row -->
+                        <div class="grid grid-cols-3 pt-4 border-t border-[#F0F4F9] text-center divide-x divide-[#E1E6EB]">
+                            <div>
+                                <div id="earnings-order-payout" class="font-black text-base text-[#181c1f]">₹432.00</div>
+                                <div class="text-[11px] font-medium text-[#5c5f60]">Order Payout</div>
+                            </div>
+                            <div>
+                                <div id="earnings-incentives" class="font-black text-base text-[#181c1f]">₹0</div>
+                                <div class="text-[11px] font-medium text-[#5c5f60]">Incentives</div>
+                            </div>
+                            <div>
+                                <div class="font-black text-base text-[#5c5f60]">-</div>
+                                <div class="text-[11px] font-medium text-[#5c5f60]">Others</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 7-Day Vertical Bar Chart -->
+                    <div class="p-4 pt-1">
+                        <div class="bg-white rounded-2xl p-3 border border-[#EBEFF5]">
+                            <div class="flex items-end justify-between gap-1 sm:gap-2 h-48 pt-6 pb-2 relative" id="earnings-chart-container">
+                                <!-- Baseline dotted line -->
+                                <div class="absolute bottom-8 inset-x-0 border-b border-dashed border-[#DADCE0] pointer-events-none"></div>
+                                <!-- Day bars will be dynamically rendered here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card: Order Payout Summary -->
+                    <div class="p-4 pt-0">
+                        <div class="bg-white rounded-2xl p-4 border border-[#EBEFF5] shadow-xs space-y-3">
+                            <div class="flex items-center justify-between">
+                                <h4 class="font-black text-sm text-[#181c1f]">Order Payout</h4>
+                                <span id="card-payout-badge" class="px-2.5 py-0.5 rounded-full bg-[#181c1f] text-white text-xs font-bold flex items-center gap-1">
+                                    <span id="card-payout-amount">₹432.00</span>
+                                    <span>→</span>
+                                </span>
+                            </div>
+
+                            <div class="grid grid-cols-3 items-center text-center p-2 rounded-xl bg-[#F8FAFD] border border-[#EBF0F7]">
+                                <div>
+                                    <div id="stat-total-orders" class="text-2xl font-black text-[#181c1f]">144</div>
+                                    <div class="text-[10px] text-[#5c5f60] font-semibold">Orders</div>
+                                </div>
+                                <div>
+                                    <div id="stat-single-runs" class="text-2xl font-black text-[#181c1f]">130</div>
+                                    <div class="text-[10px] text-[#5c5f60] font-semibold">Single Runs</div>
+                                </div>
+                                <div class="relative">
+                                    <span class="absolute -left-2 top-1.5 text-slate-400 font-bold text-xs">+</span>
+                                    <div id="stat-multi-runs" class="text-2xl font-black text-[#181c1f]">14</div>
+                                    <div class="text-[10px] text-[#5c5f60] font-semibold">Multi Runs</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card: Incentive Status -->
+                    <div class="p-4 pt-0">
+                        <div class="bg-white rounded-2xl p-4 border border-[#EBEFF5] shadow-xs space-y-3">
+                            <div class="flex items-center justify-between">
+                                <h4 class="font-black text-sm text-[#181c1f]">Incentive</h4>
+                                <span class="px-2.5 py-0.5 rounded-full bg-[#181c1f] text-white text-xs font-bold">₹0</span>
+                            </div>
+
+                            <div class="flex items-start gap-2.5 p-3 rounded-xl bg-[#FFF8F6] border border-[#FFDAD6] text-[#BA1A1A]">
+                                <span class="material-symbols-outlined text-lg shrink-0 mt-0.5">warning</span>
+                                <div>
+                                    <p class="font-bold text-xs">Incentive not available yet, or still loading...</p>
+                                    <p class="text-[10px] text-[#5c5f60] mt-0.5 font-medium">Deliver 20+ orders in a single day to unlock ₹20 daily incentive.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Day-Wise Delivered Orders List -->
+                    <div class="p-4 pt-0 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h4 class="font-black text-sm text-[#181c1f]" id="orders-list-heading">Delivered Orders Breakdown</h4>
+                            <span id="orders-list-count" class="text-xs bg-blue-50 text-[#0066cc] font-bold px-2 py-0.5 rounded-full">144 Orders</span>
+                        </div>
+
+                        <div id="earnings-orders-list" class="space-y-2 max-h-96 overflow-y-auto pr-1">
+                            <!-- Dynamically loaded orders -->
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2462,8 +2637,109 @@
         </div>
     </div>
 
+    <!-- ================= SLIDE-OVER PARTNER DRAWER (Matching Screenshot 2) ================= -->
+    <div id="partner-drawer-backdrop" onclick="closePartnerDrawer()" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 transition-opacity opacity-0 pointer-events-none duration-300"></div>
+
+    <aside id="partner-drawer" class="fixed top-0 right-0 h-full w-80 max-w-[85vw] bg-white z-50 shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col overflow-y-auto no-scrollbar">
+        <!-- Top Profile Blue Header (Screenshot 2) -->
+        <div class="bg-[#0066cc] text-white p-6 pb-5 space-y-4">
+            <div class="flex items-center justify-between">
+                <div class="w-16 h-16 rounded-full bg-white p-1 shadow-md flex items-center justify-center">
+                    <div class="w-full h-full rounded-full bg-blue-50 flex items-center justify-center text-[#0066cc]">
+                        <span class="material-symbols-outlined text-3xl">sports_motorsports</span>
+                    </div>
+                </div>
+                <button onclick="closePartnerDrawer()" class="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-white transition-colors cursor-pointer">
+                    <span class="material-symbols-outlined text-lg">close</span>
+                </button>
+            </div>
+
+            <div class="space-y-1">
+                <div class="text-xs font-semibold text-blue-100 uppercase tracking-wider">Store</div>
+                <div class="text-lg font-black tracking-tight" id="drawer-store-name">66365 • BH13 Ground Hub</div>
+            </div>
+
+            <div class="space-y-0.5 pt-1 border-t border-white/20">
+                <div class="text-xs font-semibold text-blue-100 uppercase tracking-wider">Employee ID</div>
+                <div class="text-sm font-bold tracking-wide text-white/95" id="drawer-employee-id">2000516247_DPI66365</div>
+            </div>
+
+            <!-- Duty Shift Toggle -->
+            <div class="pt-2">
+                <button id="drawer-duty-btn" onclick="toggleDutyStatus()" class="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer">
+                    <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+                    <span id="drawer-duty-text">ON DUTY (Active)</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Menu Items List (Screenshot 2) -->
+        <nav class="p-3 space-y-1 text-[#181c1f] font-semibold text-sm flex-1">
+            <!-- 1. My Shifts -->
+            <button onclick="openPartnerShiftModal()" class="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl hover:bg-[#F0F4F9] text-left transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-xl text-[#5c5f60]">calendar_month</span>
+                <span>My Shifts</span>
+            </button>
+
+            <!-- 2. Order History -->
+            <button onclick="closePartnerDrawer(); switchView('orders');" class="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl hover:bg-[#F0F4F9] text-left transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-xl text-[#5c5f60]">history</span>
+                <span>Order History</span>
+            </button>
+
+            <!-- 3. Profile -->
+            <button onclick="openPartnerProfileModal()" class="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl hover:bg-[#F0F4F9] text-left transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-xl text-[#5c5f60]">person</span>
+                <span>Profile</span>
+            </button>
+
+            <!-- 4. EARNINGS (Active Highlighted) -->
+            <button onclick="closePartnerDrawer(); switchView('earnings');" class="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl bg-blue-50 text-[#0066cc] font-black text-left transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-xl text-[#0066cc]">currency_rupee</span>
+                <span class="flex-1">EARNINGS</span>
+                <span class="text-[10px] bg-[#0066cc] text-white px-2 py-0.5 rounded-full font-bold">₹3/Ord</span>
+            </button>
+
+            <!-- 5. Referrals -->
+            <button onclick="openPartnerReferralModal()" class="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl hover:bg-[#F0F4F9] text-left transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-xl text-[#5c5f60]">group</span>
+                <span>Referrals</span>
+            </button>
+
+            <!-- 6. Notification -->
+            <button onclick="openEarningsNotificationModal()" class="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl hover:bg-[#F0F4F9] text-left transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-xl text-[#5c5f60]">notifications</span>
+                <span class="flex-1">Notification</span>
+                <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+            </button>
+
+            <!-- 7. File for Tax Refunds -->
+            <button onclick="openTaxRefundModal()" class="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl hover:bg-[#F0F4F9] text-left transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-xl text-[#5c5f60]">receipt_long</span>
+                <span>File for Tax Refunds</span>
+            </button>
+
+            <!-- 8. Help -->
+            <button onclick="openPartnerHelpModal()" class="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl hover:bg-[#F0F4F9] text-left transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-xl text-[#5c5f60]">support_agent</span>
+                <span>Help</span>
+            </button>
+
+            <!-- 9. Logout -->
+            <div class="pt-2 border-t border-[#F0F4F9] mt-2">
+                <button onclick="handleLogout()" class="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl text-rose-600 hover:bg-rose-50 text-left transition-colors cursor-pointer">
+                    <span class="material-symbols-outlined text-xl text-rose-600">logout</span>
+                    <span class="font-black">Logout</span>
+                </button>
+            </div>
+        </nav>
+    </aside>
+
+    <!-- Generic Partner Modals Container -->
+    <div id="partner-modal-container"></div>
+
     <!-- Application Script Reference -->
-    <script src="/admin/js/admin.js?v=20260906r36"></script>
+    <script src="/admin/js/admin.js?v=20260906r37"></script>
 </body>
 
 </html>
