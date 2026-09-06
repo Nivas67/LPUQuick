@@ -339,17 +339,42 @@ window.pages.rider_earnings = function () {
 
 window.pageInits.rider_earnings = async function () {
     window.fetchClientDeliveryEarnings();
+
+    // Auto-sync in real-time when orders are dispatched or delivered
+    if (!window.__riderEarningsListenerAdded) {
+        window.__riderEarningsListenerAdded = true;
+        window.addEventListener('order_updated', () => {
+            if (window.location.hash.includes('rider-earnings')) {
+                window.fetchClientDeliveryEarnings();
+            }
+        });
+        window.addEventListener('orders_changed', () => {
+            if (window.location.hash.includes('rider-earnings')) {
+                window.fetchClientDeliveryEarnings();
+            }
+        });
+    }
 };
 
 // Global Helpers for Client-Side Delivery Earnings Page
 window.fetchClientDeliveryEarnings = async function () {
     try {
         const state = window.__riderEarningsState;
+        let currentRider = null;
+        try {
+            const rawUser = localStorage.getItem('lpuquick_user');
+            if (rawUser) {
+                currentRider = JSON.parse(rawUser);
+            }
+        } catch (e) {}
+
+        const riderId = currentRider?.id || currentRider?.phone || currentRider?.name || 'all';
+
         const queryParams = new URLSearchParams({
             period: state.period,
             weekOffset: state.weekOffset,
             monthOffset: state.monthOffset,
-            riderId: 'all',
+            riderId: riderId,
             _t: Date.now()
         });
 
@@ -359,6 +384,26 @@ window.fetchClientDeliveryEarnings = async function () {
         if (!data.success) throw new Error(data.error || 'Failed to load');
 
         state.data = data;
+
+        // Sync Delivery Partner Profile & Drawer Info
+        const drawerName = document.getElementById('client-drawer-rider-name');
+        if (drawerName) {
+            drawerName.textContent = currentRider?.name || (data.partners_summary?.[0]?.partner_name) || 'Campus Delivery Partner';
+        }
+        const drawerEmp = document.getElementById('client-drawer-empid');
+        if (drawerEmp) {
+            const empId = currentRider?.id ? `ID_${String(currentRider.id).slice(-8)}` : (data.partners_summary?.[0]?.partner_id || '2000516247_DPI66365');
+            drawerEmp.textContent = empId;
+        }
+
+        // Active Shift in Duty Button
+        const dutyText = document.getElementById('client-duty-toggle-text');
+        if (dutyText && data.shifts_summary) {
+            const currentShift = data.shifts_summary.find(s => s.is_current);
+            if (currentShift && state.isOnDuty) {
+                dutyText.textContent = `ON DUTY (${currentShift.title})`;
+            }
+        }
 
         // 1. Update Top KPI Cards
         const kpiTodayEarnings = document.getElementById('client-kpi-today-earnings');
@@ -918,6 +963,139 @@ window.openClientEarningsInfoModal = function () {
                     </div>
                 </div>
                 <button onclick="window.closeClientPartnerModal()" class="w-full py-2.5 rounded-xl bg-[#0066cc] text-white font-bold text-xs">Understood</button>
+            </div>
+        </div>
+    `;
+};
+
+window.openClientPartnerShiftModal = function () {
+    window.closeClientPartnerDrawer();
+    const container = document.getElementById('client-partner-modals');
+    if (!container) return;
+
+    const data = window.__riderEarningsState?.data;
+    const shifts = data?.shifts_summary || [
+        { id: 'morning', title: 'Morning Shift', hours: '08:00 AM – 02:00 PM', completed_today: 0, earned_wage: 0, is_current: false },
+        { id: 'evening', title: 'Evening Rush', hours: '02:00 PM – 08:00 PM', completed_today: 0, earned_wage: 0, is_current: true },
+        { id: 'night', title: 'Night Express', hours: '08:00 PM – 02:00 AM', completed_today: 0, earned_wage: 0, is_current: false },
+        { id: 'late_night', title: 'Late Night Overtime', hours: '02:00 AM – 08:00 AM', completed_today: 0, earned_wage: 0, is_current: false }
+    ];
+
+    const totalDeliveriesToday = shifts.reduce((acc, s) => acc + (s.completed_today || 0), 0);
+    const totalWageToday = shifts.reduce((acc, s) => acc + (s.earned_wage || 0), 0);
+
+    let shiftsHtml = '';
+    shifts.forEach(s => {
+        const isCurrent = s.is_current;
+        const borderClass = isCurrent ? 'border-2 border-[#0066cc] bg-blue-50/50' : 'border border-[#EBF0F7] bg-[#F8FAFD]';
+        const activeBadge = isCurrent 
+            ? '<span class="text-[10px] bg-emerald-100 text-emerald-800 font-black px-2 py-0.5 rounded-full border border-emerald-300 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>ACTIVE NOW</span>' 
+            : '<span class="text-[10px] text-[#5c5f60] font-bold bg-slate-100 px-2 py-0.5 rounded-full">Scheduled</span>';
+
+        shiftsHtml += `
+            <div class="p-3 rounded-2xl ${borderClass} space-y-1.5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="font-black text-xs text-[#181c1f]">${s.title}</div>
+                        <div class="text-[10px] text-[#5c5f60] font-semibold">🕒 ${s.hours}</div>
+                    </div>
+                    ${activeBadge}
+                </div>
+                <div class="flex items-center justify-between pt-1.5 border-t border-slate-200/60 text-xs">
+                    <span class="text-[#5c5f60] text-[11px]">Today: <strong>${s.completed_today} runs</strong></span>
+                    <span class="font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">+₹${(s.earned_wage || 0).toFixed(2)}</span>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = `
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl p-5 max-w-sm w-full shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
+                <div class="flex items-center justify-between border-b pb-3">
+                    <h3 class="font-black text-base text-[#181c1f] flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[#0066cc]">schedule</span>
+                        My Delivery Shifts
+                    </h3>
+                    <button onclick="window.closeClientPartnerModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 font-bold">✕</button>
+                </div>
+
+                <div class="p-3 bg-gradient-to-r from-blue-900 to-[#0066cc] text-white rounded-2xl flex items-center justify-between shadow-xs">
+                    <div>
+                        <div class="text-[9px] text-blue-200 uppercase font-bold">Shift Earnings Today</div>
+                        <div class="text-xl font-black">₹${totalWageToday.toFixed(2)}</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-[9px] text-blue-200 uppercase font-bold">Total Runs</div>
+                        <div class="text-xl font-black">${totalDeliveriesToday} Orders</div>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    ${shiftsHtml}
+                </div>
+
+                <div class="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 text-[11px] text-emerald-900 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-emerald-700 text-base">verified</span>
+                    <span>₹3.00 auto-credited on each delivered order</span>
+                </div>
+
+                <button onclick="window.closeClientPartnerModal()" class="w-full py-2.5 rounded-xl bg-[#181c1f] text-white font-bold text-xs">Close</button>
+            </div>
+        </div>
+    `;
+};
+
+window.openClientPartnerProfileModal = function () {
+    window.closeClientPartnerDrawer();
+    const container = document.getElementById('client-partner-modals');
+    if (!container) return;
+
+    let user = null;
+    try {
+        const raw = localStorage.getItem('lpuquick_user');
+        if (raw) user = JSON.parse(raw);
+    } catch(e) {}
+
+    const name = user?.name || 'Campus Delivery Partner';
+    const phone = user?.phone || '+91 98765 43210';
+    const partnerId = user?.id ? `ID_${String(user.id).slice(-8)}` : '2000516247_DPI66365';
+
+    container.innerHTML = `
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl p-5 max-w-sm w-full shadow-2xl space-y-4">
+                <div class="flex items-center justify-between border-b pb-3">
+                    <h3 class="font-black text-base text-[#181c1f] flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[#0066cc]">person</span>
+                        Partner Profile
+                    </h3>
+                    <button onclick="window.closeClientPartnerModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 font-bold">✕</button>
+                </div>
+                <div class="flex items-center gap-3 p-3 bg-blue-50/60 rounded-2xl border border-blue-200">
+                    <div class="w-12 h-12 rounded-full bg-[#0066cc] text-white flex items-center justify-center text-lg font-black">
+                        ${name.charAt(0)}
+                    </div>
+                    <div>
+                        <div class="font-black text-sm text-[#181c1f]">${name}</div>
+                        <div class="text-[11px] text-[#5c5f60] font-semibold">${phone}</div>
+                        <span class="text-[9px] font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">Active Runner</span>
+                    </div>
+                </div>
+                <div class="space-y-2 text-xs">
+                    <div class="flex justify-between py-1.5 border-b border-slate-100">
+                        <span class="text-slate-500">Partner ID</span>
+                        <span class="font-bold text-[#181c1f] font-mono">${partnerId}</span>
+                    </div>
+                    <div class="flex justify-between py-1.5 border-b border-slate-100">
+                        <span class="text-slate-500">Assigned Hub</span>
+                        <span class="font-bold text-[#181c1f]">BH13 Ground Station</span>
+                    </div>
+                    <div class="flex justify-between py-1.5 border-b border-slate-100">
+                        <span class="text-slate-500">Delivery Wage</span>
+                        <span class="font-bold text-emerald-700">₹3.00 / Delivered Order</span>
+                    </div>
+                </div>
+                <button onclick="window.closeClientPartnerModal()" class="w-full py-2.5 rounded-xl bg-[#0066cc] text-white font-bold text-xs">Done</button>
             </div>
         </div>
     `;

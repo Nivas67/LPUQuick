@@ -1,3 +1,16 @@
+// Universal HTML Escaping Utility for XSS Prevention
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+window.escapeHtml = escapeHtml;
+window.escapeHtmlStr = escapeHtml;
+
 // Multi-Theme High-Volume Web Audio Synthesizer Engine (Cha-Ching, QuickCommerce Pop, Courier Chirp, Arcade, Crystal Bell, Urgent Alarm)
 let audioCtx = null;
 let soundEnabled = localStorage.getItem('lpuquick_admin_sound') !== 'false';
@@ -6050,6 +6063,32 @@ let partnerIsOnDuty = true;
 let partnerDashboardSubTab = 'partner';
 let fleetCustomStartDate = null;
 let fleetCustomEndDate = null;
+let earningsSelectedShift = 'all';
+
+function updateFleetViewMetrics(data) {
+    if (!data) return;
+    const fleetDailyPayout = document.getElementById('fleet-metric-daily-payout');
+    if (fleetDailyPayout) {
+        fleetDailyPayout.textContent = `₹${(data.platform_metrics?.total_daily_payout || 0).toFixed(2)}`;
+    }
+
+    const fleetMonthlyExpense = document.getElementById('fleet-metric-monthly-expense');
+    if (fleetMonthlyExpense) {
+        fleetMonthlyExpense.textContent = `₹${(data.platform_metrics?.total_monthly_expense || 0).toFixed(2)}`;
+    }
+
+    const fleetTotalFleet = document.getElementById('fleet-metric-total-fleet');
+    if (fleetTotalFleet) {
+        fleetTotalFleet.textContent = String(data.platform_metrics?.total_active_fleet || 0);
+    }
+
+    const fleetTotalOrders = document.getElementById('fleet-metric-total-orders');
+    if (fleetTotalOrders) {
+        fleetTotalOrders.textContent = String(data.platform_metrics?.total_completed_all_time || 0);
+    }
+
+    renderFleetPartnersTable(data.partners_summary || []);
+}
 
 async function loadDeliveryEarnings(customStart, customEnd) {
     try {
@@ -6058,6 +6097,7 @@ async function loadDeliveryEarnings(customStart, customEnd) {
             weekOffset: earningsWeekOffset,
             monthOffset: earningsMonthOffset,
             riderId: earningsSelectedRider,
+            shift: earningsSelectedShift,
             _t: Date.now()
         });
 
@@ -6183,27 +6223,7 @@ async function loadDeliveryEarnings(customStart, customEnd) {
         renderEarningsOrders(data.all_orders || [], selectedDayFilter);
 
         // 4. Admin Fleet Overview: Platform Aggregated Metrics & Overview Table
-        const fleetDailyPayout = document.getElementById('fleet-metric-daily-payout');
-        if (fleetDailyPayout) {
-            fleetDailyPayout.textContent = `₹${(data.platform_metrics?.total_daily_payout || 0).toFixed(2)}`;
-        }
-
-        const fleetMonthlyExpense = document.getElementById('fleet-metric-monthly-expense');
-        if (fleetMonthlyExpense) {
-            fleetMonthlyExpense.textContent = `₹${(data.platform_metrics?.total_monthly_expense || 0).toFixed(2)}`;
-        }
-
-        const fleetTotalFleet = document.getElementById('fleet-metric-total-fleet');
-        if (fleetTotalFleet) {
-            fleetTotalFleet.textContent = `${data.platform_metrics?.total_active_fleet || 0} Partners`;
-        }
-
-        const fleetTotalOrders = document.getElementById('fleet-metric-total-orders');
-        if (fleetTotalOrders) {
-            fleetTotalOrders.textContent = `${data.platform_metrics?.total_completed_all_time || 0} Orders`;
-        }
-
-        renderFleetPartnersTable(data.partners_summary || []);
+        updateFleetViewMetrics(data);
 
     } catch (err) {
         console.error('[Delivery Earnings Error]:', err);
@@ -6380,6 +6400,12 @@ function setPartnerDashboardSubTab(subTab) {
         if (partnerView) partnerView.classList.add('hidden');
         if (fleetBtn) fleetBtn.className = 'px-4 py-2 rounded-xl bg-white text-[#0066cc] font-black text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer';
         if (partnerBtn) partnerBtn.className = 'px-4 py-2 rounded-xl text-[#5c5f60] hover:text-[#181c1f] font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer';
+
+        if (currentEarningsData) {
+            updateFleetViewMetrics(currentEarningsData);
+        } else {
+            loadDeliveryEarnings();
+        }
     }
 }
 
@@ -6457,15 +6483,20 @@ function renderFleetPartnersTable(partners) {
     partners.forEach(p => {
         const isOnline = p.availability_status === 'Active';
         const statusPill = isOnline
-            ? '<span class="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-300"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>Active</span>'
-            : '<span class="inline-flex items-center gap-1 text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>Offline</span>';
+            ? '<span class="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full border border-emerald-300"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>Active</span>'
+            : '<span class="inline-flex items-center gap-1 text-[10px] font-bold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>Offline</span>';
+
+        const shiftBadge = p.primary_shift 
+            ? `<div class="text-[10px] text-indigo-700 font-semibold mt-0.5 flex items-center gap-1"><span class="material-symbols-outlined text-xs">schedule</span><span>${escapeHtml(p.primary_shift)}</span></div>`
+            : '';
 
         html += `
-            <tr class="hover:bg-[#f9fafb] transition-colors">
+            <tr class="hover:bg-[#f9fafb] transition-colors border-b border-[#F0F4F9]">
                 <td class="p-4 font-mono font-bold text-xs text-[#181c1f]">#${escapeHtml(String(p.partner_id).slice(-8))}</td>
                 <td class="p-4">
                     <div class="font-bold text-xs text-[#181c1f]">${escapeHtml(p.partner_name || 'Delivery Partner')}</div>
-                    <div class="text-[10px] text-[#5c5f60] font-medium">${escapeHtml(p.phone || 'N/A')}</div>
+                    <div class="text-[10px] text-[#5c5f60] font-medium">${escapeHtml(p.phone || '+91 98765 43210')}</div>
+                    ${shiftBadge}
                 </td>
                 <td class="p-4">${statusPill}</td>
                 <td class="p-4 text-center font-black text-xs text-[#181c1f]">${p.today_deliveries || 0}</td>
@@ -6473,8 +6504,9 @@ function renderFleetPartnersTable(partners) {
                 <td class="p-4 text-center font-black text-xs text-[#181c1f]">${p.monthly_deliveries || 0}</td>
                 <td class="p-4 text-center font-black text-xs text-[#0066cc] bg-blue-50/50">₹${(p.monthly_payout || 0).toFixed(2)}</td>
                 <td class="p-4 text-right">
-                    <button type="button" onclick="inspectPartnerFromFleet('${escapeHtml(p.partner_id)}')" class="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#0066cc] font-bold text-xs border border-blue-200 transition-colors cursor-pointer" title="View Partner Dashboard">
-                        Inspect
+                    <button type="button" onclick="inspectPartnerFromFleet('${escapeHtml(p.partner_id)}')" class="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-[#0066cc] font-black text-xs border border-blue-200 transition-all cursor-pointer inline-flex items-center gap-1 active:scale-95" title="View Partner Dashboard">
+                        <span class="material-symbols-outlined text-xs">visibility</span>
+                        <span>Inspect</span>
                     </button>
                 </td>
             </tr>
@@ -6515,26 +6547,42 @@ function togglePartnerDutyStatus() {
     }
 }
 
-// Fleet Preset & Custom Date Filtering
+// Fleet Preset & Custom Date & Shift Filtering
 function setFleetPresetFilter(preset) {
-    document.querySelectorAll('.fleet-preset-btn').forEach(btn => {
-        btn.className = 'fleet-preset-btn px-3 py-1.5 rounded-xl border border-[#DADCE0] bg-[#F8FAFD] hover:bg-white text-[#181c1f] font-bold transition-all cursor-pointer';
+    const todayBtn = document.getElementById('fleet-filter-today');
+    const weekBtn = document.getElementById('fleet-filter-week');
+    const monthBtn = document.getElementById('fleet-filter-month');
+    
+    [todayBtn, weekBtn, monthBtn].forEach(b => {
+        if (b) b.className = 'fleet-preset-btn px-3 py-1.5 rounded-xl border border-[#DADCE0] bg-[#F8FAFD] hover:bg-white text-[#181c1f] font-bold transition-all cursor-pointer';
     });
 
     fleetCustomStartDate = null;
     fleetCustomEndDate = null;
+    const startInput = document.getElementById('fleet-start-date');
+    const endInput = document.getElementById('fleet-end-date');
+    if (startInput) startInput.value = '';
+    if (endInput) endInput.value = '';
 
     if (preset === 'today') {
+        if (todayBtn) todayBtn.className = 'fleet-preset-btn px-3 py-1.5 rounded-xl border border-[#0066cc] bg-[#0066cc] text-white font-black transition-all cursor-pointer shadow-xs';
         switchEarningsPeriod('daily');
     } else if (preset === 'month') {
+        if (monthBtn) monthBtn.className = 'fleet-preset-btn px-3 py-1.5 rounded-xl border border-[#0066cc] bg-[#0066cc] text-white font-black transition-all cursor-pointer shadow-xs';
         switchEarningsPeriod('monthly');
     } else {
+        if (weekBtn) weekBtn.className = 'fleet-preset-btn px-3 py-1.5 rounded-xl border border-[#0066cc] bg-[#0066cc] text-white font-black transition-all cursor-pointer shadow-xs';
         switchEarningsPeriod('weekly');
     }
+}
 
-    if (event && event.currentTarget) {
-        event.currentTarget.className = 'fleet-preset-btn px-3 py-1.5 rounded-xl border border-[#0066cc] bg-[#0066cc] text-white font-bold transition-all cursor-pointer';
+function filterFleetByShift(shiftId) {
+    earningsSelectedShift = shiftId || 'all';
+    const shiftSelect = document.getElementById('fleet-shift-filter');
+    if (shiftSelect && shiftSelect.value !== earningsSelectedShift) {
+        shiftSelect.value = earningsSelectedShift;
     }
+    loadDeliveryEarnings(fleetCustomStartDate, fleetCustomEndDate);
 }
 
 function applyFleetCustomDateRange() {
@@ -6663,30 +6711,93 @@ function openPartnerShiftModal() {
     closePartnerDrawer();
     const modalContainer = document.getElementById('partner-modal-container');
     if (!modalContainer) return;
+
+    const shifts = currentEarningsData?.shifts_summary || [
+        { id: 'morning', title: 'Morning Shift', hours: '08:00 AM – 02:00 PM', completed_today: 0, earned_wage: 0, is_current: false },
+        { id: 'evening', title: 'Evening Rush', hours: '02:00 PM – 08:00 PM', completed_today: 0, earned_wage: 0, is_current: true },
+        { id: 'night', title: 'Night Express', hours: '08:00 PM – 02:00 AM', completed_today: 0, earned_wage: 0, is_current: false },
+        { id: 'late_night', title: 'Late Night Overtime', hours: '02:00 AM – 08:00 AM', completed_today: 0, earned_wage: 0, is_current: false }
+    ];
+
+    const totalDeliveriesToday = shifts.reduce((acc, s) => acc + (s.completed_today || 0), 0);
+    const totalWageToday = shifts.reduce((acc, s) => acc + (s.earned_wage || 0), 0);
+
+    let shiftsHtml = '';
+    shifts.forEach(s => {
+        const isCurrent = s.is_current;
+        const borderClass = isCurrent ? 'border-2 border-[#0066cc] bg-blue-50/50' : 'border border-[#EBF0F7] bg-[#F8FAFD]';
+        const activeBadge = isCurrent 
+            ? '<span class="text-[10px] bg-emerald-100 text-emerald-800 font-black px-2 py-0.5 rounded-full border border-emerald-300 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>ACTIVE NOW</span>' 
+            : '<span class="text-[10px] text-[#5c5f60] font-bold bg-slate-100 px-2 py-0.5 rounded-full">Scheduled</span>';
+
+        shiftsHtml += `
+            <div class="p-3.5 rounded-2xl ${borderClass} transition-all space-y-2">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="font-black text-xs text-[#181c1f] flex items-center gap-1.5">
+                            <span>${escapeHtml(s.title)}</span>
+                        </div>
+                        <div class="text-[11px] text-[#5c5f60] font-semibold mt-0.5">🕒 ${escapeHtml(s.hours)}</div>
+                    </div>
+                    ${activeBadge}
+                </div>
+                <div class="flex items-center justify-between pt-2 border-t border-slate-200/60 text-xs">
+                    <div class="flex items-center gap-2">
+                        <span class="text-[#5c5f60] font-medium">Deliveries Today:</span>
+                        <span class="font-black text-[#181c1f] bg-white px-2 py-0.5 rounded-lg border border-slate-200">${s.completed_today} runs</span>
+                    </div>
+                    <div class="font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
+                        +₹${(s.earned_wage || 0).toFixed(2)}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
     modalContainer.innerHTML = `
         <div class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-            <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div class="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
                 <div class="flex items-center justify-between border-b pb-3">
                     <div class="flex items-center gap-2">
-                        <span class="material-symbols-outlined text-[#0066cc]">calendar_month</span>
-                        <h3 class="font-black text-base text-[#181c1f]">My Delivery Shifts</h3>
+                        <span class="w-8 h-8 rounded-xl bg-blue-50 text-[#0066cc] flex items-center justify-center font-bold">
+                            <span class="material-symbols-outlined text-lg">schedule</span>
+                        </span>
+                        <div>
+                            <h3 class="font-black text-base text-[#181c1f]">Delivery Partner Shifts & Timings</h3>
+                            <p class="text-[11px] text-[#5c5f60]">Real-world 24/7 campus shift breakdown with live delivery wage accrual</p>
+                        </div>
                     </div>
-                    <button onclick="closePartnerModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500">✕</button>
+                    <button onclick="closePartnerModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 font-bold cursor-pointer">✕</button>
                 </div>
-                <div class="space-y-3 text-xs">
-                    <div class="p-3 bg-blue-50 rounded-2xl border border-blue-200">
-                        <div class="font-black text-[#0066cc]">Active Shift: Night Express 3m</div>
-                        <div class="text-slate-600 font-semibold mt-1">🕒 06:00 PM – 02:00 AM (Daily)</div>
-                        <div class="text-slate-600 font-semibold">📍 Hub: BH13 Ground Central Hub</div>
+
+                <!-- Shift Performance Summary Banner -->
+                <div class="p-3.5 bg-gradient-to-r from-blue-900 to-[#0066cc] text-white rounded-2xl flex items-center justify-between shadow-xs">
+                    <div>
+                        <div class="text-[10px] text-blue-200 uppercase font-bold tracking-wider">Today's Shift Wage Accrual</div>
+                        <div class="text-xl font-black mt-0.5">₹${totalWageToday.toFixed(2)}</div>
                     </div>
-                    <div class="p-3 bg-[#F8FAFD] rounded-2xl border border-[#EBF0F7] space-y-1">
-                        <div class="font-bold text-[#181c1f]">Compensation Terms:</div>
-                        <div class="text-slate-600">• Fixed ₹3.00 credited for every completed delivered order.</div>
-                        <div class="text-slate-600">• Real-time calculation on delivery agent dashboard.</div>
-                        <div class="text-slate-600">• Daily performance bonus for 20+ runs/shift.</div>
+                    <div class="text-right">
+                        <div class="text-[10px] text-blue-200 uppercase font-bold tracking-wider">Total Shift Runs</div>
+                        <div class="text-xl font-black mt-0.5">${totalDeliveriesToday} Orders</div>
                     </div>
                 </div>
-                <button onclick="closePartnerModal()" class="w-full py-2.5 rounded-xl bg-[#0066cc] text-white font-bold text-xs">Close</button>
+
+                <!-- Shift Cards List -->
+                <div class="space-y-2.5">
+                    ${shiftsHtml}
+                </div>
+
+                <div class="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 flex items-center justify-between text-xs">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-emerald-700 text-lg">verified</span>
+                        <div>
+                            <div class="font-black text-emerald-900">₹3.00 Fixed Rate Guaranteed</div>
+                            <div class="text-[11px] text-emerald-800">Direct credit per completed delivery across all shifts</div>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="closePartnerModal()" class="w-full py-2.5 rounded-xl bg-[#181c1f] hover:bg-black text-white font-bold text-xs cursor-pointer transition-all">Close</button>
             </div>
         </div>
     `;

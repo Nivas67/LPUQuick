@@ -91,6 +91,12 @@
                 <span id="nav-pending-badge"
                     class="hidden text-[10px] bg-[#ba1a1a] text-white px-2 py-0.5 rounded-full font-bold">0</span>
             </button>
+            <button onclick="switchView('earnings')" data-view="earnings" data-required-role="owner,store_manager,delivery_person"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+                <span class="material-symbols-outlined text-[#0066cc]">sports_motorsports</span>
+                <span class="flex-1 font-bold text-[#181c1f]">Delivery Partner Hub</span>
+                <span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded-full border border-emerald-300">₹3/Ord</span>
+            </button>
             <button onclick="switchView('customers')" data-view="customers" data-required-role="owner,store_manager"
                 class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined">group</span>
@@ -953,6 +959,409 @@
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW: DELIVERY PARTNER DASHBOARD & FLEET MANAGEMENT (₹3/ORDER) ================= -->
+            <div id="view-earnings" class="space-y-6 max-w-[1440px] mx-auto hidden pb-16">
+                <!-- Top Toolbar & Navigation Hub -->
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-[#DADCE0] shadow-xs">
+                    <div>
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-10 h-10 rounded-2xl bg-blue-50 text-[#0066cc] flex items-center justify-center font-bold">
+                                <span class="material-symbols-outlined text-2xl">sports_motorsports</span>
+                            </span>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <h2 class="text-xl font-black text-[#181c1f] tracking-tight">Delivery Partner Hub</h2>
+                                    <span class="text-xs bg-emerald-100 text-emerald-800 font-black px-2.5 py-0.5 rounded-full border border-emerald-300 flex items-center gap-1">
+                                        <span>₹3.00</span>
+                                        <span class="text-[10px] font-medium text-emerald-700">/ Completed Delivery</span>
+                                    </span>
+                                </div>
+                                <p class="text-xs text-[#5c5f60] mt-0.5 font-medium">Real-time delivery statistics, ₹3 pricing engine, daily/monthly revenue calculations & fleet ledger</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Hub Sub-View Tab Switcher -->
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <div class="p-1 bg-[#F0F4F9] rounded-2xl border border-[#DADCE0] flex items-center">
+                            <button id="subtab-partner-btn" onclick="setPartnerDashboardSubTab('partner')" class="px-4 py-2 rounded-xl bg-white text-[#0066cc] font-black text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer">
+                                <span class="material-symbols-outlined text-base">dashboard</span>
+                                <span>Partner Dashboard</span>
+                            </button>
+                            <button id="subtab-fleet-btn" onclick="setPartnerDashboardSubTab('fleet')" class="px-4 py-2 rounded-xl text-[#5c5f60] hover:text-[#181c1f] font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer">
+                                <span class="material-symbols-outlined text-base">local_shipping</span>
+                                <span>Fleet Overview & Export</span>
+                            </button>
+                        </div>
+
+                        <!-- Open Partner Drawer Button -->
+                        <button onclick="openPartnerDrawer()" class="px-3.5 py-2 rounded-xl bg-[#0066cc] hover:bg-[#0052a3] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer">
+                            <span class="material-symbols-outlined text-sm">menu</span>
+                            <span>Partner Menu</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ================= SUB-VIEW 1: DELIVERY PARTNER DASHBOARD VIEW ================= -->
+                <div id="earnings-subview-partner" class="space-y-6">
+                    <!-- Top KPI Cards Row -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <!-- KPI Card 1: Today's Earnings -->
+                        <div class="bg-white p-5 rounded-3xl border border-[#DADCE0] shadow-xs relative overflow-hidden flex flex-col justify-between">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <p class="text-xs font-bold text-[#5c5f60] uppercase tracking-wider">Today's Earnings</p>
+                                    <h3 id="partner-kpi-today-earnings" class="text-3xl font-black text-[#0066cc] mt-1.5 tracking-tight">₹0.00</h3>
+                                </div>
+                                <div class="w-10 h-10 rounded-2xl bg-blue-50 text-[#0066cc] flex items-center justify-center">
+                                    <span class="material-symbols-outlined text-xl">payments</span>
+                                </div>
+                            </div>
+                            <div class="pt-3 border-t border-[#F0F4F9] mt-3 flex items-center justify-between text-[11px]">
+                                <span class="text-[#5c5f60] font-medium">Daily Revenue</span>
+                                <span class="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">Completed × ₹3</span>
+                            </div>
+                        </div>
+
+                        <!-- KPI Card 2: Deliveries Completed Today -->
+                        <div class="bg-white p-5 rounded-3xl border border-[#DADCE0] shadow-xs relative overflow-hidden flex flex-col justify-between">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <p class="text-xs font-bold text-[#5c5f60] uppercase tracking-wider">Completed Today</p>
+                                    <h3 id="partner-kpi-today-completed" class="text-3xl font-black text-[#181c1f] mt-1.5 tracking-tight">0</h3>
+                                </div>
+                                <div class="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
+                                    <span class="material-symbols-outlined text-xl">task_alt</span>
+                                </div>
+                            </div>
+                            <div class="pt-3 border-t border-[#F0F4F9] mt-3 flex items-center justify-between text-[11px]">
+                                <span id="partner-kpi-today-breakdown" class="text-[#5c5f60] font-medium truncate">0 Pending • 0 Cancelled</span>
+                                <span class="text-[10px] text-[#74777a] font-semibold">Only Completed counts</span>
+                            </div>
+                        </div>
+
+                        <!-- KPI Card 3: Active / Offline Status Toggle -->
+                        <div class="bg-white p-5 rounded-3xl border border-[#DADCE0] shadow-xs relative overflow-hidden flex flex-col justify-between">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <p class="text-xs font-bold text-[#5c5f60] uppercase tracking-wider">Availability Status</p>
+                                    <div class="mt-1 flex items-center gap-2">
+                                        <span id="partner-status-dot" class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+                                        <span id="partner-status-text" class="text-lg font-black text-[#181c1f]">Active</span>
+                                    </div>
+                                </div>
+                                <div class="w-10 h-10 rounded-2xl bg-slate-50 text-[#181c1f] flex items-center justify-center">
+                                    <span class="material-symbols-outlined text-xl">toggle_on</span>
+                                </div>
+                            </div>
+                            <div class="pt-3 border-t border-[#F0F4F9] mt-3">
+                                <button type="button" id="partner-duty-toggle-btn" onclick="togglePartnerDutyStatus()" class="w-full py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer">
+                                    <span class="material-symbols-outlined text-sm">swap_horiz</span>
+                                    <span id="partner-duty-btn-label">Switch to Offline</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- KPI Card 4: Partner Selector / Filter -->
+                        <div class="bg-white p-5 rounded-3xl border border-[#DADCE0] shadow-xs relative overflow-hidden flex flex-col justify-between">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <p class="text-xs font-bold text-[#5c5f60] uppercase tracking-wider">View Rider / Staff</p>
+                                    <div class="mt-1">
+                                        <select id="earnings-rider-select" onchange="filterEarningsByRider(this.value)" class="w-full bg-[#F8FAFD] border border-[#DADCE0] text-xs font-black text-[#181c1f] py-1.5 px-2.5 rounded-xl outline-none cursor-pointer">
+                                            <option value="all">All Delivery Staff</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center">
+                                    <span class="material-symbols-outlined text-xl">badge</span>
+                                </div>
+                            </div>
+                            <div class="pt-3 border-t border-[#F0F4F9] mt-3 flex items-center justify-between text-[11px]">
+                                <span class="text-[#5c5f60] font-medium">Campus Hub</span>
+                                <span class="font-bold text-[#181c1f]">BH13 Ground Station</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Monthly Snapshot Card -->
+                    <div class="bg-gradient-to-r from-[#0066cc] via-[#1a73e8] to-[#0052a3] text-white p-6 rounded-3xl shadow-lg relative overflow-hidden">
+                        <div class="absolute -right-10 -bottom-10 w-48 h-48 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+                            <div>
+                                <span class="text-xs font-bold bg-white/20 px-3 py-1 rounded-full uppercase tracking-wider">Monthly Snapshot</span>
+                                <h3 id="partner-snapshot-month-name" class="text-2xl font-black mt-2 tracking-tight">September 2026</h3>
+                                <p class="text-xs text-blue-100 mt-1">Accumulated monthly payout calculated with standard formula: <strong class="text-white">Monthly Revenue = Completed Deliveries × ₹3</strong></p>
+                            </div>
+                            <div class="grid grid-cols-3 gap-3 sm:gap-6 bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20 text-center">
+                                <div>
+                                    <div class="text-[11px] font-semibold text-blue-100 uppercase">Month Deliveries</div>
+                                    <div id="partner-snapshot-deliveries" class="text-2xl font-black mt-0.5 text-white">0</div>
+                                    <div class="text-[10px] text-blue-200">Completed only</div>
+                                </div>
+                                <div class="border-x border-white/20 px-2 sm:px-4">
+                                    <div class="text-[11px] font-semibold text-blue-100 uppercase">Monthly Payout</div>
+                                    <div id="partner-snapshot-payout" class="text-2xl font-black mt-0.5 text-emerald-300">₹0.00</div>
+                                    <div class="text-[10px] text-blue-200">Accrued Wage</div>
+                                </div>
+                                <div>
+                                    <div class="text-[11px] font-semibold text-blue-100 uppercase">Avg Orders/Day</div>
+                                    <div id="partner-snapshot-avg" class="text-2xl font-black mt-0.5 text-white">0.0</div>
+                                    <div class="text-[10px] text-blue-200">Delivery Velocity</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Visual Chart & Order Breakdown Section -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- Left 2 Cols: Visual Bar Chart & Period Selector -->
+                        <div class="lg:col-span-2 bg-white rounded-3xl border border-[#DADCE0] p-5 shadow-xs space-y-4">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#F0F4F9] pb-4">
+                                <div>
+                                    <h3 class="font-black text-base text-[#181c1f]">Visual Delivery & Earnings Chart</h3>
+                                    <p class="text-xs text-[#5c5f60]">Daily completed orders and corresponding ₹3 earnings distribution</p>
+                                </div>
+                                <!-- Period Selector Tabs -->
+                                <div class="flex items-center gap-2">
+                                    <div class="grid grid-cols-2 p-1 bg-[#F0F4F9] rounded-2xl border border-[#DADCE0] text-center text-xs font-black">
+                                        <button id="tab-earnings-weekly" onclick="switchEarningsPeriod('weekly')" class="px-3 py-1.5 rounded-xl bg-white text-[#0066cc] shadow-xs transition-all tracking-wider cursor-pointer">
+                                            WEEKLY
+                                        </button>
+                                        <button id="tab-earnings-monthly" onclick="switchEarningsPeriod('monthly')" class="px-3 py-1.5 rounded-xl text-[#5c5f60] hover:text-[#181c1f] transition-all tracking-wider cursor-pointer">
+                                            MONTHLY
+                                        </button>
+                                    </div>
+                                    <div class="flex items-center gap-1 bg-[#F0F4F9] p-1 rounded-2xl border border-[#DADCE0]">
+                                        <button onclick="shiftEarningsPeriod(-1)" class="w-7 h-7 rounded-xl hover:bg-white text-[#5c5f60] font-black flex items-center justify-center text-base active:scale-95 transition-all" title="Previous">‹</button>
+                                        <span id="earnings-range-badge" class="px-2 text-xs font-bold text-[#181c1f]">AUG 31 - SEP 06</span>
+                                        <button onclick="shiftEarningsPeriod(1)" class="w-7 h-7 rounded-xl hover:bg-white text-[#5c5f60] font-black flex items-center justify-center text-base active:scale-95 transition-all" title="Next">›</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Payout Summary Banner -->
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#F8FAFD] p-4 rounded-2xl border border-[#EBF0F7]">
+                                <div>
+                                    <span class="text-xs text-[#5c5f60] font-semibold">Total Period Payout</span>
+                                    <div id="earnings-grand-total" class="text-3xl font-black text-[#0066cc]">₹0.00</div>
+                                </div>
+                                <div class="flex items-center gap-4 text-xs font-medium">
+                                    <div>
+                                        <span class="text-[#5c5f60]">Order Payout:</span>
+                                        <span id="earnings-order-payout" class="font-black text-[#181c1f] ml-1">₹0.00</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-[#5c5f60]">Incentives:</span>
+                                        <span id="earnings-incentives" class="font-black text-emerald-700 ml-1">₹0</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Vertical Bar Chart Container -->
+                            <div class="relative bg-white rounded-2xl border border-[#EBEFF5] p-4 pt-6">
+                                <div class="flex items-end justify-between gap-1 sm:gap-2 h-52 pb-2 relative" id="earnings-chart-container">
+                                    <div class="absolute bottom-8 inset-x-0 border-b border-dashed border-[#DADCE0] pointer-events-none"></div>
+                                </div>
+                            </div>
+
+                            <!-- Runs & Batches Stats -->
+                            <div class="grid grid-cols-3 gap-3 text-center p-3 rounded-2xl bg-[#F8FAFD] border border-[#EBF0F7]">
+                                <div>
+                                    <div id="stat-total-orders" class="text-xl font-black text-[#181c1f]">0</div>
+                                    <div class="text-[10px] text-[#5c5f60] font-bold">Total Deliveries</div>
+                                </div>
+                                <div>
+                                    <div id="stat-single-runs" class="text-xl font-black text-[#181c1f]">0</div>
+                                    <div class="text-[10px] text-[#5c5f60] font-bold">Single Runs</div>
+                                </div>
+                                <div>
+                                    <div id="stat-multi-runs" class="text-xl font-black text-[#181c1f]">0</div>
+                                    <div class="text-[10px] text-[#5c5f60] font-bold">Multi Runs</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right 1 Col: Recent Payout Ledger & Daily Order Drilldown -->
+                        <div class="bg-white rounded-3xl border border-[#DADCE0] p-5 shadow-xs space-y-4 flex flex-col justify-between">
+                            <div>
+                                <div class="flex items-center justify-between border-b border-[#F0F4F9] pb-3">
+                                    <div>
+                                        <h3 class="font-black text-base text-[#181c1f]">Recent Payout Ledger</h3>
+                                        <p class="text-xs text-[#5c5f60]">Itemized dates & total credited wages</p>
+                                    </div>
+                                    <span class="text-xs bg-blue-50 text-[#0066cc] font-bold px-2 py-0.5 rounded-full border border-blue-200">₹3/Ord</span>
+                                </div>
+
+                                <!-- Itemized Ledger Rows -->
+                                <div class="mt-3 overflow-x-auto">
+                                    <table class="w-full text-left text-xs border-collapse">
+                                        <thead>
+                                            <tr class="border-b border-[#DADCE0] text-[#5c5f60] font-semibold uppercase text-[10px]">
+                                                <th class="py-2">Date</th>
+                                                <th class="py-2 text-center">Completed</th>
+                                                <th class="py-2 text-right">Credited</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="partner-ledger-tbody" class="divide-y divide-[#F0F4F9]">
+                                            <tr>
+                                                <td colspan="3" class="py-4 text-center text-[#5c5f60]">Loading ledger entries...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Selected Day Order Drilldown -->
+                            <div class="pt-4 border-t border-[#F0F4F9] space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="font-bold text-xs text-[#181c1f]" id="orders-list-heading">Delivered Orders Breakdown</h4>
+                                    <span id="orders-list-count" class="text-[11px] bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded-full">0 Orders</span>
+                                </div>
+                                <div id="earnings-orders-list" class="space-y-2 max-h-56 overflow-y-auto pr-1">
+                                    <!-- Populated dynamically -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= SUB-VIEW 2: ADMIN FLEET OVERVIEW & EXPORT PANEL ================= -->
+                <div id="earnings-subview-fleet" class="space-y-6 hidden">
+                    <!-- Platform Aggregated Metrics Cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="bg-white p-5 rounded-3xl border border-[#DADCE0] shadow-xs">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <p class="text-xs font-bold text-[#5c5f60] uppercase tracking-wider">Total Daily Payout</p>
+                                    <h3 id="fleet-metric-daily-payout" class="text-3xl font-black text-emerald-700 mt-1.5 tracking-tight">₹0.00</h3>
+                                </div>
+                                <div class="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+                                    <span class="material-symbols-outlined text-xl">payments</span>
+                                </div>
+                            </div>
+                            <p class="text-[11px] text-[#5c5f60] mt-3 font-medium">Platform-wide partner wage today (@ ₹3/order)</p>
+                        </div>
+
+                        <div class="bg-white p-5 rounded-3xl border border-[#DADCE0] shadow-xs">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <p class="text-xs font-bold text-[#5c5f60] uppercase tracking-wider">Total Monthly Expense</p>
+                                    <h3 id="fleet-metric-monthly-expense" class="text-3xl font-black text-[#0066cc] mt-1.5 tracking-tight">₹0.00</h3>
+                                </div>
+                                <div class="w-10 h-10 rounded-2xl bg-blue-50 text-[#0066cc] flex items-center justify-center font-bold">
+                                    <span class="material-symbols-outlined text-xl">account_balance_wallet</span>
+                                </div>
+                            </div>
+                            <p class="text-[11px] text-[#5c5f60] mt-3 font-medium">Platform-wide partner expense this month</p>
+                        </div>
+
+                        <div class="bg-white p-5 rounded-3xl border border-[#DADCE0] shadow-xs">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <p class="text-xs font-bold text-[#5c5f60] uppercase tracking-wider">Active Fleet Size</p>
+                                    <h3 id="fleet-metric-total-fleet" class="text-3xl font-black text-[#181c1f] mt-1.5 tracking-tight">0</h3>
+                                </div>
+                                <div class="w-10 h-10 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center font-bold">
+                                    <span class="material-symbols-outlined text-xl">badge</span>
+                                </div>
+                            </div>
+                            <p class="text-[11px] text-[#5c5f60] mt-3 font-medium">Registered delivery partners in fleet</p>
+                        </div>
+
+                        <div class="bg-white p-5 rounded-3xl border border-[#DADCE0] shadow-xs">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <p class="text-xs font-bold text-[#5c5f60] uppercase tracking-wider">Total Platform Deliveries</p>
+                                    <h3 id="fleet-metric-total-orders" class="text-3xl font-black text-[#181c1f] mt-1.5 tracking-tight">0</h3>
+                                </div>
+                                <div class="w-10 h-10 rounded-2xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold">
+                                    <span class="material-symbols-outlined text-xl">inventory</span>
+                                </div>
+                            </div>
+                            <p class="text-[11px] text-[#5c5f60] mt-3 font-medium">All-time completed campus runs</p>
+                        </div>
+                    </div>
+
+                    <!-- Date-Range Filter & Export Toolbar -->
+                    <div class="bg-white p-5 rounded-3xl border border-[#DADCE0] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div class="flex flex-wrap items-center gap-2 text-xs">
+                            <span class="font-black text-[#181c1f] mr-1 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-sm text-[#0066cc]">date_range</span>
+                                <span>Filter Period:</span>
+                            </span>
+                            <button type="button" id="fleet-filter-today" onclick="setFleetPresetFilter('today')" class="fleet-preset-btn px-3 py-1.5 rounded-xl border border-[#DADCE0] bg-[#F8FAFD] hover:bg-white text-[#181c1f] font-bold transition-all cursor-pointer">Today</button>
+                            <button type="button" id="fleet-filter-week" onclick="setFleetPresetFilter('week')" class="fleet-preset-btn px-3 py-1.5 rounded-xl border border-[#0066cc] bg-[#0066cc] text-white font-black transition-all cursor-pointer shadow-xs">This Week</button>
+                            <button type="button" id="fleet-filter-month" onclick="setFleetPresetFilter('month')" class="fleet-preset-btn px-3 py-1.5 rounded-xl border border-[#DADCE0] bg-[#F8FAFD] hover:bg-white text-[#181c1f] font-bold transition-all cursor-pointer">This Month</button>
+
+                            <div class="flex items-center gap-1.5 ml-2 pl-2 border-l border-[#DADCE0]">
+                                <span class="font-bold text-[#5c5f60] flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-sm text-[#0066cc]">schedule</span>
+                                    <span>Shift:</span>
+                                </span>
+                                <select id="fleet-shift-filter" onchange="filterFleetByShift(this.value)" class="px-2.5 py-1 rounded-xl border border-[#DADCE0] bg-[#F8FAFD] text-xs font-black text-[#181c1f] outline-none cursor-pointer">
+                                    <option value="all">All Shifts (24/7)</option>
+                                    <option value="morning">Morning Shift (08:00 - 14:00)</option>
+                                    <option value="evening">Evening Rush (14:00 - 20:00)</option>
+                                    <option value="night">Night Express (20:00 - 02:00)</option>
+                                    <option value="late_night">Late Night (02:00 - 08:00)</option>
+                                </select>
+                            </div>
+
+                            <div class="flex items-center gap-1 ml-2 pl-2 border-l border-[#DADCE0]">
+                                <input type="date" id="fleet-start-date" class="px-2.5 py-1 rounded-xl border border-[#DADCE0] bg-white text-xs font-semibold outline-none focus:ring-1 focus:ring-[#0066cc]">
+                                <span class="text-[#5c5f60] font-bold">to</span>
+                                <input type="date" id="fleet-end-date" class="px-2.5 py-1 rounded-xl border border-[#DADCE0] bg-white text-xs font-semibold outline-none focus:ring-1 focus:ring-[#0066cc]">
+                                <button type="button" onclick="applyFleetCustomDateRange()" class="px-3 py-1 bg-[#181c1f] hover:bg-black text-white font-bold rounded-xl transition-all cursor-pointer">Apply</button>
+                            </div>
+                        </div>
+
+                        <!-- Export Button -->
+                        <div>
+                            <button type="button" onclick="exportPartnerPayoutCSV()" class="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs flex items-center gap-2 shadow-xs transition-all cursor-pointer active:scale-95">
+                                <span class="material-symbols-outlined text-base">download</span>
+                                <span>Export Payout Sheet (CSV/Excel)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Partner Overview Table -->
+                    <div class="bg-white rounded-3xl border border-[#DADCE0] shadow-xs overflow-hidden">
+                        <div class="p-5 border-b border-[#DADCE0] flex items-center justify-between">
+                            <div>
+                                <h3 class="font-black text-base text-[#181c1f]">Partner Performance & Wage Overview</h3>
+                                <p class="text-xs text-[#5c5f60]">Itemized roster of active delivery partners, daily wages & monthly payout accruals</p>
+                            </div>
+                            <span class="text-xs bg-emerald-100 text-emerald-800 font-bold px-3 py-1 rounded-full border border-emerald-300">
+                                Rate: ₹3.00 / Delivered Order
+                            </span>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs border-collapse">
+                                <thead>
+                                    <tr class="border-b border-[#DADCE0] bg-[#f7fafd] text-[#5c5f60] font-semibold uppercase text-[11px]">
+                                        <th class="p-4">Partner ID</th>
+                                        <th class="p-4">Partner Name</th>
+                                        <th class="p-4">Availability</th>
+                                        <th class="p-4 text-center">Today's Deliveries</th>
+                                        <th class="p-4 text-center">Today's Wage (@ ₹3)</th>
+                                        <th class="p-4 text-center">Month Deliveries</th>
+                                        <th class="p-4 text-center">Month Payout (@ ₹3)</th>
+                                        <th class="p-4 text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="fleet-partners-tbody" class="divide-y divide-[#DADCE0]">
+                                    <tr>
+                                        <td colspan="8" class="p-6 text-center text-[#5c5f60]">Loading partner overview...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2451,8 +2860,8 @@
                     <div class="flex items-center gap-2 ml-auto">
                         <button type="button" onclick="closePosterModal()"
                             class="px-4 py-2 rounded-lg border border-[#DADCE0] text-[#5c5f60] font-semibold hover:bg-[#f1f4f7]">Cancel</button>
-                        <button type="submit" id="btn-save-poster"
-                            class="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1">
+                        <button type="submit" id="btn-save-poster" onclick="handlePosterSubmit(event)"
+                            class="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1 cursor-pointer">
                             <span class="material-symbols-outlined text-sm">save</span>
                             <span>Save Poster</span>
                         </button>
@@ -2462,8 +2871,109 @@
         </div>
     </div>
 
+    <!-- ================= SLIDE-OVER PARTNER DRAWER (Matching Screenshot 2) ================= -->
+    <div id="partner-drawer-backdrop" onclick="closePartnerDrawer()" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 transition-opacity opacity-0 pointer-events-none duration-300"></div>
+
+    <aside id="partner-drawer" class="fixed top-0 right-0 h-full w-80 max-w-[85vw] bg-white z-50 shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col overflow-y-auto no-scrollbar">
+        <!-- Top Profile Blue Header (Screenshot 2) -->
+        <div class="bg-[#0066cc] text-white p-6 pb-5 space-y-4">
+            <div class="flex items-center justify-between">
+                <div class="w-16 h-16 rounded-full bg-white p-1 shadow-md flex items-center justify-center">
+                    <div class="w-full h-full rounded-full bg-blue-50 flex items-center justify-center text-[#0066cc]">
+                        <span class="material-symbols-outlined text-3xl">sports_motorsports</span>
+                    </div>
+                </div>
+                <button onclick="closePartnerDrawer()" class="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-white transition-colors cursor-pointer">
+                    <span class="material-symbols-outlined text-lg">close</span>
+                </button>
+            </div>
+
+            <div class="space-y-1">
+                <div class="text-xs font-semibold text-blue-100 uppercase tracking-wider">Store</div>
+                <div class="text-lg font-black tracking-tight" id="drawer-store-name">66365 • BH13 Ground Hub</div>
+            </div>
+
+            <div class="space-y-0.5 pt-1 border-t border-white/20">
+                <div class="text-xs font-semibold text-blue-100 uppercase tracking-wider">Employee ID</div>
+                <div class="text-sm font-bold tracking-wide text-white/95" id="drawer-employee-id">2000516247_DPI66365</div>
+            </div>
+
+            <!-- Duty Shift Toggle -->
+            <div class="pt-2">
+                <button id="drawer-duty-btn" onclick="toggleDutyStatus()" class="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer">
+                    <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+                    <span id="drawer-duty-text">ON DUTY (Active)</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Menu Items List (Screenshot 2) -->
+        <nav class="p-3 space-y-1 text-[#181c1f] font-semibold text-sm flex-1">
+            <!-- 1. My Shifts -->
+            <button onclick="openPartnerShiftModal()" class="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl hover:bg-[#F0F4F9] text-left transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-xl text-[#5c5f60]">calendar_month</span>
+                <span>My Shifts</span>
+            </button>
+
+            <!-- 2. Order History -->
+            <button onclick="closePartnerDrawer(); switchView('orders');" class="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl hover:bg-[#F0F4F9] text-left transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-xl text-[#5c5f60]">history</span>
+                <span>Order History</span>
+            </button>
+
+            <!-- 3. Profile -->
+            <button onclick="openPartnerProfileModal()" class="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl hover:bg-[#F0F4F9] text-left transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-xl text-[#5c5f60]">person</span>
+                <span>Profile</span>
+            </button>
+
+            <!-- 4. EARNINGS (Active Highlighted) -->
+            <button onclick="closePartnerDrawer(); switchView('earnings');" class="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl bg-blue-50 text-[#0066cc] font-black text-left transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-xl text-[#0066cc]">currency_rupee</span>
+                <span class="flex-1">EARNINGS</span>
+                <span class="text-[10px] bg-[#0066cc] text-white px-2 py-0.5 rounded-full font-bold">₹3/Ord</span>
+            </button>
+
+            <!-- 5. Referrals -->
+            <button onclick="openPartnerReferralModal()" class="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl hover:bg-[#F0F4F9] text-left transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-xl text-[#5c5f60]">group</span>
+                <span>Referrals</span>
+            </button>
+
+            <!-- 6. Notification -->
+            <button onclick="openEarningsNotificationModal()" class="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl hover:bg-[#F0F4F9] text-left transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-xl text-[#5c5f60]">notifications</span>
+                <span class="flex-1">Notification</span>
+                <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+            </button>
+
+            <!-- 7. File for Tax Refunds -->
+            <button onclick="openTaxRefundModal()" class="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl hover:bg-[#F0F4F9] text-left transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-xl text-[#5c5f60]">receipt_long</span>
+                <span>File for Tax Refunds</span>
+            </button>
+
+            <!-- 8. Help -->
+            <button onclick="openPartnerHelpModal()" class="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl hover:bg-[#F0F4F9] text-left transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-xl text-[#5c5f60]">support_agent</span>
+                <span>Help</span>
+            </button>
+
+            <!-- 9. Logout -->
+            <div class="pt-2 border-t border-[#F0F4F9] mt-2">
+                <button onclick="handleLogout()" class="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl text-rose-600 hover:bg-rose-50 text-left transition-colors cursor-pointer">
+                    <span class="material-symbols-outlined text-xl text-rose-600">logout</span>
+                    <span class="font-black">Logout</span>
+                </button>
+            </div>
+        </nav>
+    </aside>
+
+    <!-- Generic Partner Modals Container -->
+    <div id="partner-modal-container"></div>
+
     <!-- Application Script Reference -->
-    <script src="/admin/js/admin.js?v=20260906r36"></script>
+    <script src="/admin/js/admin.js?v=20260906r37"></script>
 </body>
 
 </html>

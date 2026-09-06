@@ -509,6 +509,7 @@ router.get('/delivery-earnings', async (req, res) => {
         const weekOffset = parseInt(req.query.weekOffset, 10) || 0;
         const monthOffset = parseInt(req.query.monthOffset, 10) || 0;
         const selectedRiderId = req.query.riderId || 'all';
+        const selectedShift = (req.query.shift || 'all').toLowerCase();
         const customStartDate = req.query.startDate;
         const customEndDate = req.query.endDate;
         const RATE_PER_ORDER = 3.00; // Fixed payout rate: ₹3 per completed delivery
@@ -544,6 +545,37 @@ router.get('/delivery-earnings', async (req, res) => {
             return `${y}-${m}-${day}`;
         };
 
+        // Real-World Shift Timing Engine (IST UTC+5:30)
+        // Morning: 08:00 - 14:00 | Evening Rush: 14:00 - 20:00 | Night Express: 20:00 - 02:00 | Late Night: 02:00 - 08:00
+        const getShiftInfo = (created_at) => {
+            if (!created_at) return { id: 'evening', name: 'Evening Rush', hours: '02:00 PM – 08:00 PM' };
+            const d = new Date(created_at);
+            const istOffsetMs = 5.5 * 60 * 60 * 1000;
+            const istDate = new Date(d.getTime() + istOffsetMs);
+            const h = istDate.getUTCHours();
+
+            if (h >= 8 && h < 14) {
+                return { id: 'morning', name: 'Morning Shift', hours: '08:00 AM – 02:00 PM' };
+            } else if (h >= 14 && h < 20) {
+                return { id: 'evening', name: 'Evening Rush', hours: '02:00 PM – 08:00 PM' };
+            } else if (h >= 20 || h < 2) {
+                return { id: 'night', name: 'Night Express', hours: '08:00 PM – 02:00 AM' };
+            } else {
+                return { id: 'late_night', name: 'Late Night Overtime', hours: '02:00 AM – 08:00 AM' };
+            }
+        };
+
+        const getCurrentISTShiftId = () => {
+            const now = new Date();
+            const istOffsetMs = 5.5 * 60 * 60 * 1000;
+            const istDate = new Date(now.getTime() + istOffsetMs);
+            const h = istDate.getUTCHours();
+            if (h >= 8 && h < 14) return 'morning';
+            if (h >= 14 && h < 20) return 'evening';
+            if (h >= 20 || h < 2) return 'night';
+            return 'late_night';
+        };
+
         const now = new Date();
         const todayStr = formatLocalDate(now);
         const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -557,7 +589,35 @@ router.get('/delivery-earnings', async (req, res) => {
         const todayCancelledAll = todayOrdersAll.filter(o => isCancelled(o.status)).length;
         const todayPlatformPayout = todayCompletedAll * RATE_PER_ORDER; // Formula: Completed (Day) * ₹3
 
-        // 2. Calculate Platform-Wide Monthly Stats
+        // 2. Real-World Shift Breakdown for Platform & Partner Hub
+        const currentShiftId = getCurrentISTShiftId();
+        const shiftsDef = [
+            { id: 'morning', title: 'Morning Shift', hours: '08:00 AM – 02:00 PM', icon: 'wb_sunny' },
+            { id: 'evening', title: 'Evening Rush', hours: '02:00 PM – 08:00 PM', icon: 'solar_power' },
+            { id: 'night', title: 'Night Express', hours: '08:00 PM – 02:00 AM', icon: 'nightlight' },
+            { id: 'late_night', title: 'Late Night Overtime', hours: '02:00 AM – 08:00 AM', icon: 'bedtime' }
+        ];
+
+        const shiftsSummary = shiftsDef.map(s => {
+            const sOrders = todayOrdersAll.filter(o => getShiftInfo(o.created_at).id === s.id);
+            const comp = sOrders.filter(o => isCompleted(o.status)).length;
+            const pend = sOrders.filter(o => isPending(o.status)).length;
+            const canc = sOrders.filter(o => isCancelled(o.status)).length;
+            return {
+                id: s.id,
+                title: s.title,
+                hours: s.hours,
+                icon: s.icon,
+                is_current: s.id === currentShiftId,
+                completed_today: comp,
+                pending_today: pend,
+                cancelled_today: canc,
+                earned_wage: comp * RATE_PER_ORDER,
+                total_orders: sOrders.length
+            };
+        });
+
+        // 3. Calculate Platform-Wide Monthly Stats
         const currentYear = now.getFullYear();
         const currentMonth = now.getMonth();
         const monthOrdersAll = allOrders.filter(o => {
@@ -570,7 +630,7 @@ router.get('/delivery-earnings', async (req, res) => {
         const daysElapsedInMonth = Math.max(1, now.getDate());
         const avgDeliveriesPerDayAll = (monthCompletedAll / daysElapsedInMonth).toFixed(1);
 
-        // 3. Load Staff and Build Partner Overview Roster
+        // 4. Load Staff and Build Partner Overview Roster
         let staffList = [];
         try {
             staffList = await supabaseDb.staff.getAllStaff();
@@ -592,7 +652,9 @@ router.get('/delivery-earnings', async (req, res) => {
                     monthly_deliveries: 0,
                     monthly_payout: 0.00,
                     total_completed: 0,
-                    availability_status: 'Active'
+                    availability_status: 'Active',
+                    primary_shift: 'Night Express (08:00 PM – 02:00 AM)',
+                    shift_deliveries: { morning: 0, evening: 0, night: 0, late_night: 0 }
                 });
             }
         });
@@ -613,7 +675,9 @@ router.get('/delivery-earnings', async (req, res) => {
                     monthly_deliveries: 0,
                     monthly_payout: 0.00,
                     total_completed: 0,
-                    availability_status: 'Active'
+                    availability_status: 'Active',
+                    primary_shift: 'Night Express (08:00 PM – 02:00 AM)',
+                    shift_deliveries: { morning: 0, evening: 0, night: 0, late_night: 0 }
                 });
             }
         });
@@ -622,18 +686,20 @@ router.get('/delivery-earnings', async (req, res) => {
         if (partnerMap.size === 0) {
             partnerMap.set('default_partner', {
                 partner_id: 'RIDER_BH13_01',
-                partner_name: 'Bh13 Fast Runner',
+                partner_name: 'BH13 Fast Runner',
                 phone: '+91 98765 43210',
                 today_deliveries: 0,
                 today_wage: 0.00,
                 monthly_deliveries: 0,
                 monthly_payout: 0.00,
                 total_completed: 0,
-                availability_status: 'Active'
+                availability_status: 'Active',
+                primary_shift: 'Night Express (08:00 PM – 02:00 AM)',
+                shift_deliveries: { morning: 0, evening: 0, night: 0, late_night: 0 }
             });
         }
 
-        // Tally deliveries and wages for each partner
+        // Tally deliveries, shifts and wages for each partner
         allOrders.forEach(o => {
             if (!isCompleted(o.status)) return;
             const meta = supabaseDb.orders.parseDeliveryMeta(o.rider_name);
@@ -646,6 +712,11 @@ router.get('/delivery-earnings', async (req, res) => {
 
             if (targetPartner) {
                 targetPartner.total_completed += 1;
+                const shiftInfo = getShiftInfo(o.created_at);
+                if (targetPartner.shift_deliveries && targetPartner.shift_deliveries[shiftInfo.id] !== undefined) {
+                    targetPartner.shift_deliveries[shiftInfo.id] += 1;
+                }
+
                 const oDate = o.created_at ? new Date(o.created_at) : null;
                 if (oDate) {
                     if (formatLocalDate(oDate) === todayStr) {
@@ -657,6 +728,22 @@ router.get('/delivery-earnings', async (req, res) => {
                         targetPartner.monthly_payout = targetPartner.monthly_deliveries * RATE_PER_ORDER;
                     }
                 }
+            }
+        });
+
+        // Compute dominant primary shift for each partner
+        partnerMap.forEach(p => {
+            if (p.shift_deliveries) {
+                let maxShiftId = 'night';
+                let maxCount = -1;
+                Object.entries(p.shift_deliveries).forEach(([sId, count]) => {
+                    if (count > maxCount) {
+                        maxCount = count;
+                        maxShiftId = sId;
+                    }
+                });
+                const sDef = shiftsDef.find(s => s.id === maxShiftId);
+                p.primary_shift = sDef ? `${sDef.title} (${sDef.hours})` : 'Night Express (08:00 PM – 02:00 AM)';
             }
         });
 
@@ -945,6 +1032,10 @@ router.get('/delivery-earnings', async (req, res) => {
 
             // Admin Partner Overview Table Roster
             partners_summary: partnersSummary,
+
+            // Real-World Shifts Summary
+            shifts_summary: shiftsSummary,
+            current_shift_id: currentShiftId,
 
             // Itemized Recent Payout Ledger
             recent_ledger: recentLedger,
