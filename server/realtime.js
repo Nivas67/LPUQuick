@@ -61,18 +61,21 @@ function setupRealtime(server) {
 
         // 1. Admin Dashboard Real-time connection (/ws/admin)
         if (pathname.startsWith('/ws/admin')) {
-            const token = parsedUrl.searchParams.get('token') || request.headers['x-admin-token'] || '';
-            const { verifyAdminToken } = require('./middleware/adminAuth');
-            const verified = verifyAdminToken(token);
-            let authorizedAdmin = null;
+            let authorizedAdmin = request.admin;
 
-            if (verified && verified.sub) {
-                try {
-                    const user = await supabaseDb.users.getUserById(verified.sub);
-                    if (user && user.role === 'admin') {
-                        authorizedAdmin = user;
-                    }
-                } catch (dbErr) {}
+            if (!authorizedAdmin) {
+                const token = parsedUrl.searchParams.get('token') || request.headers['x-admin-token'] || '';
+                const { verifyAdminToken } = require('./middleware/adminAuth');
+                const verified = verifyAdminToken(token);
+
+                if (verified && verified.sub) {
+                    try {
+                        const user = await supabaseDb.users.getUserById(verified.sub);
+                        if (user && user.role === 'admin') {
+                            authorizedAdmin = user;
+                        }
+                    } catch (dbErr) {}
+                }
             }
 
             if (!authorizedAdmin) {
@@ -163,16 +166,6 @@ function setupRealtime(server) {
 
             if (targetOrderId) {
                 try { order = await supabaseDb.orders.getOrderById(targetOrderId); } catch (e) {}
-            }
-
-            if (!order) {
-                try {
-                    const all = await supabaseDb.orders.getAllOrders();
-                    if (all && all.length > 0) {
-                        order = all[0];
-                        targetOrderId = order.id;
-                    }
-                } catch (e) {}
             }
 
             if (!targetOrderId || !order) {

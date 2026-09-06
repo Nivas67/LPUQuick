@@ -219,6 +219,11 @@ const api = {
                         indexProducts(data.studyEssentials);
                         indexProducts(data.dormBeverages);
                         indexProducts(data.buy_again);
+                        if (Array.isArray(data.all_products) && data.all_products.length > 0) {
+                            indexProducts(data.all_products);
+                            productsMemoryCache.set('__all__', { products: data.all_products });
+                            productsMemoryCacheTime.set('__all__', Date.now());
+                        }
                         homeFeedCache = data;
                         homeFeedCacheTime = Date.now();
                         homeFeedCacheUserId = uid;
@@ -241,6 +246,11 @@ const api = {
             indexProducts(data.studyEssentials);
             indexProducts(data.dormBeverages);
             indexProducts(data.buy_again);
+            if (Array.isArray(data.all_products) && data.all_products.length > 0) {
+                indexProducts(data.all_products);
+                productsMemoryCache.set('__all__', { products: data.all_products });
+                productsMemoryCacheTime.set('__all__', Date.now());
+            }
             homeFeedCache = data;
             homeFeedCacheTime = Date.now();
             homeFeedCacheUserId = uid;
@@ -488,6 +498,10 @@ const api = {
         const guestUserId = extraData.guestUserId || localStorage.getItem('lpuquick_guest_cart_id') || '';
         const items = extraData.items || (window.cartState && window.cartState.items) || [];
 
+        // Stable client-generated orderId for 100% idempotent retries across flaky campus networks
+        const orderId = extraData.orderId || window.__currentCheckoutOrderId || (`order_${Math.random().toString(36).slice(2, 10)}`);
+        window.__currentCheckoutOrderId = orderId;
+
         // Resilient 2-attempt fetch execution for flaky campus cellular networks
         for (let attempt = 1; attempt <= 2; attempt++) {
             const controller = new AbortController();
@@ -499,6 +513,8 @@ const api = {
                     headers: { 'Content-Type': 'application/json' },
                     signal: controller.signal,
                     body: JSON.stringify({
+                        orderId,
+                        order_id: orderId,
                         userId,
                         guestUserId,
                         paymentMethod,
@@ -516,7 +532,11 @@ const api = {
 
                 const text = await res.text();
                 try {
-                    return JSON.parse(text);
+                    const parsed = JSON.parse(text);
+                    if (parsed && (parsed.success || parsed.order)) {
+                        window.__currentCheckoutOrderId = null;
+                    }
+                    return parsed;
                 } catch (parseErr) {
                     if (attempt < 2) continue;
                     return { 

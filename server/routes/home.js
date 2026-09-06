@@ -71,13 +71,6 @@ router.get('/', async (req, res) => {
             const section = getTimeSection(hour);
             const allProducts = await supabaseDb.products.getAll({ includeInactive: false });
 
-            // Smart keyword categorization for curated trays
-            const biscuits = allProducts.filter(p => /biscuit|cookie|wafer|pie|bikis|bourbon|creme|shakti|magic|treat/i.test((p.name || '') + ' ' + (p.category || '') + ' ' + (p.tags || '')));
-            const trendingSnacks = allProducts.filter(p => /chips|snack|kurkure|lays|crax|bingo|tedhe|namkeen|curls/i.test((p.name || '') + ' ' + (p.category || '') + ' ' + (p.tags || '')));
-            const chocolates = allProducts.filter(p => /choco|dark fantasy|pie|sweet|dessert|wafer/i.test((p.name || '') + ' ' + (p.category || '') + ' ' + (p.tags || '')));
-            const instantFood = allProducts.filter(p => /instant|maggi|noodle|pasta|soup|cup/i.test((p.name || '') + ' ' + (p.category || '') + ' ' + (p.tags || '')));
-            const drinks = allProducts.filter(p => /beverage|drink|shake|juice|coke|pepsi|water|soda|tea|coffee/i.test((p.name || '') + ' ' + (p.category || '') + ' ' + (p.tags || '')));
-
             const promos = [
                 {
                     id: 'promo_flow_assist',
@@ -105,13 +98,7 @@ router.get('/', async (req, res) => {
                 delivery_location: 'BH13',
                 total_products_count: allProducts.length,
                 all_products: allProducts,
-                products: allProducts,
                 default_buy_again: allProducts.slice(0, 10),
-                biscuits,
-                trending_snacks: trendingSnacks,
-                chocolates,
-                drinks,
-                instant_food: instantFood,
                 promos,
                 free_delivery_banner: {
                     active: true,

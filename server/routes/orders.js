@@ -254,7 +254,7 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
 
             fallbackOrdersCache = enriched;
             return { orders: enriched };
-        }, forceFresh ? 0 : 1000); // 1-second coalesced micro-cache (coalesces rapid multi-tab polls; kept short so delivery assignment changes propagate quickly)
+        }, forceFresh ? 0 : 30000); // 30-second coalesced micro-cache (atomically invalidated on order updates, claims, transfers, and checkouts)
 
         res.json(payload || { orders: fallbackOrdersCache });
     } catch (err) {
@@ -517,44 +517,50 @@ router.get('/admin/metrics', requireAdmin, async (req, res) => {
 // GET /api/orders/admin/delivery-staff (List all delivery personnel for transfer modal)
 router.get('/admin/delivery-staff', requireAdmin, async (req, res) => {
     try {
-        const staff = await supabaseDb.staff.getAllStaff();
-        // Filter staff who have delivery_person or owner roles
-        const deliveryStaff = staff.filter(s => 
-            s.account_status === 'ACTIVE' && 
-            ((Array.isArray(s.roles) && (s.roles.includes('delivery_person') || s.roles.includes('owner'))) || Boolean(s.is_owner) || s.id === 'user_admin_bh13')
-        );
+        const forceFresh = req.query.force === 'true';
+        const payload = await cache.wrap('orders:admin:delivery-staff', async () => {
+            const supabase = getSupabaseClient();
+            
+            // Run staff query and active orders load query concurrently in parallel
+            const [staff, activeOrdersRes] = await Promise.all([
+                supabaseDb.staff.getAllStaff(),
+                supabase
+                    ? supabase.from('orders').select('id, rider_name, status').in('status', ['Order Placed', 'Order Confirmed', 'Preparing', 'Out for Delivery'])
+                    : Promise.resolve({ data: [] })
+            ]);
 
-        // Get currently active orders to calculate active load count per runner
-        const supabase = getSupabaseClient();
-        const { data: activeOrders } = await supabase
-            .from('orders')
-            .select('id, rider_name, status')
-            .in('status', ['Order Placed', 'Order Confirmed', 'Preparing', 'Out for Delivery']);
+            const deliveryStaff = (staff || []).filter(s => 
+                s.account_status === 'ACTIVE' && 
+                ((Array.isArray(s.roles) && (s.roles.includes('delivery_person') || s.roles.includes('owner'))) || Boolean(s.is_owner) || s.id === 'user_admin_bh13')
+            );
 
-        const loadMap = {};
-        (activeOrders || []).forEach(o => {
-            const meta = supabaseDb.orders.parseDeliveryMeta(o.rider_name);
-            if (meta.assigned_to) {
-                loadMap[meta.assigned_to] = (loadMap[meta.assigned_to] || 0) + 1;
-            }
-        });
+            const loadMap = {};
+            ((activeOrdersRes && activeOrdersRes.data) || []).forEach(o => {
+                const meta = supabaseDb.orders.parseDeliveryMeta(o.rider_name);
+                if (meta.assigned_to) {
+                    loadMap[meta.assigned_to] = (loadMap[meta.assigned_to] || 0) + 1;
+                }
+            });
 
-        const enrichedStaff = deliveryStaff.map(s => {
-            const status = getRiderStatus(s.id);
-            return {
-                id: s.id,
-                name: s.name,
-                email: s.email,
-                phone: s.phone || '',
-                roles: s.roles,
-                is_owner: s.is_owner,
-                active_deliveries: loadMap[s.id] || 0,
-                availability_status: status,
-                is_available: status === 'Active'
-            };
-        });
+            const enrichedStaff = deliveryStaff.map(s => {
+                const status = getRiderStatus(s.id);
+                return {
+                    id: s.id,
+                    name: s.name,
+                    email: s.email,
+                    phone: s.phone || '',
+                    roles: s.roles,
+                    is_owner: s.is_owner,
+                    active_deliveries: loadMap[s.id] || 0,
+                    availability_status: status,
+                    is_available: status === 'Active'
+                };
+            });
 
-        res.json({ success: true, staff: enrichedStaff });
+            return { success: true, staff: enrichedStaff };
+        }, forceFresh ? 0 : 15000);
+
+        res.json(payload);
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -1863,12 +1869,7 @@ router.get('/:userId/active', async (req, res) => {
         if (!active || active.length === 0) {
             return res.json({ active: null });
         }
-        const detailed = await supabaseDb.orders.getOrderById(active[0].id);
-        if (detailed && Array.isArray(fallbackOrdersCache)) {
-            const cached = fallbackOrdersCache.find(x => x.id === detailed.id);
-            if (cached && cached.status) detailed.status = cached.status;
-        }
-        res.json({ active: detailed || active[0] });
+        res.json({ active: active[0] });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

@@ -5,15 +5,81 @@ const supabaseDb = require('../db/supabaseDb');
 const { broadcastOrderPlaced, broadcastInventoryUpdate } = require('../realtime');
 const cache = require('../cache');
 
+// In-Process Concurrency Mutex for Checkout Idempotency & Duplicate Order Prevention
+const checkoutLocks = new Map();
+
+async function withCheckoutLock(lockKey, fn) {
+    const prevLock = checkoutLocks.get(lockKey) || Promise.resolve();
+    let release;
+    const currentLock = new Promise(resolve => { release = resolve; });
+    checkoutLocks.set(lockKey, currentLock);
+
+    await prevLock.catch(() => {});
+
+    try {
+        return await fn();
+    } finally {
+        release();
+        if (checkoutLocks.get(lockKey) === currentLock) {
+            checkoutLocks.delete(lockKey);
+        }
+    }
+}
+
 // POST /api/checkout and /api/checkout/place
 async function handlePlaceOrder(req, res) {
     let userId = req.body.userId || req.body.user_id;
     const guestUserId = req.body.guestUserId || req.body.guest_id;
     const paymentMethod = req.body.paymentMethod || req.body.payment_method;
     const deliveryAddress = req.body.deliveryAddress || req.body.delivery_address;
-    const customOrderId = req.body.orderId || req.body.order_id;
+    const customOrderId = req.body.orderId || req.body.order_id || req.body.customOrderId || req.body.custom_order_id;
     const clientItems = Array.isArray(req.body.items) && req.body.items.length > 0 ? req.body.items : null;
 
+    // Fast Idempotency Check: If customOrderId is provided and already exists, return it immediately
+    if (customOrderId) {
+        try {
+            const existingOrder = await supabaseDb.orders.getOrderById(customOrderId);
+            if (existingOrder) {
+                console.log(`[Checkout Idempotency]: Order ${customOrderId} already processed, returning existing order.`);
+                return res.json({
+                    success: true,
+                    message: 'Order confirmed (idempotent)',
+                    order: existingOrder,
+                    idempotent: true
+                });
+            }
+        } catch (e) {}
+    }
+
+    const lockKey = customOrderId ? `checkout:order:${customOrderId}` : `checkout:user:${userId || 'anon'}`;
+    return withCheckoutLock(lockKey, async () => {
+        // Re-check idempotency under lock to handle simultaneous dual-clicks
+        if (customOrderId) {
+            try {
+                const existingOrder = await supabaseDb.orders.getOrderById(customOrderId);
+                if (existingOrder) {
+                    return res.json({
+                        success: true,
+                        message: 'Order confirmed (idempotent)',
+                        order: existingOrder,
+                        idempotent: true
+                    });
+                }
+            } catch (e) {}
+        }
+
+        return await executeOrderPlacement(req, res, {
+            userId,
+            guestUserId,
+            paymentMethod,
+            deliveryAddress,
+            customOrderId,
+            clientItems
+        });
+    });
+}
+
+async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMethod, deliveryAddress, customOrderId, clientItems }) {
     // Extract & validate mandatory 10-digit mobile number
     const checkPhone = (req.body.customerPhone || req.body.phone || '').replace(/\D/g, '');
     if (!checkPhone || checkPhone.length !== 10) {
@@ -94,6 +160,14 @@ async function handlePlaceOrder(req, res) {
         if (!orderItems || orderItems.length === 0) {
             return res.status(400).json({ error: 'Cart is empty. Please add items before checking out.' });
         }
+
+        // Normalize item fields (product_id, quantity, price)
+        orderItems = orderItems.map(item => ({
+            ...item,
+            product_id: item.product_id || item.productId || item.id,
+            quantity: Math.max(1, Number(item.quantity) || 1),
+            price: Number(item.price) || 0
+        }));
 
         // Validate stock limits directly from items without sequential DB roundtrips
         for (const item of orderItems) {

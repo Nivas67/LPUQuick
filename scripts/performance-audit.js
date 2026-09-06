@@ -58,10 +58,11 @@ async function runAudit() {
         '/api/orders/admin/metrics'
     ];
 
+    const { generateAdminToken } = require('../server/middleware/adminAuth');
+    const validAdminToken = generateAdminToken('user_admin_bh13');
     const adminHeaders = {
         'accept-encoding': 'gzip, deflate, br',
-        'x-admin-key': 'lpuquick_admin_secret_2026',
-        'x-admin-token': 'adm_sec_master_2026'
+        'x-admin-token': validAdminToken
     };
 
     for (const ep of adminEndpoints) {
@@ -150,8 +151,8 @@ async function runAudit() {
     console.log('5. Cart System:     ' + (getCart.status === 200 ? '✅ PASS' : '❌ FAIL') + ' (Items: ' + (getCart.body?.items?.length || 0) + ')');
 
     // 6. Admin Operations (Readonly)
-    const adminOrders = await apiRequest('/api/orders', 'GET', null, { 'x-admin-token': 'adm_sec_master_2026' });
-    console.log('6. Admin Portal:    ' + (adminOrders.status === 200 ? '✅ PASS' : '❌ FAIL') + ' (Orders count: ' + (adminOrders.body?.orders?.length || adminOrders.body?.length) + ')');
+    const adminOrders = await apiRequest('/api/orders/admin/all', 'GET', null, { 'x-admin-token': validAdminToken });
+    console.log('6. Admin Portal:    ' + (adminOrders.status === 200 ? '✅ PASS' : '❌ FAIL') + ' (Orders count: ' + (adminOrders.body?.orders?.length !== undefined ? adminOrders.body.orders.length : 'OK') + ')');
 
     console.log('\n=============================================');
     console.log('🎉 ALL PERFORMANCE & FUNCTIONAL TESTS PASSED!');

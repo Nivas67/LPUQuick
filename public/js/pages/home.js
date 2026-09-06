@@ -627,15 +627,17 @@ window.pages.home = async function() {
     let data = null;
     let productsRes = null;
     try {
-        [data, productsRes] = await Promise.all([
-            window.api.fetchHome(effectiveUserId),
-            window.api.fetchProducts()
-        ]);
+        data = await window.api.fetchHome(effectiveUserId);
+        if (!data?.all_products || data.all_products.length === 0) {
+            productsRes = await window.api.fetchProducts();
+        }
     } catch(e) {
         console.warn('Home data load warning:', e);
     }
 
-    const allProductsFromApi = (productsRes?.products && productsRes.products.length > 0) ? productsRes.products : (data?.all_products || data?.products || []);
+    const allProductsFromApi = (data?.all_products && data.all_products.length > 0)
+        ? data.all_products
+        : ((productsRes?.products && productsRes.products.length > 0) ? productsRes.products : (data?.products || []));
 
     const inStockProducts = allProductsFromApi.filter(p => {
         return p.in_stock !== false && (p.stock_left === undefined || p.stock_left === null || p.stock_left > 0);
@@ -1709,18 +1711,29 @@ window.pageInits.home = function() {
         const targetDropdown = isDesktop ? desktopDropdown : mobileDropdown;
         const targetClearBtn = isDesktop ? desktopClearBtn : mobileClearBtn;
 
+        let searchDebounceTimer = null;
         input.oninput = (e) => {
             currentSearchQuery = e.target.value;
-            // Sync values across inputs
+            // Sync values across inputs instantly
             if (desktopSearch && desktopSearch !== input) desktopSearch.value = currentSearchQuery;
             if (mobileSearch && mobileSearch !== input) mobileSearch.value = currentSearchQuery;
 
-            // Toggle clear button
+            // Toggle clear button instantly
             if (desktopClearBtn) desktopClearBtn.classList.toggle('hidden', !currentSearchQuery);
             if (mobileClearBtn) mobileClearBtn.classList.toggle('hidden', !currentSearchQuery);
 
-            applyFilters();
-            renderLiveSearchDropdown(targetDropdown, currentSearchQuery);
+            if (!currentSearchQuery) {
+                clearTimeout(searchDebounceTimer);
+                applyFilters();
+                renderLiveSearchDropdown(targetDropdown, '');
+                return;
+            }
+
+            clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = setTimeout(() => {
+                applyFilters();
+                renderLiveSearchDropdown(targetDropdown, currentSearchQuery);
+            }, 120);
         };
 
         input.onfocus = () => {

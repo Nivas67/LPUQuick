@@ -550,6 +550,7 @@ window.pageInits.categories = async function() {
                              src="${p.image_url}" 
                              alt="${p.name}" 
                              loading="lazy" 
+                             decoding="async" 
                              onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300'">
                     </div>
 
@@ -628,9 +629,15 @@ window.pageInits.categories = async function() {
         }
     }
 
-    // Load Products from API
+    // Load Products from API (with 0ms in-memory fast-path)
     async function loadProductsData() {
         try {
+            if (window.__cachedProducts && window.__cachedProducts.size > 0) {
+                allProducts = Array.from(window.__cachedProducts.values());
+                renderRail();
+                filterAndRenderProducts();
+                return;
+            }
             const res = await window.api.fetchProducts();
             allProducts = res?.products || [];
             renderRail();
@@ -667,12 +674,21 @@ window.pageInits.categories = async function() {
         filterAndRenderProducts();
     });
 
-    // Search Handlers
+    // Search Handlers (with 120ms debounce)
+    let catSearchDebounceTimer = null;
     const handleSearch = () => {
         const val = (desktopSearch?.value || mobileSearch?.value || '').trim();
         if (mobileSearchClear) mobileSearchClear.classList.toggle('hidden', !val);
         if (desktopSearchClear) desktopSearchClear.classList.toggle('hidden', !val);
-        filterAndRenderProducts();
+        if (!val) {
+            clearTimeout(catSearchDebounceTimer);
+            filterAndRenderProducts();
+            return;
+        }
+        clearTimeout(catSearchDebounceTimer);
+        catSearchDebounceTimer = setTimeout(() => {
+            filterAndRenderProducts();
+        }, 120);
     };
 
     desktopSearch?.addEventListener('input', handleSearch);

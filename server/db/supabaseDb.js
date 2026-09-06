@@ -525,7 +525,13 @@ const supabaseDb = {
                 .select()
                 .single();
 
-            if (orderErr) throw new Error(`PostgreSQL order creation failed: ${orderErr.message}`);
+            if (orderErr) {
+                if (orderErr.code === '23505') {
+                    const existing = await this.getOrderById(orderId);
+                    if (existing) return existing;
+                }
+                throw new Error(`PostgreSQL order creation failed: ${orderErr.message}`);
+            }
 
             // 3. Insert line items
             const formattedItems = items.map(item => {
