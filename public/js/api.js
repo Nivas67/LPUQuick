@@ -30,12 +30,28 @@ function updateLocalCartState(cartData) {
         cartData.items.forEach(i => {
             if (i.product_id) {
                 const isPending = window.__pendingCartSync[i.product_id];
-                nextState[i.product_id] = {
-                    cart_id: i.cart_id || i.id,
-                    quantity: isPending ? isPending.targetQty : (Number(i.quantity) || 0),
-                    price: Number(i.price) || 0,
-                    name: i.name || '',
-                    image_url: i.image_url || ''
+                const finalQty = isPending !== undefined ? isPending.targetQty : (Number(i.quantity) || 0);
+                if (finalQty > 0) {
+                    nextState[i.product_id] = {
+                        cart_id: i.cart_id || i.id,
+                        quantity: finalQty,
+                        price: Number(i.price) || 0,
+                        name: i.name || '',
+                        image_url: i.image_url || ''
+                    };
+                }
+            }
+        });
+        // Also preserve any pending items with targetQty > 0
+        Object.entries(window.__pendingCartSync).forEach(([pid, syncInfo]) => {
+            if (syncInfo && syncInfo.targetQty > 0 && !nextState[pid]) {
+                const cachedProd = window.__cachedProducts?.get(pid);
+                nextState[pid] = {
+                    cart_id: syncInfo.cartId || `temp_${pid}`,
+                    quantity: syncInfo.targetQty,
+                    price: Number(cachedProd?.price) || 0,
+                    name: cachedProd?.name || '',
+                    image_url: cachedProd?.image_url || ''
                 };
             }
         });
@@ -90,40 +106,100 @@ window.setOptimisticCartQuantity = function(productId, targetQty, maxStock = 50,
     } else {
         delete window.cartState[productId];
     }
+
+    // 3. Synchronously update cartMemoryCache so getCart() and page renders are always 100% accurate
+    if (cartMemoryCache && Array.isArray(cartMemoryCache.items)) {
+        if (clampedQty <= 0) {
+            cartMemoryCache.items = cartMemoryCache.items.filter(it => it.product_id !== productId);
+        } else {
+            const existing = cartMemoryCache.items.find(it => it.product_id === productId);
+            if (existing) {
+                existing.quantity = clampedQty;
+            } else {
+                const cachedProd = window.__cachedProducts?.get(productId);
+                cartMemoryCache.items.push({
+                    id: `temp_${productId}`,
+                    cart_id: `temp_${productId}`,
+                    product_id: productId,
+                    quantity: clampedQty,
+                    name: cachedProd?.name || 'Item',
+                    price: Number(cachedProd?.price) || 0,
+                    mrp: Number(cachedProd?.mrp) || Number(cachedProd?.price) || 0,
+                    image_url: cachedProd?.image_url || '',
+                    in_stock: true,
+                    stock_left: maxStock
+                });
+            }
+        }
+
+        // Clean deduplication
+        const unique = new Map();
+        for (const it of cartMemoryCache.items) {
+            if (it.product_id && !unique.has(it.product_id)) {
+                unique.set(it.product_id, it);
+            }
+        }
+        cartMemoryCache.items = Array.from(unique.values());
+
+        // Recompute pricing
+        const list = cartMemoryCache.items;
+        const totalQuantity = list.reduce((sum, it) => sum + (Number(it.quantity) || 1), 0);
+        const totalMrp = list.reduce((sum, it) => sum + ((Number(it.mrp) || Number(it.price) || 0) * (Number(it.quantity) || 1)), 0);
+        const subtotal = list.reduce((sum, it) => sum + ((Number(it.price) || 0) * (Number(it.quantity) || 1)), 0);
+        const mrpDiscount = Math.max(0, totalMrp - subtotal);
+        const hasDiscount = subtotal >= 350;
+        const discount5 = hasDiscount ? Math.round(subtotal * 0.05) : 0;
+        const platform_fee = list.length > 0 ? 3 : 0;
+        const total = Math.max(0, subtotal - discount5 + platform_fee);
+        cartMemoryCache.item_count = totalQuantity;
+        cartMemoryCache.total_items = totalQuantity;
+        cartMemoryCache.pricing = {
+            subtotal,
+            total_mrp: totalMrp,
+            mrp_discount: mrpDiscount,
+            discount5,
+            bulk_discount: discount5,
+            delivery_fee: 0,
+            platform_fee,
+            tax: 0,
+            total,
+            total_savings: mrpDiscount + discount5 + (subtotal > 0 ? 25 : 0),
+            min_order_value: 35,
+            is_min_order_met: subtotal >= 35,
+            min_order_shortfall: Math.max(0, 35 - subtotal),
+            item_count: totalQuantity,
+            total_items: totalQuantity
+        };
+        cartMemoryCacheTime = Date.now();
+    }
     
     if (typeof window.updateSingleProductSlot === 'function') {
         window.updateSingleProductSlot(productId);
     }
+    if (typeof window.updateGlobalCartBadges === 'function') {
+        window.updateGlobalCartBadges();
+    }
 
-    // 3. Clear existing debounce timer for this product
+    // 4. Clear existing debounce timer for this product
     if (window.__cartSyncDebounceTimers[productId]) {
         clearTimeout(window.__cartSyncDebounceTimers[productId]);
     }
 
-    // 4. Debounce network dispatch by 250ms (batches rapid multi-taps into a single accurate request)
+    // 5. Debounce network dispatch (150ms) via authoritative atomic set-quantity route
     window.__cartSyncDebounceTimers[productId] = setTimeout(async () => {
         delete window.__cartSyncDebounceTimers[productId];
         const syncInfo = window.__pendingCartSync[productId];
         if (!syncInfo) return;
 
         const finalQty = syncInfo.targetQty;
-        const knownCartId = syncInfo.cartId || window.cartState[productId]?.cart_id;
         delete window.__pendingCartSync[productId];
 
         try {
-            if (finalQty <= 0) {
-                if (knownCartId && !knownCartId.startsWith('temp_')) {
-                    await window.api.removeCartItem(knownCartId);
-                }
-            } else if (!knownCartId || knownCartId.startsWith('temp_')) {
-                const res = await window.api.addToCart(uid, productId, finalQty);
-                const serverItem = res?.items?.find(it => it.product_id === productId);
-                const actualCartId = serverItem?.cart_id || serverItem?.id || res?.cart_id;
-                if (actualCartId && window.cartState[productId]) {
-                    window.cartState[productId].cart_id = actualCartId;
-                }
-            } else {
-                await window.api.updateCartItem(knownCartId, finalQty, uid);
+            const res = await window.api.setCartQuantity(uid, productId, finalQty);
+            if (res && Array.isArray(res.items)) {
+                cartMemoryCache = res;
+                cartMemoryCacheTime = Date.now();
+                updateLocalCartState(res);
             }
             if (typeof onSynced === 'function') onSynced(finalQty);
         } catch (err) {
@@ -137,12 +213,15 @@ window.setOptimisticCartQuantity = function(productId, targetQty, maxStock = 50,
             if (typeof window.updateSingleProductSlot === 'function') {
                 window.updateSingleProductSlot(productId);
             }
+            if (typeof window.updateGlobalCartBadges === 'function') {
+                window.updateGlobalCartBadges();
+            }
             if (typeof window.showClientToast === 'function') {
                 window.showClientToast(err.message || 'Cart sync error', 'warning', 'inventory_2');
             }
             if (typeof onSynced === 'function') onSynced(syncInfo.confirmedQty);
         }
-    }, 250);
+    }, 150);
 };
 
 let cartMemoryCache = null;
@@ -377,7 +456,8 @@ const api = {
 
     // Cart (Instant 0ms SWR Memory Cache)
     async getCart(userId) {
-        if (cartMemoryCache && Array.isArray(cartMemoryCache.items) && (Date.now() - cartMemoryCacheTime < 8000)) {
+        const now = Date.now();
+        if (cartMemoryCache && Array.isArray(cartMemoryCache.items) && (now - cartMemoryCacheTime < 4000)) {
             return cartMemoryCache;
         }
         try {
@@ -388,6 +468,26 @@ const api = {
             }
             const data = await res.json();
             if (data && Array.isArray(data.items)) {
+                // Deduplicate items authoritatively
+                const uniqueMap = new Map();
+                data.items.forEach(it => {
+                    if (it.product_id && !uniqueMap.has(it.product_id)) {
+                        uniqueMap.set(it.product_id, it);
+                    }
+                });
+                data.items = Array.from(uniqueMap.values());
+
+                // Filter out any items that the user optimistically removed (quantity <= 0)
+                if (window.cartState) {
+                    data.items = data.items.filter(it => {
+                        if (!it.product_id) return false;
+                        if (window.__pendingCartSync && window.__pendingCartSync[it.product_id] !== undefined) {
+                            return window.__pendingCartSync[it.product_id].targetQty > 0;
+                        }
+                        return true;
+                    });
+                }
+
                 cartMemoryCache = data;
                 cartMemoryCacheTime = Date.now();
                 data.items.forEach(item => {
@@ -406,6 +506,24 @@ const api = {
             if (cartMemoryCache && Array.isArray(cartMemoryCache.items)) return cartMemoryCache;
             return { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 } };
         }
+    },
+    async setCartQuantity(userId, productId, quantity) {
+        const uid = userId || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : window.CURRENT_USER_ID);
+        const res = await fetch(`${API_BASE}/cart/set-quantity`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: uid, productId, quantity })
+        });
+        const result = await res.json();
+        if (!res.ok || result.error) {
+            throw new Error(result.error || 'Failed to update item quantity');
+        }
+        if (result && Array.isArray(result.items)) {
+            cartMemoryCache = result;
+            cartMemoryCacheTime = Date.now();
+            updateLocalCartState(result);
+        }
+        return result;
     },
     async addToCart(userId, productId, quantity = 1) {
         const res = await fetch(`${API_BASE}/cart`, {

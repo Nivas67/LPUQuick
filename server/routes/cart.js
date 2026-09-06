@@ -82,6 +82,24 @@ router.get('/:userId', async (req, res) => {
     }
 });
 
+// POST /api/cart/set-quantity (Authoritative atomic quantity setter - no duplication)
+router.post('/set-quantity', async (req, res) => {
+    const userId = req.body.userId || req.body.user_id;
+    const productId = req.body.productId || req.body.product_id;
+    const quantity = req.body.quantity !== undefined ? Number(req.body.quantity) : 0;
+
+    if (!userId || !productId) {
+        return res.status(400).json({ error: 'userId and productId are required' });
+    }
+
+    try {
+        const cart = await supabaseDb.cart.setQuantity(userId, productId, quantity);
+        res.json(formatCartResponse(cart));
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
 // POST /api/cart and POST /api/cart/add (Add item to cart)
 async function handleAddToCart(req, res) {
     const userId = req.body.userId || req.body.user_id;
@@ -120,12 +138,16 @@ router.put('/:id', async (req, res) => {
     }
 });
 
-// DELETE /api/cart/:id (Remove single item)
+// DELETE /api/cart/:id (Remove single item by cartId or productId)
 router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     const userId = req.body?.userId || req.query?.userId || 'guest_cart';
 
     try {
+        if (id && id.startsWith('prod_')) {
+            const cart = await supabaseDb.cart.setQuantity(userId, id, 0);
+            return res.json(formatCartResponse(cart));
+        }
         const cart = await supabaseDb.cart.updateItem(id, 0, userId);
         res.json(formatCartResponse(cart));
     } catch (err) {

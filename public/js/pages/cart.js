@@ -64,7 +64,7 @@ window.pages.cart = async function() {
         const isMaxStockReached = item.quantity >= stockLeft;
 
         return `
-        <div class="glass-panel card-pedestal rounded-2xl p-3.5 sm:p-4 flex items-center justify-between gap-3.5 shadow-md mb-3 border border-[var(--glass-border)] cart-row transition-all hover:translate-y-[-1px]" data-cart-id="${item.cart_id}" data-product-id="${item.product_id}" data-stock-left="${stockLeft}">
+        <div class="glass-panel card-pedestal rounded-2xl p-3.5 sm:p-4 flex items-center justify-between gap-3.5 shadow-md mb-3 border border-[var(--glass-border)] cart-row transition-all hover:translate-y-[-1px]" data-cart-id="${item.cart_id}" data-product-id="${item.product_id}" data-price="${itemPrice}" data-mrp="${itemMrp}" data-stock-left="${stockLeft}">
             <div class="flex items-center gap-3.5 min-w-0">
                 <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-white/90 to-slate-100/90 dark:from-slate-800/90 dark:to-slate-900/90 p-2 shrink-0 flex items-center justify-center border border-[var(--glass-border)] shadow-[inset_1px_1px_3px_rgba(255,255,255,0.8),inset_-1px_-1px_3px_rgba(0,0,0,0.05)] relative overflow-hidden group">
                     <img class="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110" src="${item.image_url}" alt="${item.name}" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200'">
@@ -79,10 +79,10 @@ window.pages.cart = async function() {
                     </p>
                     ` : ''}
                     <div class="flex items-baseline gap-1.5 mt-1">
-                        <span class="font-black text-sm text-slate-900 dark:text-white tracking-tight">₹${itemPrice * item.quantity}</span>
-                        ${item.quantity > 1 ? `<span class="text-[10px] text-slate-400 font-medium">(₹${itemPrice} × ${item.quantity})</span>` : ''}
+                        <span class="font-black text-sm text-slate-900 dark:text-white tracking-tight item-price-total">₹${itemPrice * item.quantity}</span>
+                        <span class="text-[10px] text-slate-400 font-medium item-price-multi">${item.quantity > 1 ? `(₹${itemPrice} × ${item.quantity})` : ''}</span>
                         ${hasItemDiscount ? `
-                        <span class="line-through text-slate-400 text-[11px]">₹${itemMrp * item.quantity}</span>
+                        <span class="line-through text-slate-400 text-[11px] item-mrp-total">₹${itemMrp * item.quantity}</span>
                         <span class="liquid-badge text-[9px] text-emerald-800 dark:text-emerald-300 font-black px-1.5 py-0.5">${discPercent}% OFF</span>
                         ` : ''}
                     </div>
@@ -112,7 +112,7 @@ window.pages.cart = async function() {
                 </a>
                 <div>
                     <h1 class="text-sm sm:text-base font-black text-slate-900 dark:text-white tracking-tight leading-tight">Your Cart</h1>
-                    <p class="text-[10px] sm:text-[11px] text-slate-500 font-semibold">${totalQuantity} ${totalQuantity === 1 ? 'item' : 'items'} · Delivering to ${window.currentAddress || 'BH13'} (3 mins)</p>
+                    <p class="text-[10px] sm:text-[11px] text-slate-500 font-semibold" id="cart-header-subtitle">${totalQuantity} ${totalQuantity === 1 ? 'item' : 'items'} · Delivering to ${window.currentAddress || 'BH13'} (3 mins)</p>
                 </div>
             </div>
             <div class="flex items-center gap-2">
@@ -226,13 +226,13 @@ window.pages.cart = async function() {
 
                     <div class="flex justify-between items-center text-slate-700 dark:text-slate-300 font-medium">
                         <span>Item Subtotal</span>
-                        <span class="font-black text-slate-900 dark:text-white">₹${subtotal}</span>
+                        <span class="font-black text-slate-900 dark:text-white" id="bill-subtotal-val">₹${subtotal}</span>
                     </div>
 
                     ${hasDiscount ? `
                     <div class="flex justify-between items-center text-emerald-700 dark:text-emerald-400 font-bold">
                         <span>5% Bulk Offer</span>
-                        <span>-₹${discount5}</span>
+                        <span id="bill-discount-val">-₹${discount5}</span>
                     </div>
                     ` : ''}
 
@@ -257,14 +257,14 @@ window.pages.cart = async function() {
                             <span class="text-slate-900 dark:text-white tracking-tight">To Pay</span>
                             <p class="text-[10px] text-emerald font-bold">Free campus delivery included</p>
                         </div>
-                        <span class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">₹${exactTotal}</span>
+                        <span class="text-2xl font-black text-slate-900 dark:text-white tracking-tight" id="bill-total-val">₹${exactTotal}</span>
                     </div>
                 </div>
 
                 <!-- Total Savings Highlight Pill -->
                 <div class="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-300 font-bold backdrop-blur-md shadow-xs">
                     <span class="material-symbols-outlined text-base text-emerald">savings</span>
-                    <span>Total Real Savings: ₹${totalSavings}</span>
+                    <span id="bill-savings-val">Total Real Savings: ₹${totalSavings}</span>
                 </div>
 
                 ${window.__isUserBlocked ? `
@@ -315,8 +315,8 @@ window.pages.cart = async function() {
         <div class="lg:hidden fixed bottom-16 inset-x-3 z-30 pointer-events-none flex justify-center">
             <div class="pointer-events-auto liquid-dock-pill max-w-md w-full p-3.5 px-4 flex items-center justify-between gap-3 rounded-3xl shadow-2xl">
                 <div>
-                    <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400">${totalQuantity} ${totalQuantity === 1 ? 'item' : 'items'}</span>
-                    <p class="text-lg font-black text-slate-900 dark:text-white leading-none mt-0.5">₹${exactTotal}</p>
+                    <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400" id="mobile-cart-qty-val">${totalQuantity} ${totalQuantity === 1 ? 'item' : 'items'}</span>
+                    <p class="text-lg font-black text-slate-900 dark:text-white leading-none mt-0.5" id="mobile-cart-total-val">₹${exactTotal}</p>
                 </div>
                 <a href="#/checkout" class="clay-btn clay-btn-primary px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md active:scale-95 transition-transform">
                     <span>Proceed</span>
@@ -390,10 +390,94 @@ window.pageInits.cart = function() {
         };
     }
 
-    function refreshCartBill() {
-        if (window.router) {
-            window.router();
+    function updateCartDOMBill() {
+        const rows = document.querySelectorAll('.cart-row');
+        if (rows.length === 0) {
+            if (window.router) window.router();
+            return;
         }
+
+        let totalQty = 0;
+        let subtotal = 0;
+        let totalMrp = 0;
+
+        rows.forEach(r => {
+            const pid = r.dataset.productId;
+            const qtyNum = r.querySelector('.qty-num');
+            const qty = parseInt(qtyNum?.textContent || '0') || 0;
+            if (qty <= 0) return;
+            totalQty += qty;
+
+            const cached = window.__cachedProducts?.get(pid);
+            const price = Number(r.dataset.price) || Number(cached?.price) || 0;
+            const mrp = Number(r.dataset.mrp) || Number(cached?.mrp) || price;
+
+            subtotal += price * qty;
+            totalMrp += mrp * qty;
+
+            const itemPriceTotalEl = r.querySelector('.item-price-total');
+            if (itemPriceTotalEl) itemPriceTotalEl.textContent = `₹${price * qty}`;
+            const itemPriceMultiEl = r.querySelector('.item-price-multi');
+            if (itemPriceMultiEl) {
+                itemPriceMultiEl.textContent = qty > 1 ? `(₹${price} × ${qty})` : '';
+            }
+            const itemMrpTotalEl = r.querySelector('.item-mrp-total');
+            if (itemMrpTotalEl) itemMrpTotalEl.textContent = `₹${mrp * qty}`;
+        });
+
+        if (totalQty === 0) {
+            if (window.router) window.router();
+            return;
+        }
+
+        const mrpDiscount = Math.max(0, totalMrp - subtotal);
+        const handlingFee = 3;
+        const hasDiscount = subtotal >= 350;
+        const discount5 = hasDiscount ? Math.round(subtotal * 0.05) : 0;
+        const exactTotal = Math.max(0, subtotal - discount5 + handlingFee);
+        const totalSavings = mrpDiscount + discount5 + (subtotal > 0 ? 25 : 0);
+        const isMinOrderMet = subtotal >= 35;
+        const minOrderShortfall = Math.max(0, 35 - subtotal);
+
+        // Header subtitle
+        const cartSubtitle = document.getElementById('cart-header-subtitle');
+        if (cartSubtitle) {
+            cartSubtitle.textContent = `${totalQty} ${totalQty === 1 ? 'item' : 'items'} · Delivering to ${window.currentAddress || 'BH13'} (3 mins)`;
+        }
+
+        // Bill details
+        const billSubtotal = document.getElementById('bill-subtotal-val');
+        if (billSubtotal) billSubtotal.textContent = `₹${subtotal}`;
+        const billDiscount = document.getElementById('bill-discount-val');
+        if (billDiscount) billDiscount.textContent = `-₹${discount5}`;
+        const billTotal = document.getElementById('bill-total-val');
+        if (billTotal) billTotal.textContent = `₹${exactTotal}`;
+        const billSavings = document.getElementById('bill-savings-val');
+        if (billSavings) billSavings.textContent = `Total Real Savings: ₹${totalSavings}`;
+
+        // Proceed buttons
+        const proceedBtn = document.getElementById('proceed-to-checkout-btn');
+        if (proceedBtn) {
+            if (!isMinOrderMet) {
+                proceedBtn.outerHTML = `
+                    <button disabled class="w-full clay-card text-slate-400 dark:text-slate-500 rounded-2xl py-4 font-bold text-xs text-center cursor-not-allowed flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-700 opacity-90 shadow-none" id="proceed-to-checkout-btn">
+                        <span class="material-symbols-outlined text-sm">lock</span>
+                        <span>Min Order Value ₹35 (Add ₹${minOrderShortfall} more)</span>
+                    </button>
+                `;
+            } else {
+                proceedBtn.innerHTML = `
+                    <span>Proceed to Checkout (₹${exactTotal})</span>
+                    <span class="material-symbols-outlined text-base">arrow_forward</span>
+                `;
+            }
+        }
+
+        // Mobile capsule
+        const mobileTotal = document.getElementById('mobile-cart-total-val');
+        if (mobileTotal) mobileTotal.textContent = `₹${exactTotal}`;
+        const mobileQty = document.getElementById('mobile-cart-qty-val');
+        if (mobileQty) mobileQty.textContent = `${totalQty} ${totalQty === 1 ? 'item' : 'items'}`;
     }
 
     document.querySelectorAll('.qty-inc-btn').forEach(btn => {
@@ -434,9 +518,8 @@ window.pageInits.cart = function() {
                 btn.disabled = true;
             }
 
-            window.setOptimisticCartQuantity(productId, nextQty, stockLeft, () => {
-                refreshCartBill();
-            });
+            updateCartDOMBill();
+            window.setOptimisticCartQuantity(productId, nextQty, stockLeft);
         };
     });
 
@@ -458,17 +541,10 @@ window.pageInits.cart = function() {
 
             if (currentQty <= 1) {
                 if (row) {
-                    row.style.opacity = '0';
-                    row.style.transform = 'scale(0.96)';
-                    row.style.transition = 'all 0.15s ease-out';
-                    setTimeout(() => {
-                        row.remove();
-                        refreshCartBill();
-                    }, 150);
+                    row.remove();
                 }
-                window.setOptimisticCartQuantity(productId, 0, stockLeft, () => {
-                    refreshCartBill();
-                });
+                updateCartDOMBill();
+                window.setOptimisticCartQuantity(productId, 0, stockLeft);
             } else {
                 const nextQty = currentQty - 1;
                 if (qtyNum) qtyNum.textContent = nextQty;
@@ -483,9 +559,8 @@ window.pageInits.cart = function() {
                     }
                 }
 
-                window.setOptimisticCartQuantity(productId, nextQty, stockLeft, () => {
-                    refreshCartBill();
-                });
+                updateCartDOMBill();
+                window.setOptimisticCartQuantity(productId, nextQty, stockLeft);
             }
         };
     });

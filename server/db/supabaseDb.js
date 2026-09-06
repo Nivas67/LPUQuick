@@ -267,16 +267,41 @@ const supabaseDb = {
 
             if (error || !data) return { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0, total_savings: 0, deliveryFee: 0, platformFee: 0 } };
 
-            const items = data.map(item => {
+            // 🛡️ Proactively deduplicate items by product_id to heal legacy duplicate rows
+            const itemMap = new Map();
+            const duplicateIdsToDelete = [];
+
+            for (const item of data) {
+                if (!item.product_id) continue;
+                if (!itemMap.has(item.product_id)) {
+                    itemMap.set(item.product_id, { ...item });
+                } else {
+                    const primary = itemMap.get(item.product_id);
+                    primary.quantity = (Number(primary.quantity) || 1) + (Number(item.quantity) || 1);
+                    if (item.id) duplicateIdsToDelete.push(item.id);
+                }
+            }
+
+            // Asynchronously delete duplicate rows so PostgreSQL database stays perfectly clean
+            if (duplicateIdsToDelete.length > 0) {
+                supabase.from('cart_items').delete().in('id', duplicateIdsToDelete).then(() => {}).catch(err => {
+                    console.warn('[Cart Deduplication Cleanup]:', err.message);
+                });
+            }
+
+            const rawItems = Array.from(itemMap.values());
+
+            const items = rawItems.map(item => {
                 const prod = item.products || {};
                 const match = (prod.tags || '').match(/stock:(\d+)/);
                 const stock_left = match ? parseInt(match[1], 10) : (prod.in_stock !== false ? 50 : 0);
+                const clampedQty = Math.max(1, Math.min(Number(item.quantity) || 1, stock_left > 0 ? stock_left : 50));
                 return {
                     id: item.id,
                     cart_id: item.id,
                     user_id: item.user_id,
                     product_id: item.product_id,
-                    quantity: Number(item.quantity) || 1,
+                    quantity: clampedQty,
                     name: prod.name || 'Campus Item',
                     price: Number(prod.price) || 0,
                     mrp: Number(prod.mrp) || Number(prod.price) || 0,
@@ -296,7 +321,7 @@ const supabaseDb = {
             const hasDiscount = subtotal >= 350;
             const discount5 = hasDiscount ? Math.round(subtotal * 0.05) : 0;
             const delivery_fee = 0;
-            const platform_fee = items.length > 0 ? 5 : 0;
+            const platform_fee = items.length > 0 ? 3 : 0; // ₹3 standard handling fee
             const tax = 0;
             const total = Math.max(0, subtotal - discount5 + platform_fee + delivery_fee + tax);
             const deliverySavings = subtotal > 0 ? 25 : 0;
@@ -331,6 +356,56 @@ const supabaseDb = {
             };
         },
 
+        // 🛡️ Atomic Idempotent Quantity Setter (Eliminates all duplication & re-add glitches)
+        async setQuantity(userId, productId, quantity) {
+            const supabase = getSupabaseClient();
+            if (!supabase) throw new Error('PostgreSQL client unavailable');
+            if (!userId || !productId) throw new Error('userId and productId are required');
+
+            const targetQty = Number(quantity);
+
+            // Fetch ALL existing rows for this user and product
+            const { data: existingRows } = await supabase
+                .from('cart_items')
+                .select('id, quantity')
+                .eq('user_id', userId)
+                .eq('product_id', productId);
+
+            const rows = existingRows || [];
+
+            if (targetQty <= 0) {
+                // Permanently remove all matching rows for this product
+                if (rows.length > 0) {
+                    const idsToDelete = rows.map(r => r.id);
+                    await supabase.from('cart_items').delete().in('id', idsToDelete);
+                } else {
+                    await supabase.from('cart_items').delete().eq('user_id', userId).eq('product_id', productId);
+                }
+            } else {
+                if (rows.length > 0) {
+                    // Update primary row to exact targetQty
+                    const primary = rows[0];
+                    await supabase.from('cart_items').update({ quantity: targetQty }).eq('id', primary.id);
+                    // Remove any redundant duplicate rows
+                    if (rows.length > 1) {
+                        const duplicateIds = rows.slice(1).map(r => r.id);
+                        await supabase.from('cart_items').delete().in('id', duplicateIds);
+                    }
+                } else {
+                    // Insert single canonical row
+                    const id = `cart_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+                    await supabase.from('cart_items').insert([{
+                        id,
+                        user_id: userId,
+                        product_id: productId,
+                        quantity: targetQty
+                    }]);
+                }
+            }
+
+            return await this.getCart(userId);
+        },
+
         async addItem(userId, productId, quantity = 1) {
             const supabase = getSupabaseClient();
             if (!supabase) throw new Error('PostgreSQL client unavailable');
@@ -338,31 +413,19 @@ const supabaseDb = {
 
             const reqQty = Number(quantity) || 1;
 
-            const { data: existing } = await supabase
+            const { data: rows } = await supabase
                 .from('cart_items')
                 .select('id, quantity')
                 .eq('user_id', userId)
-                .eq('product_id', productId)
-                .maybeSingle();
+                .eq('product_id', productId);
 
-            if (existing) {
-                const newQty = existing.quantity + reqQty;
-                if (newQty <= 0) {
-                    await supabase.from('cart_items').delete().eq('id', existing.id);
-                } else {
-                    await supabase.from('cart_items').update({ quantity: newQty }).eq('id', existing.id);
-                }
-            } else if (reqQty > 0) {
-                const id = `cart_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-                await supabase.from('cart_items').insert([{
-                    id,
-                    user_id: userId,
-                    product_id: productId,
-                    quantity: reqQty
-                }]);
+            if (rows && rows.length > 0) {
+                const currentTotal = rows.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0);
+                const nextQty = currentTotal + reqQty;
+                return await this.setQuantity(userId, productId, nextQty);
+            } else {
+                return await this.setQuantity(userId, productId, reqQty);
             }
-
-            return await this.getCart(userId);
         },
 
         async updateItem(cartId, quantity, userId) {
@@ -371,15 +434,18 @@ const supabaseDb = {
             if (!cartId) throw new Error('cartId is required');
 
             const targetQty = Number(quantity);
-            let effectiveUserId = userId;
 
-            if (!effectiveUserId || effectiveUserId === 'guest_cart') {
-                const { data: item } = await supabase
-                    .from('cart_items')
-                    .select('user_id')
-                    .eq('id', cartId)
-                    .maybeSingle();
-                if (item?.user_id) effectiveUserId = item.user_id;
+            const { data: item } = await supabase
+                .from('cart_items')
+                .select('user_id, product_id')
+                .eq('id', cartId)
+                .maybeSingle();
+
+            const effectiveUserId = (userId && userId !== 'guest_cart') ? userId : item?.user_id;
+            const productId = item?.product_id;
+
+            if (effectiveUserId && productId) {
+                return await this.setQuantity(effectiveUserId, productId, targetQty);
             }
 
             if (targetQty <= 0) {
@@ -400,6 +466,10 @@ const supabaseDb = {
 
         async removeItem(cartId, userId) {
             return await this.updateItem(cartId, 0, userId);
+        },
+
+        async removeProduct(userId, productId) {
+            return await this.setQuantity(userId, productId, 0);
         },
 
         async clearCart(userId) {
@@ -425,8 +495,15 @@ const supabaseDb = {
                 .eq('user_id', guestUserId);
 
             if (guestItems && guestItems.length > 0) {
+                // Group guest items by product_id first to prevent multiple inserts
+                const guestMap = new Map();
                 for (const item of guestItems) {
-                    await this.addItem(targetUserId, item.product_id, item.quantity);
+                    if (!item.product_id) continue;
+                    guestMap.set(item.product_id, (guestMap.get(item.product_id) || 0) + (Number(item.quantity) || 1));
+                }
+
+                for (const [productId, guestQty] of guestMap.entries()) {
+                    await this.addItem(targetUserId, productId, guestQty);
                 }
                 await this.clearCart(guestUserId);
             }
