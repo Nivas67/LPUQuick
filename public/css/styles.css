@@ -1344,35 +1344,6 @@ html.dark #category-rail-container {
     z-index: 1;
 }
 
-/* Continuous Vertical Rail Track Line extending until product end */
-.category-rail-track-line {
-    position: absolute;
-    top: 1.5rem;
-    bottom: 2.5rem;
-    left: 50%;
-    width: 2px;
-    transform: translateX(-50%);
-    background: linear-gradient(180deg, 
-        rgba(16, 185, 129, 0.5) 0%, 
-        rgba(16, 185, 129, 0.25) 25%, 
-        rgba(148, 163, 184, 0.2) 60%, 
-        rgba(16, 185, 129, 0.4) 100%
-    );
-    border-radius: 9999px;
-    pointer-events: none;
-    z-index: 0;
-}
-
-body.dark .category-rail-track-line,
-html.dark .category-rail-track-line {
-    background: linear-gradient(180deg, 
-        rgba(16, 185, 129, 0.5) 0%, 
-        rgba(16, 185, 129, 0.2) 25%, 
-        rgba(255, 255, 255, 0.08) 60%, 
-        rgba(16, 185, 129, 0.45) 100%
-    );
-}
-
 .category-rail-item {
     position: relative;
     z-index: 1;

@@ -966,9 +966,6 @@ window.pages.home = async function() {
             <div class="flex items-stretch gap-2 sm:gap-4 lg:gap-6 pt-1 relative" id="shop-catalog-split-row">
                 <!-- Unified Modern Left Vertical Category Rail (Full-Height Column extending until end of products) -->
                 <aside class="w-[72px] sm:w-20 md:w-24 shrink-0 self-stretch min-h-full flex flex-col relative" id="category-rail-container">
-                    <!-- Continuous Vertical Rail Guide Line extending until product end list -->
-                    <div class="category-rail-track-line" aria-hidden="true"></div>
-
                     <!-- Category Items (Rendered in full line with ZERO scroll container) -->
                     <nav class="vertical-category-rail py-1 space-y-1 w-full flex-1 flex flex-col relative z-10" id="vertical-category-rail">
                         ${STORE_CATEGORIES.map(c => `
@@ -1033,7 +1030,6 @@ window.pages.home = async function() {
                                 <span class="material-symbols-outlined text-sm">arrow_upward</span>
                                 <span class="text-[7px] font-black uppercase tracking-tighter">Top</span>
                             </button>
-                            <span class="w-2 h-2 rounded-full bg-emerald-500/50 mt-2"></span>
                         </div>
                     </nav>
                 </aside>
