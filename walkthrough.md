@@ -97,3 +97,74 @@ const formattedItems = items.map(item => {
 | **Backend MOV & Handling Fee** | Rejection under ₹35, acceptance at $\ge$ ₹35, ₹5 fee insertion | `node scripts/test_mov_and_handling_fee.js` | **100% PASS** |
 | **Client CDP Visual & Math Suite** | Header counts, line multipliers, bill details, to-pay totals | `node scripts/verify_perfect_calculations.js` | **100% PASS** |
 | **Client JS Syntax Compilation** | Syntax check on all 12 client & public script files | `node -c client/js/**/*.js` | **100% PASS (0 syntax errors)** |
+
+---
+
+# 🚀 Client Web Updates: Search Overhaul, Web App Install & Admin Header Cleanup
+
+## 📋 Problem Statement & User Requests
+1. **"here remove admin dash button at client web"**: The shield icon (`admin_panel_settings`) in the storefront header gave normal customers direct access to admin portal routes.
+2. **"and here serch button is not working"**: The search icon was an inert `<span>` with no click action, the input lacked visual feedback/auto-scroll, out-of-stock items were hidden from searches, and category filtering locked search queries to single categories.
+3. **"add install option for client web page"**: Need prominent PWA/web app install capabilities so campus students can install LPUQuick as a standalone app directly to their phone home screen or desktop.
+
+---
+
+## 🛠️ Key Technical Implementations
+
+### 1. Storefront Admin Button Removal
+- **Files Modified:** [`client/js/pages/home.js`](file:///c:/Users/Digvi/OneDrive/Documents/LpuQuick/client/js/pages/home.js) and [`public/js/pages/home.js`](file:///c:/Users/Digvi/OneDrive/Documents/LpuQuick/public/js/pages/home.js).
+- Removed the top-header admin navigation button (`<a href="/admin">`) from client web pages.
+- Admin dashboard access remains securely scoped to staff under `#/settings` for authorized devices.
+
+### 2. Search Button & Interactive Autocomplete Suite
+- **Interactive Button:** Replaced passive `<span>` icons with interactive `<button type="button" id="btn-desktop-search">` and `#btn-mobile-search` with hover scale and click handlers.
+- **1-Click Clear Button:** Added `#btn-clear-desktop-search` and `#btn-clear-mobile-search` (`✕`) that dynamically show when text is entered and clear both the query and dropdown with one tap.
+- **Live Autocomplete Dropdown:** Implemented real-time packshot search dropdowns (`#desktop-search-dropdown` and `#mobile-search-dropdown`) with:
+  - Exact match count indicator.
+  - High-resolution packshot thumbnails.
+  - Formatted prices and pack weights.
+  - Instant `+ ADD` button to add directly to cart from the dropdown.
+  - "View all X results (↵ Enter)" footer.
+- **Whole-Store Search:** Updated `applyFilters()` so that whenever an active query exists, it searches the entire store catalog across all categories rather than being artificially restricted to the currently selected category rail item.
+- **Catalog Population:** Sorted in-stock items first while retaining out-of-stock items (with "Out of stock" badge) so student favorites like Maggi (stock 0) can still be searched and found.
+- **Auto-Scroll to Results:** Pressing `Enter` or clicking the search icon automatically smooth-scrolls the page down to `#shop-catalog-split-row` where matching cards are highlighted.
+
+### 3. Client Web Install Options
+- **Header Install Pill:** Added prominent `#btn-header-install-app` in the top desktop and mobile header navigation capsules (`📲 Install App`).
+- **In-Feed Web App Card:** Added an in-feed install banner on the home screen (`.btn-install-app`) highlighting lightning 8-min hostel delivery and 1-tap ordering.
+- **PWA Engine Fix:** Fixed [`client/js/pwa-install.js`](file:///c:/Users/Digvi/OneDrive/Documents/LpuQuick/client/js/pwa-install.js) and [`public/js/pwa-install.js`](file:///c:/Users/Digvi/OneDrive/Documents/LpuQuick/public/js/pwa-install.js) by removing false-positive `(display-mode: fullscreen)` detection that previously concealed install prompts on maximized desktop browsers.
+- **Guided Multi-Platform Install Modal:** Enhanced `openGenericInstallModal()` with explicit visual instructions:
+  - **Desktop Chrome / Edge:** Direct address-bar install icon (`⊕` / `💻`) or `Menu (⋮) → Cast, save, and share → Install LPUQuick`.
+  - **iOS Safari:** `Share button (⎋) → Add to Home Screen (+)`.
+  - **Android Chrome:** `Menu (⋮) → Install app / Add to Home screen`.
+- **Cache Invalidation:** Updated [`server/app.js`](file:///c:/Users/Digvi/OneDrive/Documents/LpuQuick/server/app.js) to serve static assets with `Cache-Control: public, max-age=0, must-revalidate` and bumped script query strings to `v=20260906_v8`.
+
+---
+
+## 📸 Verified Screenshots
+
+````carousel
+![Search Dropdown Preview: Live autocomplete dropdown showing packshot thumbnail, pricing, and instant + ADD](file:///C:/Users/Digvi/.gemini/antigravity-ide/brain/d5b40e4b-477d-4c15-bf71-c202ca6b4a11/search_dropdown_preview.png)
+<!-- slide -->
+![Catalog Auto-Scroll Preview: Smooth scrolling to matching products with 8m delivery badge and active search title](file:///C:/Users/Digvi/.gemini/antigravity-ide/brain/d5b40e4b-477d-4c15-bf71-c202ca6b4a11/search_results_scrolled.png)
+<!-- slide -->
+![Web App Install Modal: Step-by-step browser install instructions for desktop and mobile](file:///C:/Users/Digvi/.gemini/antigravity-ide/brain/d5b40e4b-477d-4c15-bf71-c202ca6b4a11/install_modal_preview.png)
+<!-- slide -->
+![Mobile Search & Install Interface: Mobile header install pill, search button, and responsive layout](file:///C:/Users/Digvi/.gemini/antigravity-ide/brain/d5b40e4b-477d-4c15-bf71-c202ca6b4a11/mobile_search_and_install_preview.png)
+````
+
+---
+
+## 🧪 Verification Summary
+
+| Verification Target | Scope | Verification Command / Method | Status |
+| :--- | :--- | :--- | :--- |
+| **Admin Button Removed** | Client Header (Desktop & Mobile) | Headless Chrome CDP DOM query | **PASSED (0 admin links in client header)** |
+| **Search Button Interactivity** | Clickable `#btn-desktop-search` | Automated click event & dropdown trigger | **PASSED** |
+| **Live Autocomplete Dropdown** | Dropdown items, packshot, price, ADD | CDP DOM inspection & item assertion | **PASSED** |
+| **1-Click Clear Button** | Clear query & reset catalog | CDP click on `#btn-clear-desktop-search` | **PASSED** |
+| **Catalog Auto-Scroll** | Smooth scroll to `#shop-catalog-split-row` | Scroll offset validation | **PASSED** |
+| **Install Option in Header** | `#btn-header-install-app` visibility | CDP inspection across Desktop & Mobile | **PASSED** |
+| **Install Modal & PWA Prompt** | Guided modal triggering on click | Triggered install modal & validated UI | **PASSED** |
+| **Git Push to Main** | Remote synchronization | `git push origin main` | **PASSED (`a324e3b`)** |
+
