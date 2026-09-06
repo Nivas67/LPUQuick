@@ -954,7 +954,11 @@ const supabaseDb = {
 
             const currentInfo = this.parseDeliveryMeta(order.rider_name);
             if (currentInfo.is_claimed && currentInfo.assigned_to && currentInfo.assigned_to !== adminId) {
-                throw new Error(`Order was already accepted by ${currentInfo.assigned_to_name || 'another delivery admin'}`);
+                const err = new Error(`Order was already accepted by ${currentInfo.assigned_to_name || 'another delivery partner'}. First to accept gets the delivery.`);
+                err.code = 'ALREADY_CLAIMED';
+                err.claimedBy = currentInfo.assigned_to_name || 'Another Delivery Partner';
+                err.claimedAt = currentInfo.claimed_at;
+                throw err;
             }
 
             const deliveryMeta = {
@@ -971,14 +975,45 @@ const supabaseDb = {
                 updates.status = 'Order Confirmed';
             }
 
-            const { data, error } = await supabase
+            // Atomic Optimistic Concurrency Control update:
+            // Ensure rider_name matches what was read, preventing concurrent race overwrites
+            let updateQuery = supabase
                 .from('orders')
                 .update(updates)
-                .eq('id', orderId)
+                .eq('id', orderId);
+
+            if (order.rider_name !== null && order.rider_name !== undefined) {
+                updateQuery = updateQuery.eq('rider_name', order.rider_name);
+            } else {
+                updateQuery = updateQuery.is('rider_name', null);
+            }
+
+            const { data, error } = await updateQuery
                 .select()
                 .single();
 
-            if (error) throw new Error(`Claim order failed: ${error.message}`);
+            if (error || !data) {
+                // If update returned 0 rows, check if another courier claimed it concurrently
+                const { data: latestOrder } = await supabase
+                    .from('orders')
+                    .select('*')
+                    .eq('id', orderId)
+                    .single();
+
+                if (latestOrder) {
+                    const latestInfo = this.parseDeliveryMeta(latestOrder.rider_name);
+                    if (latestInfo.is_claimed && latestInfo.assigned_to && latestInfo.assigned_to !== adminId) {
+                        const err = new Error(`Order was already accepted by ${latestInfo.assigned_to_name || 'another delivery partner'}. First to accept gets the delivery.`);
+                        err.code = 'ALREADY_CLAIMED';
+                        err.claimedBy = latestInfo.assigned_to_name || 'Another Delivery Partner';
+                        err.claimedAt = latestInfo.claimed_at;
+                        throw err;
+                    }
+                }
+
+                throw new Error(`Claim order failed: ${error?.message || 'Order state was modified concurrently'}`);
+            }
+
             cache.invalidateOrders();
 
             return {

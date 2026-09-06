@@ -1453,7 +1453,29 @@ router.get('/delivery-earnings', async (req, res) => {
     }
 });
 
-// POST /api/orders/:orderId/claim (First-Come-First-Served Delivery Acceptance)
+// In-Process Concurrency Mutex for FCFS Atomic Delivery Claiming
+const orderClaimLocks = new Map();
+
+async function withOrderClaimLock(orderId, fn) {
+    const prevLock = orderClaimLocks.get(orderId) || Promise.resolve();
+    let release;
+    const currentLock = new Promise(resolve => { release = resolve; });
+    orderClaimLocks.set(orderId, currentLock);
+
+    // Wait for the prior claim operation on this specific order to finish
+    await prevLock.catch(() => {});
+
+    try {
+        return await fn();
+    } finally {
+        release();
+        if (orderClaimLocks.get(orderId) === currentLock) {
+            orderClaimLocks.delete(orderId);
+        }
+    }
+}
+
+// POST /api/orders/:orderId/claim (First-Come-First-Served Atomic Delivery Acceptance)
 router.post('/:orderId/claim', requireAdmin, requireRole('delivery_person'), async (req, res) => {
     const { orderId } = req.params;
     const adminId = req.admin.id;
@@ -1470,7 +1492,9 @@ router.post('/:orderId/claim', requireAdmin, requireRole('delivery_person'), asy
     }
 
     try {
-        const updated = await supabaseDb.orders.claimOrder(orderId, adminId, adminName);
+        const updated = await withOrderClaimLock(orderId, async () => {
+            return await supabaseDb.orders.claimOrder(orderId, adminId, adminName);
+        });
         cache.invalidateOrders();
 
         const resolvedRiderName = updated.rider_name || adminName;
@@ -1507,7 +1531,15 @@ router.post('/:orderId/claim', requireAdmin, requireRole('delivery_person'), asy
             order: updated
         });
     } catch (err) {
-        res.status(409).json({ success: false, error: err.message });
+        const isConflict = err.code === 'ALREADY_CLAIMED' || (err.message && err.message.includes('already accepted'));
+        console.warn(`[Order Claim Conflict]: orderId=${orderId} by admin=${adminName} (${adminId}) | ${err.message}`);
+        res.status(isConflict ? 409 : 500).json({
+            success: false,
+            code: err.code || (isConflict ? 'ALREADY_CLAIMED' : 'CLAIM_FAILED'),
+            error: err.message,
+            claimed_by: err.claimedBy || null,
+            claimed_at: err.claimedAt || null
+        });
     }
 });
 

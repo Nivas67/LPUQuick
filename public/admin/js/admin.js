@@ -1654,9 +1654,26 @@ function dismissPushBanner() {
 // ============================================================
 
 let currentPendingTransferOrder = null;
+const inFlightOrderClaims = new Set();
 
 async function claimOrder(orderId) {
     if (!orderId) return;
+    if (inFlightOrderClaims.has(orderId)) return; // Prevent double-clicking / duplicate concurrent attempts from same UI
+    inFlightOrderClaims.add(orderId);
+
+    // Collect and disable any active claim buttons for this order
+    const claimBtns = [];
+    document.querySelectorAll(`button[onclick*="claimOrder('${orderId}')"]`).forEach(b => claimBtns.push(b));
+    if (typeof currentDrawerOrderId !== 'undefined' && currentDrawerOrderId === orderId) {
+        const drawerBtn = document.getElementById('btn-drawer-claim');
+        if (drawerBtn) claimBtns.push(drawerBtn);
+    }
+    claimBtns.forEach(btn => {
+        btn.disabled = true;
+        btn.dataset.originalHtml = btn.innerHTML;
+        btn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">sync</span><span>Accepting...</span>';
+    });
+
     try {
         const myId = currentAdminProfile?.id;
         const myName = currentAdminProfile?.name || 'Delivery Rider';
@@ -1710,12 +1727,51 @@ async function claimOrder(orderId) {
                 updateDrawerDispatchCard(updatedOrder);
                 openOrderDrawer(orderId);
             }
+        } else if (res.status === 409 || data.code === 'ALREADY_CLAIMED') {
+            // First-Come-First-Served conflict: another courier accepted right before this request
+            const winnerName = data.claimed_by || 'another delivery partner';
+            showToast(`⚡ Order was just accepted by ${winnerName}. First to accept gets the order!`, 'warning');
+
+            const idx = ordersCache.findIndex(o => o.id === orderId);
+            if (idx >= 0) {
+                const existingDa = ordersCache[idx].delivery_assignment || {};
+                ordersCache[idx] = {
+                    ...ordersCache[idx],
+                    rider_name: winnerName,
+                    delivery_assignment: {
+                        ...existingDa,
+                        assigned_to_name: winnerName,
+                        name: winnerName,
+                        is_claimed: true,
+                        claimed_at: data.claimed_at || new Date().toISOString()
+                    }
+                };
+                if (typeof getOrderSignature === 'function') {
+                    knownOrderMap.set(orderId, getOrderSignature(ordersCache[idx]));
+                }
+                filterOrders();
+                if (typeof currentDrawerOrderId !== 'undefined' && currentDrawerOrderId === orderId) {
+                    updateDrawerDispatchCard(ordersCache[idx]);
+                }
+            } else {
+                loadOrders();
+            }
         } else {
             showToast(data.error || 'Failed to claim order. It may have already been accepted.', 'error');
+            claimBtns.forEach(btn => {
+                btn.disabled = false;
+                if (btn.dataset.originalHtml) btn.innerHTML = btn.dataset.originalHtml;
+            });
             loadOrders();
         }
     } catch (err) {
         showToast('Error claiming order: ' + err.message, 'error');
+        claimBtns.forEach(btn => {
+            btn.disabled = false;
+            if (btn.dataset.originalHtml) btn.innerHTML = btn.dataset.originalHtml;
+        });
+    } finally {
+        inFlightOrderClaims.delete(orderId);
     }
 }
 
