@@ -1985,10 +1985,12 @@ function initGlobalClientWebSocket() {
             globalClientWs = null;
             if (clientWsPingInterval) { clearInterval(clientWsPingInterval); clientWsPingInterval = null; }
 
-            // Auto-reconnect with exponential backoff (1s, 2s, 4s... max 15s)
-            const delay = Math.min(1000 * Math.pow(2, clientWsReconnectAttempts), 15000);
-            clientWsReconnectAttempts++;
-            clientWsReconnectTimer = setTimeout(initGlobalClientWebSocket, delay);
+            // Auto-reconnect with exponential backoff on supported servers; cap at 5 on serverless
+            if (clientWsReconnectAttempts < 5) {
+                const delay = Math.min(1000 * Math.pow(2, clientWsReconnectAttempts), 15000);
+                clientWsReconnectAttempts++;
+                clientWsReconnectTimer = setTimeout(initGlobalClientWebSocket, delay);
+            }
         };
 
         globalClientWs.onerror = () => {

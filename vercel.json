@@ -1,5 +1,11 @@
 {
   "version": 2,
+  "functions": {
+    "api/index.js": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  },
   "headers": [
     {
       "source": "/(css|js)/(.*)",
@@ -62,12 +68,8 @@
       "destination": "/api/index.js"
     },
     {
-      "source": "/admin",
-      "destination": "/admin/index.html"
-    },
-    {
-      "source": "/admin/",
-      "destination": "/admin/index.html"
+      "source": "/uploads/(.*)",
+      "destination": "/public/uploads/$1"
     },
     {
       "source": "/admin/css/(.*)",
@@ -78,8 +80,16 @@
       "destination": "/admin/js/$1"
     },
     {
+      "source": "/admin/(.*)\\.(png|jpg|jpeg|svg|ico|webp|woff2|mp3)",
+      "destination": "/admin/$1.$2"
+    },
+    {
       "source": "/admin/(.*)",
-      "destination": "/admin/$1"
+      "destination": "/admin/index.html"
+    },
+    {
+      "source": "/admin",
+      "destination": "/admin/index.html"
     },
     {
       "source": "/css/(.*)",
@@ -112,6 +122,14 @@
     {
       "source": "/manifest.json",
       "destination": "/client/manifest.json"
+    },
+    {
+      "source": "/(.*)\\.(png|jpg|jpeg|svg|ico|webp|woff2|mp3|json)",
+      "destination": "/client/$1.$2"
+    },
+    {
+      "source": "/((?!api/|admin/).*)",
+      "destination": "/client/index.html"
     }
   ]
 }

@@ -93,6 +93,28 @@ app.use(express.static(path.join(__dirname, '..', 'client'), staticOptions));
 app.use(express.static(path.join(__dirname, '..', 'public'), staticOptions));
 
 // API Routes (All backed 100% by Supabase Cloud)
+// Health Check & Supabase Keep-Alive Endpoint (100% Free Monitoring)
+app.get('/api/health', async (req, res) => {
+    try {
+        const client = getSupabaseClient();
+        let dbOk = false;
+        if (client) {
+            const { error } = await client.from('app_availability').select('id').limit(1);
+            dbOk = !error;
+        }
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.json({
+            status: 'healthy',
+            platform: process.env.VERCEL ? 'vercel-serverless' : 'node-server',
+            database: dbOk ? 'connected' : 'standby',
+            uptime: Math.round(process.uptime()),
+            timestamp: new Date().toISOString()
+        });
+    } catch (e) {
+        res.status(200).json({ status: 'healthy', database: 'standby', note: e.message });
+    }
+});
+
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/admin/financial', require('./routes/financial'));

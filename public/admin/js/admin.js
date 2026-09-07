@@ -4404,7 +4404,8 @@ function initRealtimeWebSocket() {
             // WebSocket unavailable (e.g. Vercel Serverless) — Live Poller keeps running seamlessly
             updateConnectionStatus(true, 'Live');
 
-            if (adminToken && !wsReconnectTimer) {
+            // If on a serverless platform (e.g. Vercel), cap at 5 attempts and rely on smart live poller
+            if (adminToken && !wsReconnectTimer && wsReconnectAttempts < 5) {
                 const delay = Math.min(2000 * Math.pow(2, wsReconnectAttempts), 30000);
                 wsReconnectAttempts++;
                 wsReconnectTimer = setTimeout(initRealtimeWebSocket, delay);
