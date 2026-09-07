@@ -1,5 +1,5 @@
-// LPUQuick High-Performance Ultra-Fast Service Worker (V2026.09.06-InstallV8)
-const CACHE_NAME = 'lpuquick-pwa-v8-install';
+// LPUQuick High-Performance Ultra-Fast Service Worker (V2026.09.07-InstallV9)
+const CACHE_NAME = 'lpuquick-pwa-v9-install';
 const STATIC_ASSETS = [
     '/',
     '/index.html',

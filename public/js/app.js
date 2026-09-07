@@ -192,7 +192,8 @@ const routes = {
     '/flow-assist': 'flowassist',
     '/orders': 'orders',
     '/settings': 'settings',
-    '/rider-earnings': 'rider_earnings'
+    '/rider-earnings': 'rider_earnings',
+    '/blocked': 'blocked'
 };
 
 function navigate(path) {
@@ -251,7 +252,17 @@ window.handleBannerTargetClick = window.handleBannerTargetClick || function(targ
 };
 
 function getCurrentRoute() {
-    const hash = window.location.hash.slice(1) || '/';
+    let hash = window.location.hash.slice(1) || '/';
+    const queryIndex = hash.indexOf('?');
+    if (queryIndex !== -1) {
+        hash = hash.substring(0, queryIndex);
+    }
+    if (!hash.startsWith('/')) {
+        hash = '/' + hash;
+    }
+    if (hash.length > 1 && hash.endsWith('/')) {
+        hash = hash.slice(0, -1);
+    }
     return hash;
 }
 
@@ -1719,7 +1730,23 @@ async function router() {
 
         const renderFn = window.pages[pageName];
         if (renderFn) {
-            const html = await renderFn();
+            let html;
+            try {
+                html = await renderFn();
+            } catch (renderErr) {
+                console.error(`[Router Render Error] Failed rendering page "${pageName}":`, renderErr);
+                appRoot.innerHTML = `
+                    <div class="text-center pt-32 px-4">
+                        <div class="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto mb-3">
+                            <span class="material-symbols-outlined text-2xl">refresh</span>
+                        </div>
+                        <h1 class="font-headline-md text-xl font-bold text-on-surface">Unable to load page</h1>
+                        <p class="text-xs text-slate-500 mt-1 mb-4">A temporary error occurred while opening this page.</p>
+                        <a href="#/" class="inline-block bg-emerald text-white px-5 py-2 rounded-full text-xs font-semibold">Back to Home</a>
+                    </div>
+                `;
+                return;
+            }
             
             // 🛡️ RACE CONDITION GUARD: Discard response if user navigated away while loading
             if (thisNavGen !== currentNavGeneration) {
@@ -1732,7 +1759,13 @@ async function router() {
 
             // Initialize page-specific JS
             const initFn = window.pageInits[pageName];
-            if (initFn) initFn();
+            if (initFn) {
+                try {
+                    initFn();
+                } catch (initErr) {
+                    console.error(`[Router Init Error] Error initializing page "${pageName}":`, initErr);
+                }
+            }
 
             // Synchronize theme toggles
             if (typeof window.syncAllThemeToggles === 'function') {

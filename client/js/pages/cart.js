@@ -4,7 +4,7 @@ window.pageInits = window.pageInits || {};
 
 window.pages.cart = async function() {
     let cartData;
-    const userId = window.getEffectiveUserId();
+    const userId = typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : (window.CURRENT_USER_ID || 'guest');
     try { 
         cartData = await window.api.getCart(userId); 
     } catch(e) { 
@@ -217,6 +217,7 @@ window.pages.cart = async function() {
                         <span>Total MRP Value</span>
                         <span class="line-through text-slate-400">₹${totalMrp}</span>
                     </div>
+                    ` : ''}
 
                     <div id="bill-mrp-discount-row" class="flex justify-between items-center text-emerald-700 dark:text-emerald-400 font-bold ${mrpDiscount > 0 ? '' : 'hidden'}">
                         <span>Product Discount</span>
@@ -356,7 +357,7 @@ window.pages.cart = async function() {
 };
 
 window.pageInits.cart = function() {
-    const userId = window.getEffectiveUserId();
+    const userId = typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : (window.CURRENT_USER_ID || 'guest');
 
     const clearBtn = document.getElementById('clear-cart-btn');
     if (clearBtn) {
