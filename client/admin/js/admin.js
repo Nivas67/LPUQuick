@@ -756,6 +756,7 @@ async function loadDashboard() {
             ordersCache = ordersData.orders;
         }
         renderRecentOrdersTable(ordersCache);
+        updateDailyRevenue();
 
         // Render Low Stock Containers
         const lowContainer = document.getElementById('dash-low-stock-container');
@@ -3896,6 +3897,37 @@ function updateKpiCountersFromCache() {
         badgeEl.textContent = pendingCountVal;
         badgeEl.classList.toggle('hidden', !pendingCountVal);
     }
+    updateDailyRevenue();
+}
+
+// Compute and display daily revenue from today's orders
+function updateDailyRevenue() {
+    const revenueEl = document.getElementById('dash-daily-revenue');
+    const metaEl = document.getElementById('dash-daily-revenue-meta');
+    if (!revenueEl) return;
+
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+    const todaysOrders = (ordersCache || []).filter(o => {
+        if (!o.created_at) return false;
+        const orderTime = new Date(o.created_at).getTime();
+        return orderTime >= todayStart;
+    });
+
+    const totalRevenue = todaysOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+    const completedToday = todaysOrders.filter(o => ['Delivered', 'delivered', 'completed', 'Completed'].includes(o.status)).length;
+    const pendingToday = todaysOrders.filter(o => ['Order Placed', 'Preparing', 'Out for Delivery', 'pending', 'confirmed', 'accepted'].includes(o.status)).length;
+    const cancelledToday = todaysOrders.filter(o => ['Cancelled', 'cancelled', 'Rejected', 'rejected'].includes(o.status)).length;
+
+    revenueEl.textContent = `₹${totalRevenue.toLocaleString('en-IN')}`;
+    if (metaEl) {
+        const parts = [`${todaysOrders.length} order${todaysOrders.length !== 1 ? 's' : ''}`];
+        if (completedToday > 0) parts.push(`${completedToday} delivered`);
+        if (pendingToday > 0) parts.push(`${pendingToday} active`);
+        if (cancelledToday > 0) parts.push(`${cancelledToday} cancelled`);
+        metaEl.textContent = parts.join(' • ');
+    }
 }
 
 // Render function alias so activeView === 'orders' never throws ReferenceError
@@ -4360,6 +4392,9 @@ function handleRealtimeNewOrder(order) {
             badgeEl.classList.remove('hidden');
         }
     }
+
+    // 4b. Update daily revenue for new order
+    updateDailyRevenue();
 
     // 5. Update Current View
     if (activeView === 'dashboard') {
