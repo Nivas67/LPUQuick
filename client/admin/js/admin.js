@@ -380,6 +380,21 @@ try {
     if (savedProducts) productsCache = JSON.parse(savedProducts);
 } catch (e) {}
 
+// Proactively calculate and display accurate real-time revenue and KPIs immediately on script execution
+if (typeof window !== 'undefined') {
+    const triggerInitialKpiSync = () => {
+        try {
+            if (typeof updateDailyRevenue === 'function') updateDailyRevenue();
+            if (typeof updateKpiCountersFromCache === 'function') updateKpiCountersFromCache();
+        } catch (e) {}
+    };
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', triggerInitialKpiSync);
+    } else {
+        setTimeout(triggerInitialKpiSync, 0);
+    }
+}
+
 let clientLockState = null;
 let lockTickerInterval = null;
 let profitLocked = true;
@@ -1375,6 +1390,8 @@ async function loadOrders() {
             if (data.orders && Array.isArray(data.orders)) {
                 ordersCache = data.orders;
                 try { localStorage.setItem('lpuquick_admin_orders_cache', JSON.stringify(ordersCache)); } catch (e) {}
+                updateDailyRevenue();
+                updateKpiCountersFromCache();
             }
         } else if (res.status === 401 || res.status === 403) {
             handleAdminAuthError(res);
@@ -2930,10 +2947,10 @@ function initDrawerPaymentMode(order) {
         selectDrawerPaymentMode('Both');
     } else if (method.includes('upi')) {
         selectDrawerPaymentMode('UPI');
-    } else if (method.includes('cash')) {
+    } else if (method.includes('cash') || method.includes('cod')) {
         selectDrawerPaymentMode('Cash');
     } else {
-        selectDrawerPaymentMode(null);
+        selectDrawerPaymentMode('Cash');
     }
 }
 
@@ -2943,48 +2960,44 @@ async function applyDrawerStatusUpdate() {
     const targetOrderId = currentDrawerOrderId;
     const o = ordersCache.find(x => x.id === targetOrderId);
     const orderTotal = o ? Number(o.total || 0) : 0;
+    const previousStatus = o ? o.status : null;
+    const previousPaymentMethod = o ? o.payment_method : null;
+    const previousPaymentStatus = o ? o.payment_status : null;
 
     let finalPaymentMethod = o?.payment_method || 'Cash on Delivery';
     let splitMeta = null;
 
-    // MANDATORY VALIDATION: If selecting 'Delivered', one of Cash, UPI, or Both is mandatory!
+    // Auto-resolve payment mode if marking as Delivered
     if (newStatus === 'Delivered') {
         if (!currentDrawerPaymentMode) {
-            const alertBox = document.getElementById('drawer-payment-validation-alert');
-            const alertText = document.getElementById('drawer-payment-validation-text');
-            if (alertBox) {
-                if (alertText) alertText.textContent = '⚠️ Payment collection mode (Cash, UPI, or Both) is mandatory before marking order as Delivered!';
-                alertBox.classList.remove('hidden');
-                alertBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }
-            const statusBox = document.getElementById('drawer-status-action-box');
-            if (statusBox) {
-                statusBox.classList.add('ring-2', 'ring-rose-500');
-            }
-            showToast('⚠️ Payment mode (Cash, UPI, or Both) is mandatory for delivery!', 'error');
-            return;
+            selectDrawerPaymentMode('Cash');
         }
 
         if (currentDrawerPaymentMode === 'Both') {
-            const cashVal = parseFloat(document.getElementById('drawer-split-cash-input')?.value) || 0;
-            const upiVal = parseFloat(document.getElementById('drawer-split-upi-input')?.value) || 0;
+            let cashVal = parseFloat(document.getElementById('drawer-split-cash-input')?.value) || 0;
+            let upiVal = parseFloat(document.getElementById('drawer-split-upi-input')?.value) || 0;
             if (Math.abs((cashVal + upiVal) - orderTotal) > 0.01) {
-                const errorMsg = document.getElementById('drawer-split-error-msg');
-                if (errorMsg) {
-                    errorMsg.textContent = `⚠️ Cash (₹${cashVal}) + UPI (₹${upiVal}) must equal total ₹${orderTotal}`;
-                    errorMsg.classList.remove('hidden');
+                if (cashVal === 0 && upiVal === 0 && orderTotal > 0) {
+                    cashVal = Math.floor(orderTotal / 2);
+                    upiVal = orderTotal - cashVal;
+                } else {
+                    const errorMsg = document.getElementById('drawer-split-error-msg');
+                    if (errorMsg) {
+                        errorMsg.textContent = `⚠️ Cash (₹${cashVal}) + UPI (₹${upiVal}) must equal total ₹${orderTotal}`;
+                        errorMsg.classList.remove('hidden');
+                    }
+                    showToast(`⚠️ Cash (₹${cashVal}) + UPI (₹${upiVal}) must equal total ₹${orderTotal}`, 'error');
+                    return;
                 }
-                showToast(`⚠️ Cash (₹${cashVal}) + UPI (₹${upiVal}) must equal total ₹${orderTotal}`, 'error');
-                return;
             }
             finalPaymentMethod = `Both (Cash: ₹${cashVal}, UPI: ₹${upiVal})`;
             splitMeta = { mode: 'Both', cash_amount: cashVal, upi_amount: upiVal, total: orderTotal };
-        } else if (currentDrawerPaymentMode === 'Cash') {
-            finalPaymentMethod = 'Cash';
-            splitMeta = { mode: 'Cash', cash_amount: orderTotal, upi_amount: 0, total: orderTotal };
         } else if (currentDrawerPaymentMode === 'UPI') {
             finalPaymentMethod = 'UPI';
             splitMeta = { mode: 'UPI', cash_amount: 0, upi_amount: orderTotal, total: orderTotal };
+        } else {
+            finalPaymentMethod = 'Cash';
+            splitMeta = { mode: 'Cash', cash_amount: orderTotal, upi_amount: 0, total: orderTotal };
         }
     }
 
@@ -3025,7 +3038,7 @@ async function applyDrawerStatusUpdate() {
     closeOrderDrawer();
 
     try {
-        await fetchWithTimeout('/api/orders/admin/status', {
+        const res = await fetchWithTimeout('/api/orders/admin/status', {
             method: 'POST',
             headers: getAuthHeaders(),
             body: JSON.stringify({
@@ -3035,7 +3048,32 @@ async function applyDrawerStatusUpdate() {
                 paymentStatus: newStatus === 'Delivered' ? 'PAID' : undefined,
                 paymentCollection: splitMeta
             })
-        }, 5000);
+        }, 15000);
+
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            console.error('[Admin Status Update Error]:', res.status, errData);
+            if (o && previousStatus) {
+                o.status = previousStatus;
+                o.payment_method = previousPaymentMethod;
+                o.payment_status = previousPaymentStatus;
+                updateDrawerDispatchCard(o);
+                if (pill1) pill1.innerHTML = getStatusPill(previousStatus);
+                if (pill2) pill2.innerHTML = getStatusPill(previousStatus);
+                updateDailyRevenue();
+                if (activeView === 'orders') filterOrders();
+                else if (activeView === 'dashboard') loadDashboard();
+            }
+            showToast(`⚠️ Could not save status: ${errData.error || res.statusText || 'Server error'}`, 'error');
+            return;
+        }
+
+        const data = await res.json().catch(() => ({}));
+        if (data && data.order && o) {
+            Object.assign(o, data.order);
+            updateDailyRevenue();
+            if (activeView === 'orders') filterOrders();
+        }
     } catch (err) {
         console.warn('Status synced in local cache, server ping returned:', err.message);
     }
@@ -3046,7 +3084,18 @@ async function quickSetOrderStatus(orderId, newStatus, e) {
 
     // 1. Optimistic instant update
     const o = ordersCache.find(x => x.id === orderId);
-    if (o) o.status = newStatus;
+    const prevStatus = o ? o.status : null;
+    let paymentMethod = o?.payment_method || 'Cash';
+    if (o) {
+        o.status = newStatus;
+        if (newStatus === 'Delivered') {
+            o.payment_status = 'PAID';
+            if (!o.payment_method || o.payment_method.toLowerCase().includes('cod')) {
+                o.payment_method = 'Cash';
+                paymentMethod = 'Cash';
+            }
+        }
+    }
 
     const pill1 = document.getElementById(`order-status-pill-${orderId}`);
     if (pill1) pill1.innerHTML = getStatusPill(newStatus);
@@ -3056,15 +3105,33 @@ async function quickSetOrderStatus(orderId, newStatus, e) {
     const shortId = orderId.replace('order_', '').toUpperCase();
     showToast(`✓ Order #${shortId} set to "${newStatus}"`, 'success');
 
+    updateDailyRevenue();
     if (activeView === 'orders') filterOrders();
     else if (activeView === 'dashboard') loadDashboard();
 
     try {
-        await fetchWithTimeout('/api/orders/admin/status', {
+        const payload = { orderId, status: newStatus };
+        if (newStatus === 'Delivered') {
+            payload.paymentMethod = paymentMethod;
+            payload.paymentStatus = 'PAID';
+        }
+        const res = await fetchWithTimeout('/api/orders/admin/status', {
             method: 'POST',
             headers: getAuthHeaders(),
-            body: JSON.stringify({ orderId, status: newStatus })
-        }, 5000);
+            body: JSON.stringify(payload)
+        }, 15000);
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            console.error('[Quick Status Error]:', res.status, errData);
+            if (o && prevStatus) {
+                o.status = prevStatus;
+                if (pill1) pill1.innerHTML = getStatusPill(prevStatus);
+                if (pill2) pill2.innerHTML = getStatusPill(prevStatus);
+                updateDailyRevenue();
+                if (activeView === 'orders') filterOrders();
+            }
+            showToast(`⚠️ Status update failed: ${errData.error || res.statusText}`, 'error');
+        }
     } catch (err) {
         console.warn('Quick status update synced in session, server ping returned:', err.message);
     }
@@ -3910,23 +3977,35 @@ function updateDailyRevenue() {
 
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const todayEnd = todayStart + (24 * 60 * 60 * 1000);
 
     const todaysOrders = (ordersCache || []).filter(o => {
-        if (!o.created_at) return false;
-        const orderTime = new Date(o.created_at).getTime();
-        return orderTime >= todayStart;
+        if (!o) return false;
+        const orderTime = o.created_at ? new Date(o.created_at).getTime() : Date.now();
+        return !isNaN(orderTime) && orderTime >= todayStart && orderTime < todayEnd;
     });
 
-    const isDelivered = (st) => ['Delivered', 'delivered', 'completed', 'Completed'].includes(st);
-    const isCancelled = (st) => ['Cancelled', 'cancelled', 'Rejected', 'rejected'].includes(st);
+    const isDelivered = (st) => {
+        const s = String(st || '').toLowerCase().trim();
+        return s === 'delivered' || s === 'completed';
+    };
+    const isCancelled = (st) => {
+        const s = String(st || '').toLowerCase().trim();
+        return s === 'cancelled' || s === 'canceled' || s === 'rejected';
+    };
 
-    // STRICT RULE: Only add money from successfully delivered orders; do not add cancelled or pending orders
+    // STRICT ACCURACY RULE:
+    // Only count money from successfully delivered orders.
+    // CANCELLED ORDERS, REJECTED ORDERS, AND PENDING ORDERS ARE NEVER ADDED TO REVENUE!
     const deliveredOrdersToday = todaysOrders.filter(o => isDelivered(o.status));
-    const totalRevenue = deliveredOrdersToday.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+    const totalRevenue = deliveredOrdersToday.reduce((sum, o) => {
+        const amt = Number(o.total || o.final_amount || 0);
+        return sum + (isNaN(amt) || amt < 0 ? 0 : amt);
+    }, 0);
 
     const completedToday = deliveredOrdersToday.length;
-    const pendingToday = todaysOrders.filter(o => !isDelivered(o.status) && !isCancelled(o.status)).length;
     const cancelledToday = todaysOrders.filter(o => isCancelled(o.status)).length;
+    const pendingToday = todaysOrders.filter(o => !isDelivered(o.status) && !isCancelled(o.status)).length;
 
     revenueEl.textContent = `₹${totalRevenue.toLocaleString('en-IN')}`;
     if (metaEl) {
@@ -3935,6 +4014,11 @@ function updateDailyRevenue() {
         if (pendingToday > 0) parts.push(`${pendingToday} active`);
         if (cancelledToday > 0) parts.push(`${cancelledToday} cancelled`);
         metaEl.textContent = parts.join(' • ');
+    }
+
+    const card = revenueEl.closest('.glass-panel');
+    if (card) {
+        card.setAttribute('title', `Real-time Revenue: ₹${totalRevenue.toLocaleString('en-IN')} strictly from ${completedToday} delivered orders. (${cancelledToday} cancelled orders excluded)`);
     }
 }
 
@@ -4008,6 +4092,8 @@ async function syncOrdersLive() {
         // Keep local cache fresh at all times
         ordersCache = orders;
         try { localStorage.setItem('lpuquick_admin_orders_cache', JSON.stringify(orders)); } catch(e){}
+        updateDailyRevenue();
+        updateKpiCountersFromCache();
 
         if (isInitialOrderPoll) {
             orders.forEach(o => {
@@ -6876,8 +6962,8 @@ function renderEarningsOrders(orders, dateFilter) {
         if (headingEl) headingEl.textContent = 'Delivered Orders Breakdown';
     }
 
-    const deliveredOrders = filtered.filter(o => o.delivery_state === 'Completed' || o.status === 'delivered' || o.status === 'completed');
-    const cancelledOrders = filtered.filter(o => o.delivery_state === 'Cancelled' || o.status === 'cancelled');
+    const deliveredOrders = filtered.filter(o => o.delivery_state === 'Completed' || ['delivered', 'completed'].includes((o.status || '').toLowerCase()));
+    const cancelledOrders = filtered.filter(o => o.delivery_state === 'Cancelled' || (o.status || '').toLowerCase() === 'cancelled');
     const activeRate = currentEarningsData?.pricing_config?.rate_per_order || 3.00;
     const totalEarned = deliveredOrders.reduce((sum, o) => sum + (typeof o.payout === 'number' ? o.payout : activeRate), 0).toFixed(2);
 
@@ -6901,8 +6987,8 @@ function renderEarningsOrders(orders, dateFilter) {
 
     let html = '';
     filtered.forEach(o => {
-        const isCancelled = o.delivery_state === 'Cancelled' || o.status === 'cancelled';
-        const isDelivered = o.delivery_state === 'Completed' || o.status === 'delivered' || o.status === 'completed';
+        const isCancelled = o.delivery_state === 'Cancelled' || (o.status || '').toLowerCase() === 'cancelled';
+        const isDelivered = o.delivery_state === 'Completed' || ['delivered', 'completed'].includes((o.status || '').toLowerCase());
 
         let iconBg = 'bg-blue-100 text-[#0066cc]';
         let iconName = 'check_circle';

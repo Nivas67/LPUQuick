@@ -324,7 +324,7 @@ router.get('/admin/analytics', requireAdmin, async (req, res) => {
             const productMap = new Map();
             products.forEach(p => productMap.set(p.id, p));
 
-            const deliveredOrders = orders.filter(o => ['Delivered', 'delivered'].includes(o.status));
+            const deliveredOrders = orders.filter(o => ['delivered', 'completed'].includes(String(o.status || '').toLowerCase().trim()));
             const deliveredOrderIds = new Set(deliveredOrders.map(o => o.id));
             const pendingOrders = orders.filter(o => ACTIVE_STATUSES.includes(o.status));
 
@@ -448,16 +448,33 @@ router.get('/admin/detail/:orderId', requireAdmin, async (req, res) => {
 
 // POST /api/orders/admin/status (Update order status from admin drawer)
 router.post('/admin/status', requireAdmin, async (req, res) => {
-    const { orderId, status, paymentMethod, paymentStatus, paymentCollection } = req.body;
+    let { orderId, status, paymentMethod, paymentStatus, paymentCollection } = req.body;
     if (!orderId || !status) {
         return res.status(400).json({ error: 'orderId and status are required' });
     }
 
-    // Strict validation: if marking as Delivered, paymentMethod is required
-    if (status === 'Delivered' && !paymentMethod) {
-        return res.status(400).json({ 
-            error: 'Payment collection mode (Cash, UPI, or Both) is mandatory before marking order as Delivered.' 
-        });
+    // Auto-resolve payment collection mode & status if marking as Delivered
+    const isDelivered = status === 'Delivered' || (status || '').toLowerCase() === 'delivered';
+    if (isDelivered) {
+        if (!paymentMethod) {
+            let existingOrder = Array.isArray(fallbackOrdersCache) ? fallbackOrdersCache.find(x => x.id === orderId) : null;
+            if (!existingOrder) {
+                try {
+                    existingOrder = await supabaseDb.orders.getOrderById(orderId);
+                } catch (e) {}
+            }
+            const existingMethod = (existingOrder?.payment_method || '').toLowerCase();
+            if (existingMethod.includes('upi')) {
+                paymentMethod = 'UPI';
+            } else if (existingMethod.includes('both')) {
+                paymentMethod = existingOrder.payment_method;
+            } else {
+                paymentMethod = 'Cash';
+            }
+        }
+        if (!paymentStatus) {
+            paymentStatus = 'PAID';
+        }
     }
     
     // 1. Immediately update memory cache for zero latency
@@ -479,7 +496,7 @@ router.post('/admin/status', requireAdmin, async (req, res) => {
 
         const updated = await withTimeout(
             supabaseDb.orders.updateStatus(orderId, status, updateOptions),
-            6000,
+            8000,
             { id: orderId, status, ...updateOptions }
         );
         if (updated && updated.rider_name) {
@@ -517,7 +534,7 @@ router.get('/admin/metrics', requireAdmin, async (req, res) => {
     try {
         const payload = await cache.wrap('orders:admin:metrics', async () => {
             const orders = await supabaseDb.orders.getAllOrders();
-            const deliveredOrders = orders.filter(o => ['Delivered', 'delivered'].includes(o.status));
+            const deliveredOrders = orders.filter(o => ['delivered', 'completed'].includes(String(o.status || '').toLowerCase().trim()));
             const activeOrders = orders.filter(o => ACTIVE_STATUSES.includes(o.status)).length;
 
             return {
@@ -824,8 +841,8 @@ router.get('/delivery-earnings', async (req, res) => {
         const allOrders = Array.isArray(rawOrders) ? rawOrders : [];
 
         // State categorizers: Completed yields configured payout, Pending yields ₹0, Cancelled yields ₹0
-        const isCompleted = (st) => ['delivered', 'completed'].includes(String(st || '').toLowerCase());
-        const isCancelled = (st) => ['cancelled', 'rejected'].includes(String(st || '').toLowerCase());
+        const isCompleted = (st) => ['delivered', 'completed'].includes(String(st || '').toLowerCase().trim());
+        const isCancelled = (st) => ['cancelled', 'canceled', 'rejected'].includes(String(st || '').toLowerCase().trim());
         const isPending = (st) => !isCompleted(st) && !isCancelled(st);
 
         const getDeliveryState = (st) => {

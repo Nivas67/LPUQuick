@@ -1440,9 +1440,48 @@ const supabaseDb = {
                     account_status: 'ACTIVE'
                 };
 
+                const staffFallbacks = {
+                    'user_admin_bh13': ownerFallback,
+                    'admin_5dcb05eba7': {
+                        id: 'admin_5dcb05eba7',
+                        name: 'Flash Man',
+                        email: 'jashwanth@lpuquick.in',
+                        phone: '8125916637',
+                        dob: JSON.stringify({ roles: ['inventory_manager', 'delivery_person'] }),
+                        role: 'admin',
+                        account_status: 'ACTIVE'
+                    },
+                    'user_2dae5b56': {
+                        id: 'user_2dae5b56',
+                        name: 'Caption America',
+                        email: 'harsha@lpu.in',
+                        phone: '8498895666',
+                        dob: JSON.stringify({ roles: ['store_manager', 'delivery_person'] }),
+                        role: 'admin',
+                        account_status: 'ACTIVE'
+                    },
+                    'admin_214ff5d346': {
+                        id: 'admin_214ff5d346',
+                        name: 'Jhonysins',
+                        email: 'yogesh@lpuquick.in',
+                        phone: '9098724780',
+                        dob: JSON.stringify({ roles: ['store_manager', 'inventory_manager', 'delivery_person'] }),
+                        role: 'admin',
+                        account_status: 'ACTIVE'
+                    },
+                    'user_94597f1f': {
+                        id: 'user_94597f1f',
+                        name: 'Rohith',
+                        email: 'rohit@lpuquick.in',
+                        phone: '6304238488',
+                        dob: JSON.stringify({ roles: ['store_manager'] }),
+                        role: 'admin',
+                        account_status: 'ACTIVE'
+                    }
+                };
+
                 if (!supabase) {
-                    if (id === 'user_admin_bh13') return ownerFallback;
-                    return null;
+                    return staffFallbacks[id] || null;
                 }
 
                 try {
@@ -1453,13 +1492,11 @@ const supabaseDb = {
                         .maybeSingle();
 
                     if (error || !data) {
-                        if (id === 'user_admin_bh13') return ownerFallback;
-                        return null;
+                        return staffFallbacks[id] || null;
                     }
                     return data;
                 } catch (err) {
-                    if (id === 'user_admin_bh13') return ownerFallback;
-                    return null;
+                    return staffFallbacks[id] || null;
                 }
             }, 60000);
         },

@@ -91,6 +91,56 @@ function verifyAdminToken(tokenString) {
     }
 }
 
+// In-memory staff cache and verified roster to prevent transient 403 Forbidden drops on latency
+const staffUserCache = new Map();
+const KNOWN_STAFF_FALLBACKS = {
+    'user_admin_bh13': {
+        id: 'user_admin_bh13',
+        name: 'Nivas Naidu',
+        email: 'admin@lpu.in',
+        role: 'owner',
+        phone: '07671836211',
+        dob: JSON.stringify({ roles: ['owner', 'store_manager', 'delivery_person', 'inventory_manager', 'support_agent'] }),
+        account_status: 'ACTIVE'
+    },
+    'admin_5dcb05eba7': {
+        id: 'admin_5dcb05eba7',
+        name: 'Flash Man',
+        email: 'jashwanth@lpuquick.in',
+        phone: '8125916637',
+        dob: JSON.stringify({ roles: ['inventory_manager', 'delivery_person'] }),
+        role: 'admin',
+        account_status: 'ACTIVE'
+    },
+    'user_2dae5b56': {
+        id: 'user_2dae5b56',
+        name: 'Caption America',
+        email: 'harsha@lpu.in',
+        phone: '8498895666',
+        dob: JSON.stringify({ roles: ['store_manager', 'delivery_person'] }),
+        role: 'admin',
+        account_status: 'ACTIVE'
+    },
+    'admin_214ff5d346': {
+        id: 'admin_214ff5d346',
+        name: 'Jhonysins',
+        email: 'yogesh@lpuquick.in',
+        phone: '9098724780',
+        dob: JSON.stringify({ roles: ['store_manager', 'inventory_manager', 'delivery_person'] }),
+        role: 'admin',
+        account_status: 'ACTIVE'
+    },
+    'user_94597f1f': {
+        id: 'user_94597f1f',
+        name: 'Rohith',
+        email: 'rohit@lpuquick.in',
+        phone: '6304238488',
+        dob: JSON.stringify({ roles: ['store_manager'] }),
+        role: 'admin',
+        account_status: 'ACTIVE'
+    }
+};
+
 /**
  * Resolves the array of assigned admin roles for a user.
  * Owner has full super-admin access across all domains.
@@ -156,19 +206,22 @@ async function requireAdmin(req, res, next) {
 
     // 3. Database Identity & Role Verification
     try {
-        let user = await supabaseDb.users.getUserById(verified.sub);
+        let user = null;
+        try {
+            user = await supabaseDb.users.getUserById(verified.sub);
+            if (user && (user.role === 'admin' || user.role === 'owner')) {
+                staffUserCache.set(user.id, user);
+            }
+        } catch (fetchErr) {
+            console.warn('[requireAdmin getUserById Warning]:', fetchErr.message);
+        }
 
-        // Resilient fail-safe for primary system owner in case of transient DB lookup drop
-        if (!user && (verified.sub === 'user_admin_bh13' || verified.role === 'owner')) {
-            user = {
-                id: 'user_admin_bh13',
-                name: 'Nivas Naidu',
-                email: 'admin@lpu.in',
-                role: 'owner',
-                phone: '07671836211',
-                dob: JSON.stringify({ roles: ['owner', 'store_manager', 'delivery_person', 'inventory_manager', 'support_agent'] }),
-                account_status: 'ACTIVE'
-            };
+        // Resilient fail-safe for all active staff & owner if DB lookup times out or drops
+        if (!user) {
+            user = staffUserCache.get(verified.sub) || KNOWN_STAFF_FALLBACKS[verified.sub] || null;
+            if (!user && (verified.sub === 'user_admin_bh13' || verified.role === 'owner')) {
+                user = KNOWN_STAFF_FALLBACKS['user_admin_bh13'];
+            }
         }
 
         if (!user || (user.role !== 'admin' && user.role !== 'owner')) {
@@ -243,4 +296,6 @@ module.exports.requireRole = requireRole;
 module.exports.resolveAdminRoles = resolveAdminRoles;
 module.exports.generateAdminToken = generateAdminToken;
 module.exports.verifyAdminToken = verifyAdminToken;
+module.exports.KNOWN_STAFF_FALLBACKS = KNOWN_STAFF_FALLBACKS;
+module.exports.staffUserCache = staffUserCache;
 
