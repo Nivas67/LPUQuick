@@ -3017,6 +3017,8 @@ async function applyDrawerStatusUpdate() {
         : `✓ Order #${shortId} status updated to: ${newStatus}`;
     showToast(toastMsg, 'success');
 
+    updateDailyRevenue();
+
     if (activeView === 'orders') filterOrders();
     else if (activeView === 'dashboard') loadDashboard();
 
@@ -3900,7 +3902,7 @@ function updateKpiCountersFromCache() {
     updateDailyRevenue();
 }
 
-// Compute and display daily revenue from today's orders
+// Compute and display daily revenue from today's orders (strictly successful deliveries only)
 function updateDailyRevenue() {
     const revenueEl = document.getElementById('dash-daily-revenue');
     const metaEl = document.getElementById('dash-daily-revenue-meta');
@@ -3915,10 +3917,16 @@ function updateDailyRevenue() {
         return orderTime >= todayStart;
     });
 
-    const totalRevenue = todaysOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-    const completedToday = todaysOrders.filter(o => ['Delivered', 'delivered', 'completed', 'Completed'].includes(o.status)).length;
-    const pendingToday = todaysOrders.filter(o => ['Order Placed', 'Preparing', 'Out for Delivery', 'pending', 'confirmed', 'accepted'].includes(o.status)).length;
-    const cancelledToday = todaysOrders.filter(o => ['Cancelled', 'cancelled', 'Rejected', 'rejected'].includes(o.status)).length;
+    const isDelivered = (st) => ['Delivered', 'delivered', 'completed', 'Completed'].includes(st);
+    const isCancelled = (st) => ['Cancelled', 'cancelled', 'Rejected', 'rejected'].includes(st);
+
+    // STRICT RULE: Only add money from successfully delivered orders; do not add cancelled or pending orders
+    const deliveredOrdersToday = todaysOrders.filter(o => isDelivered(o.status));
+    const totalRevenue = deliveredOrdersToday.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+
+    const completedToday = deliveredOrdersToday.length;
+    const pendingToday = todaysOrders.filter(o => !isDelivered(o.status) && !isCancelled(o.status)).length;
+    const cancelledToday = todaysOrders.filter(o => isCancelled(o.status)).length;
 
     revenueEl.textContent = `₹${totalRevenue.toLocaleString('en-IN')}`;
     if (metaEl) {
@@ -4461,6 +4469,7 @@ function handleRealtimeStatusUpdate(data) {
         if (pCount > 0) badgeEl.classList.remove('hidden');
         else badgeEl.classList.add('hidden');
     }
+    updateDailyRevenue();
 
     if (activeView === 'orders') {
         filterOrders();
