@@ -10,6 +10,7 @@
 
     <link rel="icon" type="image/png" href="/admin/favicon.png">
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <link href="https://fonts.googleapis.com" rel="preconnect" />
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
@@ -126,6 +127,12 @@
                 <span class="material-symbols-outlined text-[#1a73e8]">manage_accounts</span>
                 <span class="flex-1 font-bold text-[#1a73e8]">Manage Admins</span>
                 <span class="text-[9px] bg-[#1a73e8] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Owner</span>
+            </button>
+            <button onclick="switchView('backup')" data-view="backup" data-required-role="owner"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+                <span class="material-symbols-outlined text-[#1a73e8]">settings_backup_restore</span>
+                <span class="flex-1 font-bold text-[#1a73e8]">Backup & Restore</span>
+                <span class="text-[9px] bg-emerald-600 text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">0-100</span>
             </button>
             <button onclick="switchView('settings')" data-view="settings" data-required-role="owner"
                 class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
@@ -1715,6 +1722,224 @@
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW: BACKUP & DISASTER RECOVERY (OWNER ONLY) ================= -->
+            <div id="view-backup" class="space-y-6 max-w-[1440px] mx-auto hidden">
+                <!-- Header -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-[#1a73e8] border border-blue-300 uppercase tracking-wider">
+                                <span class="material-symbols-outlined text-xs">shield</span> Zero Data Loss Guarantee
+                            </span>
+                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 uppercase tracking-wider">
+                                <span class="material-symbols-outlined text-xs">verified</span> 0 - 100 Full System
+                            </span>
+                        </div>
+                        <h2 class="text-2xl font-bold text-[#181c1f] flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[#1a73e8]">settings_backup_restore</span>
+                            <span>System Backup & Disaster Recovery</span>
+                        </h2>
+                        <p class="text-xs text-[#5c5f60]">Complete 100% snapshot of all 8 database tables, all image storages, and server configuration settings. Export or import onto any new Vercel + Supabase instance seamlessly.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="loadBackupDashboard()"
+                            class="p-2 border border-[#DADCE0] rounded-xl bg-white hover:bg-[#f1f4f7] text-[#3c4043]"
+                            title="Reload System Metrics">
+                            <span class="material-symbols-outlined text-lg">refresh</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Live System Snapshot Cards -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-blue-100 text-[#1a73e8] flex items-center justify-center">
+                            <span class="material-symbols-outlined text-xl">group</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60]">Customer & Admin Users</p>
+                            <h4 class="text-xl font-bold text-[#181c1f]" id="backup-stat-users">...</h4>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-xl">inventory_2</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60]">Product Catalog</p>
+                            <h4 class="text-xl font-bold text-amber-800" id="backup-stat-products">...</h4>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-xl">receipt_long</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60]">Orders & Line Items</p>
+                            <h4 class="text-xl font-bold text-purple-700" id="backup-stat-orders">...</h4>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-xl">photo_library</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60]">Images & Storage Assets</p>
+                            <h4 class="text-xl font-bold text-emerald-800" id="backup-stat-uploads">...</h4>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Hub: 2 Columns (Export & Import) -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Card 1: 1-Click System Export -->
+                    <div class="glass-panel p-6 flex flex-col justify-between space-y-5 border-t-4 border-t-[#1a73e8]">
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-lg font-bold text-[#181c1f] flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-[#1a73e8]">download</span>
+                                    <span>Export Complete System (0 - 100)</span>
+                                </h3>
+                                <span class="text-[10px] bg-blue-50 text-[#1a73e8] border border-blue-200 px-2 py-0.5 rounded-full font-bold">Standard .ZIP</span>
+                            </div>
+                            <p class="text-xs text-[#5c5f60] leading-relaxed">
+                                Packages entire database state, all 69+ binary images, advertisements, delivery pricing settings, and verification manifest into a portable, versioned archive.
+                            </p>
+
+                            <div class="bg-[#f8fafc] border border-[#e2e8f0] rounded-xl p-3.5 space-y-2 text-xs">
+                                <div class="font-bold text-[#334155] mb-1">Archive Contents Manifest:</div>
+                                <div class="grid grid-cols-2 gap-2 text-[11px] text-[#64748b]">
+                                    <div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-emerald-600 text-sm">check_circle</span> 8 PostgreSQL Tables</div>
+                                    <div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-emerald-600 text-sm">check_circle</span> 100% Binary Images</div>
+                                    <div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-emerald-600 text-sm">check_circle</span> Store Pricing & Surges</div>
+                                    <div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-emerald-600 text-sm">check_circle</span> Carousel Posters & Ads</div>
+                                    <div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-emerald-600 text-sm">check_circle</span> Rider Shifts & Statuses</div>
+                                    <div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-emerald-600 text-sm">check_circle</span> Integrity Checksums</div>
+                                </div>
+                            </div>
+
+                            <!-- Export Progress Bar -->
+                            <div id="backup-export-progress-wrap" class="hidden space-y-2 pt-2">
+                                <div class="flex justify-between text-xs font-semibold text-[#1a73e8]">
+                                    <span id="backup-export-status-text">Packaging backup archive...</span>
+                                    <span id="backup-export-percent-text">0%</span>
+                                </div>
+                                <div class="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
+                                    <div id="backup-export-bar" class="bg-[#1a73e8] h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button id="btn-start-export" onclick="startFullSystemExport()"
+                            class="w-full py-3.5 px-4 bg-[#1a73e8] hover:bg-[#1557b0] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.99]">
+                            <span class="material-symbols-outlined text-base">cloud_download</span>
+                            <span>Download Full System Backup (.ZIP)</span>
+                        </button>
+                    </div>
+
+                    <!-- Card 2: Disaster Recovery & Import -->
+                    <div class="glass-panel p-6 flex flex-col justify-between space-y-5 border-t-4 border-t-emerald-600">
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-lg font-bold text-[#181c1f] flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-emerald-600">upload</span>
+                                    <span>Import & Disaster Recovery</span>
+                                </h3>
+                                <span class="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full font-bold">Vercel Safe</span>
+                            </div>
+                            <p class="text-xs text-[#5c5f60] leading-relaxed">
+                                Upload an LPUQuick backup .ZIP file to restore database tables, images, and configurations. Supports clean cloning onto fresh deployments or safe merging.
+                            </p>
+
+                            <!-- Drag & Drop Zone -->
+                            <div id="backup-dropzone" onclick="document.getElementById('backup-file-input').click()"
+                                class="border-2 border-dashed border-[#cbd5e1] hover:border-emerald-500 rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all bg-[#f8fafc] hover:bg-emerald-50/40">
+                                <span class="material-symbols-outlined text-4xl text-[#94a3b8] mb-2">unarchive</span>
+                                <p class="text-xs font-bold text-[#334155]">Click to browse or drop backup .ZIP here</p>
+                                <p class="text-[11px] text-[#64748b] mt-0.5">Supports any LPUQuick full backup archive</p>
+                                <input type="file" id="backup-file-input" accept=".zip" class="hidden" onchange="handleBackupFileSelect(event)" />
+                            </div>
+
+                            <!-- Restore Progress Bar -->
+                            <div id="backup-restore-progress-wrap" class="hidden space-y-2 pt-2">
+                                <div class="flex justify-between text-xs font-semibold text-emerald-700">
+                                    <span id="backup-restore-status-text">Restoring system components...</span>
+                                    <span id="backup-restore-percent-text">0%</span>
+                                </div>
+                                <div class="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
+                                    <div id="backup-restore-bar" class="bg-emerald-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                                </div>
+                            </div>
+
+                            <!-- Pre-Restore Inspection Card (Appears after file selected) -->
+                            <div id="backup-inspection-card" class="hidden bg-white border border-[#e2e8f0] rounded-xl p-4 space-y-3">
+                                <div class="flex items-center justify-between border-b border-[#f1f5f9] pb-2">
+                                    <div>
+                                        <div class="text-xs font-bold text-[#1e293b]" id="inspect-backup-app">LPUQuick Backup</div>
+                                        <div class="text-[10px] text-[#64748b]" id="inspect-backup-date">Date: ...</div>
+                                    </div>
+                                    <span class="text-[10px] bg-emerald-100 text-emerald-900 font-bold px-2 py-0.5 rounded-full">Manifest Valid</span>
+                                </div>
+
+                                <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                                    <div class="bg-[#f8fafc] p-2 rounded-lg">
+                                        <div class="text-[10px] text-[#64748b]">Users</div>
+                                        <div class="font-bold text-[#1e293b]" id="inspect-users-count">0</div>
+                                    </div>
+                                    <div class="bg-[#f8fafc] p-2 rounded-lg">
+                                        <div class="text-[10px] text-[#64748b]">Products</div>
+                                        <div class="font-bold text-[#1e293b]" id="inspect-products-count">0</div>
+                                    </div>
+                                    <div class="bg-[#f8fafc] p-2 rounded-lg">
+                                        <div class="text-[10px] text-[#64748b]">Orders</div>
+                                        <div class="font-bold text-[#1e293b]" id="inspect-orders-count">0</div>
+                                    </div>
+                                    <div class="bg-[#f8fafc] p-2 rounded-lg">
+                                        <div class="text-[10px] text-[#64748b]">Line Items</div>
+                                        <div class="font-bold text-[#1e293b]" id="inspect-items-count">0</div>
+                                    </div>
+                                    <div class="bg-[#f8fafc] p-2 rounded-lg">
+                                        <div class="text-[10px] text-[#64748b]">Images</div>
+                                        <div class="font-bold text-[#1e293b]" id="inspect-images-count">0</div>
+                                    </div>
+                                    <div class="bg-[#f8fafc] p-2 rounded-lg">
+                                        <div class="text-[10px] text-[#64748b]">Configs</div>
+                                        <div class="font-bold text-[#1e293b]" id="inspect-configs-count">0</div>
+                                    </div>
+                                </div>
+
+                                <!-- Restore Mode Choice -->
+                                <div class="space-y-1.5 pt-1">
+                                    <label class="text-[11px] font-bold text-[#475569]">Restore Strategy:</label>
+                                    <div class="grid grid-cols-2 gap-2 text-xs">
+                                        <label class="flex items-start gap-2 p-2 rounded-lg border border-[#e2e8f0] cursor-pointer hover:bg-slate-50">
+                                            <input type="radio" name="restore-mode" value="clean" checked class="mt-0.5 text-emerald-600 focus:ring-emerald-500" />
+                                            <div>
+                                                <div class="font-bold text-[#1e293b] text-[11px]">Clean Ditto Mirror</div>
+                                                <div class="text-[10px] text-[#64748b]">Replaces existing state with backup</div>
+                                            </div>
+                                        </label>
+                                        <label class="flex items-start gap-2 p-2 rounded-lg border border-[#e2e8f0] cursor-pointer hover:bg-slate-50">
+                                            <input type="radio" name="restore-mode" value="merge" class="mt-0.5 text-emerald-600 focus:ring-emerald-500" />
+                                            <div>
+                                                <div class="font-bold text-[#1e293b] text-[11px]">Safe Upsert</div>
+                                                <div class="text-[10px] text-[#64748b]">Updates matching IDs without deleting</div>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <button id="btn-execute-restore" onclick="confirmAndExecuteRestore()"
+                                    class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.99]">
+                                    <span class="material-symbols-outlined text-base">restore_page</span>
+                                    <span>Execute Full Disaster Recovery Restore</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

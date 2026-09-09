@@ -85,6 +85,12 @@ class HighConcurrencyCache {
         console.log('[Cache Engine] ⚡ Availability cache atomically invalidated.');
     }
 
+    invalidateAll() {
+        this.store.clear();
+        this.inflight.clear();
+        console.log('[Cache Engine] ⚡ Complete system cache atomically flushed.');
+    }
+
     /**
      * Single-Flight Request Coalescing Wrapper:
      * If 500 requests arrive concurrently for a missing/expired key,
