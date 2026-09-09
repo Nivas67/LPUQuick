@@ -15,8 +15,14 @@ const supabaseDb = {
             if (!p) return null;
             const match = (p.tags || '').match(/stock:(\d+)/);
             const stock_left = match ? parseInt(match[1], 10) : (p.in_stock ? 50 : 0);
+            let image_url = p.image_url;
+            if (image_url && image_url.includes('supabase.co/storage/v1/object/public/products/')) {
+                const filename = image_url.split('/').pop().split('?')[0];
+                image_url = `/uploads/${filename}`;
+            }
             return {
                 ...p,
+                image_url,
                 description: p.size || p.name,
                 badge: p.bestseller ? 'Bestseller' : (p.is_new ? 'New' : ''),
                 rating: 4.5,

@@ -618,10 +618,11 @@ window.pageInits.orders = function() {
         };
     });
 
-    // Real-time tracking telemetry and admin synchronization loop (every 3 seconds)
+    // Real-time tracking telemetry and admin synchronization loop (optimized 7s with visibility guard)
     if (window.CURRENT_ACTIVE_ORDER_ID) {
         let runnerWalkStep = 0;
         const trackingTimer = setInterval(async () => {
+            if (typeof document !== 'undefined' && document.hidden) return;
             try {
                 // If order is actively "Out for Delivery", add gentle live walking motion along corridor
                 const curStatus = (window.CURRENT_ACTIVE_ORDER_STATUS || '').toLowerCase();
@@ -655,7 +656,7 @@ window.pageInits.orders = function() {
             } catch(e) {
                 // Silent catch for polling
             }
-        }, 3000);
+        }, 7000);
 
         window.__ordersTrackingTimer = trackingTimer;
     }

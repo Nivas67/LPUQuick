@@ -2367,12 +2367,12 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
     window.addEventListener('DOMContentLoaded', bootstrapApp);
 }
 
-// Smart Background Sync (Only runs when tab is active to preserve mobile CPU/network)
+// Smart Background Sync (Runs every 45s only when tab is active to preserve bandwidth)
 setInterval(() => {
     if (!document.hidden && window.isUserLoggedIn()) {
         checkAndConnectGlobalOrderTracking();
     }
-}, 20000);
+}, 45000);
 
 document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {

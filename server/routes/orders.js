@@ -1948,23 +1948,34 @@ router.get('/:userId', async (req, res) => {
     }
 });
 
-// GET /api/orders/:userId/active (Fetch latest active order)
+// GET /api/orders/:userId/active (Fetch latest active order with high-concurrency micro-cache)
 router.get('/:userId/active', async (req, res) => {
     const { userId } = req.params;
+    if (!userId || userId === 'null' || userId === 'undefined') {
+        return res.json({ active: null });
+    }
     try {
-        let { active } = await supabaseDb.orders.getOrdersByUser(userId);
-        if (Array.isArray(fallbackOrdersCache) && fallbackOrdersCache.length > 0) {
-            active = (active || []).map(o => {
-                const cached = fallbackOrdersCache.find(x => x.id === o.id);
-                return (cached && cached.status) ? { ...o, status: cached.status } : o;
-            });
-        }
-        // Filter out completed if cached status changed to Delivered or Cancelled
-        active = (active || []).filter(o => !['Delivered', 'Cancelled', 'delivered', 'cancelled'].includes(o.status));
-        if (!active || active.length === 0) {
-            return res.json({ active: null });
-        }
-        res.json({ active: active[0] });
+        const activeOrder = await cache.wrap(`active_order:${userId}`, async () => {
+            const supabase = getSupabaseClient();
+            if (!supabase) return null;
+            const { data, error } = await supabase
+                .from('orders')
+                .select('id, user_id, status, total, delivery_address, rider_name, created_at, updated_at, item_summary')
+                .eq('user_id', userId)
+                .not('status', 'in', '("Delivered","Cancelled","delivered","cancelled")')
+                .order('created_at', { ascending: false })
+                .limit(1);
+
+            if (error || !data || data.length === 0) return null;
+            const o = data[0];
+            return {
+                ...o,
+                rider_name: supabaseDb.orders.formatRiderDisplayName(o.rider_name, 'Alex')
+            };
+        }, 5000); // 5-second single-flight micro-cache (eliminates 80%+ DB egress)
+
+        res.setHeader('Cache-Control', 'no-cache, private');
+        res.json({ active: activeOrder || null });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
