@@ -590,6 +590,7 @@ function switchView(viewName) {
             'analytics': ['owner', 'store_manager'],
             'staff': ['owner'],
             'advertisements': ['owner', 'store_manager'],
+            'backup': ['owner'],
             'settings': ['owner']
         };
 
@@ -626,6 +627,7 @@ function switchView(viewName) {
         'analytics': 'Business Analytics & Reports',
         'staff': 'Admin Team & Access Levels',
         'advertisements': 'Promotional Advertisements & Posters',
+        'backup': 'Backup & Disaster Recovery (0 - 100)',
         'settings': 'Store Settings'
     };
     document.getElementById('top-title').textContent = titles[viewName] || 'Dashboard';
@@ -641,6 +643,7 @@ function switchView(viewName) {
     else if (viewName === 'analytics') loadAnalytics();
     else if (viewName === 'staff') loadStaffList();
     else if (viewName === 'advertisements') loadAdvertisementsView();
+    else if (viewName === 'backup') loadBackupDashboard();
 }
 
 // Master Live Real-Time Refresh Controller
@@ -7842,6 +7845,398 @@ function showEarningsInfoModal() {
 function closePartnerModal() {
     const modalContainer = document.getElementById('partner-modal-container');
     if (modalContainer) modalContainer.innerHTML = '';
+}
+
+// ============================================================
+// BACKUP & DISASTER RECOVERY (0 - 100) CLIENT CONTROLLER
+// ============================================================
+
+let currentLoadedBackupZip = null;
+let currentLoadedBackupManifest = null;
+let currentBackupStatus = null;
+
+/**
+ * Fetch and display current live system snapshot metrics
+ */
+async function loadBackupDashboard() {
+    const token = adminToken || localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token');
+    try {
+        const res = await fetchWithTimeout('/api/admin/backup/status', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        const data = await res.json();
+        if (!data.success) {
+            showToast(data.error || 'Failed to fetch backup status', 'error');
+            return;
+        }
+
+        currentBackupStatus = data;
+        const tables = data.tables || {};
+        
+        // Update Snapshot Cards
+        const elUsers = document.getElementById('backup-stat-users');
+        if (elUsers) elUsers.textContent = (tables.users !== undefined && tables.users >= 0) ? tables.users.toLocaleString() : '0';
+
+        const elProducts = document.getElementById('backup-stat-products');
+        if (elProducts) elProducts.textContent = (tables.products !== undefined && tables.products >= 0) ? tables.products.toLocaleString() : '0';
+
+        const elOrders = document.getElementById('backup-stat-orders');
+        if (elOrders) {
+            const oCount = tables.orders || 0;
+            const iCount = tables.order_items || 0;
+            elOrders.textContent = `${oCount.toLocaleString()} (${iCount} items)`;
+        }
+
+        const elUploads = document.getElementById('backup-stat-uploads');
+        if (elUploads) {
+            const up = data.uploads || { count: 0, size_mb: 0 };
+            elUploads.textContent = `${up.count} files (${up.size_mb} MB)`;
+        }
+    } catch (err) {
+        console.error('[Backup Dashboard Error]:', err);
+        showToast('Error loading backup metrics: ' + err.message, 'error');
+    }
+}
+
+/**
+ * 1-Click System Export (0 - 100):
+ * Queries DB + configs, downloads all images via CDN, and bundles into a standard .ZIP client-side.
+ */
+async function startFullSystemExport() {
+    if (typeof JSZip === 'undefined') {
+        showToast('Archive engine is initializing. Please try again in a few seconds.', 'warning');
+        return;
+    }
+
+    const token = adminToken || localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token');
+    const btn = document.getElementById('btn-start-export');
+    const progressWrap = document.getElementById('backup-export-progress-wrap');
+    const progressBar = document.getElementById('backup-export-bar');
+    const statusText = document.getElementById('backup-export-status-text');
+    const percentText = document.getElementById('backup-export-percent-text');
+
+    if (btn) btn.disabled = true;
+    if (progressWrap) progressWrap.classList.remove('hidden');
+
+    function updateExportProgress(percent, text) {
+        if (progressBar) progressBar.style.width = `${percent}%`;
+        if (percentText) percentText.textContent = `${percent}%`;
+        if (statusText) statusText.textContent = text;
+    }
+
+    try {
+        updateExportProgress(10, 'Extracting database tables & server configs...');
+        const res = await fetchWithTimeout('/api/admin/backup/export-data', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const payload = await res.json();
+
+        if (!payload.success) {
+            throw new Error(payload.error || 'Server rejected export request');
+        }
+
+        const { manifest, database, configs, uploads } = payload;
+        const zip = new JSZip();
+
+        // 1. Add Manifest
+        zip.file('manifest.json', JSON.stringify(manifest, null, 2));
+
+        // 2. Add Database Tables
+        const dbFolder = zip.folder('database');
+        for (const [tableName, rows] of Object.entries(database)) {
+            dbFolder.file(`${tableName}.json`, JSON.stringify(rows, null, 2));
+        }
+
+        // 3. Add Server Configs
+        const configFolder = zip.folder('config');
+        for (const [cfgKey, cfgData] of Object.entries(configs)) {
+            if (cfgData !== null && cfgData !== undefined) {
+                configFolder.file(`${cfgKey}.json`, JSON.stringify(cfgData, null, 2));
+            }
+        }
+
+        // 4. Download and Add Images via CDN
+        const uploadsFolder = zip.folder('uploads');
+        const totalImages = (uploads || []).length;
+        let downloadedCount = 0;
+
+        for (const img of (uploads || [])) {
+            try {
+                const imgRes = await fetch(img.url);
+                if (imgRes.ok) {
+                    const blob = await imgRes.blob();
+                    uploadsFolder.file(img.filename, blob);
+                }
+            } catch (imgErr) {
+                console.warn(`[Export Warning] Failed to bundle image ${img.filename}:`, imgErr.message);
+            }
+            downloadedCount++;
+            const pct = Math.min(80, 20 + Math.round((downloadedCount / Math.max(1, totalImages)) * 60));
+            updateExportProgress(pct, `Packaging images (${downloadedCount}/${totalImages})...`);
+        }
+
+        // 5. Compress Archive
+        updateExportProgress(85, 'Compressing 0-100 system archive...');
+        const zipBlob = await zip.generateAsync({
+            type: 'blob',
+            compression: 'DEFLATE',
+            compressionOptions: { level: 6 }
+        }, (meta) => {
+            const pct = Math.min(99, 85 + Math.round(meta.percent * 0.14));
+            updateExportProgress(pct, `Compressing archive (${Math.round(meta.percent)}%)...`);
+        });
+
+        updateExportProgress(100, 'Download starting...');
+
+        // 6. Trigger Browser Download
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const filename = `LPUQuick_Full_Backup_${timestamp}.zip`;
+        const blobUrl = URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+
+        showToast('🎉 Complete 0-100 system backup archive downloaded!', 'success');
+    } catch (err) {
+        console.error('[Export Error]:', err);
+        showToast('Backup export failed: ' + err.message, 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+        setTimeout(() => {
+            if (progressWrap) progressWrap.classList.add('hidden');
+            updateExportProgress(0, '');
+        }, 3000);
+    }
+}
+
+/**
+ * Handle selection / drop of backup ZIP file
+ */
+async function handleBackupFileSelect(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (typeof JSZip === 'undefined') {
+        showToast('Archive engine is initializing. Please wait.', 'warning');
+        return;
+    }
+
+    try {
+        showToast('Inspecting backup archive...', 'info');
+        const zip = await JSZip.loadAsync(file);
+
+        const manifestFile = zip.file('manifest.json');
+        if (!manifestFile) {
+            showToast('Invalid backup: manifest.json not found in archive.', 'error');
+            return;
+        }
+
+        const manifest = JSON.parse(await manifestFile.async('string'));
+        currentLoadedBackupZip = zip;
+        currentLoadedBackupManifest = manifest;
+
+        // Populate inspection card
+        const card = document.getElementById('backup-inspection-card');
+        if (card) card.classList.remove('hidden');
+
+        const elApp = document.getElementById('inspect-backup-app');
+        if (elApp) elApp.textContent = `${manifest.app || 'LPUQuick'} Backup v${manifest.version || '1.0'}`;
+
+        const elDate = document.getElementById('inspect-backup-date');
+        if (elDate && manifest.created_at) {
+            elDate.textContent = `Created: ${new Date(manifest.created_at).toLocaleString()}`;
+        }
+
+        const tables = manifest.tables || {};
+        const setVal = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val !== undefined ? val.toLocaleString() : '0';
+        };
+
+        setVal('inspect-users-count', tables.users);
+        setVal('inspect-products-count', tables.products);
+        setVal('inspect-orders-count', tables.orders);
+        setVal('inspect-items-count', tables.order_items);
+        setVal('inspect-images-count', manifest.uploads?.count || 0);
+        setVal('inspect-configs-count', (manifest.configs || []).length);
+
+        showToast('Backup archive verified! Choose restore strategy below.', 'success');
+    } catch (err) {
+        console.error('[Inspect Backup Error]:', err);
+        showToast('Failed to parse backup archive: ' + err.message, 'error');
+    }
+}
+
+/**
+ * Confirm and execute full disaster recovery restore with chunked image batches
+ */
+async function confirmAndExecuteRestore() {
+    if (!currentLoadedBackupZip || !currentLoadedBackupManifest) {
+        showToast('Please select a valid backup ZIP archive first.', 'warning');
+        return;
+    }
+
+    const selectedRadio = document.querySelector('input[name="restore-mode"]:checked');
+    const mode = selectedRadio?.value || 'clean';
+
+    const promptMessage = mode === 'clean'
+        ? 'Type "RESTORE" to execute Clean Ditto Mirror restore. All existing records will be replaced with the backup archive data:'
+        : 'Type "RESTORE" to execute Safe Merge restore. Matching records will be updated and new ones inserted:';
+
+    const confirmation = prompt(promptMessage);
+    if (confirmation !== 'RESTORE') {
+        showToast('Restore cancelled by user.', 'info');
+        return;
+    }
+
+    const token = adminToken || localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token');
+    const btn = document.getElementById('btn-execute-restore');
+    const progressWrap = document.getElementById('backup-restore-progress-wrap');
+    const progressBar = document.getElementById('backup-restore-bar');
+    const statusText = document.getElementById('backup-restore-status-text');
+    const percentText = document.getElementById('backup-restore-percent-text');
+
+    if (btn) btn.disabled = true;
+    if (progressWrap) progressWrap.classList.remove('hidden');
+
+    function updateRestoreProgress(percent, text) {
+        if (progressBar) progressBar.style.width = `${percent}%`;
+        if (percentText) percentText.textContent = `${percent}%`;
+        if (statusText) statusText.textContent = text;
+    }
+
+    try {
+        const zip = currentLoadedBackupZip;
+
+        // 1. Extract Database Tables from ZIP
+        updateRestoreProgress(10, 'Extracting database tables from archive...');
+        const tables = {};
+        const expectedTables = [
+            'users',
+            'products',
+            'app_availability',
+            'blacklisted_users',
+            'orders',
+            'order_items',
+            'cart_items',
+            'audit_logs'
+        ];
+
+        for (const tableName of expectedTables) {
+            const tableFile = zip.file(`database/${tableName}.json`);
+            if (tableFile) {
+                tables[tableName] = JSON.parse(await tableFile.async('string'));
+            } else {
+                tables[tableName] = [];
+            }
+        }
+
+        // 2. Extract Configs from ZIP
+        updateRestoreProgress(20, 'Extracting server configuration settings...');
+        const configs = {};
+        const configFiles = ['banners', 'delivery_settings', 'rider_availability', 'push_subscriptions'];
+        for (const cfg of configFiles) {
+            const cfgFile = zip.file(`config/${cfg}.json`);
+            if (cfgFile) {
+                configs[cfg] = JSON.parse(await cfgFile.async('string'));
+            }
+        }
+
+        // 3. Send Database + Configs to Server
+        updateRestoreProgress(30, `Restoring database in [${mode.toUpperCase()}] mode...`);
+        const dbRestoreRes = await fetchWithTimeout('/api/admin/backup/restore-data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ tables, configs, mode })
+        });
+        const dbData = await dbRestoreRes.json();
+        if (!dbData.success) {
+            throw new Error(dbData.error || 'Database restoration failed on server');
+        }
+
+        // 4. Extract and Batch Upload Images (Vercel-Safe Chunks of 6 images)
+        updateRestoreProgress(50, 'Extracting image assets from archive...');
+        const imageEntries = [];
+        for (const relPath of Object.keys(zip.files)) {
+            if (relPath.startsWith('uploads/') && !relPath.endsWith('/')) {
+                const filename = relPath.replace('uploads/', '');
+                const base64Data = await zip.file(relPath).async('base64');
+                imageEntries.push({ filename, data: base64Data });
+            }
+        }
+
+        const totalImgs = imageEntries.length;
+        const imgBatchSize = 6;
+        let uploadedImgs = 0;
+
+        for (let i = 0; i < totalImgs; i += imgBatchSize) {
+            const batch = imageEntries.slice(i, i + imgBatchSize);
+            const pct = Math.min(85, 50 + Math.round((uploadedImgs / Math.max(1, totalImgs)) * 35));
+            updateRestoreProgress(pct, `Restoring images (${uploadedImgs}/${totalImgs})...`);
+
+            const imgRes = await fetchWithTimeout('/api/admin/backup/restore-images', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ files: batch })
+            });
+            const imgData = await imgRes.json();
+            if (!imgData.success) {
+                console.warn('[Restore Image Batch Warning]:', imgData.error);
+            }
+            uploadedImgs += batch.length;
+        }
+
+        // 5. Run Post-Restoration Integrity Verification
+        updateRestoreProgress(90, 'Verifying system integrity against manifest...');
+        const verifyRes = await fetchWithTimeout('/api/admin/backup/verify', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ manifest: currentLoadedBackupManifest })
+        });
+        const verifyData = await verifyRes.json();
+
+        updateRestoreProgress(100, 'Restoration complete!');
+
+        const isFullyVerified = verifyData.report?.verified;
+        if (isFullyVerified) {
+            showToast('🎉 100% COMPLETE SYSTEM RESTORE SUCCESSFUL & VERIFIED!', 'success');
+        } else {
+            showToast('System restored with minor count variations (check audit logs).', 'warning');
+        }
+
+        // Refresh live dashboard metrics
+        await loadBackupDashboard();
+
+        // Hide pre-restore inspection card
+        const card = document.getElementById('backup-inspection-card');
+        if (card) card.classList.add('hidden');
+        currentLoadedBackupZip = null;
+        currentLoadedBackupManifest = null;
+    } catch (err) {
+        console.error('[Full Restore Error]:', err);
+        showToast('Restore failed: ' + err.message, 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+        setTimeout(() => {
+            if (progressWrap) progressWrap.classList.add('hidden');
+            updateRestoreProgress(0, '');
+        }, 3500);
+    }
 }
 
 

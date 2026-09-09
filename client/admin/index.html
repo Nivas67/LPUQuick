@@ -23,7 +23,7 @@
         if ('caches' in window) {
             caches.keys().then(function (names) {
                 names.forEach(function (n) {
-                    if (n.startsWith('lpuquick-pwa-v1')) caches.delete(n);
+                    caches.delete(n);
                 });
             });
         }
@@ -3326,7 +3326,7 @@
     <div id="partner-modal-container"></div>
 
     <!-- Application Script Reference -->
-    <script src="/admin/js/admin.js?v=20260909_backup_v1"></script>
+    <script src="/admin/js/admin.js?v=20260909_backup_v2"></script>
 </body>
 
 </html>
