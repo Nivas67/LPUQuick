@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "node server/index.js",
-    "test": "node server/tests/pricing.test.js"
+    "test": "node server/tests/pricing.test.js",
+    "sync:local": "node scripts/sync_cloud_to_local_db.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",
