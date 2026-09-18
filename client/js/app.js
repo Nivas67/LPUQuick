@@ -1976,6 +1976,31 @@ function initGlobalClientWebSocket() {
                         window.refreshHomeCarousel(data);
                     }
                 }
+                // 8. Live Delivery Person Assignment (Order Claimed by Delivery Boy)
+                else if (data.type === 'ORDER_CLAIMED') {
+                    const riderName = data.adminName || data.rider_name || data.riderName || 'Delivery Rider';
+                    const claimedOrderId = data.orderId || data.order_id;
+                    console.log(`[Realtime Delivery Sync] Order ${claimedOrderId} claimed by ${riderName}`);
+
+                    // Update rider name display on active tracking card
+                    const riderNameDisplay = document.getElementById('rider-name-display');
+                    if (riderNameDisplay) riderNameDisplay.textContent = riderName;
+                    const riderAvatar = document.getElementById('rider-avatar');
+                    if (riderAvatar) riderAvatar.textContent = riderName[0].toUpperCase();
+
+                    // Update the global delivery bar rider name
+                    const barRiderName = document.getElementById('global-delivery-rider-name');
+                    if (barRiderName) barRiderName.textContent = riderName;
+
+                    // If user is on orders/tracking page, apply full UI update
+                    if (typeof window.applyOrderStatusUI === 'function') {
+                        const currentStatus = window.CURRENT_ACTIVE_ORDER_STATUS || 'Order Confirmed';
+                        window.applyOrderStatusUI(currentStatus, riderName, claimedOrderId);
+                    }
+
+                    // Show toast to student
+                    showClientToast(`🏃 ${riderName} accepted your delivery!`, 'success', 'directions_run');
+                }
             } catch (err) {
                 console.error('[LPUQuick WS Parse Error]:', err);
             }

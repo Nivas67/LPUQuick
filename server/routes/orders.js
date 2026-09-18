@@ -1568,7 +1568,7 @@ router.post('/:orderId/claim', requireAdmin, requireRole('delivery_person'), asy
         // Also broadcast status change (if claim auto-confirmed the order) so other admins
         // can detect the change via signature comparison and re-render immediately
         if (updated.status) {
-            broadcastStatusUpdate(orderId, updated.status);
+            broadcastStatusUpdate(orderId, updated.status, resolvedRiderName);
         }
 
         // Trigger background Push notification to other admins
@@ -1658,7 +1658,7 @@ router.post('/:orderId/transfer/request', requireAdmin, async (req, res) => {
             });
 
             if (updated.status) {
-                broadcastStatusUpdate(orderId, updated.status);
+                broadcastStatusUpdate(orderId, updated.status, toAdminName || reqAdminName);
             }
 
             pushService.notifyOrderClaimed(orderId, toAdminName || reqAdminName).catch(() => {});
@@ -1823,7 +1823,7 @@ router.post('/:orderId/transfer/direct', requireAdmin, requireRole('owner', 'sto
 
         // Broadcast status update so polling admins detect the reassignment immediately
         if (updated.status) {
-            broadcastStatusUpdate(orderId, updated.status);
+            broadcastStatusUpdate(orderId, updated.status, targetAdminName);
         }
 
         pushService.notifyOrderClaimed(orderId, targetAdminName).catch(() => {});

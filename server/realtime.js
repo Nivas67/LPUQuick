@@ -430,12 +430,26 @@ function broadcastOrderClaimed(data) {
     const payload = JSON.stringify({
         type: 'ORDER_CLAIMED',
         orderId: data.orderId,
+        order_id: data.orderId,
         adminId: data.adminId,
         adminName: data.adminName,
+        rider_name: data.adminName,
+        riderName: data.adminName,
         claimedAt: data.claimedAt || new Date().toISOString(),
         timestamp: new Date().toISOString()
     });
+
+    // Broadcast to admin dashboards
     chunkedBroadcast(adminSockets, payload);
+
+    // Broadcast to student storefront clients (live order status bar)
+    chunkedBroadcast(clientSockets, payload);
+
+    // Broadcast to dedicated order tracking sockets (student tracking page)
+    const trackingClients = orderTrackingSockets.get(data.orderId);
+    if (trackingClients) {
+        chunkedBroadcast(trackingClients, payload);
+    }
 }
 
 // Broadcast when a delivery runner initiates an order transfer request
