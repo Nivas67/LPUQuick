@@ -965,9 +965,9 @@ window.pages.home = async function() {
              MODERN VERTICAL CATEGORY RAIL & PRODUCT BROWSING SECTION
              ============================================================ -->
         <section class="pt-1 space-y-3" id="shop-catalog-section">
-            <div class="flex items-start gap-2 sm:gap-4 lg:gap-6 pt-1 relative" id="shop-catalog-split-row">
-                <!-- Unified Modern Left Vertical Category Rail (Cut at content end without stretching into empty space) -->
-                <aside class="w-[72px] sm:w-20 md:w-24 shrink-0 self-start h-fit flex flex-col relative" id="category-rail-container">
+            <div class="flex items-start gap-2 sm:gap-2.5 md:gap-3 lg:gap-3.5 pt-1 relative" id="shop-catalog-split-row">
+                <!-- Unified Modern Left Vertical Category Rail (Sticky beside products with tight clean spacing) -->
+                <aside class="w-[70px] sm:w-[76px] md:w-[80px] shrink-0 self-start h-fit flex flex-col sticky top-16 md:top-20 z-20" id="category-rail-container">
                     <!-- Category Items (Rendered in full line with ZERO scroll container) -->
                     <nav class="vertical-category-rail py-1 space-y-1 w-full h-fit flex flex-col relative z-10" id="vertical-category-rail">
                         ${STORE_CATEGORIES.map(c => `

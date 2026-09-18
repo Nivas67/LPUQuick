@@ -1301,21 +1301,46 @@ html.dark .map-pattern {
 
 /* ============================================================
    MODERN VERTICAL CATEGORY RAIL (INSTAMART / BLINKIT UX)
-   Full-height column extending until the end of the products
+   Sticky left column extending smoothly alongside products
    ============================================================ */
+#shop-catalog-split-row {
+    gap: 0.75rem !important; /* ~12px tight spacing */
+}
+
+@media (min-width: 1024px) {
+    #shop-catalog-split-row {
+        gap: 0.875rem !important; /* ~14px on desktop */
+    }
+}
+
+@media (max-width: 639px) {
+    #shop-catalog-split-row {
+        gap: 0.5rem !important; /* 8px on mobile */
+    }
+}
+
 #category-rail-container {
+    position: sticky !important;
+    top: 4.5rem !important;
     align-self: flex-start !important;
     height: fit-content !important;
-    min-height: auto !important;
+    max-height: calc(100vh - 5.5rem) !important;
+    overflow-y: auto !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+    z-index: 25 !important;
     display: flex !important;
     flex-direction: column !important;
-    position: relative !important;
     background: rgba(255, 255, 255, 0.65);
     border: 1px solid rgba(226, 232, 240, 0.9);
     border-radius: 1.5rem;
-    padding: 0.5rem 0.25rem 1rem 0.25rem;
+    padding: 0.4rem 0.2rem 0.6rem 0.2rem;
     box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
     transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+#category-rail-container::-webkit-scrollbar {
+    display: none !important;
 }
 
 body.dark #category-rail-container,
@@ -1323,6 +1348,16 @@ html.dark #category-rail-container {
     background: rgba(15, 23, 42, 0.55);
     border-color: rgba(255, 255, 255, 0.08);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
+
+@media (max-width: 639px) {
+    #category-rail-container {
+        top: 3.75rem !important;
+        max-height: calc(100vh - 8.5rem) !important;
+        max-height: calc(100dvh - 8.5rem) !important;
+        border-radius: 1.25rem;
+        padding: 0.35rem 0.15rem 0.5rem 0.15rem;
+    }
 }
 
 .vertical-category-rail {

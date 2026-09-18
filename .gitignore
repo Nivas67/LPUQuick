@@ -5,3 +5,5 @@ node_modules/
 server/data/backups/
 .env
 .DS_Store
+scripts/debug_*.js
+scripts/test_category_rail_verification.js
