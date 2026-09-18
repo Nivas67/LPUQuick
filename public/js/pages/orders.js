@@ -2,15 +2,23 @@
 window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
-function formatClientRiderName(raw) {
-    if (!raw || raw === 'unassigned') return 'Alex';
+function formatClientRiderInfo(raw) {
+    let name = 'Alex';
+    let phone = '7671836211';
+    if (!raw || raw === 'unassigned') return { name, phone };
     if (typeof raw === 'string' && raw.trim().startsWith('{')) {
         try {
             const parsed = JSON.parse(raw);
-            return parsed.name || parsed.assigned_to_name || 'Alex';
+            name = parsed.name || parsed.assigned_to_name || 'Alex';
+            phone = parsed.phone || parsed.assigned_to_phone || '7671836211';
+            return { name, phone };
         } catch (e) {}
     }
-    return raw;
+    return { name: raw, phone };
+}
+
+function formatClientRiderName(raw) {
+    return formatClientRiderInfo(raw).name;
 }
 
 function isOrderCancellable(status) {
@@ -88,7 +96,7 @@ function getOrderTrackingDetails(status, riderName = 'Alex', address = 'BH13') {
 }
 
 // Global In-Place UI Updater called immediately via WebSocket when Admin changes status
-window.applyOrderStatusUI = function(newStatus, riderName, targetOrderId) {
+window.applyOrderStatusUI = function(newStatus, riderName, targetOrderId, riderPhone) {
     console.log(`[Orders Page UI] ⚡ Applying admin status update in real-time: ${newStatus} (${riderName})`);
 
     const card = document.getElementById('active-order-tracking-card');
@@ -198,6 +206,8 @@ window.applyOrderStatusUI = function(newStatus, riderName, targetOrderId) {
     if (riderNameDisplay && effectiveRider) riderNameDisplay.textContent = effectiveRider;
     const riderAvatar = document.getElementById('rider-avatar');
     if (riderAvatar && effectiveRider) riderAvatar.textContent = effectiveRider[0].toUpperCase();
+    const riderCallBtn = document.getElementById('rider-call-btn');
+    if (riderCallBtn && riderPhone) riderCallBtn.href = `tel:${riderPhone}`;
 
     // 7. Soft Arrival Audio Chime
     try {
@@ -303,7 +313,9 @@ window.pages.orders = async function() {
     const activeData = activeDataRes.status === 'fulfilled' ? activeDataRes.value : { active: null };
 
     const activeOrder = activeData?.active || (ordersData?.active && ordersData.active[0]) || null;
-    const activeRiderName = activeOrder ? formatClientRiderName(activeOrder.rider_name) : 'Alex';
+    const activeRiderInfo = formatClientRiderInfo(activeOrder?.rider_name);
+    const activeRiderName = activeRiderInfo.name;
+    const activeRiderPhone = activeOrder?.rider_phone || activeRiderInfo.phone || '7671836211';
     const activeEdit = activeOrder?.delivery_assignment?.latest_edit || null;
     const pastOrders = ordersData?.past || [];
     const savedRoom = localStorage.getItem('lpuquick_room') || window.currentRoom;
@@ -496,7 +508,7 @@ window.pages.orders = async function() {
                                 <p class="font-black text-xs text-slate-900 dark:text-white" id="rider-name-display">${activeRiderName}</p>
                                 <p class="text-[10px] text-emerald font-bold">Campus Runner</p>
                             </div>
-                            <a href="tel:7671836211" class="ml-1 w-8 h-8 rounded-xl clay-btn-primary flex items-center justify-center text-white active:scale-95 transition-transform" title="Call Runner">
+                            <a id="rider-call-btn" href="tel:${activeRiderPhone || '7671836211'}" class="ml-1 w-8 h-8 rounded-xl clay-btn-primary flex items-center justify-center text-white active:scale-95 transition-transform" title="Call Runner">
                                 <span class="material-symbols-outlined text-xs">call</span>
                             </a>
                         </div>
@@ -640,9 +652,14 @@ window.pageInits.orders = function() {
                     const currentActive = activeRes?.active;
                     if (currentActive) {
                         const newStatus = currentActive.status;
-                        const rName = formatClientRiderName(currentActive.rider_name);
-                        if (newStatus !== window.CURRENT_ACTIVE_ORDER_STATUS && (Date.now() - (window.__lastWsStatusTime || 0) > 4000)) {
-                            window.applyOrderStatusUI(newStatus, rName, currentActive.id);
+                        const rInfo = formatClientRiderInfo(currentActive.rider_name);
+                        const rName = rInfo.name;
+                        const rPhone = currentActive.rider_phone || rInfo.phone || '7671836211';
+                        const currentDisplayedName = document.getElementById('rider-name-display')?.textContent || '';
+                        const statusChanged = newStatus !== window.CURRENT_ACTIVE_ORDER_STATUS;
+                        const riderChanged = rName && rName !== 'Alex' && rName !== currentDisplayedName;
+                        if ((statusChanged || riderChanged) && (Date.now() - (window.__lastWsStatusTime || 0) > 4000)) {
+                            window.applyOrderStatusUI(newStatus, rName, currentActive.id, rPhone);
                         }
                     } else if (window.CURRENT_ACTIVE_ORDER_STATUS && 
                               !['Delivered', 'Cancelled', 'delivered', 'cancelled'].includes(window.CURRENT_ACTIVE_ORDER_STATUS)) {

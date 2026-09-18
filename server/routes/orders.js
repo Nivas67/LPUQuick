@@ -1541,8 +1541,9 @@ router.post('/:orderId/claim', requireAdmin, requireRole('delivery_person'), asy
     }
 
     try {
+        const adminPhone = req.admin?.phone || '7671836211';
         const updated = await withOrderClaimLock(orderId, async () => {
-            return await supabaseDb.orders.claimOrder(orderId, adminId, adminName);
+            return await supabaseDb.orders.claimOrder(orderId, adminId, adminName, adminPhone);
         });
         cache.invalidateOrders();
 
@@ -1557,11 +1558,12 @@ router.post('/:orderId/claim', requireAdmin, requireRole('delivery_person'), asy
             }
         }
 
-        // Broadcast real-time claim to all open admin dashboards
+        // Broadcast real-time claim to all open admin dashboards and student clients
         broadcastOrderClaimed({
             orderId,
             adminId,
             adminName: resolvedRiderName,
+            adminPhone: adminPhone,
             claimedAt: updated.delivery_assignment?.claimed_at || new Date().toISOString()
         });
 
@@ -1654,6 +1656,7 @@ router.post('/:orderId/transfer/request', requireAdmin, async (req, res) => {
                 orderId,
                 adminId: toAdminId,
                 adminName: toAdminName || reqAdminName,
+                adminPhone: req.body?.toAdminPhone || req.admin?.phone || '7671836211',
                 claimedAt: updated.delivery_assignment?.claimed_at || new Date().toISOString()
             });
 
@@ -1806,11 +1809,13 @@ router.post('/:orderId/transfer/direct', requireAdmin, requireRole('owner', 'sto
     }
 
     try {
+        const targetAdminPhone = req.body?.targetAdminPhone || '7671836211';
         const updated = await supabaseDb.orders.directAssign(
             orderId,
             targetAdminId,
             targetAdminName,
-            req.admin.name
+            req.admin.name,
+            targetAdminPhone
         );
         cache.invalidateOrders();
 
@@ -1818,6 +1823,7 @@ router.post('/:orderId/transfer/direct', requireAdmin, requireRole('owner', 'sto
             orderId,
             adminId: targetAdminId,
             adminName: targetAdminName,
+            adminPhone: targetAdminPhone,
             claimedAt: updated.delivery_assignment?.claimed_at || new Date().toISOString()
         });
 
@@ -1960,7 +1966,7 @@ router.get('/:userId/active', async (req, res) => {
             if (!supabase) return null;
             const { data, error } = await supabase
                 .from('orders')
-                .select('id, user_id, status, total, delivery_address, rider_name, created_at, updated_at, item_summary')
+                .select('id, user_id, status, total, delivery_address, rider_name, created_at')
                 .eq('user_id', userId)
                 .not('status', 'in', '("Delivered","Cancelled","delivered","cancelled")')
                 .order('created_at', { ascending: false })
@@ -1968,9 +1974,12 @@ router.get('/:userId/active', async (req, res) => {
 
             if (error || !data || data.length === 0) return null;
             const o = data[0];
+            const meta = supabaseDb.orders.parseDeliveryMeta(o.rider_name);
             return {
                 ...o,
-                rider_name: supabaseDb.orders.formatRiderDisplayName(o.rider_name, 'Alex')
+                rider_name: supabaseDb.orders.formatRiderDisplayName(o.rider_name, 'Alex'),
+                rider_phone: meta.phone || '7671836211',
+                delivery_assignment: meta
             };
         }, 5000); // 5-second single-flight micro-cache (eliminates 80%+ DB egress)
 
@@ -1991,7 +2000,10 @@ router.post('/:orderId/status', requireAdmin, async (req, res) => {
     try {
         const updated = await supabaseDb.orders.updateStatus(orderId, status);
         cache.invalidateOrders();
-        broadcastStatusUpdate(orderId, status);
+        const existingRider = updated?.rider_name 
+            ? (typeof updated.rider_name === 'string' && updated.rider_name.startsWith('{') ? (JSON.parse(updated.rider_name).name || 'Alex') : updated.rider_name) 
+            : (req.body.rider_name || 'Alex');
+        broadcastStatusUpdate(orderId, status, existingRider);
         res.json({ success: true, order: updated });
     } catch (err) {
         res.status(500).json({ error: err.message });

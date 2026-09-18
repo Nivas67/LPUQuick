@@ -1979,14 +1979,17 @@ function initGlobalClientWebSocket() {
                 // 8. Live Delivery Person Assignment (Order Claimed by Delivery Boy)
                 else if (data.type === 'ORDER_CLAIMED') {
                     const riderName = data.adminName || data.rider_name || data.riderName || 'Delivery Rider';
+                    const riderPhone = data.adminPhone || data.riderPhone || '7671836211';
                     const claimedOrderId = data.orderId || data.order_id;
-                    console.log(`[Realtime Delivery Sync] Order ${claimedOrderId} claimed by ${riderName}`);
+                    console.log(`[Realtime Delivery Sync] Order ${claimedOrderId} claimed by ${riderName} (${riderPhone})`);
 
                     // Update rider name display on active tracking card
                     const riderNameDisplay = document.getElementById('rider-name-display');
                     if (riderNameDisplay) riderNameDisplay.textContent = riderName;
                     const riderAvatar = document.getElementById('rider-avatar');
                     if (riderAvatar) riderAvatar.textContent = riderName[0].toUpperCase();
+                    const riderCallBtn = document.getElementById('rider-call-btn');
+                    if (riderCallBtn && riderPhone) riderCallBtn.href = `tel:${riderPhone}`;
 
                     // Update the global delivery bar rider name
                     const barRiderName = document.getElementById('global-delivery-rider-name');
@@ -1995,7 +1998,7 @@ function initGlobalClientWebSocket() {
                     // If user is on orders/tracking page, apply full UI update
                     if (typeof window.applyOrderStatusUI === 'function') {
                         const currentStatus = window.CURRENT_ACTIVE_ORDER_STATUS || 'Order Confirmed';
-                        window.applyOrderStatusUI(currentStatus, riderName, claimedOrderId);
+                        window.applyOrderStatusUI(currentStatus, riderName, claimedOrderId, riderPhone);
                     }
 
                     // Show toast to student
@@ -2094,16 +2097,17 @@ function handleLiveInventoryChange(data) {
 function handleLiveOrderStatusChange(data) {
     const status = data.status;
     const riderName = data.rider_name || data.riderName || 'Alex';
+    const riderPhone = data.rider_phone || data.riderPhone || data.adminPhone || '7671836211';
     const orderId = data.order_id || data.orderId;
 
-    console.log(`[Realtime Order Sync] Order ${orderId} -> ${status}`);
+    console.log(`[Realtime Order Sync] Order ${orderId} -> ${status} (${riderName})`);
 
     // 1. Update Global Floating Bar
     updateGlobalDeliveryBar(status, riderName);
 
     // 2. If user is currently viewing the Live Orders page, update the interactive HUD/map in real-time
     if (typeof window.applyOrderStatusUI === 'function') {
-        window.applyOrderStatusUI(status, riderName, orderId);
+        window.applyOrderStatusUI(status, riderName, orderId, riderPhone);
     } else {
         // Play status chime on any page
         try {

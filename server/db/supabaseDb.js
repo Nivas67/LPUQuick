@@ -1014,6 +1014,7 @@ const supabaseDb = {
                     assigned_to: assignedId,
                     assigned_to_name: assignedName,
                     name: assignedName,
+                    phone: meta.phone || meta.assigned_to_phone || null,
                     claimed_at: meta.claimed_at || null,
                     transfer: meta.transfer || null,
                     is_claimed: Boolean(assignedId || meta.is_claimed),
@@ -1031,6 +1032,7 @@ const supabaseDb = {
                         assigned_to: assignedId,
                         assigned_to_name: assignedName,
                         name: assignedName,
+                        phone: meta.phone || meta.assigned_to_phone || null,
                         claimed_at: meta.claimed_at || null,
                         transfer: meta.transfer || null,
                         is_claimed: Boolean(assignedId || meta.is_claimed),
@@ -1063,7 +1065,7 @@ const supabaseDb = {
             };
         },
 
-        async claimOrder(orderId, adminId, adminName) {
+        async claimOrder(orderId, adminId, adminName, adminPhone = null) {
             const supabase = getSupabaseClient();
             if (!supabase) throw new Error('Database client unavailable');
 
@@ -1091,6 +1093,7 @@ const supabaseDb = {
             const deliveryMeta = {
                 admin_id: adminId,
                 name: adminName || 'Delivery Rider',
+                phone: adminPhone || null,
                 claimed_at: new Date().toISOString(),
                 transfer: null
             };
@@ -1246,13 +1249,14 @@ const supabaseDb = {
             };
         },
 
-        async directAssign(orderId, targetAdminId, targetAdminName, assignedBy) {
+        async directAssign(orderId, targetAdminId, targetAdminName, assignedBy, targetAdminPhone = null) {
             const supabase = getSupabaseClient();
             if (!supabase) throw new Error('Database client unavailable');
 
             const deliveryMeta = {
                 admin_id: targetAdminId,
                 name: targetAdminName || 'Delivery Rider',
+                phone: targetAdminPhone || null,
                 claimed_at: new Date().toISOString(),
                 assigned_by: assignedBy,
                 transfer: null

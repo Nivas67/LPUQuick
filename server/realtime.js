@@ -435,6 +435,8 @@ function broadcastOrderClaimed(data) {
         adminName: data.adminName,
         rider_name: data.adminName,
         riderName: data.adminName,
+        riderPhone: data.adminPhone || data.riderPhone || data.phone || '7671836211',
+        adminPhone: data.adminPhone || data.riderPhone || data.phone || '7671836211',
         claimedAt: data.claimedAt || new Date().toISOString(),
         timestamp: new Date().toISOString()
     });
