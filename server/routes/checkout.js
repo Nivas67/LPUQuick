@@ -107,6 +107,17 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
             supabaseDb.blacklist.isUserBlacklisted(userId).catch(() => null)
         ]);
 
+        if (blacklistCheck && blacklistCheck.isBlacklisted) {
+            const reason = blacklistCheck.reason || 'Fake Orders';
+            return res.status(403).json({
+                success: false,
+                error: 'ACCOUNT_BLOCKED',
+                code: 'ACCOUNT_BLOCKED',
+                message: `You are blocked due to ${reason.toLowerCase()}.`,
+                reason: reason
+            });
+        }
+
         if (storeStatus && storeStatus.is_locked) {
             return res.status(400).json({
                 success: false,
@@ -116,17 +127,6 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
                 reopen_at: storeStatus.reopen_at,
                 display_reopen: storeStatus.display_reopen,
                 availability: storeStatus
-            });
-        }
-
-        if (blacklistCheck && blacklistCheck.isBlacklisted) {
-            const reason = blacklistCheck.reason || 'Fake Orders';
-            return res.status(403).json({
-                success: false,
-                error: 'ACCOUNT_BLOCKED',
-                code: 'ACCOUNT_BLOCKED',
-                message: `You are blocked due to ${reason.toLowerCase()}.`,
-                reason: reason
             });
         }
     } catch (guardErr) {

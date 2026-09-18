@@ -1798,15 +1798,20 @@ const supabaseDb = {
     // SECURITY BLACKLIST
     // ==========================================
     blacklist: {
-        _memoryBlacklist: new Set(),
+        _memoryBlacklist: new Map(),
 
         async isUserBlacklisted(userId) {
-            const supabase = getSupabaseClient();
+            if (!userId) return { isBlacklisted: false };
+
+            // 1. In-memory check for zero-latency response
             if (this._memoryBlacklist.has(userId)) {
-                return { isBlacklisted: true, reason: 'Administrative Action', blocked_at: new Date().toISOString() };
+                return this._memoryBlacklist.get(userId);
             }
+
+            const supabase = getSupabaseClient();
             if (!supabase) return { isBlacklisted: false };
 
+            // 2. Check blacklisted_users table for active BLOCKED status
             try {
                 const { data, error } = await supabase
                     .from('blacklisted_users')
@@ -1816,82 +1821,162 @@ const supabaseDb = {
                     .maybeSingle();
 
                 if (!error && data) {
-                    return {
+                    const res = {
                         isBlacklisted: true,
-                        reason: data.reason,
-                        blocked_at: data.created_at
+                        reason: data.reason || 'Fake Orders',
+                        blocked_at: data.blocked_at || data.created_at,
+                        blocked_by: data.blocked_by || 'Admin',
+                        record: data
                     };
+                    this._memoryBlacklist.set(userId, res);
+                    return res;
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.warn('[Blacklist isUserBlacklisted DB error]:', e.message);
+            }
 
+            // 3. Fallback to users table
             try {
-                const { data: u } = await supabase.from('users').select('account_status, block_reason, blocked_at').eq('id', userId).maybeSingle();
+                const { data: u } = await supabase
+                    .from('users')
+                    .select('id, name, email, phone, account_status, block_reason, blocked_at, blocked_by')
+                    .eq('id', userId)
+                    .maybeSingle();
+
                 if (u && u.account_status === 'BLOCKED') {
-                    return {
+                    const res = {
                         isBlacklisted: true,
-                        reason: u.block_reason || 'Administrative Action',
-                        blocked_at: u.blocked_at
+                        reason: u.block_reason || 'Fake Orders',
+                        blocked_at: u.blocked_at || new Date().toISOString(),
+                        blocked_by: u.blocked_by || 'Admin',
+                        record: u
                     };
+                    this._memoryBlacklist.set(userId, res);
+                    return res;
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.warn('[Blacklist users fallback error]:', e.message);
+            }
 
             return { isBlacklisted: false };
         },
 
-        async blockUser({ userId, reason = 'Administrative Action', notes = '', blockedBy = 'admin' }) {
-            this._memoryBlacklist.add(userId);
-            const supabase = getSupabaseClient();
-            const cleanReason = reason ? reason.trim() : 'Administrative Action';
+        async isBlacklisted(userId) {
+            return this.isUserBlacklisted(userId);
+        },
+
+        async blockUser({ userId, reason = 'Fake Orders', notes = '', blockedBy = 'Admin' }) {
+            if (!userId) throw new Error('userId is required');
+
+            const cleanReason = reason ? reason.trim() : 'Fake Orders';
+            const cleanNotes = notes ? notes.trim() : '';
             const now = new Date().toISOString();
 
+            const record = {
+                id: `bl_${userId}`,
+                user_id: userId,
+                reason: cleanReason,
+                notes: cleanNotes,
+                status: 'BLOCKED',
+                blocked_by: blockedBy || 'Admin',
+                blocked_at: now,
+                unblocked_by: null,
+                unblocked_at: null,
+                updated_at: now
+            };
+
+            this._memoryBlacklist.set(userId, {
+                isBlacklisted: true,
+                reason: cleanReason,
+                blocked_at: now,
+                blocked_by: blockedBy || 'Admin',
+                record
+            });
+
+            const supabase = getSupabaseClient();
             if (supabase) {
                 try {
+                    // Ensure user exists in users table to satisfy foreign key constraint
+                    const { data: existingUser } = await supabase
+                        .from('users')
+                        .select('id')
+                        .eq('id', userId)
+                        .maybeSingle();
+
+                    if (!existingUser) {
+                        await supabase
+                            .from('users')
+                            .insert([{
+                                id: userId,
+                                name: 'Student',
+                                role: 'student',
+                                account_status: 'BLOCKED',
+                                block_reason: cleanReason,
+                                blocked_at: now,
+                                blocked_by: blockedBy || 'Admin',
+                                password_hash: 'none'
+                            }]);
+                    } else {
+                        await supabase
+                            .from('users')
+                            .update({
+                                account_status: 'BLOCKED',
+                                block_reason: cleanReason,
+                                blocked_at: now,
+                                blocked_by: blockedBy || 'Admin'
+                            })
+                            .eq('id', userId);
+                    }
+
                     await supabase
                         .from('blacklisted_users')
-                        .upsert([{
-                            id: `bl_${userId}`,
-                            user_id: userId,
-                            reason: cleanReason,
-                            notes: notes || '',
-                            status: 'BLOCKED',
-                            blocked_by: blockedBy,
-                            blocked_at: now
-                        }]);
-                } catch (e) {}
+                        .upsert([record]);
+                } catch (e) {
+                    console.warn('[Blacklist blockUser DB warning]:', e.message);
+                }
+            }
 
-                try {
-                    await supabase
-                        .from('users')
-                        .update({
-                            account_status: 'BLOCKED',
-                            block_reason: cleanReason,
-                            blocked_at: now,
-                            blocked_by: blockedBy
-                        })
-                        .eq('id', userId);
-                } catch (e) {}
+            if (userId) {
+                cache.delete(`user:id:${userId}`);
+                cache.clearByPrefix('user:');
             }
 
             return {
+                id: record.id,
                 user_id: userId,
                 reason: cleanReason,
                 status: 'BLOCKED',
-                blocked_by: blockedBy,
-                blocked_at: now
+                blocked_by: blockedBy || 'Admin',
+                blocked_at: now,
+                notes: cleanNotes
             };
         },
 
-        async unblockUser({ userId, unblockedBy = 'admin' }) {
+        async blacklistUser(userId, reason = 'Fake Orders', adminId = 'Admin') {
+            return this.blockUser({ userId, reason, blockedBy: adminId });
+        },
+
+        async unblockUser({ userId, unblockedBy = 'Admin' }) {
+            if (!userId) throw new Error('userId is required');
+
             this._memoryBlacklist.delete(userId);
+            const now = new Date().toISOString();
             const supabase = getSupabaseClient();
 
             if (supabase) {
                 try {
                     await supabase
                         .from('blacklisted_users')
-                        .delete()
+                        .update({
+                            status: 'RESOLVED',
+                            unblocked_by: unblockedBy || 'Admin',
+                            unblocked_at: now,
+                            updated_at: now
+                        })
                         .eq('user_id', userId);
-                } catch (e) {}
+                } catch (e) {
+                    console.warn('[Blacklist unblockUser DB warning]:', e.message);
+                }
 
                 try {
                     await supabase
@@ -1903,65 +1988,132 @@ const supabaseDb = {
                             blocked_by: null
                         })
                         .eq('id', userId);
-                } catch (e) {}
+                } catch (e) {
+                    console.warn('[Blacklist unblockUser user-update warning]:', e.message);
+                }
             }
 
-            return { success: true, userId, unblockedBy };
-        },
+            if (userId) {
+                cache.delete(`user:id:${userId}`);
+                cache.clearByPrefix('user:');
+            }
 
-        async blacklistUser(userId, reason = 'Administrative Action', adminId = 'admin') {
-            return this.blockUser({ userId, reason, blockedBy: adminId });
+            return { success: true, userId, unblockedBy: unblockedBy || 'Admin' };
         },
 
         async unblacklistUser(userId) {
             return this.unblockUser({ userId });
         },
 
-        async isBlacklisted(userId) {
-            return this.isUserBlacklisted(userId);
-        },
-
-        async getAllBlacklisted() {
+        async getAll() {
             const supabase = getSupabaseClient();
             if (!supabase) return [];
 
+            const recordsMap = new Map();
+
+            // 1. Fetch from blacklisted_users table with joined users relation
             try {
                 const { data, error } = await supabase
                     .from('blacklisted_users')
-                    .select('*, users(name, email, phone)')
+                    .select('*, users(id, name, email, phone)')
                     .order('created_at', { ascending: false });
 
-                if (!error && data) {
-                    return data.map(b => ({
-                        user_id: b.user_id,
-                        reason: b.reason,
-                        blocked_by: b.blocked_by,
-                        created_at: b.created_at,
-                        name: b.users?.name || 'Unknown',
-                        email: b.users?.email || '',
-                        phone: b.users?.phone || ''
-                    }));
+                if (!error && Array.isArray(data)) {
+                    data.forEach(b => {
+                        const u = b.users || {};
+                        const item = {
+                            id: b.id || `bl_${b.user_id}`,
+                            user_id: b.user_id,
+                            customer_name: u.name || 'Student',
+                            customer_email: u.email || '',
+                            customer_phone: u.phone || '',
+                            reason: b.reason || 'Fake Orders',
+                            status: b.status || 'BLOCKED',
+                            blocked_by: b.blocked_by || 'Admin',
+                            blocked_at: b.blocked_at || b.created_at || new Date().toISOString(),
+                            unblocked_by: b.unblocked_by || null,
+                            unblocked_at: b.unblocked_at || null,
+                            notes: b.notes || '',
+                            created_at: b.created_at,
+                            // Aliases for compatibility
+                            name: u.name || 'Student',
+                            email: u.email || '',
+                            phone: u.phone || ''
+                        };
+                        recordsMap.set(b.user_id, item);
+                    });
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.warn('[Blacklist getAll join query warning]:', e.message);
+            }
 
+            // 2. Also ensure any users with account_status = 'BLOCKED' in users table are included
             try {
                 const { data: blockedUsers } = await supabase
                     .from('users')
-                    .select('*')
+                    .select('id, name, email, phone, account_status, block_reason, blocked_at, blocked_by, created_at')
                     .eq('account_status', 'BLOCKED');
 
-                return (blockedUsers || []).map(u => ({
-                    user_id: u.id,
-                    reason: u.block_reason || 'Administrative Action',
-                    blocked_by: u.blocked_by || 'Admin',
-                    created_at: u.blocked_at || u.created_at,
-                    name: u.name || 'Unknown',
-                    email: u.email || '',
-                    phone: u.phone || ''
-                }));
+                if (Array.isArray(blockedUsers)) {
+                    blockedUsers.forEach(u => {
+                        if (!recordsMap.has(u.id)) {
+                            recordsMap.set(u.id, {
+                                id: `bl_${u.id}`,
+                                user_id: u.id,
+                                customer_name: u.name || 'Student',
+                                customer_email: u.email || '',
+                                customer_phone: u.phone || '',
+                                reason: u.block_reason || 'Fake Orders',
+                                status: 'BLOCKED',
+                                blocked_by: u.blocked_by || 'Admin',
+                                blocked_at: u.blocked_at || u.created_at || new Date().toISOString(),
+                                unblocked_by: null,
+                                unblocked_at: null,
+                                notes: '',
+                                created_at: u.created_at,
+                                name: u.name || 'Student',
+                                email: u.email || '',
+                                phone: u.phone || ''
+                            });
+                        }
+                    });
+                }
             } catch (e) {
-                return [];
+                console.warn('[Blacklist getAll fallback warning]:', e.message);
             }
+
+            // 3. Merge any in-memory active blocked records
+            this._memoryBlacklist.forEach((rec, uId) => {
+                if (rec && (rec.status === 'BLOCKED' || rec.isBlacklisted) && !recordsMap.has(uId)) {
+                    recordsMap.set(uId, {
+                        id: `bl_${uId}`,
+                        user_id: uId,
+                        customer_name: rec.record?.customer_name || rec.record?.name || 'Student',
+                        customer_email: rec.record?.customer_email || rec.record?.email || '',
+                        customer_phone: rec.record?.customer_phone || rec.record?.phone || '',
+                        reason: rec.reason || 'Fake Orders',
+                        status: 'BLOCKED',
+                        blocked_by: rec.blocked_by || 'Admin',
+                        blocked_at: rec.blocked_at || new Date().toISOString(),
+                        unblocked_by: null,
+                        unblocked_at: null,
+                        notes: rec.notes || '',
+                        created_at: rec.blocked_at || new Date().toISOString(),
+                        name: rec.record?.customer_name || rec.record?.name || 'Student',
+                        email: rec.record?.customer_email || rec.record?.email || '',
+                        phone: rec.record?.customer_phone || rec.record?.phone || ''
+                    });
+                }
+            });
+
+            const list = Array.from(recordsMap.values());
+            // Sort by blocked_at descending
+            list.sort((a, b) => new Date(b.blocked_at || b.created_at || 0) - new Date(a.blocked_at || a.created_at || 0));
+            return list;
+        },
+
+        async getAllBlacklisted() {
+            return this.getAll();
         }
     },
 
@@ -1969,31 +2121,52 @@ const supabaseDb = {
     // AUDIT LOGS
     // ==========================================
     audit: {
-        async logAction({ adminId, action, metadata = {} }) {
-            const supabase = getSupabaseClient();
-            if (!supabase) return;
+        _memoryLogs: [],
 
-            try {
-                await supabase.from('audit_logs').insert([{
-                    id: `audit_${uuidv4().slice(0, 8)}`,
-                    admin_id: adminId || 'admin',
-                    action,
-                    metadata
-                }]);
-            } catch (e) {}
+        async logAction({ adminId, targetUserId = null, action, reason = null, metadata = {} }) {
+            const id = `audit_${uuidv4().slice(0, 8)}`;
+            const payload = {
+                id,
+                admin_id: adminId || 'admin',
+                target_user_id: targetUserId,
+                action,
+                reason,
+                metadata: metadata ? (typeof metadata === 'object' ? metadata : { note: metadata }) : {},
+                created_at: new Date().toISOString()
+            };
+
+            this._memoryLogs.unshift(payload);
+            if (this._memoryLogs.length > 200) this._memoryLogs.pop();
+
+            const supabase = getSupabaseClient();
+            if (supabase) {
+                try {
+                    await supabase.from('audit_logs').insert([payload]);
+                } catch (e) {
+                    console.warn('[Audit Log Insert Warning]:', e.message);
+                }
+            }
+
+            return payload;
         },
 
         async getLogs(limit = 50) {
             const supabase = getSupabaseClient();
-            if (!supabase) return [];
+            if (supabase) {
+                try {
+                    const { data, error } = await supabase
+                        .from('audit_logs')
+                        .select('*')
+                        .order('created_at', { ascending: false })
+                        .limit(limit);
 
-            const { data } = await supabase
-                .from('audit_logs')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .limit(limit);
+                    if (!error && data && data.length > 0) return data;
+                } catch (e) {
+                    console.warn('[Audit Log Fetch Warning]:', e.message);
+                }
+            }
 
-            return data || [];
+            return this._memoryLogs.slice(0, limit);
         }
     },
 

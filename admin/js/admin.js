@@ -3770,7 +3770,68 @@ function renderBlacklistTable(records) {
 }
 
 // Block User Modal Controls
+function openManualBlockModal() {
+    const selectContainer = document.getElementById('modal-block-select-container');
+    const selectEl = document.getElementById('modal-block-customer-select');
+    if (selectContainer) selectContainer.classList.remove('hidden');
+
+    function populateSelect(list) {
+        if (!selectEl) return;
+        const activeList = (list || []).filter(c => c.account_status !== 'BLOCKED');
+        selectEl.innerHTML = '<option value="">-- Choose a student to block --</option>' +
+            activeList.map(c => `
+                <option value="${c.id}" data-name="${encodeURIComponent(c.name || 'Student')}" data-phone="${encodeURIComponent(c.phone || '')}" data-email="${encodeURIComponent(c.email || '')}">
+                    ${c.name || 'Student'} (${c.phone || c.email || c.id})
+                </option>
+            `).join('');
+    }
+
+    populateSelect(customersCache);
+
+    document.getElementById('modal-block-user-id').value = '';
+    document.getElementById('modal-block-user-name').textContent = 'Please choose a student above';
+    document.getElementById('modal-block-user-phone').textContent = '--';
+    document.getElementById('modal-block-user-email').textContent = '--';
+    document.getElementById('modal-block-reason').value = 'Fake Orders';
+    document.getElementById('modal-block-notes').value = '';
+    updateBlockReasonPreview();
+
+    document.getElementById('block-user-modal')?.classList.remove('hidden');
+
+    if (!customersCache || customersCache.length === 0) {
+        loadCustomers().then(() => {
+            populateSelect(customersCache);
+        }).catch(() => {});
+    }
+}
+
+function onManualBlockCustomerSelected() {
+    const selectEl = document.getElementById('modal-block-customer-select');
+    if (!selectEl) return;
+    const opt = selectEl.options[selectEl.selectedIndex];
+    if (!opt || !opt.value) {
+        document.getElementById('modal-block-user-id').value = '';
+        document.getElementById('modal-block-user-name').textContent = 'Please choose a student above';
+        document.getElementById('modal-block-user-phone').textContent = '--';
+        document.getElementById('modal-block-user-email').textContent = '--';
+        return;
+    }
+
+    const userId = opt.value;
+    const name = decodeURIComponent(opt.getAttribute('data-name') || 'Student');
+    const phone = decodeURIComponent(opt.getAttribute('data-phone') || '');
+    const email = decodeURIComponent(opt.getAttribute('data-email') || '');
+
+    document.getElementById('modal-block-user-id').value = userId;
+    document.getElementById('modal-block-user-name').textContent = name;
+    document.getElementById('modal-block-user-phone').textContent = phone || 'Not provided';
+    document.getElementById('modal-block-user-email').textContent = email || 'Not provided';
+}
+
 function openBlockUserModal(userId, name, phone, email) {
+    const selectContainer = document.getElementById('modal-block-select-container');
+    if (selectContainer) selectContainer.classList.add('hidden');
+
     const decodedName = decodeURIComponent(name || 'Student');
     const decodedPhone = decodeURIComponent(phone || '');
     const decodedEmail = decodeURIComponent(email || '');
@@ -3809,7 +3870,10 @@ async function handleBlockUserSubmit(e) {
     const notes = document.getElementById('modal-block-notes').value;
     const submitBtn = document.getElementById('btn-confirm-block');
 
-    if (!userId) return;
+    if (!userId) {
+        alert('Please select a valid student to block.');
+        return;
+    }
 
     if (submitBtn) {
         submitBtn.disabled = true;

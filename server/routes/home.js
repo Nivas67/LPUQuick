@@ -106,7 +106,7 @@ router.get('/', async (req, res) => {
                     tag: 'INSTANT_FREE'
                 }
             };
-        }, 60000);
+        }, 300000);
 
         // 2. Compute personalized buy again with user-level caching
         let buyAgain = baseFeed.default_buy_again;
@@ -143,7 +143,7 @@ router.get('/', async (req, res) => {
                     }
                 } catch (userErr) {}
                 return { items: null, isPersonalized: false };
-            }, 60000);
+            }, 300000);
 
             if (userPersonalized && userPersonalized.items) {
                 buyAgain = userPersonalized.items;

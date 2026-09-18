@@ -1502,6 +1502,12 @@
                             title="Refresh Blacklist">
                             <span class="material-symbols-outlined text-lg">refresh</span>
                         </button>
+                        <button onclick="openManualBlockModal()"
+                            class="px-3.5 py-2 rounded-xl bg-[#ba1a1a] hover:bg-[#931515] text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all active:scale-95"
+                            title="Block Customer & Add to Blacklist">
+                            <span class="material-symbols-outlined text-sm">block</span>
+                            <span>Block Customer</span>
+                        </button>
                     </div>
                 </div>
 
@@ -2434,6 +2440,15 @@
                 <button onclick="closeBlockUserModal()" class="text-[#5c5f60] hover:text-[#181c1f]">
                     <span class="material-symbols-outlined">close</span>
                 </button>
+            </div>
+
+            <!-- Customer Select (for manual block from Blacklist view) -->
+            <div id="modal-block-select-container" class="space-y-1.5 text-xs hidden">
+                <label class="font-semibold text-[#262a2d] block">Select Customer to Block *</label>
+                <select id="modal-block-customer-select" onchange="onManualBlockCustomerSelected()"
+                    class="w-full border border-[#DADCE0] rounded-xl p-2.5 bg-white font-medium text-xs focus:ring-2 focus:ring-[#ba1a1a] outline-none">
+                    <option value="">-- Choose a student to block --</option>
+                </select>
             </div>
 
             <!-- Student Summary Box -->

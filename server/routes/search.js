@@ -85,7 +85,7 @@ router.get('/', async (req, res) => {
                 results,
                 suggestions
             };
-        }, 60000);
+        }, 300000);
 
         res.json(payload);
     } catch (err) {

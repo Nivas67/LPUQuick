@@ -97,7 +97,7 @@ router.get('/:id', async (req, res) => {
                 storage: 'Store in a cool, dry place away from direct sunlight.',
                 delivery_eta: '3 mins to BH13 (LPU Hostels)'
             };
-        }, 60000);
+        }, 300000);
 
         if (!details) {
             return res.status(404).json({ error: 'Product not found' });
@@ -156,7 +156,7 @@ router.get('/', async (req, res) => {
                 list = list.filter(p => (p.subcategory || '').toLowerCase() === subcategory.toLowerCase());
             }
             return { products: list, isFallback: true };
-        }, forceFresh ? 0 : 60000);
+        }, forceFresh ? 0 : 300000);
 
         res.json(payload || { products: fallbackProductsCache || [] });
     } catch (err) {
