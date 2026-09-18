@@ -1692,8 +1692,102 @@ const supabaseDb = {
             updated_at: new Date().toISOString()
         },
 
+        _enrichAvailability(raw) {
+            if (!raw) return raw;
+            const now = new Date();
+            const nowMs = now.getTime();
+            let isLocked = Boolean(raw.is_locked);
+            let lockType = raw.lock_type || 'NONE';
+            let lockStatus = isLocked ? 'LOCKED' : 'AVAILABLE';
+            let remainingSeconds = null;
+
+            // Handle SCHEDULED lock window
+            if (lockType === 'SCHEDULED' && raw.start_at && raw.end_at) {
+                const startMs = new Date(raw.start_at).getTime();
+                const endMs = new Date(raw.end_at).getTime();
+                if (nowMs < startMs) {
+                    isLocked = false;
+                    lockStatus = 'SCHEDULED';
+                    remainingSeconds = Math.max(0, Math.floor((endMs - nowMs) / 1000));
+                } else if (nowMs >= startMs && nowMs < endMs) {
+                    isLocked = true;
+                    lockStatus = 'LOCKED';
+                    remainingSeconds = Math.max(0, Math.floor((endMs - nowMs) / 1000));
+                } else {
+                    isLocked = false;
+                    lockStatus = 'AVAILABLE';
+                    lockType = 'NONE';
+                    remainingSeconds = 0;
+                }
+            } else if (isLocked) {
+                if (raw.end_at) {
+                    const endMs = new Date(raw.end_at).getTime();
+                    if (nowMs >= endMs) {
+                        isLocked = false;
+                        lockStatus = 'AVAILABLE';
+                        lockType = 'NONE';
+                        remainingSeconds = 0;
+                    } else {
+                        remainingSeconds = Math.max(0, Math.floor((endMs - nowMs) / 1000));
+                    }
+                } else {
+                    remainingSeconds = null;
+                }
+            } else {
+                remainingSeconds = null;
+            }
+
+            // Generate natural language reopening headline
+            let displayReopen = null;
+            const targetEnd = raw.end_at;
+            if (targetEnd) {
+                const end = new Date(targetEnd);
+                if (!isNaN(end.getTime())) {
+                    const isToday = end.toDateString() === now.toDateString();
+                    const tomorrow = new Date(nowMs + 86400000);
+                    const isTomorrow = end.toDateString() === tomorrow.toDateString();
+
+                    let hours = end.getHours();
+                    const minutes = end.getMinutes();
+                    const ampm = hours >= 12 ? 'pm' : 'am';
+                    hours = hours % 12 || 12;
+                    const minStr = String(minutes).padStart(2, '0');
+                    const timeStr = `${hours}:${minStr} ${ampm}`;
+
+                    let dayWording = 'today';
+                    if (isToday) dayWording = 'today';
+                    else if (isTomorrow) dayWording = 'tomorrow';
+                    else dayWording = `on ${end.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}`;
+
+                    displayReopen = {
+                        time: timeStr,
+                        day: dayWording,
+                        fullHeadline: `We'll reopen at ${timeStr}, ${dayWording}`
+                    };
+                }
+            }
+            if (!displayReopen) {
+                displayReopen = {
+                    fullHeadline: raw.message || (isLocked ? "Store is currently CLOSED for orders" : "Store is OPEN for orders")
+                };
+            }
+
+            return {
+                ...raw,
+                is_locked: isLocked,
+                lock_status: lockStatus,
+                lock_type: lockType,
+                start_at: raw.start_at || null,
+                end_at: raw.end_at || null,
+                reopen_at: raw.end_at || null,
+                remaining_seconds: remainingSeconds,
+                display_reopen: displayReopen,
+                server_time: now.toISOString()
+            };
+        },
+
         async getStatus() {
-            return await cache.wrap('availability:status:store_main', async () => {
+            const raw = await cache.wrap('availability:status:store_main', async () => {
                 const supabase = getSupabaseClient();
                 if (!supabase) return this._memoryAvailability;
 
@@ -1726,19 +1820,20 @@ const supabaseDb = {
                     } catch (e) {}
                 }
 
-                const state = this._memoryAvailability;
-                // Check if duration lock has expired
-                if (state.is_locked && state.end_at) {
-                    const now = new Date();
-                    const end = new Date(state.end_at);
-                    if (now > end) {
-                        await this.unlock('SYSTEM_EXPIRY');
-                        return { ...state, is_locked: false, lock_type: 'NONE', message: null };
-                    }
-                }
+                return this._memoryAvailability;
+            }, 5000); // 5-second micro-cache for fast reactivity
 
-                return state;
-            }, 15000); // 15-second micro-cache
+            // Check if duration lock has expired
+            if (raw.is_locked && raw.end_at) {
+                const now = new Date();
+                const end = new Date(raw.end_at);
+                if (now > end) {
+                    await this.unlock('SYSTEM_EXPIRY');
+                    return this._enrichAvailability({ ...raw, is_locked: false, lock_type: 'NONE', message: null, end_at: null });
+                }
+            }
+
+            return this._enrichAvailability(raw);
         },
 
         async setLock(lockData) {
@@ -1790,7 +1885,7 @@ const supabaseDb = {
             }
 
             cache.invalidateAvailability();
-            return this._memoryAvailability;
+            return this._enrichAvailability(this._memoryAvailability);
         },
 
         async unlock(adminId = 'admin') {
@@ -1828,7 +1923,7 @@ const supabaseDb = {
             }
 
             cache.invalidateAvailability();
-            return this._memoryAvailability;
+            return this._enrichAvailability(this._memoryAvailability);
         }
     },
 

@@ -821,8 +821,9 @@ function refreshClientLockState() {
 
 function formatClientReopenHeadline(avail) {
     if (!avail) return "We'll reopen soon";
-    if (avail.end_at) {
-        const end = new Date(avail.end_at);
+    const targetEnd = avail.end_at || avail.reopen_at;
+    if (targetEnd) {
+        const end = new Date(targetEnd);
         if (!isNaN(end.getTime())) {
             const now = new Date();
             const isToday = end.toDateString() === now.toDateString();
@@ -902,10 +903,15 @@ function updateClientLockUI(avail) {
         sub.textContent = avail.message ? `Admin message: "${avail.message}"` : "Students cannot submit checkout orders. Cart building is preserved.";
         quickUnlockBtn?.classList.remove('hidden');
 
+        const targetEnd = avail.end_at || avail.reopen_at;
+        let countdownSecs = (typeof avail.remaining_seconds === 'number' && !isNaN(avail.remaining_seconds)) ? avail.remaining_seconds : null;
+        if ((countdownSecs === null || countdownSecs <= 0) && targetEnd) {
+            countdownSecs = Math.max(0, Math.floor((new Date(targetEnd).getTime() - Date.now()) / 1000));
+        }
 
-        if (avail.remaining_seconds !== null && avail.remaining_seconds > 0) {
+        if (countdownSecs && countdownSecs > 0) {
             timerBox?.classList.remove('hidden');
-            startLockCountdown(avail.remaining_seconds, avail.end_at);
+            startLockCountdown(countdownSecs, targetEnd);
         } else {
             timerBox?.classList.add('hidden');
             if (lockTickerInterval) clearInterval(lockTickerInterval);

@@ -1263,8 +1263,9 @@ window.syncStoreAvailability = async function() {
 
 function formatClientReopenHeadline(avail) {
     if (!avail) return "We'll reopen soon";
-    if (avail.end_at) {
-        const end = new Date(avail.end_at);
+    const targetEnd = avail.end_at || avail.reopen_at;
+    if (targetEnd) {
+        const end = new Date(targetEnd);
         if (!isNaN(end.getTime())) {
             const now = new Date();
             const isToday = end.toDateString() === now.toDateString();
@@ -1339,7 +1340,10 @@ window.renderStoreClosedBannerOrOverlay = function() {
 
     if (isLocked) {
         const reopenHeadline = formatClientReopenHeadline(avail);
-        const secondaryText = avail.message || "You can still add items and order when the store re-opens";
+        let secondaryText = avail.message;
+        if (!secondaryText || secondaryText.trim() === reopenHeadline.trim()) {
+            secondaryText = "You can still add items to your cart and place your order when the store re-opens.";
+        }
 
         document.body.classList.add('store-locked-active');
         document.body.style.paddingTop = '36px';
@@ -1370,8 +1374,9 @@ window.renderStoreClosedBannerOrOverlay = function() {
         globalBar.classList.remove('hidden');
 
         // 2. Render Reference Design Card on Homepage
+        const targetEnd = avail.end_at || avail.reopen_at;
         if (homeHeroContainer) {
-            const hasCountdown = Boolean(avail.remaining_seconds || avail.end_at);
+            const hasCountdown = Boolean(avail.remaining_seconds || targetEnd);
             const closedCardHtml = `
                 <div id="store-closed-hero-card" class="relative overflow-hidden rounded-3xl bg-[#1a1d20] text-white p-6 sm:p-8 shadow-2xl border border-white/10 my-4 animate-fade-in">
                     <!-- Ambient glow -->
@@ -1431,13 +1436,13 @@ window.renderStoreClosedBannerOrOverlay = function() {
         }
 
         // Start live ticker
-        let countdownSecs = avail.remaining_seconds;
-        if (!countdownSecs && avail.end_at) {
-            countdownSecs = Math.max(0, Math.floor((new Date(avail.end_at).getTime() - Date.now()) / 1000));
+        let countdownSecs = (typeof avail.remaining_seconds === 'number' && !isNaN(avail.remaining_seconds)) ? avail.remaining_seconds : null;
+        if ((countdownSecs === null || countdownSecs <= 0) && targetEnd) {
+            countdownSecs = Math.max(0, Math.floor((new Date(targetEnd).getTime() - Date.now()) / 1000));
         }
 
         if (countdownSecs && countdownSecs > 0) {
-            startClientCountdown(countdownSecs, avail.end_at);
+            startClientCountdown(countdownSecs, targetEnd);
         } else {
             if (window.__clientLockTicker) {
                 clearInterval(window.__clientLockTicker);

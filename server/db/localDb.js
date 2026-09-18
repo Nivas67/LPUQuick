@@ -678,18 +678,101 @@ const localDb = {
         getStatus() {
             const db = getLocalDb();
             const row = db.prepare('SELECT * FROM app_availability WHERE id = ?').get('store_main');
+            const now = new Date();
+            const nowMs = now.getTime();
             if (!row) {
                 return {
+                    id: 'store_main',
                     is_locked: false,
                     lock_type: 'NONE',
+                    lock_status: 'AVAILABLE',
                     message: null,
                     start_at: null,
-                    end_at: null
+                    end_at: null,
+                    reopen_at: null,
+                    remaining_seconds: null,
+                    display_reopen: { fullHeadline: 'Store is OPEN for orders' },
+                    server_time: now.toISOString()
                 };
             }
+            let isLocked = Boolean(row.is_locked);
+            let lockType = row.lock_type || 'NONE';
+            let lockStatus = isLocked ? 'LOCKED' : 'AVAILABLE';
+            let remainingSeconds = null;
+
+            if (lockType === 'SCHEDULED' && row.start_at && row.end_at) {
+                const startMs = new Date(row.start_at).getTime();
+                const endMs = new Date(row.end_at).getTime();
+                if (nowMs < startMs) {
+                    isLocked = false;
+                    lockStatus = 'SCHEDULED';
+                    remainingSeconds = Math.max(0, Math.floor((endMs - nowMs) / 1000));
+                } else if (nowMs >= startMs && nowMs < endMs) {
+                    isLocked = true;
+                    lockStatus = 'LOCKED';
+                    remainingSeconds = Math.max(0, Math.floor((endMs - nowMs) / 1000));
+                } else {
+                    isLocked = false;
+                    lockStatus = 'AVAILABLE';
+                    lockType = 'NONE';
+                    remainingSeconds = 0;
+                }
+            } else if (isLocked && row.end_at) {
+                const endMs = new Date(row.end_at).getTime();
+                if (nowMs >= endMs) {
+                    isLocked = false;
+                    lockStatus = 'AVAILABLE';
+                    lockType = 'NONE';
+                    remainingSeconds = 0;
+                } else {
+                    remainingSeconds = Math.max(0, Math.floor((endMs - nowMs) / 1000));
+                }
+            }
+
+            let displayReopen = null;
+            if (row.end_at) {
+                const end = new Date(row.end_at);
+                if (!isNaN(end.getTime())) {
+                    const isToday = end.toDateString() === now.toDateString();
+                    const tomorrow = new Date(nowMs + 86400000);
+                    const isTomorrow = end.toDateString() === tomorrow.toDateString();
+
+                    let hours = end.getHours();
+                    const minutes = end.getMinutes();
+                    const ampm = hours >= 12 ? 'pm' : 'am';
+                    hours = hours % 12 || 12;
+                    const minStr = String(minutes).padStart(2, '0');
+                    const timeStr = `${hours}:${minStr} ${ampm}`;
+
+                    let dayWording = 'today';
+                    if (isToday) dayWording = 'today';
+                    else if (isTomorrow) dayWording = 'tomorrow';
+                    else dayWording = `on ${end.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}`;
+
+                    displayReopen = {
+                        time: timeStr,
+                        day: dayWording,
+                        fullHeadline: `We'll reopen at ${timeStr}, ${dayWording}`
+                    };
+                }
+            }
+            if (!displayReopen) {
+                displayReopen = {
+                    fullHeadline: row.message || (isLocked ? "Store is currently CLOSED for orders" : "Store is OPEN for orders")
+                };
+            }
+
             return {
                 ...row,
-                is_locked: Boolean(row.is_locked)
+                is_locked: isLocked,
+                lock_status: lockStatus,
+                lock_type: lockType,
+                start_at: row.start_at || null,
+                end_at: row.end_at || null,
+                reopen_at: row.end_at || null,
+                remaining_seconds: remainingSeconds,
+                display_reopen: displayReopen,
+                server_time: now.toISOString()
             };
         },
 
