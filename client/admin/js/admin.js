@@ -3141,19 +3141,65 @@ async function quickSetOrderStatus(orderId, newStatus, e) {
 }
 
 // ================= 6. PRODUCT MODAL (ADD / EDIT & PHOTO UPLOAD) =================
-function handleProductFileSelect(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
+function handleProductDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const zone = document.getElementById('product-dropzone');
+    if (zone) zone.classList.add('border-[#10B981]', 'bg-[#10B981]/10');
+}
 
+function handleProductDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const zone = document.getElementById('product-dropzone');
+    if (zone) zone.classList.remove('border-[#10B981]', 'bg-[#10B981]/10');
+}
+
+function handleProductDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const zone = document.getElementById('product-dropzone');
+    if (zone) zone.classList.remove('border-[#10B981]', 'bg-[#10B981]/10');
+    const file = e.dataTransfer?.files?.[0];
+    if (file) processProductImageFile(file);
+}
+
+function setProductImageUploadState(status) {
+    let badge = document.getElementById('product-img-upload-badge');
+    const previewBox = document.getElementById('product-img-preview-box');
+    if (!badge && previewBox) {
+        badge = document.createElement('div');
+        badge.id = 'product-img-upload-badge';
+        previewBox.appendChild(badge);
+    }
+    if (!badge) return;
+
+    if (status === 'uploading') {
+        badge.className = 'absolute bottom-1 left-1 right-1 text-[10px] font-bold text-center py-0.5 px-1 rounded bg-amber-500/90 text-white shadow-sm flex items-center justify-center gap-1 z-10';
+        badge.innerHTML = '<span class="material-symbols-outlined text-[12px] animate-spin">sync</span> Uploading...';
+    } else if (status === 'success') {
+        badge.className = 'absolute bottom-1 left-1 right-1 text-[10px] font-bold text-center py-0.5 px-1 rounded bg-emerald-600/90 text-white shadow-sm flex items-center justify-center gap-1 z-10';
+        badge.innerHTML = '<span class="material-symbols-outlined text-[12px]">cloud_done</span> Ready';
+        setTimeout(() => { if (badge && badge.parentElement) badge.remove(); }, 3500);
+    } else if (status === 'error') {
+        badge.className = 'absolute bottom-1 left-1 right-1 text-[10px] font-bold text-center py-0.5 px-1 rounded bg-rose-600/90 text-white shadow-sm flex items-center justify-center gap-1 z-10';
+        badge.innerHTML = '<span class="material-symbols-outlined text-[12px]">error</span> Failed';
+    } else {
+        badge.remove();
+    }
+}
+
+function processProductImageFile(file) {
+    if (!file) return;
     if (!file.type.startsWith('image/')) {
-        alert('Please select an image file (PNG, JPG, WEBP).');
+        alert('Please select a valid image file (PNG, JPG, WEBP).');
         return;
     }
 
     const reader = new FileReader();
     reader.onload = (e) => {
         const img = new Image();
-        img.onload = () => {
+        img.onload = async () => {
             const maxDim = 800;
             let width = img.width;
             let height = img.height;
@@ -3171,16 +3217,47 @@ function handleProductFileSelect(event) {
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, width, height);
-            const compressed = canvas.toDataURL('image/jpeg', 0.82);
+            const compressed = canvas.toDataURL('image/jpeg', 0.85);
 
             const preview = document.getElementById('product-img-preview');
             const urlInput = document.getElementById('form-product-image');
             if (preview) preview.src = compressed;
             if (urlInput) urlInput.value = compressed;
+
+            // Direct upload with instant visual indicator
+            setProductImageUploadState('uploading');
+            try {
+                const prodName = document.getElementById('form-product-name')?.value?.trim() || file.name.replace(/\.[^/.]+$/, '');
+                const uploadRes = await fetch('/api/products/admin/upload-image', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ 
+                        image_data: compressed,
+                        filename: prodName
+                    })
+                });
+                const uploadData = await uploadRes.json();
+                if (uploadData.success && uploadData.image_url) {
+                    if (urlInput) urlInput.value = uploadData.image_url;
+                    setProductImageUploadState('success');
+                } else {
+                    setProductImageUploadState('error');
+                    console.warn('[Image Upload Notice]:', uploadData.error);
+                }
+            } catch (upErr) {
+                console.warn('[Image Upload Error]:', upErr);
+                setProductImageUploadState('error');
+            }
         };
         img.src = e.target.result;
     };
     reader.readAsDataURL(file);
+}
+
+function handleProductFileSelect(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    processProductImageFile(file);
 }
 
 function handleImageUrlInput(url) {
@@ -3194,9 +3271,11 @@ function clearProductImage() {
     const preview = document.getElementById('product-img-preview');
     const urlInput = document.getElementById('form-product-image');
     const fileInput = document.getElementById('form-product-file');
+    const badge = document.getElementById('product-img-upload-badge');
     if (preview) preview.src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200';
     if (urlInput) urlInput.value = '';
     if (fileInput) fileInput.value = '';
+    if (badge) badge.remove();
 }
 
 function openProductModal(product = null) {
@@ -3204,7 +3283,9 @@ function openProductModal(product = null) {
     const deleteBtn = document.getElementById('btn-modal-delete-product');
     const preview = document.getElementById('product-img-preview');
     const fileInput = document.getElementById('form-product-file');
+    const badge = document.getElementById('product-img-upload-badge');
     if (fileInput) fileInput.value = '';
+    if (badge) badge.remove();
 
     if (product) {
         document.getElementById('modal-product-title').textContent = 'Edit Product';
@@ -3270,6 +3351,7 @@ async function handleProductSubmit(e) {
 
         // If a photo was selected as a local file (base64 Data URL), upload it to Supabase Storage
         if (imageUrl.startsWith('data:image/')) {
+            setProductImageUploadState('uploading');
             try {
                 const uploadRes = await fetch('/api/products/admin/upload-image', {
                     method: 'POST',
@@ -3283,9 +3365,13 @@ async function handleProductSubmit(e) {
                 if (uploadData.success && uploadData.image_url) {
                     imageUrl = uploadData.image_url;
                     document.getElementById('form-product-image').value = imageUrl;
+                    setProductImageUploadState('success');
+                } else {
+                    setProductImageUploadState('error');
                 }
             } catch (upErr) {
                 console.warn('[Image Upload Notice]:', upErr);
+                setProductImageUploadState('error');
             }
         }
 

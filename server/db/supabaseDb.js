@@ -1,6 +1,28 @@
+const fs = require('fs');
+const path = require('path');
 const { getSupabaseClient } = require('../supabase');
 const { v4: uuidv4 } = require('uuid');
 const cache = require('../cache');
+
+let localUploadsSet = null;
+let lastUploadsScan = 0;
+function getLocalUploadsSet() {
+    const now = Date.now();
+    if (!localUploadsSet || (now - lastUploadsScan > 15000)) {
+        try {
+            const uploadDir = path.join(__dirname, '..', '..', 'public', 'uploads');
+            if (fs.existsSync(uploadDir)) {
+                localUploadsSet = new Set(fs.readdirSync(uploadDir));
+            } else {
+                localUploadsSet = new Set();
+            }
+        } catch (e) {
+            localUploadsSet = new Set();
+        }
+        lastUploadsScan = now;
+    }
+    return localUploadsSet;
+}
 
 /**
  * Pure PostgreSQL Database Repository for LPUQuick
@@ -16,9 +38,21 @@ const supabaseDb = {
             const match = (p.tags || '').match(/stock:(\d+)/);
             const stock_left = match ? parseInt(match[1], 10) : (p.in_stock ? 50 : 0);
             let image_url = p.image_url;
+            const localUploads = getLocalUploadsSet();
+            const supabaseBaseUrl = process.env.SUPABASE_URL || 'https://yojndzstlilzlkxonmvd.supabase.co';
+
             if (image_url && image_url.includes('supabase.co/storage/v1/object/public/products/')) {
                 const filename = image_url.split('/').pop().split('?')[0];
-                image_url = `/uploads/${filename}`;
+                if (localUploads.has(filename)) {
+                    image_url = `/uploads/${filename}`;
+                }
+                // If not available on local disk, keep the live Supabase Storage CDN URL
+            } else if (image_url && image_url.startsWith('/uploads/')) {
+                const filename = image_url.replace('/uploads/', '').split('?')[0];
+                if (!localUploads.has(filename) && filename) {
+                    // Reconstruct cloud Supabase Storage URL if local upload file is not present
+                    image_url = `${supabaseBaseUrl}/storage/v1/object/public/products/${filename}`;
+                }
             }
             return {
                 ...p,

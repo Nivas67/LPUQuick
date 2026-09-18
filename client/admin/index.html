@@ -2185,6 +2185,9 @@
                         <!-- Upload Zone & File Picker -->
                         <div class="flex-1 w-full space-y-2">
                             <div id="product-dropzone" onclick="document.getElementById('form-product-file').click()"
+                                ondragover="handleProductDragOver(event)"
+                                ondragleave="handleProductDragLeave(event)"
+                                ondrop="handleProductDrop(event)"
                                 class="border-2 border-dashed border-[#DADCE0] hover:border-[#10B981] hover:bg-[#10B981]/5 rounded-2xl p-3 sm:p-4 flex flex-col items-center justify-center gap-1 cursor-pointer bg-[#fafbfc] transition-all text-center">
                                 <span
                                     class="material-symbols-outlined text-2xl text-[#10B981]">add_photo_alternate</span>
@@ -3341,7 +3344,7 @@
     <div id="partner-modal-container"></div>
 
     <!-- Application Script Reference -->
-    <script src="/admin/js/admin.js?v=20260909_backup_v2"></script>
+    <script src="/admin/js/admin.js?v=20260918_img_fix"></script>
 </body>
 
 </html>

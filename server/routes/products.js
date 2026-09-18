@@ -30,8 +30,22 @@ async function uploadBase64ToSupabaseStorage(base64Data, preferredName = null) {
 
     const cleanFileName = preferredName ? `${preferredName}_${Date.now()}.${ext}` : `prod_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
 
+    // 1. Mirror directly to local uploads directory for immediate zero-latency serving
+    try {
+        const publicUploads = path.join(__dirname, '..', '..', 'public', 'uploads');
+        if (!fs.existsSync(publicUploads)) fs.mkdirSync(publicUploads, { recursive: true });
+        fs.writeFileSync(path.join(publicUploads, cleanFileName), buffer);
+
+        const clientUploads = path.join(__dirname, '..', '..', 'client', 'uploads');
+        if (fs.existsSync(clientUploads)) {
+            fs.writeFileSync(path.join(clientUploads, cleanFileName), buffer);
+        }
+    } catch (fsErr) {
+        console.warn('[Local Image Save Warning]:', fsErr.message);
+    }
+
     const supabase = getSupabaseClient();
-    if (!supabase) return base64Data;
+    if (!supabase) return `/uploads/${cleanFileName}`;
 
     try {
         await supabase.storage.createBucket('products', { public: true, fileSizeLimit: 5242880 });
@@ -46,11 +60,11 @@ async function uploadBase64ToSupabaseStorage(base64Data, preferredName = null) {
 
     if (uploadErr) {
         console.warn('[Supabase Storage Upload Notice]:', uploadErr.message);
-        return base64Data;
+        return `/uploads/${cleanFileName}`;
     }
 
     const { data: pubData } = supabase.storage.from('products').getPublicUrl(cleanFileName);
-    return pubData?.publicUrl || base64Data;
+    return pubData?.publicUrl || `/uploads/${cleanFileName}`;
 }
 
 // POST /api/products/admin/upload-image (Save uploaded photo directly to Supabase Storage CDN)
