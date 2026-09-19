@@ -1,5 +1,7 @@
-// LPUQuick High-Performance Ultra-Fast Service Worker (V2026.09.07-InstallV9)
-const CACHE_NAME = 'lpuquick-pwa-v9-install';
+// LPUQuick High-Performance Ultra-Fast Service Worker (V2026.09.19-OfflineResilienceV10)
+const CACHE_NAME = 'lpuquick-pwa-v10-shell';
+const API_CACHE_NAME = 'lpuquick-api-cache-v1';
+
 const STATIC_ASSETS = [
     '/',
     '/index.html',
@@ -13,6 +15,27 @@ const STATIC_ASSETS = [
     '/css/styles.css'
 ];
 
+// Helper: Fetch with timeout for low-signal / spotty network fallback
+function fetchWithTimeout(request, timeoutMs = 2500) {
+    return new Promise((resolve, reject) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => {
+            controller.abort();
+            reject(new Error('NETWORK_TIMEOUT'));
+        }, timeoutMs);
+
+        fetch(request, { signal: controller.signal })
+            .then((res) => {
+                clearTimeout(timer);
+                resolve(res);
+            })
+            .catch((err) => {
+                clearTimeout(timer);
+                reject(err);
+            });
+    });
+}
+
 // Install: Pre-cache core shell
 self.addEventListener('install', (event) => {
     self.skipWaiting();
@@ -25,14 +48,14 @@ self.addEventListener('install', (event) => {
     );
 });
 
-// Activate: Immediately purge all legacy caches and claim clients
+// Activate: Immediately purge outdated legacy caches and claim clients
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         Promise.all([
             caches.keys().then((keys) => {
                 return Promise.all(
                     keys.map((key) => {
-                        if (key !== CACHE_NAME) {
+                        if (key !== CACHE_NAME && key !== API_CACHE_NAME) {
                             console.log('[SW] Purging outdated cache:', key);
                             return caches.delete(key);
                         }
@@ -44,25 +67,65 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// Fetch Strategy:
-// 1. Dynamic APIs, WebSockets, Supabase, and Admin -> Direct Network Only (Never cached)
-// 2. JavaScript Application Code & HTML -> Network-First (Always loads fresh code, offline fallback)
-// 3. Static Media / Images / Fonts -> Cache-First for maximum mobile scrolling speed
+// Fetch Strategy with Low-Signal & Offline Resilience:
+// 1. Read-only Public Catalog GET APIs -> Network-First with 2.2s timeout fallback to API cache
+// 2. JavaScript Application Code & HTML -> Network-First with 1.8s timeout fallback to core shell cache
+// 3. Static Media / Images / Fonts -> Cache-First for instant mobile rendering
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
-    // Skip non-GET requests, dynamic APIs, WebSocket, Supabase, and Admin routes
+    // Skip non-GET requests, WebSocket, Supabase direct calls, and Admin routes
     if (event.request.method !== 'GET' ||
-        url.pathname.startsWith('/api/') ||
         url.pathname.startsWith('/admin') ||
         url.hostname.includes('supabase.co')) {
         return;
     }
 
-    // 1. Application JavaScript & HTML: NETWORK-FIRST (Guarantees zero stale code on mobile)
-    if (url.pathname.endsWith('.js') || url.pathname === '/' || url.pathname.endsWith('.html')) {
+    // 1. Read-Only Public Catalog GET APIs: Network-First with 2.2s Low-Signal Timeout Fallback to Cache
+    const isPublicCatalogApi = (
+        url.pathname === '/api/home' ||
+        url.pathname === '/api/banners' ||
+        url.pathname.startsWith('/api/products') ||
+        url.pathname.startsWith('/api/categories') ||
+        url.pathname === '/api/client/status'
+    );
+
+    if (isPublicCatalogApi) {
         event.respondWith(
-            fetch(event.request, { cache: 'no-cache' })
+            fetchWithTimeout(event.request, 2200)
+                .then((networkResponse) => {
+                    if (networkResponse && networkResponse.status === 200) {
+                        const clone = networkResponse.clone();
+                        caches.open(API_CACHE_NAME).then((cache) => cache.put(event.request, clone));
+                    }
+                    return networkResponse;
+                })
+                .catch(() => {
+                    // Spotty / weak connection timeout or offline: serve cached snapshot
+                    return caches.open(API_CACHE_NAME).then((cache) => {
+                        return cache.match(event.request).then((cached) => {
+                            if (cached) return cached;
+                            // If no cache, return clean JSON fallback
+                            return new Response(JSON.stringify({ offline: true }), {
+                                status: 200,
+                                headers: { 'Content-Type': 'application/json' }
+                            });
+                        });
+                    });
+                })
+        );
+        return;
+    }
+
+    // Skip other dynamic APIs (auth, cart mutations, checkout, notifications)
+    if (url.pathname.startsWith('/api/')) {
+        return;
+    }
+
+    // 2. Application Core Shell (HTML, JS, CSS): Network-First with 1.8s Timeout Fallback to Cache
+    if (url.pathname.endsWith('.js') || url.pathname === '/' || url.pathname.endsWith('.html') || url.pathname.endsWith('.css')) {
+        event.respondWith(
+            fetchWithTimeout(event.request, 1800)
                 .then((networkResponse) => {
                     if (networkResponse && networkResponse.status === 200) {
                         const responseClone = networkResponse.clone();
@@ -70,22 +133,32 @@ self.addEventListener('fetch', (event) => {
                     }
                     return networkResponse;
                 })
-                .catch(() => caches.match(event.request))
+                .catch(() => {
+                    return caches.match(event.request).then((cached) => {
+                        if (cached) return cached;
+                        if (url.pathname === '/' || url.pathname.endsWith('.html')) {
+                            return caches.match('/index.html');
+                        }
+                        return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+                    });
+                })
         );
         return;
     }
 
-    // 2. Static Media, Images, Fonts, Icons: Cache-First for instant 60fps mobile scrolling
+    // 3. Static Media, Images, Fonts, Icons: Cache-First for instant scrolling and low-data consumption
     event.respondWith(
         caches.match(event.request).then((cachedResponse) => {
             if (cachedResponse) return cachedResponse;
 
             return fetch(event.request).then((networkResponse) => {
-                if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+                if (networkResponse && networkResponse.status === 200 && (networkResponse.type === 'basic' || networkResponse.type === 'cors')) {
                     const responseClone = networkResponse.clone();
                     caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
                 }
                 return networkResponse;
+            }).catch(() => {
+                return new Response('', { status: 408, statusText: 'Request Timeout' });
             });
         })
     );
