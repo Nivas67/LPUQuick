@@ -29,7 +29,6 @@ router.get('/', async (req, res) => {
             return { categories: result };
         }, 300000);
 
-        res.setHeader('Cache-Control', 'public, max-age=15, stale-while-revalidate=120');
         res.json(payload);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -69,7 +68,6 @@ router.get('/:name', async (req, res) => {
             };
         }, 300000);
 
-        res.setHeader('Cache-Control', 'public, max-age=15, stale-while-revalidate=120');
         res.json(payload);
     } catch (err) {
         res.status(500).json({ error: err.message });

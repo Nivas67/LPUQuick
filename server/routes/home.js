@@ -153,7 +153,6 @@ router.get('/', async (req, res) => {
 
         const bannerData = getActiveBannersData();
 
-        res.setHeader('Cache-Control', 'public, max-age=10, stale-while-revalidate=120');
         // 3. Fast shallow merge and send
         res.json({
             ...baseFeed,
@@ -171,7 +170,6 @@ router.get('/', async (req, res) => {
 router.get('/banners', (req, res) => {
     try {
         const bannerData = getActiveBannersData();
-        res.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
         res.json({
             success: true,
             posters: bannerData.posters,

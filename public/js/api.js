@@ -1,48 +1,5 @@
-// LPUQuick High-Speed API Client with Intelligent Request Caching & Low-Signal Offline Engine
+// LPUQuick High-Speed API Client with Intelligent Request Caching
 const API_BASE = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null') ? `${window.location.origin}/api` : '/api';
-
-// Persistent LocalStorage Keys for Low-Signal Resilience
-const STORAGE_KEYS = {
-    HOME: 'lpuquick_cached_home_feed',
-    CATEGORIES: 'lpuquick_cached_categories',
-    PRODUCTS_ALL: 'lpuquick_cached_products_all',
-    CART_STATE: 'lpuquick_cached_cart_state',
-    CART_MEM: 'lpuquick_cached_cart_memory'
-};
-
-function readStorageJson(key, defaultVal = null) {
-    if (typeof localStorage === 'undefined') return defaultVal;
-    try {
-        const raw = localStorage.getItem(key);
-        return raw ? JSON.parse(raw) : defaultVal;
-    } catch (e) {
-        return defaultVal;
-    }
-}
-
-function writeStorageJson(key, val) {
-    if (typeof localStorage === 'undefined') return;
-    try {
-        localStorage.setItem(key, JSON.stringify(val));
-    } catch (e) {
-        // Safe fail on quota or private browsing
-    }
-}
-
-// Low-Signal Resilient Fetch with AbortController Timeout (Avoids infinite hanging on 2G/3G)
-async function fetchWithTimeout(url, options = {}, timeoutMs = 3500) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-        const opts = { ...options, signal: controller.signal };
-        const res = await fetch(url, opts);
-        clearTimeout(timer);
-        return res;
-    } catch (err) {
-        clearTimeout(timer);
-        throw err;
-    }
-}
 
 const searchCache = new Map();
 let categoriesCache = null;
@@ -50,16 +7,6 @@ let categoriesCacheTime = 0;
 let homeFeedCache = null;
 let homeFeedCacheTime = 0;
 let homeFeedCacheUserId = null;
-
-let cartMemoryCache = null;
-let cartMemoryCacheTime = 0;
-let ordersMemoryCache = null;
-let ordersMemoryCacheTime = 0;
-let activeOrderMemoryCache = null;
-let activeOrderMemoryCacheTime = 0;
-
-let productsMemoryCache = new Map();
-let productsMemoryCacheTime = new Map();
 
 window.__cachedProducts = window.__cachedProducts || new Map();
 
@@ -70,41 +17,6 @@ function indexProducts(items) {
             window.__cachedProducts.set(p.id, p);
         }
     });
-}
-
-// Synchronous Startup Hydration (0ms Instant First Render even offline or on 2G)
-try {
-    const cachedHome = readStorageJson(STORAGE_KEYS.HOME);
-    if (cachedHome && typeof cachedHome === 'object') {
-        homeFeedCache = cachedHome;
-        homeFeedCacheTime = Date.now() - 30000;
-        if (cachedHome.deals) indexProducts(cachedHome.deals);
-        if (cachedHome.bestSellers) indexProducts(cachedHome.bestSellers);
-        if (cachedHome.recommended) indexProducts(cachedHome.recommended);
-        if (cachedHome.all_products) indexProducts(cachedHome.all_products);
-    }
-    const cachedCats = readStorageJson(STORAGE_KEYS.CATEGORIES);
-    if (cachedCats && Array.isArray(cachedCats)) {
-        categoriesCache = cachedCats;
-        categoriesCacheTime = Date.now() - 30000;
-    }
-    const cachedProds = readStorageJson(STORAGE_KEYS.PRODUCTS_ALL);
-    if (cachedProds && Array.isArray(cachedProds.products)) {
-        productsMemoryCache.set('__all__', cachedProds);
-        productsMemoryCacheTime.set('__all__', Date.now() - 30000);
-        indexProducts(cachedProds.products);
-    }
-    const cachedCartState = readStorageJson(STORAGE_KEYS.CART_STATE);
-    if (cachedCartState && typeof cachedCartState === 'object') {
-        window.cartState = cachedCartState;
-    }
-    const cachedCartMem = readStorageJson(STORAGE_KEYS.CART_MEM);
-    if (cachedCartMem && typeof cachedCartMem === 'object') {
-        cartMemoryCache = cachedCartMem;
-        cartMemoryCacheTime = Date.now() - 30000;
-    }
-} catch (e) {
-    console.warn('[LPUQuick Hydration Warning]', e);
 }
 
 window.__pendingCartSync = window.__pendingCartSync || {};
@@ -144,7 +56,6 @@ function updateLocalCartState(cartData) {
             }
         });
         window.cartState = nextState;
-        writeStorageJson(STORAGE_KEYS.CART_STATE, window.cartState);
     }
     if (typeof window.updateGlobalCartBadges === 'function') {
         window.updateGlobalCartBadges();
@@ -195,7 +106,6 @@ window.setOptimisticCartQuantity = function(productId, targetQty, maxStock = 50,
     } else {
         delete window.cartState[productId];
     }
-    writeStorageJson(STORAGE_KEYS.CART_STATE, window.cartState);
 
     // 3. Synchronously update cartMemoryCache so getCart() and page renders are always 100% accurate
     if (cartMemoryCache && Array.isArray(cartMemoryCache.items)) {
@@ -261,7 +171,6 @@ window.setOptimisticCartQuantity = function(productId, targetQty, maxStock = 50,
             total_items: totalQuantity
         };
         cartMemoryCacheTime = Date.now();
-        writeStorageJson(STORAGE_KEYS.CART_MEM, cartMemoryCache);
     }
     
     if (typeof window.updateSingleProductSlot === 'function') {
@@ -290,7 +199,6 @@ window.setOptimisticCartQuantity = function(productId, targetQty, maxStock = 50,
             if (res && Array.isArray(res.items)) {
                 cartMemoryCache = res;
                 cartMemoryCacheTime = Date.now();
-                writeStorageJson(STORAGE_KEYS.CART_MEM, cartMemoryCache);
                 updateLocalCartState(res);
             }
             if (typeof onSynced === 'function') onSynced(finalQty);
@@ -315,6 +223,16 @@ window.setOptimisticCartQuantity = function(productId, targetQty, maxStock = 50,
         }
     }, 150);
 };
+
+let cartMemoryCache = null;
+let cartMemoryCacheTime = 0;
+let ordersMemoryCache = null;
+let ordersMemoryCacheTime = 0;
+let activeOrderMemoryCache = null;
+let activeOrderMemoryCacheTime = 0;
+
+let productsMemoryCache = new Map();
+let productsMemoryCacheTime = new Map();
 
 const api = {
     // Auth
@@ -354,15 +272,51 @@ const api = {
         return res.json();
     },
 
-    // Home with Intelligent SWR Memory Cache & Offline Local Storage (0ms instant page loads)
+    // Home with Intelligent SWR Memory Cache (0ms instant page loads)
     async fetchHome(userId = null) {
         const uid = userId || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : window.CURRENT_USER_ID) || '';
         const tz = new Date().getTimezoneOffset();
         const url = uid ? `${API_BASE}/home?tz=${tz}&userId=${encodeURIComponent(uid)}` : `${API_BASE}/home?tz=${tz}`;
         const now = Date.now();
 
-        const processHomeData = (data) => {
-            if (!data) return;
+        // 1. Instant 0ms Memory Cache if fresh (< 45s)
+        if (homeFeedCache && homeFeedCacheUserId === uid && (now - homeFeedCacheTime < 45000)) {
+            return homeFeedCache;
+        }
+
+        // 2. If stale cache exists, return it immediately (0ms) and revalidate silently in background
+        if (homeFeedCache && homeFeedCacheUserId === uid) {
+            fetch(url)
+                .then(res => res.json())
+                .then(data => {
+                    if (data) {
+                        indexProducts(data.deals);
+                        indexProducts(data.bestSellers);
+                        indexProducts(data.recommended);
+                        indexProducts(data.quickBreakfast);
+                        indexProducts(data.midnightSnacks);
+                        indexProducts(data.studyEssentials);
+                        indexProducts(data.dormBeverages);
+                        indexProducts(data.buy_again);
+                        if (Array.isArray(data.all_products) && data.all_products.length > 0) {
+                            indexProducts(data.all_products);
+                            productsMemoryCache.set('__all__', { products: data.all_products });
+                            productsMemoryCacheTime.set('__all__', Date.now());
+                        }
+                        homeFeedCache = data;
+                        homeFeedCacheTime = Date.now();
+                        homeFeedCacheUserId = uid;
+                    }
+                })
+                .catch(() => {});
+            return homeFeedCache;
+        }
+
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        // Index all loaded products for instant modal & search lookups
+        if (data) {
             indexProducts(data.deals);
             indexProducts(data.bestSellers);
             indexProducts(data.recommended);
@@ -375,58 +329,15 @@ const api = {
                 indexProducts(data.all_products);
                 productsMemoryCache.set('__all__', { products: data.all_products });
                 productsMemoryCacheTime.set('__all__', Date.now());
-                writeStorageJson(STORAGE_KEYS.PRODUCTS_ALL, { products: data.all_products });
             }
             homeFeedCache = data;
             homeFeedCacheTime = Date.now();
             homeFeedCacheUserId = uid;
-            writeStorageJson(STORAGE_KEYS.HOME, data);
-        };
-
-        // 1. Instant 0ms Memory Cache if fresh (< 30s)
-        if (homeFeedCache && homeFeedCacheUserId === uid && (now - homeFeedCacheTime < 30000)) {
-            return homeFeedCache;
         }
-
-        // 2. If stale cache exists, return it immediately (0ms) and revalidate silently in background
-        if (homeFeedCache) {
-            fetchWithTimeout(url, {}, 3500)
-                .then(res => res.json())
-                .then(data => {
-                    if (data && !data.error) {
-                        processHomeData(data);
-                        if (typeof window !== 'undefined') {
-                            window.dispatchEvent(new CustomEvent('lpuquick:home-updated', { detail: data }));
-                        }
-                    }
-                })
-                .catch(() => {});
-            return homeFeedCache;
-        }
-
-        // 3. No memory cache: fast network fetch with 3.5s timeout (prevents hanging on low signal)
-        try {
-            const res = await fetchWithTimeout(url, {}, 3500);
-            const data = await res.json();
-            if (data && !data.error) {
-                processHomeData(data);
-                return data;
-            }
-        } catch (err) {
-            console.warn('[Home Feed Network Fallback]', err.message);
-        }
-
-        // 4. If network failed or timed out, load from localStorage snapshot
-        const stored = readStorageJson(STORAGE_KEYS.HOME);
-        if (stored) {
-            processHomeData(stored);
-            return stored;
-        }
-
-        return { deals: [], bestSellers: [], recommended: [], categories: [] };
+        return data;
     },
 
-    // Search with 0ms In-Memory Fast-Path + Resilient Network Timeout
+    // Search with 0ms In-Memory Fast-Path + 60s Query Cache
     async searchProducts(query) {
         const q = (query || '').trim().toLowerCase();
         if (!q) return { results: [], suggestions: [] };
@@ -457,109 +368,67 @@ const api = {
             return cached.data;
         }
 
-        try {
-            const res = await fetchWithTimeout(`${API_BASE}/search?q=${encodeURIComponent(q)}`, {}, 3000);
-            const data = await res.json();
-            if (data && Array.isArray(data.results)) {
-                indexProducts(data.results);
-            }
-            searchCache.set(q, { time: Date.now(), data });
-            if (searchCache.size > 50) {
-                searchCache.delete(searchCache.keys().next().value);
-            }
-            return data;
-        } catch (err) {
-            console.warn('[Search Network Fallback]', err.message);
-            if (window.__cachedProducts && window.__cachedProducts.size > 0) {
-                const localMatches = [];
-                for (const product of window.__cachedProducts.values()) {
-                    const name = (product.name || '').toLowerCase();
-                    const cat = (product.category || '').toLowerCase();
-                    const brand = (product.brand || '').toLowerCase();
-                    if (name.includes(q) || cat.includes(q) || brand.includes(q)) {
-                        localMatches.push(product);
-                    }
-                }
-                return { results: localMatches, suggestions: [], fromMemory: true };
-            }
-            return { results: [], suggestions: [] };
+        const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        if (data && Array.isArray(data.results)) {
+            indexProducts(data.results);
         }
+        searchCache.set(q, { time: Date.now(), data });
+        if (searchCache.size > 50) {
+            searchCache.delete(searchCache.keys().next().value);
+        }
+        return data;
     },
 
-    // Products List with 0ms SWR Memory Cache & Offline Fallback
+    // Products List with 0ms SWR Memory Cache (Zero-lag navigation across catalog)
     async getProducts(category = null) {
         const cacheKey = category || '__all__';
         const now = Date.now();
         const cached = productsMemoryCache.get(cacheKey);
         const cachedTime = productsMemoryCacheTime.get(cacheKey) || 0;
 
-        const processProductsData = (data) => {
-            if (data && Array.isArray(data.products)) {
-                indexProducts(data.products);
-                productsMemoryCache.set(cacheKey, data);
-                productsMemoryCacheTime.set(cacheKey, Date.now());
-                if (cacheKey === '__all__') {
-                    writeStorageJson(STORAGE_KEYS.PRODUCTS_ALL, data);
-                }
-            }
-        };
-
-        // Return immediately if fresh (< 30s)
-        if (cached && (now - cachedTime < 30000)) {
+        // Return immediately if fresh (< 45s)
+        if (cached && (now - cachedTime < 45000)) {
             return cached;
         }
 
-        const url = category ? `${API_BASE}/products?category=${encodeURIComponent(category)}` : `${API_BASE}/products`;
-
         // If stale cache exists, return it immediately (0ms) and revalidate in background
         if (cached) {
-            fetchWithTimeout(url, {}, 3500)
+            fetch(category ? `${API_BASE}/products?category=${encodeURIComponent(category)}` : `${API_BASE}/products`)
                 .then(res => res.json())
-                .then(data => processProductsData(data))
+                .then(data => {
+                    if (data && Array.isArray(data.products)) {
+                        indexProducts(data.products);
+                        productsMemoryCache.set(cacheKey, data);
+                        productsMemoryCacheTime.set(cacheKey, Date.now());
+                    }
+                })
                 .catch(() => {});
             return cached;
         }
 
-        try {
-            const res = await fetchWithTimeout(url, {}, 3500);
-            const data = await res.json();
-            processProductsData(data);
-            return data;
-        } catch (err) {
-            console.warn('[Products Network Fallback]', err.message);
+        const url = category ? `${API_BASE}/products?category=${encodeURIComponent(category)}` : `${API_BASE}/products`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data && Array.isArray(data.products)) {
+            indexProducts(data.products);
+            productsMemoryCache.set(cacheKey, data);
+            productsMemoryCacheTime.set(cacheKey, Date.now());
         }
-
-        // Local storage or memory fallback for offline/low-signal
-        if (cacheKey === '__all__') {
-            const stored = readStorageJson(STORAGE_KEYS.PRODUCTS_ALL);
-            if (stored && Array.isArray(stored.products)) {
-                processProductsData(stored);
-                return stored;
-            }
-        }
-
-        if (window.__cachedProducts && window.__cachedProducts.size > 0) {
-            let list = Array.from(window.__cachedProducts.values());
-            if (category) {
-                list = list.filter(p => (p.category || '').toLowerCase() === category.toLowerCase());
-            }
-            return { products: list, count: list.length };
-        }
-
-        return { products: [], count: 0 };
+        return data;
     },
     async fetchProducts(category = null) {
         return this.getProducts(category);
     },
 
-    // Single Product Details (0ms in-memory fast path with timeout)
+    // Single Product Details (0ms in-memory fast path)
     async getProduct(id) {
         if (window.__cachedProducts && window.__cachedProducts.has(id)) {
             const cached = window.__cachedProducts.get(id);
             return { product: cached, ...cached };
         }
         try {
-            const res = await fetchWithTimeout(`${API_BASE}/products/${id}`, {}, 3000);
+            const res = await fetch(`${API_BASE}/products/${id}`);
             const data = await res.json();
             if (data && data.product) {
                 indexProducts([data.product]);
@@ -585,18 +454,16 @@ const api = {
         return res.json();
     },
 
-    // Cart (Instant 0ms SWR Memory Cache & Persistent Offline Storage)
+    // Cart (Instant 0ms SWR Memory Cache)
     async getCart(userId) {
         const now = Date.now();
         if (cartMemoryCache && Array.isArray(cartMemoryCache.items) && (now - cartMemoryCacheTime < 4000)) {
             return cartMemoryCache;
         }
         try {
-            const res = await fetchWithTimeout(`${API_BASE}/cart/${userId}`, {}, 3000);
+            const res = await fetch(`${API_BASE}/cart/${userId}`);
             if (!res.ok) {
                 if (cartMemoryCache && Array.isArray(cartMemoryCache.items)) return cartMemoryCache;
-                const storedMem = readStorageJson(STORAGE_KEYS.CART_MEM);
-                if (storedMem && Array.isArray(storedMem.items)) return storedMem;
                 return { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 } };
             }
             const data = await res.json();
@@ -623,8 +490,6 @@ const api = {
 
                 cartMemoryCache = data;
                 cartMemoryCacheTime = Date.now();
-                writeStorageJson(STORAGE_KEYS.CART_MEM, cartMemoryCache);
-
                 data.items.forEach(item => {
                     if (item.product_id && item.stock_left !== undefined) {
                         if (window.__cachedProducts && window.__cachedProducts.has(item.product_id)) {
@@ -637,20 +502,18 @@ const api = {
             }
             return data && Array.isArray(data.items) ? data : { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 } };
         } catch (err) {
-            console.warn('[getCart Network Fallback]', err.message);
+            console.error('[getCart Error]', err);
             if (cartMemoryCache && Array.isArray(cartMemoryCache.items)) return cartMemoryCache;
-            const storedMem = readStorageJson(STORAGE_KEYS.CART_MEM);
-            if (storedMem && Array.isArray(storedMem.items)) return storedMem;
             return { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 } };
         }
     },
     async setCartQuantity(userId, productId, quantity) {
         const uid = userId || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : window.CURRENT_USER_ID);
-        const res = await fetchWithTimeout(`${API_BASE}/cart/set-quantity`, {
+        const res = await fetch(`${API_BASE}/cart/set-quantity`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId: uid, productId, quantity })
-        }, 5000);
+        });
         const result = await res.json();
         if (!res.ok || result.error) {
             throw new Error(result.error || 'Failed to update item quantity');
@@ -658,16 +521,15 @@ const api = {
         if (result && Array.isArray(result.items)) {
             cartMemoryCache = result;
             cartMemoryCacheTime = Date.now();
-            writeStorageJson(STORAGE_KEYS.CART_MEM, cartMemoryCache);
             updateLocalCartState(result);
         }
         return result;
     },
     async addToCart(userId, productId, quantity = 1) {
-        const res = await fetchWithTimeout(`${API_BASE}/cart`, {
+        const res = await fetch(`${API_BASE}/cart`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, productId, quantity })
-        }, 5000);
+        });
         const result = await res.json();
         if (!res.ok || result.error) {
             throw new Error(result.error || 'Failed to add item to cart');
@@ -675,16 +537,15 @@ const api = {
         if (result && Array.isArray(result.items)) {
             cartMemoryCache = result;
             cartMemoryCacheTime = Date.now();
-            writeStorageJson(STORAGE_KEYS.CART_MEM, cartMemoryCache);
             updateLocalCartState(result);
         }
         return result;
     },
     async updateCartItem(cartId, quantity, userId) {
-        const res = await fetchWithTimeout(`${API_BASE}/cart/${cartId}`, {
+        const res = await fetch(`${API_BASE}/cart/${cartId}`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ quantity, userId })
-        }, 5000);
+        });
         const result = await res.json();
         if (!res.ok || result.error) {
             throw new Error(result.error || 'Failed to update item quantity');
@@ -692,18 +553,17 @@ const api = {
         if (result && Array.isArray(result.items)) {
             cartMemoryCache = result;
             cartMemoryCacheTime = Date.now();
-            writeStorageJson(STORAGE_KEYS.CART_MEM, cartMemoryCache);
             updateLocalCartState(result);
         }
         return result;
     },
     async removeCartItem(cartId) {
         const userId = typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : window.CURRENT_USER_ID;
-        const res = await fetchWithTimeout(`${API_BASE}/cart/${cartId}`, {
+        const res = await fetch(`${API_BASE}/cart/${cartId}`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId })
-        }, 5000);
+        });
         const result = await res.json();
         if (!res.ok || result.error) {
             throw new Error(result.error || 'Failed to remove item from cart');
@@ -711,21 +571,18 @@ const api = {
         if (result && Array.isArray(result.items)) {
             cartMemoryCache = result;
             cartMemoryCacheTime = Date.now();
-            writeStorageJson(STORAGE_KEYS.CART_MEM, cartMemoryCache);
             updateLocalCartState(result);
         }
         return result;
     },
     async clearCart(userId) {
         const uid = userId || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : window.CURRENT_USER_ID);
-        const res = await fetchWithTimeout(`${API_BASE}/cart/user/${uid}`, {
+        const res = await fetch(`${API_BASE}/cart/user/${uid}`, {
             method: 'DELETE'
-        }, 5000);
+        });
         const result = await res.json();
         cartMemoryCache = { items: [], item_count: 0, total_items: 0, pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 } };
         window.cartState = {};
-        writeStorageJson(STORAGE_KEYS.CART_STATE, {});
-        writeStorageJson(STORAGE_KEYS.CART_MEM, cartMemoryCache);
         if (typeof window.updateGlobalCartBadges === 'function') {
             window.updateGlobalCartBadges();
         }
@@ -734,16 +591,15 @@ const api = {
     async mergeCart(guestUserId, targetUserId) {
         if (!guestUserId || !targetUserId || guestUserId === targetUserId) return;
         try {
-            const res = await fetchWithTimeout(`${API_BASE}/cart/merge`, {
+            const res = await fetch(`${API_BASE}/cart/merge`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ guestUserId, targetUserId })
-            }, 5000);
+            });
             const result = await res.json();
             if (result && Array.isArray(result.items)) {
                 cartMemoryCache = result;
                 cartMemoryCacheTime = Date.now();
-                writeStorageJson(STORAGE_KEYS.CART_MEM, cartMemoryCache);
                 updateLocalCartState(result);
             }
             return result;
@@ -827,51 +683,37 @@ const api = {
         return res.json();
     },
 
-    // Orders (Instant 0ms SWR Memory Cache with Timeout Fallback)
+    // Orders (Instant 0ms SWR Memory Cache)
     async getOrders(userId) {
         if (ordersMemoryCache && (Date.now() - ordersMemoryCacheTime < 8000)) {
             return ordersMemoryCache;
         }
-        try {
-            const res = await fetchWithTimeout(`${API_BASE}/orders/${userId}`, {}, 4000);
-            const data = await res.json();
-            ordersMemoryCache = data;
-            ordersMemoryCacheTime = Date.now();
-            return data;
-        } catch (err) {
-            if (ordersMemoryCache) return ordersMemoryCache;
-            return [];
-        }
+        const res = await fetch(`${API_BASE}/orders/${userId}`);
+        const data = await res.json();
+        ordersMemoryCache = data;
+        ordersMemoryCacheTime = Date.now();
+        return data;
     },
     async getActiveOrder(userId) {
         if (activeOrderMemoryCache && (Date.now() - activeOrderMemoryCacheTime < 8000)) {
             return activeOrderMemoryCache;
         }
-        try {
-            const res = await fetchWithTimeout(`${API_BASE}/orders/${userId}/active`, {}, 4000);
-            const data = await res.json();
-            activeOrderMemoryCache = data;
-            activeOrderMemoryCacheTime = Date.now();
-            return data;
-        } catch (err) {
-            if (activeOrderMemoryCache) return activeOrderMemoryCache;
-            return { activeOrder: null };
-        }
+        const res = await fetch(`${API_BASE}/orders/${userId}/active`);
+        const data = await res.json();
+        activeOrderMemoryCache = data;
+        activeOrderMemoryCacheTime = Date.now();
+        return data;
     },
     async getOrderDetail(orderId) {
-        try {
-            const res = await fetchWithTimeout(`${API_BASE}/orders/detail/${orderId}`, {}, 4000);
-            return await res.json();
-        } catch (err) {
-            return { error: 'TIMEOUT_OR_NETWORK_ERROR' };
-        }
+        const res = await fetch(`${API_BASE}/orders/detail/${orderId}`);
+        return res.json();
     },
     async reorder(orderId, userId = (window.isUserLoggedIn() ? window.CURRENT_USER_ID : window.getEffectiveUserId())) {
-        const res = await fetchWithTimeout(`${API_BASE}/orders/${orderId}/reorder`, {
+        const res = await fetch(`${API_BASE}/orders/${orderId}/reorder`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId })
-        }, 5000);
+        });
         const result = await res.json();
         if (result && result.cart) {
             updateLocalCartState(result.cart);
@@ -880,80 +722,41 @@ const api = {
     },
 
     async cancelOrder(orderId, reason = '') {
-        const res = await fetchWithTimeout(`${API_BASE}/orders/${orderId}/cancel`, {
+        const res = await fetch(`${API_BASE}/orders/${orderId}/cancel`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ reason })
-        }, 5000);
+        });
         return res.json();
     },
     async changeOrderAddress(orderId, newAddress) {
-        const res = await fetchWithTimeout(`${API_BASE}/orders/${orderId}/change-address`, {
+        const res = await fetch(`${API_BASE}/orders/${orderId}/change-address`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ newAddress })
-        }, 5000);
+        });
         return res.json();
     },
 
-    // Categories with SWR Memory Caching & Offline Storage
+    // Categories with 60s memory caching
     async getCategories() {
-        const now = Date.now();
-        if (categoriesCache && (now - categoriesCacheTime < 45000)) {
+        if (categoriesCache && (Date.now() - categoriesCacheTime < 60000)) {
             return categoriesCache;
         }
-        if (categoriesCache) {
-            fetchWithTimeout(`${API_BASE}/categories`, {}, 3000)
-                .then(res => res.json())
-                .then(data => {
-                    if (Array.isArray(data)) {
-                        categoriesCache = data;
-                        categoriesCacheTime = Date.now();
-                        writeStorageJson(STORAGE_KEYS.CATEGORIES, data);
-                    }
-                })
-                .catch(() => {});
-            return categoriesCache;
-        }
-
-        try {
-            const res = await fetchWithTimeout(`${API_BASE}/categories`, {}, 3000);
-            const data = await res.json();
-            if (Array.isArray(data)) {
-                categoriesCache = data;
-                categoriesCacheTime = Date.now();
-                writeStorageJson(STORAGE_KEYS.CATEGORIES, data);
-                return data;
-            }
-        } catch (e) {
-            console.warn('[Categories Network Fallback]', e.message);
-        }
-
-        const stored = readStorageJson(STORAGE_KEYS.CATEGORIES);
-        if (stored) {
-            categoriesCache = stored;
-            return stored;
-        }
-        return [];
+        const res = await fetch(`${API_BASE}/categories`);
+        categoriesCache = await res.json();
+        categoriesCacheTime = Date.now();
+        return categoriesCache;
     },
     async getCategoryProducts(name) {
-        try {
-            const res = await fetchWithTimeout(`${API_BASE}/categories/${encodeURIComponent(name)}`, {}, 3500);
-            return await res.json();
-        } catch (e) {
-            if (window.__cachedProducts && window.__cachedProducts.size > 0) {
-                const list = Array.from(window.__cachedProducts.values())
-                    .filter(p => (p.category || '').toLowerCase() === (name || '').toLowerCase());
-                return { products: list, category: name };
-            }
-            return { products: [], category: name };
-        }
+        const res = await fetch(`${API_BASE}/categories/${encodeURIComponent(name)}`);
+        return res.json();
     },
 
     // Store Availability Status
     async getClientStatus() {
         try {
-            const res = await fetchWithTimeout(`${API_BASE}/client/status?_t=${Date.now()}`, {}, 2500);
+            const res = await fetch(`${API_BASE}/client/status?_t=${Date.now()}`);
             return await res.json();
         } catch (e) {
             return { is_locked: false, lock_status: 'AVAILABLE' };
@@ -964,7 +767,7 @@ const api = {
     async checkUserStatus(userId) {
         if (!userId) return { isBlocked: false };
         try {
-            const res = await fetchWithTimeout(`${API_BASE}/auth/check-status/${userId}?_t=${Date.now()}`, {}, 2500);
+            const res = await fetch(`${API_BASE}/auth/check-status/${userId}?_t=${Date.now()}`);
             return await res.json();
         } catch (e) {
             return { isBlocked: false };
@@ -1043,37 +846,11 @@ const api = {
 
     async getUserProfile(userId) {
         try {
-            const res = await fetchWithTimeout(`${API_BASE}/auth/profile/${userId}`, {}, 3000);
+            const res = await fetch(`${API_BASE}/auth/profile/${userId}`);
             return await res.json();
         } catch (err) {
             return null;
         }
-    },
-
-    // Soft Background Revalidation Engine (Parallel, Non-Blocking, 0ms Screen Freeze)
-    async revalidateAll() {
-        homeFeedCacheTime = 0;
-        categoriesCacheTime = 0;
-        productsMemoryCacheTime.clear();
-        cartMemoryCacheTime = 0;
-        const uid = typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : window.CURRENT_USER_ID;
-        const tasks = [
-            this.fetchHome(uid).catch(() => null),
-            this.getCategories().catch(() => null),
-            this.getProducts().catch(() => null)
-        ];
-        if (uid) {
-            tasks.push(this.getCart(uid).catch(() => null));
-        }
-        await Promise.allSettled(tasks);
-        if (typeof window.updateGlobalCartBadges === 'function') {
-            window.updateGlobalCartBadges();
-        }
-        return true;
-    },
-
-    clearCartCache() {
-        cartMemoryCacheTime = 0;
     }
 };
 

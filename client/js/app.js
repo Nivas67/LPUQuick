@@ -2227,14 +2227,22 @@ window.navigate = navigate;
 // Mobile Pull-to-Refresh & Live Page Reload Engine
 // ============================================================
 window.refreshLiveApp = async function(isFullReload = false) {
-    // Fast in-place soft revalidation (Zero disruptive page reload, 0ms blank screen)
-    try {
-        if (typeof window.api?.revalidateAll === 'function') {
-            await window.api.revalidateAll();
-        } else if (typeof window.api?.clearCartCache === 'function') {
-            window.api.clearCartCache();
-        }
+    if (window.__cachedProducts) {
+        window.__cachedProducts.clear();
+    }
+    if (typeof window.api?.clearCartCache === 'function') {
+        window.api.clearCartCache();
+    }
 
+    if (isFullReload) {
+        try {
+            sessionStorage.setItem('lpuquick_just_reloaded', 'true');
+        } catch (e) {}
+        window.location.reload();
+        return;
+    }
+
+    try {
         if (typeof window.router === 'function') {
             await window.router();
         } else if (typeof router === 'function') {
@@ -2244,10 +2252,10 @@ window.refreshLiveApp = async function(isFullReload = false) {
             window.syncCardSteppers();
         }
         if (typeof window.showClientToast === 'function') {
-            window.showClientToast('✓ Live campus updates loaded!', 'success', 'sync');
+            window.showClientToast('✓ Live campus feed updated!', 'success', 'sync');
         }
     } catch (err) {
-        console.warn('[Live refresh error]:', err);
+        console.warn('Live refresh error:', err);
     }
 };
 
@@ -2302,7 +2310,7 @@ function initPullToRefresh() {
             if (pullDistance >= PULL_THRESHOLD) {
                 if (!indicator.classList.contains('can-release')) {
                     indicator.classList.add('can-release');
-                    if (textEl) textEl.textContent = 'Release to update';
+                    if (textEl) textEl.textContent = 'Release to reload';
                     if (!hasVibrated) {
                         try {
                             if (navigator.vibrate) navigator.vibrate(25);
@@ -2332,7 +2340,7 @@ function initPullToRefresh() {
             indicator.classList.remove('dragging', 'can-release');
             indicator.classList.add('refreshing');
             if (iconEl) iconEl.textContent = 'sync';
-            if (textEl) textEl.textContent = 'Updating campus feed...';
+            if (textEl) textEl.textContent = 'Reloading campus feed...';
             indicator.style.transform = `translate3d(-50%, 20px, 0)`;
             indicator.style.opacity = '1';
 
@@ -2341,9 +2349,9 @@ function initPullToRefresh() {
             } catch(e) {}
 
             setTimeout(async () => {
-                await window.refreshLiveApp(false);
-                setTimeout(resetIndicator, 300);
-            }, 250);
+                await window.refreshLiveApp(true);
+                setTimeout(resetIndicator, 400);
+            }, 450);
         } else {
             resetIndicator();
         }
@@ -2374,40 +2382,6 @@ function handlePostReloadToast() {
     } catch (e) {}
 }
 
-function initConnectivityMonitor() {
-    if (typeof window === 'undefined') return;
-
-    let wasOffline = !navigator.onLine;
-
-    window.addEventListener('offline', () => {
-        wasOffline = true;
-        if (typeof window.showClientToast === 'function') {
-            window.showClientToast('📡 Low Signal / Offline Mode Active. Showing cached catalog.', 'warning', 'wifi_off');
-        }
-    });
-
-    window.addEventListener('online', () => {
-        if (wasOffline) {
-            wasOffline = false;
-            if (typeof window.showClientToast === 'function') {
-                window.showClientToast('⚡ Connected to Campus Network. Updating live feed...', 'success', 'wifi');
-            }
-            if (typeof window.refreshLiveApp === 'function') {
-                window.refreshLiveApp(false);
-            }
-        }
-    });
-
-    window.addEventListener('lpuquick:home-updated', () => {
-        const hash = window.location.hash || '#home';
-        if (hash === '#home' || hash === '' || hash === '#/') {
-            if (typeof window.syncCardSteppers === 'function') {
-                window.syncCardSteppers();
-            }
-        }
-    });
-}
-
 window.addEventListener('hashchange', router);
 
 let isAppInitialized = false;
@@ -2418,7 +2392,6 @@ function bootstrapApp() {
     initGlobalClientWebSocket();
     checkAndConnectGlobalOrderTracking();
     initPullToRefresh();
-    initConnectivityMonitor();
     handlePostReloadToast();
 }
 
