@@ -165,7 +165,7 @@ try {
 // GET /api/products (Fetch all products with resilient cloud fallback)
 router.get('/', async (req, res) => {
     try {
-        res.setHeader('Cache-Control', 'public, max-age=15, stale-while-revalidate=45');
+        res.setHeader('Cache-Control', 'public, max-age=10, stale-while-revalidate=120');
         const adminToken = req.headers['x-admin-token'] || (req.headers.authorization && req.headers.authorization.startsWith('Bearer ') ? req.headers.authorization.slice(7) : null);
         const isAdmin = adminToken ? Boolean(verifyAdminToken(adminToken)) : false;
 

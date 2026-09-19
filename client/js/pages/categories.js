@@ -648,7 +648,7 @@ window.pageInits.categories = async function() {
                 productsGrid.innerHTML = `
                     <div class="col-span-full py-16 text-center text-slate-500 text-xs">
                         <p class="font-bold text-rose-500">Failed to load catalog.</p>
-                        <button type="button" onclick="location.reload()" class="mt-2 text-emerald font-bold underline">Retry</button>
+                        <button type="button" onclick="if(window.refreshLiveApp){window.refreshLiveApp(false);}else if(window.router){window.router();}" class="mt-2 text-emerald font-bold underline">Retry</button>
                     </div>
                 `;
             }

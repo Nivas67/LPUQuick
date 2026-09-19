@@ -528,7 +528,7 @@ function handleAdminAuthError(res) {
 }
 
 // Resilient fetch wrapper with timeout prevention and auth error detection
-async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
+async function fetchWithTimeout(url, options = {}, timeoutMs = 4500) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -675,7 +675,6 @@ async function refreshCurrentView() {
 
     if (refreshIcon) refreshIcon.classList.add('animate-spin');
     if (refreshBtn) refreshBtn.disabled = true;
-    if (mainContent) mainContent.style.opacity = '0.6';
 
     try {
         // Burst backend cache so fresh queries run against Supabase
@@ -730,10 +729,28 @@ async function refreshCurrentView() {
 
 // ================= 1. DASHBOARD LOAD =================
 async function loadDashboard() {
+    // 0ms instant hydration from cache before awaiting network (Smooth low-signal load)
+    if ((!ordersCache || ordersCache.length === 0)) {
+        try {
+            const rawO = localStorage.getItem('lpuquick_admin_orders_cache');
+            if (rawO) ordersCache = JSON.parse(rawO);
+        } catch(e) {}
+    }
+    if ((!productsCache || productsCache.length === 0)) {
+        try {
+            const rawP = localStorage.getItem('lpuquick_admin_products_cache');
+            if (rawP) productsCache = JSON.parse(rawP);
+        } catch(e) {}
+    }
+    if (ordersCache && ordersCache.length > 0) {
+        renderRecentOrdersTable(ordersCache);
+        updateDailyRevenue();
+    }
+
     try {
         const [analyticsRes, ordersRes] = await Promise.allSettled([
-            fetchWithTimeout(`/api/orders/admin/analytics`, { headers: getAuthHeaders() }, 15000),
-            fetchWithTimeout(`/api/orders/admin/all`, { headers: getAuthHeaders() }, 15000)
+            fetchWithTimeout(`/api/orders/admin/analytics`, { headers: getAuthHeaders() }, 4500),
+            fetchWithTimeout(`/api/orders/admin/all`, { headers: getAuthHeaders() }, 4500)
         ]);
 
         let analyticsData = {};
@@ -1134,8 +1151,19 @@ async function handleUnlockStore() {
 
 // ================= 2. PRODUCTS LOAD =================
 async function loadProducts() {
+    // 0ms instant hydration from cache
+    if (!productsCache || productsCache.length === 0) {
+        try {
+            const raw = localStorage.getItem('lpuquick_admin_products_cache');
+            if (raw) productsCache = JSON.parse(raw);
+        } catch (e) {}
+    }
+    if (productsCache && productsCache.length > 0) {
+        filterProducts();
+    }
+
     try {
-        const res = await fetchWithTimeout(`/api/products?includeInactive=true`, { headers: getAuthHeaders() }, 7000);
+        const res = await fetchWithTimeout(`/api/products?includeInactive=true`, { headers: getAuthHeaders() }, 4500);
         if (res.ok) {
             const data = await res.json();
             if (data.products && Array.isArray(data.products) && data.products.length > 0) {
@@ -1246,8 +1274,19 @@ function filterProducts() {
 
 // ================= 3. INVENTORY LOAD =================
 async function loadInventory() {
+    // 0ms instant hydration from cache
+    if (!productsCache || productsCache.length === 0) {
+        try {
+            const raw = localStorage.getItem('lpuquick_admin_products_cache');
+            if (raw) productsCache = JSON.parse(raw);
+        } catch (e) {}
+    }
+    if (productsCache && productsCache.length > 0) {
+        filterInventory();
+    }
+
     try {
-        const res = await fetchWithTimeout(`/api/products?includeInactive=true`, { headers: getAuthHeaders() }, 7000);
+        const res = await fetchWithTimeout(`/api/products?includeInactive=true`, { headers: getAuthHeaders() }, 4500);
         if (res.ok) {
             const data = await res.json();
             if (data.products && Array.isArray(data.products) && data.products.length > 0) {
@@ -1432,8 +1471,19 @@ async function toggleProductStock(productId, inStock) {
 
 // ================= 4. ORDERS LOAD =================
 async function loadOrders() {
+    // 0ms instant hydration from cache
+    if (!ordersCache || ordersCache.length === 0) {
+        try {
+            const raw = localStorage.getItem('lpuquick_admin_orders_cache');
+            if (raw) ordersCache = JSON.parse(raw);
+        } catch (e) {}
+    }
+    if (ordersCache && ordersCache.length > 0) {
+        filterOrders();
+    }
+
     try {
-        const res = await fetchWithTimeout(`/api/orders/admin/all`, { headers: getAuthHeaders() }, 15000);
+        const res = await fetchWithTimeout(`/api/orders/admin/all`, { headers: getAuthHeaders() }, 4500);
         if (res.ok) {
             const data = await res.json();
             if (data.orders && Array.isArray(data.orders)) {
