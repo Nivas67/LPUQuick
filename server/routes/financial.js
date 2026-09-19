@@ -119,11 +119,35 @@ async function savePinConfig(configObj) {
     }
 }
 
+/**
+ * Strict Owner-Only Access Guard:
+ * Only the verified platform owner can view or unlock Financial Intelligence.
+ * Store Managers and Delivery Partners are strictly forbidden.
+ */
+function requireOwner(req, res, next) {
+    const user = req.admin;
+    const isOwner = Boolean(
+        user?.is_owner || 
+        user?.role === 'owner' || 
+        user?.id === 'user_admin_bh13' || 
+        user?.email === 'admin@lpu.in' || 
+        (Array.isArray(user?.roles) && user.roles.includes('owner'))
+    );
+    if (!isOwner) {
+        return res.status(403).json({
+            success: false,
+            code: 'FORBIDDEN_OWNER_ONLY',
+            error: 'Access denied. Financial Intelligence and profit calculations are strictly restricted to the platform owner.'
+        });
+    }
+    next();
+}
+
 // -------------------------------------------------------------
 // GET /api/admin/financial/status
 // Check if PIN is configured and whether current request has active unlock
 // -------------------------------------------------------------
-router.get('/status', requireAdmin, async (req, res) => {
+router.get('/status', requireAdmin, requireOwner, async (req, res) => {
     try {
         const config = await getPinConfig();
         const financialToken = req.headers['x-financial-token'];
@@ -149,7 +173,7 @@ router.get('/status', requireAdmin, async (req, res) => {
 // POST /api/admin/financial/setup-pin
 // Configure or change the financial PIN
 // -------------------------------------------------------------
-router.post('/setup-pin', requireAdmin, async (req, res) => {
+router.post('/setup-pin', requireAdmin, requireOwner, async (req, res) => {
     try {
         const { current_pin, new_pin, confirm_pin } = req.body;
 
@@ -209,7 +233,7 @@ router.post('/setup-pin', requireAdmin, async (req, res) => {
 // POST /api/admin/financial/unlock
 // Unlock financial data using PIN
 // -------------------------------------------------------------
-router.post('/unlock', requireAdmin, async (req, res) => {
+router.post('/unlock', requireAdmin, requireOwner, async (req, res) => {
     try {
         const { pin } = req.body;
         if (!pin) {
@@ -286,7 +310,7 @@ router.post('/unlock', requireAdmin, async (req, res) => {
 // POST /api/admin/financial/lock
 // Manually lock financial data immediately
 // -------------------------------------------------------------
-router.post('/lock', requireAdmin, async (req, res) => {
+router.post('/lock', requireAdmin, requireOwner, async (req, res) => {
     const financialToken = req.headers['x-financial-token'];
     if (financialToken) {
         revokedFinancialTokens.add(financialToken);
@@ -301,7 +325,7 @@ router.post('/lock', requireAdmin, async (req, res) => {
 // GET /api/admin/financial/data
 // PROTECTED: Returns real revenue & profit ONLY if financial PIN is unlocked
 // -------------------------------------------------------------
-router.get('/data', requireAdmin, async (req, res) => {
+router.get('/data', requireAdmin, requireOwner, async (req, res) => {
     try {
         const financialToken = req.headers['x-financial-token'];
         const session = verifyFinancialToken(financialToken);
@@ -368,6 +392,7 @@ router.get('/data', requireAdmin, async (req, res) => {
                 profit_margin: financials.profitMargin,
                 average_order_value: financials.averageOrderValue,
                 completed_orders_count: financials.completedOrdersCount,
+                delivered_orders_count: financials.completedOrdersCount,
                 formatted_revenue: financials.formattedRevenue,
                 formatted_profit: financials.formattedProfit
             }

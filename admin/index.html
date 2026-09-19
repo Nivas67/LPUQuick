@@ -387,7 +387,7 @@
                 </div>
 
                 <!-- Financial Information & PIN Security Banner -->
-                <div class="glass-panel p-5 mb-6 border border-emerald-500/20 bg-gradient-to-r from-emerald-500/5 via-white to-white dark:via-slate-900 dark:to-slate-900 relative overflow-hidden shadow-sm"
+                <div class="glass-panel p-5 mb-6 border border-emerald-500/20 bg-gradient-to-r from-emerald-500/5 via-white to-white dark:via-slate-900 dark:to-slate-900 relative overflow-hidden shadow-sm hidden"
                     id="financial-security-card">
                     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div class="flex items-center gap-3">
@@ -793,11 +793,11 @@
                                     class="border-b border-[#DADCE0] bg-[#f7fafd] text-[#5c5f60] font-semibold uppercase tracking-wider text-[11px]">
                                     <th class="p-4">Product</th>
                                     <th class="p-4">Category</th>
-                                    <th class="p-4">Cost (Admin)</th>
+                                    <th class="p-4 owner-only-col hidden">Cost (Admin)</th>
                                     <th class="p-4">Selling Price</th>
                                     <th class="p-4">MRP</th>
-                                    <th class="p-4">Profit / Unit</th>
-                                    <th class="p-4">Margin %</th>
+                                    <th class="p-4 owner-only-col hidden">Profit / Unit</th>
+                                    <th class="p-4 owner-only-col hidden">Margin %</th>
                                     <th class="p-4">Stock</th>
                                     <th class="p-4">Status</th>
                                     <th class="p-4 text-right">Actions</th>
@@ -2150,8 +2150,8 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" id="modal-pricing-grid">
+                    <div id="modal-cost-container" class="owner-only-field hidden">
                         <label class="font-semibold text-[#262a2d] block mb-1 text-xs sm:text-sm">Cost Price (₹)</label>
                         <input id="form-product-cost" type="number" step="0.5" min="0" placeholder="20" oninput="updateModalProfitPreview()"
                             class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
@@ -2172,7 +2172,7 @@
                             class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
                     </div>
                 </div>
-                <div id="modal-profit-preview" class="p-2.5 rounded-lg bg-[#f7fafd] border border-[#DADCE0] text-xs flex items-center justify-between">
+                <div id="modal-profit-preview" class="p-2.5 rounded-lg bg-[#f7fafd] border border-[#DADCE0] text-xs flex items-center justify-between owner-only-field hidden">
                     <span class="text-[#5c5f60]">Estimated Profit per Unit: <strong id="modal-profit-unit" class="text-emerald-600 font-bold">₹0.00</strong> (<span id="modal-profit-margin" class="font-semibold text-emerald-700">0.0% margin</span>)</span>
                     <span class="text-[10px] text-[#74777a]">Formula: Selling Price - Admin Cost</span>
                 </div>

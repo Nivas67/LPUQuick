@@ -192,14 +192,63 @@ async function runTests() {
     });
 
     // -------------------------------------------------------------
-    // Requirement 13: Storefront Security Check
+    // Requirement 13 & 14: Strict Role-Based Access Control (RBAC) Verification
     // -------------------------------------------------------------
-    console.log('\n--- 6. Customer Storefront Security Verification ---');
+    console.log('\n--- 6. Role-Based Privacy & Security Verification ---');
 
-    await testAsync('Customer Storefront API does NOT leak cost_price', async () => {
-        const { verifyAdminToken } = require('../server/middleware/adminAuth');
-        assert.strictEqual(Boolean(verifyAdminToken(null)), false, 'Null token is invalid');
-        assert.strictEqual(Boolean(verifyAdminToken('invalid-fake-token')), false, 'Fake token is invalid');
+    await testAsync('Strict RBAC: Only Owner has owner privileges; Store Managers & Delivery Partners are blocked', async () => {
+        const { generateAdminToken, verifyAdminToken } = require('../server/middleware/adminAuth');
+        const { isPlatformOwnerToken } = require('../server/routes/products');
+
+        const ownerToken = generateAdminToken('user_admin_bh13', 'owner');
+        const storeManagerToken = generateAdminToken('user_sm_01', 'admin');
+        const deliveryPartnerToken = generateAdminToken('user_del_01', 'delivery_person');
+        const customerToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.invalid';
+
+        assert.strictEqual(isPlatformOwnerToken(ownerToken), true, 'Owner token must be recognized as platform owner');
+        assert.strictEqual(isPlatformOwnerToken(`Bearer ${ownerToken}`), true, 'Owner Bearer token must be recognized');
+        assert.strictEqual(isPlatformOwnerToken(storeManagerToken), false, 'Store manager MUST NOT be recognized as owner');
+        assert.strictEqual(isPlatformOwnerToken(deliveryPartnerToken), false, 'Delivery partner MUST NOT be recognized as owner');
+        assert.strictEqual(isPlatformOwnerToken(customerToken), false, 'Customer token MUST NOT be recognized as owner');
+        assert.strictEqual(isPlatformOwnerToken(null), false, 'Null token MUST NOT be recognized as owner');
+        assert.strictEqual(isPlatformOwnerToken(''), false, 'Empty token MUST NOT be recognized as owner');
+
+        console.log('     Confirmed: Platform Owner is granted access; Store Manager and Delivery Partner are strictly blocked.');
+    });
+
+    // -------------------------------------------------------------
+    // Requirement 17: Accurate All-Time Historical Intelligence Calculations
+    // -------------------------------------------------------------
+    console.log('\n--- 7. Accurate All-Time Historical Intelligence Calculations ---');
+
+    await testAsync('Historical Intelligence: Accurate Profit & Delivered Orders Count', async () => {
+        const { getSupabaseClient } = require('../server/supabase');
+        const supabase = getSupabaseClient();
+
+        const { data: rawOrders } = await supabase
+            .from('orders')
+            .select('id, total, status, created_at')
+            .order('created_at', { ascending: false });
+
+        const deliveredOrders = (rawOrders || []).filter(o => isDelivered(o.status));
+        const deliveredOrderIds = deliveredOrders.map(o => o.id);
+
+        assert.strictEqual(deliveredOrders.length, 314, 'Delivered orders count must be 314');
+
+        const { data: dbItems } = await supabase
+            .from('order_items')
+            .select('order_id, product_id, quantity, unit_price, products(id, name, price, cost_price, mrp)')
+            .in('order_id', deliveredOrderIds);
+
+        const totals = calculateTotalFinancials(deliveredOrders, dbItems || [], {});
+
+        assert.strictEqual(totals.delivered_orders_count, 314, 'Delivered orders count must be 314, NOT 0');
+        assert.strictEqual(totals.total_revenue, 19673, 'Total Revenue must be ₹19,673');
+        assert.strictEqual(totals.total_cost, 13926, 'Total Cost must be ₹13,926');
+        assert.strictEqual(totals.total_profit, 5747, 'Total Profit must be ₹5,747');
+        assert.strictEqual(totals.profit_margin, 29.21, 'Net margin must be 29.21%');
+
+        console.log(`     Confirmed: Gross Revenue = ₹${totals.total_revenue}, Net Profit = ₹${totals.total_profit} (${totals.profit_margin}%), Delivered Orders = ${totals.delivered_orders_count}.`);
     });
 
     console.log('\n======================================================');

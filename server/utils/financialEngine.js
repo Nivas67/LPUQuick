@@ -99,13 +99,14 @@ function calculateItemFinancials(item, productFallback = {}) {
         (productFallback.price || 0)))
     ) || 0;
 
-    // Cost price priority: snapshot > cost_price > product cost_price fallback
-    const costPrice = Number(
+    // Cost price priority: snapshot > cost_price > product cost_price fallback > 70% wholesale estimate
+    const rawCost = Number(
         item.admin_cost !== undefined ? item.admin_cost :
         (item.cost_price !== undefined ? item.cost_price :
         (productFallback.cost_price !== undefined ? productFallback.cost_price :
-        (item.products?.cost_price || 0)))
-    ) || 0;
+        (item.products?.cost_price !== undefined ? item.products.cost_price : 0)))
+    );
+    const costPrice = rawCost > 0 ? rawCost : (unitPrice > 0 ? Math.round(unitPrice * 0.70) : 0);
 
     const mrp = Number(
         item.mrp !== undefined ? item.mrp :
@@ -272,25 +273,32 @@ function calculateTotalFinancials(orders = [], items = [], snapshotsMap = {}, pr
         const snapshotItems = snapshot?.items || (Array.isArray(snapshot) ? snapshot : null);
 
         if (snapshotItems && snapshotItems.length > 0) {
+            let sCost = 0;
+            let sRev = 0;
             for (const sItem of snapshotItems) {
                 const itemFin = calculateItemFinancials(sItem, {});
-                totalRevenue += itemFin.revenue;
-                totalCost += itemFin.cost;
+                sRev += itemFin.revenue;
+                sCost += itemFin.cost;
             }
+            const ordTotal = Number(ord.total || ord.final_amount || 0);
+            totalRevenue += (ordTotal > 0 ? ordTotal : sRev);
+            totalCost += sCost;
         } else {
             // Priority 2: Use order_items with product fallback
             const orderItems = itemsByOrder.get(ord.id);
+            let orderItemCost = 0;
+            let orderItemRev = 0;
             if (orderItems && orderItems.length > 0) {
                 for (const it of orderItems) {
                     const prod = (productMap && productMap.get) ? (productMap.get(it.product_id) || it.products || {}) : (it.products || {});
                     const itemFin = calculateItemFinancials(it, prod);
-                    totalRevenue += itemFin.revenue;
-                    totalCost += itemFin.cost;
+                    orderItemRev += itemFin.revenue;
+                    orderItemCost += itemFin.cost;
                 }
-            } else {
-                // Priority 3: Fallback to order total if no items exist
-                totalRevenue += Math.max(0, Number(ord.total || 0));
             }
+            const ordTotal = Number(ord.total || ord.final_amount || 0);
+            totalRevenue += (ordTotal > 0 ? ordTotal : orderItemRev);
+            totalCost += orderItemCost;
         }
     }
 
@@ -306,11 +314,18 @@ function calculateTotalFinancials(orders = [], items = [], snapshotsMap = {}, pr
 
     return {
         completedOrdersCount: deliveredOrders.length,
+        completed_orders_count: deliveredOrders.length,
+        delivered_orders_count: deliveredOrders.length,
         totalRevenue,
+        total_revenue: totalRevenue,
         totalCost,
+        total_cost: totalCost,
         totalProfit,
+        total_profit: totalProfit,
         profitMargin,
+        profit_margin: profitMargin,
         averageOrderValue,
+        average_order_value: averageOrderValue,
         formattedRevenue: formatINR(totalRevenue),
         formattedProfit: formatINR(totalProfit)
     };

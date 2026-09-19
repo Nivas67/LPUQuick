@@ -3,10 +3,23 @@ const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const requireAdmin = require('../middleware/adminAuth');
-const { verifyAdminToken } = require('../middleware/adminAuth');
+const { verifyAdminToken, staffUserCache, KNOWN_STAFF_FALLBACKS, resolveAdminRoles } = require('../middleware/adminAuth');
 const supabaseDb = require('../db/supabaseDb');
 const cache = require('../cache');
 const { broadcastInventoryUpdate } = require('../realtime');
+
+function isPlatformOwnerToken(tokenString) {
+    if (!tokenString || typeof tokenString !== 'string') return false;
+    let cleanToken = tokenString.trim();
+    if (cleanToken.startsWith('Bearer ')) cleanToken = cleanToken.slice(7).trim();
+    const verified = verifyAdminToken(cleanToken);
+    if (!verified) return false;
+    if (verified.role === 'owner' || verified.sub === 'user_admin_bh13') return true;
+    const user = (staffUserCache && staffUserCache.get(verified.sub)) || (KNOWN_STAFF_FALLBACKS && KNOWN_STAFF_FALLBACKS[verified.sub]);
+    if (user && (user.role === 'owner' || user.id === 'user_admin_bh13' || user.email === 'admin@lpu.in')) return true;
+    const roles = resolveAdminRoles ? resolveAdminRoles(user || { id: verified.sub, role: verified.role }) : [];
+    return roles.includes('owner');
+}
 
 const { getSupabaseClient } = require('../supabase');
 
@@ -121,10 +134,14 @@ router.get('/:id', async (req, res) => {
             return res.status(404).json({ error: 'Product not found' });
         }
 
-        // Security: Do not expose admin purchase cost to public customer storefront
-        if (!isAdmin) {
+        // Security: Only the verified platform OWNER can view purchase cost
+        // Store Managers and Delivery Partners MUST NOT see admin cost
+        const authHeader = req.headers['x-admin-token'] || req.headers.authorization || '';
+        const isOwner = isPlatformOwnerToken(authHeader);
+        if (!isOwner) {
             const sanitized = { ...details };
             delete sanitized.cost_price;
+            delete sanitized.cost;
             return res.json(sanitized);
         }
 
@@ -188,12 +205,16 @@ router.get('/', async (req, res) => {
 
         const rawList = payload?.products || fallbackProductsCache || [];
         
-        // Security: Do not expose admin purchase cost to public customer storefront
-        const filteredList = isAdmin
+        // Security: Only the verified platform OWNER can view purchase cost
+        // Store Managers and Delivery Partners MUST NOT see admin cost or profit margins
+        const authHeader = req.headers['x-admin-token'] || req.headers.authorization || '';
+        const isOwner = isPlatformOwnerToken(authHeader);
+        const filteredList = isOwner
             ? rawList
             : rawList.map(p => {
                 const copy = { ...p };
                 delete copy.cost_price;
+                delete copy.cost;
                 return copy;
             });
 
@@ -218,13 +239,14 @@ router.post('/admin/create', requireAdmin, async (req, res) => {
             finalImageUrl = await uploadBase64ToSupabaseStorage(finalImageUrl, `prod_${name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}`);
         }
 
+        const isOwner = Boolean(req.admin && req.admin.is_owner);
         const created = await supabaseDb.products.create({
             name,
             category,
             subcategory,
             price: Number(price),
             mrp: mrp ? Number(mrp) : Number(price),
-            cost_price: Number(cost_price !== undefined ? cost_price : (cost !== undefined ? cost : 0)) || 0,
+            cost_price: isOwner ? (Number(cost_price !== undefined ? cost_price : (cost !== undefined ? cost : 0)) || 0) : 0,
             stock_left: stock_left !== undefined ? Number(stock_left) : 50,
             unit,
             size,
@@ -248,6 +270,11 @@ router.put('/admin/update/:id', requireAdmin, async (req, res) => {
     const { id } = req.params;
     try {
         const updateData = { ...req.body };
+        // Strictly protect cost_price: only platform owner can modify cost
+        if (!req.admin || !req.admin.is_owner) {
+            delete updateData.cost_price;
+            delete updateData.cost;
+        }
         if (updateData.image_url && updateData.image_url.startsWith('data:image/')) {
             updateData.image_url = await uploadBase64ToSupabaseStorage(updateData.image_url, `prod_${id}`);
         }
@@ -348,4 +375,5 @@ router.post('/admin/adjust-stock', requireAdmin, async (req, res) => {
     }
 });
 
+router.isPlatformOwnerToken = isPlatformOwnerToken;
 module.exports = router;

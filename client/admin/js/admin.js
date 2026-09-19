@@ -409,6 +409,18 @@ try {
     if (savedProf) currentAdminProfile = JSON.parse(savedProf);
 } catch (e) {}
 
+function isPlatformOwner(profile = currentAdminProfile) {
+    if (!profile) return false;
+    const roles = Array.isArray(profile.roles) ? profile.roles : [profile.role || ''];
+    return Boolean(
+        profile.is_owner === true ||
+        profile.role === 'owner' ||
+        roles.includes('owner') ||
+        profile.id === 'user_admin_bh13' ||
+        (profile.email && profile.email.toLowerCase() === 'admin@lpu.in')
+    );
+}
+
 function applyAdminRolePermissions(profile) {
     if (!profile) return 'dashboard';
     currentAdminProfile = profile;
@@ -417,7 +429,16 @@ function applyAdminRolePermissions(profile) {
     } catch (e) {}
 
     const roles = Array.isArray(profile.roles) ? profile.roles : ['store_manager'];
-    const isOwner = profile.is_owner || roles.includes('owner');
+    const isOwner = isPlatformOwner(profile);
+
+    // Strict Privacy & Role-Based Security: Financial Intelligence is strictly owner-only
+    const finCard = document.getElementById('financial-security-card');
+    if (finCard) {
+        finCard.classList.toggle('hidden', !isOwner);
+    }
+    document.querySelectorAll('.owner-only-col').forEach(el => {
+        el.classList.toggle('hidden', !isOwner);
+    });
 
     // Update bottom left profile bar
     const nameEl = document.getElementById('admin-user-display');
@@ -1140,6 +1161,11 @@ function setProductStatusFilter(status) {
 }
 
 function filterProducts() {
+    const isOwner = isPlatformOwner();
+    document.querySelectorAll('.owner-only-col').forEach(el => {
+        el.classList.toggle('hidden', !isOwner);
+    });
+
     const query = (document.getElementById('product-search-input')?.value || '').toLowerCase();
     let filtered = productsCache.filter(p => p.name.toLowerCase().includes(query) || p.category.toLowerCase().includes(query));
 
@@ -1153,7 +1179,7 @@ function filterProducts() {
 
     const tbody = document.getElementById('products-table-tbody');
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-[#5c5f60]">No matching products found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="${isOwner ? 10 : 7}" class="p-6 text-center text-[#5c5f60]">No matching products found.</td></tr>`;
         return;
     }
 
@@ -1183,15 +1209,16 @@ function filterProducts() {
                     </div>
                 </td>
                 <td class="p-4 text-[#5c5f60]">${p.category}</td>
-                <td class="p-4 text-[#5c5f60] font-medium">₹${costPrice.toFixed(2)}</td>
+                ${isOwner ? `<td class="p-4 text-[#5c5f60] font-medium">₹${costPrice.toFixed(2)}</td>` : ''}
                 <td class="p-4 font-bold text-[#181c1f]">₹${sellingPrice.toFixed(2)}</td>
                 <td class="p-4 text-[#74777a] line-through">₹${mrp.toFixed(2)}</td>
-                <td class="p-4 font-bold text-emerald-600">₹${profitPerUnit.toFixed(2)}</td>
+                ${isOwner ? `<td class="p-4 font-bold text-emerald-600">₹${profitPerUnit.toFixed(2)}</td>` : ''}
+                ${isOwner ? `
                 <td class="p-4">
                     <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${marginPct > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-gray-100 text-gray-500'}">
                         ${marginPct}%
                     </span>
-                </td>
+                </td>` : ''}
                 <td class="p-4">
                     <button onclick="promptCustomStock('${p.id}', '${p.name.replace(/'/g, "\\'")}', ${stock})" class="font-semibold text-xs text-[#181c1f] hover:text-emerald-700 hover:bg-emerald-50 px-2 py-1 rounded transition-all flex items-center gap-1 cursor-pointer border border-transparent hover:border-emerald-200" title="Click to change exact stock quantity">
                         <span>${stock}</span>
@@ -3318,6 +3345,19 @@ function openProductModal(product = null) {
     if (fileInput) fileInput.value = '';
     if (badge) badge.remove();
 
+    const isOwner = isPlatformOwner();
+    const costContainer = document.getElementById('modal-cost-container');
+    const profitPreview = document.getElementById('modal-profit-preview');
+    const pricingGrid = document.getElementById('modal-pricing-grid');
+
+    if (costContainer) costContainer.classList.toggle('hidden', !isOwner);
+    if (profitPreview) profitPreview.classList.toggle('hidden', !isOwner);
+    if (pricingGrid) {
+        pricingGrid.className = isOwner 
+            ? 'grid grid-cols-2 sm:grid-cols-4 gap-3' 
+            : 'grid grid-cols-1 sm:grid-cols-3 gap-3';
+    }
+
     if (product) {
         document.getElementById('modal-product-title').textContent = 'Edit Product';
         document.getElementById('form-product-id').value = product.id;
@@ -3325,7 +3365,11 @@ function openProductModal(product = null) {
         document.getElementById('form-product-category').value = product.category;
         document.getElementById('form-product-subcategory').value = product.subcategory || '';
         const costInput = document.getElementById('form-product-cost');
-        if (costInput) costInput.value = product.cost_price !== undefined ? product.cost_price : (product.cost || 0);
+        if (costInput) {
+            costInput.value = isOwner 
+                ? (product.cost_price !== undefined ? product.cost_price : (product.cost || 0))
+                : '';
+        }
         document.getElementById('form-product-price').value = product.price;
         document.getElementById('form-product-mrp').value = product.mrp || product.price;
         document.getElementById('form-product-stock').value = product.stock_left !== undefined ? product.stock_left : 50;
@@ -3337,7 +3381,7 @@ function openProductModal(product = null) {
             deleteBtn.dataset.productId = product.id;
             deleteBtn.dataset.productName = product.name;
         }
-        updateModalProfitPreview();
+        if (isOwner) updateModalProfitPreview();
     } else {
         document.getElementById('modal-product-title').textContent = 'Add New Campus Product';
         document.getElementById('product-form').reset();
@@ -3351,7 +3395,7 @@ function openProductModal(product = null) {
             deleteBtn.dataset.productId = '';
             deleteBtn.dataset.productName = '';
         }
-        updateModalProfitPreview();
+        if (isOwner) updateModalProfitPreview();
     }
 }
 
@@ -3412,11 +3456,11 @@ async function handleProductSubmit(e) {
             }
         }
 
+        const isOwner = isPlatformOwner();
         const payload = {
             name: document.getElementById('form-product-name').value.trim(),
             category: document.getElementById('form-product-category').value,
             subcategory: document.getElementById('form-product-subcategory').value.trim(),
-            cost_price: Number(document.getElementById('form-product-cost')?.value) || 0,
             price: Number(document.getElementById('form-product-price').value),
             mrp: Number(document.getElementById('form-product-mrp').value) || Number(document.getElementById('form-product-price').value),
             stock_left: stockVal,
@@ -3424,6 +3468,11 @@ async function handleProductSubmit(e) {
             image_url: imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400',
             description: document.getElementById('form-product-desc').value.trim()
         };
+
+        if (isOwner) {
+            const costVal = Number(document.getElementById('form-product-cost')?.value);
+            payload.cost_price = !isNaN(costVal) ? costVal : 0;
+        }
 
         const url = id ? `/api/products/admin/update/${id}` : '/api/products/admin/create';
         const method = id ? 'PUT' : 'POST';
@@ -5306,7 +5355,13 @@ let financialTimerInterval = null;
 let isFinancialConfigured = false;
 
 async function checkFinancialStatus() {
-    if (!adminToken) return;
+    const finCard = document.getElementById('financial-security-card');
+    if (!adminToken || !isPlatformOwner()) {
+        if (finCard) finCard.classList.add('hidden');
+        return;
+    }
+    if (finCard) finCard.classList.remove('hidden');
+
     try {
         const res = await fetch('/api/admin/financial/status', {
             headers: {
@@ -5378,7 +5433,7 @@ function updateFinancialUI(status) {
 }
 
 async function fetchFinancialData() {
-    if (!adminToken || !financialToken) return;
+    if (!adminToken || !financialToken || !isPlatformOwner()) return;
     try {
         const res = await fetch('/api/admin/financial/data', {
             headers: {
@@ -5397,7 +5452,10 @@ async function fetchFinancialData() {
             if (valRev) valRev.textContent = `₹${(data.metrics.total_revenue || 0).toLocaleString('en-IN')}`;
             if (valProf) valProf.textContent = `₹${(data.metrics.total_profit || 0).toLocaleString('en-IN')}`;
             if (subRev) {
-                subRev.textContent = `From ${data.metrics.delivered_orders_count || 0} delivered orders`;
+                const count = data.metrics.delivered_orders_count !== undefined 
+                    ? data.metrics.delivered_orders_count 
+                    : (data.metrics.completed_orders_count || 0);
+                subRev.textContent = `From ${count} delivered orders`;
                 subRev.classList.remove('hidden');
             }
             if (subProf) {
