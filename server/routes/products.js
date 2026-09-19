@@ -3,6 +3,7 @@ const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const requireAdmin = require('../middleware/adminAuth');
+const { verifyAdminToken } = require('../middleware/adminAuth');
 const supabaseDb = require('../db/supabaseDb');
 const cache = require('../cache');
 const { broadcastInventoryUpdate } = require('../realtime');
@@ -93,6 +94,9 @@ router.post('/admin/upload-image', requireAdmin, async (req, res) => {
 router.get('/:id', async (req, res) => {
     const { id } = req.params;
     try {
+        const adminToken = req.headers['x-admin-token'] || (req.headers.authorization && req.headers.authorization.startsWith('Bearer ') ? req.headers.authorization.slice(7) : null);
+        const isAdmin = adminToken ? Boolean(verifyAdminToken(adminToken)) : false;
+
         const details = await cache.wrap(`products:detail:${id}`, async () => {
             const product = await supabaseDb.products.getById(id);
             if (!product) return null;
@@ -117,6 +121,13 @@ router.get('/:id', async (req, res) => {
             return res.status(404).json({ error: 'Product not found' });
         }
 
+        // Security: Do not expose admin purchase cost to public customer storefront
+        if (!isAdmin) {
+            const sanitized = { ...details };
+            delete sanitized.cost_price;
+            return res.json(sanitized);
+        }
+
         res.json(details);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -138,6 +149,9 @@ try {
 router.get('/', async (req, res) => {
     try {
         res.setHeader('Cache-Control', 'public, max-age=15, stale-while-revalidate=45');
+        const adminToken = req.headers['x-admin-token'] || (req.headers.authorization && req.headers.authorization.startsWith('Bearer ') ? req.headers.authorization.slice(7) : null);
+        const isAdmin = adminToken ? Boolean(verifyAdminToken(adminToken)) : false;
+
         const includeInactive = req.query.includeInactive === 'true';
         const category = req.query.category || '';
         const subcategory = req.query.subcategory || '';
@@ -172,7 +186,18 @@ router.get('/', async (req, res) => {
             return { products: list, isFallback: true };
         }, forceFresh ? 0 : 300000);
 
-        res.json(payload || { products: fallbackProductsCache || [] });
+        const rawList = payload?.products || fallbackProductsCache || [];
+        
+        // Security: Do not expose admin purchase cost to public customer storefront
+        const filteredList = isAdmin
+            ? rawList
+            : rawList.map(p => {
+                const copy = { ...p };
+                delete copy.cost_price;
+                return copy;
+            });
+
+        res.json({ products: filteredList, isFallback: Boolean(payload?.isFallback) });
     } catch (err) {
         console.warn('[Products Route Note]:', err.message);
         res.json({ products: fallbackProductsCache, isFallback: true });
@@ -181,7 +206,7 @@ router.get('/', async (req, res) => {
 
 // POST /api/products/admin/create (Add new product to Supabase)
 router.post('/admin/create', requireAdmin, async (req, res) => {
-    const { name, category, subcategory, price, mrp, unit, size, image_url, description, tags, bestseller, is_new, stock_left } = req.body;
+    const { name, category, subcategory, price, mrp, cost_price, cost, unit, size, image_url, description, tags, bestseller, is_new, stock_left } = req.body;
 
     if (!name || !category || price === undefined) {
         return res.status(400).json({ error: 'Name, category, and price are required' });
@@ -199,6 +224,7 @@ router.post('/admin/create', requireAdmin, async (req, res) => {
             subcategory,
             price: Number(price),
             mrp: mrp ? Number(mrp) : Number(price),
+            cost_price: Number(cost_price !== undefined ? cost_price : (cost !== undefined ? cost : 0)) || 0,
             stock_left: stock_left !== undefined ? Number(stock_left) : 50,
             unit,
             size,

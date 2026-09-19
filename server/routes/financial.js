@@ -3,6 +3,8 @@ const router = express.Router();
 const crypto = require('crypto');
 const requireAdmin = require('../middleware/adminAuth');
 const { getSupabaseClient } = require('../supabase');
+const financialEngine = require('../utils/financialEngine');
+const supabaseDb = require('../db/supabaseDb');
 
 const FINANCIAL_SECRET = process.env.JWT_SECRET || process.env.ADMIN_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'lpuquick_financial_pin_secure_secret_2026';
 const SESSION_DURATION_MS = 15 * 60 * 1000; // 15 minutes auto-lock timeout
@@ -314,68 +316,60 @@ router.get('/data', requireAdmin, async (req, res) => {
             });
         }
 
-        // Query completed orders from Supabase PostgreSQL
+        // Query all orders from Supabase PostgreSQL
         const supabase = getSupabaseClient();
-        const { data: orders, error: ordersErr } = await supabase
+        const { data: rawOrders, error: ordersErr } = await supabase
             .from('orders')
             .select('id, total, status, created_at')
-            .in('status', ['Delivered', 'delivered', 'Completed']);
+            .order('created_at', { ascending: false });
 
         if (ordersErr) {
             console.error('Error querying financial orders:', ordersErr);
             return res.status(500).json({ success: false, error: 'Database inquiry failed.' });
         }
 
-        const completedOrders = orders || [];
-        const completedOrderIds = completedOrders.map(o => o.id);
+        // STRICT ACCURACY RULE:
+        // Only count money from successfully delivered orders.
+        // CANCELLED ORDERS, REJECTED ORDERS, AND PENDING ORDERS ARE NEVER ADDED TO REVENUE!
+        const deliveredOrders = (rawOrders || []).filter(o => financialEngine.isDelivered(o.status));
+        const deliveredOrderIds = deliveredOrders.map(o => o.id);
 
-        let totalRevenue = 0;
-        let totalCost = 0;
-        let totalProfit = 0;
-        let profitMargin = 0;
-
-        if (completedOrderIds.length > 0) {
-            // Join order_items with products to retrieve unit selling prices & authoritative purchase cost prices
-            const { data: items, error: itemsErr } = await supabase
+        let items = [];
+        if (deliveredOrderIds.length > 0) {
+            // Join order_items with products for selling price, cost price, and MRP
+            const { data: dbItems, error: itemsErr } = await supabase
                 .from('order_items')
-                .select('order_id, product_id, quantity, unit_price, products(cost_price)')
-                .in('order_id', completedOrderIds);
+                .select('order_id, product_id, quantity, unit_price, products(id, name, price, cost_price, mrp)')
+                .in('order_id', deliveredOrderIds);
 
-            if (!itemsErr && items && items.length > 0) {
-                for (const it of items) {
-                    const qty = Number(it.quantity) || 1;
-                    const unitPrice = Number(it.unit_price) || 0;
-                    const costPrice = Number(it.products?.cost_price) || 0;
-
-                    const itemRev = Math.round(unitPrice * qty * 100) / 100;
-                    const itemCost = Math.round(costPrice * qty * 100) / 100;
-
-                    totalRevenue += itemRev;
-                    totalCost += itemCost;
-                }
-            } else {
-                totalRevenue = completedOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+            if (!itemsErr && dbItems) {
+                items = dbItems;
             }
-
-            totalRevenue = Math.round(totalRevenue * 100) / 100;
-            totalCost = Math.round(totalCost * 100) / 100;
-            totalProfit = Math.max(0, Math.round((totalRevenue - totalCost) * 100) / 100);
-            profitMargin = totalRevenue > 0 ? Math.round((totalProfit / totalRevenue) * 1000) / 10 : 0;
         }
 
-        const aov = completedOrders.length > 0 ? Math.round((totalRevenue / completedOrders.length) * 100) / 100 : 0;
+        // Retrieve snapshots for orders to guarantee historical accuracy
+        let snapshotsMap = {};
+        try {
+            snapshotsMap = supabaseDb.orders.getAllOrderSnapshots() || {};
+        } catch (sErr) {
+            console.warn('[Financial Snapshots Read Note]:', sErr.message);
+        }
+
+        const financials = financialEngine.calculateTotalFinancials(deliveredOrders, items, snapshotsMap);
 
         return res.json({
             success: true,
             locked: false,
             expires_in_seconds: session.remainingSeconds,
             metrics: {
-                total_revenue: totalRevenue,
-                total_cost: totalCost,
-                total_profit: totalProfit,
-                profit_margin: profitMargin,
-                average_order_value: aov,
-                completed_orders_count: completedOrders.length
+                total_revenue: financials.totalRevenue,
+                total_cost: financials.totalCost,
+                total_profit: financials.totalProfit,
+                profit_margin: financials.profitMargin,
+                average_order_value: financials.averageOrderValue,
+                completed_orders_count: financials.completedOrdersCount,
+                formatted_revenue: financials.formattedRevenue,
+                formatted_profit: financials.formattedProfit
             }
         });
     } catch (err) {

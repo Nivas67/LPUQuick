@@ -793,8 +793,11 @@
                                     class="border-b border-[#DADCE0] bg-[#f7fafd] text-[#5c5f60] font-semibold uppercase tracking-wider text-[11px]">
                                     <th class="p-4">Product</th>
                                     <th class="p-4">Category</th>
-                                    <th class="p-4">Price</th>
+                                    <th class="p-4">Cost (Admin)</th>
+                                    <th class="p-4">Selling Price</th>
                                     <th class="p-4">MRP</th>
+                                    <th class="p-4">Profit / Unit</th>
+                                    <th class="p-4">Margin %</th>
                                     <th class="p-4">Stock</th>
                                     <th class="p-4">Status</th>
                                     <th class="p-4 text-right">Actions</th>
@@ -802,7 +805,7 @@
                             </thead>
                             <tbody id="products-table-tbody" class="divide-y divide-[#DADCE0]">
                                 <tr>
-                                    <td colspan="7" class="p-6 text-center text-[#5c5f60]">Loading product catalog...
+                                    <td colspan="10" class="p-6 text-center text-[#5c5f60]">Loading product catalog...
                                     </td>
                                 </tr>
                             </tbody>
@@ -2147,22 +2150,31 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-3 gap-3">
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div>
-                        <label class="font-semibold text-[#262a2d] block mb-1">Price (₹) *</label>
-                        <input id="form-product-price" type="number" step="1" required min="1" placeholder="35"
+                        <label class="font-semibold text-[#262a2d] block mb-1 text-xs sm:text-sm">Cost Price (₹)</label>
+                        <input id="form-product-cost" type="number" step="0.5" min="0" placeholder="20" oninput="updateModalProfitPreview()"
                             class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
                     </div>
                     <div>
-                        <label class="font-semibold text-[#262a2d] block mb-1">MRP (₹)</label>
-                        <input id="form-product-mrp" type="number" step="1" min="1" placeholder="40"
+                        <label class="font-semibold text-[#262a2d] block mb-1 text-xs sm:text-sm">Selling Price (₹) *</label>
+                        <input id="form-product-price" type="number" step="1" required min="1" placeholder="25" oninput="updateModalProfitPreview()"
                             class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
                     </div>
                     <div>
-                        <label class="font-semibold text-[#262a2d] block mb-1">Initial Stock *</label>
+                        <label class="font-semibold text-[#262a2d] block mb-1 text-xs sm:text-sm">MRP (₹)</label>
+                        <input id="form-product-mrp" type="number" step="1" min="1" placeholder="30"
+                            class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
+                    </div>
+                    <div>
+                        <label class="font-semibold text-[#262a2d] block mb-1 text-xs sm:text-sm">Initial Stock *</label>
                         <input id="form-product-stock" type="number" step="1" min="0" value="40"
                             class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
                     </div>
+                </div>
+                <div id="modal-profit-preview" class="p-2.5 rounded-lg bg-[#f7fafd] border border-[#DADCE0] text-xs flex items-center justify-between">
+                    <span class="text-[#5c5f60]">Estimated Profit per Unit: <strong id="modal-profit-unit" class="text-emerald-600 font-bold">₹0.00</strong> (<span id="modal-profit-margin" class="font-semibold text-emerald-700">0.0% margin</span>)</span>
+                    <span class="text-[10px] text-[#74777a]">Formula: Selling Price - Admin Cost</span>
                 </div>
 
                 <!-- Product Photo Upload & Instant Preview -->

@@ -57,6 +57,7 @@ const supabaseDb = {
             return {
                 ...p,
                 image_url,
+                cost_price: Number(p.cost_price) || 0,
                 description: p.size || p.name,
                 badge: p.bestseller ? 'Bestseller' : (p.is_new ? 'New' : ''),
                 rating: 4.5,
@@ -189,6 +190,7 @@ const supabaseDb = {
                 subcategory: productData.subcategory || '',
                 price: Number(productData.price) || 0,
                 mrp: Number(productData.mrp || productData.price) || 0,
+                cost_price: Number(productData.cost_price !== undefined ? productData.cost_price : (productData.cost !== undefined ? productData.cost : 0)) || 0,
                 unit: productData.unit || 'piece',
                 size: productData.size || productData.description || '',
                 image_url: productData.image_url || '',
@@ -220,6 +222,9 @@ const supabaseDb = {
             if (updates.subcategory !== undefined) updateFields.subcategory = updates.subcategory;
             if (updates.price !== undefined) updateFields.price = Number(updates.price);
             if (updates.mrp !== undefined) updateFields.mrp = Number(updates.mrp);
+            if (updates.cost_price !== undefined || updates.cost !== undefined) {
+                updateFields.cost_price = Number(updates.cost_price !== undefined ? updates.cost_price : updates.cost) || 0;
+            }
             if (updates.unit !== undefined) updateFields.unit = updates.unit;
             if (updates.size !== undefined) updateFields.size = updates.size;
             if (updates.image_url !== undefined) updateFields.image_url = updates.image_url;
@@ -568,7 +573,7 @@ const supabaseDb = {
             const productIds = items.map(i => i.product_id).filter(Boolean);
             const { data: dbProducts, error: prodFetchErr } = await supabase
                 .from('products')
-                .select('id, name, price, cost_price, tags, in_stock')
+                .select('id, name, price, cost_price, mrp, tags, in_stock')
                 .in('id', productIds);
 
             if (prodFetchErr) throw new Error(`Failed to verify products: ${prodFetchErr.message}`);
@@ -610,6 +615,7 @@ const supabaseDb = {
                     updatedTags,
                     costPrice: Number(p.cost_price) || 0,
                     sellingPrice: Number(p.price) || 0,
+                    mrp: Number(p.mrp || p.price) || 0,
                     quantity: reqQty
                 });
             }
@@ -716,6 +722,25 @@ const supabaseDb = {
                 throw new Error(stockUpdateErr.message);
             }
 
+            // 3b. Record immutable financial pricing snapshot for future orders
+            const itemSnapshots = items.map(item => {
+                const matched = stockUpdates.find(s => s.productId === item.product_id);
+                return {
+                    product_id: item.product_id,
+                    product_name: matched ? matched.name : (item.name || 'Campus Item'),
+                    quantity: matched ? matched.quantity : (Number(item.quantity) || 1),
+                    admin_cost: matched ? matched.costPrice : (Number(item.cost_price) || 0),
+                    mrp: matched ? matched.mrp : (Number(item.mrp) || 0),
+                    selling_price: matched ? matched.sellingPrice : (Number(item.price || item.unit_price) || 0)
+                };
+            });
+
+            try {
+                this.saveOrderSnapshot(orderId, itemSnapshots);
+            } catch (snapErr) {
+                console.warn('[Order Snapshot Save Warning]:', snapErr.message);
+            }
+
             cache.invalidateOrders();
             cache.invalidateProducts();
 
@@ -724,6 +749,64 @@ const supabaseDb = {
                 items: formattedItems.map(it => ({ ...it, price: it.unit_price })),
                 stockUpdates
             };
+        },
+
+        saveOrderSnapshot(orderId, itemSnapshots) {
+            try {
+                const snapshotsPath = path.join(__dirname, '..', 'data', 'order_snapshots.json');
+                let existingSnapshots = {};
+                if (fs.existsSync(snapshotsPath)) {
+                    try {
+                        existingSnapshots = JSON.parse(fs.readFileSync(snapshotsPath, 'utf8'));
+                    } catch (e) {
+                        existingSnapshots = {};
+                    }
+                }
+                existingSnapshots[orderId] = {
+                    order_id: orderId,
+                    created_at: new Date().toISOString(),
+                    items: itemSnapshots
+                };
+                const dir = path.dirname(snapshotsPath);
+                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                fs.writeFileSync(snapshotsPath, JSON.stringify(existingSnapshots, null, 2), 'utf8');
+
+                // Mirror into audit_logs asynchronously
+                const supabase = getSupabaseClient();
+                if (supabase) {
+                    supabase.from('audit_logs').insert([{
+                        id: `audit_snap_${uuidv4().slice(0, 8)}`,
+                        admin_id: 'system',
+                        action: 'ORDER_FINANCIAL_SNAPSHOT',
+                        reason: orderId,
+                        metadata: { items: itemSnapshots },
+                        created_at: new Date().toISOString()
+                    }]).then(() => {}).catch(() => {});
+                }
+            } catch (err) {
+                console.warn('[Save Snapshot Error]:', err.message);
+            }
+        },
+
+        getOrderSnapshot(orderId) {
+            try {
+                const snapshotsPath = path.join(__dirname, '..', 'data', 'order_snapshots.json');
+                if (fs.existsSync(snapshotsPath)) {
+                    const data = JSON.parse(fs.readFileSync(snapshotsPath, 'utf8'));
+                    return data[orderId]?.items || null;
+                }
+            } catch (e) {}
+            return null;
+        },
+
+        getAllOrderSnapshots() {
+            try {
+                const snapshotsPath = path.join(__dirname, '..', 'data', 'order_snapshots.json');
+                if (fs.existsSync(snapshotsPath)) {
+                    return JSON.parse(fs.readFileSync(snapshotsPath, 'utf8'));
+                }
+            } catch (e) {}
+            return {};
         },
 
         async getOrderById(orderId) {

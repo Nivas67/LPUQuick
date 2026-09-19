@@ -10,6 +10,7 @@ const { requireRole, verifyAdminToken, resolveAdminRoles } = require('../middlew
 const { getRiderStatus, isRiderOnline, setRiderStatus, getAllRiderStatuses } = require('../services/riderAvailability');
 const pushService = require('../notifications/pushService');
 const cache = require('../cache');
+const financialEngine = require('../utils/financialEngine');
 
 const DELIVERY_SETTINGS_PATH = path.join(__dirname, '../data/delivery_settings.json');
 
@@ -324,9 +325,9 @@ router.get('/admin/analytics', requireAdmin, async (req, res) => {
             const productMap = new Map();
             products.forEach(p => productMap.set(p.id, p));
 
-            const deliveredOrders = orders.filter(o => ['delivered', 'completed'].includes(String(o.status || '').toLowerCase().trim()));
+            const deliveredOrders = orders.filter(o => financialEngine.isDelivered(o.status));
             const deliveredOrderIds = new Set(deliveredOrders.map(o => o.id));
-            const pendingOrders = orders.filter(o => ACTIVE_STATUSES.includes(o.status));
+            const pendingOrders = orders.filter(o => financialEngine.isPending(o.status));
 
             const totalStock = products.reduce((sum, p) => sum + (p.stock_left || 0), 0);
             const lowStockProducts = products.filter(p => p.stock_left > 0 && p.stock_left <= 4);
@@ -534,8 +535,8 @@ router.get('/admin/metrics', requireAdmin, async (req, res) => {
     try {
         const payload = await cache.wrap('orders:admin:metrics', async () => {
             const orders = await supabaseDb.orders.getAllOrders();
-            const deliveredOrders = orders.filter(o => ['delivered', 'completed'].includes(String(o.status || '').toLowerCase().trim()));
-            const activeOrders = orders.filter(o => ACTIVE_STATUSES.includes(o.status)).length;
+            const deliveredOrders = orders.filter(o => financialEngine.isDelivered(o.status));
+            const activeOrders = orders.filter(o => financialEngine.isPending(o.status)).length;
 
             return {
                 metrics: {

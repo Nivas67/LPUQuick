@@ -1153,7 +1153,7 @@ function filterProducts() {
 
     const tbody = document.getElementById('products-table-tbody');
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-[#5c5f60]">No matching products found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-[#5c5f60]">No matching products found.</td></tr>`;
         return;
     }
 
@@ -1164,6 +1164,12 @@ function filterProducts() {
             : (stock > 0 
                 ? `<button onclick="toggleProductStock('${p.id}', false)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold badge-low-stock cursor-pointer hover:opacity-80 transition-all" title="Click to mark Out of Stock">Low Stock (${stock} left)</button>`
                 : `<button onclick="toggleProductStock('${p.id}', true)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold badge-out-of-stock cursor-pointer hover:opacity-80 transition-all" title="Click to set in-stock amount">Out of Stock</button>`);
+
+        const costPrice = Number(p.cost_price !== undefined ? p.cost_price : (p.cost || 0)) || 0;
+        const sellingPrice = Number(p.price) || 0;
+        const mrp = Number(p.mrp || p.price) || sellingPrice;
+        const profitPerUnit = Math.max(0, sellingPrice - costPrice);
+        const marginPct = sellingPrice > 0 ? ((profitPerUnit / sellingPrice) * 100).toFixed(1) : '0.0';
 
         return `
             <tr class="hover:bg-[#f7fafd] transition-colors">
@@ -1177,8 +1183,15 @@ function filterProducts() {
                     </div>
                 </td>
                 <td class="p-4 text-[#5c5f60]">${p.category}</td>
-                <td class="p-4 font-bold text-[#181c1f]">₹${p.price}</td>
-                <td class="p-4 text-[#74777a] line-through">₹${p.mrp || p.price}</td>
+                <td class="p-4 text-[#5c5f60] font-medium">₹${costPrice.toFixed(2)}</td>
+                <td class="p-4 font-bold text-[#181c1f]">₹${sellingPrice.toFixed(2)}</td>
+                <td class="p-4 text-[#74777a] line-through">₹${mrp.toFixed(2)}</td>
+                <td class="p-4 font-bold text-emerald-600">₹${profitPerUnit.toFixed(2)}</td>
+                <td class="p-4">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${marginPct > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-gray-100 text-gray-500'}">
+                        ${marginPct}%
+                    </span>
+                </td>
                 <td class="p-4">
                     <button onclick="promptCustomStock('${p.id}', '${p.name.replace(/'/g, "\\'")}', ${stock})" class="font-semibold text-xs text-[#181c1f] hover:text-emerald-700 hover:bg-emerald-50 px-2 py-1 rounded transition-all flex items-center gap-1 cursor-pointer border border-transparent hover:border-emerald-200" title="Click to change exact stock quantity">
                         <span>${stock}</span>
@@ -3284,6 +3297,18 @@ function clearProductImage() {
     if (badge) badge.remove();
 }
 
+function updateModalProfitPreview() {
+    const cost = Number(document.getElementById('form-product-cost')?.value) || 0;
+    const price = Number(document.getElementById('form-product-price')?.value) || 0;
+    const profit = Math.max(0, price - cost);
+    const margin = price > 0 ? ((profit / price) * 100).toFixed(1) : '0.0';
+    const profitUnitEl = document.getElementById('modal-profit-unit');
+    const profitMarginEl = document.getElementById('modal-profit-margin');
+    if (profitUnitEl) profitUnitEl.textContent = `₹${profit.toFixed(2)}`;
+    if (profitMarginEl) profitMarginEl.textContent = `${margin}% margin`;
+}
+window.updateModalProfitPreview = updateModalProfitPreview;
+
 function openProductModal(product = null) {
     document.getElementById('product-modal').classList.remove('hidden');
     const deleteBtn = document.getElementById('btn-modal-delete-product');
@@ -3299,6 +3324,8 @@ function openProductModal(product = null) {
         document.getElementById('form-product-name').value = product.name;
         document.getElementById('form-product-category').value = product.category;
         document.getElementById('form-product-subcategory').value = product.subcategory || '';
+        const costInput = document.getElementById('form-product-cost');
+        if (costInput) costInput.value = product.cost_price !== undefined ? product.cost_price : (product.cost || 0);
         document.getElementById('form-product-price').value = product.price;
         document.getElementById('form-product-mrp').value = product.mrp || product.price;
         document.getElementById('form-product-stock').value = product.stock_left !== undefined ? product.stock_left : 50;
@@ -3310,10 +3337,13 @@ function openProductModal(product = null) {
             deleteBtn.dataset.productId = product.id;
             deleteBtn.dataset.productName = product.name;
         }
+        updateModalProfitPreview();
     } else {
         document.getElementById('modal-product-title').textContent = 'Add New Campus Product';
         document.getElementById('product-form').reset();
         document.getElementById('form-product-id').value = '';
+        const costInput = document.getElementById('form-product-cost');
+        if (costInput) costInput.value = '';
         document.getElementById('form-product-stock').value = '50';
         clearProductImage();
         if (deleteBtn) {
@@ -3321,6 +3351,7 @@ function openProductModal(product = null) {
             deleteBtn.dataset.productId = '';
             deleteBtn.dataset.productName = '';
         }
+        updateModalProfitPreview();
     }
 }
 
@@ -3385,6 +3416,7 @@ async function handleProductSubmit(e) {
             name: document.getElementById('form-product-name').value.trim(),
             category: document.getElementById('form-product-category').value,
             subcategory: document.getElementById('form-product-subcategory').value.trim(),
+            cost_price: Number(document.getElementById('form-product-cost')?.value) || 0,
             price: Number(document.getElementById('form-product-price').value),
             mrp: Number(document.getElementById('form-product-mrp').value) || Number(document.getElementById('form-product-price').value),
             stock_left: stockVal,
@@ -4134,14 +4166,23 @@ function updateDailyRevenue() {
     const metaEl = document.getElementById('dash-daily-revenue-meta');
     if (!revenueEl) return;
 
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const todayEnd = todayStart + (24 * 60 * 60 * 1000);
+    // Timezone-safe date string in IST (Asia/Kolkata)
+    function getISTDateStr(dateInput) {
+        if (!dateInput) return '';
+        try {
+            const d = new Date(dateInput);
+            if (isNaN(d.getTime())) return '';
+            return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(d);
+        } catch (e) {
+            return '';
+        }
+    }
+
+    const todayIST = getISTDateStr(new Date());
 
     const todaysOrders = (ordersCache || []).filter(o => {
-        if (!o) return false;
-        const orderTime = o.created_at ? new Date(o.created_at).getTime() : Date.now();
-        return !isNaN(orderTime) && orderTime >= todayStart && orderTime < todayEnd;
+        if (!o || !o.created_at) return false;
+        return getISTDateStr(o.created_at) === todayIST;
     });
 
     const isDelivered = (st) => {
@@ -4166,12 +4207,12 @@ function updateDailyRevenue() {
     const cancelledToday = todaysOrders.filter(o => isCancelled(o.status)).length;
     const pendingToday = todaysOrders.filter(o => !isDelivered(o.status) && !isCancelled(o.status)).length;
 
-    revenueEl.textContent = `₹${totalRevenue.toLocaleString('en-IN')}`;
+    revenueEl.textContent = `₹${Math.round(totalRevenue).toLocaleString('en-IN')}`;
     if (metaEl) {
         const parts = [`${todaysOrders.length} order${todaysOrders.length !== 1 ? 's' : ''}`];
         if (completedToday > 0) parts.push(`${completedToday} delivered`);
-        if (pendingToday > 0) parts.push(`${pendingToday} active`);
         if (cancelledToday > 0) parts.push(`${cancelledToday} cancelled`);
+        if (pendingToday > 0) parts.push(`${pendingToday} pending`);
         metaEl.textContent = parts.join(' • ');
     }
 
@@ -5355,8 +5396,15 @@ async function fetchFinancialData() {
 
             if (valRev) valRev.textContent = `₹${(data.metrics.total_revenue || 0).toLocaleString('en-IN')}`;
             if (valProf) valProf.textContent = `₹${(data.metrics.total_profit || 0).toLocaleString('en-IN')}`;
-            if (subRev) subRev.classList.remove('hidden');
-            if (subProf) subProf.classList.remove('hidden');
+            if (subRev) {
+                subRev.textContent = `From ${data.metrics.delivered_orders_count || 0} delivered orders`;
+                subRev.classList.remove('hidden');
+            }
+            if (subProf) {
+                const margin = data.metrics.profit_margin || 0;
+                subProf.textContent = `${margin}% Net platform margin`;
+                subProf.classList.remove('hidden');
+            }
         } else if (data.locked) {
             financialToken = null;
             checkFinancialStatus();
