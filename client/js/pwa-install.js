@@ -40,6 +40,8 @@
             navigator.serviceWorker.register('/sw.js')
                 .then((reg) => {
                     console.log('[PWA] Service Worker registered successfully, scope:', reg.scope);
+                    // Force immediate update check on launch
+                    try { reg.update(); } catch(e) {}
                 })
                 .catch((err) => {
                     console.warn('[PWA] Service Worker registration note:', err.message);

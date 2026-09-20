@@ -679,8 +679,8 @@ window.pages.home = async function() {
         return bInStock - aInStock;
     });
 
-    // Number of products beside the vertical category rail: 8 on mobile (4 rows x 2 cols) to completely fill rail height with zero gap, 12 on tablet, 16 on desktop
-    const INITIAL_BESIDE_RAIL_LIMIT = (typeof window !== 'undefined' && window.innerWidth < 640) ? 8 : ((typeof window !== 'undefined' && window.innerWidth < 1024) ? 12 : 16);
+    // Number of products beside the vertical category rail: 10 on mobile (5 rows x 2 cols) to completely fill rail height with zero gap on all screens, 12 on tablet, 16 on desktop
+    const INITIAL_BESIDE_RAIL_LIMIT = (typeof window !== 'undefined' && window.innerWidth < 640) ? 10 : ((typeof window !== 'undefined' && window.innerWidth < 1024) ? 12 : 16);
     const initialBesideRailProducts = sortedCatalogProducts.slice(0, INITIAL_BESIDE_RAIL_LIMIT);
     const initialRemainingProducts = sortedCatalogProducts.slice(INITIAL_BESIDE_RAIL_LIMIT);
 
@@ -1363,20 +1363,18 @@ window.pageInits.home = function() {
 
         // Distribute cards: Products fill the entire height beside the category rail with ZERO empty gap,
         // and all remaining cards continue seamlessly into the full-width grid below!
-        let splitLimit = (window.innerWidth < 640) ? 8 : ((window.innerWidth < 1024) ? 12 : 16);
+        let splitLimit = (window.innerWidth < 640) ? 10 : ((window.innerWidth < 1024) ? 12 : 16);
         const railEl = document.getElementById('category-rail-container') || document.getElementById('vertical-category-rail');
         if (window.innerWidth < 640) {
             if (railEl && railEl.offsetHeight > 0) {
-                const controlsEl = document.getElementById('catalog-filters-bar');
-                const promoEl = document.getElementById('category-promo-banner');
-                const headerEl = promoEl?.nextElementSibling;
-                const headersHeight = (controlsEl?.offsetHeight || 38) + (promoEl?.offsetHeight || 110) + (headerEl?.offsetHeight || 48) + 24;
+                const rightCol = railEl.nextElementSibling;
+                const headersHeight = (mainGrid && rightCol) ? Math.max(0, mainGrid.offsetTop - rightCol.offsetTop) : 220;
                 const availableHeight = Math.max(0, railEl.offsetHeight - headersHeight);
-                // Each 2-col row is approx 305px. Math.ceil guarantees products fill all the way down to the rail's end with zero empty space.
-                const neededRows = Math.max(4, Math.ceil(availableHeight / 305));
+                // Guarantee at least 5 rows (10 cards) so products completely cover the rail height down to or past the TOP button with ZERO gap on any mobile screen
+                const neededRows = Math.max(5, Math.ceil(availableHeight / 280));
                 splitLimit = neededRows * 2;
             } else {
-                splitLimit = 8;
+                splitLimit = 10;
             }
         } else if (window.innerWidth < 1024) {
             splitLimit = 12;
