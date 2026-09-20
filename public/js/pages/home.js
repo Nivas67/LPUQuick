@@ -679,7 +679,8 @@ window.pages.home = async function() {
         return bInStock - aInStock;
     });
 
-    const INITIAL_BESIDE_RAIL_LIMIT = 6;
+    // Number of products beside the vertical category rail: 8 on mobile (4 rows x 2 cols) to completely fill rail height with zero gap, 12 on tablet, 16 on desktop
+    const INITIAL_BESIDE_RAIL_LIMIT = (typeof window !== 'undefined' && window.innerWidth < 640) ? 8 : ((typeof window !== 'undefined' && window.innerWidth < 1024) ? 12 : 16);
     const initialBesideRailProducts = sortedCatalogProducts.slice(0, INITIAL_BESIDE_RAIL_LIMIT);
     const initialRemainingProducts = sortedCatalogProducts.slice(INITIAL_BESIDE_RAIL_LIMIT);
 
@@ -1360,8 +1361,28 @@ window.pageInits.home = function() {
             return idxA - idxB;
         });
 
-        // Distribute cards: First 6 cards beside the rail, all remaining cards into the full-width grid below!
-        const splitLimit = (window.innerWidth < 640) ? 6 : 8;
+        // Distribute cards: Products fill the entire height beside the category rail with ZERO empty gap,
+        // and all remaining cards continue seamlessly into the full-width grid below!
+        let splitLimit = (window.innerWidth < 640) ? 8 : ((window.innerWidth < 1024) ? 12 : 16);
+        const railEl = document.getElementById('category-rail-container') || document.getElementById('vertical-category-rail');
+        if (window.innerWidth < 640) {
+            if (railEl && railEl.offsetHeight > 0) {
+                const controlsEl = document.getElementById('catalog-filters-bar');
+                const promoEl = document.getElementById('category-promo-banner');
+                const headerEl = promoEl?.nextElementSibling;
+                const headersHeight = (controlsEl?.offsetHeight || 38) + (promoEl?.offsetHeight || 110) + (headerEl?.offsetHeight || 48) + 24;
+                const availableHeight = Math.max(0, railEl.offsetHeight - headersHeight);
+                // Each 2-col row is approx 305px. Math.ceil guarantees products fill all the way down to the rail's end with zero empty space.
+                const neededRows = Math.max(4, Math.ceil(availableHeight / 305));
+                splitLimit = neededRows * 2;
+            } else {
+                splitLimit = 8;
+            }
+        } else if (window.innerWidth < 1024) {
+            splitLimit = 12;
+        } else {
+            splitLimit = 16;
+        }
         const besideRailCards = visibleCards.slice(0, splitLimit);
         const remainingCards = visibleCards.slice(splitLimit);
 
