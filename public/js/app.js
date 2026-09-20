@@ -1839,6 +1839,93 @@ let clientWsReconnectAttempts = 0;
 let clientWsPingInterval = null;
 let currentTrackedOrderId = null;
 
+// Fast Polling Fallback Engine (activates ONLY when WebSocket is disconnected)
+let _clientPollTimer = null;
+let _clientPollActive = false;
+let _lastPollOrderStatus = null;
+let _lastPollStoreAvail = null;
+const CLIENT_POLL_FAST_MS = 5000;   // 5s for active order status when WS is down
+const CLIENT_POLL_STORE_MS = 15000; // 15s for store availability when WS is down
+let _storePollTimer = null;
+
+function startClientPollingFallback() {
+    if (_clientPollActive) return;
+    _clientPollActive = true;
+    console.log('[LPUQuick Poll] ⚡ Fast polling fallback ACTIVATED (WS down)');
+    scheduleNextClientPoll();
+    scheduleNextStorePoll();
+}
+
+function stopClientPollingFallback() {
+    if (!_clientPollActive) return;
+    _clientPollActive = false;
+    if (_clientPollTimer) { clearTimeout(_clientPollTimer); _clientPollTimer = null; }
+    if (_storePollTimer) { clearTimeout(_storePollTimer); _storePollTimer = null; }
+    console.log('[LPUQuick Poll] 🔌 Polling fallback STOPPED (WS reconnected)');
+}
+
+function scheduleNextClientPoll() {
+    if (!_clientPollActive) return;
+    if (_clientPollTimer) clearTimeout(_clientPollTimer);
+    _clientPollTimer = setTimeout(async () => {
+        if (!_clientPollActive) return;
+        // Only poll if user is logged in and tab is visible
+        if (!document.hidden && window.isUserLoggedIn()) {
+            try {
+                const userId = window.CURRENT_USER_ID;
+                const activeRes = await window.api.getActiveOrder(userId);
+                const active = activeRes?.active;
+                if (active && !['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(active.status)) {
+                    const newSig = `${active.id}|${active.status}|${active.rider_name || ''}`;
+                    if (newSig !== _lastPollOrderStatus) {
+                        _lastPollOrderStatus = newSig;
+                        const riderName = active.rider_name || 'Alex';
+                        console.log(`[Poll Sync] Order ${active.id} -> ${active.status} (${riderName})`);
+                        handleLiveOrderStatusChange({
+                            type: 'STATUS_UPDATE',
+                            order_id: active.id,
+                            orderId: active.id,
+                            status: active.status,
+                            rider_name: riderName
+                        });
+                    }
+                } else if (active && ['Delivered', 'delivered'].includes(active.status)) {
+                    const newSig = `${active.id}|${active.status}`;
+                    if (newSig !== _lastPollOrderStatus) {
+                        _lastPollOrderStatus = newSig;
+                        handleLiveOrderStatusChange({
+                            type: 'STATUS_UPDATE',
+                            order_id: active.id,
+                            orderId: active.id,
+                            status: active.status,
+                            rider_name: active.rider_name || 'Alex'
+                        });
+                    }
+                }
+            } catch (e) {
+                // Silently retry next cycle
+            }
+        }
+        scheduleNextClientPoll();
+    }, CLIENT_POLL_FAST_MS);
+}
+
+function scheduleNextStorePoll() {
+    if (!_clientPollActive) return;
+    if (_storePollTimer) clearTimeout(_storePollTimer);
+    _storePollTimer = setTimeout(async () => {
+        if (!_clientPollActive) return;
+        if (!document.hidden) {
+            try {
+                if (typeof window.syncStoreAvailability === 'function') {
+                    await window.syncStoreAvailability();
+                }
+            } catch (e) {}
+        }
+        scheduleNextStorePoll();
+    }, CLIENT_POLL_STORE_MS);
+}
+
 // Client Toast Notification Helper
 function showClientToast(message, type = 'info', icon = 'bolt') {
     const container = document.getElementById('client-toast-container');
@@ -1907,6 +1994,9 @@ function initGlobalClientWebSocket() {
         globalClientWs.onopen = () => {
             console.log('[LPUQuick WS] ⚡ Connected to campus live stream.');
             clientWsReconnectAttempts = 0;
+
+            // WS is live — kill the polling fallback (zero duplicate work)
+            stopClientPollingFallback();
 
             // Register user if signed in
             if (window.CURRENT_USER_ID) {
@@ -2018,12 +2108,14 @@ function initGlobalClientWebSocket() {
             globalClientWs = null;
             if (clientWsPingInterval) { clearInterval(clientWsPingInterval); clientWsPingInterval = null; }
 
-            // Auto-reconnect with exponential backoff on supported servers; cap at 5 on serverless
-            if (clientWsReconnectAttempts < 5) {
-                const delay = Math.min(1000 * Math.pow(2, clientWsReconnectAttempts), 15000);
-                clientWsReconnectAttempts++;
-                clientWsReconnectTimer = setTimeout(initGlobalClientWebSocket, delay);
-            }
+            // Activate fast polling fallback immediately when WS drops
+            startClientPollingFallback();
+
+            // Infinite reconnect with exponential backoff (never give up)
+            const delay = Math.min(1000 * Math.pow(2, clientWsReconnectAttempts), 15000);
+            clientWsReconnectAttempts++;
+            if (clientWsReconnectTimer) clearTimeout(clientWsReconnectTimer);
+            clientWsReconnectTimer = setTimeout(initGlobalClientWebSocket, delay);
         };
 
         globalClientWs.onerror = () => {
@@ -2031,6 +2123,8 @@ function initGlobalClientWebSocket() {
         };
 
     } catch (e) {
+        // Activate polling fallback on connection failure
+        startClientPollingFallback();
         if (!clientWsReconnectTimer) {
             clientWsReconnectTimer = setTimeout(initGlobalClientWebSocket, 3000);
         }
@@ -2401,21 +2495,40 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
     window.addEventListener('DOMContentLoaded', bootstrapApp);
 }
 
-// Smart Background Sync (Only runs when tab is active to preserve mobile CPU/network)
+// Smart Background Sync (8s when tab is active — fast enough for 3-min delivery)
 setInterval(() => {
     if (!document.hidden && window.isUserLoggedIn()) {
         checkAndConnectGlobalOrderTracking();
     }
-}, 20000);
+}, 8000);
 
+// Aggressive Visibility & Network Reconnect Hooks
 document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
+        // Tab became active — immediately check WS health and reconnect if dead
+        if (!globalClientWs || globalClientWs.readyState !== WebSocket.OPEN) {
+            console.log('[LPUQuick WS] 🔄 Tab active — reconnecting WS...');
+            clientWsReconnectAttempts = 0; // Reset backoff on user return
+            if (clientWsReconnectTimer) { clearTimeout(clientWsReconnectTimer); clientWsReconnectTimer = null; }
+            initGlobalClientWebSocket();
+        }
         if (window.isUserLoggedIn()) {
             checkAndConnectGlobalOrderTracking();
         }
         if (typeof window.syncStoreAvailability === 'function') {
             window.syncStoreAvailability();
         }
+    }
+});
+
+// Network restored — immediately reconnect WS
+window.addEventListener('online', () => {
+    console.log('[LPUQuick WS] 🌐 Network restored — reconnecting...');
+    clientWsReconnectAttempts = 0;
+    if (clientWsReconnectTimer) { clearTimeout(clientWsReconnectTimer); clientWsReconnectTimer = null; }
+    initGlobalClientWebSocket();
+    if (window.isUserLoggedIn()) {
+        checkAndConnectGlobalOrderTracking();
     }
 });
 
