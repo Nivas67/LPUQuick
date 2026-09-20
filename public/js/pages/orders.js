@@ -100,7 +100,12 @@ window.applyOrderStatusUI = function(newStatus, riderName, targetOrderId, riderP
     console.log(`[Orders Page UI] ⚡ Applying admin status update in real-time: ${newStatus} (${riderName})`);
 
     const card = document.getElementById('active-order-tracking-card');
-    if (!card) return;
+    if (!card) {
+        if (window.location.hash.includes('orders') && typeof window.renderPage === 'function') {
+            window.renderPage();
+        }
+        return;
+    }
 
     const currentOrderId = card.dataset.orderId || window.CURRENT_ACTIVE_ORDER_ID;
     if (targetOrderId && currentOrderId && targetOrderId !== currentOrderId) {

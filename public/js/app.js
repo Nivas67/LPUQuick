@@ -2030,6 +2030,9 @@ function initGlobalClientWebSocket() {
                 else if (data.type === 'NEW_ORDER' && data.order) {
                     if (window.CURRENT_USER_ID && data.order.user_id === window.CURRENT_USER_ID) {
                         checkAndConnectGlobalOrderTracking();
+                        if (window.location.hash.includes('orders') && typeof window.renderPage === 'function') {
+                            window.renderPage();
+                        }
                     }
                 }
                 // 4. Live Store Lock / Availability Updates from Admin
