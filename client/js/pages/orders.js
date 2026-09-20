@@ -99,6 +99,11 @@ function getOrderTrackingDetails(status, riderName = 'Alex', address = 'BH13') {
 window.applyOrderStatusUI = function(newStatus, riderName, targetOrderId, riderPhone) {
     console.log(`[Orders Page UI] ⚡ Applying admin status update in real-time: ${newStatus} (${riderName})`);
 
+    // Invalidate API cache immediately so background calls don't return stale state
+    if (typeof window.api?.clearOrdersCache === 'function') {
+        window.api.clearOrdersCache();
+    }
+
     const card = document.getElementById('active-order-tracking-card');
     if (!card) {
         if (window.location.hash.includes('orders') && typeof window.renderPage === 'function') {
@@ -108,7 +113,8 @@ window.applyOrderStatusUI = function(newStatus, riderName, targetOrderId, riderP
     }
 
     const currentOrderId = card.dataset.orderId || window.CURRENT_ACTIVE_ORDER_ID;
-    if (targetOrderId && currentOrderId && targetOrderId !== currentOrderId) {
+    const normalizeId = id => String(id || '').replace(/^order_/, '').trim().toLowerCase();
+    if (targetOrderId && currentOrderId && normalizeId(targetOrderId) !== normalizeId(currentOrderId)) {
         if (typeof window.renderPage === 'function') window.renderPage();
         return;
     }
@@ -124,7 +130,7 @@ window.applyOrderStatusUI = function(newStatus, riderName, targetOrderId, riderP
 
     // 1. Status Badge & ETA Display
     const etaTime = document.getElementById('tracking-eta-time');
-    if (etaTime) etaTime.textContent = `Status: ${newStatus}`;
+    if (etaTime) etaTime.textContent = newStatus === 'Delivered' ? 'Status: Delivered ✓' : `Status: ${newStatus}`;
 
     // Update Cancel Option at top of the map
     const cancelContainer = document.getElementById('tracking-cancel-container');
@@ -137,10 +143,15 @@ window.applyOrderStatusUI = function(newStatus, riderName, targetOrderId, riderP
                     <span>Cancel</span>
                 </button>
             `;
+        } else if (newStatus.toLowerCase().includes('deliver')) {
+            cancelContainer.innerHTML = `
+                <span class="clay-pill px-2.5 sm:px-3 py-1 flex items-center gap-1 text-xs font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 shadow-xs select-none">
+                    <span class="material-symbols-outlined text-xs text-emerald-500">task_alt</span>
+                    <span>Delivered</span>
+                </span>
+            `;
         } else {
-            const reason = newStatus.toLowerCase().includes('cancel') 
-                ? 'Order is cancelled' 
-                : (newStatus.toLowerCase().includes('deliver') ? 'Order is delivered' : 'Order is out for delivery');
+            const reason = newStatus.toLowerCase().includes('cancel') ? 'Order is cancelled' : 'Order is out for delivery';
             cancelContainer.innerHTML = `
                 <button type="button" id="btn-cancel-active-order" disabled class="clay-pill px-2 sm:px-2.5 py-1 flex items-center gap-1 text-[11px] font-bold text-slate-400 dark:text-slate-500 bg-slate-100/60 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/50 cursor-not-allowed opacity-60 select-none" title="Cancellation unavailable: ${reason}">
                     <span class="material-symbols-outlined text-xs">block</span>
@@ -191,8 +202,12 @@ window.applyOrderStatusUI = function(newStatus, riderName, targetOrderId, riderP
     if (pinIcon) pinIcon.textContent = details.icon;
     const pinBox = document.getElementById('rider-icon-box');
     if (pinBox) {
-        if (details.step === 4) pinBox.classList.add('animate-bounce');
-        else pinBox.classList.remove('animate-bounce');
+        pinBox.classList.remove('animate-bounce');
+        if (details.step === 4) {
+            pinBox.classList.add('animate-bounce');
+        } else if (details.step === 5) {
+            pinBox.classList.add('shadow-[0_0_20px_#10b981]');
+        }
     }
     const pinBadge = document.getElementById('rider-badge');
     if (pinBadge) pinBadge.textContent = details.badge;
@@ -233,13 +248,40 @@ window.applyOrderStatusUI = function(newStatus, riderName, targetOrderId, riderP
         }
     } catch (e) {}
 
-    // 8. If order delivered or cancelled, refresh past orders list after 2.5s
+    // 8. If order delivered or cancelled, update past orders list in place without wiping the map
     if (details.step === 5 || details.step === 0) {
-        setTimeout(() => {
-            if (typeof window.renderPage === 'function' && window.location.hash.includes('orders')) {
-                window.renderPage();
+        setTimeout(async () => {
+            if (typeof window.api?.getOrders === 'function') {
+                try {
+                    const refreshed = await window.api.getOrders(window.CURRENT_USER_ID, true);
+                    const pastList = document.getElementById('past-orders-list');
+                    if (pastList && refreshed?.past) {
+                        const pastRowsHtml = refreshed.past.map(o => {
+                            const isCancelled = ['Cancelled', 'cancelled'].includes(o.status);
+                            const statusBadgeClass = isCancelled 
+                                ? 'bg-rose-500/10 text-rose-500 border border-rose-500/25' 
+                                : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25';
+                            return `
+                            <div class="glass-panel card-pedestal rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row justify-between sm:items-center gap-3.5 hover:translate-y-[-2px] transition-all shadow-md">
+                                <div class="space-y-1.5">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-black text-xs sm:text-sm text-slate-900 dark:text-white tracking-tight">Order #${o.id.replace('order_', '').toUpperCase()}</span>
+                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${statusBadgeClass}">${o.status}</span>
+                                    </div>
+                                    <p class="text-xs text-slate-500 dark:text-slate-400 font-medium line-clamp-1">${o.item_names || 'Campus Groceries & Essentials'}</p>
+                                    <p class="text-[11px] text-slate-400">Total: ₹${o.total} · ${o.payment_method || 'Cash'}</p>
+                                </div>
+                                <button type="button" class="reorder-btn clay-pill px-4 py-2 text-xs font-black text-emerald dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95" data-order-id="${o.id}">
+                                    <span class="material-symbols-outlined text-sm">repeat</span>
+                                    <span>Reorder</span>
+                                </button>
+                            </div>`;
+                        }).join('');
+                        pastList.innerHTML = pastRowsHtml;
+                    }
+                } catch(e) {}
             }
-        }, 2800);
+        }, 1200);
     }
 };
 
@@ -310,14 +352,29 @@ window.pages.orders = async function() {
 
     const userId = window.CURRENT_USER_ID;
     const [ordersDataRes, activeDataRes] = await Promise.allSettled([
-        window.api.getOrders(userId),
-        window.api.getActiveOrder(userId)
+        window.api.getOrders(userId, true),
+        window.api.getActiveOrder(userId, true)
     ]);
 
     const ordersData = ordersDataRes.status === 'fulfilled' ? ordersDataRes.value : { active: [], past: [] };
     const activeData = activeDataRes.status === 'fulfilled' ? activeDataRes.value : { active: null };
 
-    const activeOrder = activeData?.active || (ordersData?.active && ordersData.active[0]) || null;
+    let activeOrder = activeData?.active || (ordersData?.active && ordersData.active[0]) || null;
+
+    // If no ongoing active order, check if user's latest order was Delivered within last 30 minutes
+    // so the student can see their Delivered order on the map with full celebratory HUD instead of blank 'No active' card
+    if (!activeOrder && ordersData?.past && ordersData.past.length > 0) {
+        const latestPast = ordersData.past[0];
+        const normalizeId = id => String(id || '').replace(/^order_/, '').trim().toLowerCase();
+        const isRecentDelivered = latestPast && ['Delivered', 'delivered'].includes(latestPast.status) && (
+            window.CURRENT_ACTIVE_ORDER_STATUS === 'Delivered' ||
+            (window.CURRENT_ACTIVE_ORDER_ID && normalizeId(window.CURRENT_ACTIVE_ORDER_ID) === normalizeId(latestPast.id)) ||
+            (Date.now() - new Date(latestPast.created_at || Date.now()).getTime() < 30 * 60 * 1000)
+        );
+        if (isRecentDelivered) {
+            activeOrder = latestPast;
+        }
+    }
     const activeRiderInfo = formatClientRiderInfo(activeOrder?.rider_name);
     const activeRiderName = activeRiderInfo.name;
     const activeRiderPhone = activeOrder?.rider_phone || activeRiderInfo.phone || '7671836211';
@@ -400,8 +457,8 @@ window.pages.orders = async function() {
                 <div class="flex items-center gap-2">
                     <!-- High-Contrast Status Pill (Vibrant in both Dark and Light mode) -->
                     <span class="clay-pill px-3 py-1 flex items-center gap-1.5 text-xs font-black text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 dark:bg-slate-900/90 border border-emerald-500/40 shadow-sm" id="tracking-eta">
-                        <span class="material-symbols-outlined text-xs text-emerald-500 animate-pulse">bolt</span>
-                        <span id="tracking-eta-time">Status: ${activeOrder.status}</span>
+                        <span class="material-symbols-outlined text-xs text-emerald-500 animate-pulse">${activeOrder.status === 'Delivered' ? 'task_alt' : 'bolt'}</span>
+                        <span id="tracking-eta-time">${activeOrder.status === 'Delivered' ? 'Status: Delivered ✓' : `Status: ${activeOrder.status}`}</span>
                     </span>
                     <!-- Cancel Order Option at top of the map -->
                     <div id="tracking-cancel-container">
@@ -410,6 +467,11 @@ window.pages.orders = async function() {
                             <span class="material-symbols-outlined text-xs text-rose-500">cancel</span>
                             <span>Cancel</span>
                         </button>
+                        ` : activeOrder.status.toLowerCase().includes('deliver') ? `
+                        <span class="clay-pill px-2.5 sm:px-3 py-1 flex items-center gap-1 text-xs font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 shadow-xs select-none">
+                            <span class="material-symbols-outlined text-xs text-emerald-500">task_alt</span>
+                            <span>Delivered</span>
+                        </span>
                         ` : `
                         <button type="button" id="btn-cancel-active-order" disabled class="clay-pill px-2 sm:px-2.5 py-1 flex items-center gap-1 text-[11px] font-bold text-slate-400 dark:text-slate-500 bg-slate-100/60 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/50 cursor-not-allowed opacity-60 select-none" title="Cancellation unavailable: Order is out for delivery">
                             <span class="material-symbols-outlined text-xs">block</span>
@@ -635,11 +697,10 @@ window.pageInits.orders = function() {
         };
     });
 
-    // Real-time tracking telemetry and admin synchronization loop (optimized 7s with visibility guard)
+    // Real-time tracking telemetry and admin synchronization loop (every 3 seconds)
     if (window.CURRENT_ACTIVE_ORDER_ID) {
         let runnerWalkStep = 0;
         const trackingTimer = setInterval(async () => {
-            if (typeof document !== 'undefined' && document.hidden) return;
             try {
                 // If order is actively "Out for Delivery", add gentle live walking motion along corridor
                 const curStatus = (window.CURRENT_ACTIVE_ORDER_STATUS || '').toLowerCase();
@@ -667,18 +728,28 @@ window.pageInits.orders = function() {
                         if ((statusChanged || riderChanged) && (Date.now() - (window.__lastWsStatusTime || 0) > 4000)) {
                             window.applyOrderStatusUI(newStatus, rName, currentActive.id, rPhone);
                         }
-                    } else if (window.CURRENT_ACTIVE_ORDER_STATUS && 
-                              !['Delivered', 'Cancelled', 'delivered', 'cancelled'].includes(window.CURRENT_ACTIVE_ORDER_STATUS)) {
-                        // Order completed or cleared - refresh orders page
-                        if (typeof window.renderPage === 'function' && window.location.hash.includes('orders')) {
-                            window.renderPage();
+                    } else {
+                        // When active order becomes null, check if our order was just delivered!
+                        if (window.CURRENT_ACTIVE_ORDER_STATUS && !['Delivered', 'Cancelled', 'delivered', 'cancelled'].includes(window.CURRENT_ACTIVE_ORDER_STATUS)) {
+                            if (window.api && window.api.getOrders) {
+                                const normalizeId = id => String(id || '').replace(/^order_/, '').trim().toLowerCase();
+                                const match = (ordersRes?.past || []).find(o => normalizeId(o.id) === normalizeId(window.CURRENT_ACTIVE_ORDER_ID)) || (ordersRes?.past || [])[0];
+                                if (match && ['Delivered', 'delivered'].includes(match.status)) {
+                                    const rInfo = formatClientRiderInfo(match.rider_name);
+                                    window.applyOrderStatusUI('Delivered', rInfo.name, match.id, match.rider_phone);
+                                    return;
+                                }
+                            }
+                            if (typeof window.renderPage === 'function' && window.location.hash.includes('orders')) {
+                                window.renderPage();
+                            }
                         }
                     }
                 }
             } catch(e) {
                 // Silent catch for polling
             }
-        }, 7000);
+        }, 3000);
 
         window.__ordersTrackingTimer = trackingTimer;
     }

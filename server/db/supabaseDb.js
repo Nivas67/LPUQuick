@@ -1012,7 +1012,7 @@ const supabaseDb = {
                 .update(updatePayload)
                 .eq('id', orderId)
                 .select()
-                .single();
+                .maybeSingle();
 
             if (error) throw new Error(`PostgreSQL order status update failed: ${error.message}`);
             cache.invalidateOrders();

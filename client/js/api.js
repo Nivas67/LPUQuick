@@ -683,9 +683,16 @@ const api = {
         return res.json();
     },
 
+    clearOrdersCache() {
+        ordersMemoryCache = null;
+        ordersMemoryCacheTime = 0;
+        activeOrderMemoryCache = null;
+        activeOrderMemoryCacheTime = 0;
+    },
+
     // Orders (Instant 0ms SWR Memory Cache)
-    async getOrders(userId) {
-        if (ordersMemoryCache && (Date.now() - ordersMemoryCacheTime < 8000)) {
+    async getOrders(userId, force = false) {
+        if (!force && ordersMemoryCache && (Date.now() - ordersMemoryCacheTime < 8000)) {
             return ordersMemoryCache;
         }
         const res = await fetch(`${API_BASE}/orders/${userId}`);
@@ -694,8 +701,8 @@ const api = {
         ordersMemoryCacheTime = Date.now();
         return data;
     },
-    async getActiveOrder(userId) {
-        if (activeOrderMemoryCache && (Date.now() - activeOrderMemoryCacheTime < 8000)) {
+    async getActiveOrder(userId, force = false) {
+        if (!force && activeOrderMemoryCache && (Date.now() - activeOrderMemoryCacheTime < 8000)) {
             return activeOrderMemoryCache;
         }
         const res = await fetch(`${API_BASE}/orders/${userId}/active`);

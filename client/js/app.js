@@ -1873,7 +1873,7 @@ function scheduleNextClientPoll() {
         if (!document.hidden && window.isUserLoggedIn()) {
             try {
                 const userId = window.CURRENT_USER_ID;
-                const activeRes = await window.api.getActiveOrder(userId);
+                const activeRes = await window.api.getActiveOrder(userId, true);
                 const active = activeRes?.active;
                 if (active && !['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(active.status)) {
                     const newSig = `${active.id}|${active.status}|${active.rider_name || ''}`;
@@ -1901,6 +1901,26 @@ function scheduleNextClientPoll() {
                             rider_name: active.rider_name || 'Alex'
                         });
                     }
+                } else if (!active && _lastPollOrderStatus && !_lastPollOrderStatus.includes('|Delivered') && !_lastPollOrderStatus.includes('|Cancelled')) {
+                    // Active order is now null! Check recent past orders to detect Delivered:
+                    try {
+                        const allOrdersRes = await window.api.getOrders(userId, true);
+                        const past = allOrdersRes?.past || [];
+                        const lastOrder = past[0];
+                        if (lastOrder && ['Delivered', 'delivered', 'Cancelled', 'cancelled'].includes(lastOrder.status)) {
+                            const newSig = `${lastOrder.id}|${lastOrder.status}`;
+                            if (newSig !== _lastPollOrderStatus) {
+                                _lastPollOrderStatus = newSig;
+                                handleLiveOrderStatusChange({
+                                    type: 'STATUS_UPDATE',
+                                    order_id: lastOrder.id,
+                                    orderId: lastOrder.id,
+                                    status: lastOrder.status,
+                                    rider_name: lastOrder.rider_name || 'Alex'
+                                });
+                            }
+                        }
+                    } catch (e2) {}
                 }
             } catch (e) {
                 // Silently retry next cycle
@@ -2203,6 +2223,11 @@ function handleLiveOrderStatusChange(data) {
     const orderId = data.order_id || data.orderId;
 
     console.log(`[Realtime Order Sync] Order ${orderId} -> ${status} (${riderName})`);
+
+    // Invalidate orders cache immediately so subsequent reads are fresh
+    if (window.api && typeof window.api.clearOrdersCache === 'function') {
+        window.api.clearOrdersCache();
+    }
 
     // 1. Update Global Floating Bar
     updateGlobalDeliveryBar(status, riderName);

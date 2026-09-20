@@ -1949,7 +1949,19 @@ router.get('/:userId', async (req, res) => {
             active = (active || []).map(syncItem);
             past = (past || []).map(syncItem);
         }
-        res.json({ active, past });
+
+        // Re-partition cleanly so Delivered/Cancelled orders never linger in active
+        const allOrders = [...(active || []), ...(past || [])];
+        const uniqueMap = new Map();
+        for (const o of allOrders) {
+            if (o && o.id) uniqueMap.set(o.id, o);
+        }
+        const uniqueOrders = Array.from(uniqueMap.values());
+        const cleanActive = uniqueOrders.filter(o => !['Delivered', 'Cancelled', 'delivered', 'cancelled'].includes(o.status));
+        const cleanPast = uniqueOrders.filter(o => ['Delivered', 'Cancelled', 'delivered', 'cancelled'].includes(o.status));
+
+        res.setHeader('Cache-Control', 'no-cache, private');
+        res.json({ active: cleanActive, past: cleanPast });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
