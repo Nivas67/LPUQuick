@@ -1320,15 +1320,15 @@ html.dark .map-pattern {
 }
 
 #category-rail-container {
-    position: sticky !important;
-    top: 4.5rem !important;
+    position: relative !important;
+    top: auto !important;
     align-self: flex-start !important;
     height: fit-content !important;
-    max-height: calc(100vh - 5.5rem) !important;
-    overflow-y: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
     scrollbar-width: none !important;
     -ms-overflow-style: none !important;
-    z-index: 25 !important;
+    z-index: 15 !important;
     display: flex !important;
     flex-direction: column !important;
     background: rgba(255, 255, 255, 0.65);
@@ -1352,9 +1352,9 @@ html.dark #category-rail-container {
 
 @media (max-width: 639px) {
     #category-rail-container {
-        top: 3.75rem !important;
-        max-height: calc(100vh - 8.5rem) !important;
-        max-height: calc(100dvh - 8.5rem) !important;
+        position: relative !important;
+        top: auto !important;
+        max-height: none !important;
         border-radius: 1.25rem;
         padding: 0.35rem 0.15rem 0.5rem 0.15rem;
     }

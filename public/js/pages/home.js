@@ -233,9 +233,10 @@ function classifyProductCategory(p) {
     return 'others';
 }
 
-function buildProductCardsHTML(items, isAboveFold = false) {
+function buildProductCardsHTML(items, isAboveFold = false, startIndex = 0) {
     if (!items || items.length === 0) return '';
     return items.map((p, idx) => {
+        const overallIndex = startIndex + idx;
         const discountPercent = p.mrp && p.mrp > p.price ? Math.round(((p.mrp - p.price) / p.mrp) * 100) : 0;
         const isLcpCandidate = isAboveFold && idx === 0;
         const stockLeft = p.stock_left !== undefined && p.stock_left !== null ? p.stock_left : (p.in_stock ? 50 : 0);
@@ -248,6 +249,7 @@ function buildProductCardsHTML(items, isAboveFold = false) {
              data-product-id="${p.id}" 
              data-category="${catTag}" 
              data-out-of-stock="${isOutOfStock}"
+             data-initial-index="${overallIndex}"
              data-veg="${p.is_veg !== 0 ? '1' : '0'}"
              data-price="${p.price}">
             <div>
@@ -668,19 +670,33 @@ window.pages.home = async function() {
     
     const address = window.currentAddress || 'BH13';
 
+    const isProductInStock = (p) => (p.in_stock !== false && (p.stock_left === undefined || p.stock_left === null || p.stock_left > 0));
+
     // Order products: In-Stock items first, followed by Out-of-Stock items so all items are searchable
     const sortedCatalogProducts = [...allProductsFromApi].sort((a, b) => {
-        const aInStock = (a.in_stock !== false && (a.stock_left === undefined || a.stock_left === null || a.stock_left > 0)) ? 1 : 0;
-        const bInStock = (b.in_stock !== false && (b.stock_left === undefined || b.stock_left === null || b.stock_left > 0)) ? 1 : 0;
+        const aInStock = isProductInStock(a) ? 1 : 0;
+        const bInStock = isProductInStock(b) ? 1 : 0;
         return bInStock - aInStock;
     });
 
-    const inStockProductCards = buildProductCardsHTML(sortedCatalogProducts, true);
-    const biscuitCards = buildProductCardsHTML(biscuits);
-    const chipCards = buildProductCardsHTML(chips);
-    const chocolateCards = buildProductCardsHTML(chocolates);
-    const instantFoodCards = buildProductCardsHTML(instantFood);
-    const snackCards = buildProductCardsHTML(snacks);
+    const INITIAL_BESIDE_RAIL_LIMIT = 6;
+    const initialBesideRailProducts = sortedCatalogProducts.slice(0, INITIAL_BESIDE_RAIL_LIMIT);
+    const initialRemainingProducts = sortedCatalogProducts.slice(INITIAL_BESIDE_RAIL_LIMIT);
+
+    const besideRailProductCards = buildProductCardsHTML(initialBesideRailProducts, true, 0);
+    const remainingProductCards = buildProductCardsHTML(initialRemainingProducts, false, INITIAL_BESIDE_RAIL_LIMIT);
+
+    const sortInStockFirst = (items) => [...items].sort((a, b) => {
+        const aInStock = isProductInStock(a) ? 1 : 0;
+        const bInStock = isProductInStock(b) ? 1 : 0;
+        return bInStock - aInStock;
+    });
+
+    const biscuitCards = buildProductCardsHTML(sortInStockFirst(allProductsFromApi.filter(p => classifyProductCategory(p) === 'biscuits')));
+    const chipCards = buildProductCardsHTML(sortInStockFirst(allProductsFromApi.filter(p => classifyProductCategory(p) === 'chips')));
+    const chocolateCards = buildProductCardsHTML(sortInStockFirst(allProductsFromApi.filter(p => classifyProductCategory(p) === 'chocolates')));
+    const instantFoodCards = buildProductCardsHTML(sortInStockFirst(allProductsFromApi.filter(p => classifyProductCategory(p) === 'instant')));
+    const snackCards = buildProductCardsHTML(sortInStockFirst(allProductsFromApi.filter(p => classifyProductCategory(p) === 'snacks')));
 
     // Prepare promotional carousel banners (support dynamically added admin posters & gradients)
     let activeBanners = (data?.banners && Array.isArray(data.banners) && data.banners.length > 0)
@@ -1109,9 +1125,9 @@ window.pages.home = async function() {
                         </div>
                     </div>
 
-                    <!-- In-Stock Product Grid -->
+                    <!-- In-Stock Product Grid beside Category Rail -->
                     <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3.5" id="home-main-products-grid">
-                        ${inStockProductCards || `
+                        ${besideRailProductCards || `
                         <div class="col-span-full py-12 text-center flex flex-col items-center justify-center glass-card rounded-3xl p-6">
                             <span class="material-symbols-outlined text-4xl text-emerald mb-2">storefront</span>
                             <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200">Catalog Restocking</h3>
@@ -1133,6 +1149,13 @@ window.pages.home = async function() {
                             </button>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Products Beyond the Category Rail: Full-Width 2-Column Grid (Image 2 UX with Zero Empty Space) -->
+            <div id="home-remaining-products-section" class="w-full pt-1 sm:pt-2 ${initialRemainingProducts.length > 0 ? '' : 'hidden'}">
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4" id="home-remaining-products-grid">
+                    ${remainingProductCards}
                 </div>
             </div>
         </section>
@@ -1271,6 +1294,8 @@ window.pages.home = async function() {
 
 window.pageInits.home = function() {
     const mainGrid = document.getElementById('home-main-products-grid');
+    const remainingGrid = document.getElementById('home-remaining-products-grid');
+    const remainingSection = document.getElementById('home-remaining-products-section');
     let currentCategory = 'all';
     let currentSearchQuery = '';
 
@@ -1280,10 +1305,12 @@ window.pageInits.home = function() {
     function applyFilters() {
         if (!mainGrid) return;
         const query = currentSearchQuery.trim().toLowerCase();
-        const cards = Array.from(mainGrid.querySelectorAll('.product-card-item'));
+        
+        // Collect all catalog cards from beside-rail grid and full-width remaining grid
+        const allCards = Array.from(document.querySelectorAll('#home-main-products-grid .product-card-item, #home-remaining-products-grid .product-card-item'));
         let visibleCount = 0;
 
-        cards.forEach(card => {
+        allCards.forEach(card => {
             const cardCat = card.dataset.category;
             const title = (card.querySelector('h3')?.textContent || '').toLowerCase();
             const isVeg = card.dataset.veg === '1';
@@ -1301,21 +1328,54 @@ window.pageInits.home = function() {
             }
         });
 
-        // Handle Sorting if user selected a sort option
-        if (currentSort !== 'relevance') {
-            const visibleCards = cards.filter(c => !c.classList.contains('hidden'));
-            visibleCards.sort((a, b) => {
+        // Filter out visible cards
+        const visibleCards = allCards.filter(c => !c.classList.contains('hidden'));
+
+        // Priority 1: In-Stock items ALWAYS come first, Out-of-Stock items ALWAYS come last!
+        // Priority 2: Secondary sort based on user's selected sort option
+        visibleCards.sort((a, b) => {
+            const aOOS = a.dataset.outOfStock === 'true' ? 1 : 0;
+            const bOOS = b.dataset.outOfStock === 'true' ? 1 : 0;
+            if (aOOS !== bOOS) {
+                return aOOS - bOOS; // 0 (in-stock) comes before 1 (out-of-stock)
+            }
+
+            if (currentSort === 'price_asc') {
                 const priceA = parseFloat(a.dataset.price || 0);
                 const priceB = parseFloat(b.dataset.price || 0);
+                if (priceA !== priceB) return priceA - priceB;
+            } else if (currentSort === 'price_desc') {
+                const priceA = parseFloat(a.dataset.price || 0);
+                const priceB = parseFloat(b.dataset.price || 0);
+                if (priceA !== priceB) return priceB - priceA;
+            } else if (currentSort === 'name') {
                 const nameA = (a.querySelector('h3')?.textContent || '').toLowerCase();
                 const nameB = (b.querySelector('h3')?.textContent || '').toLowerCase();
+                const cmp = nameA.localeCompare(nameB);
+                if (cmp !== 0) return cmp;
+            }
 
-                if (currentSort === 'price_asc') return priceA - priceB;
-                if (currentSort === 'price_desc') return priceB - priceA;
-                if (currentSort === 'name') return nameA.localeCompare(nameB);
-                return 0;
-            });
-            visibleCards.forEach(card => mainGrid.appendChild(card));
+            const idxA = parseInt(a.dataset.initialIndex || 0, 10);
+            const idxB = parseInt(b.dataset.initialIndex || 0, 10);
+            return idxA - idxB;
+        });
+
+        // Distribute cards: First 6 cards beside the rail, all remaining cards into the full-width grid below!
+        const splitLimit = (window.innerWidth < 640) ? 6 : 8;
+        const besideRailCards = visibleCards.slice(0, splitLimit);
+        const remainingCards = visibleCards.slice(splitLimit);
+
+        besideRailCards.forEach(card => mainGrid.appendChild(card));
+
+        if (remainingGrid) {
+            remainingCards.forEach(card => remainingGrid.appendChild(card));
+            if (remainingSection) {
+                if (remainingCards.length > 0) {
+                    remainingSection.classList.remove('hidden');
+                } else {
+                    remainingSection.classList.add('hidden');
+                }
+            }
         }
 
         const emptyState = document.getElementById('category-empty-state');

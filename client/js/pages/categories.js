@@ -480,13 +480,22 @@ window.pageInits.categories = async function() {
             );
         }
 
-        if (currentSort === 'price_asc') {
-            filtered.sort((a, b) => Number(a.price) - Number(b.price));
-        } else if (currentSort === 'price_desc') {
-            filtered.sort((a, b) => Number(b.price) - Number(a.price));
-        } else if (currentSort === 'name') {
-            filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-        }
+        filtered.sort((a, b) => {
+            const stockA = a.stock_left !== undefined && a.stock_left !== null ? a.stock_left : (a.in_stock ? 50 : 0);
+            const stockB = b.stock_left !== undefined && b.stock_left !== null ? b.stock_left : (b.in_stock ? 50 : 0);
+            const aOOS = (!a.in_stock || stockA <= 0) ? 1 : 0;
+            const bOOS = (!b.in_stock || stockB <= 0) ? 1 : 0;
+            if (aOOS !== bOOS) return aOOS - bOOS; // In-stock first (0), Out-of-stock last (1)
+
+            if (currentSort === 'price_asc') {
+                return Number(a.price) - Number(b.price);
+            } else if (currentSort === 'price_desc') {
+                return Number(b.price) - Number(a.price);
+            } else if (currentSort === 'name') {
+                return (a.name || '').localeCompare(b.name || '');
+            }
+            return 0;
+        });
 
         if (itemCountBadge) {
             itemCountBadge.textContent = `${filtered.length} Items`;
