@@ -403,4 +403,97 @@ router.get('/data', requireAdmin, requireOwner, async (req, res) => {
     }
 });
 
+// -------------------------------------------------------------
+// GET /api/admin/financial/daily-breakdown
+// PROTECTED: Returns day-wise revenue, cost, profit, and order details
+// STRICTLY OWNER-ONLY & CALCULATED EXCLUSIVELY FROM DELIVERED ORDERS
+// -------------------------------------------------------------
+router.get('/daily-breakdown', requireAdmin, requireOwner, async (req, res) => {
+    try {
+        const financialToken = req.headers['x-financial-token'];
+        const session = verifyFinancialToken(financialToken);
+        const config = await getPinConfig();
+
+        // If financial PIN is configured, verify active financial token session
+        if (config.configured && config.hash && !session) {
+            return res.status(403).json({
+                success: false,
+                locked: true,
+                code: 'FINANCIAL_LOCKED',
+                error: 'Financial metrics are locked. Administrator PIN authentication required.'
+            });
+        }
+
+        const supabase = getSupabaseClient();
+        if (!supabase) {
+            return res.status(500).json({ success: false, error: 'Database client unavailable.' });
+        }
+
+        // Query all orders with customer details
+        const { data: rawOrders, error: ordersErr } = await supabase
+            .from('orders')
+            .select('id, user_id, customer_name, customer_phone, status, subtotal, delivery_fee, platform_fee, total, payment_method, delivery_address, created_at')
+            .order('created_at', { ascending: false });
+
+        if (ordersErr) {
+            console.error('Error querying orders for daily breakdown:', ordersErr);
+            return res.status(500).json({ success: false, error: 'Failed to retrieve orders.' });
+        }
+
+        const allOrders = rawOrders || [];
+        const deliveredOrders = allOrders.filter(o => financialEngine.isDelivered(o.status));
+        const deliveredOrderIds = deliveredOrders.map(o => o.id);
+
+        let items = [];
+        if (deliveredOrderIds.length > 0) {
+            // Query order_items in chunks of 150 to guarantee safety against query size limits
+            const CHUNK_SIZE = 150;
+            for (let i = 0; i < deliveredOrderIds.length; i += CHUNK_SIZE) {
+                const chunk = deliveredOrderIds.slice(i, i + CHUNK_SIZE);
+                const { data: chunkItems, error: itemsErr } = await supabase
+                    .from('order_items')
+                    .select('order_id, product_id, quantity, unit_price, products(id, name, price, cost_price, mrp)')
+                    .in('order_id', chunk);
+
+                if (!itemsErr && chunkItems) {
+                    items.push(...chunkItems);
+                }
+            }
+        }
+
+        // Snapshots map for historical accuracy
+        let snapshotsMap = {};
+        try {
+            snapshotsMap = supabaseDb.orders.getAllOrderSnapshots() || {};
+        } catch (sErr) {
+            console.warn('[Financial Snapshots Read Note]:', sErr.message);
+        }
+
+        const { range, startDate, endDate } = req.query;
+        const breakdown = financialEngine.calculateDayWiseFinancials(allOrders, items, snapshotsMap, {
+            range: range || 'all',
+            startDate,
+            endDate
+        });
+
+        return res.json({
+            success: true,
+            locked: false,
+            expires_in_seconds: session ? session.remainingSeconds : null,
+            filter: {
+                range: range || 'all',
+                startDate: startDate || null,
+                endDate: endDate || null
+            },
+            summary: breakdown.summary,
+            days: breakdown.days
+        });
+    } catch (err) {
+        console.error('Daily breakdown error:', err);
+        return res.status(500).json({ success: false, error: 'Failed to compute daily revenue and profit data.' });
+    }
+});
+
 module.exports = router;
+module.exports.issueFinancialToken = issueFinancialToken;
+module.exports.verifyFinancialToken = verifyFinancialToken;

@@ -340,15 +340,334 @@ function formatINR(amount) {
     return '₹' + (isInteger ? Math.round(num).toLocaleString('en-IN') : num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 }
 
+/**
+ * Format an ISO string to a clean time format in IST (e.g. "07:15 PM")
+ */
+function formatTimeIST(isoDate) {
+    if (!isoDate) return '';
+    try {
+        const d = new Date(isoDate);
+        if (isNaN(d.getTime())) return '';
+        return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' });
+    } catch (e) {
+        return '';
+    }
+}
+
+/**
+ * Compute Day-Wise Financials strictly from successfully delivered orders.
+ * 
+ * CORE ACCURACY RULES:
+ * 1. ONLY orders with status 'delivered' or 'completed' contribute to revenue and profit.
+ * 2. Cancelled, rejected, or pending orders contribute ₹0 revenue and ₹0 profit.
+ * 3. All dates are grouped in Indian Standard Time (IST, UTC+5:30).
+ * 4. Profit = Revenue - Cost of delivered items.
+ */
+function calculateDayWiseFinancials(orders = [], items = [], snapshotsMap = {}, options = {}) {
+    const todayIST = getISTDateString(new Date());
+    const yesterdayIST = getISTDateString(new Date(Date.now() - 86400000));
+
+    // Group items by order_id
+    const itemsByOrder = new Map();
+    for (const it of (items || [])) {
+        if (!it || !it.order_id) continue;
+        if (!itemsByOrder.has(it.order_id)) {
+            itemsByOrder.set(it.order_id, []);
+        }
+        itemsByOrder.get(it.order_id).push(it);
+    }
+
+    // Map of date string (YYYY-MM-DD) -> Day Metrics Object
+    const dayMap = new Map();
+
+    function getOrCreateDay(dateStr) {
+        if (!dayMap.has(dateStr)) {
+            let displayDate = dateStr;
+            try {
+                const parts = dateStr.split('-');
+                if (parts.length === 3) {
+                    const dObj = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+                    displayDate = dObj.toLocaleDateString('en-IN', {
+                        weekday: 'short',
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric'
+                    });
+                }
+            } catch (e) {}
+
+            dayMap.set(dateStr, {
+                date: dateStr,
+                display_date: displayDate,
+                is_today: dateStr === todayIST,
+                is_yesterday: dateStr === yesterdayIST,
+                delivered_count: 0,
+                cancelled_count: 0,
+                pending_count: 0,
+                total_orders_count: 0,
+                revenue: 0,
+                cost: 0,
+                profit: 0,
+                profit_margin: 0,
+                average_order_value: 0,
+                upi_revenue: 0,
+                upi_count: 0,
+                cash_revenue: 0,
+                cash_count: 0,
+                orders: []
+            });
+        }
+        return dayMap.get(dateStr);
+    }
+
+    // Process all orders
+    for (const ord of (orders || [])) {
+        if (!ord || !ord.created_at) continue;
+        const dateStr = getISTDateString(ord.created_at);
+        if (!dateStr) continue;
+
+        const dayEntry = getOrCreateDay(dateStr);
+        dayEntry.total_orders_count += 1;
+
+        if (!isDelivered(ord.status)) {
+            if (isCancelled(ord.status)) {
+                dayEntry.cancelled_count += 1;
+            } else {
+                dayEntry.pending_count += 1;
+            }
+            // Cancelled, rejected, or pending orders contribute strictly ₹0
+            continue;
+        }
+
+        // Successfully delivered order: compute revenue, cost, profit
+        dayEntry.delivered_count += 1;
+
+        // Priority 1: Check snapshot stored at purchase time
+        const snapshot = snapshotsMap[ord.id] || (snapshotsMap.get ? snapshotsMap.get(ord.id) : null);
+        const snapshotItems = snapshot?.items || (Array.isArray(snapshot) ? snapshot : null);
+
+        let ordRevenue = 0;
+        let ordCost = 0;
+        const itemSummaries = [];
+
+        if (snapshotItems && snapshotItems.length > 0) {
+            for (const sItem of snapshotItems) {
+                const itemFin = calculateItemFinancials(sItem, {});
+                ordRevenue += itemFin.revenue;
+                ordCost += itemFin.cost;
+                itemSummaries.push({
+                    name: itemFin.productName,
+                    quantity: itemFin.quantity,
+                    unit_price: itemFin.unitPrice,
+                    cost_price: itemFin.costPrice,
+                    revenue: itemFin.revenue,
+                    cost: itemFin.cost,
+                    profit: itemFin.profit
+                });
+            }
+        } else {
+            // Priority 2: Use order_items with product join
+            const orderItems = itemsByOrder.get(ord.id) || [];
+            if (orderItems.length > 0) {
+                for (const it of orderItems) {
+                    const prod = it.products || {};
+                    const itemFin = calculateItemFinancials(it, prod);
+                    ordRevenue += itemFin.revenue;
+                    ordCost += itemFin.cost;
+                    itemSummaries.push({
+                        name: itemFin.productName,
+                        quantity: itemFin.quantity,
+                        unit_price: itemFin.unitPrice,
+                        cost_price: itemFin.costPrice,
+                        revenue: itemFin.revenue,
+                        cost: itemFin.cost,
+                        profit: itemFin.profit
+                    });
+                }
+            }
+        }
+
+        // Fallback or override to total amount paid if higher/clean
+        const ordTotal = Number(ord.total || ord.final_amount || 0);
+        if (ordTotal > 0) {
+            ordRevenue = ordTotal;
+        }
+
+        ordRevenue = Math.round(ordRevenue * 100) / 100;
+        ordCost = Math.round(ordCost * 100) / 100;
+        const ordProfit = Math.round((ordRevenue - ordCost) * 100) / 100;
+        const ordMargin = ordRevenue > 0 ? Math.round(((ordRevenue - ordCost) / ordRevenue) * 10000) / 100 : 0;
+
+        dayEntry.revenue = Math.round((dayEntry.revenue + ordRevenue) * 100) / 100;
+        dayEntry.cost = Math.round((dayEntry.cost + ordCost) * 100) / 100;
+        dayEntry.profit = Math.round((dayEntry.profit + ordProfit) * 100) / 100;
+
+        // Classify payment method: UPI vs Cash
+        const rawPM = (ord.payment_method || '').toLowerCase().trim();
+        const isUPI = rawPM.includes('upi') || rawPM.includes('qr') || rawPM.includes('online') || rawPM.includes('card') || rawPM.includes('net banking') || rawPM.includes('wallet');
+        const isCash = rawPM.includes('cash') || rawPM.includes('cod');
+        const paymentType = isUPI ? 'UPI' : (isCash ? 'Cash' : (rawPM ? 'UPI' : 'UPI')); // Default to UPI
+
+        if (paymentType === 'UPI') {
+            dayEntry.upi_revenue = Math.round((dayEntry.upi_revenue + ordRevenue) * 100) / 100;
+            dayEntry.upi_count += 1;
+        } else {
+            dayEntry.cash_revenue = Math.round((dayEntry.cash_revenue + ordRevenue) * 100) / 100;
+            dayEntry.cash_count += 1;
+        }
+
+        dayEntry.orders.push({
+            id: ord.id,
+            customer_name: ord.customer_name || 'Student',
+            customer_phone: ord.customer_phone || '',
+            delivery_address: ord.delivery_address || 'Campus Room',
+            payment_method: ord.payment_method || 'UPI',
+            payment_type: paymentType,
+            created_at: ord.created_at,
+            time_ist: formatTimeIST(ord.created_at),
+            revenue: ordRevenue,
+            cost: ordCost,
+            profit: ordProfit,
+            margin_pct: ordMargin,
+            items_count: itemSummaries.length,
+            items: itemSummaries
+        });
+    }
+
+    // Convert dayMap to array and calculate day metrics
+    let daysArray = Array.from(dayMap.values()).map(d => {
+        const margin = d.revenue > 0 ? Math.round(((d.revenue - d.cost) / d.revenue) * 10000) / 100 : 0;
+        const aov = d.delivered_count > 0 ? Math.round((d.revenue / d.delivered_count) * 100) / 100 : 0;
+        return {
+            ...d,
+            profit: Math.round((d.revenue - d.cost) * 100) / 100,
+            profit_margin: margin,
+            average_order_value: aov,
+            formatted_revenue: formatINR(d.revenue),
+            formatted_cost: formatINR(d.cost),
+            formatted_profit: formatINR(d.profit),
+            formatted_aov: formatINR(aov),
+            formatted_upi_revenue: formatINR(d.upi_revenue),
+            formatted_cash_revenue: formatINR(d.cash_revenue)
+        };
+    });
+
+    // Sort descending by date (most recent day first)
+    daysArray.sort((a, b) => b.date.localeCompare(a.date));
+
+    // Apply filtering options
+    const { range, startDate, endDate } = options;
+    if (range === 'today') {
+        daysArray = daysArray.filter(d => d.date === todayIST);
+    } else if (range === 'yesterday') {
+        daysArray = daysArray.filter(d => d.date === yesterdayIST);
+    } else if (range === '7days') {
+        const sevenDaysAgo = getISTDateString(new Date(Date.now() - 7 * 86400000));
+        daysArray = daysArray.filter(d => d.date >= sevenDaysAgo && d.date <= todayIST);
+    } else if (range === '30days') {
+        const thirtyDaysAgo = getISTDateString(new Date(Date.now() - 30 * 86400000));
+        daysArray = daysArray.filter(d => d.date >= thirtyDaysAgo && d.date <= todayIST);
+    } else if (range === 'this_month') {
+        const monthPrefix = todayIST.slice(0, 7); // YYYY-MM
+        daysArray = daysArray.filter(d => d.date.startsWith(monthPrefix));
+    } else if (startDate && endDate) {
+        daysArray = daysArray.filter(d => d.date >= startDate && d.date <= endDate);
+    } else if (startDate) {
+        daysArray = daysArray.filter(d => d.date >= startDate);
+    } else if (endDate) {
+        daysArray = daysArray.filter(d => d.date <= endDate);
+    }
+
+    // Compute range-level summary totals
+    let totalDeliveredOrders = 0;
+    let totalCancelledOrders = 0;
+    let totalPendingOrders = 0;
+    let totalRevenue = 0;
+    let totalCost = 0;
+    let totalUpiRevenue = 0;
+    let totalUpiCount = 0;
+    let totalCashRevenue = 0;
+    let totalCashCount = 0;
+    let highestRevDay = null;
+    let highestProfDay = null;
+
+    for (const d of daysArray) {
+        totalDeliveredOrders += d.delivered_count;
+        totalCancelledOrders += d.cancelled_count;
+        totalPendingOrders += d.pending_count;
+        totalRevenue += d.revenue;
+        totalCost += d.cost;
+        totalUpiRevenue += d.upi_revenue;
+        totalUpiCount += d.upi_count;
+        totalCashRevenue += d.cash_revenue;
+        totalCashCount += d.cash_count;
+
+        if (!highestRevDay || d.revenue > highestRevDay.revenue) {
+            highestRevDay = { date: d.date, display_date: d.display_date, revenue: d.revenue };
+        }
+        if (!highestProfDay || d.profit > highestProfDay.profit) {
+            highestProfDay = { date: d.date, display_date: d.display_date, profit: d.profit };
+        }
+    }
+
+    totalRevenue = Math.round(totalRevenue * 100) / 100;
+    totalCost = Math.round(totalCost * 100) / 100;
+    const totalProfit = Math.max(0, Math.round((totalRevenue - totalCost) * 100) / 100);
+    const overallProfitMargin = totalRevenue > 0 ? Math.round((totalProfit / totalRevenue) * 10000) / 100 : 0;
+    const overallAOV = totalDeliveredOrders > 0 ? Math.round((totalRevenue / totalDeliveredOrders) * 100) / 100 : 0;
+    const activeDaysCount = daysArray.length;
+    const avgDailyRevenue = activeDaysCount > 0 ? Math.round((totalRevenue / activeDaysCount) * 100) / 100 : 0;
+    const avgDailyProfit = activeDaysCount > 0 ? Math.round((totalProfit / activeDaysCount) * 100) / 100 : 0;
+
+    totalUpiRevenue = Math.round(totalUpiRevenue * 100) / 100;
+    totalCashRevenue = Math.round(totalCashRevenue * 100) / 100;
+
+    return {
+        summary: {
+            total_delivered_orders: totalDeliveredOrders,
+            total_cancelled_orders: totalCancelledOrders,
+            total_pending_orders: totalPendingOrders,
+            total_orders_evaluated: totalDeliveredOrders + totalCancelledOrders + totalPendingOrders,
+            total_revenue: totalRevenue,
+            total_cost: totalCost,
+            total_profit: totalProfit,
+            overall_profit_margin: overallProfitMargin,
+            average_order_value: overallAOV,
+            days_count: activeDaysCount,
+            average_daily_revenue: avgDailyRevenue,
+            average_daily_profit: avgDailyProfit,
+            highest_revenue_day: highestRevDay,
+            highest_profit_day: highestProfDay,
+            upi_revenue: totalUpiRevenue,
+            upi_count: totalUpiCount,
+            cash_revenue: totalCashRevenue,
+            cash_count: totalCashCount,
+            upi_pct: totalRevenue > 0 ? Math.round((totalUpiRevenue / totalRevenue) * 10000) / 100 : 0,
+            cash_pct: totalRevenue > 0 ? Math.round((totalCashRevenue / totalRevenue) * 10000) / 100 : 0,
+            formatted_total_revenue: formatINR(totalRevenue),
+            formatted_total_profit: formatINR(totalProfit),
+            formatted_total_cost: formatINR(totalCost),
+            formatted_average_order_value: formatINR(overallAOV),
+            formatted_average_daily_revenue: formatINR(avgDailyRevenue),
+            formatted_average_daily_profit: formatINR(avgDailyProfit),
+            formatted_upi_revenue: formatINR(totalUpiRevenue),
+            formatted_cash_revenue: formatINR(totalCashRevenue)
+        },
+        days: daysArray
+    };
+}
+
 module.exports = {
     isDelivered,
     isCancelled,
     isPending,
     getISTDateString,
+    formatTimeIST,
     calculateProductProfit,
     calculateItemFinancials,
     calculateOrderFinancials,
     calculateDailySummary,
     calculateTotalFinancials,
+    calculateDayWiseFinancials,
     formatINR
 };

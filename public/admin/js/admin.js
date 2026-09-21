@@ -595,6 +595,13 @@ function formatCustomerDisplayName(o) {
     return 'Student';
 }
 
+window.toggleMobileMenu = function() {
+    const aside = document.querySelector('aside');
+    if (aside) {
+        aside.classList.toggle('hidden');
+    }
+};
+
 // View Navigation
 function switchView(viewName) {
     // Role-based view protection
@@ -606,6 +613,7 @@ function switchView(viewName) {
             'inventory': ['owner', 'store_manager', 'inventory_manager'],
             'orders': ['owner', 'store_manager', 'delivery_person'],
             'earnings': ['owner', 'store_manager', 'delivery_person'],
+            'daily-revenue': ['owner'],
             'customers': ['owner', 'store_manager'],
             'blacklist': ['owner', 'store_manager'],
             'analytics': ['owner', 'store_manager'],
@@ -643,6 +651,7 @@ function switchView(viewName) {
         'inventory': 'Real-Time Inventory & Stock',
         'orders': 'Campus Orders Queue',
         'earnings': 'Delivery Partner Earnings & Shift Statistics',
+        'daily-revenue': 'Daily Revenue & Net Profit Intelligence (Owner Only)',
         'customers': 'Student Customer Directory',
         'blacklist': 'Blacklist & Fraud Prevention',
         'analytics': 'Business Analytics & Reports',
@@ -659,6 +668,7 @@ function switchView(viewName) {
     else if (viewName === 'inventory') loadInventory();
     else if (viewName === 'orders') loadOrders();
     else if (viewName === 'earnings') loadDeliveryEarnings();
+    else if (viewName === 'daily-revenue') loadDailyRevenueView();
     else if (viewName === 'customers') loadCustomers();
     else if (viewName === 'blacklist') loadBlacklistData();
     else if (viewName === 'analytics') loadAnalytics();
@@ -702,6 +712,10 @@ async function refreshCurrentView() {
             promises.push(loadInventory());
         } else if (activeView === 'orders') {
             promises.push(loadOrders());
+        } else if (activeView === 'earnings') {
+            promises.push(loadDeliveryEarnings());
+        } else if (activeView === 'daily-revenue') {
+            promises.push(loadDailyRevenueView(true));
         } else if (activeView === 'customers') {
             promises.push(loadCustomers());
         } else if (activeView === 'blacklist') {
@@ -5351,6 +5365,9 @@ setInterval(() => {
 // FINANCIAL INTELLIGENCE & PIN SECURITY CONTROLLER
 // ==========================================
 let financialToken = null;
+try {
+    financialToken = sessionStorage.getItem('lpuquick_financial_token');
+} catch (e) {}
 let financialTimerInterval = null;
 let isFinancialConfigured = false;
 
@@ -5376,6 +5393,15 @@ async function checkFinancialStatus() {
             updateFinancialUI(data);
             if (data.is_unlocked && financialToken) {
                 fetchFinancialData();
+                if (activeView === 'daily-revenue') {
+                    loadDailyRevenueView();
+                }
+            } else if (!data.is_unlocked) {
+                financialToken = null;
+                try { sessionStorage.removeItem('lpuquick_financial_token'); } catch (e) {}
+                if (activeView === 'daily-revenue') {
+                    loadDailyRevenueView();
+                }
             }
         }
     } catch (e) {
@@ -5591,9 +5617,13 @@ window.submitFinancialUnlock = async function(e) {
         const data = await res.json();
         if (data.success && data.financial_token) {
             financialToken = data.financial_token;
+            try { sessionStorage.setItem('lpuquick_financial_token', financialToken); } catch (e) {}
             closeFinancialUnlockModal();
             showToast('✓ Financial metrics unlocked successfully', 'success');
             checkFinancialStatus();
+            if (activeView === 'daily-revenue') {
+                loadDailyRevenueView();
+            }
         } else {
             if (err) {
                 err.textContent = data.error || 'Incorrect PIN';
@@ -5691,14 +5721,380 @@ window.lockFinancialData = async function() {
         });
     } catch (e) {}
     financialToken = null;
+    try { sessionStorage.removeItem('lpuquick_financial_token'); } catch (e) {}
     showToast('Financial data locked', 'info');
     checkFinancialStatus();
+    if (activeView === 'daily-revenue') {
+        loadDailyRevenueView();
+    }
 };
 
 // Event Listeners for Financial Controls
 document.getElementById('btn-unlock-fin')?.addEventListener('click', () => window.openFinancialUnlockModal());
 document.getElementById('btn-configure-fin-pin')?.addEventListener('click', () => window.openFinancialSetupModal());
 document.getElementById('btn-manual-relock')?.addEventListener('click', () => window.lockFinancialData());
+
+// ============================================================
+// DAILY REVENUE & NET PROFIT INTELLIGENCE (OWNER ONLY)
+// ============================================================
+let currentDailyRevenueFilter = {
+    range: 'all',
+    startDate: null,
+    endDate: null
+};
+let cachedDailyRevenueData = null;
+
+window.handleDailyRevenuePinAction = function() {
+    if (financialToken) {
+        if (confirm('Financial intelligence is currently unlocked. Do you want to relock financial metrics immediately?')) {
+            window.lockFinancialData();
+        }
+    } else {
+        window.openFinancialUnlockModal();
+    }
+};
+
+window.setDailyRevenueFilter = function(range) {
+    currentDailyRevenueFilter.range = range;
+    currentDailyRevenueFilter.startDate = null;
+    currentDailyRevenueFilter.endDate = null;
+
+    const startInput = document.getElementById('dr-filter-start-date');
+    const endInput = document.getElementById('dr-filter-end-date');
+    if (startInput) startInput.value = '';
+    if (endInput) endInput.value = '';
+
+    document.querySelectorAll('#dr-filter-pills .dr-pill-btn').forEach(btn => {
+        const isTarget = btn.dataset.drRange === range;
+        btn.classList.toggle('active', isTarget);
+        if (isTarget) {
+            btn.className = 'dr-pill-btn active px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all whitespace-nowrap bg-emerald-700 text-white border-emerald-700';
+        } else {
+            btn.className = 'dr-pill-btn px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all whitespace-nowrap bg-[#f1f4f7] text-[#5c5f60] border-transparent hover:bg-[#e4e7eb]';
+        }
+    });
+
+    loadDailyRevenueView();
+};
+
+window.applyCustomDailyRevenueFilter = function() {
+    const startInput = document.getElementById('dr-filter-start-date');
+    const endInput = document.getElementById('dr-filter-end-date');
+    const start = startInput?.value?.trim();
+    const end = endInput?.value?.trim();
+
+    if (!start && !end) {
+        showToast('Please select at least a start or end date', 'warning');
+        return;
+    }
+
+    currentDailyRevenueFilter.range = 'custom';
+    currentDailyRevenueFilter.startDate = start || null;
+    currentDailyRevenueFilter.endDate = end || null;
+
+    document.querySelectorAll('#dr-filter-pills .dr-pill-btn').forEach(btn => {
+        btn.classList.remove('active');
+        btn.className = 'dr-pill-btn px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all whitespace-nowrap bg-[#f1f4f7] text-[#5c5f60] border-transparent hover:bg-[#e4e7eb]';
+    });
+
+    loadDailyRevenueView();
+};
+
+window.filterDailyRevenueTable = function(query) {
+    const q = (query || '').trim().toLowerCase();
+    const rows = document.querySelectorAll('#dr-days-tbody > tr.dr-day-row');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        const matches = !q || text.includes(q);
+        row.style.display = matches ? '' : 'none';
+        const dateKey = row.dataset.dateKey;
+        const detailRow = document.getElementById(`dr-orders-row-${dateKey}`);
+        if (detailRow && !matches) {
+            detailRow.style.display = 'none';
+        }
+        if (matches) visibleCount++;
+    });
+
+    const countLabel = document.getElementById('dr-days-count-label');
+    if (countLabel) {
+        countLabel.textContent = q ? `Filtered to ${visibleCount} matching day(s)` : `Showing ${rows.length} recorded delivery date(s)`;
+    }
+};
+
+window.toggleDailyOrdersDrawer = function(dateKey) {
+    const detailRow = document.getElementById(`dr-orders-row-${dateKey}`);
+    const toggleBtn = document.getElementById(`dr-toggle-btn-${dateKey}`);
+    const icon = toggleBtn?.querySelector('.material-symbols-outlined');
+
+    if (!detailRow) return;
+    const isHidden = detailRow.classList.contains('hidden');
+
+    if (isHidden) {
+        detailRow.classList.remove('hidden');
+        if (icon) icon.textContent = 'expand_less';
+        if (toggleBtn) {
+            toggleBtn.classList.add('bg-emerald-100', 'text-emerald-900');
+        }
+    } else {
+        detailRow.classList.add('hidden');
+        if (icon) icon.textContent = 'expand_more';
+        if (toggleBtn) {
+            toggleBtn.classList.remove('bg-emerald-100', 'text-emerald-900');
+        }
+    }
+};
+
+async function loadDailyRevenueView(forceRefresh = false) {
+    if (!isPlatformOwner()) {
+        showToast('Access restricted: Daily Revenue is owner-confidential', 'error');
+        switchView('dashboard');
+        return;
+    }
+
+    const lockedCard = document.getElementById('dr-locked-card');
+    const unlockedContainer = document.getElementById('dr-unlocked-container');
+    const pinBtn = document.getElementById('dr-btn-pin-toggle');
+    const pinIcon = document.getElementById('dr-pin-icon');
+    const pinText = document.getElementById('dr-pin-text');
+    const tbody = document.getElementById('dr-days-tbody');
+
+    // Update PIN status button display
+    if (financialToken) {
+        if (pinBtn) {
+            pinBtn.className = 'bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-full px-3.5 py-1.5 text-xs font-bold text-emerald-800 flex items-center gap-1.5 transition-all shadow-xs';
+        }
+        if (pinIcon) pinIcon.textContent = 'lock_open';
+        if (pinText) pinText.textContent = 'PIN Unlocked';
+    } else {
+        if (pinBtn) {
+            pinBtn.className = 'bg-[#f1f4f7] hover:bg-[#e0e3e6] border border-[#DADCE0] rounded-full px-3.5 py-1.5 text-xs font-bold text-[#3c4043] flex items-center gap-1.5 transition-all shadow-xs';
+        }
+        if (pinIcon) pinIcon.textContent = 'lock';
+        if (pinText) pinText.textContent = 'PIN Locked';
+    }
+
+    // Build URL query parameters
+    const params = new URLSearchParams();
+    if (currentDailyRevenueFilter.range) params.set('range', currentDailyRevenueFilter.range);
+    if (currentDailyRevenueFilter.startDate) params.set('startDate', currentDailyRevenueFilter.startDate);
+    if (currentDailyRevenueFilter.endDate) params.set('endDate', currentDailyRevenueFilter.endDate);
+    if (forceRefresh) params.set('_t', Date.now());
+
+    try {
+        const headers = {
+            'Authorization': `Bearer ${adminToken}`,
+            'x-admin-token': adminToken,
+            ...(financialToken ? { 'X-Financial-Token': financialToken } : {})
+        };
+
+        const res = await fetchWithTimeout(`/api/admin/financial/daily-breakdown?${params.toString()}`, { headers }, 15000);
+        const data = await res.json();
+
+        if (data.locked) {
+            // PIN authentication is required
+            if (lockedCard) lockedCard.classList.remove('hidden');
+            if (unlockedContainer) unlockedContainer.classList.add('hidden');
+            return;
+        }
+
+        if (!data.success) {
+            showToast(data.error || 'Failed to load daily revenue data', 'error');
+            return;
+        }
+
+        // Successfully received daily revenue & profit data
+        if (lockedCard) lockedCard.classList.add('hidden');
+        if (unlockedContainer) unlockedContainer.classList.remove('hidden');
+        cachedDailyRevenueData = data;
+
+        // Render Bento KPI Cards
+        const summary = data.summary || {};
+        const elRev = document.getElementById('dr-kpi-revenue');
+        const elProf = document.getElementById('dr-kpi-profit');
+        const elCost = document.getElementById('dr-kpi-cost');
+        const elMargin = document.getElementById('dr-kpi-margin');
+        const elDelivCount = document.getElementById('dr-kpi-delivered-count');
+        const elExclCount = document.getElementById('dr-kpi-excluded-count');
+        const elDailyAvg = document.getElementById('dr-kpi-daily-avg');
+        const elAov = document.getElementById('dr-kpi-aov');
+
+        if (elRev) elRev.textContent = summary.formatted_total_revenue || '₹0';
+        if (elProf) elProf.textContent = summary.formatted_total_profit || '₹0';
+        if (elCost) elCost.textContent = `Cost: ${summary.formatted_total_cost || '₹0'}`;
+        if (elMargin) elMargin.textContent = `${summary.overall_profit_margin || 0}%`;
+        if (elDelivCount) elDelivCount.textContent = `${summary.total_delivered_orders || 0} Delivered`;
+        if (elExclCount) {
+            const excl = summary.total_cancelled_orders || 0;
+            elExclCount.textContent = `${excl} cancelled/non-delivered excluded (₹0)`;
+        }
+        if (elDailyAvg) elDailyAvg.textContent = `${summary.formatted_average_daily_revenue || '₹0'}/day`;
+        if (elAov) elAov.textContent = `AOV: ${summary.formatted_average_order_value || '₹0'}`;
+
+        // Render UPI vs Cash KPI Cards
+        const elUpiRev = document.getElementById('dr-kpi-upi-revenue');
+        const elUpiCount = document.getElementById('dr-kpi-upi-count');
+        const elUpiPct = document.getElementById('dr-kpi-upi-pct');
+        const elCashRev = document.getElementById('dr-kpi-cash-revenue');
+        const elCashCount = document.getElementById('dr-kpi-cash-count');
+        const elCashPct = document.getElementById('dr-kpi-cash-pct');
+
+        if (elUpiRev) elUpiRev.textContent = summary.formatted_upi_revenue || '₹0';
+        if (elUpiCount) elUpiCount.textContent = `${summary.upi_count || 0} orders`;
+        if (elUpiPct) elUpiPct.textContent = `${summary.upi_pct || 0}%`;
+        if (elCashRev) elCashRev.textContent = summary.formatted_cash_revenue || '₹0';
+        if (elCashCount) elCashCount.textContent = `${summary.cash_count || 0} orders`;
+        if (elCashPct) elCashPct.textContent = `${summary.cash_pct || 0}%`;
+
+        // Render Day-wise breakdown table
+        const days = data.days || [];
+        const countLabel = document.getElementById('dr-days-count-label');
+        if (countLabel) {
+            countLabel.textContent = `Showing ${days.length} recorded delivery date(s)`;
+        }
+
+        if (!tbody) return;
+        if (days.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="py-12 text-center text-[#5c5f60]">
+                        <span class="material-symbols-outlined text-4xl text-slate-300 block mb-2">event_busy</span>
+                        <p class="font-bold text-sm text-[#181c1f]">No successful deliveries in selected date range</p>
+                        <p class="text-xs text-[#5c5f60] mt-1">Try selecting "All Time" or adjusting the date filters.</p>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        let html = '';
+        for (const d of days) {
+            const isToday = d.is_today;
+            const isYesterday = d.is_yesterday;
+            const badgeHtml = isToday
+                ? `<span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">TODAY</span>`
+                : (isYesterday
+                    ? `<span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-blue-100 text-blue-800 border border-blue-300">YESTERDAY</span>`
+                    : '');
+
+            const marginBadgeClass = d.profit_margin >= 30
+                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                : (d.profit_margin >= 15 ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'bg-slate-100 text-slate-700 border border-slate-200');
+
+            // Audit column showing delivered count and excluded non-delivered
+            const auditBadge = `
+                <div class="flex items-center justify-center gap-1.5 flex-wrap">
+                    <span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        ✓ ${d.delivered_count} Delivered
+                    </span>
+                    ${d.cancelled_count > 0 ? `
+                    <span class="px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-200" title="Strictly excluded from revenue and profit">
+                        ✕ ${d.cancelled_count} Excluded
+                    </span>` : ''}
+                </div>
+            `;
+
+            // Render main day row
+            html += `
+                <tr class="dr-day-row hover:bg-[#f8fafd] transition-colors" data-date-key="${d.date}">
+                    <td class="py-3 px-3">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-[#181c1f]">${d.display_date}</span>
+                            ${badgeHtml}
+                        </div>
+                        <span class="text-[10px] text-[#5c5f60] font-mono">${d.date}</span>
+                    </td>
+                    <td class="py-3 px-3 text-center">${auditBadge}</td>
+                    <td class="py-3 px-3 text-right font-bold text-[#181c1f] text-sm">${d.formatted_revenue}</td>
+                    <td class="py-3 px-3 text-right text-[#5c5f60] font-medium text-xs">${d.formatted_cost}</td>
+                    <td class="py-3 px-3 text-right font-black text-emerald-700 text-sm">${d.formatted_profit}</td>
+                    <td class="py-3 px-3 text-center">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${marginBadgeClass}">
+                            ${d.profit_margin}%
+                        </span>
+                    </td>
+                    <td class="py-3 px-3 text-right text-[#5c5f60] font-medium text-xs">${d.formatted_aov}</td>
+                    <td class="py-3 px-3 text-center">
+                        <button onclick="toggleDailyOrdersDrawer('${d.date}')" id="dr-toggle-btn-${d.date}"
+                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-[#3c4043] hover:bg-[#ebeef2] border border-[#DADCE0] transition-all cursor-pointer active:scale-95"
+                            title="Inspect itemized orders for this date">
+                            <span>${d.delivered_count} order${d.delivered_count !== 1 ? 's' : ''}</span>
+                            <span class="material-symbols-outlined text-[16px]">expand_more</span>
+                        </button>
+                    </td>
+                </tr>
+            `;
+
+            // Render expandable order drilldown accordion row
+            const orderList = d.orders || [];
+            let orderRowsHtml = '';
+
+            if (orderList.length === 0) {
+                orderRowsHtml = `<div class="p-3 text-center text-xs text-[#5c5f60]">No individual order items recorded.</div>`;
+            } else {
+                for (const o of orderList) {
+                    const itemsDesc = (o.items || []).map(it => `${it.quantity}x ${it.name} (Sell: ₹${it.unit_price} | Cost: ₹${it.cost_price} | Profit: ₹${it.profit})`).join(' • ');
+                    orderRowsHtml += `
+                        <div class="bg-white rounded-xl p-3 border border-[#DADCE0] flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs hover:border-emerald-300 transition-colors">
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="font-mono font-bold text-xs text-[#181c1f]">${o.id}</span>
+                                    <span class="text-[10px] bg-slate-100 text-[#5c5f60] font-semibold px-2 py-0.5 rounded-full">${o.time_ist || ''}</span>
+                                    <span class="px-1.5 py-0.5 rounded-full text-[9px] font-bold ${o.payment_type === 'Cash' ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-indigo-100 text-indigo-800 border border-indigo-200'}">${o.payment_type === 'Cash' ? '💵 Cash' : '📱 UPI'}</span>
+                                    <span class="text-xs font-bold text-[#181c1f] truncate">${o.customer_name}</span>
+                                    <span class="text-[11px] text-[#5c5f60] truncate">${o.delivery_address || ''}</span>
+                                </div>
+                                <p class="text-[11px] text-[#5c5f60] mt-1 line-clamp-2">${itemsDesc || 'Campus store package'}</p>
+                            </div>
+                            <div class="flex items-center gap-4 shrink-0 justify-end sm:text-right">
+                                <div>
+                                    <p class="text-[10px] text-[#5c5f60] uppercase font-bold">Revenue</p>
+                                    <p class="text-xs font-bold text-[#181c1f]">₹${o.revenue}</p>
+                                </div>
+                                <div>
+                                    <p class="text-[10px] text-[#5c5f60] uppercase font-bold">Cost</p>
+                                    <p class="text-xs font-medium text-[#5c5f60]">₹${o.cost}</p>
+                                </div>
+                                <div>
+                                    <p class="text-[10px] text-emerald-800 uppercase font-bold">Profit</p>
+                                    <p class="text-xs font-black text-emerald-700">₹${o.profit}</p>
+                                </div>
+                                <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                    ${o.margin_pct}%
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            html += `
+                <tr id="dr-orders-row-${d.date}" class="hidden bg-[#f4f7fa] border-b border-[#DADCE0]">
+                    <td colspan="8" class="p-4">
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between mb-1 text-xs">
+                                <span class="font-bold text-[#262a2d] flex items-center gap-1.5">
+                                    <span class="material-symbols-outlined text-sm text-emerald-600">receipt</span>
+                                    Delivered Orders for ${d.display_date} (${orderList.length})
+                                </span>
+                                <span class="text-[10px] text-[#5c5f60]">All amounts in Indian Rupee (INR)</span>
+                            </div>
+                            <div class="grid grid-cols-1 gap-2 max-h-80 overflow-y-auto pr-1">
+                                ${orderRowsHtml}
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+
+        tbody.innerHTML = html;
+    } catch (err) {
+        console.error('Error loading daily revenue view:', err);
+        showToast('Network error loading daily revenue', 'error');
+    }
+}
 
 // ============================================================
 // ADVERTISEMENTS & PROMOTIONAL POSTERS ENGINE (ADMIN PANEL)

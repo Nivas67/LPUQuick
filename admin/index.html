@@ -98,6 +98,12 @@
                 <span class="flex-1 font-bold text-[#181c1f]">Delivery Partner Hub</span>
                 <span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded-full border border-emerald-300">₹3/Ord</span>
             </button>
+            <button onclick="switchView('daily-revenue')" data-view="daily-revenue" data-required-role="owner"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full owner-only-nav">
+                <span class="material-symbols-outlined text-emerald-600">payments</span>
+                <span class="flex-1 font-bold text-[#181c1f]">Daily Revenue</span>
+                <span class="text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Owner</span>
+            </button>
             <button onclick="switchView('customers')" data-view="customers" data-required-role="owner,store_manager"
                 class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined">group</span>
@@ -1556,6 +1562,254 @@
                 </div>
             </div>
 
+
+            <!-- ================= VIEW: DAILY REVENUE & PROFIT INTELLIGENCE (OWNER ONLY) ================= -->
+            <div id="view-daily-revenue" class="space-y-6 max-w-[1440px] mx-auto hidden pb-16">
+                <!-- Header Banner -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center gap-2.5">
+                            <h2 class="text-2xl font-black text-[#181c1f] tracking-tight">Daily Revenue & Profit</h2>
+                            <span class="text-[10px] bg-amber-500/15 text-amber-800 border border-amber-500/30 px-2.5 py-0.5 rounded-full font-black flex items-center gap-1">
+                                <span>👑</span> OWNER CONFIDENTIAL
+                            </span>
+                        </div>
+                        <p class="text-xs sm:text-sm text-[#5c5f60] mt-1">
+                            Day-by-day revenue, wholesale cost, and net profit calculated <strong class="text-emerald-700">strictly from delivered orders</strong>.
+                        </p>
+                    </div>
+
+                    <!-- Header Action Controls -->
+                    <div class="flex items-center gap-2.5 flex-wrap">
+                        <!-- Security PIN Quick Status / Toggle Button -->
+                        <button id="dr-btn-pin-toggle" onclick="handleDailyRevenuePinAction()"
+                            class="bg-[#f1f4f7] hover:bg-[#e0e3e6] border border-[#DADCE0] rounded-full px-3.5 py-1.5 text-xs font-bold text-[#3c4043] flex items-center gap-1.5 transition-all shadow-xs"
+                            title="Toggle or unlock financial PIN session">
+                            <span class="material-symbols-outlined text-sm" id="dr-pin-icon">lock</span>
+                            <span id="dr-pin-text">PIN Locked</span>
+                        </button>
+
+                        <!-- Refresh Data Button -->
+                        <button onclick="loadDailyRevenueView(true)"
+                            class="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-full px-3.5 py-1.5 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-95">
+                            <span class="material-symbols-outlined text-sm">sync</span>
+                            <span>Refresh Figures</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Range Filter Toolbar -->
+                <div class="glass-panel p-3 sm:p-4 border border-[#DADCE0] bg-white flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs">
+                    <!-- Preset Filter Pills -->
+                    <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 md:pb-0" id="dr-filter-pills">
+                        <button onclick="setDailyRevenueFilter('all')" data-dr-range="all"
+                            class="dr-pill-btn active px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all whitespace-nowrap bg-emerald-700 text-white border-emerald-700">
+                            All Time
+                        </button>
+                        <button onclick="setDailyRevenueFilter('today')" data-dr-range="today"
+                            class="dr-pill-btn px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all whitespace-nowrap bg-[#f1f4f7] text-[#5c5f60] border-transparent hover:bg-[#e4e7eb]">
+                            Today
+                        </button>
+                        <button onclick="setDailyRevenueFilter('yesterday')" data-dr-range="yesterday"
+                            class="dr-pill-btn px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all whitespace-nowrap bg-[#f1f4f7] text-[#5c5f60] border-transparent hover:bg-[#e4e7eb]">
+                            Yesterday
+                        </button>
+                        <button onclick="setDailyRevenueFilter('7days')" data-dr-range="7days"
+                            class="dr-pill-btn px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all whitespace-nowrap bg-[#f1f4f7] text-[#5c5f60] border-transparent hover:bg-[#e4e7eb]">
+                            Last 7 Days
+                        </button>
+                        <button onclick="setDailyRevenueFilter('30days')" data-dr-range="30days"
+                            class="dr-pill-btn px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all whitespace-nowrap bg-[#f1f4f7] text-[#5c5f60] border-transparent hover:bg-[#e4e7eb]">
+                            Last 30 Days
+                        </button>
+                        <button onclick="setDailyRevenueFilter('this_month')" data-dr-range="this_month"
+                            class="dr-pill-btn px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all whitespace-nowrap bg-[#f1f4f7] text-[#5c5f60] border-transparent hover:bg-[#e4e7eb]">
+                            This Month
+                        </button>
+                    </div>
+
+                    <!-- Custom Date Range Form -->
+                    <div class="flex items-center gap-2">
+                        <input type="date" id="dr-filter-start-date" class="text-xs border border-[#DADCE0] rounded-lg px-2.5 py-1.5 text-[#262a2d] bg-white outline-none focus:border-emerald-500 font-medium" />
+                        <span class="text-xs text-[#5c5f60]">to</span>
+                        <input type="date" id="dr-filter-end-date" class="text-xs border border-[#DADCE0] rounded-lg px-2.5 py-1.5 text-[#262a2d] bg-white outline-none focus:border-emerald-500 font-medium" />
+                        <button onclick="applyCustomDailyRevenueFilter()"
+                            class="bg-[#3c4043] hover:bg-[#262a2d] text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-all active:scale-95">
+                            Filter
+                        </button>
+                    </div>
+                </div>
+
+                <!-- PIN Locked Security State (Shown if PIN is configured & currently locked) -->
+                <div id="dr-locked-card" class="glass-panel p-8 text-center border border-amber-400/30 bg-gradient-to-b from-amber-50/60 to-white rounded-3xl shadow-sm hidden">
+                    <div class="w-16 h-16 rounded-3xl bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto mb-4 border border-amber-400/20">
+                        <span class="material-symbols-outlined text-3xl">lock</span>
+                    </div>
+                    <h3 class="text-xl font-black text-[#181c1f]">Financial Metrics Encrypted</h3>
+                    <p class="text-xs sm:text-sm text-[#5c5f60] max-w-md mx-auto mt-2">
+                        Day-wise revenue, product costs, and profit margins are secured with your Financial PIN. Please authenticate to view daily intelligence.
+                    </p>
+                    <div class="mt-6 flex items-center justify-center gap-3">
+                        <button onclick="openFinancialUnlockModal()"
+                            class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-sm flex items-center gap-2 transition-all active:scale-95">
+                            <span class="material-symbols-outlined text-base">key</span>
+                            <span>Unlock with Financial PIN</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Unlocked Content Container -->
+                <div id="dr-unlocked-container" class="space-y-6">
+                    <!-- 5 Bento KPI Summary Cards -->
+                    <div class="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
+                        <!-- KPI 1: Delivered Gross Revenue -->
+                        <div class="glass-panel p-4 bg-gradient-to-br from-white via-white to-emerald-50/30 border border-emerald-200/80 rounded-2xl flex flex-col justify-between shadow-xs">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-[10px] font-black uppercase tracking-wider text-emerald-800">Delivered Revenue</span>
+                                <span class="material-symbols-outlined text-lg text-emerald-600">payments</span>
+                            </div>
+                            <div>
+                                <p class="text-2xl font-black text-emerald-700 tracking-tight" id="dr-kpi-revenue">₹0</p>
+                                <p class="text-[10px] text-[#5c5f60] mt-1 font-semibold flex items-center gap-1">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    <span>Only successful deliveries</span>
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- KPI 2: Estimated Net Profit -->
+                        <div class="glass-panel p-4 bg-gradient-to-br from-white via-white to-emerald-50/50 border border-emerald-300 rounded-2xl flex flex-col justify-between shadow-xs">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-[10px] font-black uppercase tracking-wider text-emerald-900">Net Profit</span>
+                                <span class="material-symbols-outlined text-lg text-emerald-700">trending_up</span>
+                            </div>
+                            <div>
+                                <p class="text-2xl font-black text-emerald-600 tracking-tight" id="dr-kpi-profit">₹0</p>
+                                <p class="text-[10px] text-emerald-800/80 mt-1 font-semibold" id="dr-kpi-cost">Cost: ₹0</p>
+                            </div>
+                        </div>
+
+                        <!-- KPI 3: Net Profit Margin % -->
+                        <div class="glass-panel p-4 border border-[#DADCE0] rounded-2xl flex flex-col justify-between shadow-xs">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-[10px] font-black uppercase tracking-wider text-[#5c5f60]">Profit Margin</span>
+                                <span class="material-symbols-outlined text-lg text-blue-600">percent</span>
+                            </div>
+                            <div>
+                                <p class="text-2xl font-black text-[#1a73e8] tracking-tight" id="dr-kpi-margin">0%</p>
+                                <p class="text-[10px] text-[#5c5f60] mt-1 font-semibold">Net margin on selling price</p>
+                            </div>
+                        </div>
+
+                        <!-- KPI 4: Delivered Orders Count -->
+                        <div class="glass-panel p-4 border border-[#DADCE0] rounded-2xl flex flex-col justify-between shadow-xs">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-[10px] font-black uppercase tracking-wider text-[#5c5f60]">Delivered Orders</span>
+                                <span class="material-symbols-outlined text-lg text-emerald-600">check_circle</span>
+                            </div>
+                            <div>
+                                <p class="text-2xl font-black text-[#181c1f] tracking-tight" id="dr-kpi-delivered-count">0</p>
+                                <p class="text-[10px] text-rose-600 mt-1 font-semibold" id="dr-kpi-excluded-count">0 cancelled excluded</p>
+                            </div>
+                        </div>
+
+                        <!-- KPI 5: Average Order Value & Daily Avg -->
+                        <div class="glass-panel p-4 border border-[#DADCE0] rounded-2xl flex flex-col justify-between shadow-xs col-span-2 lg:col-span-1">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-[10px] font-black uppercase tracking-wider text-[#5c5f60]">Daily Averages</span>
+                                <span class="material-symbols-outlined text-lg text-purple-600">bar_chart</span>
+                            </div>
+                            <div>
+                                <p class="text-xl font-black text-purple-700 tracking-tight" id="dr-kpi-daily-avg">₹0/day</p>
+                                <p class="text-[10px] text-[#5c5f60] mt-1 font-semibold" id="dr-kpi-aov">AOV: ₹0</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payment Method Breakdown: UPI vs Cash -->
+                    <div class="grid grid-cols-2 gap-3.5">
+                        <!-- UPI Revenue -->
+                        <div class="glass-panel p-4 bg-gradient-to-br from-white via-white to-indigo-50/40 border border-indigo-200/80 rounded-2xl flex flex-col justify-between shadow-xs">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-[10px] font-black uppercase tracking-wider text-indigo-800">UPI / Online Revenue</span>
+                                <span class="material-symbols-outlined text-lg text-indigo-600">account_balance</span>
+                            </div>
+                            <div>
+                                <p class="text-2xl font-black text-indigo-700 tracking-tight" id="dr-kpi-upi-revenue">₹0</p>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span class="text-[10px] text-indigo-600 font-semibold" id="dr-kpi-upi-count">0 orders</span>
+                                    <span class="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200" id="dr-kpi-upi-pct">0%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Cash Revenue -->
+                        <div class="glass-panel p-4 bg-gradient-to-br from-white via-white to-amber-50/40 border border-amber-200/80 rounded-2xl flex flex-col justify-between shadow-xs">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-[10px] font-black uppercase tracking-wider text-amber-800">Cash on Delivery</span>
+                                <span class="material-symbols-outlined text-lg text-amber-600">payments</span>
+                            </div>
+                            <div>
+                                <p class="text-2xl font-black text-amber-700 tracking-tight" id="dr-kpi-cash-revenue">₹0</p>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span class="text-[10px] text-amber-600 font-semibold" id="dr-kpi-cash-count">0 orders</span>
+                                    <span class="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-200" id="dr-kpi-cash-pct">0%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Strict Audit Note Callout -->
+                    <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 sm:p-4 flex items-start gap-3">
+                        <span class="material-symbols-outlined text-emerald-700 text-xl shrink-0 mt-0.5">verified_user</span>
+                        <div class="text-xs text-emerald-900 leading-relaxed">
+                            <strong class="font-bold">Strict 100% Realized Revenue Guarantee:</strong>
+                            Only orders marked as <span class="font-bold text-emerald-800 underline decoration-emerald-400">Delivered</span> or <span class="font-bold text-emerald-800 underline decoration-emerald-400">Completed</span> are added to your daily revenue and net profit. Cancelled, rejected, out-for-delivery, and pending orders contribute strictly <strong>₹0</strong>.
+                        </div>
+                    </div>
+
+                    <!-- Day-By-Day Breakdown Section -->
+                    <div class="glass-panel p-4 sm:p-6 border border-[#DADCE0] bg-white rounded-2xl shadow-xs">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+                            <div>
+                                <h3 class="text-base font-bold text-[#181c1f]">Day-Wise Financial Breakdown</h3>
+                                <p class="text-xs text-[#5c5f60] mt-0.5" id="dr-days-count-label">Showing all recorded delivery dates</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <input type="text" id="dr-search-date-input" onkeyup="filterDailyRevenueTable(this.value)"
+                                    placeholder="Search by date (e.g. 21 Sep or 2026-09)..."
+                                    class="text-xs border border-[#DADCE0] rounded-xl px-3 py-1.5 w-60 outline-none focus:border-emerald-500 font-medium" />
+                            </div>
+                        </div>
+
+                        <!-- Days Table -->
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs" id="dr-main-table">
+                                <thead>
+                                    <tr class="border-b border-[#DADCE0] text-[#5c5f60] font-bold uppercase text-[10px] tracking-wider bg-[#fafbfd]">
+                                        <th class="py-3 px-3">Date (IST)</th>
+                                        <th class="py-3 px-3 text-center">Fulfillment Audit</th>
+                                        <th class="py-3 px-3 text-right">Gross Revenue</th>
+                                        <th class="py-3 px-3 text-right">Cost Price</th>
+                                        <th class="py-3 px-3 text-right">Net Profit</th>
+                                        <th class="py-3 px-3 text-center">Net Margin</th>
+                                        <th class="py-3 px-3 text-right">AOV</th>
+                                        <th class="py-3 px-3 text-center">Order Drilldown</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dr-days-tbody" class="divide-y divide-[#DADCE0]">
+                                    <tr>
+                                        <td colspan="8" class="py-8 text-center text-[#5c5f60]">
+                                            <span class="material-symbols-outlined text-2xl animate-spin text-emerald-600 block mb-2">sync</span>
+                                            Loading daily revenue and profit analytics...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <!-- ================= VIEW 6: ANALYTICS ================= -->
             <div id="view-analytics" class="space-y-6 max-w-[1440px] mx-auto hidden">
