@@ -165,7 +165,6 @@ try {
 // GET /api/products (Fetch all products with resilient cloud fallback)
 router.get('/', async (req, res) => {
     try {
-        res.setHeader('Cache-Control', 'public, max-age=15, stale-while-revalidate=45');
         const adminToken = req.headers['x-admin-token'] || (req.headers.authorization && req.headers.authorization.startsWith('Bearer ') ? req.headers.authorization.slice(7) : null);
         const isAdmin = adminToken ? Boolean(verifyAdminToken(adminToken)) : false;
 
@@ -174,6 +173,12 @@ router.get('/', async (req, res) => {
         const subcategory = req.query.subcategory || '';
         const sort = req.query.sort || '';
         const forceFresh = req.query.force === 'true';
+
+        if (!isAdmin && !includeInactive && !forceFresh) {
+            res.setHeader('Cache-Control', 'public, max-age=15, s-maxage=60, stale-while-revalidate=120');
+        } else {
+            res.setHeader('Cache-Control', 'no-cache, no-store');
+        }
         const cacheKey = `products:list:${includeInactive}:${category}:${subcategory}:${sort}`;
 
         if (forceFresh) {

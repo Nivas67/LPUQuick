@@ -154,6 +154,13 @@ router.get('/', async (req, res) => {
         const bannerData = getActiveBannersData();
 
         // 3. Fast shallow merge and send
+        // Cache on Vercel Edge CDN for 60s for anonymous/default requests; personalized responses are not cached
+        if (!isPersonalizedBuyAgain) {
+            res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
+        } else {
+            res.setHeader('Cache-Control', 'private, no-store');
+        }
+
         res.json({
             ...baseFeed,
             buy_again: buyAgain,
@@ -169,6 +176,8 @@ router.get('/', async (req, res) => {
 // GET /api/home/banners - Public endpoint for active promotional posters & carousel settings
 router.get('/banners', (req, res) => {
     try {
+        // Banners are static JSON; cache aggressively on CDN edge
+        res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
         const bannerData = getActiveBannersData();
         res.json({
             success: true,
