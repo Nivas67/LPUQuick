@@ -5,7 +5,7 @@ const supabaseDb = require('../db/supabaseDb');
 // GET /api/client/status (Public Store Availability & Reopening Info)
 router.get('/', async (req, res) => {
     try {
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Cache-Control', 'public, s-maxage=15, stale-while-revalidate=30');
         const status = await supabaseDb.availability.getStatus();
         
         // Return strictly safe client-facing availability information

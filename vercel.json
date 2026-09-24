@@ -87,7 +87,61 @@
       ]
     },
     {
-      "source": "/api/(.*)",
+      "source": "/api/client/status",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=15, stale-while-revalidate=30"
+        }
+      ]
+    },
+    {
+      "source": "/api/home/banners",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=300, stale-while-revalidate=600"
+        }
+      ]
+    },
+    {
+      "source": "/api/banners",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=300, stale-while-revalidate=600"
+        }
+      ]
+    },
+    {
+      "source": "/api/categories",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=120, stale-while-revalidate=300"
+        }
+      ]
+    },
+    {
+      "source": "/api/categories/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=60, stale-while-revalidate=120"
+        }
+      ]
+    },
+    {
+      "source": "/api/search",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=60, stale-while-revalidate=120"
+        }
+      ]
+    },
+    {
+      "source": "/api/(admin|auth|cart|checkout|orders)/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
