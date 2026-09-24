@@ -70,6 +70,9 @@ app.use((req, res, next) => {
     next();
 });
 
+const { apiSecurityShield, record404AttackProbe } = require('./middleware/securityShield');
+app.use(apiSecurityShield);
+
 // Static files (Client and Admin portals) with ETag and Cache-Control headers
 const staticOptions = {
     maxAge: '1d',
@@ -133,13 +136,25 @@ app.use('/api/admin/sync', require('./routes/sync'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/test-supabase', require('./routes/test-supabase'));
 
+// Dedicated 404 Shield for all unhandled /api/* endpoints
+// Returns ultra-light JSON (<60 bytes), caches 404 at edge CDN, and records 404 probe against attacker IP
+app.all('/api/*', (req, res) => {
+    record404AttackProbe(req);
+    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+    res.status(404).json({
+        success: false,
+        error: 'API endpoint not found',
+        path: req.originalUrl,
+        code: 'NOT_FOUND'
+    });
+});
 
 // Admin portal route
 app.get('/admin*', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'admin', 'index.html'));
 });
 
-// Client Storefront SPA fallback
+// Client Storefront SPA fallback (Non-API requests only)
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'client', 'index.html'));
 });
