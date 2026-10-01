@@ -276,7 +276,7 @@ const api = {
     async fetchHome(userId = null) {
         const uid = userId || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : window.CURRENT_USER_ID) || '';
         const tz = new Date().getTimezoneOffset();
-        const url = uid ? `${API_BASE}/home?tz=${tz}&userId=${encodeURIComponent(uid)}` : `${API_BASE}/home?tz=${tz}`;
+        const url = `${API_BASE}/home?tz=${tz}`;
         const now = Date.now();
 
         // 1. Instant 0ms Memory Cache if fresh (< 45s)
@@ -284,12 +284,27 @@ const api = {
             return homeFeedCache;
         }
 
+        // Helper to load user-specific buy-again shelf without busting edge cache of 65KB catalog
+        const enrichPersonalizedBuyAgain = async (feedData) => {
+            if (!uid || uid.startsWith('guest_') || uid === 'null' || uid === 'undefined') return feedData;
+            try {
+                const res = await fetch(`${API_BASE}/home/user-buy-again?userId=${encodeURIComponent(uid)}`);
+                const personal = await res.json();
+                if (personal && personal.success && Array.isArray(personal.buy_again) && personal.buy_again.length > 0) {
+                    feedData.buy_again = personal.buy_again;
+                    feedData.is_personalized_buy_again = true;
+                }
+            } catch (e) {}
+            return feedData;
+        };
+
         // 2. If stale cache exists, return it immediately (0ms) and revalidate silently in background
         if (homeFeedCache && homeFeedCacheUserId === uid) {
             fetch(url)
                 .then(res => res.json())
-                .then(data => {
+                .then(async data => {
                     if (data) {
+                        await enrichPersonalizedBuyAgain(data);
                         indexProducts(data.deals);
                         indexProducts(data.bestSellers);
                         indexProducts(data.recommended);
@@ -317,6 +332,7 @@ const api = {
         
         // Index all loaded products for instant modal & search lookups
         if (data) {
+            await enrichPersonalizedBuyAgain(data);
             indexProducts(data.deals);
             indexProducts(data.bestSellers);
             indexProducts(data.recommended);
@@ -760,10 +776,10 @@ const api = {
         return res.json();
     },
 
-    // Store Availability Status
+    // Store Availability Status (Edge CDN cached with SWR)
     async getClientStatus() {
         try {
-            const res = await fetch(`${API_BASE}/client/status?_t=${Date.now()}`);
+            const res = await fetch(`${API_BASE}/client/status`);
             return await res.json();
         } catch (e) {
             return { is_locked: false, lock_status: 'AVAILABLE' };
@@ -774,7 +790,7 @@ const api = {
     async checkUserStatus(userId) {
         if (!userId) return { isBlocked: false };
         try {
-            const res = await fetch(`${API_BASE}/auth/check-status/${userId}?_t=${Date.now()}`);
+            const res = await fetch(`${API_BASE}/auth/check-status/${userId}`);
             return await res.json();
         } catch (e) {
             return { isBlocked: false };

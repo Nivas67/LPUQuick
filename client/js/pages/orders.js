@@ -697,11 +697,13 @@ window.pageInits.orders = function() {
         };
     });
 
-    // Real-time tracking telemetry and admin synchronization loop (every 3 seconds)
+    // Real-time tracking telemetry and admin synchronization loop (every 5 seconds)
     if (window.CURRENT_ACTIVE_ORDER_ID) {
         let runnerWalkStep = 0;
         const trackingTimer = setInterval(async () => {
             try {
+                if (document.hidden) return;
+
                 // If order is actively "Out for Delivery", add gentle live walking motion along corridor
                 const curStatus = (window.CURRENT_ACTIVE_ORDER_STATUS || '').toLowerCase();
                 if (curStatus.includes('out') || curStatus.includes('route')) {
@@ -732,6 +734,7 @@ window.pageInits.orders = function() {
                         // When active order becomes null, check if our order was just delivered!
                         if (window.CURRENT_ACTIVE_ORDER_STATUS && !['Delivered', 'Cancelled', 'delivered', 'cancelled'].includes(window.CURRENT_ACTIVE_ORDER_STATUS)) {
                             if (window.api && window.api.getOrders) {
+                                const ordersRes = await window.api.getOrders(userId, true);
                                 const normalizeId = id => String(id || '').replace(/^order_/, '').trim().toLowerCase();
                                 const match = (ordersRes?.past || []).find(o => normalizeId(o.id) === normalizeId(window.CURRENT_ACTIVE_ORDER_ID)) || (ordersRes?.past || [])[0];
                                 if (match && ['Delivered', 'delivered'].includes(match.status)) {
@@ -749,7 +752,7 @@ window.pageInits.orders = function() {
             } catch(e) {
                 // Silent catch for polling
             }
-        }, 3000);
+        }, 5000);
 
         window.__ordersTrackingTimer = trackingTimer;
     }

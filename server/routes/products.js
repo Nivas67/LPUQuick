@@ -139,12 +139,14 @@ router.get('/:id', async (req, res) => {
         const authHeader = req.headers['x-admin-token'] || req.headers.authorization || '';
         const isOwner = isPlatformOwnerToken(authHeader);
         if (!isOwner) {
+            res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=120, stale-while-revalidate=300');
             const sanitized = { ...details };
             delete sanitized.cost_price;
             delete sanitized.cost;
             return res.json(sanitized);
         }
 
+        res.setHeader('Cache-Control', 'private, no-cache, no-store');
         res.json(details);
     } catch (err) {
         res.status(500).json({ error: err.message });

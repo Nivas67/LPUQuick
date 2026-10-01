@@ -1712,6 +1712,10 @@ async function router() {
     if (window.__isUserBlocked && (path === '/checkout' || path === '/cart')) {
         window.location.hash = '#/blocked';
         return;
+    // Clean up active orders tracking timer when navigating away from /orders
+    if (path !== '/orders' && window.__ordersTrackingTimer) {
+        clearInterval(window.__ordersTrackingTimer);
+        window.__ordersTrackingTimer = null;
     }
 
     const pageName = getPageName(path);
@@ -1844,14 +1848,15 @@ let _clientPollTimer = null;
 let _clientPollActive = false;
 let _lastPollOrderStatus = null;
 let _lastPollStoreAvail = null;
-const CLIENT_POLL_FAST_MS = 5000;   // 5s for active order status when WS is down
-const CLIENT_POLL_STORE_MS = 15000; // 15s for store availability when WS is down
+const CLIENT_POLL_FAST_MS = 5000;   // 5s for active in-progress order tracking
+const CLIENT_POLL_IDLE_MS = 45000;  // 45s when user has no active order (saves 90%+ Vercel invocations)
+const CLIENT_POLL_STORE_MS = 60000; // 60s for store availability
 let _storePollTimer = null;
 
 function startClientPollingFallback() {
     if (_clientPollActive) return;
     _clientPollActive = true;
-    console.log('[LPUQuick Poll] ⚡ Fast polling fallback ACTIVATED (WS down)');
+    console.log('[LPUQuick Poll] ⚡ Smart polling fallback ACTIVATED (WS down)');
     scheduleNextClientPoll();
     scheduleNextStorePoll();
 }
@@ -1864,71 +1869,94 @@ function stopClientPollingFallback() {
     console.log('[LPUQuick Poll] 🔌 Polling fallback STOPPED (WS reconnected)');
 }
 
-function scheduleNextClientPoll() {
+function scheduleNextClientPoll(customDelay = null) {
     if (!_clientPollActive) return;
     if (_clientPollTimer) clearTimeout(_clientPollTimer);
-    _clientPollTimer = setTimeout(async () => {
-        if (!_clientPollActive) return;
-        // Only poll if user is logged in and tab is visible
-        if (!document.hidden && window.isUserLoggedIn()) {
-            try {
-                const userId = window.CURRENT_USER_ID;
-                const activeRes = await window.api.getActiveOrder(userId, true);
-                const active = activeRes?.active;
-                if (active && !['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(active.status)) {
-                    const newSig = `${active.id}|${active.status}|${active.rider_name || ''}`;
-                    if (newSig !== _lastPollOrderStatus) {
-                        _lastPollOrderStatus = newSig;
-                        const riderName = active.rider_name || 'Alex';
-                        console.log(`[Poll Sync] Order ${active.id} -> ${active.status} (${riderName})`);
-                        handleLiveOrderStatusChange({
-                            type: 'STATUS_UPDATE',
-                            order_id: active.id,
-                            orderId: active.id,
-                            status: active.status,
-                            rider_name: riderName
-                        });
-                    }
-                } else if (active && ['Delivered', 'delivered'].includes(active.status)) {
-                    const newSig = `${active.id}|${active.status}`;
-                    if (newSig !== _lastPollOrderStatus) {
-                        _lastPollOrderStatus = newSig;
-                        handleLiveOrderStatusChange({
-                            type: 'STATUS_UPDATE',
-                            order_id: active.id,
-                            orderId: active.id,
-                            status: active.status,
-                            rider_name: active.rider_name || 'Alex'
-                        });
-                    }
-                } else if (!active && _lastPollOrderStatus && !_lastPollOrderStatus.includes('|Delivered') && !_lastPollOrderStatus.includes('|Cancelled')) {
-                    // Active order is now null! Check recent past orders to detect Delivered:
-                    try {
-                        const allOrdersRes = await window.api.getOrders(userId, true);
-                        const past = allOrdersRes?.past || [];
-                        const lastOrder = past[0];
-                        if (lastOrder && ['Delivered', 'delivered', 'Cancelled', 'cancelled'].includes(lastOrder.status)) {
-                            const newSig = `${lastOrder.id}|${lastOrder.status}`;
-                            if (newSig !== _lastPollOrderStatus) {
-                                _lastPollOrderStatus = newSig;
-                                handleLiveOrderStatusChange({
-                                    type: 'STATUS_UPDATE',
-                                    order_id: lastOrder.id,
-                                    orderId: lastOrder.id,
-                                    status: lastOrder.status,
-                                    rider_name: lastOrder.rider_name || 'Alex'
-                                });
-                            }
-                        }
-                    } catch (e2) {}
-                }
-            } catch (e) {
-                // Silently retry next cycle
-            }
-        }
-        scheduleNextClientPoll();
-    }, CLIENT_POLL_FAST_MS);
+    
+    if (customDelay !== null && customDelay <= 0) {
+        _executeClientPoll();
+        return;
+    }
+
+    const defaultDelay = (_lastPollOrderStatus && !_lastPollOrderStatus.includes('|Delivered') && !_lastPollOrderStatus.includes('|Cancelled'))
+        ? CLIENT_POLL_FAST_MS
+        : CLIENT_POLL_IDLE_MS;
+    const delay = typeof customDelay === 'number' ? customDelay : defaultDelay;
+
+    _clientPollTimer = setTimeout(_executeClientPoll, delay);
 }
+
+async function _executeClientPoll() {
+    if (!_clientPollActive) return;
+    let nextDelay = CLIENT_POLL_IDLE_MS;
+
+    // Only poll if user is logged in and tab is visible
+    if (!document.hidden && window.isUserLoggedIn()) {
+        try {
+            const userId = window.CURRENT_USER_ID;
+            const activeRes = await window.api.getActiveOrder(userId, true);
+            const active = activeRes?.active;
+            if (active && !['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(active.status)) {
+                nextDelay = CLIENT_POLL_FAST_MS; // Active in-flight order -> fast 5s poll
+                const newSig = `${active.id}|${active.status}|${active.rider_name || ''}`;
+                if (newSig !== _lastPollOrderStatus) {
+                    _lastPollOrderStatus = newSig;
+                    const riderName = active.rider_name || 'Alex';
+                    console.log(`[Poll Sync] Order ${active.id} -> ${active.status} (${riderName})`);
+                    handleLiveOrderStatusChange({
+                        type: 'STATUS_UPDATE',
+                        order_id: active.id,
+                        orderId: active.id,
+                        status: active.status,
+                        rider_name: riderName
+                    });
+                }
+            } else if (active && ['Delivered', 'delivered'].includes(active.status)) {
+                const newSig = `${active.id}|${active.status}`;
+                if (newSig !== _lastPollOrderStatus) {
+                    _lastPollOrderStatus = newSig;
+                    handleLiveOrderStatusChange({
+                        type: 'STATUS_UPDATE',
+                        order_id: active.id,
+                        orderId: active.id,
+                        status: active.status,
+                        rider_name: active.rider_name || 'Alex'
+                    });
+                }
+            } else if (!active && _lastPollOrderStatus && !_lastPollOrderStatus.includes('|Delivered') && !_lastPollOrderStatus.includes('|Cancelled')) {
+                // Active order is now null! Check recent past orders to detect Delivered:
+                try {
+                    const allOrdersRes = await window.api.getOrders(userId, true);
+                    const past = allOrdersRes?.past || [];
+                    const lastOrder = past[0];
+                    if (lastOrder && ['Delivered', 'delivered', 'Cancelled', 'cancelled'].includes(lastOrder.status)) {
+                        const newSig = `${lastOrder.id}|${lastOrder.status}`;
+                        if (newSig !== _lastPollOrderStatus) {
+                            _lastPollOrderStatus = newSig;
+                            handleLiveOrderStatusChange({
+                                type: 'STATUS_UPDATE',
+                                order_id: lastOrder.id,
+                                orderId: lastOrder.id,
+                                status: lastOrder.status,
+                                rider_name: lastOrder.rider_name || 'Alex'
+                            });
+                        }
+                    }
+                } catch (e2) {}
+            }
+        } catch (e) {
+            // Silently retry next cycle
+        }
+    }
+    scheduleNextClientPoll(nextDelay);
+}
+
+window.triggerActiveOrderPoll = function() {
+    scheduleNextClientPoll(0);
+    if (typeof scheduleBackgroundOrderSync === 'function') {
+        scheduleBackgroundOrderSync(true);
+    }
+};
 
 function scheduleNextStorePoll() {
     if (!_clientPollActive) return;
@@ -2282,6 +2310,7 @@ async function checkAndConnectGlobalOrderTracking() {
         const active = activeRes?.active;
 
         if (!active || ['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(active.status)) {
+            currentTrackedOrderId = null;
             if (bar) bar.classList.add('hidden');
             return;
         }
@@ -2523,12 +2552,25 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
     window.addEventListener('DOMContentLoaded', bootstrapApp);
 }
 
-// Smart Background Sync (8s when tab is active — fast enough for 3-min delivery)
-setInterval(() => {
-    if (!document.hidden && window.isUserLoggedIn()) {
-        checkAndConnectGlobalOrderTracking();
+// Smart Background Sync (8s when an active order is being tracked, 45s when idle/no active order)
+let backgroundOrderSyncTimer = null;
+function scheduleBackgroundOrderSync(immediate = false) {
+    if (backgroundOrderSyncTimer) clearTimeout(backgroundOrderSyncTimer);
+    if (immediate) {
+        _runBackgroundOrderSync();
+        return;
     }
-}, 8000);
+    const delay = currentTrackedOrderId ? 8000 : 45000;
+    backgroundOrderSyncTimer = setTimeout(_runBackgroundOrderSync, delay);
+}
+
+async function _runBackgroundOrderSync() {
+    if (!document.hidden && window.isUserLoggedIn()) {
+        await checkAndConnectGlobalOrderTracking();
+    }
+    scheduleBackgroundOrderSync();
+}
+scheduleBackgroundOrderSync();
 
 // Aggressive Visibility & Network Reconnect Hooks
 document.addEventListener('visibilitychange', () => {

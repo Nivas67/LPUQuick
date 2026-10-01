@@ -41,17 +41,23 @@ const supabaseDb = {
             const localUploads = getLocalUploadsSet();
             const supabaseBaseUrl = process.env.SUPABASE_URL || 'https://yojndzstlilzlkxonmvd.supabase.co';
 
-            if (image_url && image_url.includes('supabase.co/storage/v1/object/public/products/')) {
-                const filename = image_url.split('/').pop().split('?')[0];
-                if (localUploads.has(filename)) {
-                    image_url = `/uploads/${filename}`;
-                }
-                // If not available on local disk, keep the live Supabase Storage CDN URL
-            } else if (image_url && image_url.startsWith('/uploads/')) {
-                const filename = image_url.replace('/uploads/', '').split('?')[0];
-                if (!localUploads.has(filename) && filename) {
-                    // Reconstruct cloud Supabase Storage URL if local upload file is not present
+            if (process.env.VERCEL) {
+                // On Vercel: Offload 100% of product image data transfer to Supabase Storage CDN (Zero Vercel Origin/Data Transfer)
+                if (image_url && image_url.startsWith('/uploads/')) {
+                    const filename = image_url.replace('/uploads/', '').split('?')[0];
                     image_url = `${supabaseBaseUrl}/storage/v1/object/public/products/${filename}`;
+                }
+            } else {
+                if (image_url && image_url.includes('supabase.co/storage/v1/object/public/products/')) {
+                    const filename = image_url.split('/').pop().split('?')[0];
+                    if (localUploads.has(filename)) {
+                        image_url = `/uploads/${filename}`;
+                    }
+                } else if (image_url && image_url.startsWith('/uploads/')) {
+                    const filename = image_url.replace('/uploads/', '').split('?')[0];
+                    if (!localUploads.has(filename) && filename) {
+                        image_url = `${supabaseBaseUrl}/storage/v1/object/public/products/${filename}`;
+                    }
                 }
             }
             return {

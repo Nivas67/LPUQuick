@@ -113,38 +113,7 @@ router.get('/', async (req, res) => {
         let isPersonalizedBuyAgain = false;
 
         if (userId && !userId.startsWith('guest_') && userId !== 'null' && userId !== 'undefined') {
-            const userPersonalized = await cache.wrap(`user_buy_again:${userId}`, async () => {
-                try {
-                    const supabase = getSupabaseClient();
-                    if (supabase) {
-                        const { data: userOrders } = await supabase
-                            .from('orders')
-                            .select('id, created_at, order_items(product_id, quantity, products(*))')
-                            .eq('user_id', userId)
-                            .order('created_at', { ascending: false })
-                            .limit(5);
-
-                        if (userOrders && userOrders.length > 0) {
-                            const productMap = new Map();
-                            for (const ord of userOrders) {
-                                if (ord.order_items) {
-                                    for (const item of ord.order_items) {
-                                        if (item.products && item.products.id && !productMap.has(item.products.id)) {
-                                            productMap.set(item.products.id, item.products);
-                                        }
-                                    }
-                                }
-                            }
-                            const orderedItems = Array.from(productMap.values());
-                            if (orderedItems.length > 0) {
-                                return { items: orderedItems, isPersonalized: true };
-                            }
-                        }
-                    }
-                } catch (userErr) {}
-                return { items: null, isPersonalized: false };
-            }, 300000);
-
+            const userPersonalized = await getUserPersonalizedBuyAgain(userId);
             if (userPersonalized && userPersonalized.items) {
                 buyAgain = userPersonalized.items;
                 isPersonalizedBuyAgain = true;
@@ -154,7 +123,7 @@ router.get('/', async (req, res) => {
         const bannerData = getActiveBannersData();
 
         // 3. Fast shallow merge and send
-        // Cache on Vercel Edge CDN for 60s for anonymous/default requests; personalized responses are not cached
+        // Cache on Vercel Edge CDN for 60s for public catalog feed
         if (!isPersonalizedBuyAgain) {
             res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
         } else {
@@ -172,6 +141,65 @@ router.get('/', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
+/**
+ * Helper to retrieve user's past purchased products for Buy Again shelf
+ */
+async function getUserPersonalizedBuyAgain(userId) {
+    if (!userId || userId.startsWith('guest_') || userId === 'null' || userId === 'undefined') {
+        return { items: null, isPersonalized: false };
+    }
+    return await cache.wrap(`user_buy_again:${userId}`, async () => {
+        try {
+            const supabase = getSupabaseClient();
+            if (supabase) {
+                const { data: userOrders } = await supabase
+                    .from('orders')
+                    .select('id, created_at, order_items(product_id, quantity, products(*))')
+                    .eq('user_id', userId)
+                    .order('created_at', { ascending: false })
+                    .limit(5);
+
+                if (userOrders && userOrders.length > 0) {
+                    const productMap = new Map();
+                    for (const ord of userOrders) {
+                        if (ord.order_items) {
+                            for (const item of ord.order_items) {
+                                if (item.products && item.products.id && !productMap.has(item.products.id)) {
+                                    productMap.set(item.products.id, item.products);
+                                }
+                            }
+                        }
+                    }
+                    const orderedItems = Array.from(productMap.values());
+                    if (orderedItems.length > 0) {
+                        return { items: orderedItems, isPersonalized: true };
+                    }
+                }
+            }
+        } catch (userErr) {}
+        return { items: null, isPersonalized: false };
+    }, 300000);
+}
+
+// GET /api/home/user-buy-again - Ultra-lightweight endpoint (~1 KB) for personalized order history
+// Prevents full 65 KB /api/home public catalog feed from being bypassed with no-store
+router.get('/user-buy-again', async (req, res) => {
+    try {
+        const userId = req.query.userId || req.headers['x-user-id'] || null;
+        res.setHeader('Cache-Control', 'private, no-cache');
+        const userPersonalized = await getUserPersonalizedBuyAgain(userId);
+        res.json({
+            success: true,
+            buy_again: userPersonalized?.items || [],
+            is_personalized_buy_again: Boolean(userPersonalized?.isPersonalized)
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message, buy_again: [] });
+    }
+});
+
+router.get('/buy-again', (req, res) => res.redirect(307, `/api/home/user-buy-again${req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''}`));
 
 // GET /api/home/banners - Public endpoint for active promotional posters & carousel settings
 router.get('/banners', (req, res) => {

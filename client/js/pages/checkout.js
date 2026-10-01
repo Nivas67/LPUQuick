@@ -493,6 +493,9 @@ window.pageInits.checkout = function() {
 
             if (orderRes && orderRes.success && orderRes.order) {
                 const order = orderRes.order;
+                if (typeof window.triggerActiveOrderPoll === 'function') {
+                    window.triggerActiveOrderPoll();
+                }
                 // Reveal order success view
                 const formSec = document.getElementById('checkout-form-section');
                 const successSec = document.getElementById('order-success-section');

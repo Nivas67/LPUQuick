@@ -35,7 +35,7 @@ function getClientIp(req) {
 /**
  * Periodically purge stale IP entries to guarantee zero memory bloat
  */
-setInterval(() => {
+const cleanupTimer = setInterval(() => {
     const now = Date.now();
     for (const [ip, data] of ipStore.entries()) {
         // Remove if not jailed and no requests in last 2 minutes
@@ -44,6 +44,9 @@ setInterval(() => {
         }
     }
 }, LIMITS.CLEANUP_INTERVAL_MS);
+if (cleanupTimer && typeof cleanupTimer.unref === 'function') {
+    cleanupTimer.unref();
+}
 
 /**
  * Gets or initializes state for a given client IP
