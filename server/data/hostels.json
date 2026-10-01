@@ -10,7 +10,7 @@
   {
     "id": "BH-5",
     "name": "Boys Hostel 5",
-    "status": "OFF",
+    "status": "ACTIVE",
     "manager_user_id": "user_881d5b03",
     "created_at": "2026-10-01T00:00:00.000Z",
     "updated_at": "2026-10-01T11:04:41.518Z"
@@ -18,7 +18,7 @@
   {
     "id": "BH-14",
     "name": "Boys Hostel 12",
-    "status": "OFF",
+    "status": "ACTIVE",
     "manager_user_id": "user_admin_bh13",
     "created_at": "2026-10-01T00:00:00.000Z",
     "updated_at": "2026-10-01T11:04:45.344Z"
@@ -26,7 +26,7 @@
   {
     "id": "GH-1",
     "name": "Girls Hostel 1",
-    "status": "OFF",
+    "status": "ACTIVE",
     "manager_user_id": "admin_4a30214501",
     "created_at": "2026-10-01T00:00:00.000Z",
     "updated_at": "2026-10-01T11:04:49.494Z"
@@ -34,7 +34,7 @@
   {
     "id": "BH 11",
     "name": "Boys Hostel 11",
-    "status": "OFF",
+    "status": "ACTIVE",
     "manager_user_id": "admin_48404d761b",
     "created_at": "2026-10-01T06:02:23.671Z",
     "updated_at": "2026-10-01T06:50:29.194Z"
@@ -42,7 +42,7 @@
   {
     "id": "BH 6",
     "name": "Boys Hostel 6",
-    "status": "OFF",
+    "status": "ACTIVE",
     "manager_user_id": "user_admin_bh13",
     "created_at": "2026-10-01T11:02:40.048Z",
     "updated_at": "2026-10-01T11:02:58.406Z"
