@@ -1,19 +1,19 @@
 [
   {
-    "endpoint": "https://fcm.googleapis.com/fcm/send/d-sMKWrco38:APA91bEbAGBvMSJa5-Lq0lMuV_UJOYVbl-I5TJcIipyNgNOR5ChGm9b90jQiLmSXlphAuq-8q-XZMJFyQcvYgA4U2JidaGz87yjLFel3ThYaJmBH_715dCKZnRbPPtGJBNgIWUc04DZS",
+    "endpoint": "https://wns2-pn1p.notify.windows.com/w/?token=BQYAAACHg2qgaP9LDbg1fcfP5Roi7z%2boWyaDB3KYWsPQJfeuIFW18mw3s0VB%2fu6ZYLUv2ZVdtF1oHT6emCZP6%2fGAsBj13aI%2fne7NE7AAxfjvAQULMQcvDkwr6Ns19CnXJmYSPTBSLPZ8jiOo6iU5%2byYrk8yi7dmGqMqEY106E7n25bv7cCBtEcPtfA44hmS9wQD955KypnGPxvUQBQH9oTQSNwI3XkVxmEJxBftXYEMscv3KK8%2fVKZSLqX5WNrcswHAWV8Lk%2f%2bet8nNq7ek59r%2flZsdelnIt3eiwrBwfL2pQ%2bc%2fRyeA5riXowrZpAKn%2fPYMTzvE%3d",
     "keys": {
-      "p256dh": "BNuux-udjl62yeyVUvZOKlgjHa3oUvR7Nwhxb8c8FmAngmY1oF0ei9lXU86Hh32xzJeSkaaWSsmEvLJ4kAVA1KY",
-      "auth": "8gIKwouzNNPQEC3q6ko1Zw"
+      "p256dh": "BP8rd5ZWqSvZXKJhrr76UVU8ICVgYvNFxyI-BsDWSDNFn6eJ9g8RivnTQY-s7W0N61xk049smvCyMbSqtwTvNJA",
+      "auth": "FT4Yr_Q8GCCmdg7GWwOf-Q"
     },
     "adminId": "user_admin_bh13",
-    "adminName": "Nivas",
+    "adminName": "Nivas Naidu",
     "roles": [
       "owner",
       "store_manager",
       "inventory_manager",
       "delivery_person"
     ],
-    "updatedAt": "2026-09-06T07:53:53.752Z",
-    "createdAt": "2026-09-06T07:53:53.752Z"
+    "updatedAt": "2026-10-01T05:05:10.047Z",
+    "createdAt": "2026-10-01T05:05:10.047Z"
   }
 ]

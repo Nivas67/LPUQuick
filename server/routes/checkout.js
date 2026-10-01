@@ -181,6 +181,36 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
             }
         }
 
+        // Multi-Hostel Validation & Resolution
+        const parsedHostelFromAddr = deliveryAddress.match(/(BH-?\d+|GH-?\d+)/i)?.[1]?.replace('BH', 'BH-');
+        const targetHostelId = req.body.hostel_id || req.body.hostel || orderItems[0]?.hostel_id || parsedHostelFromAddr || 'BH-13';
+
+        // 1. Prevent ordering from an OFF hostel
+        try {
+            const targetHostel = await supabaseDb.hostels.getById(targetHostelId);
+            if (targetHostel && targetHostel.status === 'OFF') {
+                return res.status(400).json({
+                    success: false,
+                    error: 'HOSTEL_OFF',
+                    code: 'HOSTEL_OFF',
+                    message: `${targetHostel.name || targetHostelId} is currently not accepting new orders.`
+                });
+            }
+        } catch (hErr) {
+            console.warn('[Checkout Hostel Status Check Warning]:', hErr.message);
+        }
+
+        // 2. Prevent mixing items from different hostels in a single order
+        const itemHostels = new Set(orderItems.map(it => it.hostel_id).filter(Boolean));
+        if (itemHostels.size > 1) {
+            return res.status(400).json({
+                success: false,
+                error: 'MIXED_HOSTELS',
+                code: 'MIXED_HOSTELS',
+                message: 'Your cart contains items from multiple hostels. An order can only contain items from one hostel at a time.'
+            });
+        }
+
         const subtotal = orderItems.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 1)), 0);
         const MIN_ORDER_VALUE = 35;
         if (subtotal < MIN_ORDER_VALUE) {
@@ -239,6 +269,7 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
 
         const orderPayload = {
             id: orderId,
+            hostel_id: targetHostelId,
             user_id: userId,
             customer_name: customerName,
             customer_phone: customerPhone,

@@ -429,18 +429,75 @@ router.get('/daily-breakdown', requireAdmin, requireOwner, async (req, res) => {
             return res.status(500).json({ success: false, error: 'Database client unavailable.' });
         }
 
-        // Query all orders with customer details
-        const { data: rawOrders, error: ordersErr } = await supabase
-            .from('orders')
-            .select('id, user_id, customer_name, customer_phone, status, subtotal, delivery_fee, platform_fee, total, payment_method, delivery_address, created_at')
-            .order('created_at', { ascending: false });
-
-        if (ordersErr) {
-            console.error('Error querying orders for daily breakdown:', ordersErr);
-            return res.status(500).json({ success: false, error: 'Failed to retrieve orders.' });
+        // Query all orders with customer details (with graceful schema fallback)
+        let allOrders = [];
+        try {
+            const { data, error } = await supabase
+                .from('orders')
+                .select('id, user_id, customer_name, customer_phone, status, subtotal, delivery_fee, platform_fee, total, payment_method, delivery_address, hostel_id, created_at')
+                .order('created_at', { ascending: false });
+            if (!error && data) {
+                allOrders = data;
+            } else {
+                throw new Error(error?.message || 'Hostel column query fallback');
+            }
+        } catch (e) {
+            const { data } = await supabase
+                .from('orders')
+                .select('id, user_id, customer_name, customer_phone, status, subtotal, delivery_fee, platform_fee, total, payment_method, delivery_address, created_at')
+                .order('created_at', { ascending: false });
+            allOrders = data || [];
         }
 
-        const allOrders = rawOrders || [];
+        // Normalize hostel_id on every order
+        allOrders.forEach(o => {
+            if (!o.hostel_id) {
+                const match = o.delivery_address && o.delivery_address.match(/(BH-?\d+|GH-?\d+)/i);
+                o.hostel_id = match ? match[1].toUpperCase().replace('BH', 'BH-').replace('GH', 'GH-') : 'BH-13';
+            }
+        });
+
+        // Compute Multi-Hostel comparison statistics
+        const hostelComparisonMap = {};
+        try {
+            const availableHostels = await supabaseDb.hostels.getAll({ includeInactive: true });
+            availableHostels.forEach(h => {
+                hostelComparisonMap[h.id] = {
+                    hostel_id: h.id,
+                    hostel_name: h.name || h.id,
+                    status: h.status || 'ACTIVE',
+                    orders_count: 0,
+                    delivered_count: 0,
+                    revenue: 0,
+                    formatted_revenue: '₹0'
+                };
+            });
+        } catch (hErr) {}
+
+        allOrders.forEach(o => {
+            const hid = (o.hostel_id || 'BH-13').toUpperCase();
+            if (!hostelComparisonMap[hid]) {
+                hostelComparisonMap[hid] = {
+                    hostel_id: hid,
+                    hostel_name: hid,
+                    status: 'ACTIVE',
+                    orders_count: 0,
+                    delivered_count: 0,
+                    revenue: 0,
+                    formatted_revenue: '₹0'
+                };
+            }
+            hostelComparisonMap[hid].orders_count++;
+            if (financialEngine.isDelivered(o.status)) {
+                hostelComparisonMap[hid].delivered_count++;
+                hostelComparisonMap[hid].revenue += Number(o.total || 0);
+            }
+        });
+
+        Object.values(hostelComparisonMap).forEach(hc => {
+            hc.formatted_revenue = `₹${Math.round(hc.revenue).toLocaleString('en-IN')}`;
+        });
+
         const deliveredOrders = allOrders.filter(o => financialEngine.isDelivered(o.status));
         const deliveredOrderIds = deliveredOrders.map(o => o.id);
 
@@ -469,8 +526,14 @@ router.get('/daily-breakdown', requireAdmin, requireOwner, async (req, res) => {
             console.warn('[Financial Snapshots Read Note]:', sErr.message);
         }
 
-        const { range, startDate, endDate } = req.query;
-        const breakdown = financialEngine.calculateDayWiseFinancials(allOrders, items, snapshotsMap, {
+        const { range, startDate, endDate, hostel_id } = req.query;
+        let targetOrders = allOrders;
+        if (hostel_id && hostel_id !== 'all' && hostel_id !== 'ALL') {
+            const norm = hostel_id.toLowerCase().replace('-', '');
+            targetOrders = allOrders.filter(o => (o.hostel_id || 'BH-13').toLowerCase().replace('-', '') === norm);
+        }
+
+        const breakdown = financialEngine.calculateDayWiseFinancials(targetOrders, items, snapshotsMap, {
             range: range || 'all',
             startDate,
             endDate
@@ -483,10 +546,12 @@ router.get('/daily-breakdown', requireAdmin, requireOwner, async (req, res) => {
             filter: {
                 range: range || 'all',
                 startDate: startDate || null,
-                endDate: endDate || null
+                endDate: endDate || null,
+                hostel_id: hostel_id || 'all'
             },
             summary: breakdown.summary,
-            days: breakdown.days
+            days: breakdown.days,
+            hostel_comparison: Object.values(hostelComparisonMap)
         });
     } catch (err) {
         console.error('Daily breakdown error:', err);

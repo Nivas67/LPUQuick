@@ -478,6 +478,20 @@ function applyAdminRolePermissions(profile) {
         }
     });
 
+    // Multi-Hostel Restrictions: Lock dropdowns for Store Managers with assigned hostel
+    if (typeof populateHostelDropdowns === 'function') {
+        populateHostelDropdowns();
+    }
+    if (!isOwner && profile.assigned_hostel_id) {
+        ['products-hostel-filter', 'inventory-hostel-filter', 'orders-hostel-filter'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.value = profile.assigned_hostel_id;
+                el.disabled = true;
+            }
+        });
+    }
+
     // Pick appropriate starting view if current activeView is disallowed
     let initialView = 'dashboard';
     if (!isOwner) {
@@ -620,7 +634,8 @@ function switchView(viewName) {
             'staff': ['owner'],
             'advertisements': ['owner', 'store_manager'],
             'backup': ['owner'],
-            'settings': ['owner']
+            'settings': ['owner'],
+            'hostels': ['owner']
         };
 
         const required = viewRoles[viewName];
@@ -658,7 +673,8 @@ function switchView(viewName) {
         'staff': 'Admin Team & Access Levels',
         'advertisements': 'Promotional Advertisements & Posters',
         'backup': 'Backup & Disaster Recovery (0 - 100)',
-        'settings': 'Store Settings'
+        'settings': 'Store Settings',
+        'hostels': 'Campus Hostels & Dark Stores (Owner Only)'
     };
     document.getElementById('top-title').textContent = titles[viewName] || 'Dashboard';
 
@@ -675,6 +691,7 @@ function switchView(viewName) {
     else if (viewName === 'staff') loadStaffList();
     else if (viewName === 'advertisements') loadAdvertisementsView();
     else if (viewName === 'backup') loadBackupDashboard();
+    else if (viewName === 'hostels') loadHostels();
 }
 
 // Master Live Real-Time Refresh Controller
@@ -724,6 +741,8 @@ async function refreshCurrentView() {
             promises.push(loadAnalytics());
         } else if (activeView === 'advertisements') {
             promises.push(loadAdvertisementsView());
+        } else if (activeView === 'hostels') {
+            promises.push(loadHostels());
         }
 
         await Promise.allSettled(promises);
@@ -810,6 +829,7 @@ async function loadDashboard() {
         }
         renderRecentOrdersTable(ordersCache);
         updateDailyRevenue();
+        renderDashboardHostelCards();
 
         // Render Low Stock Containers
         const lowContainer = document.getElementById('dash-low-stock-container');
@@ -1149,7 +1169,9 @@ async function handleUnlockStore() {
 // ================= 2. PRODUCTS LOAD =================
 async function loadProducts() {
     try {
-        const res = await fetchWithTimeout(`/api/products?includeInactive=true`, { headers: getAuthHeaders() }, 7000);
+        const hostelId = (typeof getActiveAdminHostelFilter === 'function') ? getActiveAdminHostelFilter('products') : null;
+        const hostelParam = hostelId ? `&hostel_id=${encodeURIComponent(hostelId)}` : '';
+        const res = await fetchWithTimeout(`/api/products?includeInactive=true${hostelParam}`, { headers: getAuthHeaders() }, 7000);
         if (res.ok) {
             const data = await res.json();
             if (data.products && Array.isArray(data.products) && data.products.length > 0) {
@@ -1181,7 +1203,15 @@ function filterProducts() {
     });
 
     const query = (document.getElementById('product-search-input')?.value || '').toLowerCase();
-    let filtered = productsCache.filter(p => p.name.toLowerCase().includes(query) || p.category.toLowerCase().includes(query));
+    const prodHostel = (typeof getActiveAdminHostelFilter === 'function') ? getActiveAdminHostelFilter('products') : null;
+    let filtered = productsCache.filter(p => {
+        const matchesQuery = p.name.toLowerCase().includes(query) || p.category.toLowerCase().includes(query);
+        if (!matchesQuery) return false;
+        if (prodHostel && prodHostel !== 'ALL') {
+            return (p.hostel_id || 'BH-13').toLowerCase().replace('-', '') === prodHostel.toLowerCase().replace('-', '');
+        }
+        return true;
+    });
 
     if (currentProductFilter === 'active') {
         filtered = filtered.filter(p => p.in_stock && p.stock_left > 0);
@@ -1218,7 +1248,10 @@ function filterProducts() {
                         <img src="${p.image_url}" class="w-10 h-10 rounded-md object-cover border border-[#DADCE0] bg-[#f1f4f7]" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'">
                         <div>
                             <p class="font-semibold text-xs text-[#181c1f]">${p.name}</p>
-                            <p class="text-[10px] text-[#5c5f60]">${p.unit || 'piece'} • ${p.size || ''}</p>
+                            <p class="text-[10px] text-[#5c5f60] flex items-center gap-1.5 flex-wrap">
+                                <span>${p.unit || 'piece'} • ${p.size || ''}</span>
+                                <span class="text-[9px] font-bold px-1.5 py-0.2 rounded bg-blue-50 text-[#0066cc] border border-blue-200">${p.hostel_id || 'BH-13'}</span>
+                            </p>
                         </div>
                     </div>
                 </td>
@@ -1261,7 +1294,9 @@ function filterProducts() {
 // ================= 3. INVENTORY LOAD =================
 async function loadInventory() {
     try {
-        const res = await fetchWithTimeout(`/api/products?includeInactive=true`, { headers: getAuthHeaders() }, 7000);
+        const hostelId = (typeof getActiveAdminHostelFilter === 'function') ? getActiveAdminHostelFilter('inventory') : null;
+        const hostelParam = hostelId ? `&hostel_id=${encodeURIComponent(hostelId)}` : '';
+        const res = await fetchWithTimeout(`/api/products?includeInactive=true${hostelParam}`, { headers: getAuthHeaders() }, 7000);
         if (res.ok) {
             const data = await res.json();
             if (data.products && Array.isArray(data.products) && data.products.length > 0) {
@@ -1307,7 +1342,15 @@ function updateInventoryKpiTiles() {
 function filterInventory() {
     updateInventoryKpiTiles();
     const query = (document.getElementById('inventory-search-input')?.value || '').toLowerCase();
-    const filtered = productsCache.filter(p => p.name.toLowerCase().includes(query) || p.category.toLowerCase().includes(query));
+    const invHostel = (typeof getActiveAdminHostelFilter === 'function') ? getActiveAdminHostelFilter('inventory') : null;
+    const filtered = productsCache.filter(p => {
+        const matchesQuery = p.name.toLowerCase().includes(query) || p.category.toLowerCase().includes(query);
+        if (!matchesQuery) return false;
+        if (invHostel && invHostel !== 'ALL') {
+            return (p.hostel_id || 'BH-13').toLowerCase().replace('-', '') === invHostel.toLowerCase().replace('-', '');
+        }
+        return true;
+    });
     const tbody = document.getElementById('inventory-table-tbody');
 
     if (filtered.length === 0) {
@@ -1328,7 +1371,10 @@ function filterInventory() {
                 <td class="p-4">
                     <div class="flex items-center gap-3">
                         <img src="${p.image_url}" class="w-8 h-8 rounded object-cover bg-[#f1f4f7]" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'">
-                        <span class="font-semibold text-xs text-[#181c1f]">${p.name}</span>
+                        <div>
+                            <span class="font-semibold text-xs text-[#181c1f] block">${p.name}</span>
+                            <span class="text-[9px] font-bold px-1.5 py-0.2 rounded bg-blue-50 text-[#0066cc] border border-blue-200">${p.hostel_id || 'BH-13'}</span>
+                        </div>
                     </div>
                 </td>
                 <td class="p-4 text-[#5c5f60]">${p.category}</td>
@@ -1447,7 +1493,9 @@ async function toggleProductStock(productId, inStock) {
 // ================= 4. ORDERS LOAD =================
 async function loadOrders() {
     try {
-        const res = await fetchWithTimeout(`/api/orders/admin/all`, { headers: getAuthHeaders() }, 15000);
+        const hostelId = (typeof getActiveAdminHostelFilter === 'function') ? getActiveAdminHostelFilter('orders') : null;
+        const hostelParam = hostelId ? `?hostel_id=${encodeURIComponent(hostelId)}` : '';
+        const res = await fetchWithTimeout(`/api/orders/admin/all${hostelParam}`, { headers: getAuthHeaders() }, 15000);
         if (res.ok) {
             const data = await res.json();
             if (data.orders && Array.isArray(data.orders)) {
@@ -2513,11 +2561,16 @@ function filterOrders() {
     }
 
     const query = (document.getElementById('orders-search-input')?.value || '').toLowerCase();
+    const ordHostel = (typeof getActiveAdminHostelFilter === 'function') ? getActiveAdminHostelFilter('orders') : null;
     let filtered = ordersCache.filter(o => {
         const matchId = (o.id || '').toLowerCase().includes(query);
         const matchCust = (o.customer_name || '').toLowerCase().includes(query);
         const matchAddr = (o.delivery_address || '').toLowerCase().includes(query);
-        return matchId || matchCust || matchAddr;
+        if (!matchId && !matchCust && !matchAddr) return false;
+        if (ordHostel && ordHostel !== 'ALL') {
+            return (o.hostel_id || 'BH-13').toLowerCase().replace('-', '') === ordHostel.toLowerCase().replace('-', '');
+        }
+        return true;
     });
 
     if (currentOrderFilter === 'unassigned') {
@@ -2658,7 +2711,12 @@ function filterOrders() {
 
         return `
         <tr class="hover:bg-[#f7fafd] transition-colors cursor-pointer" onclick="openOrderDrawer('${o.id}')" id="order-row-${o.id}">
-            <td class="p-4 font-bold font-mono text-[#181c1f]">#${(o.id || '').replace('order_', '').toUpperCase()}</td>
+            <td class="p-4 font-bold font-mono text-[#181c1f]">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                    <span>#${(o.id || '').replace('order_', '').toUpperCase()}</span>
+                    <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-50 text-[#0066cc] border border-blue-200">${escapeHtml(o.hostel_id || 'BH-13')}</span>
+                </div>
+            </td>
             <td class="p-4">
                 <p class="font-semibold text-[#181c1f]">${displayName}</p>
                 <p class="text-[11px] text-[#5c5f60]">${contactHtml}</p>
@@ -3411,6 +3469,24 @@ function openProductModal(product = null) {
         }
         if (isOwner) updateModalProfitPreview();
     }
+
+    // Set and lock hostel selector based on product/role
+    const hostelSelect = document.getElementById('form-product-hostel');
+    if (hostelSelect) {
+        if (product) {
+            hostelSelect.value = product.hostel_id || 'BH-13';
+        } else {
+            const activeFilter = (typeof getActiveAdminHostelFilter === 'function') ? getActiveAdminHostelFilter('products') : null;
+            hostelSelect.value = (currentAdminProfile && currentAdminProfile.assigned_hostel_id)
+                || (activeFilter && activeFilter !== 'ALL' ? activeFilter : 'BH-13');
+        }
+        if (!isOwner && currentAdminProfile && currentAdminProfile.assigned_hostel_id) {
+            hostelSelect.value = currentAdminProfile.assigned_hostel_id;
+            hostelSelect.disabled = true;
+        } else {
+            hostelSelect.disabled = false;
+        }
+    }
 }
 
 function closeProductModal() {
@@ -3482,6 +3558,10 @@ async function handleProductSubmit(e) {
             image_url: imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400',
             description: document.getElementById('form-product-desc').value.trim()
         };
+
+        const hostelSelect = document.getElementById('form-product-hostel');
+        const hostelVal = hostelSelect ? hostelSelect.value : (currentAdminProfile?.assigned_hostel_id || 'BH-13');
+        payload.hostel_id = hostelVal;
 
         if (isOwner) {
             const costVal = Number(document.getElementById('form-product-cost')?.value);
@@ -4191,7 +4271,12 @@ function renderRecentOrdersTable(ordersList) {
     } else {
         tbody.innerHTML = recentOrders.map(o => `
             <tr class="hover:bg-[#f7fafd] transition-colors cursor-pointer" onclick="openOrderDrawer('${o.id}')" id="order-row-${o.id}">
-                <td class="p-3.5 font-bold font-mono text-[#181c1f]">#${(o.id || '').replace('order_', '').toUpperCase()}</td>
+                <td class="p-3.5 font-bold font-mono text-[#181c1f]">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <span>#${(o.id || '').replace('order_', '').toUpperCase()}</span>
+                        <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-50 text-[#0066cc] border border-blue-200">${escapeHtml(o.hostel_id || 'BH-13')}</span>
+                    </div>
+                </td>
                 <td class="p-3.5 font-medium text-[#181c1f]">${formatCustomerDisplayName(o)}</td>
                 <td class="p-3.5 text-[#5c5f60] truncate max-w-[150px]">${o.item_summary || 'Campus items'}</td>
                 <td class="p-3.5 font-bold text-[#137333]">₹${o.total}</td>
@@ -4341,7 +4426,9 @@ async function syncOrdersLive() {
         return;
     }
     try {
-        const res = await fetch(`/api/orders/admin/all`, {
+        const hostelId = (typeof getActiveAdminHostelFilter === 'function') ? getActiveAdminHostelFilter('orders') : null;
+        const hostelParam = hostelId ? `?hostel_id=${encodeURIComponent(hostelId)}` : '';
+        const res = await fetch(`/api/orders/admin/all${hostelParam}`, {
             headers: getAuthHeaders()
         });
         if (res.status === 401 || res.status === 403) {
@@ -4966,6 +5053,9 @@ async function handleAdminLogin(e) {
             } catch (aErr) {}
             
             hideLoginModal();
+            if (typeof loadHostels === 'function') {
+                loadHostels().catch(() => {});
+            }
             const initialView = applyAdminRolePermissions(data.admin);
             switchView(initialView);
             initRealtimeWebSocket();
@@ -5319,6 +5409,552 @@ async function handleDeleteStaff() {
     }
 }
 
+// ==========================================
+// CAMPUS MULTI-HOSTEL CONTROLLER
+// ==========================================
+let hostelsCache = [];
+let activeAdminHostelFilter = {
+    products: 'ALL',
+    inventory: 'ALL',
+    orders: 'ALL',
+    dailyRevenue: 'ALL'
+};
+
+function getActiveAdminHostelFilter(view = 'products') {
+    // If logged in admin is a Store Manager with assigned_hostel_id, lock to that hostel
+    if (currentAdminProfile && !isPlatformOwner(currentAdminProfile) && currentAdminProfile.assigned_hostel_id) {
+        return currentAdminProfile.assigned_hostel_id;
+    }
+    const val = activeAdminHostelFilter[view] || 'ALL';
+    return (val && val !== 'ALL') ? val : null;
+}
+
+function populateHostelDropdowns() {
+    const isOwner = isPlatformOwner(currentAdminProfile);
+    const assignedHostel = currentAdminProfile && currentAdminProfile.assigned_hostel_id;
+
+    const targetSelects = [
+        { id: 'products-hostel-filter', view: 'products', allowAll: true },
+        { id: 'inventory-hostel-filter', view: 'inventory', allowAll: true },
+        { id: 'orders-hostel-filter', view: 'orders', allowAll: true },
+        { id: 'dr-hostel-filter', view: 'dailyRevenue', allowAll: true },
+        { id: 'form-product-hostel', view: null, allowAll: false }
+    ];
+
+    targetSelects.forEach(cfg => {
+        const select = document.getElementById(cfg.id);
+        if (!select) return;
+
+        const currentVal = select.value;
+        select.innerHTML = '';
+
+        if (cfg.allowAll) {
+            const allOpt = document.createElement('option');
+            allOpt.value = 'ALL';
+            allOpt.textContent = '🏢 All Campus Hostels';
+            select.appendChild(allOpt);
+        }
+
+        hostelsCache.forEach(h => {
+            const opt = document.createElement('option');
+            opt.value = h.id;
+            const statusLabel = h.status === 'OFF' ? ' [OFF]' : '';
+            opt.textContent = `${h.name || h.id} (${h.id})${statusLabel}`;
+            select.appendChild(opt);
+        });
+
+        // If non-owner manager assigned to a specific hostel, force lock
+        if (!isOwner && assignedHostel) {
+            select.value = assignedHostel;
+            select.disabled = true;
+            if (cfg.view) activeAdminHostelFilter[cfg.view] = assignedHostel;
+        } else {
+            select.disabled = false;
+            if (currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
+                select.value = currentVal;
+            } else if (cfg.allowAll) {
+                select.value = 'ALL';
+            }
+        }
+    });
+}
+
+function onProductsHostelFilterChange(val) {
+    activeAdminHostelFilter.products = val;
+    loadProducts();
+}
+
+function onInventoryHostelFilterChange(val) {
+    activeAdminHostelFilter.inventory = val;
+    loadInventory();
+}
+
+function onOrdersHostelFilterChange(val) {
+    activeAdminHostelFilter.orders = val;
+    loadOrders();
+}
+
+function onDailyRevenueHostelFilterChange(val) {
+    activeAdminHostelFilter.dailyRevenue = val || 'ALL';
+    if (typeof currentDailyRevenueFilter === 'object') {
+        currentDailyRevenueFilter.hostel_id = val || 'ALL';
+    }
+    loadDailyRevenueView(true);
+}
+
+function selectDailyRevenueHostel(hostelId) {
+    const current = (currentDailyRevenueFilter.hostel_id || 'ALL').toUpperCase();
+    const nextVal = (current === hostelId.toUpperCase()) ? 'ALL' : hostelId;
+    const sel = document.getElementById('dr-hostel-filter');
+    if (sel) sel.value = nextVal;
+    onDailyRevenueHostelFilterChange(nextVal);
+}
+
+function renderDashboardHostelCards() {
+    const grid = document.getElementById('dash-hostel-cards-grid');
+    if (!grid) return;
+
+    if (!hostelsCache || hostelsCache.length === 0) {
+        grid.innerHTML = '<div class="col-span-full py-3 text-center text-xs text-[#5c5f60]">Loading campus dark stores...</div>';
+        return;
+    }
+
+    grid.innerHTML = hostelsCache.map(h => {
+        const hid = h.id;
+        const norm = hid.toLowerCase().replace('-', '');
+        const hostelOrders = (ordersCache || []).filter(o => (o.hostel_id || 'BH-13').toLowerCase().replace('-', '') === norm);
+        
+        const activeOrdersCount = hostelOrders.filter(o => ['Order Placed', 'Preparing', 'Out for Delivery', 'pending', 'confirmed', 'accepted'].includes(o.status)).length;
+        const deliveredOrders = hostelOrders.filter(o => ['Delivered', 'delivered', 'completed', 'Completed'].includes(o.status));
+        const deliveredRev = deliveredOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+        
+        const isActive = h.status === 'ACTIVE';
+
+        return `
+            <div class="p-3.5 rounded-xl border ${isActive ? 'border-blue-200 bg-blue-50/40' : 'border-slate-200 bg-slate-50/70'} hover:shadow-sm transition-all flex flex-col justify-between space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="font-mono font-bold text-xs ${isActive ? 'text-[#0066cc]' : 'text-slate-600'}">${escapeHtml(h.id)}</span>
+                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
+                        <span class="w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}"></span>
+                        ${isActive ? 'LIVE' : 'OFF'}
+                    </span>
+                </div>
+                <div>
+                    <h4 class="font-bold text-xs text-[#181c1f] truncate">${escapeHtml(h.name || h.id)}</h4>
+                    <p class="text-[10px] text-[#5c5f60] truncate">${h.manager_name ? 'Mgr: ' + escapeHtml(h.manager_name) : 'No manager assigned'}</p>
+                </div>
+                <div class="grid grid-cols-2 gap-1 text-[11px] pt-1 border-t border-slate-200/60">
+                    <div>
+                        <span class="text-[9px] text-[#5c5f60] block">Active Orders</span>
+                        <span class="font-bold text-[#181c1f]">${activeOrdersCount}</span>
+                    </div>
+                    <div>
+                        <span class="text-[9px] text-[#5c5f60] block">Realized</span>
+                        <span class="font-bold text-[#137333]">₹${Math.round(deliveredRev).toLocaleString('en-IN')}</span>
+                    </div>
+                </div>
+                <div class="pt-1 flex items-center gap-1.5">
+                    <button onclick="filterOrdersByHostel('${escapeHtml(h.id)}')"
+                        class="flex-1 py-1 rounded-lg text-[10px] font-bold bg-white hover:bg-blue-50 border border-blue-200 text-[#0066cc] text-center transition-all cursor-pointer">
+                        Orders (${hostelOrders.length})
+                    </button>
+                    <button onclick="filterProductsByHostel('${escapeHtml(h.id)}')"
+                        class="flex-1 py-1 rounded-lg text-[10px] font-bold bg-white hover:bg-slate-100 border border-slate-200 text-[#3c4043] text-center transition-all cursor-pointer">
+                        Catalog
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function filterOrdersByHostel(hostelId) {
+    switchView('orders');
+    const sel = document.getElementById('orders-hostel-filter');
+    if (sel) sel.value = hostelId;
+    onOrdersHostelFilterChange(hostelId);
+}
+
+function filterProductsByHostel(hostelId) {
+    switchView('products');
+    const sel = document.getElementById('products-hostel-filter');
+    if (sel) sel.value = hostelId;
+    onProductsHostelFilterChange(hostelId);
+}
+
+async function loadHostels() {
+    try {
+        const res = await fetchWithTimeout('/api/admin/hostels', { headers: getAuthHeaders() }, 7000);
+        if (res.status === 401 || res.status === 403) {
+            handleAdminAuthError(res);
+            return;
+        }
+        if (res.ok) {
+            const data = await res.json();
+            hostelsCache = data.hostels || [];
+            populateHostelDropdowns();
+            renderHostelsTable();
+            updateHostelKpis();
+            renderDashboardHostelCards();
+        }
+    } catch (err) {
+        console.warn('[Hostels Load Error]:', err);
+        showToast('Error loading campus hostels: ' + err.message, 'warning');
+    }
+}
+
+function updateHostelKpis() {
+    const total = hostelsCache.length;
+    const active = hostelsCache.filter(h => h.status === 'ACTIVE').length;
+    const off = hostelsCache.filter(h => h.status === 'OFF').length;
+    const managers = hostelsCache.filter(h => h.store_manager_id).length;
+
+    const elTotal = document.getElementById('stat-hostels-total');
+    const elActive = document.getElementById('stat-hostels-active');
+    const elOff = document.getElementById('stat-hostels-off');
+    const elMgr = document.getElementById('stat-hostels-managers');
+
+    if (elTotal) elTotal.textContent = total;
+    if (elActive) elActive.textContent = active;
+    if (elOff) elOff.textContent = off;
+    if (elMgr) elMgr.textContent = managers;
+}
+
+function renderHostelsTable() {
+    const tbody = document.getElementById('hostels-table-tbody');
+    if (!tbody) return;
+
+    if (!hostelsCache || hostelsCache.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-[#5c5f60]">No campus hostels configured yet. Click "Add New Hostel" above.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = hostelsCache.map(h => {
+        const isActive = h.status === 'ACTIVE';
+        const statusBadge = isActive
+            ? `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> ACTIVE (Ordering Live)
+               </span>`
+            : `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-[#ba1a1a] border border-rose-300">
+                <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> OFF / PAUSED (Orders Blocked)
+               </span>`;
+
+        const managerDisplay = h.manager_name 
+            ? `<div class="flex items-center gap-2">
+                <div class="w-6 h-6 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-[10px]">
+                    ${escapeHtml((h.manager_name[0] || 'M').toUpperCase())}
+                </div>
+                <div>
+                    <p class="font-bold text-[#181c1f] text-[11px]">${escapeHtml(h.manager_name)}</p>
+                    <p class="text-[10px] text-[#5c5f60]">${escapeHtml(h.manager_email || '')}</p>
+                </div>
+               </div>`
+            : `<span class="text-[11px] text-[#5c5f60] italic">None Assigned</span>`;
+
+        const createdDate = h.created_at ? new Date(h.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Preset';
+
+        return `
+            <tr class="hover:bg-[#f7fafd] transition-colors">
+                <td class="p-4 font-mono font-bold text-[#0066cc] text-xs">${escapeHtml(h.id)}</td>
+                <td class="p-4">
+                    <p class="font-semibold text-xs text-[#181c1f]">${escapeHtml(h.name)}</p>
+                </td>
+                <td class="p-4">${statusBadge}</td>
+                <td class="p-4">${managerDisplay}</td>
+                <td class="p-4 text-[#5c5f60] text-[11px]">${createdDate}</td>
+                <td class="p-4 text-right">
+                    <div class="flex items-center justify-end gap-1.5">
+                        <button onclick="toggleHostelStatus('${escapeHtml(h.id)}', '${h.status}')"
+                            class="px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${isActive ? 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100' : 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'}"
+                            title="${isActive ? 'Pause Storefront (Turn OFF)' : 'Activate Storefront (Turn ON)'}">
+                            ${isActive ? '⏸️ Turn OFF' : '▶️ Turn ACTIVE'}
+                        </button>
+                        <button onclick="openAssignManagerModal('${escapeHtml(h.id)}', '${escapeHtml(h.name)}', '${h.store_manager_id || ''}')"
+                            class="p-1.5 text-purple-700 hover:bg-purple-50 rounded-lg transition-all cursor-pointer" title="Assign Store Manager">
+                            <span class="material-symbols-outlined text-[18px]">manage_accounts</span>
+                        </button>
+                        <button onclick="openHostelModal('${escapeHtml(h.id)}')"
+                            class="p-1.5 text-[#5c5f60] hover:text-[#3c4043] hover:bg-[#ebeef2] rounded-lg transition-all cursor-pointer" title="Edit Hostel Details">
+                            <span class="material-symbols-outlined text-[18px]">edit</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+let editingHostelId = null;
+
+function openHostelModal(hostelId = null) {
+    editingHostelId = hostelId;
+    const modal = document.getElementById('modal-hostel');
+    const titleEl = document.getElementById('modal-hostel-title');
+    const idInput = document.getElementById('form-hostel-id');
+    const nameInput = document.getElementById('form-hostel-name');
+    const statusSelect = document.getElementById('form-hostel-status');
+    const errBox = document.getElementById('hostel-form-error');
+
+    if (errBox) errBox.classList.add('hidden');
+
+    if (hostelId) {
+        const h = hostelsCache.find(x => x.id === hostelId);
+        if (titleEl) titleEl.textContent = 'Edit Campus Hostel';
+        if (idInput) {
+            idInput.value = hostelId;
+            idInput.disabled = true;
+        }
+        if (nameInput) nameInput.value = h ? h.name : hostelId;
+        if (statusSelect) statusSelect.value = h ? h.status : 'ACTIVE';
+    } else {
+        if (titleEl) titleEl.textContent = 'Add Campus Hostel';
+        if (idInput) {
+            idInput.value = '';
+            idInput.disabled = false;
+        }
+        if (nameInput) nameInput.value = '';
+        if (statusSelect) statusSelect.value = 'ACTIVE';
+    }
+
+    if (modal) modal.classList.remove('hidden');
+}
+
+function closeHostelModal() {
+    const modal = document.getElementById('modal-hostel');
+    if (modal) modal.classList.add('hidden');
+    editingHostelId = null;
+}
+
+async function submitHostelForm(e) {
+    e.preventDefault();
+    const idInput = document.getElementById('form-hostel-id');
+    const nameInput = document.getElementById('form-hostel-name');
+    const statusSelect = document.getElementById('form-hostel-status');
+    const errBox = document.getElementById('hostel-form-error');
+    const saveBtn = document.getElementById('btn-save-hostel');
+
+    const id = (idInput?.value || '').trim().toUpperCase();
+    const name = (nameInput?.value || '').trim();
+    const status = statusSelect?.value || 'ACTIVE';
+
+    if (!id || !name) {
+        if (errBox) {
+            errBox.textContent = 'Hostel ID and Name are required.';
+            errBox.classList.remove('hidden');
+        }
+        return;
+    }
+
+    if (saveBtn) saveBtn.disabled = true;
+
+    try {
+        const isEdit = Boolean(editingHostelId);
+        const url = isEdit ? `/api/admin/hostels/${encodeURIComponent(editingHostelId)}` : '/api/admin/hostels';
+        const method = isEdit ? 'PUT' : 'POST';
+
+        const res = await fetch(url, {
+            method,
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ id, name, status })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(isEdit ? `Hostel ${id} updated` : `Hostel ${id} created`, 'success');
+            closeHostelModal();
+            await loadHostels();
+        } else {
+            if (errBox) {
+                errBox.textContent = data.error || 'Failed to save hostel';
+                errBox.classList.remove('hidden');
+            }
+        }
+    } catch (err) {
+        if (errBox) {
+            errBox.textContent = 'Network error: ' + err.message;
+            errBox.classList.remove('hidden');
+        }
+    } finally {
+        if (saveBtn) saveBtn.disabled = false;
+    }
+}
+
+async function toggleHostelStatus(id, currentStatus) {
+    const newStatus = currentStatus === 'ACTIVE' ? 'OFF' : 'ACTIVE';
+    const action = newStatus === 'ACTIVE' ? 'activate' : 'deactivate';
+    
+    if (newStatus === 'OFF') {
+        const confirmPause = confirm(`Turn OFF ordering for ${id}?\\n\\nExisting product and order data will NOT be deleted, but students will not be able to place new orders from this hostel.`);
+        if (!confirmPause) return;
+    }
+
+    try {
+        const res = await fetch(`/api/admin/hostels/${encodeURIComponent(id)}/${action}`, {
+            method: 'PUT',
+            headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(`Hostel ${id} status set to ${newStatus}`, 'info');
+            await loadHostels();
+        } else {
+            showToast(data.error || 'Failed to update hostel status', 'error');
+        }
+    } catch (err) {
+        showToast('Network error: ' + err.message, 'error');
+    }
+}
+
+let assigningHostelId = null;
+
+async function openAssignManagerModal(hostelId, hostelName, currentManagerId) {
+    assigningHostelId = hostelId;
+    const modal = document.getElementById('modal-assign-manager');
+    const hostelIdInput = document.getElementById('assign-mgr-hostel-id');
+    const hostelNameEl = document.getElementById('assign-mgr-hostel-name');
+    const currNameEl = document.getElementById('assign-mgr-curr-name');
+    const userSelect = document.getElementById('assign-mgr-user-select');
+    const errBox = document.getElementById('assign-mgr-error');
+    const removeBtn = document.getElementById('btn-remove-manager');
+
+    if (errBox) errBox.classList.add('hidden');
+    if (hostelIdInput) hostelIdInput.value = hostelId;
+    if (hostelNameEl) hostelNameEl.textContent = `${hostelName} (${hostelId})`;
+
+    const hostel = hostelsCache.find(x => x.id === hostelId);
+    if (currNameEl) {
+        currNameEl.textContent = (hostel && hostel.manager_name) ? `${hostel.manager_name} (${hostel.manager_email || ''})` : 'None';
+    }
+
+    if (removeBtn) {
+        removeBtn.classList.toggle('hidden', !Boolean(currentManagerId || (hostel && hostel.store_manager_id)));
+    }
+
+    // Populate userSelect from staff list
+    if (userSelect) {
+        userSelect.innerHTML = '<option value="">Loading admin staff members...</option>';
+        try {
+            const res = await fetchWithTimeout('/api/admin/staff', { headers: getAuthHeaders() }, 5000);
+            if (res.ok) {
+                const data = await res.json();
+                const staff = data.staff || [];
+                userSelect.innerHTML = '<option value="">Select a Store Manager...</option>';
+                staff.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.id;
+                    const roleLabel = (s.roles || []).join(', ');
+                    opt.textContent = `${s.name || s.email} (${s.email}) - [${roleLabel}]`;
+                    if (s.id === currentManagerId || (hostel && hostel.store_manager_id === s.id)) {
+                        opt.selected = true;
+                    }
+                    userSelect.appendChild(opt);
+                });
+            } else {
+                userSelect.innerHTML = '<option value="">Failed to load staff list</option>';
+            }
+        } catch (e) {
+            userSelect.innerHTML = '<option value="">Failed to load staff list</option>';
+        }
+    }
+
+    if (modal) modal.classList.remove('hidden');
+}
+
+function closeAssignManagerModal() {
+    const modal = document.getElementById('modal-assign-manager');
+    if (modal) modal.classList.add('hidden');
+    assigningHostelId = null;
+}
+
+async function submitManagerAssignment(e) {
+    e.preventDefault();
+    const hostelId = assigningHostelId;
+    const userSelect = document.getElementById('assign-mgr-user-select');
+    const errBox = document.getElementById('assign-mgr-error');
+    const saveBtn = document.getElementById('btn-save-assignment');
+
+    const managerId = userSelect?.value;
+    if (!hostelId || !managerId) {
+        if (errBox) {
+            errBox.textContent = 'Please select a staff member to assign.';
+            errBox.classList.remove('hidden');
+        }
+        return;
+    }
+
+    if (saveBtn) saveBtn.disabled = true;
+
+    try {
+        const res = await fetch(`/api/admin/hostels/${encodeURIComponent(hostelId)}/assign-manager`, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ store_manager_id: managerId })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Store Manager assigned successfully', 'success');
+            closeAssignManagerModal();
+            await loadHostels();
+        } else {
+            if (errBox) {
+                errBox.textContent = data.error || 'Failed to assign manager';
+                errBox.classList.remove('hidden');
+            }
+        }
+    } catch (err) {
+        if (errBox) {
+            errBox.textContent = 'Network error: ' + err.message;
+            errBox.classList.remove('hidden');
+        }
+    } finally {
+        if (saveBtn) saveBtn.disabled = false;
+    }
+}
+
+async function handleRemoveManager() {
+    const hostelId = assigningHostelId;
+    if (!hostelId) return;
+
+    if (!confirm(`Unassign the current store manager from hostel ${hostelId}?`)) return;
+
+    try {
+        const res = await fetch(`/api/admin/hostels/${encodeURIComponent(hostelId)}/remove-manager`, {
+            method: 'PUT',
+            headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Manager unassigned', 'info');
+            closeAssignManagerModal();
+            await loadHostels();
+        } else {
+            alert(data.error || 'Failed to remove manager');
+        }
+    } catch (err) {
+        alert('Network error: ' + err.message);
+    }
+}
+
+// Expose functions globally for HTML event handlers
+window.populateHostelDropdowns = populateHostelDropdowns;
+window.getActiveAdminHostelFilter = getActiveAdminHostelFilter;
+window.onProductsHostelFilterChange = onProductsHostelFilterChange;
+window.onInventoryHostelFilterChange = onInventoryHostelFilterChange;
+window.onOrdersHostelFilterChange = onOrdersHostelFilterChange;
+window.loadHostels = loadHostels;
+window.openHostelModal = openHostelModal;
+window.closeHostelModal = closeHostelModal;
+window.submitHostelForm = submitHostelForm;
+window.toggleHostelStatus = toggleHostelStatus;
+window.openAssignManagerModal = openAssignManagerModal;
+window.closeAssignManagerModal = closeAssignManagerModal;
+window.submitManagerAssignment = submitManagerAssignment;
+window.handleRemoveManager = handleRemoveManager;
+window.onDailyRevenueHostelFilterChange = onDailyRevenueHostelFilterChange;
+window.selectDailyRevenueHostel = selectDailyRevenueHostel;
+window.renderDashboardHostelCards = renderDashboardHostelCards;
+window.filterOrdersByHostel = filterOrdersByHostel;
+window.filterProductsByHostel = filterProductsByHostel;
+
 // Initial Boot Check: Verify token with server before unlocking UI
 async function initAdminAuth() {
     const savedToken = localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token');
@@ -5338,6 +5974,9 @@ async function initAdminAuth() {
         if (data.success && data.authenticated && data.admin) {
             adminToken = savedToken;
             hideLoginModal();
+            if (typeof loadHostels === 'function') {
+                loadHostels().catch(() => {});
+            }
             const initialView = applyAdminRolePermissions(data.admin);
             switchView(initialView);
             initRealtimeWebSocket();
@@ -5740,7 +6379,8 @@ document.getElementById('btn-manual-relock')?.addEventListener('click', () => wi
 let currentDailyRevenueFilter = {
     range: 'all',
     startDate: null,
-    endDate: null
+    endDate: null,
+    hostel_id: 'ALL'
 };
 let cachedDailyRevenueData = null;
 
@@ -5880,6 +6520,9 @@ async function loadDailyRevenueView(forceRefresh = false) {
     if (currentDailyRevenueFilter.range) params.set('range', currentDailyRevenueFilter.range);
     if (currentDailyRevenueFilter.startDate) params.set('startDate', currentDailyRevenueFilter.startDate);
     if (currentDailyRevenueFilter.endDate) params.set('endDate', currentDailyRevenueFilter.endDate);
+    if (currentDailyRevenueFilter.hostel_id && currentDailyRevenueFilter.hostel_id !== 'ALL') {
+        params.set('hostel_id', currentDailyRevenueFilter.hostel_id);
+    }
     if (forceRefresh) params.set('_t', Date.now());
 
     try {
@@ -5908,6 +6551,41 @@ async function loadDailyRevenueView(forceRefresh = false) {
         if (lockedCard) lockedCard.classList.add('hidden');
         if (unlockedContainer) unlockedContainer.classList.remove('hidden');
         cachedDailyRevenueData = data;
+
+        const drSelect = document.getElementById('dr-hostel-filter');
+        if (drSelect && currentDailyRevenueFilter.hostel_id) {
+            drSelect.value = currentDailyRevenueFilter.hostel_id;
+        }
+
+        // Render Campus Hostels Revenue & Orders Comparison Bento Grid
+        const hostelCompGrid = document.getElementById('dr-hostel-comparison-grid');
+        if (hostelCompGrid && Array.isArray(data.hostel_comparison)) {
+            const currentFilterHostel = (currentDailyRevenueFilter.hostel_id || 'ALL').toUpperCase();
+            hostelCompGrid.innerHTML = data.hostel_comparison.map(hc => {
+                const isSelected = (currentFilterHostel !== 'ALL' && currentFilterHostel === hc.hostel_id.toUpperCase());
+                const isActive = hc.status === 'ACTIVE';
+                return `
+                    <div onclick="selectDailyRevenueHostel('${escapeHtml(hc.hostel_id)}')"
+                        class="p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-2 ${isSelected ? 'border-emerald-600 bg-emerald-50/80 ring-2 ring-emerald-500/30 shadow-sm' : 'border-[#DADCE0] bg-white hover:border-emerald-300 hover:bg-[#f7fafd]'}">
+                        <div class="flex items-center justify-between">
+                            <span class="font-mono font-bold text-xs ${isSelected ? 'text-emerald-800' : 'text-[#0066cc]'}">${escapeHtml(hc.hostel_id)}</span>
+                            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
+                                <span class="w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}"></span>
+                                ${isActive ? 'ACTIVE' : 'OFF'}
+                            </span>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-xs text-[#181c1f] truncate">${escapeHtml(hc.hostel_name || hc.hostel_id)}</h4>
+                            <p class="text-[10px] text-[#5c5f60]">${hc.delivered_count} delivered (${hc.orders_count} total)</p>
+                        </div>
+                        <div class="pt-2 border-t border-slate-100 flex items-center justify-between">
+                            <span class="text-[10px] text-[#5c5f60]">Realized:</span>
+                            <span class="font-bold text-sm text-[#137333]">${hc.formatted_revenue}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
 
         // Render Bento KPI Cards
         const summary = data.summary || {};

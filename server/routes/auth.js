@@ -331,6 +331,23 @@ router.post('/admin-login', async (req, res) => {
         const roles = resolveAdminRoles(user);
         const isOwner = roles.includes('owner');
 
+        // Multi-Hostel: Resolve store manager assigned hostel
+        let assignedHostelId = null;
+        if (!isOwner) {
+            try {
+                const hostels = await supabaseDb.hostels.getAll({ includeInactive: true });
+                const matched = (hostels || []).find(h => h.manager_user_id === user.id);
+                if (matched) assignedHostelId = matched.id;
+            } catch (hErr) {}
+
+            if (!assignedHostelId && user.dob && typeof user.dob === 'string' && user.dob.startsWith('{')) {
+                try {
+                    const parsedDob = JSON.parse(user.dob);
+                    if (parsedDob.assigned_hostel_id) assignedHostelId = parsedDob.assigned_hostel_id;
+                } catch (e) {}
+            }
+        }
+
         // Record admin login in background
         supabaseDb.staff.recordAdminLogin(user.id).catch(() => {});
 
@@ -342,7 +359,7 @@ router.post('/admin-login', async (req, res) => {
             await supabaseDb.audit.logAction({
                 adminId: user.id,
                 action: 'ADMIN_LOGIN',
-                metadata: { email: user.email, roles, timestamp: new Date().toISOString() }
+                metadata: { email: user.email, roles, assigned_hostel_id: assignedHostelId, timestamp: new Date().toISOString() }
             });
         } catch (auditErr) {}
 
@@ -355,7 +372,8 @@ router.post('/admin-login', async (req, res) => {
                 email: user.email,
                 role: 'admin',
                 roles,
-                is_owner: isOwner
+                is_owner: isOwner,
+                assigned_hostel_id: assignedHostelId
             }
         });
     } catch (err) {

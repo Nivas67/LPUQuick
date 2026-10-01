@@ -30,6 +30,190 @@ function getLocalUploadsSet() {
  */
 const supabaseDb = {
     // ==========================================
+    // HOSTELS (Multi-Hostel Operations)
+    // ==========================================
+    hostels: {
+        _hostelsFilePath: path.join(__dirname, '..', 'data', 'hostels.json'),
+        _memoryHostels: null,
+
+        _loadHostelsFromDisk() {
+            try {
+                if (fs.existsSync(this._hostelsFilePath)) {
+                    this._memoryHostels = JSON.parse(fs.readFileSync(this._hostelsFilePath, 'utf8'));
+                } else {
+                    this._memoryHostels = [
+                        { id: 'BH-13', name: 'Boys Hostel 13', status: 'ACTIVE', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                        { id: 'BH-5', name: 'Boys Hostel 5', status: 'ACTIVE', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                        { id: 'BH-14', name: 'Boys Hostel 14', status: 'ACTIVE', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+                    ];
+                    try {
+                        const dir = path.dirname(this._hostelsFilePath);
+                        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                        fs.writeFileSync(this._hostelsFilePath, JSON.stringify(this._memoryHostels, null, 2));
+                    } catch (e) {}
+                }
+            } catch (e) {
+                this._memoryHostels = [
+                    { id: 'BH-13', name: 'Boys Hostel 13', status: 'ACTIVE', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                    { id: 'BH-5', name: 'Boys Hostel 5', status: 'ACTIVE', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                    { id: 'BH-14', name: 'Boys Hostel 14', status: 'ACTIVE', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+                ];
+            }
+            return this._memoryHostels;
+        },
+
+        _saveHostelsToDisk() {
+            try {
+                if (this._memoryHostels) {
+                    const dir = path.dirname(this._hostelsFilePath);
+                    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                    fs.writeFileSync(this._hostelsFilePath, JSON.stringify(this._memoryHostels, null, 2));
+                }
+            } catch (e) {}
+        },
+
+        async getAll({ status, includeInactive = true } = {}) {
+            const cacheKey = `hostels:all:${status || 'any'}:${includeInactive}`;
+            return await cache.wrap(cacheKey, async () => {
+                const supabase = getSupabaseClient();
+                if (supabase) {
+                    try {
+                        let query = supabase.from('hostels').select('id, name, status, manager_user_id, created_at, updated_at');
+                        if (status) {
+                            query = query.eq('status', status);
+                        } else if (!includeInactive) {
+                            query = query.eq('status', 'ACTIVE');
+                        }
+                        query = query.order('id', { ascending: true });
+                        const { data, error } = await query;
+                        if (!error && Array.isArray(data) && data.length > 0) {
+                            this._memoryHostels = data;
+                            this._saveHostelsToDisk();
+                            return data;
+                        }
+                    } catch (e) {
+                        console.warn('[Hostels getAll DB notice]:', e.message);
+                    }
+                }
+
+                // Resilient local snapshot fallback
+                let list = this._memoryHostels || this._loadHostelsFromDisk();
+                if (status) {
+                    list = list.filter(h => h.status === status);
+                } else if (!includeInactive) {
+                    list = list.filter(h => h.status === 'ACTIVE');
+                }
+                return list;
+            }, 60000);
+        },
+
+        async getActiveHostels() {
+            return this.getAll({ status: 'ACTIVE', includeInactive: false });
+        },
+
+        async getById(id) {
+            if (!id) return null;
+            const cleanId = id.trim();
+            const all = await this.getAll({ includeInactive: true });
+            return all.find(h => h.id.toLowerCase() === cleanId.toLowerCase() || h.id.replace('-', '').toLowerCase() === cleanId.replace('-', '').toLowerCase()) || null;
+        },
+
+        async create({ id, name, status = 'ACTIVE', manager_user_id = null }) {
+            if (!id || !name) throw new Error('Hostel ID and Name are required');
+            const cleanId = id.trim().toUpperCase();
+            const cleanName = name.trim();
+            const cleanStatus = status === 'OFF' ? 'OFF' : 'ACTIVE';
+            const now = new Date().toISOString();
+
+            const record = {
+                id: cleanId,
+                name: cleanName,
+                status: cleanStatus,
+                manager_user_id: manager_user_id || null,
+                created_at: now,
+                updated_at: now
+            };
+
+            const supabase = getSupabaseClient();
+            if (supabase) {
+                try {
+                    const { error } = await supabase.from('hostels').upsert([record]);
+                    if (error) console.warn('[Hostel Insert DB notice]:', error.message);
+                } catch (e) {}
+            }
+
+            const current = this._memoryHostels || this._loadHostelsFromDisk();
+            const idx = current.findIndex(h => h.id === cleanId);
+            if (idx >= 0) {
+                current[idx] = { ...current[idx], ...record };
+            } else {
+                current.push(record);
+            }
+            this._memoryHostels = current;
+            this._saveHostelsToDisk();
+            cache.invalidateHostels();
+            return record;
+        },
+
+        async update(id, updates = {}) {
+            if (!id) throw new Error('Hostel ID is required');
+            const cleanId = id.trim();
+            const existing = await this.getById(cleanId);
+            if (!existing) throw new Error(`Hostel ${cleanId} not found`);
+
+            const patch = { updated_at: new Date().toISOString() };
+            if (updates.name !== undefined) patch.name = updates.name.trim();
+            if (updates.status !== undefined) patch.status = updates.status === 'OFF' ? 'OFF' : 'ACTIVE';
+            if (updates.manager_user_id !== undefined) patch.manager_user_id = updates.manager_user_id;
+
+            const supabase = getSupabaseClient();
+            if (supabase) {
+                try {
+                    const { error } = await supabase.from('hostels').update(patch).eq('id', existing.id);
+                    if (error) console.warn('[Hostel Update DB notice]:', error.message);
+                } catch (e) {}
+            }
+
+            const current = this._memoryHostels || this._loadHostelsFromDisk();
+            const idx = current.findIndex(h => h.id === existing.id);
+            if (idx >= 0) {
+                current[idx] = { ...current[idx], ...patch };
+            }
+            this._memoryHostels = current;
+            this._saveHostelsToDisk();
+            cache.invalidateHostels();
+            return { ...existing, ...patch };
+        },
+
+        async delete(id) {
+            if (!id) throw new Error('Hostel ID is required');
+            const cleanId = id.trim();
+            const existing = await this.getById(cleanId);
+            const targetId = existing?.id || cleanId;
+
+            const supabase = getSupabaseClient();
+            if (supabase) {
+                try {
+                    await supabase.from('hostels').delete().eq('id', targetId);
+                } catch (e) {}
+            }
+            const current = this._memoryHostels || this._loadHostelsFromDisk();
+            this._memoryHostels = current.filter(h => h.id !== targetId);
+            this._saveHostelsToDisk();
+            cache.invalidateHostels();
+            return { success: true };
+        },
+
+        async assignManager(hostelId, managerUserId) {
+            return this.update(hostelId, { manager_user_id: managerUserId });
+        },
+
+        async removeManager(hostelId) {
+            return this.update(hostelId, { manager_user_id: null });
+        }
+    },
+
+    // ==========================================
     // PRODUCTS
     // ==========================================
     products: {
@@ -37,6 +221,11 @@ const supabaseDb = {
             if (!p) return null;
             const match = (p.tags || '').match(/stock:(\d+)/);
             const stock_left = match ? parseInt(match[1], 10) : (p.in_stock ? 50 : 0);
+            
+            // Extract hostel_id from direct column or tag fallback (Defaulting cleanly to BH-13)
+            const hostelMatch = (p.tags || '').match(/hostel:([A-Za-z0-9_-]+)/);
+            const hostel_id = p.hostel_id || (hostelMatch ? hostelMatch[1] : 'BH-13');
+
             let image_url = p.image_url;
             const localUploads = getLocalUploadsSet();
             const supabaseBaseUrl = process.env.SUPABASE_URL || 'https://yojndzstlilzlkxonmvd.supabase.co';
@@ -62,6 +251,7 @@ const supabaseDb = {
             }
             return {
                 ...p,
+                hostel_id,
                 image_url,
                 cost_price: Number(p.cost_price) || 0,
                 description: p.size || p.name,
@@ -72,32 +262,83 @@ const supabaseDb = {
             };
         },
 
-        async getAll({ includeInactive = false, category, subcategory, sort } = {}) {
-            const cacheKey = `products:${category || 'all'}:${subcategory || 'all'}:${sort || 'default'}:${includeInactive}`;
+        async getAll({ includeInactive = false, category, subcategory, sort, hostel_id } = {}) {
+            const cacheKey = `products:${hostel_id || 'all'}:${category || 'all'}:${subcategory || 'all'}:${sort || 'default'}:${includeInactive}`;
             return await cache.wrap(cacheKey, async () => {
                 const supabase = getSupabaseClient();
                 if (!supabase) throw new Error('PostgreSQL client unavailable. Verify SUPABASE_URL and credentials.');
 
-                let query = supabase.from('products').select('id, name, category, subcategory, price, mrp, cost_price, unit, size, image_url, image_alt, tags, in_stock, bestseller, is_new, created_at');
+                let data = null;
+                let fetchError = null;
 
-                if (category && category !== 'All') {
-                    query = query.ilike('category', `%${category}%`);
-                }
-                if (subcategory && subcategory !== 'all') {
-                    query = query.eq('subcategory', subcategory);
-                }
-                if (sort === 'price_asc') {
-                    query = query.order('price', { ascending: true });
-                } else if (sort === 'price_desc') {
-                    query = query.order('price', { ascending: false });
-                } else {
-                    query = query.order('name', { ascending: true });
+                // 1. First attempt targeted query with hostel_id column for maximum efficiency (0 wasted egress)
+                try {
+                    let query = supabase.from('products').select('id, hostel_id, name, category, subcategory, price, mrp, cost_price, unit, size, image_url, image_alt, tags, in_stock, bestseller, is_new, created_at');
+
+                    if (hostel_id && hostel_id !== 'all') {
+                        query = query.eq('hostel_id', hostel_id);
+                    }
+                    if (category && category !== 'All') {
+                        query = query.ilike('category', `%${category}%`);
+                    }
+                    if (subcategory && subcategory !== 'all') {
+                        query = query.eq('subcategory', subcategory);
+                    }
+                    if (sort === 'price_asc') {
+                        query = query.order('price', { ascending: true });
+                    } else if (sort === 'price_desc') {
+                        query = query.order('price', { ascending: false });
+                    } else {
+                        query = query.order('name', { ascending: true });
+                    }
+
+                    const res = await query;
+                    if (!res.error) {
+                        data = res.data;
+                    } else {
+                        fetchError = res.error;
+                    }
+                } catch (e) {
+                    fetchError = e;
                 }
 
-                const { data, error } = await query;
-                if (error) throw new Error(`PostgreSQL query error: ${error.message}`);
+                // 2. If hostel_id column doesn't exist yet in Supabase, seamlessly fallback without column and filter in-memory
+                if (fetchError && fetchError.message && (fetchError.message.includes('hostel_id') || fetchError.code === '42703')) {
+                    let fallbackQuery = supabase.from('products').select('id, name, category, subcategory, price, mrp, cost_price, unit, size, image_url, image_alt, tags, in_stock, bestseller, is_new, created_at');
 
-                return (data || []).map(p => this._formatProduct(p));
+                    if (category && category !== 'All') {
+                        fallbackQuery = fallbackQuery.ilike('category', `%${category}%`);
+                    }
+                    if (subcategory && subcategory !== 'all') {
+                        fallbackQuery = fallbackQuery.eq('subcategory', subcategory);
+                    }
+                    if (sort === 'price_asc') {
+                        fallbackQuery = fallbackQuery.order('price', { ascending: true });
+                    } else if (sort === 'price_desc') {
+                        fallbackQuery = fallbackQuery.order('price', { ascending: false });
+                    } else {
+                        fallbackQuery = fallbackQuery.order('name', { ascending: true });
+                    }
+
+                    const res2 = await fallbackQuery;
+                    if (res2.error) throw new Error(`PostgreSQL query error: ${res2.error.message}`);
+                    data = res2.data;
+                } else if (fetchError) {
+                    throw new Error(`PostgreSQL query error: ${fetchError.message}`);
+                }
+
+                const formatted = (data || []).map(p => this._formatProduct(p));
+
+                // If queried with specific hostel_id, enforce strict isolation
+                if (hostel_id && hostel_id !== 'all') {
+                    const normTarget = hostel_id.toLowerCase().replace('-', '');
+                    return formatted.filter(p => {
+                        const normP = (p.hostel_id || 'BH-13').toLowerCase().replace('-', '');
+                        return normP === normTarget;
+                    });
+                }
+
+                return formatted;
             }, 300000); // 5-minute single-flight micro-cache (drastically reduces DB egress)
         },
 
@@ -143,35 +384,60 @@ const supabaseDb = {
             return Array.from(new Set(data.map(p => p.category).filter(Boolean)));
         },
 
-        async search(queryText) {
+        async search(queryText, hostel_id = null) {
             if (!queryText) return [];
             const supabase = getSupabaseClient();
             if (!supabase) return [];
 
             const clean = queryText.trim();
-            const { data, error } = await supabase
+            let query = supabase
                 .from('products')
                 .select('*')
                 .or(`name.ilike.%${clean}%,category.ilike.%${clean}%,tags.ilike.%${clean}%`)
                 .limit(50);
 
+            if (hostel_id && hostel_id !== 'all') {
+                try {
+                    query = query.eq('hostel_id', hostel_id);
+                } catch (e) {}
+            }
+
+            const { data, error } = await query;
             if (error || !data) return [];
-            return data.map(p => this._formatProduct(p));
+            const formatted = data.map(p => this._formatProduct(p));
+
+            if (hostel_id && hostel_id !== 'all') {
+                const normTarget = hostel_id.toLowerCase().replace('-', '');
+                return formatted.filter(p => (p.hostel_id || 'BH-13').toLowerCase().replace('-', '') === normTarget);
+            }
+            return formatted;
         },
 
-        async getRandom(limit = 10) {
+        async getRandom(limit = 10, hostel_id = null) {
             const supabase = getSupabaseClient();
             if (!supabase) return [];
 
-            const { data, error } = await supabase
+            let query = supabase
                 .from('products')
                 .select('*')
                 .eq('in_stock', true)
                 .limit(50);
 
+            if (hostel_id && hostel_id !== 'all') {
+                try {
+                    query = query.eq('hostel_id', hostel_id);
+                } catch (e) {}
+            }
+
+            const { data, error } = await query;
             if (error || !data) return [];
-            const shuffled = [...data].sort(() => 0.5 - Math.random());
-            return shuffled.slice(0, limit).map(p => this._formatProduct(p));
+            let formatted = data.map(p => this._formatProduct(p));
+            if (hostel_id && hostel_id !== 'all') {
+                const normTarget = hostel_id.toLowerCase().replace('-', '');
+                formatted = formatted.filter(p => (p.hostel_id || 'BH-13').toLowerCase().replace('-', '') === normTarget);
+            }
+            const shuffled = [...formatted].sort(() => 0.5 - Math.random());
+            return shuffled.slice(0, limit);
         },
 
         async create(productData) {
@@ -181,16 +447,19 @@ const supabaseDb = {
             const id = productData.id || `prod_${uuidv4().slice(0, 8)}`;
             const stockNum = productData.stock_left !== undefined ? parseInt(productData.stock_left, 10) : 50;
             const inStock = stockNum > 0 && productData.in_stock !== false;
+            const hostelId = productData.hostel_id || 'BH-13';
 
             const existingTags = (productData.tags || '')
                 .split(',')
                 .map(t => t.trim())
-                .filter(t => t && !t.startsWith('stock:'));
+                .filter(t => t && !t.startsWith('stock:') && !t.startsWith('hostel:'));
             existingTags.push(`stock:${stockNum}`);
+            existingTags.push(`hostel:${hostelId}`);
             const finalTags = existingTags.join(', ');
 
             const record = {
                 id,
+                hostel_id: hostelId,
                 name: productData.name,
                 category: productData.category || 'Snacks & Drinks',
                 subcategory: productData.subcategory || '',
@@ -207,13 +476,37 @@ const supabaseDb = {
                 tags: finalTags
             };
 
-            const { data, error } = await supabase
-                .from('products')
-                .insert([record])
-                .select()
-                .single();
+            let data = null;
+            let error = null;
 
-            if (error) throw new Error(`PostgreSQL product insert error: ${error.message}`);
+            try {
+                const res = await supabase
+                    .from('products')
+                    .insert([record])
+                    .select()
+                    .single();
+                data = res.data;
+                error = res.error;
+            } catch (e) {
+                error = e;
+            }
+
+            // Fallback if hostel_id column is not yet in Supabase schema
+            if (error && error.message && (error.message.includes('hostel_id') || error.code === '42703')) {
+                const fallbackRecord = { ...record };
+                delete fallbackRecord.hostel_id;
+                const res2 = await supabase
+                    .from('products')
+                    .insert([fallbackRecord])
+                    .select()
+                    .single();
+                if (res2.error) throw new Error(`PostgreSQL product insert error: ${res2.error.message}`);
+                data = res2.data;
+                error = null;
+            } else if (error) {
+                throw new Error(`PostgreSQL product insert error: ${error.message}`);
+            }
+
             cache.invalidateProducts();
             return this._formatProduct(data);
         },
@@ -223,6 +516,7 @@ const supabaseDb = {
             if (!supabase) throw new Error('PostgreSQL client unavailable');
 
             const updateFields = {};
+            if (updates.hostel_id !== undefined) updateFields.hostel_id = updates.hostel_id;
             if (updates.name !== undefined) updateFields.name = updates.name;
             if (updates.category !== undefined) updateFields.category = updates.category;
             if (updates.subcategory !== undefined) updateFields.subcategory = updates.subcategory;
@@ -240,28 +534,56 @@ const supabaseDb = {
             if (updates.is_new !== undefined) updateFields.is_new = Boolean(updates.is_new);
             if (updates.tags !== undefined) updateFields.tags = updates.tags;
 
-            if (updates.stock_left !== undefined) {
-                const stockNum = parseInt(updates.stock_left, 10) || 0;
+            if (updates.stock_left !== undefined || updates.hostel_id !== undefined) {
                 const existing = await this.getById(id);
-                const currentTags = (existing?.tags || '')
+                const stockNum = updates.stock_left !== undefined ? (parseInt(updates.stock_left, 10) || 0) : (existing?.stock_left || 0);
+                const hId = updates.hostel_id || existing?.hostel_id || 'BH-13';
+
+                const currentTags = ((updates.tags !== undefined ? updates.tags : existing?.tags) || '')
                     .split(',')
                     .map(t => t.trim())
-                    .filter(t => t && !t.startsWith('stock:'));
+                    .filter(t => t && !t.startsWith('stock:') && !t.startsWith('hostel:'));
                 currentTags.push(`stock:${stockNum}`);
+                currentTags.push(`hostel:${hId}`);
                 updateFields.tags = currentTags.join(', ');
-                updateFields.in_stock = stockNum > 0;
+                if (updates.stock_left !== undefined) {
+                    updateFields.in_stock = stockNum > 0;
+                }
             }
 
-            const { data, error } = await supabase
-                .from('products')
-                .update(updateFields)
-                .eq('id', id)
-                .select()
-                .single();
+            let data = null;
+            let error = null;
 
-            if (error) throw new Error(`PostgreSQL product update error: ${error.message}`);
+            try {
+                const res = await supabase
+                    .from('products')
+                    .update(updateFields)
+                    .eq('id', id)
+                    .select()
+                    .single();
+                data = res.data;
+                error = res.error;
+            } catch (e) {
+                error = e;
+            }
+
+            if (error && error.message && (error.message.includes('hostel_id') || error.code === '42703')) {
+                const fallbackUpdates = { ...updateFields };
+                delete fallbackUpdates.hostel_id;
+                const res2 = await supabase
+                    .from('products')
+                    .update(fallbackUpdates)
+                    .eq('id', id)
+                    .select()
+                    .single();
+                if (res2.error) throw new Error(`PostgreSQL product update error: ${res2.error.message}`);
+                data = res2.data;
+                error = null;
+            } else if (error) {
+                throw new Error(`PostgreSQL product update error: ${error.message}`);
+            }
+
             cache.invalidateProducts();
-
             return this._formatProduct(data);
         },
 
@@ -626,9 +948,11 @@ const supabaseDb = {
                 });
             }
 
+            const hostelId = orderPayload.hostel_id || 'BH-13';
             const orderId = orderPayload.id || `order_${uuidv4().slice(0, 8)}`;
             const coreOrderPayload = {
                 id: orderId,
+                hostel_id: hostelId,
                 user_id: orderPayload.user_id,
                 customer_name: orderPayload.customer_name || 'Student',
                 customer_phone: orderPayload.customer_phone || '',
@@ -647,14 +971,39 @@ const supabaseDb = {
                 delivery_address: orderPayload.delivery_address || 'BH13 (Block A), Room 304'
             };
 
-            // 2. Insert core order record
-            const { data: orderData, error: orderErr } = await supabase
-                .from('orders')
-                .insert([coreOrderPayload])
-                .select()
-                .single();
+            // 2. Insert core order record with automatic fallback if hostel_id column not yet present
+            let orderData = null;
+            let orderErr = null;
+            try {
+                const res = await supabase
+                    .from('orders')
+                    .insert([coreOrderPayload])
+                    .select()
+                    .single();
+                orderData = res.data;
+                orderErr = res.error;
+            } catch (e) {
+                orderErr = e;
+            }
 
-            if (orderErr) {
+            if (orderErr && orderErr.message && (orderErr.message.includes('hostel_id') || orderErr.code === '42703')) {
+                const fallbackPayload = { ...coreOrderPayload };
+                delete fallbackPayload.hostel_id;
+                const res2 = await supabase
+                    .from('orders')
+                    .insert([fallbackPayload])
+                    .select()
+                    .single();
+                if (res2.error) {
+                    if (res2.error.code === '23505') {
+                        const existing = await this.getOrderById(orderId);
+                        if (existing) return existing;
+                    }
+                    throw new Error(`PostgreSQL order creation failed: ${res2.error.message}`);
+                }
+                orderData = res2.data;
+                orderErr = null;
+            } else if (orderErr) {
                 if (orderErr.code === '23505') {
                     const existing = await this.getOrderById(orderId);
                     if (existing) return existing;
@@ -752,6 +1101,7 @@ const supabaseDb = {
 
             return {
                 ...orderData,
+                hostel_id: orderData?.hostel_id || hostelId,
                 items: formattedItems.map(it => ({ ...it, price: it.unit_price })),
                 stockUpdates
             };
@@ -960,19 +1310,33 @@ const supabaseDb = {
             });
         },
 
-        async getAllOrders() {
+        async getAllOrders(filters = {}) {
+            const hostelId = typeof filters === 'string' ? filters : (filters?.hostel_id || null);
             const supabase = getSupabaseClient();
             if (!supabase) return [];
 
-            const { data: orders, error } = await supabase
-                .from('orders')
-                .select('*, order_items(*, products(*))')
-                .order('created_at', { ascending: false });
+            let query = supabase.from('orders').select('*, order_items(*, products(*))');
+            if (hostelId && hostelId !== 'all') {
+                try {
+                    query = query.eq('hostel_id', hostelId);
+                } catch (e) {}
+            }
+            query = query.order('created_at', { ascending: false });
 
-            if (error || !orders) return [];
+            let { data: orders, error } = await query;
+            if (error) {
+                // If column hostel_id does not exist, query without it and filter
+                const { data: allOrders, error: fallbackErr } = await supabase.from('orders').select('*, order_items(*, products(*))').order('created_at', { ascending: false });
+                if (fallbackErr || !allOrders) return [];
+                orders = allOrders;
+            }
+
+            if (!orders) return [];
+
             return orders.map(o => {
                 const deliveryMeta = this.parseDeliveryMeta(o.rider_name);
                 const humanRiderName = this.formatRiderDisplayName(o.rider_name, 'Unassigned');
+                const hId = o.hostel_id || (o.delivery_address && o.delivery_address.match(/(BH-?\d+|GH-?\d+)/i)?.[1]?.replace('BH', 'BH-')) || 'BH-13';
 
                 const formattedItems = (o.order_items || []).map(it => ({
                     id: it.id,
@@ -988,11 +1352,19 @@ const supabaseDb = {
                 const itemNames = formattedItems.map(it => `${it.name} (x${it.quantity})`).join(', ');
                 return {
                     ...o,
+                    hostel_id: hId,
                     rider_name: humanRiderName,
                     delivery_assignment: deliveryMeta,
                     items: formattedItems,
                     item_names: itemNames || o.item_names || 'Campus Groceries & Essentials'
                 };
+            }).filter(o => {
+                if (hostelId && hostelId !== 'all') {
+                    const normTarget = hostelId.toLowerCase().replace('-', '');
+                    const normO = (o.hostel_id || 'BH-13').toLowerCase().replace('-', '');
+                    return normO === normTarget;
+                }
+                return true;
             });
         },
 

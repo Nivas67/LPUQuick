@@ -187,25 +187,49 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
 
-        const forceFresh = req.query.force === 'true';
-        if (forceFresh) {
-            cache.delete('orders:admin:all');
+        const isOwner = Boolean(req.admin && req.admin.is_owner);
+        let hostelId = req.query.hostel_id || req.query.hostel || null;
+
+        // Store Managers are strictly locked to their assigned hostel
+        if (!isOwner && req.admin?.assigned_hostel_id) {
+            hostelId = req.admin.assigned_hostel_id;
         }
 
-        const payload = await cache.wrap('orders:admin:all', async () => {
+        const forceFresh = req.query.force === 'true';
+        const cacheKey = `orders:admin:all:${hostelId || 'all'}`;
+        if (forceFresh) {
+            cache.delete(cacheKey);
+        }
+
+        const payload = await cache.wrap(cacheKey, async () => {
             const supabase = getSupabaseClient();
             
             // 1. Direct query with selective column projection & timeout protection
-            const queryPromise = supabase
+            let query = supabase
                 .from('orders')
-                .select('id, user_id, status, subtotal, delivery_fee, platform_fee, tax, total, payment_method, payment_status, rider_name, rider_lat, rider_lng, delivery_address, created_at, customer_name, customer_phone, customer_email')
-                .order('created_at', { ascending: false });
+                .select('id, user_id, status, subtotal, delivery_fee, platform_fee, tax, total, payment_method, payment_status, rider_name, rider_lat, rider_lng, delivery_address, created_at, customer_name, customer_phone, customer_email, hostel_id');
 
-            const ordersRes = await withTimeout(queryPromise, 15000, { data: null, error: new Error('Timeout') });
-            const orders = ordersRes?.data;
+            if (hostelId && hostelId !== 'all') {
+                try {
+                    query = query.eq('hostel_id', hostelId);
+                } catch (e) {}
+            }
+            query = query.order('created_at', { ascending: false });
+
+            let ordersRes = await withTimeout(query, 15000, { data: null, error: new Error('Timeout') });
+            let orders = ordersRes?.data;
+
+            if (ordersRes?.error && ordersRes.error.message && (ordersRes.error.message.includes('hostel_id') || ordersRes.error.code === '42703')) {
+                // Fallback query if column hostel_id is not yet in PostgREST schema cache
+                const fallbackQuery = supabase
+                    .from('orders')
+                    .select('id, user_id, status, subtotal, delivery_fee, platform_fee, tax, total, payment_method, payment_status, rider_name, rider_lat, rider_lng, delivery_address, created_at, customer_name, customer_phone, customer_email')
+                    .order('created_at', { ascending: false });
+                const fallbackRes = await withTimeout(fallbackQuery, 15000, { data: null });
+                orders = fallbackRes?.data;
+            }
 
             if (!orders || orders.length === 0) {
-                fallbackOrdersCache = [];
                 return { orders: [] };
             }
 
@@ -229,15 +253,17 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
             }
 
             // 3. Fast in-memory assembly
-            const enriched = orders.map(order => {
+            let enriched = orders.map(order => {
                 const user = userMap.get(order.user_id);
                 const customerName = resolveOrderCustomerName(order, user);
                 const customerPhone = order.customer_phone || user?.phone || '';
                 const customerEmail = (order.customer_email && !order.customer_email.endsWith('@lpu.in')) ? order.customer_email : (user?.email || order.customer_email || '');
                 const deliveryInfo = supabaseDb.orders.parseDeliveryMeta(order.rider_name);
+                const hId = order.hostel_id || (order.delivery_address && order.delivery_address.match(/(BH-?\d+|GH-?\d+)/i)?.[1]?.replace('BH', 'BH-')) || 'BH-13';
 
                 return {
                     id: order.id,
+                    hostel_id: hId,
                     user_id: order.user_id,
                     status: order.status || 'Order Placed',
                     subtotal: order.subtotal || 0,
@@ -260,11 +286,22 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
                 };
             });
 
-            fallbackOrdersCache = enriched;
+            // Filter by target hostel if specified
+            if (hostelId && hostelId !== 'all') {
+                const normTarget = hostelId.toLowerCase().replace('-', '');
+                enriched = enriched.filter(o => (o.hostel_id || 'BH-13').toLowerCase().replace('-', '') === normTarget);
+            }
+
             return { orders: enriched };
         }, forceFresh ? 0 : 30000); // 30-second coalesced micro-cache (atomically invalidated on order updates, claims, transfers, and checkouts)
 
-        res.json(payload || { orders: fallbackOrdersCache });
+        let resultOrders = payload?.orders || [];
+        if (hostelId && hostelId !== 'all' && (!resultOrders || resultOrders.length === 0) && Array.isArray(fallbackOrdersCache)) {
+            const normTarget = hostelId.toLowerCase().replace('-', '');
+            resultOrders = fallbackOrdersCache.filter(o => ((o.hostel_id || 'BH-13').toLowerCase().replace('-', '')) === normTarget);
+        }
+
+        res.json({ orders: resultOrders, hostel_id: hostelId || 'all' });
     } catch (err) {
         console.error('[Admin Orders Error]:', err.message);
         res.json({ orders: fallbackOrdersCache, isFallback: true });
@@ -405,6 +442,14 @@ router.get('/admin/detail/:orderId', requireAdmin, async (req, res) => {
         const order = await supabaseDb.orders.getOrderById(orderId);
         if (!order) return res.status(404).json({ error: 'Order not found' });
         
+        // Enforce store manager hostel isolation
+        if (!req.admin.is_owner && req.admin.assigned_hostel_id) {
+            const hId = order.hostel_id || (order.delivery_address && order.delivery_address.match(/(BH-?\d+|GH-?\d+)/i)?.[1]?.replace('BH', 'BH-')) || 'BH-13';
+            if (hId.toLowerCase().replace('-', '') !== req.admin.assigned_hostel_id.toLowerCase().replace('-', '')) {
+                return res.status(403).json({ error: 'Forbidden: You do not have access to orders from other hostels.' });
+            }
+        }
+
         // Enrich with customer info
         let user = null;
         if (order.user_id) {
@@ -452,6 +497,22 @@ router.post('/admin/status', requireAdmin, async (req, res) => {
     let { orderId, status, paymentMethod, paymentStatus, paymentCollection } = req.body;
     if (!orderId || !status) {
         return res.status(400).json({ error: 'orderId and status are required' });
+    }
+
+    // Verify store manager hostel permission
+    if (!req.admin.is_owner && req.admin.assigned_hostel_id) {
+        let existingOrder = Array.isArray(fallbackOrdersCache) ? fallbackOrdersCache.find(x => x.id === orderId) : null;
+        if (!existingOrder) {
+            try {
+                existingOrder = await supabaseDb.orders.getOrderById(orderId);
+            } catch (e) {}
+        }
+        if (existingOrder) {
+            const hId = existingOrder.hostel_id || (existingOrder.delivery_address && existingOrder.delivery_address.match(/(BH-?\d+|GH-?\d+)/i)?.[1]?.replace('BH', 'BH-')) || 'BH-13';
+            if (hId.toLowerCase().replace('-', '') !== req.admin.assigned_hostel_id.toLowerCase().replace('-', '')) {
+                return res.status(403).json({ error: 'Forbidden: You do not have permission to modify orders from other hostels.' });
+            }
+        }
     }
 
     // Auto-resolve payment collection mode & status if marking as Delivered

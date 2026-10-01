@@ -54,9 +54,20 @@ function initSchema(db) {
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
 
-        -- 2. PRODUCTS TABLE
+        -- 2. HOSTELS TABLE
+        CREATE TABLE IF NOT EXISTS hostels (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'ACTIVE',
+            manager_user_id TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- 3. PRODUCTS TABLE
         CREATE TABLE IF NOT EXISTS products (
             id TEXT PRIMARY KEY,
+            hostel_id TEXT DEFAULT 'BH-13',
             name TEXT NOT NULL,
             category TEXT NOT NULL,
             subcategory TEXT DEFAULT '',
@@ -73,18 +84,20 @@ function initSchema(db) {
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
 
-        -- 3. CART ITEMS TABLE
+        -- 4. CART ITEMS TABLE
         CREATE TABLE IF NOT EXISTS cart_items (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
             product_id TEXT REFERENCES products(id) ON DELETE CASCADE,
+            hostel_id TEXT DEFAULT 'BH-13',
             quantity INTEGER NOT NULL DEFAULT 1,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
 
-        -- 4. ORDERS TABLE
+        -- 5. ORDERS TABLE
         CREATE TABLE IF NOT EXISTS orders (
             id TEXT PRIMARY KEY,
+            hostel_id TEXT DEFAULT 'BH-13',
             user_id TEXT NOT NULL,
             customer_name TEXT,
             customer_phone TEXT,

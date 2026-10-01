@@ -7,3 +7,4 @@ server/data/backups/
 .DS_Store
 scripts/debug_*.js
 scripts/test_category_rail_verification.js
+scratch/

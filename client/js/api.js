@@ -272,15 +272,31 @@ const api = {
         return res.json();
     },
 
+    // Active Hostels with Short-Term SWR Cache
+    async getActiveHostels() {
+        try {
+            const res = await fetch(`${API_BASE}/hostels/active`);
+            const data = await res.json();
+            return data.hostels || [];
+        } catch (e) {
+            return [
+                { id: 'BH-13', name: 'BH-13 (Boys Hostel 13)', status: 'ACTIVE' },
+                { id: 'BH-5', name: 'BH-5 (Boys Hostel 5)', status: 'ACTIVE' }
+            ];
+        }
+    },
+
     // Home with Intelligent SWR Memory Cache (0ms instant page loads)
-    async fetchHome(userId = null) {
+    async fetchHome(userId = null, hostelId = null) {
         const uid = userId || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : window.CURRENT_USER_ID) || '';
+        const targetHostel = hostelId || window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
         const tz = new Date().getTimezoneOffset();
-        const url = `${API_BASE}/home?tz=${tz}`;
+        const url = `${API_BASE}/home?tz=${tz}&hostel_id=${encodeURIComponent(targetHostel)}`;
         const now = Date.now();
+        const homeCacheKey = `${uid}:${targetHostel}`;
 
         // 1. Instant 0ms Memory Cache if fresh (< 45s)
-        if (homeFeedCache && homeFeedCacheUserId === uid && (now - homeFeedCacheTime < 45000)) {
+        if (homeFeedCache && homeFeedCacheUserId === homeCacheKey && (now - homeFeedCacheTime < 45000)) {
             return homeFeedCache;
         }
 
@@ -299,7 +315,7 @@ const api = {
         };
 
         // 2. If stale cache exists, return it immediately (0ms) and revalidate silently in background
-        if (homeFeedCache && homeFeedCacheUserId === uid) {
+        if (homeFeedCache && homeFeedCacheUserId === homeCacheKey) {
             fetch(url)
                 .then(res => res.json())
                 .then(async data => {
@@ -397,11 +413,17 @@ const api = {
     },
 
     // Products List with 0ms SWR Memory Cache (Zero-lag navigation across catalog)
-    async getProducts(category = null) {
-        const cacheKey = category || '__all__';
+    async getProducts(category = null, hostelId = null) {
+        const targetHostel = hostelId || window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
+        const cacheKey = `${targetHostel}:${category || '__all__'}`;
         const now = Date.now();
         const cached = productsMemoryCache.get(cacheKey);
         const cachedTime = productsMemoryCacheTime.get(cacheKey) || 0;
+
+        const baseParams = new URLSearchParams();
+        if (category && category !== 'All' && category !== '__all__') baseParams.set('category', category);
+        if (targetHostel) baseParams.set('hostel_id', targetHostel);
+        const url = `${API_BASE}/products?${baseParams.toString()}`;
 
         // Return immediately if fresh (< 45s)
         if (cached && (now - cachedTime < 45000)) {
@@ -410,7 +432,7 @@ const api = {
 
         // If stale cache exists, return it immediately (0ms) and revalidate in background
         if (cached) {
-            fetch(category ? `${API_BASE}/products?category=${encodeURIComponent(category)}` : `${API_BASE}/products`)
+            fetch(url)
                 .then(res => res.json())
                 .then(data => {
                     if (data && Array.isArray(data.products)) {
@@ -423,7 +445,6 @@ const api = {
             return cached;
         }
 
-        const url = category ? `${API_BASE}/products?category=${encodeURIComponent(category)}` : `${API_BASE}/products`;
         const res = await fetch(url);
         const data = await res.json();
         if (data && Array.isArray(data.products)) {
@@ -433,8 +454,8 @@ const api = {
         }
         return data;
     },
-    async fetchProducts(category = null) {
-        return this.getProducts(category);
+    async fetchProducts(category = null, hostelId = null) {
+        return this.getProducts(category, hostelId);
     },
 
     // Single Product Details (0ms in-memory fast path)
@@ -656,6 +677,7 @@ const api = {
                         customerPhone: savedPhone,
                         customerName: savedName,
                         customerEmail: savedEmail,
+                        hostel_id: extraData.hostel_id || window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13',
                         items
                     })
                 });

@@ -82,6 +82,46 @@ router.get('/:userId', async (req, res) => {
     }
 });
 
+async function checkHostelConflict(userId, productId) {
+    try {
+        const [cart, product] = await Promise.all([
+            supabaseDb.cart.getCart(userId),
+            supabaseDb.products.getById(productId)
+        ]);
+
+        if (cart && Array.isArray(cart.items) && cart.items.length > 0 && product) {
+            const productHostel = product.hostel_id || 'BH-13';
+            const otherItems = cart.items.filter(it => (it.product_id || it.id) !== productId);
+            if (otherItems.length > 0) {
+                const existingHostel = otherItems[0]?.hostel_id || 'BH-13';
+                if (existingHostel.toLowerCase().replace('-', '') !== productHostel.toLowerCase().replace('-', '')) {
+                    return {
+                        hasConflict: true,
+                        cartHostel: existingHostel,
+                        productHostel
+                    };
+                }
+            }
+        }
+    } catch (e) {}
+    return { hasConflict: false };
+}
+
+// POST /api/cart/check-conflict (Pre-flight conflict checker)
+router.post('/check-conflict', async (req, res) => {
+    const { userId, productId, incoming_hostel_id, existing_items } = req.body;
+    if (userId && productId) {
+        const conflict = await checkHostelConflict(userId, productId);
+        return res.json({ conflict: conflict.hasConflict, ...conflict });
+    }
+    if (incoming_hostel_id && Array.isArray(existing_items) && existing_items.length > 0) {
+        const existingHostel = existing_items[0]?.hostel_id || 'BH-13';
+        const hasConflict = existingHostel.toLowerCase().replace('-', '') !== incoming_hostel_id.toLowerCase().replace('-', '');
+        return res.json({ conflict: hasConflict, cartHostel: existingHostel, productHostel: incoming_hostel_id });
+    }
+    return res.json({ conflict: false });
+});
+
 // POST /api/cart/set-quantity (Authoritative atomic quantity setter - no duplication)
 router.post('/set-quantity', async (req, res) => {
     const userId = req.body.userId || req.body.user_id;
@@ -90,6 +130,18 @@ router.post('/set-quantity', async (req, res) => {
 
     if (!userId || !productId) {
         return res.status(400).json({ error: 'userId and productId are required' });
+    }
+
+    if (quantity > 0) {
+        const conflict = await checkHostelConflict(userId, productId);
+        if (conflict.hasConflict) {
+            return res.status(400).json({
+                error: `Your cart contains items from ${conflict.cartHostel}. Clear your cart to add items from ${conflict.productHostel}.`,
+                code: 'MIXED_HOSTELS',
+                cart_hostel: conflict.cartHostel,
+                product_hostel: conflict.productHostel
+            });
+        }
     }
 
     try {
@@ -108,6 +160,16 @@ async function handleAddToCart(req, res) {
 
     if (!userId || !productId) {
         return res.status(400).json({ error: 'userId and productId are required' });
+    }
+
+    const conflict = await checkHostelConflict(userId, productId);
+    if (conflict.hasConflict) {
+        return res.status(400).json({
+            error: `Your cart contains items from ${conflict.cartHostel}. Clear your cart to add items from ${conflict.productHostel}.`,
+            code: 'MIXED_HOSTELS',
+            cart_hostel: conflict.cartHostel,
+            product_hostel: conflict.productHostel
+        });
     }
 
     try {

@@ -488,7 +488,8 @@ window.pageInits.checkout = function() {
             const orderRes = await window.api.checkout(userId, selectedMethod, fullAddress, {
                 phone: savedPhone,
                 name: window.CURRENT_USER_NAME || 'LPU Student',
-                email: window.CURRENT_USER_EMAIL || ''
+                email: window.CURRENT_USER_EMAIL || '',
+                hostel_id: window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13'
             });
 
             if (orderRes && orderRes.success && orderRes.order) {

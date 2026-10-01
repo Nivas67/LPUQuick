@@ -22,7 +22,8 @@ router.get('/verify', (req, res) => {
             email: req.admin.email,
             role: req.admin.role,
             roles: req.admin.roles || [],
-            is_owner: req.admin.is_owner || false
+            is_owner: req.admin.is_owner || false,
+            assigned_hostel_id: req.admin.assigned_hostel_id || null
         }
     });
 });
@@ -732,4 +733,240 @@ router.post('/advertisements/settings', requireRole('owner,store_manager'), (req
     }
 });
 
+// ============================================================
+// 12. MULTI-HOSTEL MANAGEMENT SYSTEM (Main Admin & Store Managers)
+// ============================================================
+
+// GET /api/admin/hostels - List hostels (Owner sees all, Store Manager sees only assigned)
+router.get('/hostels', async (req, res) => {
+    try {
+        const isOwner = Boolean(req.admin && req.admin.is_owner);
+        const assignedHostelId = req.admin?.assigned_hostel_id;
+
+        let hostels = await supabaseDb.hostels.getAll({ includeInactive: true });
+        if (!isOwner && assignedHostelId) {
+            hostels = hostels.filter(h => h.id === assignedHostelId);
+        } else if (!isOwner && !assignedHostelId) {
+            hostels = [];
+        }
+
+        // Enrich with Manager profile info
+        const enriched = await Promise.all(hostels.map(async (h) => {
+            let managerName = 'Unassigned';
+            let managerEmail = '';
+            let managerPhone = '';
+
+            if (h.manager_user_id) {
+                try {
+                    const u = await supabaseDb.users.getById(h.manager_user_id);
+                    if (u) {
+                        managerName = u.name || 'Store Manager';
+                        managerEmail = u.email || '';
+                        managerPhone = u.phone || '';
+                    }
+                } catch (e) {}
+            }
+
+            return {
+                ...h,
+                manager_name: managerName,
+                manager_email: managerEmail,
+                manager_phone: managerPhone
+            };
+        }));
+
+        res.json({
+            success: true,
+            hostels: enriched,
+            is_owner: isOwner,
+            assigned_hostel_id: assignedHostelId || null
+        });
+    } catch (err) {
+        console.error('[Admin Hostels Get Error]:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// POST /api/admin/hostels - Create new hostel (Owner Only)
+router.post('/hostels', requireRole('owner'), async (req, res) => {
+    try {
+        const { id, name, status, manager_user_id } = req.body;
+        if (!id || !name) {
+            return res.status(400).json({ success: false, error: 'Hostel ID and Name are required (e.g. ID: BH-5, Name: BH-5 Boys Hostel)' });
+        }
+
+        const normalizedId = String(id).trim().toUpperCase();
+        const created = await supabaseDb.hostels.create({
+            id: normalizedId,
+            name: String(name).trim(),
+            status: status === 'OFF' ? 'OFF' : 'ACTIVE',
+            manager_user_id: manager_user_id || null
+        });
+
+        await supabaseDb.audit.logAction({
+            adminId: req.admin?.id || 'owner',
+            action: 'HOSTEL_CREATED',
+            reason: `Created hostel ${normalizedId}`,
+            metadata: { id: normalizedId, name: created.name, status: created.status }
+        });
+
+        res.json({ success: true, message: `Hostel ${normalizedId} created successfully`, hostel: created });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// PUT /api/admin/hostels/:id - Update hostel (Owner Only)
+router.put('/hostels/:id', requireRole('owner'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, status } = req.body;
+
+        const patch = {};
+        if (name) patch.name = String(name).trim();
+        if (status) patch.status = status === 'OFF' ? 'OFF' : 'ACTIVE';
+
+        const updated = await supabaseDb.hostels.update(id, patch);
+        res.json({ success: true, message: `Hostel ${id} updated`, hostel: updated });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// POST or PUT /api/admin/hostels/:id/activate - Activate hostel (Owner Only)
+const handleActivateHostel = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updated = await supabaseDb.hostels.update(id, { status: 'ACTIVE' });
+        await supabaseDb.audit.logAction({
+            adminId: req.admin?.id || 'owner',
+            action: 'HOSTEL_ACTIVATED',
+            reason: `Activated hostel ${id}`,
+            metadata: { id }
+        });
+        res.json({ success: true, message: `Hostel ${id} is now ACTIVE`, hostel: updated });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+};
+router.post('/hostels/:id/activate', requireRole('owner'), handleActivateHostel);
+router.put('/hostels/:id/activate', requireRole('owner'), handleActivateHostel);
+
+// POST or PUT /api/admin/hostels/:id/deactivate - Turn hostel OFF (Owner Only)
+// Customer orders will be blocked, but all data remains intact
+const handleDeactivateHostel = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updated = await supabaseDb.hostels.update(id, { status: 'OFF' });
+        await supabaseDb.audit.logAction({
+            adminId: req.admin?.id || 'owner',
+            action: 'HOSTEL_DEACTIVATED',
+            reason: `Turned hostel ${id} OFF`,
+            metadata: { id }
+        });
+        res.json({ success: true, message: `Hostel ${id} turned OFF (orders disabled, all data preserved)`, hostel: updated });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+};
+router.post('/hostels/:id/deactivate', requireRole('owner'), handleDeactivateHostel);
+router.put('/hostels/:id/deactivate', requireRole('owner'), handleDeactivateHostel);
+
+// POST or PUT /api/admin/hostels/:id/assign-manager - Assign Store Manager to Hostel (Owner Only)
+const handleAssignManager = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const manager_user_id = req.body.store_manager_id || req.body.manager_user_id;
+
+        if (!manager_user_id) {
+            return res.status(400).json({ success: false, error: 'manager_user_id is required' });
+        }
+
+        // Verify manager user exists
+        const user = await supabaseDb.users.getById(manager_user_id);
+        if (!user) {
+            return res.status(404).json({ success: false, error: 'Manager user not found' });
+        }
+
+        const updated = await supabaseDb.hostels.assignManager(id, manager_user_id);
+
+        // Synchronize in user metadata for fast multi-hostel authentication resolution
+        try {
+            let meta = {};
+            if (user.dob && typeof user.dob === 'string' && user.dob.startsWith('{')) {
+                meta = JSON.parse(user.dob);
+            }
+            meta.assigned_hostel_id = id;
+            if (!meta.roles) meta.roles = ['store_manager'];
+            else if (!meta.roles.includes('store_manager')) meta.roles.push('store_manager');
+
+            const supabase = require('../supabase').getSupabaseClient();
+            if (supabase) {
+                await supabase.from('users').update({
+                    dob: JSON.stringify(meta),
+                    role: user.role === 'owner' ? 'owner' : 'admin'
+                }).eq('id', manager_user_id);
+            }
+        } catch (mErr) {
+            console.warn('[Manager Meta Sync Warning]:', mErr.message);
+        }
+
+        await supabaseDb.audit.logAction({
+            adminId: req.admin?.id || 'owner',
+            action: 'HOSTEL_MANAGER_ASSIGNED',
+            reason: `Assigned manager ${user.name} (${manager_user_id}) to ${id}`,
+            metadata: { hostel_id: id, manager_user_id }
+        });
+
+        res.json({
+            success: true,
+            message: `Assigned ${user.name} as Store Manager for ${id}`,
+            hostel: updated
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+};
+router.post('/hostels/:id/assign-manager', requireRole('owner'), handleAssignManager);
+router.put('/hostels/:id/assign-manager', requireRole('owner'), handleAssignManager);
+
+// POST or PUT /api/admin/hostels/:id/remove-manager - Remove Store Manager from Hostel (Owner Only)
+const handleRemoveManager = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const hostel = await supabaseDb.hostels.getById(id);
+        const previousManagerId = hostel?.manager_user_id;
+
+        const updated = await supabaseDb.hostels.removeManager(id);
+
+        if (previousManagerId) {
+            try {
+                const u = await supabaseDb.users.getById(previousManagerId);
+                if (u && u.dob && typeof u.dob === 'string' && u.dob.startsWith('{')) {
+                    const meta = JSON.parse(u.dob);
+                    delete meta.assigned_hostel_id;
+                    const supabase = require('../supabase').getSupabaseClient();
+                    if (supabase) {
+                        await supabase.from('users').update({ dob: JSON.stringify(meta) }).eq('id', previousManagerId);
+                    }
+                }
+            } catch (e) {}
+        }
+
+        await supabaseDb.audit.logAction({
+            adminId: req.admin?.id || 'owner',
+            action: 'HOSTEL_MANAGER_REMOVED',
+            reason: `Removed store manager from ${id}`,
+            metadata: { hostel_id: id }
+        });
+
+        res.json({ success: true, message: `Removed store manager from ${id}`, hostel: updated });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+};
+router.post('/hostels/:id/remove-manager', requireRole('owner'), handleRemoveManager);
+router.put('/hostels/:id/remove-manager', requireRole('owner'), handleRemoveManager);
+
 module.exports = router;
+

@@ -168,7 +168,18 @@ try {
 router.get('/', async (req, res) => {
     try {
         const adminToken = req.headers['x-admin-token'] || (req.headers.authorization && req.headers.authorization.startsWith('Bearer ') ? req.headers.authorization.slice(7) : null);
-        const isAdmin = adminToken ? Boolean(verifyAdminToken(adminToken)) : false;
+        const verifiedAdmin = adminToken ? verifyAdminToken(adminToken) : null;
+        const isAdmin = Boolean(verifiedAdmin);
+
+        let hostelId = req.query.hostel_id || req.query.hostel || '';
+        
+        // If an authenticated admin has an assigned hostel (Store Manager), lock to their hostel
+        if (verifiedAdmin && verifiedAdmin.role !== 'owner' && verifiedAdmin.sub !== 'user_admin_bh13') {
+            const user = (staffUserCache && staffUserCache.get(verifiedAdmin.sub)) || (KNOWN_STAFF_FALLBACKS && KNOWN_STAFF_FALLBACKS[verifiedAdmin.sub]);
+            if (user?.assigned_hostel_id) {
+                hostelId = user.assigned_hostel_id;
+            }
+        }
 
         const includeInactive = req.query.includeInactive === 'true';
         const category = req.query.category || '';
@@ -181,14 +192,14 @@ router.get('/', async (req, res) => {
         } else {
             res.setHeader('Cache-Control', 'no-cache, no-store');
         }
-        const cacheKey = `products:list:${includeInactive}:${category}:${subcategory}:${sort}`;
+        const cacheKey = `products:list:${hostelId || 'all'}:${includeInactive}:${category}:${subcategory}:${sort}`;
 
         if (forceFresh) {
             cache.delete(cacheKey);
         }
 
         const payload = await cache.wrap(cacheKey, async () => {
-            const queryPromise = supabaseDb.products.getAll({ includeInactive, category, subcategory, sort });
+            const queryPromise = supabaseDb.products.getAll({ hostel_id: hostelId, includeInactive, category, subcategory, sort });
             const products = await Promise.race([
                 queryPromise,
                 new Promise(resolve => setTimeout(() => resolve(null), 5000))
@@ -201,6 +212,10 @@ router.get('/', async (req, res) => {
 
             // Return snapshot fallback if Supabase is sleeping or timing out
             let list = Array.isArray(fallbackProductsCache) ? [...fallbackProductsCache] : [];
+            if (hostelId && hostelId !== 'all') {
+                const normH = hostelId.toLowerCase().replace('-', '');
+                list = list.filter(p => ((p.hostel_id || 'BH-13').toLowerCase().replace('-', '')) === normH);
+            }
             if (category && category !== 'All') {
                 list = list.filter(p => (p.category || '').toLowerCase().includes(category.toLowerCase()));
             }
@@ -225,7 +240,7 @@ router.get('/', async (req, res) => {
                 return copy;
             });
 
-        res.json({ products: filteredList, isFallback: Boolean(payload?.isFallback) });
+        res.json({ products: filteredList, isFallback: Boolean(payload?.isFallback), hostel_id: hostelId || 'all' });
     } catch (err) {
         console.warn('[Products Route Note]:', err.message);
         res.json({ products: fallbackProductsCache, isFallback: true });
@@ -234,7 +249,7 @@ router.get('/', async (req, res) => {
 
 // POST /api/products/admin/create (Add new product to Supabase)
 router.post('/admin/create', requireAdmin, async (req, res) => {
-    const { name, category, subcategory, price, mrp, cost_price, cost, unit, size, image_url, description, tags, bestseller, is_new, stock_left } = req.body;
+    const { name, category, subcategory, price, mrp, cost_price, cost, unit, size, image_url, description, tags, bestseller, is_new, stock_left, hostel_id } = req.body;
 
     if (!name || !category || price === undefined) {
         return res.status(400).json({ error: 'Name, category, and price are required' });
@@ -247,8 +262,14 @@ router.post('/admin/create', requireAdmin, async (req, res) => {
         }
 
         const isOwner = Boolean(req.admin && req.admin.is_owner);
+        let targetHostel = hostel_id || 'BH-13';
+        if (!isOwner && req.admin?.assigned_hostel_id) {
+            targetHostel = req.admin.assigned_hostel_id;
+        }
+
         const created = await supabaseDb.products.create({
             name,
+            hostel_id: targetHostel,
             category,
             subcategory,
             price: Number(price),
@@ -277,8 +298,22 @@ router.put('/admin/update/:id', requireAdmin, async (req, res) => {
     const { id } = req.params;
     try {
         const updateData = { ...req.body };
+        const isOwner = Boolean(req.admin && req.admin.is_owner);
+
+        // Verify manager permission on this specific product's hostel
+        const existing = await supabaseDb.products.getById(id);
+        if (!existing) return res.status(404).json({ error: 'Product not found' });
+
+        if (!isOwner && req.admin?.assigned_hostel_id) {
+            const hId = existing.hostel_id || 'BH-13';
+            if (hId !== req.admin.assigned_hostel_id) {
+                return res.status(403).json({ error: 'Forbidden: You only have access to manage products in your assigned hostel.' });
+            }
+            delete updateData.hostel_id; // Store manager cannot change product hostel
+        }
+
         // Strictly protect cost_price: only platform owner can modify cost
-        if (!req.admin || !req.admin.is_owner) {
+        if (!isOwner) {
             delete updateData.cost_price;
             delete updateData.cost;
         }
@@ -300,6 +335,15 @@ router.put('/admin/update/:id', requireAdmin, async (req, res) => {
 router.delete('/admin/deactivate/:id', requireAdmin, async (req, res) => {
     const { id } = req.params;
     try {
+        const isOwner = Boolean(req.admin && req.admin.is_owner);
+        const existing = await supabaseDb.products.getById(id);
+        if (existing && !isOwner && req.admin?.assigned_hostel_id) {
+            const hId = existing.hostel_id || 'BH-13';
+            if (hId !== req.admin.assigned_hostel_id) {
+                return res.status(403).json({ error: 'Forbidden: You only have access to manage products in your assigned hostel.' });
+            }
+        }
+
         const updated = await supabaseDb.products.update(id, { in_stock: false, stock_left: 0 });
         cache.invalidateProducts();
         if (typeof broadcastInventoryUpdate === 'function') {
@@ -315,6 +359,15 @@ router.delete('/admin/deactivate/:id', requireAdmin, async (req, res) => {
 router.delete('/admin/delete/:id', requireAdmin, async (req, res) => {
     const { id } = req.params;
     try {
+        const isOwner = Boolean(req.admin && req.admin.is_owner);
+        const existing = await supabaseDb.products.getById(id);
+        if (existing && !isOwner && req.admin?.assigned_hostel_id) {
+            const hId = existing.hostel_id || 'BH-13';
+            if (hId !== req.admin.assigned_hostel_id) {
+                return res.status(403).json({ error: 'Forbidden: You only have access to manage products in your assigned hostel.' });
+            }
+        }
+
         await supabaseDb.products.delete(id);
         cache.invalidateProducts();
         res.json({ success: true, message: 'Product deleted from Supabase Cloud' });
@@ -331,6 +384,15 @@ router.post('/admin/toggle-stock', requireAdmin, async (req, res) => {
     }
 
     try {
+        const isOwner = Boolean(req.admin && req.admin.is_owner);
+        const existing = await supabaseDb.products.getById(productId);
+        if (existing && !isOwner && req.admin?.assigned_hostel_id) {
+            const hId = existing.hostel_id || 'BH-13';
+            if (hId !== req.admin.assigned_hostel_id) {
+                return res.status(403).json({ error: 'Forbidden: You only have access to manage products in your assigned hostel.' });
+            }
+        }
+
         const updated = await supabaseDb.products.update(productId, { in_stock: Boolean(inStock) });
         cache.invalidateProducts();
         if (typeof broadcastInventoryUpdate === 'function') {
@@ -350,8 +412,16 @@ router.post('/admin/adjust-stock', requireAdmin, async (req, res) => {
     }
 
     try {
+        const isOwner = Boolean(req.admin && req.admin.is_owner);
         const product = await supabaseDb.products.getById(productId);
         if (!product) return res.status(404).json({ error: 'Product not found' });
+
+        if (!isOwner && req.admin?.assigned_hostel_id) {
+            const hId = product.hostel_id || 'BH-13';
+            if (hId !== req.admin.assigned_hostel_id) {
+                return res.status(403).json({ error: 'Forbidden: You only have access to manage products in your assigned hostel.' });
+            }
+        }
 
         let newStock = product.stock_left || 0;
         if (stock !== undefined) {

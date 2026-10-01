@@ -38,7 +38,7 @@ async function syncCloudToLocal() {
             PRAGMA busy_timeout = 5000;
         `);
 
-        // Initialize schema for all 8 tables if missing
+        // Initialize schema for all tables if missing
         db.exec(`
             CREATE TABLE IF NOT EXISTS users (
                 id TEXT PRIMARY KEY,
@@ -55,8 +55,18 @@ async function syncCloudToLocal() {
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
 
+            CREATE TABLE IF NOT EXISTS hostels (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'ACTIVE',
+                manager_user_id TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+
             CREATE TABLE IF NOT EXISTS products (
                 id TEXT PRIMARY KEY,
+                hostel_id TEXT DEFAULT 'BH-13',
                 name TEXT NOT NULL,
                 category TEXT NOT NULL,
                 subcategory TEXT DEFAULT '',
@@ -77,12 +87,14 @@ async function syncCloudToLocal() {
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 product_id TEXT REFERENCES products(id) ON DELETE CASCADE,
+                hostel_id TEXT DEFAULT 'BH-13',
                 quantity INTEGER NOT NULL DEFAULT 1,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
 
             CREATE TABLE IF NOT EXISTS orders (
                 id TEXT PRIMARY KEY,
+                hostel_id TEXT DEFAULT 'BH-13',
                 user_id TEXT NOT NULL,
                 customer_name TEXT,
                 customer_phone TEXT,

@@ -26,9 +26,20 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS blocked_at TIMESTAMPTZ DEFAULT NULL;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS blocked_by TEXT DEFAULT NULL;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS block_reason TEXT DEFAULT NULL;
 
--- 2. PRODUCTS TABLE (Matches Home, Categories, & Search screens)
+-- 2. HOSTELS TABLE (Multi-Hostel Campus Stores)
+CREATE TABLE IF NOT EXISTS hostels (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'ACTIVE', -- 'ACTIVE', 'OFF'
+    manager_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 3. PRODUCTS TABLE (Matches Home, Categories, & Search screens)
 CREATE TABLE IF NOT EXISTS products (
     id TEXT PRIMARY KEY,
+    hostel_id TEXT DEFAULT 'BH-13' REFERENCES hostels(id) ON DELETE SET NULL,
     name TEXT NOT NULL,
     category TEXT NOT NULL,
     subcategory TEXT DEFAULT '',
@@ -46,18 +57,24 @@ CREATE TABLE IF NOT EXISTS products (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. CART ITEMS TABLE (Matches Cart page & Card Steppers)
+ALTER TABLE products ADD COLUMN IF NOT EXISTS hostel_id TEXT DEFAULT 'BH-13';
+
+-- 4. CART ITEMS TABLE (Matches Cart page & Card Steppers)
 CREATE TABLE IF NOT EXISTS cart_items (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
     product_id TEXT REFERENCES products(id) ON DELETE CASCADE,
+    hostel_id TEXT DEFAULT 'BH-13',
     quantity INTEGER NOT NULL DEFAULT 1,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. ORDERS TABLE (Matches Checkout, Real-Time Timeline & Live GPS Tracking)
+ALTER TABLE cart_items ADD COLUMN IF NOT EXISTS hostel_id TEXT DEFAULT 'BH-13';
+
+-- 5. ORDERS TABLE (Matches Checkout, Real-Time Timeline & Live GPS Tracking)
 CREATE TABLE IF NOT EXISTS orders (
     id TEXT PRIMARY KEY,
+    hostel_id TEXT DEFAULT 'BH-13',
     user_id TEXT NOT NULL,
     customer_name TEXT,
     customer_phone TEXT,
@@ -81,8 +98,9 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_name TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_phone TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_email TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_address TEXT DEFAULT 'BH13 (Block A), Room 304';
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS hostel_id TEXT DEFAULT 'BH-13';
 
--- 5. ORDER ITEMS TABLE (Matches Order Receipts & Breakdown)
+-- 6. ORDER ITEMS TABLE (Matches Order Receipts & Breakdown)
 CREATE TABLE IF NOT EXISTS order_items (
     id TEXT PRIMARY KEY,
     order_id TEXT REFERENCES orders(id) ON DELETE CASCADE,
@@ -91,7 +109,7 @@ CREATE TABLE IF NOT EXISTS order_items (
     unit_price NUMERIC NOT NULL
 );
 
--- 6. APP AVAILABILITY & STORE LOCK TABLE
+-- 7. APP AVAILABILITY & STORE LOCK TABLE
 CREATE TABLE IF NOT EXISTS app_availability (
     id TEXT PRIMARY KEY DEFAULT 'store_main',
     is_locked BOOLEAN NOT NULL DEFAULT FALSE,
@@ -105,7 +123,7 @@ CREATE TABLE IF NOT EXISTS app_availability (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 7. USER BLACKLIST TABLE
+-- 8. USER BLACKLIST TABLE
 CREATE TABLE IF NOT EXISTS blacklisted_users (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -120,7 +138,7 @@ CREATE TABLE IF NOT EXISTS blacklisted_users (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 8. AUDIT LOGS TABLE
+-- 9. AUDIT LOGS TABLE
 CREATE TABLE IF NOT EXISTS audit_logs (
     id TEXT PRIMARY KEY,
     admin_id TEXT NOT NULL,
@@ -134,11 +152,16 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 -- ============================================================
 -- PERFORMANCE INDEXES (Instant queries for Campus Quick Commerce)
 -- ============================================================
+CREATE INDEX IF NOT EXISTS idx_supabase_hostels_status ON hostels(status);
+CREATE INDEX IF NOT EXISTS idx_supabase_hostels_manager ON hostels(manager_user_id);
+CREATE INDEX IF NOT EXISTS idx_supabase_products_hostel ON products(hostel_id);
 CREATE INDEX IF NOT EXISTS idx_supabase_products_category ON products(category);
 CREATE INDEX IF NOT EXISTS idx_supabase_products_in_stock ON products(in_stock);
 CREATE INDEX IF NOT EXISTS idx_supabase_cart_user ON cart_items(user_id);
+CREATE INDEX IF NOT EXISTS idx_supabase_cart_hostel ON cart_items(hostel_id);
 CREATE INDEX IF NOT EXISTS idx_supabase_cart_user_product ON cart_items(user_id, product_id);
 CREATE INDEX IF NOT EXISTS idx_supabase_orders_user ON orders(user_id);
+CREATE INDEX IF NOT EXISTS idx_supabase_orders_hostel ON orders(hostel_id);
 CREATE INDEX IF NOT EXISTS idx_supabase_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_supabase_orders_created_at ON orders(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_supabase_order_items_order ON order_items(order_id);
@@ -150,4 +173,5 @@ CREATE INDEX IF NOT EXISTS idx_supabase_blacklisted_users_user ON blacklisted_us
 CREATE INDEX IF NOT EXISTS idx_supabase_blacklisted_users_status ON blacklisted_users(status);
 CREATE INDEX IF NOT EXISTS idx_supabase_app_availability_locked ON app_availability(is_locked);
 CREATE INDEX IF NOT EXISTS idx_supabase_audit_logs_created ON audit_logs(created_at DESC);
+
 

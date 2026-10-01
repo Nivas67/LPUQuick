@@ -86,6 +86,12 @@ class HighConcurrencyCache {
         console.log('[Cache Engine] ⚡ Availability cache atomically invalidated.');
     }
 
+    invalidateHostels() {
+        this.clearByPrefix('hostels:');
+        this.clearByPrefix('home:');
+        console.log('[Cache Engine] ⚡ Hostels cache atomically invalidated.');
+    }
+
     invalidateAll() {
         this.store.clear();
         this.inflight.clear();

@@ -239,6 +239,26 @@ async function requireAdmin(req, res, next) {
         user.is_owner = roles.includes('owner');
         user.hasRole = (role) => roles.includes('owner') || roles.includes(role);
 
+        // Multi-Hostel: Resolve store manager assigned hostel
+        if (user.is_owner) {
+            user.assigned_hostel_id = null; // Full super-admin access across all hostels
+        } else {
+            let assignedHostel = null;
+            try {
+                const hostels = await supabaseDb.hostels.getAll({ includeInactive: true });
+                const matched = (hostels || []).find(h => h.manager_user_id === user.id);
+                if (matched) assignedHostel = matched.id;
+            } catch (hErr) {}
+
+            if (!assignedHostel && user.dob && typeof user.dob === 'string' && user.dob.startsWith('{')) {
+                try {
+                    const parsedDob = JSON.parse(user.dob);
+                    if (parsedDob.assigned_hostel_id) assignedHostel = parsedDob.assigned_hostel_id;
+                } catch (e) {}
+            }
+            user.assigned_hostel_id = assignedHostel;
+        }
+
         // Attach verified user to request
         req.admin = user;
         req.user = user;

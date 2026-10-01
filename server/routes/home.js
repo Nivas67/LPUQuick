@@ -52,9 +52,10 @@ router.get('/', async (req, res) => {
     try {
         const tzOffset = req.query.tz || 'default';
         const userId = req.query.userId || req.headers['x-user-id'] || null;
+        const hostelId = req.query.hostel_id || req.query.hostel || 'BH-13';
 
         // 1. Fetch or retrieve global catalog & section data from shared micro-cache (< 0.1ms)
-        const baseFeed = await cache.wrap(`home:base:${tzOffset}`, async () => {
+        const baseFeed = await cache.wrap(`home:base:${hostelId}:${tzOffset}`, async () => {
             let hour;
             if (tzOffset !== 'default') {
                 const now = new Date();
@@ -69,13 +70,13 @@ router.get('/', async (req, res) => {
             }
 
             const section = getTimeSection(hour);
-            const allProducts = await supabaseDb.products.getAll({ includeInactive: false });
+            const allProducts = await supabaseDb.products.getAll({ hostel_id: hostelId, includeInactive: false });
 
             const promos = [
                 {
                     id: 'promo_flow_assist',
                     type: 'flow_assist',
-                    title: 'BH13 Express',
+                    title: `${hostelId} Express`,
                     description: 'Order snacks & essentials delivered in under 3 mins.',
                     cta: 'Order Now',
                     color: 'royal-purple'
@@ -95,14 +96,14 @@ router.get('/', async (req, res) => {
                 section_title: section.title,
                 section_icon: section.icon,
                 delivery_time: '3 mins',
-                delivery_location: 'BH13',
+                delivery_location: hostelId,
                 total_products_count: allProducts.length,
                 all_products: allProducts,
                 default_buy_again: allProducts.slice(0, 10),
                 promos,
                 free_delivery_banner: {
                     active: true,
-                    message: 'Free 3-Minute Campus Delivery on all hostel orders!',
+                    message: `Free 3-Minute Campus Delivery on all ${hostelId} hostel orders!`,
                     tag: 'INSTANT_FREE'
                 }
             };
