@@ -9,8 +9,8 @@ const supabaseDb = require('../db/supabaseDb');
  */
 router.get('/active', async (req, res) => {
     try {
-        // High-efficiency Edge CDN caching
-        res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=300');
+        // Short CDN cache — hostel live/off status must propagate fast after admin toggle
+        res.setHeader('Cache-Control', 'public, max-age=5, s-maxage=5, stale-while-revalidate=10');
 
         let activeHostels = await supabaseDb.hostels.getActiveHostels();
         if (!activeHostels || activeHostels.length === 0) {
@@ -46,7 +46,7 @@ router.get('/active', async (req, res) => {
 // GET /api/hostels (Returns all active hostels)
 router.get('/', async (req, res) => {
     try {
-        res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=300');
+        res.setHeader('Cache-Control', 'public, max-age=5, s-maxage=5, stale-while-revalidate=10');
         const activeHostels = await supabaseDb.hostels.getActiveHostels();
         res.json({ success: true, hostels: activeHostels });
     } catch (err) {

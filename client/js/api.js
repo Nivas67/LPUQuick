@@ -275,7 +275,7 @@ const api = {
     // Active Hostels with Short-Term SWR Cache
     async getActiveHostels() {
         try {
-            const res = await fetch(`${API_BASE}/hostels/active`);
+            const res = await fetch(`${API_BASE}/hostels/active?_t=${Date.now()}`);
             const data = await res.json();
             return data.hostels || [];
         } catch (e) {

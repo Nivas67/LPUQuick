@@ -95,6 +95,24 @@
       ]
     },
     {
+      "source": "/api/hostels/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=5, stale-while-revalidate=10"
+        }
+      ]
+    },
+    {
+      "source": "/api/hostels",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=5, stale-while-revalidate=10"
+        }
+      ]
+    },
+    {
       "source": "/api/client/status",
       "headers": [
         {

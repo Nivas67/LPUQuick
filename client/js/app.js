@@ -361,14 +361,14 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
             <!-- Notice Banner -->
             <div class="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-300 font-medium">
                 <span class="material-symbols-outlined text-base text-emerald">bolt</span>
-                <span>Select your hostel for dedicated dark-store delivery.</span>
+                <span>Express 3-min delivery live at <b>${liveHostels.map(h => (h.id || '').replace('-', '')).join(', ') || 'campus'}</b>! Direct room drop.</span>
             </div>
 
             <!-- Hostel Selector Grid -->
             <div class="space-y-2">
                 <div class="flex justify-between items-center text-xs">
                     <label class="font-bold text-slate-700 dark:text-slate-300">Hostel</label>
-                    <span class="text-[10px] text-emerald-500 font-bold" id="selected-hostel-active-label">${selectedHostel} Selected</span>
+                    <span class="text-[10px] text-emerald-500 font-bold" id="selected-hostel-active-label">${liveHostels.length > 0 ? selectedHostel + ' Active' : selectedHostel + ' Selected'}</span>
                 </div>
                 <div class="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-36 overflow-y-auto p-0.5 no-scrollbar" id="hostels-container">
                     ${allLocations.map(h => {

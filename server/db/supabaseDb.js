@@ -104,7 +104,7 @@ const supabaseDb = {
                     list = list.filter(h => h.status === 'ACTIVE');
                 }
                 return list;
-            }, 60000);
+            }, 10000); // 10s TTL — hostel status must propagate fast across serverless instances
         },
 
         async getActiveHostels() {
