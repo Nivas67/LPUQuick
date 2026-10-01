@@ -1712,6 +1712,8 @@ async function router() {
     if (window.__isUserBlocked && (path === '/checkout' || path === '/cart')) {
         window.location.hash = '#/blocked';
         return;
+    }
+
     // Clean up active orders tracking timer when navigating away from /orders
     if (path !== '/orders' && window.__ordersTrackingTimer) {
         clearInterval(window.__ordersTrackingTimer);
