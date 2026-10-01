@@ -17,7 +17,7 @@
         rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="/admin/css/admin.css?v=20260901r20">
+    <link rel="stylesheet" href="/admin/css/admin.css?v=20261001_v16">
     <script>
         // Proactively unregister any stale service worker for /admin and clear PWA cache
         if ('caches' in window) {
@@ -128,6 +128,12 @@
                 <span id="nav-ads-badge"
                     class="text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-bold">4</span>
             </button>
+            <button onclick="switchView('hostels')" data-view="hostels" data-required-role="owner"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+                <span class="material-symbols-outlined text-[#0066cc]">domain</span>
+                <span class="flex-1 font-bold text-[#181c1f]">Campus Hostels</span>
+                <span class="text-[9px] bg-[#0066cc] text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Owner</span>
+            </button>
             <button onclick="switchView('staff')" data-view="staff" data-required-role="owner"
                 class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined text-[#1a73e8]">manage_accounts</span>
@@ -187,6 +193,10 @@
                     <span id="ws-status-indicator" class="w-2 h-2 rounded-full bg-[#ba1a1a]"></span>
                     <span id="ws-status-text" class="text-[10px] font-bold text-[#ba1a1a]">Offline</span>
                     <span class="text-[#5c5f60]">Supabase Cloud</span>
+                </span>
+                <span id="top-hostel-badge" class="hidden inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#0066cc] border border-blue-200">
+                    <span class="material-symbols-outlined text-[13px]">domain</span>
+                    <span id="top-hostel-name">BH-13</span>
                 </span>
             </div>
 
@@ -485,6 +495,27 @@
                     </div>
                 </div>
 
+                <!-- Campus Hostels Live Dark-Store Grid (Owner Panoramic Hub) -->
+                <div class="glass-panel p-4 sm:p-5 border border-[#DADCE0] bg-white space-y-3 owner-only-col" id="dash-hostel-overview-card">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                            <h3 class="font-black text-sm text-[#181c1f] flex items-center gap-2">
+                                <span class="material-symbols-outlined text-[#0066cc] text-lg">domain</span>
+                                <span>Campus Dark Stores & Hostels Control Hub</span>
+                            </h3>
+                            <p class="text-[11px] text-[#5c5f60]">Live overview across all campus hostels. Monitor active order volumes, store status, and manage dark stores.</p>
+                        </div>
+                        <button onclick="switchView('hostels')"
+                            class="px-3.5 py-1.5 bg-[#0066cc] hover:bg-[#0052a3] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all active:scale-95 shrink-0">
+                            <span class="material-symbols-outlined text-sm">settings_suggest</span>
+                            <span>Hostel Management Console</span>
+                        </button>
+                    </div>
+                    <div id="dash-hostel-cards-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <!-- Dynamically populated per hostel -->
+                    </div>
+                </div>
+
                 <!-- Main Grid: Recent Orders (2/3) + Low Stock (1/3) -->
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <!-- Recent Orders Table -->
@@ -550,11 +581,32 @@
                         <p class="text-sm text-[#5c5f60] mt-0.5">Control customer storefront access, duration locks, and
                             automated schedules</p>
                     </div>
-                    <button onclick="refreshClientLockState()"
-                        class="text-xs font-semibold text-[#3c4043] bg-white border border-[#DADCE0] px-3.5 py-2 rounded-lg hover:bg-[#f1f4f7] flex items-center gap-1.5 shadow-sm">
-                        <span class="material-symbols-outlined text-[16px]">refresh</span>
-                        <span>Refresh Status</span>
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <select id="lock-hostel-filter"
+                            onchange="onLockHostelFilterChange(this.value)"
+                            class="border border-[#DADCE0] rounded-lg px-3 py-2 text-xs font-semibold bg-white focus:ring-2 focus:ring-[#3c4043] focus:outline-none shadow-sm min-w-[180px]">
+                            <option value="ALL">🏢 All Campus Hostels</option>
+                        </select>
+                        <button onclick="refreshClientLockState()"
+                            class="text-xs font-semibold text-[#3c4043] bg-white border border-[#DADCE0] px-3.5 py-2 rounded-lg hover:bg-[#f1f4f7] flex items-center gap-1.5 shadow-sm">
+                            <span class="material-symbols-outlined text-[16px]">refresh</span>
+                            <span>Refresh Status</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Per-Hostel Lock Status Overview (Owner Panoramic) -->
+                <div id="lock-hostel-overview-card" class="glass-panel p-4 sm:p-5 border border-[#DADCE0] bg-white space-y-3 hidden">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-black text-sm text-[#181c1f] flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[#0066cc] text-lg">domain</span>
+                            <span>Per-Hostel Lock Status</span>
+                        </h3>
+                        <span id="lock-hostel-overview-summary" class="text-[10px] font-bold text-[#5c5f60]"></span>
+                    </div>
+                    <div id="lock-hostel-overview-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        <!-- Dynamically populated per hostel lock status cards -->
+                    </div>
                 </div>
 
                 <!-- Current Live Status Card -->
@@ -773,19 +825,31 @@
                                 placeholder="Search products by name or category..." type="text" />
                         </div>
 
-                        <!-- Status Filter Pills -->
-                        <div class="flex overflow-x-auto w-full lg:w-auto no-scrollbar gap-2" id="product-filter-pills">
-                            <button onclick="setProductStatusFilter('all')" data-status="all"
-                                class="prod-filter-btn px-4 py-1.5 rounded-full bg-[#3c4043] text-white text-xs font-semibold">All</button>
-                            <button onclick="setProductStatusFilter('active')" data-status="active"
-                                class="prod-filter-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium">In
-                                Stock</button>
-                            <button onclick="setProductStatusFilter('low')" data-status="low"
-                                class="prod-filter-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium">Low
-                                Stock</button>
-                            <button onclick="setProductStatusFilter('out')" data-status="out"
-                                class="prod-filter-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium">Out
-                                of Stock</button>
+                        <!-- Status & Hostel Filters -->
+                        <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+                            <!-- Hostel Selector Dropdown -->
+                            <div class="flex items-center gap-1.5" id="products-hostel-filter-wrap">
+                                <span class="text-[11px] font-bold text-[#5c5f60] uppercase tracking-wider hidden sm:inline">Hostel:</span>
+                                <select id="products-hostel-filter" onchange="onProductsHostelFilterChange(this.value)"
+                                    class="text-xs border border-[#DADCE0] rounded-full px-3 py-1.5 text-[#181c1f] bg-white outline-none font-semibold cursor-pointer shadow-2xs hover:border-[#3c4043]">
+                                    <option value="">All Hostels</option>
+                                </select>
+                            </div>
+
+                            <!-- Status Filter Pills -->
+                            <div class="flex overflow-x-auto no-scrollbar gap-1.5" id="product-filter-pills">
+                                <button onclick="setProductStatusFilter('all')" data-status="all"
+                                    class="prod-filter-btn px-4 py-1.5 rounded-full bg-[#3c4043] text-white text-xs font-semibold">All</button>
+                                <button onclick="setProductStatusFilter('active')" data-status="active"
+                                    class="prod-filter-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium">In
+                                    Stock</button>
+                                <button onclick="setProductStatusFilter('low')" data-status="low"
+                                    class="prod-filter-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium">Low
+                                    Stock</button>
+                                <button onclick="setProductStatusFilter('out')" data-status="out"
+                                    class="prod-filter-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium">Out
+                                    of Stock</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -827,7 +891,14 @@
                         <h2 class="text-2xl font-bold text-[#181c1f]">Inventory Management</h2>
                         <p class="text-sm text-[#5c5f60]">Real-time stock adjustment with atomic database safety</p>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <div class="flex items-center gap-1.5" id="inventory-hostel-filter-wrap">
+                            <span class="text-[11px] font-bold text-[#5c5f60] uppercase tracking-wider hidden sm:inline">Hostel:</span>
+                            <select id="inventory-hostel-filter" onchange="onInventoryHostelFilterChange(this.value)"
+                                class="text-xs border border-[#DADCE0] rounded-full px-3 py-2 text-[#181c1f] bg-white outline-none font-semibold cursor-pointer shadow-2xs hover:border-[#3c4043]">
+                                <option value="">All Hostels</option>
+                            </select>
+                        </div>
                         <input id="inventory-search-input" oninput="filterInventory()"
                             class="bg-white border border-[#DADCE0] rounded-full px-4 py-2 text-xs text-[#181c1f] outline-none"
                             placeholder="Search inventory..." type="text" />
@@ -933,9 +1004,18 @@
                 <!-- Orders Filter Tabs -->
                 <div class="glass-panel p-4 space-y-3">
                     <div class="flex flex-col lg:flex-row gap-3 items-center justify-between">
-                        <input id="orders-search-input" oninput="filterOrders()"
-                            class="bg-[#F1F3F4] border-transparent focus:bg-white rounded-full px-4 py-2 text-xs w-full lg:w-80 outline-none"
-                            placeholder="Search by Order ID, Customer, Address..." type="text" />
+                        <div class="flex items-center gap-2 w-full lg:w-auto flex-1">
+                            <input id="orders-search-input" oninput="filterOrders()"
+                                class="bg-[#F1F3F4] border-transparent focus:bg-white rounded-full px-4 py-2 text-xs w-full lg:w-80 outline-none"
+                                placeholder="Search by Order ID, Customer, Address..." type="text" />
+                            <div class="flex items-center gap-1.5 shrink-0" id="orders-hostel-filter-wrap">
+                                <span class="text-[11px] font-bold text-[#5c5f60] uppercase tracking-wider hidden sm:inline">Hostel:</span>
+                                <select id="orders-hostel-filter" onchange="onOrdersHostelFilterChange(this.value)"
+                                    class="text-xs border border-[#DADCE0] rounded-full px-3 py-2 text-[#181c1f] bg-white outline-none font-semibold cursor-pointer shadow-2xs hover:border-[#3c4043]">
+                                    <option value="">All Hostels</option>
+                                </select>
+                            </div>
+                        </div>
 
                         <div class="flex flex-wrap overflow-x-auto w-full lg:w-auto no-scrollbar gap-2" id="orders-status-tabs">
                             <button onclick="setOrderStatusFilter('all')" data-status="all"
@@ -1628,8 +1708,18 @@
                         </button>
                     </div>
 
-                    <!-- Custom Date Range Form -->
-                    <div class="flex items-center gap-2">
+                    <!-- Custom Date Range Form & Hostel Filter -->
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <div class="flex items-center gap-1.5 shrink-0" id="dr-hostel-filter-wrap">
+                            <span class="text-xs text-[#5c5f60] font-bold flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[16px] text-[#0066cc]">domain</span>
+                                <span>Hostel:</span>
+                            </span>
+                            <select id="dr-hostel-filter" onchange="onDailyRevenueHostelFilterChange(this.value)"
+                                class="border border-[#DADCE0] rounded-xl px-2.5 py-1.5 text-xs bg-white text-[#262a2d] font-bold focus:border-[#0066cc] outline-none cursor-pointer">
+                                <option value="ALL">🏢 All Hostels (Consolidated)</option>
+                            </select>
+                        </div>
                         <input type="date" id="dr-filter-start-date" class="text-xs border border-[#DADCE0] rounded-lg px-2.5 py-1.5 text-[#262a2d] bg-white outline-none focus:border-emerald-500 font-medium" />
                         <span class="text-xs text-[#5c5f60]">to</span>
                         <input type="date" id="dr-filter-end-date" class="text-xs border border-[#DADCE0] rounded-lg px-2.5 py-1.5 text-[#262a2d] bg-white outline-none focus:border-emerald-500 font-medium" />
@@ -1768,6 +1858,22 @@
                         </div>
                     </div>
 
+                    <!-- Campus Hostels Revenue & Orders Comparison Bento Grid (Owner Panoramic View) -->
+                    <div class="glass-panel p-4 sm:p-5 border border-[#DADCE0] bg-white space-y-3" id="dr-hostel-comparison-card">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div>
+                                <h3 class="font-black text-sm text-[#181c1f] flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-[#0066cc] text-lg">domain</span>
+                                    <span>Campus Hostels Revenue Comparison</span>
+                                </h3>
+                                <p class="text-[11px] text-[#5c5f60]">Live revenue & delivered order volume across each campus hostel store. Click any hostel to isolate its figures.</p>
+                            </div>
+                        </div>
+                        <div id="dr-hostel-comparison-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
                     <!-- Day-By-Day Breakdown Section -->
                     <div class="glass-panel p-4 sm:p-6 border border-[#DADCE0] bg-white rounded-2xl shadow-xs">
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
@@ -1896,6 +2002,102 @@
                 </div>
             </div>
 
+            <!-- ================= VIEW: CAMPUS HOSTELS & HUBS (OWNER ONLY) ================= -->
+            <div id="view-hostels" class="space-y-6 max-w-[1440px] mx-auto hidden">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-[#0066cc] border border-blue-300 uppercase tracking-wider">
+                                <span class="material-symbols-outlined text-xs">domain</span> Multi-Hostel System
+                            </span>
+                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 uppercase tracking-wider">
+                                <span class="material-symbols-outlined text-xs">shield_person</span> Owner Privileges
+                            </span>
+                        </div>
+                        <h2 class="text-2xl font-bold text-[#181c1f] flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[#0066cc]">domain</span>
+                            <span>Campus Hostels & Dark Stores</span>
+                        </h2>
+                        <p class="text-xs text-[#5c5f60]">Configure individual hostel locations (BH-5, BH-13, BH-14, etc.), toggle active ordering status, and assign Store Managers.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="loadHostels()"
+                            class="p-2 border border-[#DADCE0] rounded-xl bg-white hover:bg-[#f1f4f7] text-[#3c4043]"
+                            title="Reload Hostels">
+                            <span class="material-symbols-outlined text-lg">refresh</span>
+                        </button>
+                        <button onclick="openHostelModal()"
+                            class="px-4 py-2.5 bg-[#0066cc] hover:bg-[#0052a3] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all active:scale-95">
+                            <span class="material-symbols-outlined text-base">add_business</span>
+                            <span>Add New Hostel</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Hostel Status Bento Cards -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-blue-100 text-[#0066cc] flex items-center justify-center">
+                            <span class="material-symbols-outlined text-xl">domain</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60]">Total Hostels</p>
+                            <h4 class="text-xl font-bold text-[#181c1f]" id="stat-hostels-total">0</h4>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-xl">check_circle</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60]">Active Stores</p>
+                            <h4 class="text-xl font-bold text-emerald-800" id="stat-hostels-active">0</h4>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-rose-100 text-[#ba1a1a] flex items-center justify-center">
+                            <span class="material-symbols-outlined text-xl">pause_circle</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60]">Paused / OFF</p>
+                            <h4 class="text-xl font-bold text-[#ba1a1a]" id="stat-hostels-off">0</h4>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-xl">manage_accounts</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60]">Assigned Managers</p>
+                            <h4 class="text-xl font-bold text-purple-700" id="stat-hostels-managers">0</h4>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hostels Table Panel -->
+                <div class="glass-panel overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="border-b border-[#DADCE0] bg-[#f7fafd] text-[#5c5f60] font-semibold uppercase text-[11px]">
+                                    <th class="p-4">Hostel Hub ID</th>
+                                    <th class="p-4">Hostel Name</th>
+                                    <th class="p-4">Storefront Status</th>
+                                    <th class="p-4">Assigned Store Manager</th>
+                                    <th class="p-4">Created</th>
+                                    <th class="p-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="hostels-table-tbody" class="divide-y divide-[#DADCE0]">
+                                <tr>
+                                    <td colspan="6" class="p-6 text-center text-[#5c5f60]">Loading campus hostels...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <!-- ================= VIEW: MANAGE ADMINS (OWNER ONLY) ================= -->
             <div id="view-staff" class="space-y-6 max-w-[1440px] mx-auto hidden">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1974,6 +2176,7 @@
                                     <th class="p-4">Admin Member</th>
                                     <th class="p-4">Phone</th>
                                     <th class="p-4">Assigned Roles & Capabilities</th>
+                                    <th class="p-4">Assigned Hostel</th>
                                     <th class="p-4">Last Active</th>
                                     <th class="p-4">Account Status</th>
                                     <th class="p-4 text-right">Actions</th>
@@ -1981,7 +2184,7 @@
                             </thead>
                             <tbody id="staff-table-tbody" class="divide-y divide-[#DADCE0]">
                                 <tr>
-                                    <td colspan="6" class="p-6 text-center text-[#5c5f60]">Loading admin staff members...</td>
+                                    <td colspan="7" class="p-6 text-center text-[#5c5f60]">Loading admin staff members...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -2385,7 +2588,14 @@
                         class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
                 </div>
 
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="font-semibold text-[#262a2d] block mb-1">Hostel Hub *</label>
+                        <select id="form-product-hostel" required
+                            class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none font-medium">
+                            <option value="BH-13">BH-13</option>
+                        </select>
+                    </div>
                     <div>
                         <label class="font-semibold text-[#262a2d] block mb-1">Category *</label>
                         <select id="form-product-category" required
@@ -3073,6 +3283,24 @@
                     </div>
                 </div>
 
+                <!-- Available Hostel to Assign -->
+                <div class="bg-[#f7fafd] border border-[#DADCE0] p-4 rounded-xl space-y-2">
+                    <label class="font-bold text-[#181c1f] text-xs flex items-center justify-between">
+                        <span class="flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-sm text-[#1a73e8]">domain</span>
+                            <span>Available Hostel to Assign</span>
+                        </span>
+                        <span class="text-[10px] text-[#1a73e8] font-bold">Dark-Store Scoping</span>
+                    </label>
+                    <select id="form-staff-hostel"
+                        class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#1a73e8] outline-none text-xs bg-white cursor-pointer font-medium text-[#181c1f]">
+                        <option value="">🏢 None / All Hostels (General Admin)</option>
+                    </select>
+                    <p class="text-[11px] text-[#5c5f60]">
+                        Assign this Delivery Person or Store Manager to an available campus hostel. When they log in, they will only see and manage orders, inventory, and activity for their assigned hostel.
+                    </p>
+                </div>
+
                 <div id="staff-form-error" class="hidden p-3 rounded-xl bg-rose-50 text-[#ba1a1a] text-xs font-semibold"></div>
 
                 <div class="pt-3 border-t border-[#DADCE0] flex justify-between items-center">
@@ -3087,6 +3315,107 @@
                         <button type="submit" id="btn-save-staff"
                             class="px-5 py-2 rounded-xl bg-[#1a73e8] hover:bg-[#1557b0] text-white font-bold flex items-center gap-1 shadow-sm active:scale-95 transition-all">
                             <span>Save Admin</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= MODAL: ADD / EDIT HOSTEL ================= -->
+    <div id="modal-hostel" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#DADCE0] space-y-4">
+            <div class="flex justify-between items-center border-b border-[#DADCE0] pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[#0066cc] text-xl">domain</span>
+                    <h3 class="font-bold text-base text-[#181c1f]" id="modal-hostel-title">Add Campus Hostel</h3>
+                </div>
+                <button onclick="closeHostelModal()" class="text-[#5c5f60] hover:text-[#181c1f]">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form id="form-hostel" onsubmit="submitHostelForm(event)" class="space-y-4 text-xs">
+                <div>
+                    <label class="font-semibold text-[#262a2d] block mb-1">Hostel Identifier (ID) *</label>
+                    <input id="form-hostel-id" required placeholder="e.g. BH-14, GH-2"
+                        class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#0066cc] outline-none text-xs font-mono uppercase">
+                    <p class="text-[10px] text-[#5c5f60] mt-1">Unique campus identifier code used for product catalog isolation</p>
+                </div>
+
+                <div>
+                    <label class="font-semibold text-[#262a2d] block mb-1">Hostel Display Name *</label>
+                    <input id="form-hostel-name" required placeholder="e.g. Boys Hostel 14 Hub"
+                        class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#0066cc] outline-none text-xs font-semibold">
+                </div>
+
+                <div>
+                    <label class="font-semibold text-[#262a2d] block mb-1">Ordering Status *</label>
+                    <select id="form-hostel-status" required
+                        class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#0066cc] outline-none text-xs bg-white font-medium">
+                        <option value="ACTIVE">ACTIVE (Accepting Customer Orders)</option>
+                        <option value="OFF">OFF / PAUSED (New Orders Blocked)</option>
+                    </select>
+                </div>
+
+                <div id="hostel-form-error" class="hidden p-3 rounded-xl bg-rose-50 text-[#ba1a1a] text-xs font-semibold"></div>
+
+                <div class="pt-3 border-t border-[#DADCE0] flex justify-end gap-2">
+                    <button type="button" onclick="closeHostelModal()"
+                        class="px-4 py-2 rounded-xl border border-[#DADCE0] text-[#5c5f60] font-semibold hover:bg-[#f1f4f7]">Cancel</button>
+                    <button type="submit" id="btn-save-hostel"
+                        class="px-5 py-2 rounded-xl bg-[#0066cc] hover:bg-[#0052a3] text-white font-bold flex items-center gap-1 shadow-sm active:scale-95 transition-all">
+                        <span>Save Hostel</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= MODAL: ASSIGN STORE MANAGER ================= -->
+    <div id="modal-assign-manager" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#DADCE0] space-y-4">
+            <div class="flex justify-between items-center border-b border-[#DADCE0] pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[#0066cc] text-xl">manage_accounts</span>
+                    <h3 class="font-bold text-base text-[#181c1f]">Assign Store Manager</h3>
+                </div>
+                <button onclick="closeAssignManagerModal()" class="text-[#5c5f60] hover:text-[#181c1f]">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form id="form-assign-manager" onsubmit="submitManagerAssignment(event)" class="space-y-4 text-xs">
+                <input type="hidden" id="assign-mgr-hostel-id" value="">
+
+                <div class="bg-[#f7fafd] border border-[#DADCE0] p-3 rounded-xl space-y-1">
+                    <p class="text-[#5c5f60]"><strong class="text-[#181c1f]">Target Hostel:</strong> <span id="assign-mgr-hostel-name" class="font-bold text-[#0066cc]">--</span></p>
+                    <p class="text-[#5c5f60]"><strong class="text-[#181c1f]">Currently Assigned:</strong> <span id="assign-mgr-curr-name" class="font-semibold text-slate-700">None</span></p>
+                </div>
+
+                <div>
+                    <label class="font-semibold text-[#262a2d] block mb-1">Select Store Manager *</label>
+                    <select id="assign-mgr-user-select" required
+                        class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#0066cc] outline-none text-xs bg-white font-medium">
+                        <option value="">Select an admin staff member...</option>
+                    </select>
+                    <p class="text-[10px] text-[#5c5f60] mt-1">This manager will be strictly locked to this hostel across products, inventory, and order queues.</p>
+                </div>
+
+                <div id="assign-mgr-error" class="hidden p-3 rounded-xl bg-rose-50 text-[#ba1a1a] text-xs font-semibold"></div>
+
+                <div class="pt-3 border-t border-[#DADCE0] flex justify-between items-center">
+                    <button type="button" id="btn-remove-manager" onclick="handleRemoveManager()"
+                        class="px-3 py-2 rounded-xl bg-rose-50 text-[#ba1a1a] font-bold text-xs hover:bg-rose-100 flex items-center gap-1">
+                        <span class="material-symbols-outlined text-[16px]">person_remove</span>
+                        <span>Unassign</span>
+                    </button>
+                    <div class="flex items-center gap-2 ml-auto">
+                        <button type="button" onclick="closeAssignManagerModal()"
+                            class="px-4 py-2 rounded-xl border border-[#DADCE0] text-[#5c5f60] font-semibold hover:bg-[#f1f4f7]">Cancel</button>
+                        <button type="submit" id="btn-save-assignment"
+                            class="px-5 py-2 rounded-xl bg-[#0066cc] hover:bg-[#0052a3] text-white font-bold flex items-center gap-1 shadow-sm active:scale-95 transition-all">
+                            <span>Assign Manager</span>
                         </button>
                     </div>
                 </div>
@@ -3610,7 +3939,7 @@
     <div id="partner-modal-container"></div>
 
     <!-- Application Script Reference -->
-    <script src="/admin/js/admin.js?v=20260918_img_fix"></script>
+    <script src="/admin/js/admin.js?v=20261001_multihostel_v16"></script>
 </body>
 
 </html>
