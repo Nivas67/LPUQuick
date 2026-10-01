@@ -35,8 +35,30 @@ router.get('/verify', (req, res) => {
 // GET /api/admin/client-lock
 router.get('/client-lock', async (req, res) => {
     try {
-        const status = await supabaseDb.availability.getStatus();
-        res.json({ success: true, availability: status });
+        const isOwner = Boolean(req.admin && req.admin.is_owner);
+        const assignedHostel = req.admin?.assigned_hostel_id || null;
+
+        let targetHostel = 'ALL';
+        if (!isOwner && assignedHostel) {
+            targetHostel = assignedHostel;
+        } else if (req.query.hostel_id) {
+            targetHostel = req.query.hostel_id;
+        }
+
+        const availability = await supabaseDb.availability.getHostelStatusDirect(targetHostel);
+        let allHostelLocks = null;
+        if (isOwner) {
+            allHostelLocks = await supabaseDb.availability.getAllHostelLocks();
+        }
+
+        res.json({
+            success: true,
+            is_owner: isOwner,
+            assigned_hostel_id: assignedHostel,
+            target_hostel: targetHostel,
+            availability,
+            all_hostel_locks: allHostelLocks
+        });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -44,8 +66,20 @@ router.get('/client-lock', async (req, res) => {
 
 // POST /api/admin/client-lock
 router.post('/client-lock', async (req, res) => {
-    const { lock_type, message, start_at, end_at, duration_minutes } = req.body;
+    const { lock_type, message, start_at, end_at, duration_minutes, hostel_id } = req.body;
     const adminId = req.admin?.id || 'admin_001';
+    const isOwner = Boolean(req.admin && req.admin.is_owner);
+    const assignedHostel = req.admin?.assigned_hostel_id || null;
+
+    let targetHostel = 'ALL';
+    if (!isOwner) {
+        if (!assignedHostel) {
+            return res.status(403).json({ success: false, error: 'Access denied: No hostel assigned to your account. Contact platform owner.' });
+        }
+        targetHostel = assignedHostel;
+    } else {
+        targetHostel = hostel_id || 'ALL';
+    }
 
     try {
         let finalStart = start_at ? new Date(start_at).toISOString() : null;
@@ -61,8 +95,7 @@ router.post('/client-lock', async (req, res) => {
                 finalEnd = new Date(startNow.getTime() + (mins * 60 * 1000)).toISOString();
             }
             isLocked = true;
-        }
- else if (finalType === 'SCHEDULED') {
+        } else if (finalType === 'SCHEDULED') {
             if (!finalStart || !finalEnd) {
                 return res.status(400).json({ error: 'Start time and End time are required for scheduled lock.' });
             }
@@ -76,7 +109,6 @@ router.post('/client-lock', async (req, res) => {
             if (!finalStart) finalStart = new Date().toISOString();
         }
 
-
         const updated = await supabaseDb.availability.setLock({
             is_locked: isLocked,
             lock_type: finalType,
@@ -84,27 +116,28 @@ router.post('/client-lock', async (req, res) => {
             start_at: finalStart,
             end_at: finalEnd,
             created_by: adminId
-        });
+        }, targetHostel);
 
         // Audit Logging
         const auditAction = finalType === 'SCHEDULED' ? 'CLIENT_LOCK_SCHEDULED' : (isLocked ? 'CLIENT_LOCK_ENABLED' : 'CLIENT_LOCK_UPDATED');
         await supabaseDb.audit.logAction({
             adminId,
             action: auditAction,
-            reason: message || 'Admin applied store lock',
-            metadata: { lock_type: finalType, start_at: finalStart, end_at: finalEnd }
+            reason: message || `Store lock applied for ${targetHostel}`,
+            metadata: { target_hostel: targetHostel, lock_type: finalType, start_at: finalStart, end_at: finalEnd }
         });
 
         // Real-time broadcast to all storefront clients
         try {
             if (typeof broadcastClientLockUpdate === 'function') {
-                broadcastClientLockUpdate(updated);
+                broadcastClientLockUpdate({ ...updated, target_hostel: targetHostel });
             }
         } catch (wsErr) {}
 
         res.json({
             success: true,
-            message: isLocked ? 'Client Storefront has been locked.' : 'Lock scheduled successfully.',
+            target_hostel: targetHostel,
+            message: isLocked ? `Storefront for ${targetHostel} has been locked.` : `Lock scheduled successfully for ${targetHostel}.`,
             availability: updated
         });
     } catch (err) {
@@ -115,26 +148,40 @@ router.post('/client-lock', async (req, res) => {
 // DELETE /api/admin/client-lock (Unlock store now)
 router.delete('/client-lock', async (req, res) => {
     const adminId = req.admin?.id || 'admin_001';
+    const isOwner = Boolean(req.admin && req.admin.is_owner);
+    const assignedHostel = req.admin?.assigned_hostel_id || null;
+
+    let targetHostel = 'ALL';
+    if (!isOwner) {
+        if (!assignedHostel) {
+            return res.status(403).json({ success: false, error: 'Access denied: No hostel assigned to your account.' });
+        }
+        targetHostel = assignedHostel;
+    } else {
+        targetHostel = req.body?.hostel_id || req.query?.hostel_id || 'ALL';
+    }
+
     try {
-        const updated = await supabaseDb.availability.unlock(adminId);
+        const updated = await supabaseDb.availability.unlock(adminId, targetHostel);
 
         // Audit Logging
         await supabaseDb.audit.logAction({
             adminId,
             action: 'CLIENT_LOCK_DISABLED',
-            reason: 'Admin manually unlocked store'
+            reason: `Admin manually unlocked ${targetHostel}`
         });
 
         // Real-time broadcast to all storefront clients
         try {
             if (typeof broadcastClientLockUpdate === 'function') {
-                broadcastClientLockUpdate(updated);
+                broadcastClientLockUpdate({ ...updated, target_hostel: targetHostel });
             }
         } catch (wsErr) {}
 
         res.json({
             success: true,
-            message: 'Client Storefront is now AVAILABLE.',
+            target_hostel: targetHostel,
+            message: `Storefront for ${targetHostel} is now AVAILABLE.`,
             availability: updated
         });
     } catch (err) {
@@ -442,7 +489,7 @@ router.get('/staff', requireRole('owner'), async (req, res) => {
 
 // POST /api/admin/staff (Create a new admin team member)
 router.post('/staff', requireRole('owner'), async (req, res) => {
-    const { name, email, phone, password, roles } = req.body;
+    const { name, email, phone, password, roles, assigned_hostel_id } = req.body;
     if (!name || !email || !password) {
         return res.status(400).json({ error: 'Name, email, and password are required' });
     }
@@ -453,13 +500,14 @@ router.post('/staff', requireRole('owner'), async (req, res) => {
             email,
             phone,
             password,
-            roles: Array.isArray(roles) && roles.length > 0 ? roles : ['store_manager']
+            roles: Array.isArray(roles) && roles.length > 0 ? roles : ['store_manager'],
+            assigned_hostel_id: assigned_hostel_id || null
         });
 
         await supabaseDb.audit.logAction({
             adminId: req.admin.id,
             action: 'STAFF_CREATED',
-            metadata: { staffEmail: email, roles }
+            metadata: { staffEmail: email, roles, assigned_hostel_id: assigned_hostel_id || null }
         });
 
         res.json({ success: true, message: 'Admin staff member created successfully', staff: created });

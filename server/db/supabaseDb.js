@@ -2247,26 +2247,42 @@ const supabaseDb = {
             };
         },
 
-        async getStatus() {
-            const raw = await cache.wrap('availability:status:store_main', async () => {
-                const supabase = getSupabaseClient();
-                if (!supabase) return this._memoryAvailability;
+        _memoryHostelAvailability: new Map(),
 
-                let fetched = false;
+        _normalizeKey(hostelId) {
+            if (!hostelId || hostelId === 'ALL' || hostelId === 'store_main') return 'store_main';
+            const clean = String(hostelId).trim().toUpperCase();
+            return clean.startsWith('STORE_') ? clean.toLowerCase() : `store_${clean}`;
+        },
+
+        async _getRawRecord(key) {
+            return await cache.wrap(`availability:record:${key}`, async () => {
+                const supabase = getSupabaseClient();
+                if (!supabase) return this._memoryHostelAvailability.get(key) || (key === 'store_main' ? this._memoryAvailability : {
+                    id: key,
+                    is_locked: false,
+                    lock_type: 'NONE',
+                    message: null,
+                    start_at: null,
+                    end_at: null,
+                    created_by: 'system',
+                    updated_at: new Date().toISOString()
+                });
+
+                let fetchedRecord = null;
                 try {
                     const { data, error } = await supabase
                         .from('app_availability')
                         .select('id, is_locked, lock_type, message, start_at, end_at, created_by, updated_at')
-                        .eq('id', 'store_main')
+                        .eq('id', key)
                         .maybeSingle();
 
                     if (!error && data) {
-                        this._memoryAvailability = { ...this._memoryAvailability, ...data };
-                        fetched = true;
+                        fetchedRecord = data;
                     }
                 } catch (e) {}
 
-                if (!fetched) {
+                if (!fetchedRecord && key === 'store_main') {
                     // Fallback to reading from users table system record
                     try {
                         const { data: sysUser } = await supabase
@@ -2275,44 +2291,165 @@ const supabaseDb = {
                             .eq('id', '__system_store_availability__')
                             .maybeSingle();
                         if (sysUser?.password_hash) {
-                            const parsed = JSON.parse(sysUser.password_hash);
-                            this._memoryAvailability = { ...this._memoryAvailability, ...parsed };
+                            fetchedRecord = JSON.parse(sysUser.password_hash);
                         }
                     } catch (e) {}
                 }
 
-                return this._memoryAvailability;
-            }, 5000); // 5-second micro-cache for fast reactivity
+                if (!fetchedRecord) {
+                    fetchedRecord = this._memoryHostelAvailability.get(key) || {
+                        id: key,
+                        is_locked: false,
+                        lock_type: 'NONE',
+                        message: null,
+                        start_at: null,
+                        end_at: null,
+                        created_by: 'system',
+                        updated_at: new Date().toISOString()
+                    };
+                }
 
-            // Check if duration lock has expired
+                this._memoryHostelAvailability.set(key, fetchedRecord);
+                if (key === 'store_main') this._memoryAvailability = { ...this._memoryAvailability, ...fetchedRecord };
+                return fetchedRecord;
+            }, 5000);
+        },
+
+        async getStatus(hostelId = null) {
+            // 1. Check Global Master Lock ('store_main')
+            const masterRaw = await this._getRawRecord('store_main');
+            const masterEnriched = this._enrichAvailability(masterRaw);
+            
+            // Check if duration lock has expired on master
+            if (masterRaw.is_locked && masterRaw.end_at) {
+                const now = new Date();
+                const end = new Date(masterRaw.end_at);
+                if (now > end) {
+                    await this.unlock('SYSTEM_EXPIRY', 'store_main');
+                    masterEnriched.is_locked = false;
+                    masterEnriched.lock_type = 'NONE';
+                    masterEnriched.message = null;
+                    masterEnriched.end_at = null;
+                }
+            }
+
+            if (masterEnriched.is_locked) {
+                return {
+                    ...masterEnriched,
+                    is_global_lock: true,
+                    target_hostel: 'ALL'
+                };
+            }
+
+            // If no specific hostel requested or ALL, return master status
+            if (!hostelId || hostelId === 'ALL') {
+                return {
+                    ...masterEnriched,
+                    is_global_lock: false,
+                    target_hostel: 'ALL'
+                };
+            }
+
+            // 2. Check specific hostel's individual lock
+            const key = this._normalizeKey(hostelId);
+            const hostelRaw = await this._getRawRecord(key);
+            if (hostelRaw.is_locked && hostelRaw.end_at) {
+                const now = new Date();
+                const end = new Date(hostelRaw.end_at);
+                if (now > end) {
+                    await this.unlock('SYSTEM_EXPIRY', hostelId);
+                    return this._enrichAvailability({
+                        ...hostelRaw,
+                        is_locked: false,
+                        lock_type: 'NONE',
+                        message: null,
+                        end_at: null,
+                        is_global_lock: false,
+                        target_hostel: String(hostelId).toUpperCase()
+                    });
+                }
+            }
+
+            const hostelEnriched = this._enrichAvailability(hostelRaw);
+            return {
+                ...hostelEnriched,
+                is_global_lock: false,
+                target_hostel: String(hostelId).toUpperCase()
+            };
+        },
+
+        async getHostelStatusDirect(hostelId = 'ALL') {
+            const key = this._normalizeKey(hostelId);
+            const raw = await this._getRawRecord(key);
             if (raw.is_locked && raw.end_at) {
                 const now = new Date();
                 const end = new Date(raw.end_at);
                 if (now > end) {
-                    await this.unlock('SYSTEM_EXPIRY');
+                    await this.unlock('SYSTEM_EXPIRY', hostelId);
                     return this._enrichAvailability({ ...raw, is_locked: false, lock_type: 'NONE', message: null, end_at: null });
                 }
             }
-
             return this._enrichAvailability(raw);
         },
 
-        async setLock(lockData) {
+        async getAllHostelLocks() {
+            let hostels = [];
+            try {
+                hostels = await supabaseDb.hostels.getAll({ includeInactive: true });
+            } catch (e) {}
+            if (!hostels || hostels.length === 0) {
+                hostels = [
+                    { id: 'BH-13', name: 'Boys Hostel 13' },
+                    { id: 'BH-5', name: 'Boys Hostel 5' },
+                    { id: 'BH-14', name: 'Boys Hostel 14' },
+                    { id: 'GH-1', name: 'Girls Hostel 1' }
+                ];
+            }
+
+            const masterLock = await this.getHostelStatusDirect('ALL');
+            const hostelLockList = await Promise.all(hostels.map(async h => {
+                const direct = await this.getHostelStatusDirect(h.id);
+                const effectiveLocked = masterLock.is_locked || direct.is_locked;
+                return {
+                    hostel_id: h.id,
+                    hostel_name: h.name || h.id,
+                    status: h.status || 'ACTIVE',
+                    manager_name: h.manager_name || null,
+                    direct_lock: direct,
+                    effective_locked: effectiveLocked,
+                    locked_by_master: masterLock.is_locked && !direct.is_locked
+                };
+            }));
+
+            return {
+                master_lock: masterLock,
+                hostels: hostelLockList
+            };
+        },
+
+        async setLock(lockData, hostelId = 'ALL') {
             const supabase = getSupabaseClient();
             if (!supabase) throw new Error('PostgreSQL client unavailable');
 
+            const key = this._normalizeKey(hostelId);
+            const isMaster = key === 'store_main';
+            const defaultMsg = isMaster ? 'Store is temporarily unavailable.' : `${hostelId} store is temporarily closed.`;
+
             const record = {
-                id: 'store_main',
+                id: key,
                 is_locked: true,
                 lock_type: lockData.lock_type || 'IMMEDIATE',
-                message: lockData.message || 'Store is temporarily unavailable.',
+                message: lockData.message || defaultMsg,
                 start_at: lockData.start_at || new Date().toISOString(),
                 end_at: lockData.end_at || null,
                 created_by: lockData.created_by || 'admin',
                 updated_at: new Date().toISOString()
             };
 
-            this._memoryAvailability = { ...this._memoryAvailability, ...record };
+            this._memoryHostelAvailability.set(key, record);
+            if (isMaster) {
+                this._memoryAvailability = { ...this._memoryAvailability, ...record };
+            }
 
             let saved = false;
             try {
@@ -2324,11 +2461,12 @@ const supabaseDb = {
 
                 if (!error && data) {
                     saved = true;
-                    this._memoryAvailability = { ...this._memoryAvailability, ...data };
+                    this._memoryHostelAvailability.set(key, data);
+                    if (isMaster) this._memoryAvailability = { ...this._memoryAvailability, ...data };
                 }
             } catch (err) {}
 
-            if (!saved) {
+            if (!saved && isMaster) {
                 // Resilient fallback: save state to system record in users table
                 try {
                     await supabase.from('users').upsert([{
@@ -2346,13 +2484,17 @@ const supabaseDb = {
             }
 
             cache.invalidateAvailability();
-            return this._enrichAvailability(this._memoryAvailability);
+            cache.delete(`availability:record:${key}`);
+            return this._enrichAvailability(record);
         },
 
-        async unlock(adminId = 'admin') {
+        async unlock(adminId = 'admin', hostelId = 'ALL') {
             const supabase = getSupabaseClient();
+            const key = this._normalizeKey(hostelId);
+            const isMaster = key === 'store_main';
+
             const record = {
-                id: 'store_main',
+                id: key,
                 is_locked: false,
                 lock_type: 'NONE',
                 message: null,
@@ -2362,7 +2504,10 @@ const supabaseDb = {
                 updated_at: new Date().toISOString()
             };
 
-            this._memoryAvailability = { ...this._memoryAvailability, ...record };
+            this._memoryHostelAvailability.set(key, record);
+            if (isMaster) {
+                this._memoryAvailability = { ...this._memoryAvailability, ...record };
+            }
 
             if (supabase) {
                 try {
@@ -2371,20 +2516,23 @@ const supabaseDb = {
                         .upsert([record]);
                 } catch (err) {}
 
-                try {
-                    await supabase.from('users').upsert([{
-                        id: '__system_store_availability__',
-                        name: 'System Store State',
-                        email: 'system_availability@lpuquick.internal',
-                        password_hash: JSON.stringify(record),
-                        dob: 'System Config',
-                        role: 'student'
-                    }]);
-                } catch (userFallbackErr) {}
+                if (isMaster) {
+                    try {
+                        await supabase.from('users').upsert([{
+                            id: '__system_store_availability__',
+                            name: 'System Store State',
+                            email: 'system_availability@lpuquick.internal',
+                            password_hash: JSON.stringify(record),
+                            dob: 'System Config',
+                            role: 'student'
+                        }]);
+                    } catch (userFallbackErr) {}
+                }
             }
 
             cache.invalidateAvailability();
-            return this._enrichAvailability(this._memoryAvailability);
+            cache.delete(`availability:record:${key}`);
+            return this._enrichAvailability(record);
         }
     },
 
@@ -2780,21 +2928,34 @@ const supabaseDb = {
 
             if (error || !admins) return [];
 
+            let hostels = [];
+            try {
+                hostels = await supabaseDb.hostels.getAll({ includeInactive: true });
+            } catch (hErr) {}
+
             return admins.map(a => {
                 const isOwner = a.id === 'user_admin_bh13' || a.email === 'admin@lpu.in' || a.role === 'owner';
                 let roles = [];
                 let lastLogin = null;
+                let assignedHostelId = null;
 
                 if (a.dob && typeof a.dob === 'string' && a.dob.startsWith('{')) {
                     try {
                         const meta = JSON.parse(a.dob);
                         if (Array.isArray(meta.roles)) roles = meta.roles;
+                        if (meta.assigned_hostel_id) assignedHostelId = meta.assigned_hostel_id;
                         lastLogin = meta.last_login || null;
                     } catch (e) {}
                 }
 
+                if (!assignedHostelId && hostels.length > 0) {
+                    const matchedHostel = hostels.find(h => h.manager_user_id === a.id);
+                    if (matchedHostel) assignedHostelId = matchedHostel.id;
+                }
+
                 if (isOwner) {
                     if (!roles.includes('owner')) roles.unshift('owner');
+                    assignedHostelId = null;
                 } else if (roles.length === 0) {
                     roles = ['store_manager'];
                 }
@@ -2806,6 +2967,7 @@ const supabaseDb = {
                     phone: a.phone || '',
                     roles,
                     is_owner: isOwner,
+                    assigned_hostel_id: isOwner ? null : (assignedHostelId || null),
                     account_status: a.account_status || 'ACTIVE',
                     last_login: lastLogin,
                     created_at: a.created_at
@@ -2813,15 +2975,17 @@ const supabaseDb = {
             });
         },
 
-        async createStaff({ name, email, phone, password, roles }) {
+        async createStaff({ name, email, phone, password, roles, assigned_hostel_id }) {
             const supabase = getSupabaseClient();
             if (!supabase) throw new Error('Database client unavailable');
 
             const cleanEmail = email.trim().toLowerCase();
             const cleanPhone = phone ? phone.trim() : null;
             const assignedRoles = Array.isArray(roles) && roles.length > 0 ? roles : ['store_manager'];
+            const cleanHostel = (assigned_hostel_id && assigned_hostel_id !== 'ALL') ? assigned_hostel_id.trim().toUpperCase() : null;
             const dobMeta = JSON.stringify({
                 roles: assignedRoles,
+                assigned_hostel_id: cleanHostel,
                 last_login: null
             });
 
@@ -2862,12 +3026,18 @@ const supabaseDb = {
                     .single();
 
                 if (error) throw new Error(`Staff profile promotion failed: ${error.message}`);
+
+                if (cleanHostel && assignedRoles.includes('store_manager')) {
+                    try { await supabaseDb.hostels.assignManager(cleanHostel, data.id); } catch (e) {}
+                }
+
                 return {
                     id: data.id,
                     name: data.name,
                     email: data.email,
                     phone: data.phone,
                     roles: assignedRoles,
+                    assigned_hostel_id: cleanHostel,
                     account_status: data.account_status,
                     created_at: data.created_at
                 };
@@ -2895,12 +3065,18 @@ const supabaseDb = {
             if (error) throw new Error(`Staff creation failed: ${error.message}`);
             if (data?.id) cache.delete(`user:id:${data.id}`);
             cache.clearByPrefix('staff:');
+
+            if (cleanHostel && assignedRoles.includes('store_manager')) {
+                try { await supabaseDb.hostels.assignManager(cleanHostel, data.id); } catch (e) {}
+            }
+
             return {
                 id: data.id,
                 name: data.name,
                 email: data.email,
                 phone: data.phone,
                 roles: assignedRoles,
+                assigned_hostel_id: cleanHostel,
                 account_status: data.account_status,
                 created_at: data.created_at
             };
@@ -2926,17 +3102,29 @@ const supabaseDb = {
             if (updates.password) payload.password_hash = `hash_${updates.password}`;
             if (updates.account_status && !isOwner) payload.account_status = updates.account_status;
 
-            if (updates.roles && Array.isArray(updates.roles)) {
+            let finalHostel = null;
+            if (updates.roles && Array.isArray(updates.roles) || updates.assigned_hostel_id !== undefined) {
                 let currentMeta = {};
                 if (current.dob && current.dob.startsWith('{')) {
                     try { currentMeta = JSON.parse(current.dob); } catch (e) {}
                 }
-                const newRoles = [...updates.roles];
+                const newRoles = updates.roles && Array.isArray(updates.roles) ? [...updates.roles] : (currentMeta.roles || []);
                 if (isOwner && !newRoles.includes('owner')) newRoles.unshift('owner');
+                
+                finalHostel = currentMeta.assigned_hostel_id || null;
+                if (updates.assigned_hostel_id !== undefined) {
+                    finalHostel = (updates.assigned_hostel_id && updates.assigned_hostel_id !== 'ALL') ? updates.assigned_hostel_id.trim().toUpperCase() : null;
+                }
+
                 payload.dob = JSON.stringify({
                     ...currentMeta,
-                    roles: newRoles
+                    roles: newRoles,
+                    assigned_hostel_id: isOwner ? null : finalHostel
                 });
+
+                if (finalHostel && newRoles.includes('store_manager')) {
+                    try { await supabaseDb.hostels.assignManager(finalHostel, id); } catch (e) {}
+                }
             }
 
             const { data, error } = await supabase
@@ -2951,8 +3139,13 @@ const supabaseDb = {
             cache.clearByPrefix('staff:');
 
             let roles = [];
+            let assignedHostelId = null;
             if (data.dob && data.dob.startsWith('{')) {
-                try { roles = JSON.parse(data.dob).roles || []; } catch (e) {}
+                try {
+                    const parsed = JSON.parse(data.dob);
+                    roles = parsed.roles || [];
+                    assignedHostelId = parsed.assigned_hostel_id || null;
+                } catch (e) {}
             }
             if (isOwner && !roles.includes('owner')) {
                 roles.unshift('owner');
@@ -2965,6 +3158,7 @@ const supabaseDb = {
                 phone: data.phone,
                 account_status: data.account_status,
                 roles,
+                assigned_hostel_id: isOwner ? null : assignedHostelId,
                 is_owner: isOwner
             };
         },

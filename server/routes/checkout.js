@@ -100,10 +100,15 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
         userId = `user_phone_${checkPhone}`;
     }
 
+    // Multi-Hostel Candidate Resolution for Availability Guard
+    const candidateHostel = req.body.hostel_id || req.body.hostel || (
+        typeof deliveryAddress === 'string' ? deliveryAddress.match(/(BH-?\d+|GH-?\d+)/i)?.[1]?.replace(/^(BH|GH)(\d+)$/i, '$1-$2')?.toUpperCase() : null
+    ) || 'BH-13';
+
     // 1 & 2. HIGH-PERFORMANCE CONCURRENT STORE AVAILABILITY & BLACKLIST VERIFICATION
     try {
         const [storeStatus, blacklistCheck] = await Promise.all([
-            supabaseDb.availability.getStatus().catch(() => null),
+            supabaseDb.availability.getStatus(candidateHostel).catch(() => null),
             supabaseDb.blacklist.isUserBlacklisted(userId).catch(() => null)
         ]);
 
@@ -123,7 +128,7 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
                 success: false,
                 error: 'STORE_CLOSED',
                 code: 'STORE_CLOSED',
-                message: 'Orders are currently unavailable. Please try again when the store reopens.',
+                message: storeStatus.message || `Store for ${candidateHostel} is temporarily closed.`,
                 reopen_at: storeStatus.reopen_at,
                 display_reopen: storeStatus.display_reopen,
                 availability: storeStatus

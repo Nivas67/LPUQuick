@@ -550,6 +550,10 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
             window.api.updateAddress(window.CURRENT_USER_ID, selectedHostel, selectedBlock, room, phone);
         }
 
+        if (typeof window.syncStoreAvailability === 'function') {
+            window.syncStoreAvailability(selectedHostel);
+        }
+
         modal.remove();
 
         if (typeof window.showClientToast === 'function') {
@@ -1306,9 +1310,10 @@ window.__isUserBlocked = false;
 window.__userBlockReason = null;
 window.__clientLockTicker = null;
 
-window.syncStoreAvailability = async function() {
+window.syncStoreAvailability = async function(hostelId) {
     try {
-        const data = await window.api.getClientStatus();
+        const targetHostel = hostelId || window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
+        const data = await window.api.getClientStatus(targetHostel);
         window.__storeAvailability = data;
         renderStoreClosedBannerOrOverlay();
         return data;

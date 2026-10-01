@@ -577,11 +577,32 @@
                         <p class="text-sm text-[#5c5f60] mt-0.5">Control customer storefront access, duration locks, and
                             automated schedules</p>
                     </div>
-                    <button onclick="refreshClientLockState()"
-                        class="text-xs font-semibold text-[#3c4043] bg-white border border-[#DADCE0] px-3.5 py-2 rounded-lg hover:bg-[#f1f4f7] flex items-center gap-1.5 shadow-sm">
-                        <span class="material-symbols-outlined text-[16px]">refresh</span>
-                        <span>Refresh Status</span>
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <select id="lock-hostel-filter"
+                            onchange="onLockHostelFilterChange(this.value)"
+                            class="border border-[#DADCE0] rounded-lg px-3 py-2 text-xs font-semibold bg-white focus:ring-2 focus:ring-[#3c4043] focus:outline-none shadow-sm min-w-[180px]">
+                            <option value="ALL">🏢 All Campus Hostels</option>
+                        </select>
+                        <button onclick="refreshClientLockState()"
+                            class="text-xs font-semibold text-[#3c4043] bg-white border border-[#DADCE0] px-3.5 py-2 rounded-lg hover:bg-[#f1f4f7] flex items-center gap-1.5 shadow-sm">
+                            <span class="material-symbols-outlined text-[16px]">refresh</span>
+                            <span>Refresh Status</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Per-Hostel Lock Status Overview (Owner Panoramic) -->
+                <div id="lock-hostel-overview-card" class="glass-panel p-4 sm:p-5 border border-[#DADCE0] bg-white space-y-3 hidden">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-black text-sm text-[#181c1f] flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[#0066cc] text-lg">domain</span>
+                            <span>Per-Hostel Lock Status</span>
+                        </h3>
+                        <span id="lock-hostel-overview-summary" class="text-[10px] font-bold text-[#5c5f60]"></span>
+                    </div>
+                    <div id="lock-hostel-overview-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        <!-- Dynamically populated per hostel lock status cards -->
+                    </div>
                 </div>
 
                 <!-- Current Live Status Card -->

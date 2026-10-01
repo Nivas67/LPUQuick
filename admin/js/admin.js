@@ -858,16 +858,40 @@ async function loadDashboard() {
 
 
 // ================= CLIENT DASHBOARD LOCK CONTROLS =================
+let _lastLockResponse = null;
+
 async function loadClientLockState() {
     try {
-        const res = await fetch(`/api/admin/client-lock`, { headers: getAuthHeaders() });
+        const targetHostel = getActiveLockHostel();
+        const hostelParam = (targetHostel && targetHostel !== 'ALL') ? `?hostel_id=${encodeURIComponent(targetHostel)}` : '';
+        const res = await fetch(`/api/admin/client-lock${hostelParam}`, { headers: getAuthHeaders() });
         const data = await res.json();
+        _lastLockResponse = data;
         if (data.success && data.availability) {
-            updateClientLockUI(data.availability);
+            updateClientLockUI(data.availability, data.target_hostel || targetHostel || 'ALL');
+        }
+        // Owner panoramic: render per-hostel lock overview grid
+        if (data.is_owner && data.all_hostel_locks) {
+            renderLockHostelOverview(data.all_hostel_locks);
+        } else {
+            const overviewCard = document.getElementById('lock-hostel-overview-card');
+            if (overviewCard) overviewCard.classList.add('hidden');
         }
     } catch (err) {
         console.error('Error loading client lock state:', err);
     }
+}
+
+function getActiveLockHostel() {
+    if (currentAdminProfile && !isPlatformOwner(currentAdminProfile) && currentAdminProfile.assigned_hostel_id) {
+        return currentAdminProfile.assigned_hostel_id;
+    }
+    return activeAdminHostelFilter.clientLock || 'ALL';
+}
+
+function onLockHostelFilterChange(val) {
+    activeAdminHostelFilter.clientLock = val;
+    loadClientLockState();
 }
 
 function refreshClientLockState() {
@@ -903,10 +927,11 @@ function formatClientReopenHeadline(avail) {
     return avail.display_reopen?.fullHeadline || (avail.message ? avail.message : "Store is currently CLOSED for orders");
 }
 
-function updateClientLockUI(avail) {
+function updateClientLockUI(avail, targetHostelLabel) {
     clientLockState = avail;
     const isLocked = Boolean(avail.is_locked);
     const lockStatus = avail.lock_status || (isLocked ? 'LOCKED' : 'AVAILABLE');
+    const hostelTag = targetHostelLabel && targetHostelLabel !== 'ALL' ? ` (${targetHostelLabel})` : '';
 
     // Update Dashboard Quick Banner
     const dashPill = document.getElementById('dash-store-status-pill');
@@ -916,13 +941,13 @@ function updateClientLockUI(avail) {
     if (dashPill && dashText) {
         if (isLocked) {
             dashPill.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-[#ffdad6] text-[#ba1a1a] border border-[#ffb4ab]';
-            dashText.textContent = 'STORE LOCKED';
+            dashText.textContent = 'STORE LOCKED' + hostelTag;
         } else if (lockStatus === 'SCHEDULED') {
             dashPill.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-[#fef7e0] text-[#b06000] border border-[#fce8b2]';
-            dashText.textContent = 'LOCK SCHEDULED';
+            dashText.textContent = 'LOCK SCHEDULED' + hostelTag;
         } else {
             dashPill.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-[#e6f4ea] text-[#137333] border border-[#ceead6]';
-            dashText.textContent = 'STORE OPEN';
+            dashText.textContent = 'STORE OPEN' + hostelTag;
         }
     }
 
@@ -953,7 +978,7 @@ function updateClientLockUI(avail) {
     if (isLocked) {
         heroCard.className = 'glass-panel p-6 border-l-4 border-l-[#ba1a1a] bg-[#ffdad6]/20';
         stateBadge.className = 'px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wide bg-[#ffdad6] text-[#ba1a1a] border border-[#ffb4ab]';
-        stateBadge.textContent = 'STORE LOCKED';
+        stateBadge.textContent = 'STORE LOCKED' + hostelTag;
         headline.textContent = formatClientReopenHeadline(avail);
         sub.textContent = avail.message ? `Admin message: "${avail.message}"` : "Students cannot submit checkout orders. Cart building is preserved.";
         quickUnlockBtn?.classList.remove('hidden');
@@ -974,7 +999,7 @@ function updateClientLockUI(avail) {
     } else if (lockStatus === 'SCHEDULED') {
         heroCard.className = 'glass-panel p-6 border-l-4 border-l-[#b06000] bg-[#fef7e0]/20';
         stateBadge.className = 'px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wide bg-[#fef7e0] text-[#b06000] border border-[#fce8b2]';
-        stateBadge.textContent = 'SCHEDULED LOCK';
+        stateBadge.textContent = 'SCHEDULED LOCK' + hostelTag;
         headline.textContent = `Scheduled to lock at ${new Date(avail.start_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
         sub.textContent = `Lock window: ${new Date(avail.start_at).toLocaleString()} until ${new Date(avail.end_at).toLocaleString()}`;
         timerBox?.classList.add('hidden');
@@ -983,8 +1008,8 @@ function updateClientLockUI(avail) {
     } else {
         heroCard.className = 'glass-panel p-6 border-l-4 border-l-[#137333] bg-[#e6f4ea]/20';
         stateBadge.className = 'px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wide bg-[#e6f4ea] text-[#137333] border border-[#ceead6]';
-        stateBadge.textContent = 'AVAILABLE (OPEN)';
-        headline.textContent = 'Store is OPEN for student orders';
+        stateBadge.textContent = 'AVAILABLE (OPEN)' + hostelTag;
+        headline.textContent = 'Store is OPEN for student orders' + hostelTag;
         sub.textContent = 'Students can browse products, manage their cart, and place orders with 3-minute delivery.';
         timerBox?.classList.add('hidden');
         quickUnlockBtn?.classList.add('hidden');
@@ -1119,13 +1144,15 @@ async function handleApplyLock(e) {
     const durationMins = document.getElementById('input-custom-duration')?.value || 30;
     const startAt = document.getElementById('input-schedule-start')?.value || null;
     const endAt = document.getElementById('input-schedule-end')?.value || null;
+    const targetHostel = getActiveLockHostel();
 
     const payload = {
         lock_type: mode,
         message: message,
         duration_minutes: durationMins,
         start_at: startAt,
-        end_at: endAt
+        end_at: endAt,
+        hostel_id: targetHostel
     };
 
     try {
@@ -1137,7 +1164,9 @@ async function handleApplyLock(e) {
         const data = await res.json();
         if (data.success) {
             showToast(data.message || 'Client lock settings applied.', 'success');
-            updateClientLockUI(data.availability);
+            updateClientLockUI(data.availability, data.target_hostel || targetHostel);
+            // Refresh panoramic overview after change
+            loadClientLockState();
         } else {
             alert('Failed to apply lock: ' + (data.error || 'Unknown error'));
         }
@@ -1146,22 +1175,165 @@ async function handleApplyLock(e) {
     }
 }
 
-async function handleUnlockStore() {
-    if (!confirm('Are you sure you want to UNLOCK the client storefront and make orders available now?')) {
+async function handleUnlockStore(overrideHostel) {
+    const targetHostel = overrideHostel || getActiveLockHostel();
+    const hostelLabel = (targetHostel && targetHostel !== 'ALL') ? ` for ${targetHostel}` : '';
+    if (!confirm(`Are you sure you want to UNLOCK the client storefront${hostelLabel} and make orders available now?`)) {
         return;
     }
     try {
         const res = await fetch('/api/admin/client-lock', {
             method: 'DELETE',
-            headers: getAuthHeaders()
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ hostel_id: targetHostel })
         });
         const data = await res.json();
         if (data.success) {
-            showToast('Storefront is now AVAILABLE for orders.', 'success');
-            updateClientLockUI(data.availability);
+            showToast(data.message || `Storefront${hostelLabel} is now AVAILABLE for orders.`, 'success');
+            updateClientLockUI(data.availability, data.target_hostel || targetHostel);
+            // Refresh panoramic overview after change
+            loadClientLockState();
         }
     } catch (err) {
         alert('Error unlocking store: ' + err.message);
+    }
+}
+
+// Per-Hostel Lock Status Overview (Owner Panoramic Grid)
+function renderLockHostelOverview(allHostelLocks) {
+    const overviewCard = document.getElementById('lock-hostel-overview-card');
+    const grid = document.getElementById('lock-hostel-overview-grid');
+    const summary = document.getElementById('lock-hostel-overview-summary');
+    if (!overviewCard || !grid) return;
+
+    // Backend returns { master_lock, hostels: [...] }
+    let hostels = [];
+    let masterLock = null;
+    if (allHostelLocks && typeof allHostelLocks === 'object') {
+        if (Array.isArray(allHostelLocks)) {
+            hostels = allHostelLocks;
+        } else {
+            masterLock = allHostelLocks.master_lock || null;
+            hostels = allHostelLocks.hostels || [];
+        }
+    }
+
+    if (hostels.length === 0) {
+        overviewCard.classList.add('hidden');
+        return;
+    }
+
+    overviewCard.classList.remove('hidden');
+
+    let lockedCount = 0;
+    let totalCount = hostels.length;
+    let cardsHtml = '';
+
+    // Master Lock Card (if exists)
+    if (masterLock) {
+        const mLocked = Boolean(masterLock.is_locked);
+        const mBg = mLocked ? 'bg-[#ffdad6]/40' : 'bg-[#e6f4ea]/30';
+        const mBorder = mLocked ? 'border-[#ffb4ab] border-2' : 'border-[#ceead6] border-2';
+        const mDot = mLocked ? 'bg-[#ba1a1a]' : 'bg-[#137333]';
+        const mLabel = mLocked
+            ? `<span class="text-[#ba1a1a] font-extrabold">🔒 GLOBAL LOCKED</span>`
+            : `<span class="text-[#137333] font-extrabold">✅ GLOBAL OPEN</span>`;
+        const mAction = mLocked
+            ? `<button onclick="handleUnlockStore('ALL')" class="text-[9px] font-bold text-[#137333] hover:underline mt-1">🔓 Unlock ALL</button>`
+            : `<button onclick="quickLockSingleHostel('ALL')" class="text-[9px] font-bold text-[#ba1a1a] hover:underline mt-1">🔒 Lock ALL</button>`;
+
+        cardsHtml += `
+            <div class="${mBg} border ${mBorder} rounded-xl p-3 flex flex-col gap-1 transition-all hover:-translate-y-0.5 cursor-default col-span-full sm:col-span-1">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-black text-[#181c1f]">🏢 ALL</span>
+                    <span class="w-2.5 h-2.5 rounded-full ${mDot} inline-block"></span>
+                </div>
+                <p class="text-[10px] text-[#5c5f60]">Global Master Lock</p>
+                <div class="text-[10px]">${mLabel}</div>
+                ${mAction}
+            </div>
+        `;
+    }
+
+    hostels.forEach(h => {
+        const isEffectiveLocked = Boolean(h.effective_locked);
+        const isDirectLocked = Boolean(h.direct_lock && h.direct_lock.is_locked);
+        const lockedByMaster = Boolean(h.locked_by_master);
+        const lockStatus = isDirectLocked ? (h.direct_lock.lock_status || 'LOCKED') : (isEffectiveLocked ? 'MASTER_LOCKED' : 'AVAILABLE');
+        if (isEffectiveLocked) lockedCount++;
+
+        let bgClass, borderClass, dotColor, statusLabel;
+        if (isDirectLocked) {
+            bgClass = 'bg-[#ffdad6]/30';
+            borderClass = 'border-[#ffb4ab]';
+            dotColor = 'bg-[#ba1a1a]';
+            statusLabel = `<span class="text-[#ba1a1a] font-extrabold">LOCKED</span>`;
+        } else if (lockedByMaster) {
+            bgClass = 'bg-[#ffdad6]/15';
+            borderClass = 'border-[#ffb4ab]/50';
+            dotColor = 'bg-[#ba1a1a]/60';
+            statusLabel = `<span class="text-[#ba1a1a]/70 font-bold text-[9px]">🔒 VIA GLOBAL</span>`;
+        } else if (lockStatus === 'SCHEDULED') {
+            bgClass = 'bg-[#fef7e0]/30';
+            borderClass = 'border-[#fce8b2]';
+            dotColor = 'bg-[#b06000]';
+            statusLabel = `<span class="text-[#b06000] font-extrabold">SCHEDULED</span>`;
+        } else {
+            bgClass = 'bg-[#e6f4ea]/30';
+            borderClass = 'border-[#ceead6]';
+            dotColor = 'bg-[#137333]';
+            statusLabel = `<span class="text-[#137333] font-extrabold">OPEN</span>`;
+        }
+
+        const hostelName = h.hostel_name || h.hostel_id || '—';
+        const hostelId = h.hostel_id || '';
+        const hostelStatus = h.status === 'OFF' ? ' <span class="text-[8px] text-[#74777a]">[OFF]</span>' : '';
+
+        // Action button: lock or unlock quick toggle (only for direct, not master-inherited)
+        let actionBtn = '';
+        if (isDirectLocked) {
+            actionBtn = `<button onclick="handleUnlockStore('${hostelId}')" class="text-[9px] font-bold text-[#137333] hover:underline mt-1">🔓 Unlock</button>`;
+        } else if (!lockedByMaster) {
+            actionBtn = `<button onclick="quickLockSingleHostel('${hostelId}')" class="text-[9px] font-bold text-[#ba1a1a] hover:underline mt-1">🔒 Lock</button>`;
+        }
+
+        cardsHtml += `
+            <div class="${bgClass} border ${borderClass} rounded-xl p-3 flex flex-col gap-1 transition-all hover:-translate-y-0.5 cursor-default">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-black text-[#181c1f]">${hostelId}</span>
+                    <span class="w-2 h-2 rounded-full ${dotColor} inline-block"></span>
+                </div>
+                <p class="text-[10px] text-[#5c5f60] truncate">${hostelName}${hostelStatus}</p>
+                <div class="text-[10px]">${statusLabel}</div>
+                ${actionBtn}
+            </div>
+        `;
+    });
+
+    grid.innerHTML = cardsHtml;
+
+    if (summary) {
+        summary.textContent = `${lockedCount}/${totalCount} locked`;
+    }
+}
+
+async function quickLockSingleHostel(hostelId) {
+    if (!confirm(`Lock storefront for ${hostelId} immediately?`)) return;
+    try {
+        const res = await fetch('/api/admin/client-lock', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ lock_type: 'IMMEDIATE', duration_minutes: 30, hostel_id: hostelId })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message || `${hostelId} locked.`, 'success');
+            loadClientLockState();
+        } else {
+            alert('Failed: ' + (data.error || 'Unknown error'));
+        }
+    } catch (err) {
+        alert('Network error: ' + err.message);
     }
 }
 
@@ -5417,7 +5589,8 @@ let activeAdminHostelFilter = {
     products: 'ALL',
     inventory: 'ALL',
     orders: 'ALL',
-    dailyRevenue: 'ALL'
+    dailyRevenue: 'ALL',
+    clientLock: 'ALL'
 };
 
 function getActiveAdminHostelFilter(view = 'products') {
@@ -5438,6 +5611,7 @@ function populateHostelDropdowns() {
         { id: 'inventory-hostel-filter', view: 'inventory', allowAll: true },
         { id: 'orders-hostel-filter', view: 'orders', allowAll: true },
         { id: 'dr-hostel-filter', view: 'dailyRevenue', allowAll: true },
+        { id: 'lock-hostel-filter', view: 'clientLock', allowAll: true },
         { id: 'form-product-hostel', view: null, allowAll: false }
     ];
 

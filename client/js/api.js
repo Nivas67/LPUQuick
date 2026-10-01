@@ -799,9 +799,10 @@ const api = {
     },
 
     // Store Availability Status (Edge CDN cached with SWR)
-    async getClientStatus() {
+    async getClientStatus(hostelId) {
         try {
-            const res = await fetch(`${API_BASE}/client/status`);
+            const targetHostel = hostelId || (typeof window !== 'undefined' && (window.currentHostelId || localStorage.getItem('lpuquick_hostel_id'))) || 'BH-13';
+            const res = await fetch(`${API_BASE}/client/status?hostel_id=${encodeURIComponent(targetHostel)}`);
             return await res.json();
         } catch (e) {
             return { is_locked: false, lock_status: 'AVAILABLE' };

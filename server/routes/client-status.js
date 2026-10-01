@@ -6,11 +6,13 @@ const supabaseDb = require('../db/supabaseDb');
 router.get('/', async (req, res) => {
     try {
         res.setHeader('Cache-Control', 'public, s-maxage=15, stale-while-revalidate=30');
-        const status = await supabaseDb.availability.getStatus();
+        const targetHostel = req.query.hostel_id ? String(req.query.hostel_id).trim() : 'BH-13';
+        const status = await supabaseDb.availability.getStatus(targetHostel);
         
         // Return strictly safe client-facing availability information
         res.json({
             success: true,
+            hostel_id: status.hostel_id || targetHostel,
             is_locked: Boolean(status.is_locked),
             lock_status: status.lock_status || (status.is_locked ? 'LOCKED' : 'AVAILABLE'),
             lock_type: status.lock_type,
