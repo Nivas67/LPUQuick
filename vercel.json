@@ -12,7 +12,7 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, max-age=2592000, stale-while-revalidate=86400"
+          "value": "public, max-age=0, must-revalidate"
         }
       ]
     },
@@ -21,7 +21,7 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, max-age=2592000, stale-while-revalidate=604800"
+          "value": "public, max-age=86400, stale-while-revalidate=43200"
         }
       ]
     },
@@ -91,7 +91,7 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, s-maxage=15, stale-while-revalidate=30"
+          "value": "no-cache, no-store, must-revalidate"
         }
       ]
     },
@@ -100,7 +100,7 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, s-maxage=300, stale-while-revalidate=600"
+          "value": "public, s-maxage=30, stale-while-revalidate=60"
         }
       ]
     },
@@ -109,7 +109,7 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, s-maxage=300, stale-while-revalidate=600"
+          "value": "public, s-maxage=30, stale-while-revalidate=60"
         }
       ]
     },
@@ -118,7 +118,7 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, s-maxage=120, stale-while-revalidate=300"
+          "value": "public, s-maxage=15, stale-while-revalidate=30"
         }
       ]
     },
@@ -127,7 +127,7 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, s-maxage=60, stale-while-revalidate=120"
+          "value": "public, s-maxage=10, stale-while-revalidate=20"
         }
       ]
     },
@@ -136,7 +136,7 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, s-maxage=60, stale-while-revalidate=120"
+          "value": "public, s-maxage=10, stale-while-revalidate=20"
         }
       ]
     },
@@ -145,7 +145,7 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, s-maxage=60, stale-while-revalidate=120"
+          "value": "public, s-maxage=10, stale-while-revalidate=20"
         }
       ]
     },
@@ -154,7 +154,7 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, s-maxage=120, stale-while-revalidate=300"
+          "value": "public, s-maxage=15, stale-while-revalidate=30"
         }
       ]
     },
@@ -163,7 +163,7 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, s-maxage=60, stale-while-revalidate=120"
+          "value": "public, s-maxage=10, stale-while-revalidate=20"
         }
       ]
     },
