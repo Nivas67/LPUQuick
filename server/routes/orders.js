@@ -2061,6 +2061,9 @@ router.get('/detail/:orderId', async (req, res) => {
 // GET /api/orders/:userId (User orders)
 router.get('/:userId', async (req, res) => {
     const { userId } = req.params;
+    if (!userId || typeof userId !== 'string' || userId.length > 80 || /[\<\>\"\'\;\(\)\{\}]/.test(userId)) {
+        return res.status(400).json({ error: 'Invalid user identifier' });
+    }
     try {
         let { active, past } = await supabaseDb.orders.getOrdersByUser(userId);
         if (Array.isArray(fallbackOrdersCache) && fallbackOrdersCache.length > 0) {
@@ -2145,7 +2148,22 @@ router.post('/:orderId/status', requireAdmin, async (req, res) => {
     }
 });
 
-// POST /api/orders/:orderId/cancel (Cancel order)
+// Authorization Helper: IDOR & Privilege Verification
+function isAuthorizedForOrder(req, order) {
+    if (!order) return false;
+    const authHeader = req.headers['authorization'] || req.headers['x-admin-token'] || req.headers['x-admin-key'] || '';
+    const adminToken = typeof authHeader === 'string' ? authHeader.replace(/^Bearer\s+/i, '').trim() : '';
+    if (adminToken && verifyAdminToken(adminToken)) {
+        return true;
+    }
+    const reqUserId = req.body?.userId || req.query?.userId || req.headers['x-user-id'];
+    if (reqUserId && order.user_id && String(reqUserId).trim().toLowerCase() === String(order.user_id).trim().toLowerCase()) {
+        return true;
+    }
+    return false;
+}
+
+// POST /api/orders/:orderId/cancel (Cancel order - IDOR Protected)
 router.post('/:orderId/cancel', async (req, res) => {
     const { orderId } = req.params;
     const { reason } = req.body;
@@ -2154,6 +2172,14 @@ router.post('/:orderId/cancel', async (req, res) => {
         const order = await supabaseDb.orders.getOrderById(orderId);
         if (!order) {
             return res.status(404).json({ success: false, error: 'Order not found' });
+        }
+
+        // IDOR Verification: Ensure user owns this order or is an authenticated admin
+        if (!isAuthorizedForOrder(req, order)) {
+            return res.status(403).json({
+                success: false,
+                error: 'Unauthorized: You can only cancel your own orders.'
+            });
         }
 
         const currentStatus = (order.status || '').toLowerCase().trim();
@@ -2242,20 +2268,33 @@ router.post('/:orderId/reorder', async (req, res) => {
     }
 });
 
-// POST /api/orders/:orderId/change-address (Update active order delivery address)
+// POST /api/orders/:orderId/change-address (Update active order delivery address - IDOR Protected)
 router.post('/:orderId/change-address', async (req, res) => {
     const { orderId } = req.params;
     const { newAddress } = req.body;
 
-    if (!newAddress) {
-        return res.status(400).json({ error: 'newAddress is required' });
+    if (!newAddress || typeof newAddress !== 'string' || newAddress.trim().length < 5) {
+        return res.status(400).json({ error: 'Valid delivery address is required.' });
     }
 
     try {
+        const order = await supabaseDb.orders.getOrderById(orderId);
+        if (!order) {
+            return res.status(404).json({ success: false, error: 'Order not found' });
+        }
+
+        // IDOR Verification: Ensure user owns this order or is an authenticated admin
+        if (!isAuthorizedForOrder(req, order)) {
+            return res.status(403).json({
+                success: false,
+                error: 'Unauthorized: You can only update the delivery address of your own orders.'
+            });
+        }
+
         const supabase = getSupabaseClient();
         const { data, error } = await supabase
             .from('orders')
-            .update({ delivery_address: newAddress })
+            .update({ delivery_address: newAddress.trim() })
             .eq('id', orderId)
             .select()
             .single();

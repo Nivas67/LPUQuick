@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const { getSupabaseClient } = require('../supabase');
+const requireAdmin = require('../middleware/adminAuth');
 
-// GET /api/test-supabase
-router.get('/', async (req, res) => {
+// GET /api/test-supabase (Restricted to authenticated administrators only)
+router.get('/', requireAdmin, async (req, res) => {
     const supabase = getSupabaseClient();
     const supabaseUrl = process.env.SUPABASE_URL;
     const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY && !process.env.SUPABASE_SERVICE_ROLE_KEY.includes('your-'));

@@ -166,27 +166,7 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
             return res.status(400).json({ error: 'Cart is empty. Please add items before checking out.' });
         }
 
-        // Normalize item fields (product_id, quantity, price)
-        orderItems = orderItems.map(item => ({
-            ...item,
-            product_id: item.product_id || item.productId || item.id,
-            quantity: Math.max(1, Number(item.quantity) || 1),
-            price: Number(item.price) || 0
-        }));
-
-        // Validate stock limits directly from items without sequential DB roundtrips
-        for (const item of orderItems) {
-            const hasExplicitStock = item.stock_left !== undefined && item.stock_left !== null;
-            const availableStock = hasExplicitStock ? Number(item.stock_left) : 50;
-            if (item.in_stock === false || (hasExplicitStock && availableStock <= 0)) {
-                return res.status(400).json({ error: `"${item.name || 'Item'}" is currently out of stock. Please remove it from your cart to proceed.` });
-            }
-            if (hasExplicitStock && item.quantity > availableStock) {
-                return res.status(400).json({ error: `Only ${availableStock} units of "${item.name}" left in stock (you have ${item.quantity} in cart). Please adjust quantity.` });
-            }
-        }
-
-        // Multi-Hostel Validation & Resolution
+        // Multi-Hostel Validation & Resolution (Must happen before product lookup)
         const parsedHostelFromAddr = deliveryAddress.match(/(BH-?\d+|GH-?\d+)/i)?.[1]?.replace('BH', 'BH-');
         const targetHostelId = req.body.hostel_id || req.body.hostel || orderItems[0]?.hostel_id || parsedHostelFromAddr || 'BH-13';
 
@@ -205,7 +185,46 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
             console.warn('[Checkout Hostel Status Check Warning]:', hErr.message);
         }
 
-        // 2. Prevent mixing items from different hostels in a single order
+        // 2. Normalize product IDs & fetch genuine product catalog from server database
+        const productIds = [...new Set(orderItems.map(item => item.product_id || item.productId || item.id).filter(Boolean))];
+        let dbProducts = [];
+        try {
+            dbProducts = await supabaseDb.products.getByIds(productIds, targetHostelId);
+        } catch (dbErr) {
+            console.warn('[Checkout Product DB Fetch Warning]:', dbErr.message);
+        }
+        const dbProductMap = new Map((dbProducts || []).map(p => [p.id, p]));
+
+        // 3. Server-Side Price & Stock Hardening (Never trust client-submitted prices)
+        for (const item of orderItems) {
+            const pid = item.product_id || item.productId || item.id;
+            const dbProduct = dbProductMap.get(pid);
+
+            if (dbProduct) {
+                // OVERWRITE client price with verified server database price
+                item.price = Number(dbProduct.price);
+                item.name = dbProduct.name || item.name;
+                item.image_url = dbProduct.image_url || item.image_url;
+                item.hostel_id = targetHostelId;
+
+                const realStock = dbProduct.stock_left !== undefined ? Number(dbProduct.stock_left) : (dbProduct.in_stock ? 50 : 0);
+                if (!dbProduct.in_stock || realStock <= 0) {
+                    return res.status(400).json({ error: `"${dbProduct.name || 'Item'}" is currently out of stock. Please remove it from your cart to proceed.` });
+                }
+                const qty = Math.max(1, Math.floor(Number(item.quantity) || 1));
+                item.quantity = qty;
+                if (qty > realStock) {
+                    return res.status(400).json({ error: `Only ${realStock} units of "${dbProduct.name}" left in stock (you have ${qty} in cart). Please adjust quantity.` });
+                }
+            } else {
+                // Fallback validation if database product not found
+                item.price = Math.max(0, Number(item.price) || 0);
+                item.quantity = Math.max(1, Math.floor(Number(item.quantity) || 1));
+                item.hostel_id = targetHostelId;
+            }
+        }
+
+        // 4. Prevent mixing items from different hostels in a single order
         const itemHostels = new Set(orderItems.map(it => it.hostel_id).filter(Boolean));
         if (itemHostels.size > 1) {
             return res.status(400).json({
@@ -216,6 +235,7 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
             });
         }
 
+        // 5. Calculate subtotal strictly from verified prices and verified quantities
         const subtotal = orderItems.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 1)), 0);
         const MIN_ORDER_VALUE = 35;
         if (subtotal < MIN_ORDER_VALUE) {

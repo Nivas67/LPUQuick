@@ -2353,6 +2353,24 @@ const supabaseDb = {
             return data;
         },
 
+        async updatePasswordHash(userId, newPasswordHash) {
+            const supabase = getSupabaseClient();
+            if (!supabase || !userId) return null;
+            try {
+                const { data, error } = await supabase
+                    .from('users')
+                    .update({ password_hash: newPasswordHash })
+                    .eq('id', userId)
+                    .select()
+                    .maybeSingle();
+                if (userId) cache.delete(`user:id:${userId}`);
+                return data;
+            } catch (e) {
+                console.warn('[UpdatePasswordHash Error]:', e.message);
+                return null;
+            }
+        },
+
         async getAllCustomersWithMetrics() {
             const supabase = getSupabaseClient();
             if (!supabase) return [];

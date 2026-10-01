@@ -4,6 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 const supabaseDb = require('../db/supabaseDb');
 const { getSupabaseClient } = require('../supabase');
 const { generateAdminToken, resolveAdminRoles } = require('../middleware/adminAuth');
+const { hashPassword, verifyPassword } = require('../utils/cryptoSecurity');
 
 // POST /api/auth/signin
 router.post('/signin', async (req, res) => {
@@ -29,7 +30,7 @@ router.post('/signin', async (req, res) => {
                 name: displayName,
                 email: trimmedEmail,
                 phone: req.body.phone || null,
-                password_hash: `hash_${password}`,
+                password_hash: hashPassword(password),
                 role: 'student'
             });
 
@@ -47,9 +48,17 @@ router.post('/signin', async (req, res) => {
             });
         }
 
-        // Verify password
-        if (user.password_hash && user.password_hash !== password && user.password_hash !== `hash_${password}` && user.password_hash !== 'google_oauth' && password !== 'demo123') {
-            return res.status(401).json({ error: 'Incorrect password. Please check and try again.' });
+        // Verify password using secure cryptographic verification (No backdoors)
+        if (user.password_hash !== 'google_oauth') {
+            const verifyRes = verifyPassword(password, user.password_hash);
+            if (!verifyRes.valid) {
+                return res.status(401).json({ error: 'Incorrect password. Please check and try again.' });
+            }
+            // Transparently upgrade legacy passwords to modern scrypt hash
+            if (verifyRes.needsUpgrade) {
+                const upgraded = hashPassword(password);
+                supabaseDb.users.updatePasswordHash(user.id, upgraded).catch(() => {});
+            }
         }
 
         // Check if user is blacklisted / blocked
@@ -316,8 +325,16 @@ router.post('/admin-login', async (req, res) => {
         }
 
         // Verify password against stored hash or secure environment ADMIN_PASSWORD
-        const isPasswordCorrect = (user.password_hash && (user.password_hash === password || user.password_hash === `hash_${password}`)) ||
-                                  (process.env.ADMIN_PASSWORD && password === process.env.ADMIN_PASSWORD);
+        let isPasswordCorrect = false;
+        let needsUpgrade = false;
+
+        if (process.env.ADMIN_PASSWORD && password === process.env.ADMIN_PASSWORD) {
+            isPasswordCorrect = true;
+        } else if (user.password_hash) {
+            const verifyRes = verifyPassword(password, user.password_hash);
+            isPasswordCorrect = verifyRes.valid;
+            needsUpgrade = verifyRes.needsUpgrade;
+        }
 
         if (!isPasswordCorrect) {
             console.warn(`[SECURITY AUDIT] ADMIN_LOGIN_FAILED: Incorrect password | email: ${trimmedEmail} | ip: ${req.ip}`);
@@ -326,6 +343,12 @@ router.post('/admin-login', async (req, res) => {
                 code: 'INVALID_CREDENTIALS',
                 error: 'Incorrect administrator password.'
             });
+        }
+
+        // Upgrade legacy admin password hash to scrypt
+        if (needsUpgrade) {
+            const upgraded = hashPassword(password);
+            supabaseDb.users.updatePasswordHash(user.id, upgraded).catch(() => {});
         }
 
         const roles = resolveAdminRoles(user);

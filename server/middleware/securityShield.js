@@ -16,6 +16,7 @@ const ipStore = new Map();
 const LIMITS = {
     GENERAL_API_PER_MINUTE: 180,      // Max standard API requests per IP per minute
     MUTATION_API_PER_MINUTE: 35,       // Max sensitive write requests (auth, checkout) per minute
+    AUTH_ATTEMPTS_PER_MINUTE: 5,       // Max login attempts per IP per minute (OWASP Brute-Force Defense)
     MAX_404_BEFORE_BLOCK: 20,         // Max 404s in 60s before IP is jailed
     JAIL_DURATION_MS: 5 * 60 * 1000,   // Jail time: 5 minutes
     CLEANUP_INTERVAL_MS: 5 * 60 * 1000 // Clean up old records every 5 minutes
@@ -57,6 +58,7 @@ function getIpRecord(ip) {
         record = {
             requests: [],
             mutations: [],
+            authAttempts: [],
             notFoundRequests: [],
             blockedUntil: 0
         };
@@ -94,8 +96,23 @@ function apiSecurityShield(req, res, next) {
     // 2. Sliding window filter: prune timestamps older than 60s
     record.requests = record.requests.filter(t => now - t < 60000);
     record.mutations = record.mutations.filter(t => now - t < 60000);
+    record.authAttempts = (record.authAttempts || []).filter(t => now - t < 60000);
 
-    // 3. Sensitive mutation rate-limiting (auth, checkout, orders creation)
+    // 3. Strict Authentication Rate-Limiting (Max 5 attempts/min for /signin and /admin-login)
+    const isAuthLogin = req.method === 'POST' && (req.path.includes('/auth/signin') || req.path.includes('/auth/admin-login'));
+    if (isAuthLogin) {
+        if (record.authAttempts.length >= LIMITS.AUTH_ATTEMPTS_PER_MINUTE) {
+            res.setHeader('Retry-After', 60);
+            return res.status(429).json({
+                success: false,
+                error: 'Too many login attempts. Please wait 60 seconds before trying again.',
+                code: 'AUTH_RATE_LIMIT_EXCEEDED'
+            });
+        }
+        record.authAttempts.push(now);
+    }
+
+    // 4. Sensitive mutation rate-limiting (auth, checkout, orders creation)
     const isMutation = (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE');
     const isSensitive = req.path.includes('/auth') || req.path.includes('/checkout');
 

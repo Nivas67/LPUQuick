@@ -769,19 +769,19 @@ const api = {
         return result;
     },
 
-    async cancelOrder(orderId, reason = '') {
+    async cancelOrder(orderId, reason = '', userId = (typeof window !== 'undefined' && window.isUserLoggedIn && window.isUserLoggedIn() ? window.CURRENT_USER_ID : (typeof window !== 'undefined' && window.getEffectiveUserId ? window.getEffectiveUserId() : null))) {
         const res = await fetch(`${API_BASE}/orders/${orderId}/cancel`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reason })
+            body: JSON.stringify({ reason, userId })
         });
         return res.json();
     },
-    async changeOrderAddress(orderId, newAddress) {
+    async changeOrderAddress(orderId, newAddress, userId = (typeof window !== 'undefined' && window.isUserLoggedIn && window.isUserLoggedIn() ? window.CURRENT_USER_ID : (typeof window !== 'undefined' && window.getEffectiveUserId ? window.getEffectiveUserId() : null))) {
         const res = await fetch(`${API_BASE}/orders/${orderId}/change-address`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ newAddress })
+            body: JSON.stringify({ newAddress, userId })
         });
         return res.json();
     },
