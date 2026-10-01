@@ -176,10 +176,22 @@ router.get('/', async (req, res) => {
 
         let hostelId = req.query.hostel_id || req.query.hostel || '';
         
-        // If an authenticated admin has an assigned hostel (Store Manager), lock to their hostel
+        // If an authenticated admin has an assigned hostel (Store Manager / Staff), lock to their hostel
         if (verifiedAdmin && verifiedAdmin.role !== 'owner' && verifiedAdmin.sub !== 'user_admin_bh13') {
-            const user = (staffUserCache && staffUserCache.get(verifiedAdmin.sub)) || (KNOWN_STAFF_FALLBACKS && KNOWN_STAFF_FALLBACKS[verifiedAdmin.sub]);
-            if (user?.assigned_hostel_id) {
+            let user = (staffUserCache && staffUserCache.get(verifiedAdmin.sub)) || (KNOWN_STAFF_FALLBACKS && KNOWN_STAFF_FALLBACKS[verifiedAdmin.sub]);
+            if (!user) {
+                try {
+                    user = await supabaseDb.users.getUserById(verifiedAdmin.sub);
+                    if (user) staffUserCache.set(user.id, user);
+                } catch (e) {}
+            }
+            if (user?.dob && typeof user.dob === 'string' && user.dob.startsWith('{')) {
+                try {
+                    const parsed = JSON.parse(user.dob);
+                    if (parsed.assigned_hostel_id) hostelId = parsed.assigned_hostel_id;
+                } catch (e) {}
+            }
+            if (!hostelId && user?.assigned_hostel_id) {
                 hostelId = user.assigned_hostel_id;
             }
         }

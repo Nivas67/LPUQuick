@@ -315,29 +315,54 @@ router.get('/admin/analytics', requireAdmin, async (req, res) => {
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
 
+        const isOwner = Boolean(req.admin && req.admin.is_owner);
+        let hostelId = req.query.hostel_id || req.query.hostel || null;
+        if (!isOwner && req.admin?.assigned_hostel_id) {
+            hostelId = req.admin.assigned_hostel_id;
+        }
+        const cleanHostel = (hostelId && hostelId !== 'all') ? hostelId : null;
+        const cacheKey = `analytics:admin:summary:${cleanHostel || 'all'}`;
+
         const forceFresh = req.query.force === 'true';
         if (forceFresh) {
-            cache.delete('analytics:admin:summary');
+            cache.delete(cacheKey);
         }
 
-        const payload = await cache.wrap('analytics:admin:summary', async () => {
+        const payload = await cache.wrap(cacheKey, async () => {
             const supabase = getSupabaseClient();
 
             // Run independent queries concurrently with bounded order_items lookup
             const queryPromise = Promise.all([
-                supabase.from('orders').select('id, status, total').order('created_at', { ascending: false }).limit(500),
-                supabase.from('products').select('id, name, category, in_stock, tags, price'),
+                supabase.from('orders').select('id, status, total, hostel_id, delivery_address').order('created_at', { ascending: false }).limit(500),
+                cleanHostel
+                    ? supabaseDb.products.getAll({ hostel_id: cleanHostel })
+                    : supabase.from('products').select('id, name, category, in_stock, tags, price'),
                 supabase.from('order_items').select('order_id, product_id, quantity, unit_price').limit(500)
             ]);
 
             const [ordersRes, productsRes, topItemsRes] = await withTimeout(queryPromise, 12000, [
                 { data: null },
-                { data: null },
+                cleanHostel ? [] : { data: null },
                 { data: null }
             ]);
 
-            const orders = ordersRes?.data || [];
-            const products = (productsRes?.data || []).map(p => {
+            let orders = ordersRes?.data || [];
+            if (cleanHostel) {
+                const normTarget = cleanHostel.toLowerCase().replace('-', '');
+                orders = orders.filter(o => {
+                    const h = (o.hostel_id || (o.delivery_address && o.delivery_address.match(/(BH-?\d+|GH-?\d+)/i)?.[1]?.replace('BH', 'BH-')) || 'BH-13');
+                    return h.toLowerCase().replace('-', '') === normTarget;
+                });
+            }
+
+            const rawProducts = cleanHostel 
+                ? (Array.isArray(productsRes) ? productsRes : (productsRes?.data || []))
+                : (productsRes?.data || []);
+
+            const products = rawProducts.map(p => {
+                if (cleanHostel && p.stock_left !== undefined) {
+                    return p;
+                }
                 const match = (p.tags || '').match(/stock:(\d+)/);
                 const stock_left = match ? parseInt(match[1], 10) : (p.in_stock ? 50 : 0);
                 return { ...p, stock_left };
@@ -355,7 +380,8 @@ router.get('/admin/analytics', requireAdmin, async (req, res) => {
                         deliveredOrdersCount: 0
                     },
                     lowStockItems: [],
-                    topProducts: []
+                    topProducts: [],
+                    hostel_id: cleanHostel || 'all'
                 };
             }
 
@@ -405,14 +431,18 @@ router.get('/admin/analytics', requireAdmin, async (req, res) => {
                     deliveredOrdersCount: deliveredOrders.length
                 },
                 lowStockItems: lowStockProducts.slice(0, 10),
-                topProducts
+                topProducts,
+                hostel_id: cleanHostel || 'all'
             };
 
             fallbackAnalyticsCache = result;
             return result;
         }, forceFresh ? 0 : 30000); // 30-second analytics micro-cache
 
-        res.json(payload || fallbackAnalyticsCache || { metrics: {} });
+        res.json({
+            ...(payload || fallbackAnalyticsCache || { metrics: {} }),
+            hostel_id: cleanHostel || 'all'
+        });
     } catch (err) {
         console.error('[Admin Analytics Error]:', err.message);
         res.json(fallbackAnalyticsCache || { metrics: {} });
@@ -656,6 +686,7 @@ router.get('/admin/delivery-staff', requireAdmin, async (req, res) => {
                     phone: s.phone || '',
                     roles: s.roles,
                     is_owner: s.is_owner,
+                    assigned_hostel_id: s.assigned_hostel_id || null,
                     active_deliveries: loadMap[s.id] || 0,
                     availability_status: status,
                     is_available: status === 'Active'
@@ -1602,6 +1633,25 @@ router.post('/:orderId/claim', requireAdmin, requireRole('delivery_person'), asy
         });
     }
 
+    // Enforce assigned hostel scoping for delivery personnel
+    if (!req.admin.is_owner && req.admin.assigned_hostel_id) {
+        let existingOrder = Array.isArray(fallbackOrdersCache) ? fallbackOrdersCache.find(x => x.id === orderId) : null;
+        if (!existingOrder) {
+            try {
+                existingOrder = await supabaseDb.orders.getOrderById(orderId);
+            } catch (e) {}
+        }
+        if (existingOrder) {
+            const hId = existingOrder.hostel_id || (existingOrder.delivery_address && existingOrder.delivery_address.match(/(BH-?\d+|GH-?\d+)/i)?.[1]?.replace('BH', 'BH-')) || 'BH-13';
+            if (hId.toLowerCase().replace('-', '') !== req.admin.assigned_hostel_id.toLowerCase().replace('-', '')) {
+                return res.status(403).json({
+                    success: false,
+                    error: `Forbidden: You are assigned to ${req.admin.assigned_hostel_id} and cannot accept deliveries for ${hId}.`
+                });
+            }
+        }
+    }
+
     try {
         const adminPhone = req.admin?.phone || '7671836211';
         const updated = await withOrderClaimLock(orderId, async () => {
@@ -1672,6 +1722,17 @@ router.post('/:orderId/transfer/request', requireAdmin, async (req, res) => {
     const order = await supabaseDb.orders.getOrderById(orderId);
     if (!order) {
         return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    // Verify store manager / delivery personnel hostel scoping
+    if (!req.admin.is_owner && req.admin.assigned_hostel_id) {
+        const hId = order.hostel_id || (order.delivery_address && order.delivery_address.match(/(BH-?\d+|GH-?\d+)/i)?.[1]?.replace('BH', 'BH-')) || 'BH-13';
+        if (hId.toLowerCase().replace('-', '') !== req.admin.assigned_hostel_id.toLowerCase().replace('-', '')) {
+            return res.status(403).json({
+                success: false,
+                error: `Forbidden: You are assigned to ${req.admin.assigned_hostel_id} and cannot transfer orders from ${hId}.`
+            });
+        }
     }
 
     const currentMeta = supabaseDb.orders.parseDeliveryMeta(order.rider_name);

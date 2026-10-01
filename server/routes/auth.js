@@ -331,20 +331,22 @@ router.post('/admin-login', async (req, res) => {
         const roles = resolveAdminRoles(user);
         const isOwner = roles.includes('owner');
 
-        // Multi-Hostel: Resolve store manager assigned hostel
+        // Multi-Hostel: Resolve store manager / delivery personnel assigned hostel
         let assignedHostelId = null;
         if (!isOwner) {
-            try {
-                const hostels = await supabaseDb.hostels.getAll({ includeInactive: true });
-                const matched = (hostels || []).find(h => h.manager_user_id === user.id);
-                if (matched) assignedHostelId = matched.id;
-            } catch (hErr) {}
-
-            if (!assignedHostelId && user.dob && typeof user.dob === 'string' && user.dob.startsWith('{')) {
+            if (user.dob && typeof user.dob === 'string' && user.dob.startsWith('{')) {
                 try {
                     const parsedDob = JSON.parse(user.dob);
                     if (parsedDob.assigned_hostel_id) assignedHostelId = parsedDob.assigned_hostel_id;
                 } catch (e) {}
+            }
+
+            if (!assignedHostelId) {
+                try {
+                    const hostels = await supabaseDb.hostels.getAll({ includeInactive: true });
+                    const matched = (hostels || []).find(h => h.manager_user_id === user.id);
+                    if (matched) assignedHostelId = matched.id;
+                } catch (hErr) {}
             }
         }
 

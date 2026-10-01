@@ -455,13 +455,31 @@ function applyAdminRolePermissions(profile) {
             if (roles.includes('store_manager')) roleLabels.push('Store Mgr');
             if (roles.includes('inventory_manager')) roleLabels.push('Inventory');
             if (roles.includes('delivery_person')) roleLabels.push('Delivery');
-            roleEl.textContent = roleLabels.join(' • ') || 'Staff Member';
+            const hostelTag = profile.assigned_hostel_id ? ` • ${profile.assigned_hostel_id}` : '';
+            roleEl.textContent = (roleLabels.join(' • ') || 'Staff Member') + hostelTag;
             roleEl.className = 'text-[10px] text-[#1a73e8] font-semibold truncate';
         }
     }
     if (avatarEl) {
         avatarEl.textContent = isOwner ? '👑' : (profile.name ? profile.name[0].toUpperCase() : 'A');
         avatarEl.className = `w-8 h-8 rounded-full ${isOwner ? 'bg-amber-500' : 'bg-[#1a73e8]'} text-white flex items-center justify-center text-xs font-bold shrink-0`;
+    }
+
+    // Top Bar Assigned Hostel Indicator
+    const topBadge = document.getElementById('top-hostel-badge');
+    const topName = document.getElementById('top-hostel-name');
+    if (topBadge && topName) {
+        if (!isOwner && profile.assigned_hostel_id) {
+            topName.textContent = `${profile.assigned_hostel_id} Dark-Store`;
+            topBadge.className = 'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#0066cc] border border-blue-200';
+            topBadge.classList.remove('hidden');
+        } else if (isOwner) {
+            topName.textContent = 'All Campus Hostels (Owner)';
+            topBadge.className = 'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-300';
+            topBadge.classList.remove('hidden');
+        } else {
+            topBadge.classList.add('hidden');
+        }
     }
 
     // Filter sidebar navigation buttons based on data-required-role
@@ -764,9 +782,11 @@ async function refreshCurrentView() {
 // ================= 1. DASHBOARD LOAD =================
 async function loadDashboard() {
     try {
+        const hostelId = (typeof getActiveAdminHostelFilter === 'function') ? (getActiveAdminHostelFilter('orders') || getActiveAdminHostelFilter('products')) : null;
+        const hostelParam = hostelId ? `?hostel_id=${encodeURIComponent(hostelId)}` : '';
         const [analyticsRes, ordersRes] = await Promise.allSettled([
-            fetchWithTimeout(`/api/orders/admin/analytics`, { headers: getAuthHeaders() }, 15000),
-            fetchWithTimeout(`/api/orders/admin/all`, { headers: getAuthHeaders() }, 15000)
+            fetchWithTimeout(`/api/orders/admin/analytics${hostelParam}`, { headers: getAuthHeaders() }, 15000),
+            fetchWithTimeout(`/api/orders/admin/all${hostelParam}`, { headers: getAuthHeaders() }, 15000)
         ]);
 
         let analyticsData = {};
@@ -5382,7 +5402,7 @@ function renderStaffTable(list) {
     if (!tbody) return;
 
     if (!list || list.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-[#5c5f60]">No admin members found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-[#5c5f60]">No admin members found.</td></tr>`;
         return;
     }
 
@@ -5402,6 +5422,15 @@ function renderStaffTable(list) {
         }
         if (s.roles.includes('delivery_person')) {
             roleBadges.push(`<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">🛵 Delivery</span>`);
+        }
+
+        let hostelBadge = '';
+        if (isOwner) {
+            hostelBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-300">🌐 All Hostels (Master)</span>`;
+        } else if (s.assigned_hostel_id) {
+            hostelBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#0066cc] border border-blue-200">🏢 ${escapeHtml(s.assigned_hostel_id)}</span>`;
+        } else {
+            hostelBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-200">🌐 All Hostels</span>`;
         }
 
         const lastActiveStr = s.last_login 
@@ -5432,6 +5461,7 @@ function renderStaffTable(list) {
                         ${roleBadges.join('')}
                     </div>
                 </td>
+                <td class="p-4">${hostelBadge}</td>
                 <td class="p-4 text-xs text-[#5c5f60]">${lastActiveStr}</td>
                 <td class="p-4">${statusBadge}</td>
                 <td class="p-4 text-right">
@@ -5485,6 +5515,19 @@ function openStaffModal(staffId = null) {
         document.getElementById('role-inventory-manager').checked = staff.roles.includes('inventory_manager');
         document.getElementById('role-delivery-person').checked = staff.roles.includes('delivery_person');
 
+        const hostelSelect = document.getElementById('form-staff-hostel');
+        if (hostelSelect) {
+            hostelSelect.innerHTML = '<option value="">🏢 None / All Hostels (General Admin)</option>';
+            (hostelsCache || []).forEach(h => {
+                const opt = document.createElement('option');
+                opt.value = h.id;
+                const statusLabel = h.status === 'OFF' ? ' [OFF]' : '';
+                opt.textContent = `${h.name || h.id} (${h.id})${statusLabel}`;
+                hostelSelect.appendChild(opt);
+            });
+            hostelSelect.value = staff.assigned_hostel_id || '';
+        }
+
         if (delBtn) {
             delBtn.classList.toggle('hidden', staff.is_owner);
         }
@@ -5507,6 +5550,19 @@ function openStaffModal(staffId = null) {
         document.getElementById('role-inventory-manager').checked = false;
         document.getElementById('role-delivery-person').checked = false;
 
+        const hostelSelect = document.getElementById('form-staff-hostel');
+        if (hostelSelect) {
+            hostelSelect.innerHTML = '<option value="">🏢 None / All Hostels (General Admin)</option>';
+            (hostelsCache || []).forEach(h => {
+                const opt = document.createElement('option');
+                opt.value = h.id;
+                const statusLabel = h.status === 'OFF' ? ' [OFF]' : '';
+                opt.textContent = `${h.name || h.id} (${h.id})${statusLabel}`;
+                hostelSelect.appendChild(opt);
+            });
+            hostelSelect.value = '';
+        }
+
         if (delBtn) delBtn.classList.add('hidden');
     }
 
@@ -5525,6 +5581,7 @@ async function submitStaffForm(e) {
     const email = document.getElementById('form-staff-email').value.trim();
     const phone = document.getElementById('form-staff-phone').value.trim();
     const password = document.getElementById('form-staff-password').value;
+    const assignedHostelId = document.getElementById('form-staff-hostel')?.value || null;
     const errBox = document.getElementById('staff-form-error');
 
     const roles = [];
@@ -5549,7 +5606,7 @@ async function submitStaffForm(e) {
     try {
         let res;
         if (id) {
-            const payload = { name, phone, roles };
+            const payload = { name, phone, roles, assigned_hostel_id: assignedHostelId };
             if (password) payload.password = password;
             res = await fetch(`/api/admin/staff/${id}`, {
                 method: 'PUT',
@@ -5560,7 +5617,7 @@ async function submitStaffForm(e) {
             res = await fetch('/api/admin/staff', {
                 method: 'POST',
                 headers: getAuthHeaders(),
-                body: JSON.stringify({ name, email, phone, password, roles })
+                body: JSON.stringify({ name, email, phone, password, roles, assigned_hostel_id: assignedHostelId })
             });
         }
 
