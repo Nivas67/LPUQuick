@@ -5340,15 +5340,21 @@ async function initAdminAuth() {
                 'x-admin-token': savedToken
             }
         });
-        const data = await res.json();
-        if (data.success && data.authenticated && data.admin) {
+        let data = null;
+        try {
+            data = await res.json();
+        } catch (_) {}
+
+        if (data && data.success && data.authenticated && data.admin) {
             adminToken = savedToken;
             hideLoginModal();
             const initialView = applyAdminRolePermissions(data.admin);
             switchView(initialView);
             initRealtimeWebSocket();
-        } else {
+        } else if (res.status === 401 || res.status === 403) {
             logoutAdmin();
+        } else {
+            console.warn('[Admin Auth Warning]: Server returned non-success on verify:', res.status);
         }
     } catch (err) {
         showLoginModal();

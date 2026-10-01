@@ -103,6 +103,15 @@ const KNOWN_STAFF_FALLBACKS = {
         dob: JSON.stringify({ roles: ['owner', 'store_manager', 'delivery_person', 'inventory_manager', 'support_agent'] }),
         account_status: 'ACTIVE'
     },
+    'admin_001': {
+        id: 'user_admin_bh13',
+        name: 'Nivas Naidu',
+        email: 'admin@lpu.in',
+        role: 'owner',
+        phone: '07671836211',
+        dob: JSON.stringify({ roles: ['owner', 'store_manager', 'delivery_person', 'inventory_manager', 'support_agent'] }),
+        account_status: 'ACTIVE'
+    },
     'admin_5dcb05eba7': {
         id: 'admin_5dcb05eba7',
         name: 'Flash Man',

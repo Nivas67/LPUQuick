@@ -16,9 +16,9 @@ if (!supabaseKey || supabaseUrl === _DEFAULT_REF) {
     supabaseKey = _DEFAULT_KEY;
 }
 
-// Generate a cryptographically secure random session secret if JWT_SECRET is not in .env
+// Stable session secret across serverless cold starts
 if (!process.env.JWT_SECRET) {
-    process.env.JWT_SECRET = crypto.randomBytes(32).toString('hex');
+    process.env.JWT_SECRET = 'lpuquick_secret_jwt_key_2026';
 }
 
 let supabase = null;
