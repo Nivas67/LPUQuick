@@ -597,11 +597,14 @@
 
                 <!-- Per-Hostel Lock Status Overview (Owner Panoramic) -->
                 <div id="lock-hostel-overview-card" class="glass-panel p-4 sm:p-5 border border-[#DADCE0] bg-white space-y-3 hidden">
-                    <div class="flex items-center justify-between">
-                        <h3 class="font-black text-sm text-[#181c1f] flex items-center gap-2">
-                            <span class="material-symbols-outlined text-[#0066cc] text-lg">domain</span>
-                            <span>Per-Hostel Lock Status</span>
-                        </h3>
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                        <div>
+                            <h3 class="font-black text-sm text-[#181c1f] flex items-center gap-2">
+                                <span class="material-symbols-outlined text-[#0066cc] text-lg">domain</span>
+                                <span>Per-Hostel Lock Status</span>
+                            </h3>
+                            <p class="text-[11px] text-[#5c5f60]">Click any hostel card to select, view, and configure its specific lock schedule.</p>
+                        </div>
                         <span id="lock-hostel-overview-summary" class="text-[10px] font-bold text-[#5c5f60]"></span>
                     </div>
                     <div id="lock-hostel-overview-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
@@ -641,7 +644,7 @@
                             <button type="button" id="btn-quick-unlock" onclick="handleUnlockStore()"
                                 class="hidden bg-[#137333] hover:bg-[#0f5b28] text-white px-5 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-95">
                                 <span class="material-symbols-outlined text-[18px]">lock_open</span>
-                                <span>Unlock Storefront Now</span>
+                                <span id="btn-quick-unlock-text">Unlock Storefront Now</span>
                             </button>
                         </div>
                     </div>
@@ -649,10 +652,16 @@
 
                 <!-- Lock Configuration Form -->
                 <div class="glass-panel p-6">
-                    <h3 class="font-bold text-base text-[#181c1f] mb-4 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-[#3c4043]">tune</span>
-                        <span>Lock Configuration & Timing Modes</span>
-                    </h3>
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                        <h3 class="font-bold text-base text-[#181c1f] flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[#3c4043]">tune</span>
+                            <span>Lock Configuration & Timing Modes</span>
+                        </h3>
+                        <span id="lock-target-badge" class="px-2.5 py-1 rounded-full text-xs font-bold bg-[#e8f0fe] text-[#1a73e8] border border-[#d2e3fc] inline-flex items-center gap-1.5 shadow-2xs">
+                            <span class="material-symbols-outlined text-[15px]">domain</span>
+                            <span>Configuring Target: <strong id="lock-target-hostel-label">All Campus Hostels</strong></span>
+                        </span>
+                    </div>
 
                     <form id="client-lock-form" onsubmit="handleApplyLock(event)" class="space-y-6 text-xs">
 

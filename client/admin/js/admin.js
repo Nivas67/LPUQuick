@@ -1035,6 +1035,34 @@ function updateClientLockUI(avail, targetHostelLabel) {
         quickUnlockBtn?.classList.add('hidden');
         if (lockTickerInterval) clearInterval(lockTickerInterval);
     }
+
+    // Synchronize the hostel dropdown filter
+    const filterSelect = document.getElementById('lock-hostel-filter');
+    if (filterSelect && targetHostelLabel) {
+        if (!Array.from(filterSelect.options).some(o => o.value === targetHostelLabel)) {
+            const opt = document.createElement('option');
+            opt.value = targetHostelLabel;
+            opt.textContent = targetHostelLabel === 'ALL' ? '🏢 All Campus Hostels' : `🏢 ${targetHostelLabel}`;
+            filterSelect.appendChild(opt);
+        }
+        filterSelect.value = targetHostelLabel;
+    }
+
+    // Update target badge and button text in the Lock Configuration form
+    const lockTargetLabel = document.getElementById('lock-target-hostel-label');
+    if (lockTargetLabel) {
+        lockTargetLabel.textContent = (targetHostelLabel && targetHostelLabel !== 'ALL') ? targetHostelLabel : 'All Campus Hostels (Global)';
+    }
+
+    const btnApplyText = document.getElementById('btn-apply-lock-text');
+    if (btnApplyText) {
+        btnApplyText.textContent = (targetHostelLabel && targetHostelLabel !== 'ALL') ? `Lock ${targetHostelLabel} Storefront Now` : 'Lock All Hostels Now';
+    }
+
+    const btnQuickUnlockText = document.getElementById('btn-quick-unlock-text');
+    if (btnQuickUnlockText) {
+        btnQuickUnlockText.textContent = (targetHostelLabel && targetHostelLabel !== 'ALL') ? `Unlock ${targetHostelLabel} Storefront Now` : 'Unlock Storefront Now';
+    }
 }
 
 function startLockCountdown(seconds, endAt) {
@@ -1220,6 +1248,23 @@ async function handleUnlockStore(overrideHostel) {
 }
 
 // Per-Hostel Lock Status Overview (Owner Panoramic Grid)
+function selectLockHostel(hostelId) {
+    if (!hostelId) hostelId = 'ALL';
+    activeAdminHostelFilter.clientLock = hostelId;
+    const select = document.getElementById('lock-hostel-filter');
+    if (select) {
+        if (!Array.from(select.options).some(o => o.value === hostelId)) {
+            const opt = document.createElement('option');
+            opt.value = hostelId;
+            opt.textContent = hostelId === 'ALL' ? '🏢 All Campus Hostels' : `🏢 ${hostelId}`;
+            select.appendChild(opt);
+        }
+        select.value = hostelId;
+    }
+    loadClientLockState();
+}
+window.selectLockHostel = selectLockHostel;
+
 function renderLockHostelOverview(allHostelLocks) {
     const overviewCard = document.getElementById('lock-hostel-overview-card');
     const grid = document.getElementById('lock-hostel-overview-grid');
@@ -1248,24 +1293,35 @@ function renderLockHostelOverview(allHostelLocks) {
     let lockedCount = 0;
     let totalCount = hostels.length;
     let cardsHtml = '';
+    const currentHostel = getActiveLockHostel() || 'ALL';
 
     // Master Lock Card (if exists)
     if (masterLock) {
+        const isSelected = (currentHostel === 'ALL');
         const mLocked = Boolean(masterLock.is_locked);
-        const mBg = mLocked ? 'bg-[#ffdad6]/40' : 'bg-[#e6f4ea]/30';
-        const mBorder = mLocked ? 'border-[#ffb4ab] border-2' : 'border-[#ceead6] border-2';
+        const mBg = isSelected 
+            ? (mLocked ? 'bg-[#ffdad6]/60' : 'bg-[#e6f4ea]/60')
+            : (mLocked ? 'bg-[#ffdad6]/40' : 'bg-[#e6f4ea]/30');
+        const mBorder = isSelected
+            ? 'border-2 border-[#0066cc] ring-2 ring-[#0066cc]/40 shadow-md'
+            : (mLocked ? 'border-[#ffb4ab]' : 'border-[#ceead6]');
         const mDot = mLocked ? 'bg-[#ba1a1a]' : 'bg-[#137333]';
         const mLabel = mLocked
             ? `<span class="text-[#ba1a1a] font-extrabold">🔒 GLOBAL LOCKED</span>`
             : `<span class="text-[#137333] font-extrabold">✅ GLOBAL OPEN</span>`;
         const mAction = mLocked
-            ? `<button onclick="handleUnlockStore('ALL')" class="text-[9px] font-bold text-[#137333] hover:underline mt-1">🔓 Unlock ALL</button>`
-            : `<button onclick="quickLockSingleHostel('ALL')" class="text-[9px] font-bold text-[#ba1a1a] hover:underline mt-1">🔒 Lock ALL</button>`;
+            ? `<button type="button" onclick="event.stopPropagation(); handleUnlockStore('ALL')" class="text-[9px] font-bold text-[#137333] hover:underline mt-1 cursor-pointer">🔓 Unlock ALL</button>`
+            : `<button type="button" onclick="event.stopPropagation(); quickLockSingleHostel('ALL')" class="text-[9px] font-bold text-[#ba1a1a] hover:underline mt-1 cursor-pointer">🔒 Lock ALL</button>`;
 
         cardsHtml += `
-            <div class="${mBg} border ${mBorder} rounded-xl p-3 flex flex-col gap-1 transition-all hover:-translate-y-0.5 cursor-default col-span-full sm:col-span-1">
+            <div onclick="selectLockHostel('ALL')"
+                 class="${mBg} border ${mBorder} rounded-xl p-3 flex flex-col gap-1 transition-all hover:-translate-y-0.5 hover:shadow-md cursor-pointer col-span-full sm:col-span-1 relative ${isSelected ? 'scale-[1.02] ring-2 ring-[#0066cc]/40' : ''}"
+                 title="Click to select and configure Global Master Lock">
                 <div class="flex items-center justify-between">
-                    <span class="text-xs font-black text-[#181c1f]">🏢 ALL</span>
+                    <span class="text-xs font-black text-[#181c1f] flex items-center gap-1.5">
+                        <span>🏢 ALL</span>
+                        ${isSelected ? '<span class="text-[9px] px-1.5 py-0.2 bg-[#0066cc] text-white rounded font-bold uppercase tracking-wider">Selected</span>' : ''}
+                    </span>
                     <span class="w-2.5 h-2.5 rounded-full ${mDot} inline-block"></span>
                 </div>
                 <p class="text-[10px] text-[#5c5f60]">Global Master Lock</p>
@@ -1282,45 +1338,53 @@ function renderLockHostelOverview(allHostelLocks) {
         const lockStatus = isDirectLocked ? (h.direct_lock.lock_status || 'LOCKED') : (isEffectiveLocked ? 'MASTER_LOCKED' : 'AVAILABLE');
         if (isEffectiveLocked) lockedCount++;
 
+        const hostelName = h.hostel_name || h.hostel_id || '—';
+        const hostelId = h.hostel_id || '';
+        const hostelStatus = h.status === 'OFF' ? ' <span class="text-[8px] text-[#74777a] font-bold">[OFF]</span>' : '';
+        const isSelected = (currentHostel === hostelId);
+
         let bgClass, borderClass, dotColor, statusLabel;
         if (isDirectLocked) {
-            bgClass = 'bg-[#ffdad6]/30';
-            borderClass = 'border-[#ffb4ab]';
+            bgClass = isSelected ? 'bg-[#ffdad6]/50' : 'bg-[#ffdad6]/30';
+            borderClass = isSelected ? 'border-2 border-[#0066cc] ring-2 ring-[#0066cc]/40 shadow-md' : 'border-[#ffb4ab]';
             dotColor = 'bg-[#ba1a1a]';
             statusLabel = `<span class="text-[#ba1a1a] font-extrabold">LOCKED</span>`;
         } else if (lockedByMaster) {
-            bgClass = 'bg-[#ffdad6]/15';
-            borderClass = 'border-[#ffb4ab]/50';
+            bgClass = isSelected ? 'bg-[#ffdad6]/30' : 'bg-[#ffdad6]/15';
+            borderClass = isSelected ? 'border-2 border-[#0066cc] ring-2 ring-[#0066cc]/40 shadow-md' : 'border-[#ffb4ab]/50';
             dotColor = 'bg-[#ba1a1a]/60';
             statusLabel = `<span class="text-[#ba1a1a]/70 font-bold text-[9px]">🔒 VIA GLOBAL</span>`;
         } else if (lockStatus === 'SCHEDULED') {
-            bgClass = 'bg-[#fef7e0]/30';
-            borderClass = 'border-[#fce8b2]';
+            bgClass = isSelected ? 'bg-[#fef7e0]/50' : 'bg-[#fef7e0]/30';
+            borderClass = isSelected ? 'border-2 border-[#0066cc] ring-2 ring-[#0066cc]/40 shadow-md' : 'border-[#fce8b2]';
             dotColor = 'bg-[#b06000]';
             statusLabel = `<span class="text-[#b06000] font-extrabold">SCHEDULED</span>`;
         } else {
-            bgClass = 'bg-[#e6f4ea]/30';
-            borderClass = 'border-[#ceead6]';
+            bgClass = isSelected ? 'bg-[#e6f4ea]/50' : 'bg-[#e6f4ea]/30';
+            borderClass = isSelected ? 'border-2 border-[#0066cc] ring-2 ring-[#0066cc]/40 shadow-md' : 'border-[#ceead6]';
             dotColor = 'bg-[#137333]';
             statusLabel = `<span class="text-[#137333] font-extrabold">OPEN</span>`;
         }
 
-        const hostelName = h.hostel_name || h.hostel_id || '—';
-        const hostelId = h.hostel_id || '';
-        const hostelStatus = h.status === 'OFF' ? ' <span class="text-[8px] text-[#74777a]">[OFF]</span>' : '';
-
         // Action button: lock or unlock quick toggle (only for direct, not master-inherited)
         let actionBtn = '';
         if (isDirectLocked) {
-            actionBtn = `<button onclick="handleUnlockStore('${hostelId}')" class="text-[9px] font-bold text-[#137333] hover:underline mt-1">🔓 Unlock</button>`;
+            actionBtn = `<button type="button" onclick="event.stopPropagation(); handleUnlockStore('${hostelId}')" class="text-[9px] font-bold text-[#137333] hover:underline mt-1 cursor-pointer">🔓 Unlock</button>`;
         } else if (!lockedByMaster) {
-            actionBtn = `<button onclick="quickLockSingleHostel('${hostelId}')" class="text-[9px] font-bold text-[#ba1a1a] hover:underline mt-1">🔒 Lock</button>`;
+            actionBtn = `<button type="button" onclick="event.stopPropagation(); quickLockSingleHostel('${hostelId}')" class="text-[9px] font-bold text-[#ba1a1a] hover:underline mt-1 cursor-pointer">🔒 Lock</button>`;
+        } else {
+            actionBtn = `<span class="text-[9px] text-[#74777a] italic mt-1">Locked globally</span>`;
         }
 
         cardsHtml += `
-            <div class="${bgClass} border ${borderClass} rounded-xl p-3 flex flex-col gap-1 transition-all hover:-translate-y-0.5 cursor-default">
+            <div onclick="selectLockHostel('${hostelId}')"
+                 class="${bgClass} border ${borderClass} rounded-xl p-3 flex flex-col gap-1 transition-all hover:-translate-y-0.5 hover:shadow-md cursor-pointer relative ${isSelected ? 'scale-[1.02] ring-2 ring-[#0066cc]/40' : ''}"
+                 title="Click to select and configure lock settings for ${hostelId}">
                 <div class="flex items-center justify-between">
-                    <span class="text-xs font-black text-[#181c1f]">${hostelId}</span>
+                    <span class="text-xs font-black text-[#181c1f] flex items-center gap-1.5">
+                        <span>${hostelId}</span>
+                        ${isSelected ? '<span class="text-[9px] px-1.5 py-0.2 bg-[#0066cc] text-white rounded font-bold uppercase tracking-wider">Selected</span>' : ''}
+                    </span>
                     <span class="w-2 h-2 rounded-full ${dotColor} inline-block"></span>
                 </div>
                 <p class="text-[10px] text-[#5c5f60] truncate">${hostelName}${hostelStatus}</p>
