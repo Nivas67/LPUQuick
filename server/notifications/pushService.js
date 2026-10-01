@@ -9,32 +9,49 @@ const DATA_DIR = path.join(__dirname, '..', 'data');
 const VAPID_FILE = path.join(CONFIG_DIR, 'vapid.json');
 const SUBS_FILE = path.join(DATA_DIR, 'push_subscriptions.json');
 
-// Ensure directories exist
-if (!fs.existsSync(CONFIG_DIR)) fs.mkdirSync(CONFIG_DIR, { recursive: true });
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+// Ensure directories exist safely (no throw on read-only serverless filesystems)
+try {
+    if (!fs.existsSync(CONFIG_DIR)) fs.mkdirSync(CONFIG_DIR, { recursive: true });
+} catch (e) {}
+try {
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+} catch (e) {}
 
 // Load or generate stable VAPID keys
-let vapidKeys;
+let vapidKeys = null;
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
     vapidKeys = {
         publicKey: process.env.VAPID_PUBLIC_KEY,
         privateKey: process.env.VAPID_PRIVATE_KEY
     };
-} else if (fs.existsSync(VAPID_FILE)) {
-    try {
-        vapidKeys = JSON.parse(fs.readFileSync(VAPID_FILE, 'utf8'));
-    } catch (e) {
-        vapidKeys = webpush.generateVAPIDKeys();
-        fs.writeFileSync(VAPID_FILE, JSON.stringify(vapidKeys, null, 2));
-    }
 } else {
-    vapidKeys = webpush.generateVAPIDKeys();
-    fs.writeFileSync(VAPID_FILE, JSON.stringify(vapidKeys, null, 2));
+    try {
+        if (fs.existsSync(VAPID_FILE)) {
+            vapidKeys = JSON.parse(fs.readFileSync(VAPID_FILE, 'utf8'));
+        }
+    } catch (e) {}
+
+    if (!vapidKeys || !vapidKeys.publicKey || !vapidKeys.privateKey) {
+        vapidKeys = {
+            publicKey: 'BIbDYL9eYQn5V-yONZGWuMURDwAvuG8liBT7SNmQxeVHA62Qo4I2LgGSZdYRrVfW5UGAeGAjoZE5ThGTXdITl0E',
+            privateKey: '4aBeU8au19rwlm_aTMDoNQieTg6fLFHR1OYI6QpIdss'
+        };
+        try {
+            if (!fs.existsSync(CONFIG_DIR)) fs.mkdirSync(CONFIG_DIR, { recursive: true });
+            fs.writeFileSync(VAPID_FILE, JSON.stringify(vapidKeys, null, 2));
+        } catch (e) {
+            // Read-only filesystem in serverless environments (e.g. Vercel) - safely ignore
+        }
+    }
 }
 
 // Configure web-push with VAPID details
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:admin@lpu.in';
-webpush.setVapidDetails(VAPID_SUBJECT, vapidKeys.publicKey, vapidKeys.privateKey);
+try {
+    webpush.setVapidDetails(VAPID_SUBJECT, vapidKeys.publicKey, vapidKeys.privateKey);
+} catch (vErr) {
+    console.warn('[Push Service VAPID Warning]:', vErr.message);
+}
 
 // In-memory subscription cache synced to disk
 let subscriptions = [];

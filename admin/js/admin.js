@@ -5260,7 +5260,13 @@ async function handleAdminLogin(e) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })
         });
-        const data = await res.json();
+        const rawText = await res.text();
+        let data;
+        try {
+            data = JSON.parse(rawText);
+        } catch (parseErr) {
+            throw new Error(`Server returned ${res.status}: ${rawText.slice(0, 120)}`);
+        }
         
         if (data.success && data.token) {
             adminToken = data.token;
