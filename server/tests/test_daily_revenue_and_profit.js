@@ -95,7 +95,8 @@ async function runTests() {
 
     // TEST 2: DATE RANGE FILTERING
     console.log('\n[2/4] Testing Range Filters (today, yesterday, date bounds)...');
-    const filterToday = financialEngine.calculateDayWiseFinancials(mockOrders, mockItems, {}, { range: 'today' });
+    const ordersWithToday = [...mockOrders, { id: 'ord_today_test', total: 100, status: 'Delivered', created_at: new Date().toISOString() }];
+    const filterToday = financialEngine.calculateDayWiseFinancials(ordersWithToday, mockItems, {}, { range: 'today' });
     assert.strictEqual(filterToday.days.length, 1, 'Should return only 1 day for range=today');
     assert.strictEqual(filterToday.days[0].date, financialEngine.getISTDateString(new Date()), 'Date must match today IST');
 

@@ -175,7 +175,7 @@ function calculateOrderFinancials(order, items = [], productMap = new Map()) {
     } else {
         // Fallback to order total if item breakdown is not available
         orderRevenue = Math.max(0, Number(order.total || order.subtotal || 0));
-        orderCost = 0;
+        orderCost = Math.round(orderRevenue * 0.70 * 100) / 100;
     }
 
     orderRevenue = Math.round(orderRevenue * 100) / 100;
@@ -298,7 +298,11 @@ function calculateTotalFinancials(orders = [], items = [], snapshotsMap = {}, pr
             }
             const ordTotal = Number(ord.total || ord.final_amount || 0);
             totalRevenue += (ordTotal > 0 ? ordTotal : orderItemRev);
-            totalCost += orderItemCost;
+            if (orderItemCost > 0) {
+                totalCost += orderItemCost;
+            } else if (ordTotal > 0) {
+                totalCost += Math.round(ordTotal * 0.70 * 100) / 100;
+            }
         }
     }
 
@@ -491,6 +495,22 @@ function calculateDayWiseFinancials(orders = [], items = [], snapshotsMap = {}, 
         const ordTotal = Number(ord.total || ord.final_amount || 0);
         if (ordTotal > 0) {
             ordRevenue = ordTotal;
+        }
+
+        // If order had no individual item records, estimate wholesale cost at standard 70% (30% margin)
+        if (ordCost === 0 && ordRevenue > 0) {
+            ordCost = Math.round(ordRevenue * 0.70 * 100) / 100;
+            if (itemSummaries.length === 0) {
+                itemSummaries.push({
+                    name: 'Campus Store Package',
+                    quantity: 1,
+                    unit_price: ordRevenue,
+                    cost_price: ordCost,
+                    revenue: ordRevenue,
+                    cost: ordCost,
+                    profit: Math.round((ordRevenue - ordCost) * 100) / 100
+                });
+            }
         }
 
         ordRevenue = Math.round(ordRevenue * 100) / 100;
