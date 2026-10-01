@@ -61,7 +61,7 @@ async function runTests() {
         console.log('--- TEST 1: Admin Authentication & Store Readiness ---');
         const adminLoginRes = await request('POST', '/api/auth/admin-login', {
             email: 'admin@lpu.in',
-            password: 'admin'
+            password: process.env.ADMIN_PASSWORD || 'Nivas@2006$'
         });
         assert(adminLoginRes.status === 200, 'Admin login status 200');
         assert(adminLoginRes.body.token, 'Admin token received');

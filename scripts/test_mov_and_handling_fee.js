@@ -7,7 +7,7 @@ async function testBackend() {
     const adminLoginRes = await fetch('http://localhost:3000/api/auth/admin-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'admin@lpu.in', password: 'Nivas@2006$' })
+        body: JSON.stringify({ email: process.env.ADMIN_EMAIL || 'admin@lpu.in', password: process.env.ADMIN_PASSWORD || 'admin123' })
     });
     const adminData = await adminLoginRes.json();
     console.log('Admin login response:', adminLoginRes.status, adminData);

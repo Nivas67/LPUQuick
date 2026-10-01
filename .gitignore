@@ -8,3 +8,5 @@ server/data/backups/
 scripts/debug_*.js
 scripts/test_category_rail_verification.js
 scratch/
+server/config/vapid.json
+server/data/push_subscriptions.json

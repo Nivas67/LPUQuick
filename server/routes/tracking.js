@@ -22,18 +22,17 @@ function setupTracking(server, db) {
         const parts = pathname.split('/').filter(Boolean);
         const orderId = parts.length > 2 ? parts[2] : (parts[1] !== 'track' ? parts[1] : null);
 
-        console.log(`[WS] Tracking connection for order: ${orderId || 'latest'}`);
+        console.log(`[WS] Tracking connection for order: ${orderId || 'none'}`);
 
         let order = null;
         if (orderId) {
-            order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
-        }
-        if (!order) {
-            order = db.prepare('SELECT * FROM orders ORDER BY created_at DESC LIMIT 1').get();
+            try {
+                order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+            } catch (e) {}
         }
 
         if (!order) {
-            ws.send(JSON.stringify({ error: 'No active orders' }));
+            ws.send(JSON.stringify({ error: 'Order not found or invalid order ID' }));
             ws.close();
             return;
         }

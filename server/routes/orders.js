@@ -2052,7 +2052,18 @@ router.get('/detail/:orderId', async (req, res) => {
     try {
         const order = await supabaseDb.orders.getOrderById(orderId);
         if (!order) return res.status(404).json({ error: 'Order not found' });
-        res.json(order);
+
+        // Sensitive Customer Data Protection: Mask phone & email if not owner or admin
+        if (!isAuthorizedForOrder(req, order)) {
+            const maskedOrder = {
+                ...order,
+                customer_phone: order.customer_phone ? String(order.customer_phone).replace(/(\d{2})\d+(\d{2})/, '$1******$2') : null,
+                customer_email: order.customer_email ? String(order.customer_email).replace(/^(.)(.*)(@.*)$/, (_, a, b, c) => `${a}***${c}`) : null
+            };
+            return res.json({ order: maskedOrder, ...maskedOrder });
+        }
+
+        res.json({ order, ...order });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

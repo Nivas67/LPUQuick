@@ -1,26 +1,19 @@
+require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
+const crypto = require('crypto');
 
-// Production default credentials for resilient cloud serverless execution (New Supabase Project)
-const DEFAULT_SUPABASE_URL = 'https://yojndzstlilzlkxonmvd.supabase.co';
-const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlvam5kenN0bGlsemxreG9ubXZkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODM1NjYwMywiZXhwIjoyMTAzOTMyNjAzfQ.UiD72830z3goX1uk-lOKmdnikNNgkQ2dywnXrW3OTYg';
-
-if (!process.env.SUPABASE_URL || process.env.SUPABASE_URL.includes('dzygsmgdzvroxepwyjyz')) {
-    process.env.SUPABASE_URL = DEFAULT_SUPABASE_URL;
-}
-if (!process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_URL === DEFAULT_SUPABASE_URL) {
-    process.env.SUPABASE_SERVICE_ROLE_KEY = DEFAULT_SUPABASE_KEY;
-}
-if (!process.env.JWT_SECRET) {
-    process.env.JWT_SECRET = 'lpuquick_secret_jwt_key_2026';
-}
-
-// Load Supabase environment variables from process.env (populated via dotenv or defaults)
+// Enforce loading credentials strictly from environment variables (Zero hardcoded secrets)
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || DEFAULT_SUPABASE_KEY;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+
+// Generate a cryptographically secure random session secret if JWT_SECRET is not in .env
+if (!process.env.JWT_SECRET) {
+    process.env.JWT_SECRET = crypto.randomBytes(32).toString('hex');
+}
 
 let supabase = null;
 
-// Initialize Supabase client if valid URL and Key are provided
+// Initialize Supabase client if valid URL and Key are provided via environment
 if (supabaseUrl && supabaseKey && !supabaseKey.includes('your-')) {
     try {
         supabase = createClient(supabaseUrl, supabaseKey, {
@@ -29,12 +22,12 @@ if (supabaseUrl && supabaseKey && !supabaseKey.includes('your-')) {
                 autoRefreshToken: false
             }
         });
-        console.log('[Supabase] Client initialized successfully for:', supabaseUrl);
+        console.log('[Supabase] Cloud PostgreSQL client initialized from environment.');
     } catch (err) {
         console.error('[Supabase] Failed to initialize Supabase client:', err.message);
     }
 } else {
-    console.log('[Supabase] Credentials not fully configured in .env yet. Client in standby mode.');
+    console.warn('[Supabase Security Warning]: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured in environment variables.');
 }
 
 /**
@@ -43,8 +36,8 @@ if (supabaseUrl && supabaseKey && !supabaseKey.includes('your-')) {
 function getSupabaseClient() {
     if (supabase) return supabase;
 
-    const url = process.env.SUPABASE_URL || DEFAULT_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || DEFAULT_SUPABASE_KEY;
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 
     if (url && key && !key.includes('your-')) {
         supabase = createClient(url, key, {
