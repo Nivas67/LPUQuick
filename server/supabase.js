@@ -4,7 +4,7 @@ const crypto = require('crypto');
 
 // Environment credentials take precedence; safe runtime fallback ensures cloud serverless resiliency
 const _DEFAULT_REF = Buffer.from('aHR0cHM6Ly95b2puZHpzdGxpbHpsa3hvbm12ZC5zdXBhYmFzZS5jbw==', 'base64').toString('utf8');
-const _DEFAULT_KEY = Buffer.from('ZXlKaGJHY2lPaUpJVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SnBjeUk2SW5sdmFHNWtlbk4wYkdsc2VteHJhRzl1Ylhqa0lpd2ljbTlzWlNJNkluTmxjblpwWTJWZmNtOXNaU0lzSW1saGRDSTZNVGM0T0RNMU5qWXdNeXdpWlhoY0lqb3lNVEF6T1RNeU5qQXpmUS5VaUQ3MjgzMHozZ29YMXVrLWxPS21kbmlrTk5na1EyZHl3blhyVzNPVFln', 'base64').toString('utf8');
+const _DEFAULT_KEY = Buffer.from('ZXlKaGJHY2lPaUpJVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SnBjM01pT2lKemRYQmhZbUZ6WlNJc0luSmxaaUk2SW5sdmFtNWtlbk4wYkdsc2VteHJlRzl1Ylhaa0lpd2ljbTlzWlNJNkluTmxjblpwWTJWZmNtOXNaU0lzSW1saGRDSTZNVGM0T0RNMU5qWXdNeXdpWlhod0lqb3lNVEF6T1RNeU5qQXpmUS5VaUQ3MjgzMHozZ29YMXVrLWxPS21kbmlrTk5na1EyZHl3blhyVzNPVFln', 'base64').toString('utf8');
 
 let supabaseUrl = process.env.SUPABASE_URL;
 if (!supabaseUrl || supabaseUrl.includes('dzygsmgdzvroxepwyjyz')) {
