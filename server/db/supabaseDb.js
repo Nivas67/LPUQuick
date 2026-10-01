@@ -263,7 +263,8 @@ const supabaseDb = {
         },
 
         async getAll({ includeInactive = false, category, subcategory, sort, hostel_id } = {}) {
-            const cacheKey = `products:${hostel_id || 'all'}:${category || 'all'}:${subcategory || 'all'}:${sort || 'default'}:${includeInactive}`;
+            const cleanHostel = (hostel_id && hostel_id !== 'all' && hostel_id !== 'ALL') ? String(hostel_id).trim().toUpperCase() : null;
+            const cacheKey = `products:${cleanHostel || 'all'}:${category || 'all'}:${subcategory || 'all'}:${sort || 'default'}:${includeInactive}`;
             return await cache.wrap(cacheKey, async () => {
                 const supabase = getSupabaseClient();
                 if (!supabase) throw new Error('PostgreSQL client unavailable. Verify SUPABASE_URL and credentials.');
@@ -271,13 +272,9 @@ const supabaseDb = {
                 let data = null;
                 let fetchError = null;
 
-                // 1. First attempt targeted query with hostel_id column for maximum efficiency (0 wasted egress)
                 try {
-                    let query = supabase.from('products').select('id, hostel_id, name, category, subcategory, price, mrp, cost_price, unit, size, image_url, image_alt, tags, in_stock, bestseller, is_new, created_at');
+                    let query = supabase.from('products').select('id, name, category, subcategory, price, mrp, cost_price, unit, size, image_url, image_alt, tags, in_stock, bestseller, is_new, created_at');
 
-                    if (hostel_id && hostel_id !== 'all') {
-                        query = query.eq('hostel_id', hostel_id);
-                    }
                     if (category && category !== 'All') {
                         query = query.ilike('category', `%${category}%`);
                     }
@@ -302,47 +299,40 @@ const supabaseDb = {
                     fetchError = e;
                 }
 
-                // 2. If hostel_id column doesn't exist yet in Supabase, seamlessly fallback without column and filter in-memory
-                if (fetchError && fetchError.message && (fetchError.message.includes('hostel_id') || fetchError.code === '42703')) {
-                    let fallbackQuery = supabase.from('products').select('id, name, category, subcategory, price, mrp, cost_price, unit, size, image_url, image_alt, tags, in_stock, bestseller, is_new, created_at');
-
-                    if (category && category !== 'All') {
-                        fallbackQuery = fallbackQuery.ilike('category', `%${category}%`);
-                    }
-                    if (subcategory && subcategory !== 'all') {
-                        fallbackQuery = fallbackQuery.eq('subcategory', subcategory);
-                    }
-                    if (sort === 'price_asc') {
-                        fallbackQuery = fallbackQuery.order('price', { ascending: true });
-                    } else if (sort === 'price_desc') {
-                        fallbackQuery = fallbackQuery.order('price', { ascending: false });
-                    } else {
-                        fallbackQuery = fallbackQuery.order('name', { ascending: true });
-                    }
-
-                    const res2 = await fallbackQuery;
-                    if (res2.error) throw new Error(`PostgreSQL query error: ${res2.error.message}`);
-                    data = res2.data;
-                } else if (fetchError) {
+                if (fetchError) {
                     throw new Error(`PostgreSQL query error: ${fetchError.message}`);
                 }
 
-                const formatted = (data || []).map(p => this._formatProduct(p));
-
-                // If queried with specific hostel_id, enforce strict isolation
-                if (hostel_id && hostel_id !== 'all') {
-                    const normTarget = hostel_id.toLowerCase().replace('-', '');
-                    return formatted.filter(p => {
-                        const normP = (p.hostel_id || 'BH-13').toLowerCase().replace('-', '');
-                        return normP === normTarget;
-                    });
+                // If specific hostel requested, overlay that hostel's dark-store inventory
+                let hostelInventory = {};
+                if (cleanHostel && supabaseDb.inventory) {
+                    try {
+                        hostelInventory = await supabaseDb.inventory.getHostelInventory(cleanHostel);
+                    } catch (invErr) {
+                        console.warn('[Hostel Inventory Load Note]:', invErr.message);
+                    }
                 }
+
+                // Format every product and overlay hostel stock:
+                const formatted = (data || []).map(p => {
+                    const prod = this._formatProduct(p);
+                    if (cleanHostel) {
+                        prod.hostel_id = cleanHostel;
+                        const override = hostelInventory[prod.id];
+                        if (override !== undefined) {
+                            prod.stock_left = Math.max(0, Number(override.stock_left) || 0);
+                            prod.in_stock = Boolean(override.in_stock && prod.stock_left > 0);
+                        }
+                        // If no override, prod.stock_left and in_stock inherit from master BH-13 ("as like items from 13")
+                    }
+                    return prod;
+                });
 
                 return formatted;
             }, 300000); // 5-minute single-flight micro-cache (drastically reduces DB egress)
         },
 
-        async getById(id) {
+        async getById(id, hostel_id = null) {
             const supabase = getSupabaseClient();
             if (!supabase) throw new Error('PostgreSQL client unavailable');
 
@@ -355,10 +345,23 @@ const supabaseDb = {
             if (error) throw new Error(`PostgreSQL product fetch error: ${error.message}`);
             if (!data) return null;
 
-            return this._formatProduct(data);
+            const prod = this._formatProduct(data);
+            const cleanHostel = (hostel_id && hostel_id !== 'all' && hostel_id !== 'ALL') ? String(hostel_id).trim().toUpperCase() : null;
+            if (cleanHostel && supabaseDb.inventory) {
+                prod.hostel_id = cleanHostel;
+                try {
+                    const inv = await supabaseDb.inventory.getHostelInventory(cleanHostel);
+                    const override = inv[prod.id];
+                    if (override !== undefined) {
+                        prod.stock_left = Math.max(0, Number(override.stock_left) || 0);
+                        prod.in_stock = Boolean(override.in_stock && prod.stock_left > 0);
+                    }
+                } catch (e) {}
+            }
+            return prod;
         },
 
-        async getByIds(ids) {
+        async getByIds(ids, hostel_id = null) {
             if (!ids || ids.length === 0) return [];
             const supabase = getSupabaseClient();
             if (!supabase) return [];
@@ -369,7 +372,26 @@ const supabaseDb = {
                 .in('id', ids);
 
             if (error) return [];
-            return (data || []).map(p => this._formatProduct(p));
+            const cleanHostel = (hostel_id && hostel_id !== 'all' && hostel_id !== 'ALL') ? String(hostel_id).trim().toUpperCase() : null;
+            let inv = {};
+            if (cleanHostel && supabaseDb.inventory) {
+                try {
+                    inv = await supabaseDb.inventory.getHostelInventory(cleanHostel);
+                } catch (e) {}
+            }
+
+            return (data || []).map(p => {
+                const prod = this._formatProduct(p);
+                if (cleanHostel) {
+                    prod.hostel_id = cleanHostel;
+                    const override = inv[prod.id];
+                    if (override !== undefined) {
+                        prod.stock_left = Math.max(0, Number(override.stock_left) || 0);
+                        prod.in_stock = Boolean(override.in_stock && prod.stock_left > 0);
+                    }
+                }
+                return prod;
+            });
         },
 
         async getCategories() {
@@ -396,21 +418,29 @@ const supabaseDb = {
                 .or(`name.ilike.%${clean}%,category.ilike.%${clean}%,tags.ilike.%${clean}%`)
                 .limit(50);
 
-            if (hostel_id && hostel_id !== 'all') {
+            const { data, error } = await query;
+            if (error || !data) return [];
+
+            const cleanHostel = (hostel_id && hostel_id !== 'all' && hostel_id !== 'ALL') ? String(hostel_id).trim().toUpperCase() : null;
+            let inv = {};
+            if (cleanHostel && supabaseDb.inventory) {
                 try {
-                    query = query.eq('hostel_id', hostel_id);
+                    inv = await supabaseDb.inventory.getHostelInventory(cleanHostel);
                 } catch (e) {}
             }
 
-            const { data, error } = await query;
-            if (error || !data) return [];
-            const formatted = data.map(p => this._formatProduct(p));
-
-            if (hostel_id && hostel_id !== 'all') {
-                const normTarget = hostel_id.toLowerCase().replace('-', '');
-                return formatted.filter(p => (p.hostel_id || 'BH-13').toLowerCase().replace('-', '') === normTarget);
-            }
-            return formatted;
+            return (data || []).map(p => {
+                const prod = this._formatProduct(p);
+                if (cleanHostel) {
+                    prod.hostel_id = cleanHostel;
+                    const override = inv[prod.id];
+                    if (override !== undefined) {
+                        prod.stock_left = Math.max(0, Number(override.stock_left) || 0);
+                        prod.in_stock = Boolean(override.in_stock && prod.stock_left > 0);
+                    }
+                }
+                return prod;
+            });
         },
 
         async getRandom(limit = 10, hostel_id = null) {
@@ -420,22 +450,32 @@ const supabaseDb = {
             let query = supabase
                 .from('products')
                 .select('*')
-                .eq('in_stock', true)
                 .limit(50);
-
-            if (hostel_id && hostel_id !== 'all') {
-                try {
-                    query = query.eq('hostel_id', hostel_id);
-                } catch (e) {}
-            }
 
             const { data, error } = await query;
             if (error || !data) return [];
-            let formatted = data.map(p => this._formatProduct(p));
-            if (hostel_id && hostel_id !== 'all') {
-                const normTarget = hostel_id.toLowerCase().replace('-', '');
-                formatted = formatted.filter(p => (p.hostel_id || 'BH-13').toLowerCase().replace('-', '') === normTarget);
+
+            const cleanHostel = (hostel_id && hostel_id !== 'all' && hostel_id !== 'ALL') ? String(hostel_id).trim().toUpperCase() : null;
+            let inv = {};
+            if (cleanHostel && supabaseDb.inventory) {
+                try {
+                    inv = await supabaseDb.inventory.getHostelInventory(cleanHostel);
+                } catch (e) {}
             }
+
+            let formatted = (data || []).map(p => {
+                const prod = this._formatProduct(p);
+                if (cleanHostel) {
+                    prod.hostel_id = cleanHostel;
+                    const override = inv[prod.id];
+                    if (override !== undefined) {
+                        prod.stock_left = Math.max(0, Number(override.stock_left) || 0);
+                        prod.in_stock = Boolean(override.in_stock && prod.stock_left > 0);
+                    }
+                }
+                return prod;
+            }).filter(p => p.in_stock);
+
             const shuffled = [...formatted].sort(() => 0.5 - Math.random());
             return shuffled.slice(0, limit);
         },
@@ -587,23 +627,48 @@ const supabaseDb = {
             return this._formatProduct(data);
         },
 
-        async adjustStock(id, delta) {
+        async adjustStock(id, delta, hostel_id = null) {
+            const cleanHostel = (hostel_id && hostel_id !== 'all' && hostel_id !== 'ALL') ? String(hostel_id).trim().toUpperCase() : 'BH-13';
+            if (cleanHostel !== 'BH-13' && supabaseDb.inventory) {
+                const current = await this.getById(id, cleanHostel);
+                if (!current) throw new Error('Product not found');
+                const newStock = Math.max(0, (current.stock_left || 0) + delta);
+                return await supabaseDb.inventory.setProductStock(cleanHostel, id, { stock_left: newStock, in_stock: newStock > 0 });
+            }
+
             const supabase = getSupabaseClient();
             if (!supabase) throw new Error('PostgreSQL client unavailable');
 
-            const product = await this.getById(id);
+            const product = await this.getById(id, 'BH-13');
             if (!product) throw new Error('Product not found');
 
             const newStock = Math.max(0, (product.stock_left || 0) + delta);
-            return await this.update(id, { stock_left: newStock });
+            const updated = await this.update(id, { stock_left: newStock });
+            if (supabaseDb.inventory) {
+                await supabaseDb.inventory.setProductStock('BH-13', id, { stock_left: newStock, in_stock: newStock > 0 }).catch(() => {});
+            }
+            return updated;
         },
 
-        async toggleStock(id) {
-            const product = await this.getById(id);
+        async toggleStock(id, hostel_id = null) {
+            const cleanHostel = (hostel_id && hostel_id !== 'all' && hostel_id !== 'ALL') ? String(hostel_id).trim().toUpperCase() : 'BH-13';
+            if (cleanHostel !== 'BH-13' && supabaseDb.inventory) {
+                const current = await this.getById(id, cleanHostel);
+                if (!current) throw new Error('Product not found');
+                const newInStock = !current.in_stock;
+                const newStock = newInStock ? 50 : 0;
+                return await supabaseDb.inventory.setProductStock(cleanHostel, id, { in_stock: newInStock, stock_left: newStock });
+            }
+
+            const product = await this.getById(id, 'BH-13');
             if (!product) throw new Error('Product not found');
             const newInStock = !product.in_stock;
             const newStock = newInStock ? 50 : 0;
-            return await this.update(id, { in_stock: newInStock, stock_left: newStock });
+            const updated = await this.update(id, { in_stock: newInStock, stock_left: newStock });
+            if (supabaseDb.inventory) {
+                await supabaseDb.inventory.setProductStock('BH-13', id, { in_stock: newInStock, stock_left: newStock }).catch(() => {});
+            }
+            return updated;
         },
 
         async deactivate(id) {
@@ -622,6 +687,184 @@ const supabaseDb = {
             if (error) throw new Error(`PostgreSQL product delete error: ${error.message}`);
             cache.invalidateProducts();
             return { success: true };
+        }
+    },
+
+    // ==========================================
+    // MULTI-HOSTEL DARK STORE INVENTORY
+    // ==========================================
+    inventory: {
+        _memoryHostelInventory: new Map(),
+        _localFilePath: path.join(__dirname, '..', 'data', 'hostel_inventory.json'),
+
+        _normalizeHostelId(hostelId) {
+            if (!hostelId || hostelId === 'all' || hostelId === 'ALL') return 'BH-13';
+            return String(hostelId).trim().toUpperCase();
+        },
+
+        _getStorageKey(hostelId) {
+            const clean = this._normalizeHostelId(hostelId);
+            return `inventory_${clean.replace(/[^A-Z0-9]/g, '_')}`;
+        },
+
+        _loadLocalFile() {
+            try {
+                if (fs.existsSync(this._localFilePath)) {
+                    return JSON.parse(fs.readFileSync(this._localFilePath, 'utf8'));
+                }
+            } catch (e) {
+                console.warn('[Hostel Inventory Local Read Warning]:', e.message);
+            }
+            return {};
+        },
+
+        _saveLocalFile(data) {
+            try {
+                fs.writeFileSync(this._localFilePath, JSON.stringify(data, null, 2), 'utf8');
+            } catch (e) {
+                // Read-only filesystem on serverless environments
+            }
+        },
+
+        async getHostelInventory(hostelId) {
+            const normHostel = this._normalizeHostelId(hostelId);
+            const key = this._getStorageKey(normHostel);
+
+            return await cache.wrap(`inventory:hostel:${normHostel}`, async () => {
+                // 1. Check memory cache first
+                if (this._memoryHostelInventory.has(normHostel)) {
+                    return this._memoryHostelInventory.get(normHostel);
+                }
+
+                // 2. Fetch from Supabase app_availability table
+                const supabase = getSupabaseClient();
+                if (supabase) {
+                    try {
+                        const { data, error } = await supabase
+                            .from('app_availability')
+                            .select('id, message')
+                            .eq('id', key)
+                            .maybeSingle();
+
+                        if (!error && data && data.message) {
+                            try {
+                                const parsed = JSON.parse(data.message);
+                                if (parsed && typeof parsed === 'object') {
+                                    this._memoryHostelInventory.set(normHostel, parsed);
+                                    return parsed;
+                                }
+                            } catch (parseErr) {}
+                        }
+                    } catch (dbErr) {
+                        console.warn('[Hostel Inventory DB Fetch Note]:', dbErr.message);
+                    }
+                }
+
+                // 3. Fallback to local file
+                const fileData = this._loadLocalFile();
+                const hostelData = fileData[normHostel] || {};
+                this._memoryHostelInventory.set(normHostel, hostelData);
+                return hostelData;
+            }, 60000); // 1-minute TTL, invalidated immediately on write
+        },
+
+        async setProductStock(hostelId, productId, { stock_left, in_stock }) {
+            const normHostel = this._normalizeHostelId(hostelId);
+            const key = this._getStorageKey(normHostel);
+
+            const inv = await this.getHostelInventory(normHostel);
+            const finalStock = Math.max(0, parseInt(stock_left !== undefined ? stock_left : (in_stock ? 10 : 0), 10));
+            const finalInStock = in_stock !== undefined ? Boolean(in_stock) : finalStock > 0;
+
+            inv[productId] = {
+                stock_left: finalStock,
+                in_stock: finalInStock,
+                updated_at: new Date().toISOString()
+            };
+
+            this._memoryHostelInventory.set(normHostel, inv);
+
+            // Persist to local file
+            const fileData = this._loadLocalFile();
+            fileData[normHostel] = inv;
+            this._saveLocalFile(fileData);
+
+            // Persist to Supabase app_availability
+            const supabase = getSupabaseClient();
+            if (supabase) {
+                try {
+                    await supabase
+                        .from('app_availability')
+                        .upsert([{
+                            id: key,
+                            is_locked: false,
+                            lock_type: 'NONE',
+                            message: JSON.stringify(inv),
+                            updated_at: new Date().toISOString()
+                        }]);
+                } catch (dbErr) {
+                    console.warn('[Hostel Inventory DB Save Warning]:', dbErr.message);
+                }
+            }
+
+            // Invalidate caches
+            cache.delete(`inventory:hostel:${normHostel}`);
+            cache.invalidateProducts();
+            cache.clearByPrefix('home:base:');
+
+            return {
+                productId,
+                stock_left: finalStock,
+                in_stock: finalInStock,
+                hostel_id: normHostel
+            };
+        },
+
+        async batchUpdateStock(hostelId, updates = []) {
+            if (!Array.isArray(updates) || updates.length === 0) return;
+            const normHostel = this._normalizeHostelId(hostelId);
+            const key = this._getStorageKey(normHostel);
+
+            const inv = await this.getHostelInventory(normHostel);
+            for (const u of updates) {
+                if (u.productId) {
+                    const finalStock = Math.max(0, parseInt(u.newStock, 10));
+                    inv[u.productId] = {
+                        stock_left: finalStock,
+                        in_stock: u.newInStock !== undefined ? Boolean(u.newInStock) : finalStock > 0,
+                        updated_at: new Date().toISOString()
+                    };
+                }
+            }
+
+            this._memoryHostelInventory.set(normHostel, inv);
+
+            // Persist to local file
+            const fileData = this._loadLocalFile();
+            fileData[normHostel] = inv;
+            this._saveLocalFile(fileData);
+
+            // Persist to Supabase app_availability
+            const supabase = getSupabaseClient();
+            if (supabase) {
+                try {
+                    await supabase
+                        .from('app_availability')
+                        .upsert([{
+                            id: key,
+                            is_locked: false,
+                            lock_type: 'NONE',
+                            message: JSON.stringify(inv),
+                            updated_at: new Date().toISOString()
+                        }]);
+                } catch (dbErr) {
+                    console.warn('[Hostel Inventory Batch Save Warning]:', dbErr.message);
+                }
+            }
+
+            cache.delete(`inventory:hostel:${normHostel}`);
+            cache.invalidateProducts();
+            cache.clearByPrefix('home:base:');
         }
     },
 
@@ -907,21 +1150,43 @@ const supabaseDb = {
             if (prodFetchErr) throw new Error(`Failed to verify products: ${prodFetchErr.message}`);
             const prodMap = new Map((dbProducts || []).map(p => [p.id, p]));
 
+            const hostelId = orderPayload.hostel_id || 'BH-13';
+            const cleanHostel = (hostelId && hostelId !== 'all') ? String(hostelId).trim().toUpperCase() : 'BH-13';
+
+            let hostelInv = {};
+            if (cleanHostel && supabaseDb.inventory) {
+                try {
+                    hostelInv = await supabaseDb.inventory.getHostelInventory(cleanHostel);
+                } catch (e) {}
+            }
+
             const stockUpdates = [];
             for (const item of items) {
                 const p = prodMap.get(item.product_id);
                 if (!p) {
                     throw new Error(`Product "${item.name || item.product_id}" is no longer available in the campus store.`);
                 }
-                const match = (p.tags || '').match(/stock:(\d+)/);
-                const currentStock = match ? parseInt(match[1], 10) : (p.in_stock ? 50 : 0);
+
+                // Check hostel-isolated stock
+                let currentStock;
+                let currentInStock;
+                const override = hostelInv[p.id];
+                if (override !== undefined) {
+                    currentStock = Math.max(0, Number(override.stock_left) || 0);
+                    currentInStock = Boolean(override.in_stock && currentStock > 0);
+                } else {
+                    const match = (p.tags || '').match(/stock:(\d+)/);
+                    currentStock = match ? parseInt(match[1], 10) : (p.in_stock ? 50 : 0);
+                    currentInStock = p.in_stock && currentStock > 0;
+                }
+
                 const reqQty = Math.max(1, Number(item.quantity) || 1);
 
-                if (!p.in_stock || currentStock <= 0) {
-                    throw new Error(`"${p.name}" is currently out of stock.`);
+                if (!currentInStock || currentStock <= 0) {
+                    throw new Error(`"${p.name}" is currently out of stock in ${cleanHostel}.`);
                 }
                 if (reqQty > currentStock) {
-                    throw new Error(`Only ${currentStock} unit(s) of "${p.name}" available. Please adjust quantity.`);
+                    throw new Error(`Only ${currentStock} unit(s) of "${p.name}" available in ${cleanHostel}. Please adjust quantity.`);
                 }
 
                 const newStock = Math.max(0, currentStock - reqQty);
@@ -944,11 +1209,10 @@ const supabaseDb = {
                     costPrice: Number(p.cost_price) || 0,
                     sellingPrice: Number(p.price) || 0,
                     mrp: Number(p.mrp || p.price) || 0,
-                    quantity: reqQty
+                    quantity: reqQty,
+                    hostel_id: cleanHostel
                 });
             }
-
-            const hostelId = orderPayload.hostel_id || 'BH-13';
             const orderId = orderPayload.id || `order_${uuidv4().slice(0, 8)}`;
             const coreOrderPayload = {
                 id: orderId,
@@ -1035,31 +1299,40 @@ const supabaseDb = {
                 }
             }
 
-            // 4. Atomically decrement stock in PostgreSQL using Concurrent Compare-and-Swap (CAS) Guard
+            // 4. Atomically decrement stock according to hostel dark-store inventory
             const appliedStockUpdates = [];
             try {
-                await Promise.all(stockUpdates.map(async su => {
-                    let updateQuery = supabase
-                        .from('products')
-                        .update({
-                            tags: su.updatedTags,
-                            in_stock: su.newInStock
-                        })
-                        .eq('id', su.productId);
+                if (cleanHostel === 'BH-13') {
+                    await Promise.all(stockUpdates.map(async su => {
+                        let updateQuery = supabase
+                            .from('products')
+                            .update({
+                                tags: su.updatedTags,
+                                in_stock: su.newInStock
+                            })
+                            .eq('id', su.productId);
 
-                    // If tags were previously defined, enforce optimistic concurrency check
-                    if (su.originalTags) {
-                        updateQuery = updateQuery.eq('tags', su.originalTags);
+                        // If tags were previously defined, enforce optimistic concurrency check
+                        if (su.originalTags) {
+                            updateQuery = updateQuery.eq('tags', su.originalTags);
+                        }
+
+                        const { data: updatedRows, error: stockErr } = await updateQuery.select('id');
+
+                        if (stockErr) throw stockErr;
+                        if (su.originalTags && (!updatedRows || updatedRows.length === 0)) {
+                            throw new Error(`Item "${su.name}" was just purchased by another student. Stock is no longer available.`);
+                        }
+                        appliedStockUpdates.push(su);
+                    }));
+                }
+
+                if (supabaseDb.inventory) {
+                    await supabaseDb.inventory.batchUpdateStock(cleanHostel, stockUpdates);
+                    if (cleanHostel !== 'BH-13') {
+                        appliedStockUpdates.push(...stockUpdates);
                     }
-
-                    const { data: updatedRows, error: stockErr } = await updateQuery.select('id');
-
-                    if (stockErr) throw stockErr;
-                    if (su.originalTags && (!updatedRows || updatedRows.length === 0)) {
-                        throw new Error(`Item "${su.name}" was just purchased by another student. Stock is no longer available.`);
-                    }
-                    appliedStockUpdates.push(su);
-                }));
+                }
             } catch (stockUpdateErr) {
                 // Rollback order items & order
                 await supabase.from('order_items').delete().eq('order_id', orderId);
@@ -1067,11 +1340,19 @@ const supabaseDb = {
 
                 // Rollback any partially applied stock decrements
                 for (const revert of appliedStockUpdates) {
-                    const revertTags = revert.updatedTags.replace(`stock:${revert.newStock}`, `stock:${revert.previousStock}`);
-                    await supabase.from('products').update({
-                        tags: revertTags,
-                        in_stock: revert.previousStock > 0
-                    }).eq('id', revert.productId).catch(() => {});
+                    if (cleanHostel === 'BH-13') {
+                        const revertTags = revert.updatedTags.replace(`stock:${revert.newStock}`, `stock:${revert.previousStock}`);
+                        await supabase.from('products').update({
+                            tags: revertTags,
+                            in_stock: revert.previousStock > 0
+                        }).eq('id', revert.productId).catch(() => {});
+                    }
+                    if (supabaseDb.inventory) {
+                        await supabaseDb.inventory.setProductStock(cleanHostel, revert.productId, {
+                            stock_left: revert.previousStock,
+                            in_stock: revert.previousStock > 0
+                        }).catch(() => {});
+                    }
                 }
 
                 throw new Error(stockUpdateErr.message);
@@ -1411,12 +1692,14 @@ const supabaseDb = {
             const supabase = getSupabaseClient();
             if (!supabase || !orderId) return;
 
-            const { data: items, error } = await supabase
-                .from('order_items')
-                .select('product_id, quantity')
-                .eq('order_id', orderId);
+            const [orderRes, itemsRes] = await Promise.all([
+                supabase.from('orders').select('hostel_id').eq('id', orderId).maybeSingle(),
+                supabase.from('order_items').select('product_id, quantity').eq('order_id', orderId)
+            ]);
 
-            if (error || !items || items.length === 0) return;
+            const targetHostel = orderRes.data?.hostel_id || 'BH-13';
+            const items = itemsRes.data || [];
+            if (items.length === 0) return;
 
             let broadcastInventoryUpdate;
             try {
@@ -1427,11 +1710,11 @@ const supabaseDb = {
             for (const item of items) {
                 if (item.product_id && Number(item.quantity) > 0) {
                     try {
-                        const updated = await supabaseDb.products.adjustStock(item.product_id, Number(item.quantity));
+                        const updated = await supabaseDb.products.adjustStock(item.product_id, Number(item.quantity), targetHostel);
                         if (typeof broadcastInventoryUpdate === 'function') {
-                            broadcastInventoryUpdate(item.product_id, updated.stock_left, updated.in_stock);
+                            broadcastInventoryUpdate(item.product_id, updated.stock_left, updated.in_stock, targetHostel);
                         }
-                        console.log(`[Order Restock] Restocked +${item.quantity} units for product ${item.product_id} (New stock: ${updated.stock_left})`);
+                        console.log(`[Order Restock] Restocked +${item.quantity} units for product ${item.product_id} in ${targetHostel} (New stock: ${updated.stock_left})`);
                     } catch (pErr) {
                         console.warn(`[Order Restock Error] Product ${item.product_id}:`, pErr.message);
                     }
@@ -1793,9 +2076,10 @@ const supabaseDb = {
                     });
                     if (restockRemoved && curr.product_id && qtyDiff > 0) {
                         try {
-                            const updated = await supabaseDb.products.adjustStock(curr.product_id, qtyDiff);
+                            const targetHostel = order.hostel_id || 'BH-13';
+                            const updated = await supabaseDb.products.adjustStock(curr.product_id, qtyDiff, targetHostel);
                             if (typeof broadcastInventoryUpdate === 'function') {
-                                broadcastInventoryUpdate(curr.product_id, updated.stock_left, updated.in_stock);
+                                broadcastInventoryUpdate(curr.product_id, updated.stock_left, updated.in_stock, targetHostel);
                             }
                         } catch (pErr) {
                             console.warn(`[EditOrder Restock Error]:`, pErr.message);
@@ -1821,9 +2105,10 @@ const supabaseDb = {
                     });
                     if (restockRemoved && curr.product_id && qtyDiff > 0) {
                         try {
-                            const updated = await supabaseDb.products.adjustStock(curr.product_id, qtyDiff);
+                            const targetHostel = order.hostel_id || 'BH-13';
+                            const updated = await supabaseDb.products.adjustStock(curr.product_id, qtyDiff, targetHostel);
                             if (typeof broadcastInventoryUpdate === 'function') {
-                                broadcastInventoryUpdate(curr.product_id, updated.stock_left, updated.in_stock);
+                                broadcastInventoryUpdate(curr.product_id, updated.stock_left, updated.in_stock, targetHostel);
                             }
                         } catch (pErr) {
                             console.warn(`[EditOrder Restock Error]:`, pErr.message);

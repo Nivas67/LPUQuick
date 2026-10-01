@@ -1572,10 +1572,13 @@ function filterInventory() {
 
 async function adjustStock(productId, delta) {
     try {
+        const hostelId = (typeof getActiveAdminHostelFilter === 'function') 
+            ? (getActiveAdminHostelFilter('inventory') || getActiveAdminHostelFilter('products')) 
+            : null;
         const res = await fetch('/api/products/admin/adjust-stock', {
             method: 'POST',
             headers: getAuthHeaders(),
-            body: JSON.stringify({ productId, delta })
+            body: JSON.stringify({ productId, delta, hostel_id: hostelId || undefined })
         });
         const data = await res.json();
         if (data.success) {
@@ -1595,6 +1598,10 @@ async function promptCustomStock(productId, name, current) {
         return;
     }
 
+    const hostelId = (typeof getActiveAdminHostelFilter === 'function') 
+        ? (getActiveAdminHostelFilter(activeView === 'inventory' ? 'inventory' : 'products')) 
+        : null;
+
     const p = productsCache.find(x => x.id === productId);
     if (p) {
         p.stock_left = parsed;
@@ -1607,13 +1614,14 @@ async function promptCustomStock(productId, name, current) {
         const res = await fetch('/api/products/admin/adjust-stock', {
             method: 'POST',
             headers: getAuthHeaders(),
-            body: JSON.stringify({ productId, stock: parsed })
+            body: JSON.stringify({ productId, stock: parsed, hostel_id: hostelId || undefined })
         });
         const data = await res.json();
         if (data.success && p) {
             p.stock_left = data.stock_left;
             p.in_stock = data.in_stock;
             filterProducts();
+            if (typeof filterInventory === 'function') filterInventory();
             showToast(`Updated "${name}" stock to ${parsed}`, 'success');
         }
     } catch (err) {
@@ -1624,6 +1632,10 @@ async function promptCustomStock(productId, name, current) {
 async function toggleProductStock(productId, inStock) {
     const p = productsCache.find(x => x.id === productId);
     if (!p) return;
+
+    const hostelId = (typeof getActiveAdminHostelFilter === 'function') 
+        ? (getActiveAdminHostelFilter(activeView === 'inventory' ? 'inventory' : 'products')) 
+        : null;
 
     let targetStock = 0;
     if (inStock) {
@@ -1648,13 +1660,14 @@ async function toggleProductStock(productId, inStock) {
         const res = await fetch('/api/products/admin/adjust-stock', {
             method: 'POST',
             headers: getAuthHeaders(),
-            body: JSON.stringify({ productId, stock: targetStock })
+            body: JSON.stringify({ productId, stock: targetStock, hostel_id: hostelId || undefined })
         });
         const data = await res.json();
         if (data.success && p) {
             p.stock_left = data.stock_left;
             p.in_stock = data.in_stock;
             filterProducts();
+            if (typeof filterInventory === 'function') filterInventory();
             showToast(targetStock > 0 ? `Set "${p.name}" stock to ${targetStock}` : `Marked "${p.name}" Out of Stock`, 'success');
         }
     } catch (err) {
@@ -3774,7 +3787,11 @@ async function deactivateProduct(id, name) {
     if (!confirm(`Are you sure you want to deactivate "${name}"? It will become unavailable to students while preserving historical orders.`)) return;
 
     try {
-        const res = await fetch(`/api/products/admin/deactivate/${id}`, {
+        const hostelId = (typeof getActiveAdminHostelFilter === 'function') 
+            ? (getActiveAdminHostelFilter('products') || getActiveAdminHostelFilter('inventory')) 
+            : null;
+        const hostelParam = hostelId ? `?hostel_id=${encodeURIComponent(hostelId)}` : '';
+        const res = await fetch(`/api/products/admin/deactivate/${id}${hostelParam}`, {
             method: 'DELETE',
             headers: getAuthHeaders()
         });
@@ -4947,7 +4964,23 @@ function initRealtimeWebSocket() {
 
 // Handle real-time inventory update
 function handleRealtimeInventoryUpdate(data) {
-    const { productId, stock_left, in_stock } = data;
+    if (!data) return;
+    const { productId, stock_left, in_stock, hostel_id } = data;
+
+    // Strict Dark-Store Hostel Isolation: Only update in-memory cache if viewing matching hostel (or ALL)
+    const currentFilter = (typeof getActiveAdminHostelFilter === 'function') 
+        ? getActiveAdminHostelFilter(activeView === 'inventory' ? 'inventory' : 'products') 
+        : null;
+
+    if (hostel_id && currentFilter) {
+        const normEvent = String(hostel_id).toLowerCase().replace(/[^a-z0-9]/g, '');
+        const normFilter = String(currentFilter).toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (normEvent !== normFilter) {
+            // Event is for a different hostel dark-store; do not overwrite current view
+            return;
+        }
+    }
+
     // Update products cache in-place
     const p = productsCache.find(x => x.id === productId);
     if (p) {

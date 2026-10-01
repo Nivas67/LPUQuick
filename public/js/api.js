@@ -438,13 +438,16 @@ const api = {
     },
 
     // Single Product Details (0ms in-memory fast path)
-    async getProduct(id) {
+    async getProduct(id, hostelId = null) {
+        const targetHostel = hostelId || window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
         if (window.__cachedProducts && window.__cachedProducts.has(id)) {
             const cached = window.__cachedProducts.get(id);
-            return { product: cached, ...cached };
+            if (!targetHostel || !cached.hostel_id || cached.hostel_id.toLowerCase().replace(/[^a-z0-9]/g, '') === targetHostel.toLowerCase().replace(/[^a-z0-9]/g, '')) {
+                return { product: cached, ...cached };
+            }
         }
         try {
-            const res = await fetch(`${API_BASE}/products/${id}`);
+            const res = await fetch(`${API_BASE}/products/${id}?hostel_id=${encodeURIComponent(targetHostel)}`);
             const data = await res.json();
             if (data && data.product) {
                 indexProducts([data.product]);

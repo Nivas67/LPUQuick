@@ -352,13 +352,14 @@ function broadcastStatusUpdate(orderId, newStatus, riderName = 'Alex', extraMeta
 }
 
 // Broadcast product/inventory update to all admin sockets AND client sockets
-function broadcastInventoryUpdate(productId, stockLeft, inStock) {
+function broadcastInventoryUpdate(productId, stockLeft, inStock, hostelId = null) {
     const payload = JSON.stringify({
         type: 'INVENTORY_UPDATE',
         productId,
         product_id: productId,
         stock_left: stockLeft,
         in_stock: inStock,
+        hostel_id: hostelId || null,
         timestamp: new Date().toISOString()
     });
 

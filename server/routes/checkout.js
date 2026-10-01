@@ -305,7 +305,7 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
         if (Array.isArray(createdOrder.stockUpdates)) {
             for (const su of createdOrder.stockUpdates) {
                 try {
-                    broadcastInventoryUpdate(su.productId, su.newStock, su.newInStock);
+                    broadcastInventoryUpdate(su.productId, su.newStock, su.newInStock, su.hostel_id);
                 } catch (wsErr) {
                     console.warn('[WS Stock Broadcast Note]:', wsErr.message);
                 }

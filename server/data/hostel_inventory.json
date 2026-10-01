@@ -1,0 +1,16 @@
+{
+  "BH-5": {
+    "prod_78de005c": {
+      "stock_left": 0,
+      "in_stock": false,
+      "updated_at": "2026-10-01T07:29:01.054Z"
+    }
+  },
+  "BH-13": {
+    "prod_78de005c": {
+      "stock_left": 0,
+      "in_stock": false,
+      "updated_at": "2026-10-01T07:28:59.645Z"
+    }
+  }
+}

@@ -2249,6 +2249,17 @@ function initGlobalClientWebSocket() {
 
 // In-place Real-Time Stock Updates across DOM
 function handleLiveInventoryChange(data) {
+    if (!data) return;
+    // Strict Dark-Store Hostel Isolation: Only apply update if it matches current client hostel
+    if (data.hostel_id) {
+        const clientHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
+        const normClient = clientHostel.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const normData = String(data.hostel_id).toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (normClient !== normData) {
+            return; // Stock update belongs to another hostel dark-store
+        }
+    }
+
     const { productId, stock_left, in_stock } = data;
     console.log(`[Realtime Stock Sync] Product ${productId}: Stock=${stock_left}, InStock=${in_stock}`);
 
