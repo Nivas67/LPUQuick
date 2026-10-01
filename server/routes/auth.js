@@ -328,12 +328,20 @@ router.post('/admin-login', async (req, res) => {
         let isPasswordCorrect = false;
         let needsUpgrade = false;
 
-        if (process.env.ADMIN_PASSWORD && password === process.env.ADMIN_PASSWORD) {
-            isPasswordCorrect = true;
-        } else if (user.password_hash) {
-            const verifyRes = verifyPassword(password, user.password_hash);
-            isPasswordCorrect = verifyRes.valid;
-            needsUpgrade = verifyRes.needsUpgrade;
+        const candidatePasswords = [password, typeof password === 'string' ? password.trim() : null].filter(Boolean);
+
+        for (const p of candidatePasswords) {
+            if (process.env.ADMIN_PASSWORD && p === process.env.ADMIN_PASSWORD) {
+                isPasswordCorrect = true;
+                break;
+            } else if (user.password_hash) {
+                const verifyRes = verifyPassword(p, user.password_hash);
+                if (verifyRes.valid) {
+                    isPasswordCorrect = true;
+                    needsUpgrade = verifyRes.needsUpgrade;
+                    break;
+                }
+            }
         }
 
         if (!isPasswordCorrect) {
