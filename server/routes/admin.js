@@ -478,8 +478,172 @@ router.get('/customers/:id/orders', async (req, res) => {
 });
 
 // ============================================================
-// 6. STAFF & ADMIN TEAM MANAGEMENT (OWNER ONLY)
+// 6. EMPLOYEES & STAFF OPERATIONS DIRECTORY
 // ============================================================
+
+// GET /api/admin/employees - Full employees directory with store hostels & delivery boy data
+router.get('/employees', requireRole('owner', 'store_manager'), async (req, res) => {
+    try {
+        const isOwner = Boolean(req.admin && req.admin.is_owner);
+        const assignedHostelId = req.admin?.assigned_hostel_id || null;
+
+        const staffList = await supabaseDb.staff.getAllStaff();
+        const hostels = await supabaseDb.hostels.getAll({ includeInactive: true });
+        const orders = await supabaseDb.orders.getAllOrders();
+
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const hostelMap = new Map();
+        (hostels || []).forEach(h => hostelMap.set(h.id, h));
+
+        const pricingConfig = typeof getDeliveryPricingSettings === 'function' ? getDeliveryPricingSettings() : { rate_per_order: 3.00 };
+        const ratePerOrder = Number(pricingConfig?.rate_per_order) || 3.00;
+
+        const knownStaffNames = new Set();
+
+        const employees = (Array.isArray(staffList) ? staffList : []).map(s => {
+            const sNameLower = (s.name || '').toLowerCase().trim();
+            if (sNameLower) knownStaffNames.add(sNameLower);
+
+            const isDelivery = Boolean(
+                (Array.isArray(s.roles) && s.roles.includes('delivery_person')) ||
+                s.is_owner ||
+                s.id === 'user_admin_bh13'
+            );
+
+            const managed = hostels.filter(h => h.manager_user_id === s.id);
+            const assignedHostel = s.assigned_hostel_id ? hostelMap.get(s.assigned_hostel_id) : null;
+
+            let completedDeliveries = 0;
+            let todayDeliveries = 0;
+            let activeDeliveries = 0;
+
+            if (isDelivery) {
+                orders.forEach(o => {
+                    const meta = supabaseDb.orders.parseDeliveryMeta ? supabaseDb.orders.parseDeliveryMeta(o.rider_name) : {};
+                    const oRiderLower = (o.rider_name || '').toLowerCase().trim();
+                    const isMatched = (meta.assigned_to && meta.assigned_to === s.id) ||
+                                     (sNameLower && oRiderLower && (oRiderLower === sNameLower || oRiderLower.includes(sNameLower)));
+                    if (isMatched) {
+                        const st = String(o.status || '').toLowerCase().trim();
+                        if (['delivered', 'completed'].includes(st)) {
+                            completedDeliveries++;
+                            if ((o.created_at || '').slice(0, 10) === todayStr) {
+                                todayDeliveries++;
+                            }
+                        } else if (['claimed', 'runner_assigned', 'picked_up', 'out_for_delivery'].includes(st)) {
+                            activeDeliveries++;
+                        }
+                    }
+                });
+            }
+
+            return {
+                id: s.id,
+                name: s.name,
+                email: s.email,
+                phone: s.phone || null,
+                roles: Array.isArray(s.roles) ? s.roles : ['store_manager'],
+                is_owner: Boolean(s.is_owner),
+                account_status: s.account_status || 'ACTIVE',
+                assigned_hostel_id: s.assigned_hostel_id || null,
+                assigned_hostel_name: assignedHostel ? assignedHostel.name : (s.is_owner ? 'All Campus Hostels (Master)' : (s.assigned_hostel_id || 'General Operations')),
+                managed_hostels: managed.map(h => ({ id: h.id, name: h.name, status: h.status })),
+                last_login: s.last_login || null,
+                created_at: s.created_at,
+                is_delivery_boy: isDelivery,
+                is_store_manager: Boolean((Array.isArray(s.roles) && s.roles.includes('store_manager')) || s.is_owner),
+                is_inventory_manager: Boolean((Array.isArray(s.roles) && s.roles.includes('inventory_manager')) || s.is_owner),
+                delivery_data: isDelivery ? {
+                    total_deliveries: completedDeliveries,
+                    total_earnings: completedDeliveries * ratePerOrder,
+                    today_deliveries: todayDeliveries,
+                    today_earnings: todayDeliveries * ratePerOrder,
+                    active_deliveries: activeDeliveries,
+                    duty_status: s.account_status === 'ACTIVE' ? 'ON_DUTY' : 'OFF_DUTY',
+                    rate_per_order: ratePerOrder
+                } : null
+            };
+        });
+
+        // Also compile campus delivery runners from order logs
+        const runnerOrdersMap = new Map();
+        orders.forEach(o => {
+            const rName = (o.rider_name || '').trim();
+            if (!rName) return;
+            const rLower = rName.toLowerCase();
+            if (!knownStaffNames.has(rLower)) {
+                if (!runnerOrdersMap.has(rLower)) {
+                    runnerOrdersMap.set(rLower, {
+                        id: `runner_${rLower.replace(/[^a-z0-9]/g, '_')}`,
+                        name: rName,
+                        email: `${rLower.replace(/[^a-z0-9]/g, '')}@rider.lpuquick.in`,
+                        phone: null,
+                        roles: ['delivery_person'],
+                        is_owner: false,
+                        account_status: 'ACTIVE',
+                        assigned_hostel_id: o.hostel_id || 'BH-13',
+                        assigned_hostel_name: hostelMap.get(o.hostel_id)?.name || (o.hostel_id ? `Hostel ${o.hostel_id}` : 'BH-13 Ground Hub'),
+                        managed_hostels: [],
+                        is_delivery_boy: true,
+                        is_store_manager: false,
+                        is_inventory_manager: false,
+                        delivery_data: {
+                            total_deliveries: 0,
+                            total_earnings: 0,
+                            today_deliveries: 0,
+                            today_earnings: 0,
+                            active_deliveries: 0,
+                            duty_status: 'ON_DUTY',
+                            rate_per_order: ratePerOrder
+                        },
+                        created_at: o.created_at || new Date().toISOString()
+                    });
+                }
+
+                const rObj = runnerOrdersMap.get(rLower);
+                const st = String(o.status || '').toLowerCase().trim();
+                if (['delivered', 'completed'].includes(st)) {
+                    rObj.delivery_data.total_deliveries++;
+                    rObj.delivery_data.total_earnings = rObj.delivery_data.total_deliveries * ratePerOrder;
+                    if ((o.created_at || '').slice(0, 10) === todayStr) {
+                        rObj.delivery_data.today_deliveries++;
+                        rObj.delivery_data.today_earnings = rObj.delivery_data.today_deliveries * ratePerOrder;
+                    }
+                } else if (['claimed', 'runner_assigned', 'picked_up', 'out_for_delivery'].includes(st)) {
+                    rObj.delivery_data.active_deliveries++;
+                }
+            }
+        });
+
+        const allRunners = Array.from(runnerOrdersMap.values());
+        allRunners.sort((a, b) => (b.delivery_data?.total_deliveries || 0) - (a.delivery_data?.total_deliveries || 0));
+
+        const combined = [...employees, ...allRunners];
+
+        const stats = {
+            total_employees: combined.length,
+            registered_staff: employees.length,
+            store_managers: employees.filter(e => e.is_store_manager).length,
+            delivery_boys: combined.filter(e => e.is_delivery_boy).length,
+            inventory_managers: employees.filter(e => e.is_inventory_manager).length,
+            hostels_covered: new Set(combined.map(e => e.assigned_hostel_id).filter(Boolean)).size,
+            active_on_duty: combined.filter(e => e.delivery_data?.duty_status === 'ON_DUTY').length
+        };
+
+        res.json({
+            success: true,
+            employees: combined,
+            registered_staff: employees,
+            campus_runners: allRunners,
+            stats,
+            is_owner: isOwner,
+            assigned_hostel_id: assignedHostelId
+        });
+    } catch (err) {
+        console.error('[Admin Employees Route Error]:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
 
 // GET /api/admin/staff (List all admin team members)
 router.get('/staff', requireRole('owner'), async (req, res) => {

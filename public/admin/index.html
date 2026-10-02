@@ -140,6 +140,12 @@
                 <span class="flex-1 font-bold text-[#1a73e8]">Manage Admins</span>
                 <span class="text-[9px] bg-[#1a73e8] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Owner</span>
             </button>
+            <button onclick="switchView('employees')" data-view="employees" data-required-role="owner,store_manager"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+                <span class="material-symbols-outlined text-indigo-600">badge</span>
+                <span class="flex-1 font-bold text-[#181c1f]">Employees</span>
+                <span class="text-[9px] bg-indigo-600 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Staff</span>
+            </button>
             <button onclick="switchView('backup')" data-view="backup" data-required-role="owner"
                 class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined text-[#1a73e8]">settings_backup_restore</span>
@@ -597,11 +603,14 @@
 
                 <!-- Per-Hostel Lock Status Overview (Owner Panoramic) -->
                 <div id="lock-hostel-overview-card" class="glass-panel p-4 sm:p-5 border border-[#DADCE0] bg-white space-y-3 hidden">
-                    <div class="flex items-center justify-between">
-                        <h3 class="font-black text-sm text-[#181c1f] flex items-center gap-2">
-                            <span class="material-symbols-outlined text-[#0066cc] text-lg">domain</span>
-                            <span>Per-Hostel Lock Status</span>
-                        </h3>
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                        <div>
+                            <h3 class="font-black text-sm text-[#181c1f] flex items-center gap-2">
+                                <span class="material-symbols-outlined text-[#0066cc] text-lg">domain</span>
+                                <span>Per-Hostel Lock Status</span>
+                            </h3>
+                            <p class="text-[11px] text-[#5c5f60]">Click any hostel card to select, view, and configure its specific lock schedule.</p>
+                        </div>
                         <span id="lock-hostel-overview-summary" class="text-[10px] font-bold text-[#5c5f60]"></span>
                     </div>
                     <div id="lock-hostel-overview-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
@@ -641,7 +650,7 @@
                             <button type="button" id="btn-quick-unlock" onclick="handleUnlockStore()"
                                 class="hidden bg-[#137333] hover:bg-[#0f5b28] text-white px-5 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-95">
                                 <span class="material-symbols-outlined text-[18px]">lock_open</span>
-                                <span>Unlock Storefront Now</span>
+                                <span id="btn-quick-unlock-text">Unlock Storefront Now</span>
                             </button>
                         </div>
                     </div>
@@ -649,10 +658,16 @@
 
                 <!-- Lock Configuration Form -->
                 <div class="glass-panel p-6">
-                    <h3 class="font-bold text-base text-[#181c1f] mb-4 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-[#3c4043]">tune</span>
-                        <span>Lock Configuration & Timing Modes</span>
-                    </h3>
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                        <h3 class="font-bold text-base text-[#181c1f] flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[#3c4043]">tune</span>
+                            <span>Lock Configuration & Timing Modes</span>
+                        </h3>
+                        <span id="lock-target-badge" class="px-2.5 py-1 rounded-full text-xs font-bold bg-[#e8f0fe] text-[#1a73e8] border border-[#d2e3fc] inline-flex items-center gap-1.5 shadow-2xs">
+                            <span class="material-symbols-outlined text-[15px]">domain</span>
+                            <span>Configuring Target: <strong id="lock-target-hostel-label">All Campus Hostels</strong></span>
+                        </span>
+                    </div>
 
                     <form id="client-lock-form" onsubmit="handleApplyLock(event)" class="space-y-6 text-xs">
 
@@ -2188,6 +2203,153 @@
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW: EMPLOYEES & STORE OPERATIONS ROSTER ================= -->
+            <div id="view-employees" class="space-y-6 max-w-[1440px] mx-auto hidden">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-900 border border-indigo-300 uppercase tracking-wider">
+                                <span class="material-symbols-outlined text-xs">badge</span> Store Operations &amp; Delivery Fleet
+                            </span>
+                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 uppercase tracking-wider">
+                                <span class="material-symbols-outlined text-xs">verified</span> Live Operational Roster
+                            </span>
+                        </div>
+                        <h2 class="text-2xl font-bold text-[#181c1f] flex items-center gap-2">
+                            <span class="material-symbols-outlined text-indigo-600">groups</span>
+                            <span>Employees &amp; Dark Store Roster</span>
+                        </h2>
+                        <p class="text-xs text-[#5c5f60]">View complete staff directory, assigned BH hostel dark stores, job positions, and detailed delivery metrics (earnings, completed orders &amp; live duty status).</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="loadEmployeesList()"
+                            class="p-2 border border-[#DADCE0] rounded-xl bg-white hover:bg-[#f1f4f7] text-[#3c4043] transition-all active:scale-95"
+                            title="Reload Employees Directory">
+                            <span class="material-symbols-outlined text-lg">refresh</span>
+                        </button>
+                        <button onclick="openStaffModal()"
+                            class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all active:scale-95">
+                            <span class="material-symbols-outlined text-base">person_add</span>
+                            <span>Add Employee</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Quick Operational Metrics Grid -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-xl">groups</span>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-[11px] font-semibold text-[#5c5f60] truncate">Total Employees</p>
+                            <h4 class="text-xl font-bold text-[#181c1f]" id="stat-emp-total">0</h4>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-xl">store</span>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-[11px] font-semibold text-[#5c5f60] truncate">Store Managers</p>
+                            <h4 class="text-xl font-bold text-blue-700" id="stat-emp-managers">0</h4>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-xl">two_wheeler</span>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-[11px] font-semibold text-[#5c5f60] truncate">Delivery Boys / Runners</p>
+                            <h4 class="text-xl font-bold text-emerald-800" id="stat-emp-riders">0</h4>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-xl">domain</span>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-[11px] font-semibold text-[#5c5f60] truncate">Dark Stores / Hostels</p>
+                            <h4 class="text-xl font-bold text-purple-700" id="stat-emp-hostels">0</h4>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-amber-100 text-amber-900 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-xl">electric_moped</span>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-[11px] font-semibold text-[#5c5f60] truncate">Active On Duty</p>
+                            <h4 class="text-xl font-bold text-amber-900" id="stat-emp-onduty">0</h4>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Search and Filters Panel -->
+                <div class="glass-panel p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                    <div class="relative flex-1">
+                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#5c5f60] text-lg pointer-events-none">search</span>
+                        <input type="text" id="emp-search-input" oninput="filterEmployeesList()"
+                            placeholder="Search employee by name, phone, email, or BH hostel..."
+                            class="w-full pl-9 pr-4 py-2 border border-[#DADCE0] rounded-xl text-xs bg-white text-[#181c1f] focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600" />
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <select id="emp-filter-hostel" onchange="filterEmployeesList()"
+                            class="px-3 py-2 border border-[#DADCE0] rounded-xl text-xs bg-white text-[#181c1f] focus:outline-none focus:border-indigo-600 font-medium">
+                            <option value="">🏢 All Stores &amp; BH Hostels</option>
+                        </select>
+                        <select id="emp-filter-position" onchange="filterEmployeesList()"
+                            class="px-3 py-2 border border-[#DADCE0] rounded-xl text-xs bg-white text-[#181c1f] focus:outline-none focus:border-indigo-600 font-medium">
+                            <option value="">💼 All Positions</option>
+                            <option value="store_manager">Store Managers</option>
+                            <option value="delivery_person">Delivery Boys / Runners</option>
+                            <option value="inventory_manager">Inventory Managers</option>
+                            <option value="owner">Owners / Admins</option>
+                        </select>
+                        <select id="emp-filter-status" onchange="filterEmployeesList()"
+                            class="px-3 py-2 border border-[#DADCE0] rounded-xl text-xs bg-white text-[#181c1f] focus:outline-none focus:border-indigo-600 font-medium">
+                            <option value="">⚡ All Statuses</option>
+                            <option value="ON_DUTY">🟢 On Duty (Delivery)</option>
+                            <option value="OFF_DUTY">⚪ Off Duty</option>
+                            <option value="ACTIVE">Active Accounts</option>
+                        </select>
+                        <button onclick="resetEmployeeFilters()"
+                            class="px-3 py-2 border border-dashed border-[#DADCE0] hover:border-gray-400 hover:bg-gray-50 text-[#5c5f60] rounded-xl text-xs font-semibold transition-colors">
+                            Reset
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Employees Table Panel -->
+                <div class="glass-panel overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="border-b border-[#DADCE0] bg-[#f7fafd] text-[#5c5f60] font-semibold uppercase text-[11px]">
+                                    <th class="p-4">Employee Profile</th>
+                                    <th class="p-4">Assigned Store / BH Hostel</th>
+                                    <th class="p-4">Position &amp; Role</th>
+                                    <th class="p-4">Phone / Contact</th>
+                                    <th class="p-4">Delivery Operations &amp; Performance</th>
+                                    <th class="p-4">Account Status</th>
+                                    <th class="p-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="employees-table-tbody" class="divide-y divide-[#DADCE0]">
+                                <tr>
+                                    <td colspan="7" class="p-8 text-center text-[#5c5f60] animate-pulse">
+                                        Loading campus employees and store operations data...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="employees-table-footer" class="p-3.5 border-t border-[#DADCE0] bg-gray-50/60 flex items-center justify-between text-xs text-[#5c5f60]">
+                        <span id="emp-count-display">Showing 0 employees</span>
+                        <span class="text-[11px] text-gray-500">Auto-updated with live database records</span>
                     </div>
                 </div>
             </div>

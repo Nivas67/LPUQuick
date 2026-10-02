@@ -650,6 +650,7 @@ function switchView(viewName) {
             'blacklist': ['owner', 'store_manager'],
             'analytics': ['owner', 'store_manager'],
             'staff': ['owner'],
+            'employees': ['owner', 'store_manager'],
             'advertisements': ['owner', 'store_manager'],
             'backup': ['owner'],
             'settings': ['owner'],
@@ -692,7 +693,8 @@ function switchView(viewName) {
         'advertisements': 'Promotional Advertisements & Posters',
         'backup': 'Backup & Disaster Recovery (0 - 100)',
         'settings': 'Store Settings',
-        'hostels': 'Campus Hostels & Dark Stores (Owner Only)'
+        'hostels': 'Campus Hostels & Dark Stores (Owner Only)',
+        'employees': 'Employees & Dark Store Roster'
     };
     document.getElementById('top-title').textContent = titles[viewName] || 'Dashboard';
 
@@ -710,6 +712,7 @@ function switchView(viewName) {
     else if (viewName === 'advertisements') loadAdvertisementsView();
     else if (viewName === 'backup') loadBackupDashboard();
     else if (viewName === 'hostels') loadHostels();
+    else if (viewName === 'employees') loadEmployeesList();
 }
 
 // Master Live Real-Time Refresh Controller
@@ -761,6 +764,8 @@ async function refreshCurrentView() {
             promises.push(loadAdvertisementsView());
         } else if (activeView === 'hostels') {
             promises.push(loadHostels());
+        } else if (activeView === 'employees') {
+            promises.push(loadEmployeesList());
         }
 
         await Promise.allSettled(promises);
@@ -5764,6 +5769,238 @@ async function handleDeleteStaff() {
     } catch (err) {
         alert('Network error: ' + err.message);
     }
+}
+
+// ================= 9b. EMPLOYEES & DARK STORE OPERATIONAL ROSTER =================
+let employeesCache = [];
+let employeesFullData = null;
+
+async function loadEmployeesList() {
+    const tbody = document.getElementById('employees-table-tbody');
+    if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-[#5c5f60] animate-pulse">Loading campus employees and store operations data...</td></tr>`;
+    }
+
+    try {
+        const res = await fetch('/api/admin/employees', { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!data.success) {
+            if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-rose-600">Failed to load employees: ${escapeHtml(data.error || 'Unknown error')}</td></tr>`;
+            return;
+        }
+
+        employeesFullData = data;
+        employeesCache = data.employees || [];
+
+        // Update stat cards
+        const stats = data.stats || {};
+        const el = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+        el('stat-emp-total', stats.total_employees || 0);
+        el('stat-emp-managers', stats.store_managers || 0);
+        el('stat-emp-riders', stats.delivery_boys || 0);
+        el('stat-emp-hostels', stats.hostels_covered || 0);
+        el('stat-emp-onduty', stats.active_on_duty || 0);
+
+        // Populate hostel filter dropdown
+        const hostelSelect = document.getElementById('emp-filter-hostel');
+        if (hostelSelect) {
+            const currentVal = hostelSelect.value;
+            hostelSelect.innerHTML = '<option value="">🏢 All Stores & BH Hostels</option>';
+            const hostelIds = new Set();
+            employeesCache.forEach(e => {
+                if (e.assigned_hostel_id && !hostelIds.has(e.assigned_hostel_id)) {
+                    hostelIds.add(e.assigned_hostel_id);
+                    const opt = document.createElement('option');
+                    opt.value = e.assigned_hostel_id;
+                    opt.textContent = `🏢 ${e.assigned_hostel_name || e.assigned_hostel_id}`;
+                    hostelSelect.appendChild(opt);
+                }
+            });
+            hostelSelect.value = currentVal;
+        }
+
+        renderEmployeesTable(employeesCache);
+    } catch (err) {
+        console.error('[Employees Load Error]:', err);
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-rose-600">Connection error loading employees data.</td></tr>`;
+    }
+}
+
+function renderEmployeesTable(list) {
+    const tbody = document.getElementById('employees-table-tbody');
+    if (!tbody) return;
+
+    if (!list || list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-[#5c5f60]">No employees found matching your criteria.</td></tr>`;
+        const cntEl = document.getElementById('emp-count-display');
+        if (cntEl) cntEl.textContent = 'Showing 0 employees';
+        return;
+    }
+
+    tbody.innerHTML = list.map(emp => {
+        const isOwner = emp.is_owner;
+        const isActive = emp.account_status === 'ACTIVE';
+        const isRunner = emp.id && emp.id.startsWith('runner_');
+
+        // Avatar
+        const avatarBg = isOwner ? 'bg-amber-500' : (isRunner ? 'bg-emerald-600' : 'bg-indigo-600');
+        const avatarIcon = isOwner ? '👑' : (emp.name ? emp.name[0].toUpperCase() : '?');
+
+        // Type badge
+        let typeBadge = '';
+        if (isOwner) {
+            typeBadge = '<span class="text-[10px] font-extrabold text-amber-700">(Owner)</span>';
+        } else if (isRunner) {
+            typeBadge = '<span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">Campus Runner</span>';
+        }
+
+        // Role badges
+        const roleBadges = [];
+        if (isOwner) roleBadges.push('<span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">👑 Owner</span>');
+        if ((emp.roles || []).includes('store_manager')) roleBadges.push('<span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">🏢 Store Mgr</span>');
+        if ((emp.roles || []).includes('inventory_manager')) roleBadges.push('<span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">📦 Inventory</span>');
+        if ((emp.roles || []).includes('delivery_person') || emp.is_delivery_boy) roleBadges.push('<span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">🛵 Delivery</span>');
+
+        // Hostel badge
+        let hostelBadge = '';
+        if (isOwner) {
+            hostelBadge = '<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-300">🌐 All Hostels (Master)</span>';
+        } else if (emp.assigned_hostel_id) {
+            hostelBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#0066cc] border border-blue-200">🏢 ${escapeHtml(emp.assigned_hostel_name || emp.assigned_hostel_id)}</span>`;
+        } else {
+            hostelBadge = '<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-200">General Ops</span>';
+        }
+
+        // Delivery operations data
+        let deliveryCell = '<span class="text-[#74777a] italic text-[11px]">N/A</span>';
+        if (emp.is_delivery_boy && emp.delivery_data) {
+            const dd = emp.delivery_data;
+            const dutyIcon = dd.duty_status === 'ON_DUTY' ? '🟢' : '⚪';
+            const dutyLabel = dd.duty_status === 'ON_DUTY' ? 'On Duty' : 'Off Duty';
+            const dutyClass = dd.duty_status === 'ON_DUTY' ? 'text-emerald-700 bg-emerald-50' : 'text-gray-500 bg-gray-50';
+            deliveryCell = `
+                <div class="space-y-1.5">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${dutyClass} border">${dutyIcon} ${dutyLabel}</span>
+                        ${dd.active_deliveries > 0 ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-800 border border-orange-200 animate-pulse">🚀 ${dd.active_deliveries} Active</span>` : ''}
+                    </div>
+                    <div class="flex items-center gap-3 text-[11px]">
+                        <span class="font-semibold text-[#181c1f]">✅ ${dd.total_deliveries} deliveries</span>
+                        <span class="font-bold text-emerald-700">₹${(dd.total_earnings || 0).toFixed(0)}</span>
+                    </div>
+                    <div class="text-[10px] text-[#5c5f60]">
+                        Today: ${dd.today_deliveries || 0} orders (₹${(dd.today_earnings || 0).toFixed(0)}) · Rate: ₹${dd.rate_per_order}/order
+                    </div>
+                </div>`;
+        }
+
+        // Status badge
+        const statusBadge = isActive
+            ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#e6f4ea] text-[#137333]">Active</span>'
+            : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">Disabled</span>';
+
+        // Actions
+        let actionsHtml = '';
+        if (!isRunner) {
+            actionsHtml = `
+                <button onclick="openStaffModal('${emp.id}')" class="px-2.5 py-1.5 rounded-lg border border-[#DADCE0] hover:bg-[#f1f4f7] text-[#181c1f] font-semibold text-xs transition-colors flex items-center gap-1 shadow-sm">
+                    <span class="material-symbols-outlined text-sm">edit</span>
+                    <span>Edit</span>
+                </button>`;
+        } else {
+            actionsHtml = `<span class="text-[10px] text-[#74777a] italic">Auto-tracked</span>`;
+        }
+
+        return `
+            <tr class="hover:bg-[#f7fafd] transition-colors">
+                <td class="p-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-full ${avatarBg} text-white flex items-center justify-center text-xs font-bold shrink-0">${avatarIcon}</div>
+                        <div class="min-w-0">
+                            <p class="font-bold text-xs text-[#181c1f] flex items-center gap-1.5 truncate">
+                                <span>${escapeHtml(emp.name)}</span>
+                                ${typeBadge}
+                            </p>
+                            <p class="text-[11px] text-[#5c5f60] font-mono truncate">${escapeHtml(emp.email || '')}</p>
+                        </div>
+                    </div>
+                </td>
+                <td class="p-4">${hostelBadge}</td>
+                <td class="p-4"><div class="flex flex-wrap gap-1">${roleBadges.join('')}</div></td>
+                <td class="p-4 text-xs font-medium text-[#181c1f]">${emp.phone ? escapeHtml(emp.phone) : '<span class="text-[#74777a] italic">None</span>'}</td>
+                <td class="p-4">${deliveryCell}</td>
+                <td class="p-4">${statusBadge}</td>
+                <td class="p-4 text-right">
+                    <div class="flex items-center justify-end gap-1.5">
+                        ${actionsHtml}
+                    </div>
+                </td>
+            </tr>`;
+    }).join('');
+
+    const cntEl = document.getElementById('emp-count-display');
+    if (cntEl) cntEl.textContent = `Showing ${list.length} employee${list.length !== 1 ? 's' : ''}`;
+}
+
+function filterEmployeesList() {
+    if (!employeesCache || employeesCache.length === 0) return;
+
+    const searchVal = (document.getElementById('emp-search-input')?.value || '').toLowerCase().trim();
+    const hostelVal = document.getElementById('emp-filter-hostel')?.value || '';
+    const positionVal = document.getElementById('emp-filter-position')?.value || '';
+    const statusVal = document.getElementById('emp-filter-status')?.value || '';
+
+    let filtered = employeesCache;
+
+    // Search filter
+    if (searchVal) {
+        filtered = filtered.filter(e => {
+            const name = (e.name || '').toLowerCase();
+            const email = (e.email || '').toLowerCase();
+            const phone = (e.phone || '').toLowerCase();
+            const hostel = (e.assigned_hostel_name || e.assigned_hostel_id || '').toLowerCase();
+            return name.includes(searchVal) || email.includes(searchVal) || phone.includes(searchVal) || hostel.includes(searchVal);
+        });
+    }
+
+    // Hostel filter
+    if (hostelVal) {
+        filtered = filtered.filter(e => e.assigned_hostel_id === hostelVal);
+    }
+
+    // Position filter
+    if (positionVal) {
+        if (positionVal === 'owner') {
+            filtered = filtered.filter(e => e.is_owner);
+        } else if (positionVal === 'delivery_person') {
+            filtered = filtered.filter(e => e.is_delivery_boy);
+        } else {
+            filtered = filtered.filter(e => (e.roles || []).includes(positionVal));
+        }
+    }
+
+    // Status filter
+    if (statusVal === 'ON_DUTY') {
+        filtered = filtered.filter(e => e.delivery_data?.duty_status === 'ON_DUTY');
+    } else if (statusVal === 'OFF_DUTY') {
+        filtered = filtered.filter(e => e.delivery_data?.duty_status === 'OFF_DUTY');
+    } else if (statusVal === 'ACTIVE') {
+        filtered = filtered.filter(e => e.account_status === 'ACTIVE');
+    }
+
+    renderEmployeesTable(filtered);
+}
+
+function resetEmployeeFilters() {
+    const search = document.getElementById('emp-search-input');
+    const hostel = document.getElementById('emp-filter-hostel');
+    const position = document.getElementById('emp-filter-position');
+    const status = document.getElementById('emp-filter-status');
+    if (search) search.value = '';
+    if (hostel) hostel.value = '';
+    if (position) position.value = '';
+    if (status) status.value = '';
+    renderEmployeesTable(employeesCache);
 }
 
 // ==========================================

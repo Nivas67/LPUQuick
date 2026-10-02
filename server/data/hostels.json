@@ -8,51 +8,19 @@
     "updated_at": "2026-10-01T08:25:01.117Z"
   },
   {
-    "id": "BH-5",
-    "name": "Boys Hostel 5",
-    "status": "ACTIVE",
-    "manager_user_id": "user_881d5b03",
-    "created_at": "2026-10-01T00:00:00.000Z",
-    "updated_at": "2026-10-02T05:50:06.511Z"
-  },
-  {
-    "id": "BH-14",
+    "id": "BH-12",
     "name": "Boys Hostel 12",
     "status": "ACTIVE",
-    "manager_user_id": "user_admin_bh13",
-    "created_at": "2026-10-01T00:00:00.000Z",
-    "updated_at": "2026-10-02T05:50:07.317Z"
+    "manager_user_id": "user_881d5b03",
+    "created_at": "2026-10-02T07:15:46.242Z",
+    "updated_at": "2026-10-02T07:16:16.950Z"
   },
   {
-    "id": "GH-1",
-    "name": "Girls Hostel 1",
-    "status": "OFF",
-    "manager_user_id": "admin_4a30214501",
-    "created_at": "2026-10-01T00:00:00.000Z",
-    "updated_at": "2026-10-01T11:04:49.494Z"
-  },
-  {
-    "id": "BH 11",
+    "id": "BH-11",
     "name": "Boys Hostel 11",
-    "status": "OFF",
-    "manager_user_id": "admin_48404d761b",
-    "created_at": "2026-10-01T06:02:23.671Z",
-    "updated_at": "2026-10-02T05:49:46.068Z"
-  },
-  {
-    "id": "BH 6",
-    "name": "Boys Hostel 6",
-    "status": "OFF",
-    "manager_user_id": "user_admin_bh13",
-    "created_at": "2026-10-01T11:02:40.048Z",
-    "updated_at": "2026-10-02T05:49:46.589Z"
-  },
-  {
-    "id": "BH 4",
-    "name": "Boys Hostel 4",
     "status": "ACTIVE",
-    "manager_user_id": null,
-    "created_at": "2026-10-02T06:40:00.000Z",
-    "updated_at": "2026-10-02T07:04:11.188Z"
+    "manager_user_id": "user_admin_bh13",
+    "created_at": "2026-10-02T07:16:25.310Z",
+    "updated_at": "2026-10-02T07:19:08.154Z"
   }
 ]
