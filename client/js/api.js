@@ -273,15 +273,20 @@ const api = {
     },
 
     // Active Hostels with Short-Term SWR Cache
-    async getActiveHostels() {
+    async getActiveHostels(forceRefresh = false) {
+        if (!forceRefresh && window.__activeHostelsCache && Array.isArray(window.__activeHostelsCache) && (Date.now() - (window.__activeHostelsCacheTime || 0) < 3000)) {
+            return window.__activeHostelsCache;
+        }
         try {
             const res = await fetch(`${API_BASE}/hostels/active?_t=${Date.now()}`);
             const data = await res.json();
-            return data.hostels || [];
+            const list = (data && Array.isArray(data.hostels)) ? data.hostels : [];
+            window.__activeHostelsCache = list;
+            window.__activeHostelsCacheTime = Date.now();
+            return list;
         } catch (e) {
-            return [
-                { id: 'BH-13', name: 'BH-13 (Boys Hostel 13)', status: 'ACTIVE' },
-                { id: 'BH-5', name: 'BH-5 (Boys Hostel 5)', status: 'ACTIVE' }
+            return window.__activeHostelsCache || [
+                { id: 'BH-13', name: 'Boys Hostel 13', status: 'ACTIVE' }
             ];
         }
     },

@@ -284,39 +284,91 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
     const existing = document.getElementById('address-modal');
     if (existing) existing.remove();
 
-    // Fetch live active hostels from Edge CDN
+    // Fetch live active hostels from Edge CDN / Database with real-time freshness
     let liveHostels = [];
     try {
-        liveHostels = (await window.api?.getActiveHostels?.()) || [];
+        liveHostels = (await window.api?.getActiveHostels?.(true)) || [];
     } catch (e) {}
-    if (!liveHostels || liveHostels.length === 0) {
-        liveHostels = [
-            { id: 'BH-13', name: 'BH-13', status: 'ACTIVE' },
-            { id: 'BH-5', name: 'BH-5', status: 'ACTIVE' }
-        ];
+
+    // Robust hostel normalization helper: strips spaces, hyphens, underscores and handles prefixes
+    function normalizeHostelKey(str) {
+        if (!str) return '';
+        let s = String(str).toUpperCase().replace(/[\s\-_]/g, '');
+        s = s.replace(/^BOYSHOSTEL/, 'BH').replace(/^GIRLSHOSTEL/, 'GH');
+        return s;
     }
 
-    const activeIds = new Set(liveHostels.map(h => (h.id || '').toUpperCase().replace('-', '')));
+    const activeKeySet = new Set();
+    const liveHostelMap = new Map();
+
+    (liveHostels || []).forEach(h => {
+        if (!h || h.status === 'OFF') return;
+        const idClean = normalizeHostelKey(h.id);
+        const nameClean = normalizeHostelKey(h.name);
+        if (idClean) {
+            activeKeySet.add(idClean);
+            liveHostelMap.set(idClean, h);
+        }
+        if (nameClean) {
+            activeKeySet.add(nameClean);
+            if (!liveHostelMap.has(nameClean)) liveHostelMap.set(nameClean, h);
+        }
+        const numMatch = (h.id || '').match(/\d+/);
+        if (numMatch) {
+            const num = numMatch[0];
+            const isBH = (h.id || '').toUpperCase().includes('BH') || (h.name || '').toUpperCase().includes('BOYS');
+            const isGH = (h.id || '').toUpperCase().includes('GH') || (h.name || '').toUpperCase().includes('GIRLS');
+            if (isBH) {
+                activeKeySet.add('BH' + num);
+                if (!liveHostelMap.has('BH' + num)) liveHostelMap.set('BH' + num, h);
+            }
+            if (isGH) {
+                activeKeySet.add('GH' + num);
+                if (!liveHostelMap.has('GH' + num)) liveHostelMap.set('GH' + num, h);
+            }
+        }
+        const nameNumMatch = (h.name || '').match(/\d+/);
+        if (nameNumMatch) {
+            const num = nameNumMatch[0];
+            const isBH = (h.name || '').toUpperCase().includes('BOYS') || (h.name || '').toUpperCase().includes('BH');
+            const isGH = (h.name || '').toUpperCase().includes('GIRLS') || (h.name || '').toUpperCase().includes('GH');
+            if (isBH) {
+                activeKeySet.add('BH' + num);
+                if (!liveHostelMap.has('BH' + num)) liveHostelMap.set('BH' + num, h);
+            }
+            if (isGH) {
+                activeKeySet.add('GH' + num);
+                if (!liveHostelMap.has('GH' + num)) liveHostelMap.set('GH' + num, h);
+            }
+        }
+    });
+
+    // Fallback: If no active hostels found, default BH-13 as live
+    if (activeKeySet.size === 0) {
+        activeKeySet.add('BH13');
+        liveHostelMap.set('BH13', { id: 'BH-13', name: 'Boys Hostel 13', status: 'ACTIVE' });
+    }
 
     // Standard Campus Hostels
     const defaultHostels = [
-        'BH13', 'BH5', 'BH1', 'BH2', 'BH3', 'BH4', 'BH6', 'BH7', 'BH8', 'BH9', 'BH10', 'BH11', 'BH12', 'BH14', 'BH15', 'GH1', 'GH2', 'GH3', 'GH4', 'UniMall'
+        'BH13', 'BH1', 'BH2', 'BH3', 'BH4', 'BH5', 'BH6', 'BH7', 'BH8', 'BH9', 'BH10', 'BH11', 'BH12', 'BH14', 'BH15', 'GH1', 'GH2', 'GH3', 'GH4', 'UniMall'
     ];
 
     // Combine custom active hostels from admin with default locations
-    const knownKeys = new Set(defaultHostels.map(n => n.toUpperCase().replace('-', '')));
-    liveHostels.forEach(h => {
-        const key = (h.id || '').toUpperCase().replace('-', '');
-        if (!knownKeys.has(key)) {
+    const knownKeys = new Set(defaultHostels.map(normalizeHostelKey));
+    (liveHostels || []).forEach(h => {
+        if (!h || h.status === 'OFF') return;
+        const k = normalizeHostelKey(h.id);
+        if (k && !knownKeys.has(k)) {
             defaultHostels.push(h.id);
-            knownKeys.add(key);
+            knownKeys.add(k);
         }
     });
 
     const allLocations = defaultHostels.map(loc => {
-        const cleanKey = loc.toUpperCase().replace('-', '');
-        const isActive = activeIds.has(cleanKey);
-        const matchedLive = liveHostels.find(h => (h.id || '').toUpperCase().replace('-', '') === cleanKey);
+        const cleanKey = normalizeHostelKey(loc);
+        const isActive = activeKeySet.has(cleanKey);
+        const matchedLive = liveHostelMap.get(cleanKey);
         const canonId = matchedLive ? matchedLive.id : (loc.startsWith('BH') || loc.startsWith('GH') ? loc.replace(/^([A-Z]+)(\d+)/, '$1-$2') : loc);
         return {
             id: canonId,
@@ -328,10 +380,21 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
     });
 
     let selectedHostel = window.currentHostelId || 'BH-13';
+    // If selected hostel is not active, pick the first active hostel
+    const normSelected = normalizeHostelKey(selectedHostel);
+    if (!activeKeySet.has(normSelected) && activeKeySet.size > 0) {
+        const firstActive = allLocations.find(l => l.active);
+        if (firstActive) {
+            selectedHostel = firstActive.id;
+        }
+    }
+
     let selectedBlock = window.currentBlock || localStorage.getItem('lpuquick_block') || 'Block A';
     const savedRoom = window.currentRoom || localStorage.getItem('lpuquick_room') || '';
     let savedPhone = localStorage.getItem('lpuquick_phone') || '';
     if (savedPhone === '7671836211' || savedPhone === '9877982857') savedPhone = '';
+
+    const liveDisplayNames = allLocations.filter(h => h.active).map(h => h.name).join(', ') || 'BH13';
 
     const modal = document.createElement('div');
     modal.id = 'address-modal';
@@ -361,18 +424,18 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
             <!-- Notice Banner -->
             <div class="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-300 font-medium">
                 <span class="material-symbols-outlined text-base text-emerald">bolt</span>
-                <span>Express 3-min delivery live at <b>${liveHostels.map(h => (h.id || '').replace('-', '')).join(', ') || 'campus'}</b>! Direct room drop.</span>
+                <span>Express 3-min delivery live at <b>${liveDisplayNames}</b>! Direct room drop.</span>
             </div>
 
             <!-- Hostel Selector Grid -->
             <div class="space-y-2">
                 <div class="flex justify-between items-center text-xs">
                     <label class="font-bold text-slate-700 dark:text-slate-300">Hostel</label>
-                    <span class="text-[10px] text-emerald-500 font-bold" id="selected-hostel-active-label">${liveHostels.length > 0 ? selectedHostel + ' Active' : selectedHostel + ' Selected'}</span>
+                    <span class="text-[10px] text-emerald-500 font-bold" id="selected-hostel-active-label">${selectedHostel} Selected</span>
                 </div>
                 <div class="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-36 overflow-y-auto p-0.5 no-scrollbar" id="hostels-container">
                     ${allLocations.map(h => {
-                        const isSelected = h.id === selectedHostel || h.name.toLowerCase().replace('-', '') === selectedHostel.toLowerCase().replace('-', '');
+                        const isSelected = normalizeHostelKey(h.id) === normalizeHostelKey(selectedHostel) || normalizeHostelKey(h.name) === normalizeHostelKey(selectedHostel);
                         if (h.active) {
                             return `
                             <button type="button" class="p-2 rounded-xl text-xs font-bold transition-all relative flex flex-col items-center justify-center gap-1 hostel-pick-btn cursor-pointer ${isSelected ? 'clay-pill text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 bg-emerald-500/15' : 'clay-card text-slate-700 dark:text-slate-300 hover:border-emerald'}" data-hostel="${h.name}" data-hostel-id="${h.id}">
@@ -2213,6 +2276,13 @@ function initGlobalClientWebSocket() {
 
                     // Show toast to student
                     showClientToast(`🏃 ${riderName} accepted your delivery!`, 'success', 'directions_run');
+                }
+                // 9. Live Hostel Availability Updates from Admin Console
+                else if (data.type === 'HOSTEL_STATUS_CHANGED') {
+                    window.__activeHostelsCache = null;
+                    if (window.api?.getActiveHostels) {
+                        window.api.getActiveHostels(true).catch(() => {});
+                    }
                 }
             } catch (err) {
                 console.error('[LPUQuick WS Parse Error]:', err);

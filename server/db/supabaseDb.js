@@ -87,8 +87,10 @@ const supabaseDb = {
                         query = query.order('id', { ascending: true });
                         const { data, error } = await query;
                         if (!error && Array.isArray(data) && data.length > 0) {
-                            this._memoryHostels = data;
-                            this._saveHostelsToDisk();
+                            if (!status && includeInactive) {
+                                this._memoryHostels = data;
+                                this._saveHostelsToDisk();
+                            }
                             return data;
                         }
                     } catch (e) {
@@ -97,14 +99,14 @@ const supabaseDb = {
                 }
 
                 // Resilient local snapshot fallback
-                let list = this._memoryHostels || this._loadHostelsFromDisk();
+                let list = [...(this._memoryHostels || this._loadHostelsFromDisk())];
                 if (status) {
                     list = list.filter(h => h.status === status);
                 } else if (!includeInactive) {
                     list = list.filter(h => h.status === 'ACTIVE');
                 }
                 return list;
-            }, 10000); // 10s TTL — hostel status must propagate fast across serverless instances
+            }, 2000); // 2s TTL — hostel status must propagate fast across serverless instances
         },
 
         async getActiveHostels() {
@@ -115,7 +117,12 @@ const supabaseDb = {
             if (!id) return null;
             const cleanId = id.trim();
             const all = await this.getAll({ includeInactive: true });
-            return all.find(h => h.id.toLowerCase() === cleanId.toLowerCase() || h.id.replace('-', '').toLowerCase() === cleanId.replace('-', '').toLowerCase()) || null;
+            const normClean = cleanId.toLowerCase().replace(/[\s\-_]/g, '');
+            return all.find(h => {
+                const normHId = h.id.toLowerCase().replace(/[\s\-_]/g, '');
+                const normHName = (h.name || '').toLowerCase().replace(/[\s\-_]/g, '').replace(/^(boys?hostel|bh)/, 'bh').replace(/^(girls?hostel|gh)/, 'gh');
+                return normHId === normClean || normHName === normClean;
+            }) || null;
         },
 
         async create({ id, name, status = 'ACTIVE', manager_user_id = null }) {

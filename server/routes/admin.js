@@ -5,7 +5,7 @@ const path = require('path');
 const supabaseDb = require('../db/supabaseDb');
 const requireAdmin = require('../middleware/adminAuth');
 const { requireRole } = require('../middleware/adminAuth');
-const { broadcastClientLockUpdate, broadcastUserBlocked, broadcastUserUnblocked, broadcastAdvertisementsUpdate } = require('../realtime');
+const { broadcastClientLockUpdate, broadcastUserBlocked, broadcastUserUnblocked, broadcastAdvertisementsUpdate, broadcastHostelStatusChanged } = require('../realtime');
 const cache = require('../cache');
 
 // All routes in this file require Administrator Authorization
@@ -892,6 +892,9 @@ const handleActivateHostel = async (req, res) => {
             reason: `Activated hostel ${id}`,
             metadata: { id }
         });
+        if (typeof broadcastHostelStatusChanged === 'function') {
+            broadcastHostelStatusChanged(updated);
+        }
         res.json({ success: true, message: `Hostel ${id} is now ACTIVE`, hostel: updated });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -912,6 +915,9 @@ const handleDeactivateHostel = async (req, res) => {
             reason: `Turned hostel ${id} OFF`,
             metadata: { id }
         });
+        if (typeof broadcastHostelStatusChanged === 'function') {
+            broadcastHostelStatusChanged(updated);
+        }
         res.json({ success: true, message: `Hostel ${id} turned OFF (orders disabled, all data preserved)`, hostel: updated });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });

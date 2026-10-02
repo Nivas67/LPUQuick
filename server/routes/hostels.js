@@ -9,16 +9,10 @@ const supabaseDb = require('../db/supabaseDb');
  */
 router.get('/active', async (req, res) => {
     try {
-        // Short CDN cache — hostel live/off status must propagate fast after admin toggle
-        res.setHeader('Cache-Control', 'public, max-age=5, s-maxage=5, stale-while-revalidate=10');
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
 
         let activeHostels = await supabaseDb.hostels.getActiveHostels();
-        if (!activeHostels || activeHostels.length === 0) {
-            activeHostels = [
-                { id: 'BH-13', name: 'BH-13 (Boys Hostel 13)', status: 'ACTIVE', manager_user_id: null },
-                { id: 'BH-5', name: 'BH-5 (Boys Hostel 5)', status: 'ACTIVE', manager_user_id: null }
-            ];
-        }
+        if (!activeHostels) activeHostels = [];
 
         // Return minimal projection to conserve bandwidth
         const projected = activeHostels.map(h => ({
@@ -36,8 +30,7 @@ router.get('/active', async (req, res) => {
         res.json({
             success: true,
             hostels: [
-                { id: 'BH-13', name: 'BH-13 (Boys Hostel 13)', status: 'ACTIVE' },
-                { id: 'BH-5', name: 'BH-5 (Boys Hostel 5)', status: 'ACTIVE' }
+                { id: 'BH-13', name: 'Boys Hostel 13', status: 'ACTIVE' }
             ]
         });
     }

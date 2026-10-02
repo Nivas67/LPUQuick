@@ -532,6 +532,13 @@ function broadcastDutyStatusChanged(data) {
         is_on_duty: data.is_on_duty,
         timestamp: new Date().toISOString()
     });
+// Broadcast when an admin toggles a hostel storefront active or off
+function broadcastHostelStatusChanged(hostel) {
+    const payload = JSON.stringify({
+        type: 'HOSTEL_STATUS_CHANGED',
+        hostel: hostel || null,
+        timestamp: new Date().toISOString()
+    });
     chunkedBroadcast(adminSockets, payload);
     chunkedBroadcast(clientSockets, payload);
 }
@@ -549,7 +556,8 @@ module.exports = {
     broadcastTransferResolved,
     broadcastOrderEdited,
     broadcastAdvertisementsUpdate,
-    broadcastDutyStatusChanged
+    broadcastDutyStatusChanged,
+    broadcastHostelStatusChanged
 };
 
 
