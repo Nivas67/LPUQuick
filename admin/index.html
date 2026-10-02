@@ -140,7 +140,7 @@
                 <span class="flex-1 font-bold text-[#1a73e8]">Manage Admins</span>
                 <span class="text-[9px] bg-[#1a73e8] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Owner</span>
             </button>
-            <button onclick="switchView('employees')" data-view="employees" data-required-role="owner,store_manager"
+            <button onclick="switchView('employees')" data-view="employees" data-required-role="owner"
                 class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined text-indigo-600">badge</span>
                 <span class="flex-1 font-bold text-[#181c1f]">Employees</span>
@@ -2299,7 +2299,7 @@
                     <div class="flex flex-wrap items-center gap-2">
                         <select id="emp-filter-hostel" onchange="filterEmployeesList()"
                             class="px-3 py-2 border border-[#DADCE0] rounded-xl text-xs bg-white text-[#181c1f] focus:outline-none focus:border-indigo-600 font-medium">
-                            <option value="">🏢 All Stores &amp; BH Hostels</option>
+                            <option value="">🏢 All Stores &amp; Active Hostels</option>
                         </select>
                         <select id="emp-filter-position" onchange="filterEmployeesList()"
                             class="px-3 py-2 border border-[#DADCE0] rounded-xl text-xs bg-white text-[#181c1f] focus:outline-none focus:border-indigo-600 font-medium">
@@ -2350,6 +2350,29 @@
                     <div id="employees-table-footer" class="p-3.5 border-t border-[#DADCE0] bg-gray-50/60 flex items-center justify-between text-xs text-[#5c5f60]">
                         <span id="emp-count-display">Showing 0 employees</span>
                         <span class="text-[11px] text-gray-500">Auto-updated with live database records</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Employee History Modal -->
+            <div id="modal-emp-history" class="hidden fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onclick="if(event.target===this) closeEmployeeHistoryModal()">
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col" onclick="event.stopPropagation()">
+                    <div class="p-5 border-b border-[#DADCE0] flex items-center justify-between bg-gradient-to-r from-indigo-50 to-white shrink-0">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                                <span class="material-symbols-outlined text-xl">history</span>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-bold text-[#181c1f]" id="emp-history-name">Employee History</h3>
+                                <p class="text-[11px] text-[#5c5f60]">Employee details, delivery performance &amp; order history</p>
+                            </div>
+                        </div>
+                        <button onclick="closeEmployeeHistoryModal()" class="w-9 h-9 rounded-xl border border-[#DADCE0] hover:bg-gray-100 flex items-center justify-center text-[#5c5f60] transition-colors">
+                            <span class="material-symbols-outlined text-lg">close</span>
+                        </button>
+                    </div>
+                    <div id="emp-history-content" class="p-5 overflow-y-auto flex-1">
+                        <div class="p-8 text-center text-[#5c5f60] animate-pulse">Loading employee history...</div>
                     </div>
                 </div>
             </div>
