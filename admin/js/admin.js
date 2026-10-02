@@ -1190,8 +1190,20 @@ async function handleApplyLock(e) {
     const mode = document.querySelector('input[name="lock_mode"]:checked')?.value || 'IMMEDIATE';
     const message = document.getElementById('input-lock-message')?.value || '';
     const durationMins = document.getElementById('input-custom-duration')?.value || 30;
-    const startAt = document.getElementById('input-schedule-start')?.value || null;
-    const endAt = document.getElementById('input-schedule-end')?.value || null;
+    let startAt = null;
+    let endAt = null;
+    if (mode === 'SCHEDULED') {
+        const startRaw = document.getElementById('input-schedule-start')?.value;
+        const endRaw = document.getElementById('input-schedule-end')?.value;
+        if (startRaw) {
+            const d = new Date(startRaw);
+            if (!isNaN(d.getTime())) startAt = d.toISOString();
+        }
+        if (endRaw) {
+            const d = new Date(endRaw);
+            if (!isNaN(d.getTime())) endAt = d.toISOString();
+        }
+    }
     const targetHostel = getActiveLockHostel();
 
     const payload = {
@@ -1335,8 +1347,18 @@ function renderLockHostelOverview(allHostelLocks) {
         const isEffectiveLocked = Boolean(h.effective_locked);
         const isDirectLocked = Boolean(h.direct_lock && h.direct_lock.is_locked);
         const lockedByMaster = Boolean(h.locked_by_master);
-        const lockStatus = isDirectLocked ? (h.direct_lock.lock_status || 'LOCKED') : (isEffectiveLocked ? 'MASTER_LOCKED' : 'AVAILABLE');
-        if (isEffectiveLocked) lockedCount++;
+        const directStatus = h.direct_lock?.lock_status || (isDirectLocked ? 'LOCKED' : 'AVAILABLE');
+
+        let lockStatus = 'AVAILABLE';
+        if (isDirectLocked) {
+            lockStatus = 'LOCKED';
+        } else if (lockedByMaster) {
+            lockStatus = 'MASTER_LOCKED';
+        } else if (directStatus === 'SCHEDULED') {
+            lockStatus = 'SCHEDULED';
+        }
+
+        if (isEffectiveLocked || isDirectLocked || lockStatus === 'SCHEDULED') lockedCount++;
 
         const hostelName = h.hostel_name || h.hostel_id || '—';
         const hostelId = h.hostel_id || '';
@@ -1348,7 +1370,7 @@ function renderLockHostelOverview(allHostelLocks) {
             bgClass = isSelected ? 'bg-[#ffdad6]/50' : 'bg-[#ffdad6]/30';
             borderClass = isSelected ? 'border-2 border-[#0066cc] ring-2 ring-[#0066cc]/40 shadow-md' : 'border-[#ffb4ab]';
             dotColor = 'bg-[#ba1a1a]';
-            statusLabel = `<span class="text-[#ba1a1a] font-extrabold">LOCKED</span>`;
+            statusLabel = `<span class="text-[#ba1a1a] font-extrabold">🔒 LOCKED</span>`;
         } else if (lockedByMaster) {
             bgClass = isSelected ? 'bg-[#ffdad6]/30' : 'bg-[#ffdad6]/15';
             borderClass = isSelected ? 'border-2 border-[#0066cc] ring-2 ring-[#0066cc]/40 shadow-md' : 'border-[#ffb4ab]/50';
@@ -1358,7 +1380,7 @@ function renderLockHostelOverview(allHostelLocks) {
             bgClass = isSelected ? 'bg-[#fef7e0]/50' : 'bg-[#fef7e0]/30';
             borderClass = isSelected ? 'border-2 border-[#0066cc] ring-2 ring-[#0066cc]/40 shadow-md' : 'border-[#fce8b2]';
             dotColor = 'bg-[#b06000]';
-            statusLabel = `<span class="text-[#b06000] font-extrabold">SCHEDULED</span>`;
+            statusLabel = `<span class="text-[#b06000] font-extrabold">⏳ SCHEDULED</span>`;
         } else {
             bgClass = isSelected ? 'bg-[#e6f4ea]/50' : 'bg-[#e6f4ea]/30';
             borderClass = isSelected ? 'border-2 border-[#0066cc] ring-2 ring-[#0066cc]/40 shadow-md' : 'border-[#ceead6]';
@@ -1366,9 +1388,9 @@ function renderLockHostelOverview(allHostelLocks) {
             statusLabel = `<span class="text-[#137333] font-extrabold">OPEN</span>`;
         }
 
-        // Action button: lock or unlock quick toggle (only for direct, not master-inherited)
+        // Action button: lock or unlock quick toggle (only for direct or scheduled, not master-inherited)
         let actionBtn = '';
-        if (isDirectLocked) {
+        if (isDirectLocked || lockStatus === 'SCHEDULED') {
             actionBtn = `<button type="button" onclick="event.stopPropagation(); handleUnlockStore('${hostelId}')" class="text-[9px] font-bold text-[#137333] hover:underline mt-1 cursor-pointer">🔓 Unlock</button>`;
         } else if (!lockedByMaster) {
             actionBtn = `<button type="button" onclick="event.stopPropagation(); quickLockSingleHostel('${hostelId}')" class="text-[9px] font-bold text-[#ba1a1a] hover:underline mt-1 cursor-pointer">🔒 Lock</button>`;
@@ -4891,8 +4913,13 @@ function initRealtimeWebSocket() {
                 } else if (data.type === 'ORDER_EDITED') {
                     handleRealtimeOrderEdited(data);
                 } else if (data.type === 'CLIENT_LOCK_UPDATE' && data.availability) {
-                    updateClientLockUI(data.availability);
-                    showToast(`Store availability updated: ${data.availability.lock_status}`, 'info');
+                    const updatedHostel = data.availability.target_hostel || 'ALL';
+                    if (typeof loadClientLockState === 'function') {
+                        loadClientLockState();
+                    } else if (typeof updateClientLockUI === 'function') {
+                        updateClientLockUI(data.availability, updatedHostel);
+                    }
+                    showToast(`Store availability updated for ${updatedHostel}: ${data.availability.lock_status || (data.availability.is_locked ? 'LOCKED' : 'AVAILABLE')}`, 'info');
                 } else if (data.type === 'USER_BLOCKED') {
                     showToast(`User ${data.userId} blocked (${data.reason})`, 'warning');
                     if (activeView === 'customers') loadCustomers();

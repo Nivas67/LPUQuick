@@ -2212,12 +2212,29 @@ function initGlobalClientWebSocket() {
                 }
                 // 4. Live Store Lock / Availability Updates from Admin
                 else if (data.type === 'CLIENT_LOCK_UPDATE' && data.availability) {
-                    window.__storeAvailability = data.availability;
-                    window.renderStoreClosedBannerOrOverlay();
-                    if (data.availability.is_locked) {
-                        showClientToast('🏪 Storefront is currently closed for restock.', 'warning', 'lock');
-                    } else {
-                        showClientToast('🚀 Storefront is now OPEN for orders!', 'success', 'bolt');
+                    const clientHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
+                    const targetHostel = data.availability.target_hostel || 'ALL';
+
+                    // Check if this update applies to this client (ALL or exact hostel match)
+                    const normClient = String(clientHostel).replace(/[\s\-_]/g, '').toLowerCase();
+                    const normTarget = String(targetHostel).replace(/[\s\-_]/g, '').toLowerCase();
+                    const isForMe = targetHostel === 'ALL' || normClient === normTarget;
+
+                    if (isForMe) {
+                        if (typeof window.syncStoreAvailability === 'function') {
+                            window.syncStoreAvailability(clientHostel).then(avail => {
+                                if (avail && avail.is_locked) {
+                                    showClientToast('🏪 Storefront is currently closed for restock.', 'warning', 'lock');
+                                } else {
+                                    showClientToast('🚀 Storefront is now OPEN for orders!', 'success', 'bolt');
+                                }
+                            });
+                        } else {
+                            window.__storeAvailability = data.availability;
+                            if (typeof window.renderStoreClosedBannerOrOverlay === 'function') {
+                                window.renderStoreClosedBannerOrOverlay();
+                            }
+                        }
                     }
                 }
                 // 5. Account Blocked Real-Time Notification

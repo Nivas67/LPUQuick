@@ -45,7 +45,8 @@ router.get('/client-lock', async (req, res) => {
             targetHostel = req.query.hostel_id;
         }
 
-        const availability = await supabaseDb.availability.getHostelStatusDirect(targetHostel);
+        const canonicalTarget = supabaseDb.availability._normalizeHostelId(targetHostel);
+        const availability = await supabaseDb.availability.getHostelStatusDirect(canonicalTarget);
         let allHostelLocks = null;
         if (isOwner) {
             allHostelLocks = await supabaseDb.availability.getAllHostelLocks();
@@ -55,7 +56,7 @@ router.get('/client-lock', async (req, res) => {
             success: true,
             is_owner: isOwner,
             assigned_hostel_id: assignedHostel,
-            target_hostel: targetHostel,
+            target_hostel: canonicalTarget,
             availability,
             all_hostel_locks: allHostelLocks
         });
@@ -80,6 +81,8 @@ router.post('/client-lock', async (req, res) => {
     } else {
         targetHostel = hostel_id || 'ALL';
     }
+
+    const canonicalTarget = supabaseDb.availability._normalizeHostelId(targetHostel);
 
     try {
         let finalStart = start_at ? new Date(start_at).toISOString() : null;
@@ -116,28 +119,28 @@ router.post('/client-lock', async (req, res) => {
             start_at: finalStart,
             end_at: finalEnd,
             created_by: adminId
-        }, targetHostel);
+        }, canonicalTarget);
 
         // Audit Logging
         const auditAction = finalType === 'SCHEDULED' ? 'CLIENT_LOCK_SCHEDULED' : (isLocked ? 'CLIENT_LOCK_ENABLED' : 'CLIENT_LOCK_UPDATED');
         await supabaseDb.audit.logAction({
             adminId,
             action: auditAction,
-            reason: message || `Store lock applied for ${targetHostel}`,
-            metadata: { target_hostel: targetHostel, lock_type: finalType, start_at: finalStart, end_at: finalEnd }
+            reason: message || `Store lock applied for ${canonicalTarget}`,
+            metadata: { target_hostel: canonicalTarget, lock_type: finalType, start_at: finalStart, end_at: finalEnd }
         });
 
         // Real-time broadcast to all storefront clients
         try {
             if (typeof broadcastClientLockUpdate === 'function') {
-                broadcastClientLockUpdate({ ...updated, target_hostel: targetHostel });
+                broadcastClientLockUpdate({ ...updated, target_hostel: canonicalTarget });
             }
         } catch (wsErr) {}
 
         res.json({
             success: true,
-            target_hostel: targetHostel,
-            message: isLocked ? `Storefront for ${targetHostel} has been locked.` : `Lock scheduled successfully for ${targetHostel}.`,
+            target_hostel: canonicalTarget,
+            message: isLocked ? `Storefront for ${canonicalTarget} has been locked.` : `Lock scheduled successfully for ${canonicalTarget}.`,
             availability: updated
         });
     } catch (err) {
@@ -162,26 +165,27 @@ router.delete('/client-lock', async (req, res) => {
     }
 
     try {
-        const updated = await supabaseDb.availability.unlock(adminId, targetHostel);
+        const canonicalTarget = supabaseDb.availability._normalizeHostelId(targetHostel);
+        const updated = await supabaseDb.availability.unlock(adminId, canonicalTarget);
 
         // Audit Logging
         await supabaseDb.audit.logAction({
             adminId,
             action: 'CLIENT_LOCK_DISABLED',
-            reason: `Admin manually unlocked ${targetHostel}`
+            reason: `Admin manually unlocked ${canonicalTarget}`
         });
 
         // Real-time broadcast to all storefront clients
         try {
             if (typeof broadcastClientLockUpdate === 'function') {
-                broadcastClientLockUpdate({ ...updated, target_hostel: targetHostel });
+                broadcastClientLockUpdate({ ...updated, target_hostel: canonicalTarget });
             }
         } catch (wsErr) {}
 
         res.json({
             success: true,
-            target_hostel: targetHostel,
-            message: `Storefront for ${targetHostel} is now AVAILABLE.`,
+            target_hostel: canonicalTarget,
+            message: `Storefront for ${canonicalTarget} is now AVAILABLE.`,
             availability: updated
         });
     } catch (err) {

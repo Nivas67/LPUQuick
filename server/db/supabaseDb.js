@@ -2541,10 +2541,35 @@ const supabaseDb = {
 
         _memoryHostelAvailability: new Map(),
 
+        _normalizeHostelId(hostelId) {
+            if (!hostelId || hostelId === 'ALL' || hostelId === 'store_main') return 'ALL';
+            let s = String(hostelId).trim().toUpperCase();
+            if (s.startsWith('STORE_')) s = s.slice(6);
+            if (s === 'ALL' || s === 'MAIN' || s === 'STORE_MAIN') return 'ALL';
+
+            // Match against loaded hostels in memory / disk
+            const current = supabaseDb.hostels._memoryHostels || supabaseDb.hostels._loadHostelsFromDisk();
+            if (Array.isArray(current) && current.length > 0) {
+                const normInput = s.replace(/[\s\-_]/g, '').toLowerCase();
+                const matched = current.find(h => {
+                    const normHId = (h.id || '').replace(/[\s\-_]/g, '').toLowerCase();
+                    const normHName = (h.name || '').replace(/[\s\-_]/g, '').toLowerCase();
+                    return normHId === normInput || normHName === normInput;
+                });
+                if (matched) return matched.id;
+            }
+
+            return s;
+        },
+
         _normalizeKey(hostelId) {
             if (!hostelId || hostelId === 'ALL' || hostelId === 'store_main') return 'store_main';
-            const clean = String(hostelId).trim().toUpperCase();
-            return clean.startsWith('STORE_') ? clean.toLowerCase() : `store_${clean}`;
+            let s = String(hostelId).trim().toUpperCase();
+            if (s.startsWith('STORE_')) s = s.slice(6);
+            if (s === 'ALL' || s === 'MAIN' || s === 'STORE_MAIN') return 'store_main';
+
+            const canonical = this._normalizeHostelId(s);
+            return `store_${canonical}`;
         },
 
         async _getRawRecord(key) {
@@ -2573,6 +2598,25 @@ const supabaseDb = {
                         fetchedRecord = data;
                     }
                 } catch (e) {}
+
+                // If not found and key has space or hyphen, try alternate representation (e.g. store_BH 11 <-> store_BH-11)
+                if (!fetchedRecord && key.startsWith('store_')) {
+                    const sub = key.slice(6);
+                    const altSub = sub.includes('-') ? sub.replace('-', ' ') : (sub.includes(' ') ? sub.replace(' ', '-') : null);
+                    if (altSub) {
+                        const altKey = `store_${altSub}`;
+                        try {
+                            const { data: altData } = await supabase
+                                .from('app_availability')
+                                .select('id, is_locked, lock_type, message, start_at, end_at, created_by, updated_at')
+                                .eq('id', altKey)
+                                .maybeSingle();
+                            if (altData) {
+                                fetchedRecord = altData;
+                            }
+                        } catch (e) {}
+                    }
+                }
 
                 if (!fetchedRecord && key === 'store_main') {
                     // Fallback to reading from users table system record
@@ -2604,7 +2648,7 @@ const supabaseDb = {
                 this._memoryHostelAvailability.set(key, fetchedRecord);
                 if (key === 'store_main') this._memoryAvailability = { ...this._memoryAvailability, ...fetchedRecord };
                 return fetchedRecord;
-            }, 5000);
+            }, 3000);
         },
 
         async getStatus(hostelId = null) {
@@ -2643,13 +2687,14 @@ const supabaseDb = {
             }
 
             // 2. Check specific hostel's individual lock
-            const key = this._normalizeKey(hostelId);
+            const canonicalHostel = this._normalizeHostelId(hostelId);
+            const key = this._normalizeKey(canonicalHostel);
             const hostelRaw = await this._getRawRecord(key);
             if (hostelRaw.is_locked && hostelRaw.end_at) {
                 const now = new Date();
                 const end = new Date(hostelRaw.end_at);
                 if (now > end) {
-                    await this.unlock('SYSTEM_EXPIRY', hostelId);
+                    await this.unlock('SYSTEM_EXPIRY', canonicalHostel);
                     return this._enrichAvailability({
                         ...hostelRaw,
                         is_locked: false,
@@ -2657,7 +2702,7 @@ const supabaseDb = {
                         message: null,
                         end_at: null,
                         is_global_lock: false,
-                        target_hostel: String(hostelId).toUpperCase()
+                        target_hostel: canonicalHostel
                     });
                 }
             }
@@ -2666,18 +2711,19 @@ const supabaseDb = {
             return {
                 ...hostelEnriched,
                 is_global_lock: false,
-                target_hostel: String(hostelId).toUpperCase()
+                target_hostel: canonicalHostel
             };
         },
 
         async getHostelStatusDirect(hostelId = 'ALL') {
-            const key = this._normalizeKey(hostelId);
+            const canonicalHostel = this._normalizeHostelId(hostelId);
+            const key = this._normalizeKey(canonicalHostel);
             const raw = await this._getRawRecord(key);
             if (raw.is_locked && raw.end_at) {
                 const now = new Date();
                 const end = new Date(raw.end_at);
                 if (now > end) {
-                    await this.unlock('SYSTEM_EXPIRY', hostelId);
+                    await this.unlock('SYSTEM_EXPIRY', canonicalHostel);
                     return this._enrichAvailability({ ...raw, is_locked: false, lock_type: 'NONE', message: null, end_at: null });
                 }
             }
@@ -2701,7 +2747,8 @@ const supabaseDb = {
             const masterLock = await this.getHostelStatusDirect('ALL');
             const hostelLockList = await Promise.all(hostels.map(async h => {
                 const direct = await this.getHostelStatusDirect(h.id);
-                const effectiveLocked = masterLock.is_locked || direct.is_locked;
+                const isDirectLocked = Boolean(direct.is_locked);
+                const effectiveLocked = Boolean(masterLock.is_locked || isDirectLocked);
                 return {
                     hostel_id: h.id,
                     hostel_name: h.name || h.id,
@@ -2709,7 +2756,7 @@ const supabaseDb = {
                     manager_name: h.manager_name || null,
                     direct_lock: direct,
                     effective_locked: effectiveLocked,
-                    locked_by_master: masterLock.is_locked && !direct.is_locked
+                    locked_by_master: Boolean(masterLock.is_locked && !isDirectLocked)
                 };
             }));
 
@@ -2723,9 +2770,10 @@ const supabaseDb = {
             const supabase = getSupabaseClient();
             if (!supabase) throw new Error('PostgreSQL client unavailable');
 
-            const key = this._normalizeKey(hostelId);
+            const canonicalHostel = this._normalizeHostelId(hostelId);
+            const key = this._normalizeKey(canonicalHostel);
             const isMaster = key === 'store_main';
-            const defaultMsg = isMaster ? 'Store is temporarily unavailable.' : `${hostelId} store is temporarily closed.`;
+            const defaultMsg = isMaster ? 'Store is temporarily unavailable.' : `${canonicalHostel} store is temporarily closed.`;
 
             const record = {
                 id: key,
@@ -2777,12 +2825,22 @@ const supabaseDb = {
 
             cache.invalidateAvailability();
             cache.delete(`availability:record:${key}`);
-            return this._enrichAvailability(record);
+            if (key.startsWith('store_')) {
+                const sub = key.slice(6);
+                const altSub = sub.includes('-') ? sub.replace('-', ' ') : (sub.includes(' ') ? sub.replace(' ', '-') : null);
+                if (altSub) cache.delete(`availability:record:store_${altSub}`);
+            }
+
+            return {
+                ...this._enrichAvailability(record),
+                target_hostel: canonicalHostel
+            };
         },
 
         async unlock(adminId = 'admin', hostelId = 'ALL') {
             const supabase = getSupabaseClient();
-            const key = this._normalizeKey(hostelId);
+            const canonicalHostel = this._normalizeHostelId(hostelId);
+            const key = this._normalizeKey(canonicalHostel);
             const isMaster = key === 'store_main';
 
             const record = {
@@ -2808,6 +2866,18 @@ const supabaseDb = {
                         .upsert([record]);
                 } catch (err) {}
 
+                if (key.startsWith('store_')) {
+                    const sub = key.slice(6);
+                    const altSub = sub.includes('-') ? sub.replace('-', ' ') : (sub.includes(' ') ? sub.replace(' ', '-') : null);
+                    if (altSub) {
+                        try {
+                            await supabase
+                                .from('app_availability')
+                                .upsert([{ ...record, id: `store_${altSub}` }]);
+                        } catch (err) {}
+                    }
+                }
+
                 if (isMaster) {
                     try {
                         await supabase.from('users').upsert([{
@@ -2824,7 +2894,16 @@ const supabaseDb = {
 
             cache.invalidateAvailability();
             cache.delete(`availability:record:${key}`);
-            return this._enrichAvailability(record);
+            if (key.startsWith('store_')) {
+                const sub = key.slice(6);
+                const altSub = sub.includes('-') ? sub.replace('-', ' ') : (sub.includes(' ') ? sub.replace(' ', '-') : null);
+                if (altSub) cache.delete(`availability:record:store_${altSub}`);
+            }
+
+            return {
+                ...this._enrichAvailability(record),
+                target_hostel: canonicalHostel
+            };
         }
     },
 
