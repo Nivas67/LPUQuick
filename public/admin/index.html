@@ -3336,6 +3336,46 @@
             </div>
 
             <form id="form-hostel" onsubmit="submitHostelForm(event)" class="space-y-4 text-xs">
+                <div id="preset-hostel-group">
+                    <label class="font-semibold text-[#262a2d] block mb-1">Select Campus Hostel *</label>
+                    <select id="preset-hostel-select" onchange="onPresetHostelSelected(this.value)"
+                        class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#0066cc] outline-none text-xs bg-white font-semibold">
+                        <option value="">-- Choose from Campus Hostel List --</option>
+                        <optgroup label="Boys Hostels (BH)">
+                            <option value="BH-1|Boys Hostel 1">BH-1 (Boys Hostel 1)</option>
+                            <option value="BH-2|Boys Hostel 2">BH-2 (Boys Hostel 2)</option>
+                            <option value="BH-3|Boys Hostel 3">BH-3 (Boys Hostel 3)</option>
+                            <option value="BH-4|Boys Hostel 4">BH-4 (Boys Hostel 4)</option>
+                            <option value="BH-5|Boys Hostel 5">BH-5 (Boys Hostel 5)</option>
+                            <option value="BH-6|Boys Hostel 6">BH-6 (Boys Hostel 6)</option>
+                            <option value="BH-7|Boys Hostel 7">BH-7 (Boys Hostel 7)</option>
+                            <option value="BH-8|Boys Hostel 8">BH-8 (Boys Hostel 8)</option>
+                            <option value="BH-9|Boys Hostel 9">BH-9 (Boys Hostel 9)</option>
+                            <option value="BH-10|Boys Hostel 10">BH-10 (Boys Hostel 10)</option>
+                            <option value="BH-11|Boys Hostel 11">BH-11 (Boys Hostel 11)</option>
+                            <option value="BH-12|Boys Hostel 12">BH-12 (Boys Hostel 12)</option>
+                            <option value="BH-13|Boys Hostel 13">BH-13 (Boys Hostel 13)</option>
+                            <option value="BH-14|Boys Hostel 14">BH-14 (Boys Hostel 14)</option>
+                            <option value="BH-15|Boys Hostel 15">BH-15 (Boys Hostel 15)</option>
+                            <option value="BH-16|Boys Hostel 16">BH-16 (Boys Hostel 16)</option>
+                        </optgroup>
+                        <optgroup label="Girls Hostels (GH)">
+                            <option value="GH-1|Girls Hostel 1">GH-1 (Girls Hostel 1)</option>
+                            <option value="GH-2|Girls Hostel 2">GH-2 (Girls Hostel 2)</option>
+                            <option value="GH-3|Girls Hostel 3">GH-3 (Girls Hostel 3)</option>
+                            <option value="GH-4|Girls Hostel 4">GH-4 (Girls Hostel 4)</option>
+                            <option value="GH-5|Girls Hostel 5">GH-5 (Girls Hostel 5)</option>
+                            <option value="GH-6|Girls Hostel 6">GH-6 (Girls Hostel 6)</option>
+                        </optgroup>
+                        <optgroup label="Campus Locations">
+                            <option value="UniMall|UniMall Dark Store">UniMall (UniMall Dark Store)</option>
+                            <option value="UniHospital|UniHospital Pharmacy Hub">UniHospital (UniHospital Pharmacy Hub)</option>
+                        </optgroup>
+                        <option value="CUSTOM">✏️ Custom / Other Location...</option>
+                    </select>
+                    <p class="text-[10px] text-[#5c5f60] mt-1">Select a campus hostel to automatically fill ID and Name.</p>
+                </div>
+
                 <div>
                     <label class="font-semibold text-[#262a2d] block mb-1">Hostel Identifier (ID) *</label>
                     <input id="form-hostel-id" required placeholder="e.g. BH-14, GH-2"

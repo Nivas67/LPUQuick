@@ -4926,6 +4926,10 @@ function initRealtimeWebSocket() {
                     if (activeView === 'blacklist') loadBlacklistData();
                 } else if (data.type === 'ADVERTISEMENTS_UPDATED') {
                     handleRealtimeAdvertisementsUpdated(data);
+                } else if (data.type === 'HOSTEL_STATUS_CHANGED') {
+                    if (typeof loadHostels === 'function') {
+                        loadHostels();
+                    }
                 } else if (data.type === 'CONNECTED') {
                     console.log('[Admin WS] Server confirmed connection:', data.message);
                 }
@@ -6032,6 +6036,10 @@ function renderHostelsTable() {
                             class="p-1.5 text-[#5c5f60] hover:text-[#3c4043] hover:bg-[#ebeef2] rounded-lg transition-all cursor-pointer" title="Edit Hostel Details">
                             <span class="material-symbols-outlined text-[18px]">edit</span>
                         </button>
+                        <button onclick="deleteHostel('${escapeHtml(h.id)}', '${escapeHtml(h.name)}')"
+                            class="p-1.5 text-[#ba1a1a] hover:bg-rose-50 rounded-lg transition-all cursor-pointer" title="Remove Hostel">
+                            <span class="material-symbols-outlined text-[18px]">delete</span>
+                        </button>
                     </div>
                 </td>
             </tr>
@@ -6041,10 +6049,36 @@ function renderHostelsTable() {
 
 let editingHostelId = null;
 
+function onPresetHostelSelected(val) {
+    if (!val) return;
+    const idInput = document.getElementById('form-hostel-id');
+    const nameInput = document.getElementById('form-hostel-name');
+    if (val === 'CUSTOM') {
+        if (idInput && !editingHostelId) {
+            idInput.value = '';
+            idInput.focus();
+        }
+        if (nameInput && !editingHostelId) {
+            nameInput.value = '';
+        }
+        return;
+    }
+    const parts = val.split('|');
+    const hId = parts[0];
+    const hName = parts[1];
+    if (idInput && !editingHostelId) {
+        idInput.value = hId || '';
+    }
+    if (nameInput) {
+        nameInput.value = hName || '';
+    }
+}
+
 function openHostelModal(hostelId = null) {
     editingHostelId = hostelId;
     const modal = document.getElementById('modal-hostel');
     const titleEl = document.getElementById('modal-hostel-title');
+    const presetSelect = document.getElementById('preset-hostel-select');
     const idInput = document.getElementById('form-hostel-id');
     const nameInput = document.getElementById('form-hostel-name');
     const statusSelect = document.getElementById('form-hostel-status');
@@ -6061,8 +6095,25 @@ function openHostelModal(hostelId = null) {
         }
         if (nameInput) nameInput.value = h ? h.name : hostelId;
         if (statusSelect) statusSelect.value = h ? h.status : 'ACTIVE';
+
+        if (presetSelect) {
+            let matched = false;
+            for (let opt of presetSelect.options) {
+                if (opt.value && opt.value.split('|')[0] === hostelId) {
+                    presetSelect.value = opt.value;
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched) presetSelect.value = 'CUSTOM';
+            presetSelect.disabled = true;
+        }
     } else {
         if (titleEl) titleEl.textContent = 'Add Campus Hostel';
+        if (presetSelect) {
+            presetSelect.value = '';
+            presetSelect.disabled = false;
+        }
         if (idInput) {
             idInput.value = '';
             idInput.disabled = false;
@@ -6138,7 +6189,7 @@ async function toggleHostelStatus(id, currentStatus) {
     const action = newStatus === 'ACTIVE' ? 'activate' : 'deactivate';
     
     if (newStatus === 'OFF') {
-        const confirmPause = confirm(`Turn OFF ordering for ${id}?\\n\\nExisting product and order data will NOT be deleted, but students will not be able to place new orders from this hostel.`);
+        const confirmPause = confirm(`Turn OFF ordering for ${id}?\n\nExisting product and order data will NOT be deleted, but students will not be able to place new orders from this hostel.`);
         if (!confirmPause) return;
     }
 
@@ -6149,10 +6200,33 @@ async function toggleHostelStatus(id, currentStatus) {
         });
         const data = await res.json();
         if (data.success) {
-            showToast(`Hostel ${id} status set to ${newStatus}`, 'info');
+            showToast(`Hostel ${id} is now ${newStatus}`, 'success');
             await loadHostels();
         } else {
             showToast(data.error || 'Failed to update hostel status', 'error');
+        }
+    } catch (err) {
+        showToast('Network error: ' + err.message, 'error');
+    }
+}
+
+async function deleteHostel(id, name) {
+    if (!id) return;
+    const displayName = name ? `${name} (${id})` : id;
+    const confirmed = confirm(`Are you sure you want to remove hostel "${displayName}"?\n\nThis will remove it from the campus hostels list and storefront ordering.`);
+    if (!confirmed) return;
+
+    try {
+        const res = await fetch(`/api/admin/hostels/${encodeURIComponent(id)}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(`Hostel ${id} removed successfully`, 'success');
+            await loadHostels();
+        } else {
+            showToast(data.error || 'Failed to remove hostel', 'error');
         }
     } catch (err) {
         showToast('Network error: ' + err.message, 'error');

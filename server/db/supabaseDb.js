@@ -44,7 +44,11 @@ const supabaseDb = {
                     this._memoryHostels = [
                         { id: 'BH-13', name: 'Boys Hostel 13', status: 'ACTIVE', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
                         { id: 'BH-5', name: 'Boys Hostel 5', status: 'ACTIVE', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-                        { id: 'BH-14', name: 'Boys Hostel 14', status: 'ACTIVE', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+                        { id: 'BH-14', name: 'Boys Hostel 12', status: 'ACTIVE', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                        { id: 'GH-1', name: 'Girls Hostel 1', status: 'OFF', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                        { id: 'BH 11', name: 'Boys Hostel 11', status: 'OFF', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                        { id: 'BH 6', name: 'Boys Hostel 6', status: 'OFF', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                        { id: 'BH 4', name: 'Boys Hostel 4', status: 'ACTIVE', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
                     ];
                     try {
                         const dir = path.dirname(this._hostelsFilePath);
@@ -56,7 +60,11 @@ const supabaseDb = {
                 this._memoryHostels = [
                     { id: 'BH-13', name: 'Boys Hostel 13', status: 'ACTIVE', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
                     { id: 'BH-5', name: 'Boys Hostel 5', status: 'ACTIVE', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-                    { id: 'BH-14', name: 'Boys Hostel 14', status: 'ACTIVE', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+                    { id: 'BH-14', name: 'Boys Hostel 12', status: 'ACTIVE', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                    { id: 'GH-1', name: 'Girls Hostel 1', status: 'OFF', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                    { id: 'BH 11', name: 'Boys Hostel 11', status: 'OFF', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                    { id: 'BH 6', name: 'Boys Hostel 6', status: 'OFF', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                    { id: 'BH 4', name: 'Boys Hostel 4', status: 'ACTIVE', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
                 ];
             }
             return this._memoryHostels;
@@ -72,11 +80,55 @@ const supabaseDb = {
             } catch (e) {}
         },
 
+        async _saveHostelsToSupabase() {
+            const supabase = getSupabaseClient();
+            if (!supabase || !this._memoryHostels) return;
+            try {
+                await supabase.from('app_availability').upsert([{
+                    id: 'hostels_registry',
+                    is_locked: false,
+                    lock_type: 'NONE',
+                    message: JSON.stringify(this._memoryHostels),
+                    updated_at: new Date().toISOString()
+                }]);
+            } catch (e) {
+                console.warn('[Hostels Supabase sync notice]:', e.message);
+            }
+        },
+
         async getAll({ status, includeInactive = true } = {}) {
             const cacheKey = `hostels:all:${status || 'any'}:${includeInactive}`;
             return await cache.wrap(cacheKey, async () => {
                 const supabase = getSupabaseClient();
                 if (supabase) {
+                    try {
+                        const { data, error } = await supabase
+                            .from('app_availability')
+                            .select('message')
+                            .eq('id', 'hostels_registry')
+                            .maybeSingle();
+
+                        if (!error && data && data.message) {
+                            try {
+                                const parsed = JSON.parse(data.message);
+                                if (Array.isArray(parsed) && parsed.length > 0) {
+                                    this._memoryHostels = parsed;
+                                    this._saveHostelsToDisk();
+                                    let list = [...this._memoryHostels];
+                                    if (status) {
+                                        list = list.filter(h => h.status === status);
+                                    } else if (!includeInactive) {
+                                        list = list.filter(h => h.status === 'ACTIVE');
+                                    }
+                                    return list;
+                                }
+                            } catch (parseErr) {}
+                        }
+                    } catch (e) {
+                        console.warn('[Hostels getAll app_availability notice]:', e.message);
+                    }
+
+                    // Optional fallback to legacy hostels table if it exists in DB
                     try {
                         let query = supabase.from('hostels').select('id, name, status, manager_user_id, created_at, updated_at');
                         if (status) {
@@ -90,12 +142,11 @@ const supabaseDb = {
                             if (!status && includeInactive) {
                                 this._memoryHostels = data;
                                 this._saveHostelsToDisk();
+                                this._saveHostelsToSupabase().catch(() => {});
                             }
                             return data;
                         }
-                    } catch (e) {
-                        console.warn('[Hostels getAll DB notice]:', e.message);
-                    }
+                    } catch (e) {}
                 }
 
                 // Resilient local snapshot fallback
@@ -119,7 +170,7 @@ const supabaseDb = {
             const all = await this.getAll({ includeInactive: true });
             const normClean = cleanId.toLowerCase().replace(/[\s\-_]/g, '');
             return all.find(h => {
-                const normHId = h.id.toLowerCase().replace(/[\s\-_]/g, '');
+                const normHId = (h.id || '').toLowerCase().replace(/[\s\-_]/g, '');
                 const normHName = (h.name || '').toLowerCase().replace(/[\s\-_]/g, '').replace(/^(boys?hostel|bh)/, 'bh').replace(/^(girls?hostel|gh)/, 'gh');
                 return normHId === normClean || normHName === normClean;
             }) || null;
@@ -141,16 +192,9 @@ const supabaseDb = {
                 updated_at: now
             };
 
-            const supabase = getSupabaseClient();
-            if (supabase) {
-                try {
-                    const { error } = await supabase.from('hostels').upsert([record]);
-                    if (error) console.warn('[Hostel Insert DB notice]:', error.message);
-                } catch (e) {}
-            }
-
             const current = this._memoryHostels || this._loadHostelsFromDisk();
-            const idx = current.findIndex(h => h.id === cleanId);
+            const normClean = cleanId.replace(/[\s\-_]/g, '').toLowerCase();
+            const idx = current.findIndex(h => (h.id || '').replace(/[\s\-_]/g, '').toLowerCase() === normClean);
             if (idx >= 0) {
                 current[idx] = { ...current[idx], ...record };
             } else {
@@ -158,6 +202,7 @@ const supabaseDb = {
             }
             this._memoryHostels = current;
             this._saveHostelsToDisk();
+            await this._saveHostelsToSupabase();
             cache.invalidateHostels();
             return record;
         },
@@ -173,21 +218,15 @@ const supabaseDb = {
             if (updates.status !== undefined) patch.status = updates.status === 'OFF' ? 'OFF' : 'ACTIVE';
             if (updates.manager_user_id !== undefined) patch.manager_user_id = updates.manager_user_id;
 
-            const supabase = getSupabaseClient();
-            if (supabase) {
-                try {
-                    const { error } = await supabase.from('hostels').update(patch).eq('id', existing.id);
-                    if (error) console.warn('[Hostel Update DB notice]:', error.message);
-                } catch (e) {}
-            }
-
             const current = this._memoryHostels || this._loadHostelsFromDisk();
-            const idx = current.findIndex(h => h.id === existing.id);
+            const normClean = (existing.id || cleanId).replace(/[\s\-_]/g, '').toLowerCase();
+            const idx = current.findIndex(h => (h.id || '').replace(/[\s\-_]/g, '').toLowerCase() === normClean);
             if (idx >= 0) {
                 current[idx] = { ...current[idx], ...patch };
             }
             this._memoryHostels = current;
             this._saveHostelsToDisk();
+            await this._saveHostelsToSupabase();
             cache.invalidateHostels();
             return { ...existing, ...patch };
         },
@@ -197,18 +236,17 @@ const supabaseDb = {
             const cleanId = id.trim();
             const existing = await this.getById(cleanId);
             const targetId = existing?.id || cleanId;
+            const normTarget = targetId.toLowerCase().replace(/[\s\-_]/g, '');
 
-            const supabase = getSupabaseClient();
-            if (supabase) {
-                try {
-                    await supabase.from('hostels').delete().eq('id', targetId);
-                } catch (e) {}
-            }
             const current = this._memoryHostels || this._loadHostelsFromDisk();
-            this._memoryHostels = current.filter(h => h.id !== targetId);
+            this._memoryHostels = current.filter(h => {
+                const normH = (h.id || '').toLowerCase().replace(/[\s\-_]/g, '');
+                return normH !== normTarget && h.id !== targetId;
+            });
             this._saveHostelsToDisk();
+            await this._saveHostelsToSupabase();
             cache.invalidateHostels();
-            return { success: true };
+            return { success: true, deletedId: targetId };
         },
 
         async assignManager(hostelId, managerUserId) {

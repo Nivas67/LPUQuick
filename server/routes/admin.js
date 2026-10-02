@@ -862,6 +862,10 @@ router.post('/hostels', requireRole('owner'), async (req, res) => {
             metadata: { id: normalizedId, name: created.name, status: created.status }
         });
 
+        if (typeof broadcastHostelStatusChanged === 'function') {
+            broadcastHostelStatusChanged(created);
+        }
+
         res.json({ success: true, message: `Hostel ${normalizedId} created successfully`, hostel: created });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -879,8 +883,44 @@ router.put('/hostels/:id', requireRole('owner'), async (req, res) => {
         if (status) patch.status = status === 'OFF' ? 'OFF' : 'ACTIVE';
 
         const updated = await supabaseDb.hostels.update(id, patch);
+
+        if (typeof broadcastHostelStatusChanged === 'function') {
+            broadcastHostelStatusChanged(updated);
+        }
+
         res.json({ success: true, message: `Hostel ${id} updated`, hostel: updated });
     } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// DELETE /api/admin/hostels/:id - Remove hostel (Owner Only)
+router.delete('/hostels/:id', requireRole('owner'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!id) {
+            return res.status(400).json({ success: false, error: 'Hostel ID is required' });
+        }
+
+        const existing = await supabaseDb.hostels.getById(id);
+        const targetId = existing ? existing.id : id;
+
+        await supabaseDb.hostels.delete(targetId);
+
+        await supabaseDb.audit.logAction({
+            adminId: req.admin?.id || 'owner',
+            action: 'HOSTEL_DELETED',
+            reason: `Removed hostel ${targetId}`,
+            metadata: { id: targetId }
+        });
+
+        if (typeof broadcastHostelStatusChanged === 'function') {
+            broadcastHostelStatusChanged({ id: targetId, status: 'DELETED', deleted: true });
+        }
+
+        res.json({ success: true, message: `Hostel ${targetId} removed successfully` });
+    } catch (err) {
+        console.error('[Admin Delete Hostel Error]:', err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 });

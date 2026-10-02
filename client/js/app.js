@@ -351,7 +351,7 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
 
     // Standard Campus Hostels
     const defaultHostels = [
-        'BH13', 'BH1', 'BH2', 'BH3', 'BH4', 'BH5', 'BH6', 'BH7', 'BH8', 'BH9', 'BH10', 'BH11', 'BH12', 'BH14', 'BH15', 'GH1', 'GH2', 'GH3', 'GH4', 'UniMall'
+        'BH13', 'BH1', 'BH2', 'BH3', 'BH4', 'BH5', 'BH6', 'BH7', 'BH8', 'BH9', 'BH10', 'BH11', 'BH12', 'BH14', 'BH15', 'BH16', 'GH1', 'GH2', 'GH3', 'GH4', 'GH5', 'GH6', 'UniMall'
     ];
 
     // Combine custom active hostels from admin with default locations
@@ -2299,6 +2299,10 @@ function initGlobalClientWebSocket() {
                     window.__activeHostelsCache = null;
                     if (window.api?.getActiveHostels) {
                         window.api.getActiveHostels(true).catch(() => {});
+                    }
+                    const activeModal = document.getElementById('address-modal');
+                    if (activeModal && typeof window.openLocationModal === 'function') {
+                        window.openLocationModal(false);
                     }
                 }
             } catch (err) {
