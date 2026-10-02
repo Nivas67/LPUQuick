@@ -482,10 +482,18 @@ function applyAdminRolePermissions(profile) {
         }
     }
 
-    // Filter sidebar navigation buttons based on data-required-role
-    document.querySelectorAll('#desktop-nav .nav-item').forEach(btn => {
-        const req = btn.dataset.requiredRole || 'all';
-        if (req === 'all') {
+    // Filter sidebar navigation buttons based on data-required-role & owner restrictions
+    document.querySelectorAll('#desktop-nav .nav-item, .nav-item, .owner-only-nav, [data-required-role]').forEach(btn => {
+        const req = btn.dataset?.requiredRole || '';
+        const view = btn.dataset?.view || '';
+        const isOwnerOnly = btn.classList.contains('owner-only-nav') || req === 'owner' || view === 'employees' || view === 'staff' || view === 'hostels' || view === 'daily-revenue' || view === 'backup';
+
+        if (isOwnerOnly && !isOwner) {
+            btn.classList.add('hidden');
+            return;
+        }
+
+        if (req === 'all' || !req) {
             btn.classList.remove('hidden');
         } else if (isOwner) {
             btn.classList.remove('hidden');
@@ -650,7 +658,7 @@ function switchView(viewName) {
             'blacklist': ['owner', 'store_manager'],
             'analytics': ['owner', 'store_manager'],
             'staff': ['owner'],
-            'employees': ['owner', 'store_manager'],
+            'employees': ['owner'],
             'advertisements': ['owner', 'store_manager'],
             'backup': ['owner'],
             'settings': ['owner'],
@@ -5502,7 +5510,7 @@ function renderStaffTable(list) {
     if (!tbody) return;
 
     if (!list || list.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-[#5c5f60]">No admin members found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-[#5c5f60]">No admin members found.</td></tr>`;
         return;
     }
 
@@ -5537,6 +5545,14 @@ function renderStaffTable(list) {
             ? new Date(s.last_login).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
             : '<span class="text-[#74777a] italic">Never</span>';
 
+        const isStaffDuty = Boolean(s.is_on_duty || s.duty_status === 'ON_DUTY');
+        const dutyToggleBtn = `
+            <button onclick="toggleEmployeeDuty('${s.id}', ${!isStaffDuty})" 
+                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold transition-all shadow-xs cursor-pointer ${isStaffDuty ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200' : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'}" 
+                title="Click to toggle On Duty (Online) / Off Duty (Offline)">
+                <span class="w-1.5 h-1.5 rounded-full ${isStaffDuty ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}"></span>
+                <span>${isStaffDuty ? '🟢 On Duty' : '⚪ Off Duty'}</span>
+            </button>`;
         const statusBadge = isActive
             ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#e6f4ea] text-[#137333]">Active</span>`
             : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">Disabled</span>`;
@@ -5562,6 +5578,7 @@ function renderStaffTable(list) {
                     </div>
                 </td>
                 <td class="p-4">${hostelBadge}</td>
+                <td class="p-4">${dutyToggleBtn}</td>
                 <td class="p-4 text-xs text-[#5c5f60]">${lastActiveStr}</td>
                 <td class="p-4">${statusBadge}</td>
                 <td class="p-4 text-right">
@@ -5594,10 +5611,10 @@ function openStaffModal(staffId = null) {
     if (errBox) errBox.classList.add('hidden');
 
     if (staffId) {
-        const staff = staffCache.find(s => s.id === staffId);
+        const staff = (staffCache || []).find(s => s.id === staffId) || (employeesCache || []).find(s => s.id === staffId);
         if (!staff) return;
 
-        if (titleEl) titleEl.textContent = 'Edit Admin Staff Member';
+        if (titleEl) titleEl.textContent = 'Edit Employee / Staff Member';
         if (idInput) idInput.value = staff.id;
         if (nameInput) nameInput.value = staff.name;
         if (emailInput) {
@@ -5611,20 +5628,33 @@ function openStaffModal(staffId = null) {
         }
         if (passHint) passHint.classList.remove('hidden');
 
-        document.getElementById('role-store-manager').checked = staff.roles.includes('store_manager');
-        document.getElementById('role-inventory-manager').checked = staff.roles.includes('inventory_manager');
-        document.getElementById('role-delivery-person').checked = staff.roles.includes('delivery_person');
+        document.getElementById('role-store-manager').checked = (staff.roles || []).includes('store_manager');
+        document.getElementById('role-inventory-manager').checked = (staff.roles || []).includes('inventory_manager');
+        document.getElementById('role-delivery-person').checked = (staff.roles || []).includes('delivery_person') || Boolean(staff.is_delivery_boy);
+
+        const isOnDuty = Boolean(staff.is_on_duty || staff.duty_status === 'ON_DUTY' || (staff.delivery_data && staff.delivery_data.duty_status === 'ON_DUTY'));
+        const onRadio = document.getElementById('staff-duty-on');
+        const offRadio = document.getElementById('staff-duty-off');
+        if (onRadio) onRadio.checked = isOnDuty;
+        if (offRadio) offRadio.checked = !isOnDuty;
 
         const hostelSelect = document.getElementById('form-staff-hostel');
         if (hostelSelect) {
             hostelSelect.innerHTML = '<option value="">🏢 None / All Hostels (General Admin)</option>';
-            (hostelsCache || []).forEach(h => {
+            const activeHostels = (hostelsCache || []).filter(h => h.status === 'ACTIVE' || h.status === 'active');
+            activeHostels.forEach(h => {
                 const opt = document.createElement('option');
                 opt.value = h.id;
-                const statusLabel = h.status === 'OFF' ? ' [OFF]' : '';
-                opt.textContent = `${h.name || h.id} (${h.id})${statusLabel}`;
+                opt.textContent = `🏢 ${h.name || h.id} (${h.id})`;
                 hostelSelect.appendChild(opt);
             });
+            // If current assignment is inactive, keep it in list
+            if (staff.assigned_hostel_id && !activeHostels.some(h => h.id === staff.assigned_hostel_id)) {
+                const opt = document.createElement('option');
+                opt.value = staff.assigned_hostel_id;
+                opt.textContent = `🏢 ${staff.assigned_hostel_name || staff.assigned_hostel_id} [Inactive]`;
+                hostelSelect.appendChild(opt);
+            }
             hostelSelect.value = staff.assigned_hostel_id || '';
         }
 
@@ -5632,7 +5662,7 @@ function openStaffModal(staffId = null) {
             delBtn.classList.toggle('hidden', staff.is_owner);
         }
     } else {
-        if (titleEl) titleEl.textContent = 'Add New Admin Member';
+        if (titleEl) titleEl.textContent = 'Add New Employee / Staff Member';
         if (idInput) idInput.value = '';
         if (nameInput) nameInput.value = '';
         if (emailInput) {
@@ -5650,14 +5680,19 @@ function openStaffModal(staffId = null) {
         document.getElementById('role-inventory-manager').checked = false;
         document.getElementById('role-delivery-person').checked = false;
 
+        const onRadioNew = document.getElementById('staff-duty-on');
+        const offRadioNew = document.getElementById('staff-duty-off');
+        if (onRadioNew) onRadioNew.checked = true;
+        if (offRadioNew) offRadioNew.checked = false;
+
         const hostelSelect = document.getElementById('form-staff-hostel');
         if (hostelSelect) {
             hostelSelect.innerHTML = '<option value="">🏢 None / All Hostels (General Admin)</option>';
-            (hostelsCache || []).forEach(h => {
+            const activeHostels = (hostelsCache || []).filter(h => h.status === 'ACTIVE' || h.status === 'active');
+            activeHostels.forEach(h => {
                 const opt = document.createElement('option');
                 opt.value = h.id;
-                const statusLabel = h.status === 'OFF' ? ' [OFF]' : '';
-                opt.textContent = `${h.name || h.id} (${h.id})${statusLabel}`;
+                opt.textContent = `🏢 ${h.name || h.id} (${h.id})`;
                 hostelSelect.appendChild(opt);
             });
             hostelSelect.value = '';
@@ -5689,6 +5724,9 @@ async function submitStaffForm(e) {
     if (document.getElementById('role-inventory-manager').checked) roles.push('inventory_manager');
     if (document.getElementById('role-delivery-person').checked) roles.push('delivery_person');
 
+    const isOnDuty = document.getElementById('staff-duty-on')?.checked ?? true;
+    const dutyStatus = isOnDuty ? 'ON_DUTY' : 'OFF_DUTY';
+
     if (roles.length === 0) {
         if (errBox) {
             errBox.textContent = 'Please select at least one role/permission level.';
@@ -5706,7 +5744,7 @@ async function submitStaffForm(e) {
     try {
         let res;
         if (id) {
-            const payload = { name, phone, roles, assigned_hostel_id: assignedHostelId };
+            const payload = { name, phone, roles, assigned_hostel_id: assignedHostelId, is_on_duty: isOnDuty, duty_status: dutyStatus };
             if (password) payload.password = password;
             res = await fetch(`/api/admin/staff/${id}`, {
                 method: 'PUT',
@@ -5717,15 +5755,18 @@ async function submitStaffForm(e) {
             res = await fetch('/api/admin/staff', {
                 method: 'POST',
                 headers: getAuthHeaders(),
-                body: JSON.stringify({ name, email, phone, password, roles, assigned_hostel_id: assignedHostelId })
+                body: JSON.stringify({ name, email, phone, password, roles, assigned_hostel_id: assignedHostelId, is_on_duty: isOnDuty, duty_status: dutyStatus })
             });
         }
 
         const data = await res.json();
         if (data.success) {
             closeStaffModal();
-            showToast(id ? 'Staff member updated successfully' : 'Admin staff member created', 'success');
+            showToast(id ? 'Employee / Admin updated successfully' : 'Employee / Admin created successfully', 'success');
             await loadStaffList();
+            if (typeof loadEmployeesList === 'function') {
+                await loadEmployeesList();
+            }
         } else {
             if (errBox) {
                 errBox.textContent = data.error || 'Failed to save staff member';
@@ -5749,7 +5790,7 @@ async function handleDeleteStaff() {
     const id = document.getElementById('form-staff-id').value;
     if (!id) return;
 
-    if (!confirm('Are you sure you want to remove this admin team member? Their access will be revoked immediately.')) {
+    if (!confirm('Are you sure you want to remove this employee / admin member? Their access will be revoked immediately.')) {
         return;
     }
 
@@ -5761,8 +5802,11 @@ async function handleDeleteStaff() {
         const data = await res.json();
         if (data.success) {
             closeStaffModal();
-            showToast('Admin member removed', 'info');
+            showToast('Employee / Admin removed successfully', 'info');
             await loadStaffList();
+            if (typeof loadEmployeesList === 'function') {
+                await loadEmployeesList();
+            }
         } else {
             alert(data.error || 'Failed to delete staff member');
         }
@@ -5778,7 +5822,7 @@ let employeesFullData = null;
 async function loadEmployeesList() {
     const tbody = document.getElementById('employees-table-tbody');
     if (tbody) {
-        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-[#5c5f60] animate-pulse">Loading campus employees and store operations data...</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-[#5c5f60] animate-pulse">Loading employees roster...</td></tr>`;
     }
 
     try {
@@ -5790,39 +5834,50 @@ async function loadEmployeesList() {
         }
 
         employeesFullData = data;
-        employeesCache = data.employees || [];
+        // ONLY show registered staff — NO auto-tracked campus runners
+        employeesCache = data.registered_staff || [];
 
-        // Update stat cards
-        const stats = data.stats || {};
+        // Also populate staffCache so Edit modal works from Employees view
+        staffCache = employeesCache;
+
+        // Always refresh hostelsCache so hostel status changes reflect immediately
+        try {
+            const hRes = await fetch('/api/admin/hostels', { headers: getAuthHeaders() });
+            const hData = await hRes.json();
+            if (hData.success && Array.isArray(hData.hostels)) {
+                hostelsCache = hData.hostels;
+            }
+        } catch (e) { /* ignore */ }
+
+        // Calculate stats from registered staff only
         const el = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
-        el('stat-emp-total', stats.total_employees || 0);
-        el('stat-emp-managers', stats.store_managers || 0);
-        el('stat-emp-riders', stats.delivery_boys || 0);
-        el('stat-emp-hostels', stats.hostels_covered || 0);
-        el('stat-emp-onduty', stats.active_on_duty || 0);
+        el('stat-emp-total', employeesCache.length);
+        el('stat-emp-managers', employeesCache.filter(e => e.is_store_manager).length);
+        el('stat-emp-riders', employeesCache.filter(e => e.is_delivery_boy).length);
+        el('stat-emp-hostels', new Set(employeesCache.map(e => e.assigned_hostel_id).filter(Boolean)).size);
+        el('stat-emp-onduty', employeesCache.filter(e => e.delivery_data?.duty_status === 'ON_DUTY').length);
 
-        // Populate hostel filter dropdown
+        // Populate hostel filter dropdown with ONLY active hostels (active by me)
         const hostelSelect = document.getElementById('emp-filter-hostel');
         if (hostelSelect) {
             const currentVal = hostelSelect.value;
-            hostelSelect.innerHTML = '<option value="">🏢 All Stores & BH Hostels</option>';
-            const hostelIds = new Set();
-            employeesCache.forEach(e => {
-                if (e.assigned_hostel_id && !hostelIds.has(e.assigned_hostel_id)) {
-                    hostelIds.add(e.assigned_hostel_id);
-                    const opt = document.createElement('option');
-                    opt.value = e.assigned_hostel_id;
-                    opt.textContent = `🏢 ${e.assigned_hostel_name || e.assigned_hostel_id}`;
-                    hostelSelect.appendChild(opt);
-                }
+            hostelSelect.innerHTML = '<option value="">🏢 All Stores &amp; Active Hostels</option>';
+            const activeHostels = (hostelsCache || []).filter(h => h.status === 'ACTIVE' || h.status === 'active');
+            activeHostels.forEach(h => {
+                const opt = document.createElement('option');
+                opt.value = h.id;
+                opt.textContent = `🏢 ${h.name || h.id}`;
+                hostelSelect.appendChild(opt);
             });
-            hostelSelect.value = currentVal;
+            if (currentVal && Array.from(hostelSelect.options).some(o => o.value === currentVal)) {
+                hostelSelect.value = currentVal;
+            }
         }
 
         renderEmployeesTable(employeesCache);
     } catch (err) {
         console.error('[Employees Load Error]:', err);
-        if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-rose-600">Connection error loading employees data.</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-rose-600">Connection error loading employees data.</td></tr>`;
     }
 }
 
@@ -5831,7 +5886,7 @@ function renderEmployeesTable(list) {
     if (!tbody) return;
 
     if (!list || list.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-[#5c5f60]">No employees found matching your criteria.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-[#5c5f60]">No employees found matching your criteria.</td></tr>`;
         const cntEl = document.getElementById('emp-count-display');
         if (cntEl) cntEl.textContent = 'Showing 0 employees';
         return;
@@ -5840,18 +5895,15 @@ function renderEmployeesTable(list) {
     tbody.innerHTML = list.map(emp => {
         const isOwner = emp.is_owner;
         const isActive = emp.account_status === 'ACTIVE';
-        const isRunner = emp.id && emp.id.startsWith('runner_');
 
         // Avatar
-        const avatarBg = isOwner ? 'bg-amber-500' : (isRunner ? 'bg-emerald-600' : 'bg-indigo-600');
+        const avatarBg = isOwner ? 'bg-amber-500' : 'bg-indigo-600';
         const avatarIcon = isOwner ? '👑' : (emp.name ? emp.name[0].toUpperCase() : '?');
 
         // Type badge
         let typeBadge = '';
         if (isOwner) {
             typeBadge = '<span class="text-[10px] font-extrabold text-amber-700">(Owner)</span>';
-        } else if (isRunner) {
-            typeBadge = '<span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">Campus Runner</span>';
         }
 
         // Role badges
@@ -5895,21 +5947,30 @@ function renderEmployeesTable(list) {
         }
 
         // Status badge
+        const isOnDuty = Boolean(emp.is_on_duty || emp.duty_status === 'ON_DUTY' || (emp.delivery_data && emp.delivery_data.duty_status === 'ON_DUTY'));
+        const dutyToggleBtn = `
+            <button onclick="toggleEmployeeDuty('${emp.id}', ${!isOnDuty})" 
+                class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold transition-all shadow-xs cursor-pointer ${isOnDuty ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200' : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'}" 
+                title="Click to toggle: currently ${isOnDuty ? 'ON DUTY (Online)' : 'OFF DUTY (Offline)'}">
+                <span class="w-2 h-2 rounded-full ${isOnDuty ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}"></span>
+                <span>${isOnDuty ? '🟢 On Duty' : '⚪ Off Duty'}</span>
+            </button>`;
         const statusBadge = isActive
             ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#e6f4ea] text-[#137333]">Active</span>'
             : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">Disabled</span>';
 
-        // Actions
-        let actionsHtml = '';
-        if (!isRunner) {
-            actionsHtml = `
-                <button onclick="openStaffModal('${emp.id}')" class="px-2.5 py-1.5 rounded-lg border border-[#DADCE0] hover:bg-[#f1f4f7] text-[#181c1f] font-semibold text-xs transition-colors flex items-center gap-1 shadow-sm">
-                    <span class="material-symbols-outlined text-sm">edit</span>
-                    <span>Edit</span>
-                </button>`;
-        } else {
-            actionsHtml = `<span class="text-[10px] text-[#74777a] italic">Auto-tracked</span>`;
-        }
+        // Actions — Edit + History + Remove (no Remove for owner)
+        const editBtn = `<button onclick="openStaffModal('${emp.id}')" class="px-2 py-1.5 rounded-lg border border-[#DADCE0] hover:bg-[#f1f4f7] text-[#181c1f] font-semibold text-xs transition-colors flex items-center gap-1 shadow-sm" title="Edit Employee">
+            <span class="material-symbols-outlined text-sm">edit</span><span>Edit</span>
+        </button>`;
+
+        const historyBtn = `<button onclick="viewEmployeeHistory('${emp.id}', '${escapeHtml(emp.name).replace(/'/g, "\\'")}')" class="px-2 py-1.5 rounded-lg border border-indigo-200 hover:bg-indigo-50 text-indigo-700 font-semibold text-xs transition-colors flex items-center gap-1 shadow-sm" title="View History">
+            <span class="material-symbols-outlined text-sm">history</span><span>History</span>
+        </button>`;
+
+        const removeBtn = isOwner ? '' : `<button onclick="removeEmployee('${emp.id}', '${escapeHtml(emp.name).replace(/'/g, "\\'")}')" class="px-2 py-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 font-semibold text-xs transition-colors flex items-center gap-1 shadow-sm" title="Remove Employee">
+            <span class="material-symbols-outlined text-sm">person_remove</span><span>Remove</span>
+        </button>`;
 
         return `
             <tr class="hover:bg-[#f7fafd] transition-colors">
@@ -5927,12 +5988,15 @@ function renderEmployeesTable(list) {
                 </td>
                 <td class="p-4">${hostelBadge}</td>
                 <td class="p-4"><div class="flex flex-wrap gap-1">${roleBadges.join('')}</div></td>
+                <td class="p-4">${dutyToggleBtn}</td>
                 <td class="p-4 text-xs font-medium text-[#181c1f]">${emp.phone ? escapeHtml(emp.phone) : '<span class="text-[#74777a] italic">None</span>'}</td>
                 <td class="p-4">${deliveryCell}</td>
                 <td class="p-4">${statusBadge}</td>
                 <td class="p-4 text-right">
-                    <div class="flex items-center justify-end gap-1.5">
-                        ${actionsHtml}
+                    <div class="flex items-center justify-end gap-1.5 flex-wrap">
+                        ${editBtn}
+                        ${historyBtn}
+                        ${removeBtn}
                     </div>
                 </td>
             </tr>`;
@@ -5965,7 +6029,16 @@ function filterEmployeesList() {
 
     // Hostel filter
     if (hostelVal) {
-        filtered = filtered.filter(e => e.assigned_hostel_id === hostelVal);
+        filtered = filtered.filter(e => {
+            if (!e) return false;
+            const hId = (e.assigned_hostel_id || '').toUpperCase().trim();
+            const hVal = hostelVal.toUpperCase().trim();
+            const hName = (e.assigned_hostel_name || '').toLowerCase().trim();
+            return hId === hVal || 
+                   hId === hVal.replace(/\s+/g, '-') || 
+                   hId.replace(/\s+/g, '-') === hVal || 
+                   (hName && hName.includes(hostelVal.toLowerCase()));
+        });
     }
 
     // Position filter
@@ -5981,9 +6054,9 @@ function filterEmployeesList() {
 
     // Status filter
     if (statusVal === 'ON_DUTY') {
-        filtered = filtered.filter(e => e.delivery_data?.duty_status === 'ON_DUTY');
+        filtered = filtered.filter(e => e.duty_status === 'ON_DUTY' || e.is_on_duty === true || e.delivery_data?.duty_status === 'ON_DUTY');
     } else if (statusVal === 'OFF_DUTY') {
-        filtered = filtered.filter(e => e.delivery_data?.duty_status === 'OFF_DUTY');
+        filtered = filtered.filter(e => e.duty_status === 'OFF_DUTY' || e.is_on_duty === false || e.delivery_data?.duty_status === 'OFF_DUTY');
     } else if (statusVal === 'ACTIVE') {
         filtered = filtered.filter(e => e.account_status === 'ACTIVE');
     }
@@ -6002,6 +6075,195 @@ function resetEmployeeFilters() {
     if (status) status.value = '';
     renderEmployeesTable(employeesCache);
 }
+
+async function removeEmployee(empId, empName) {
+    if (!empId) return;
+    const confirmed = confirm(`⚠️ Remove employee "${empName}"?\n\nThis will permanently revoke their admin access. This action cannot be undone.\n\nAre you sure?`);
+    if (!confirmed) return;
+
+    try {
+        const res = await fetch(`/api/admin/staff/${empId}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(`Employee "${empName}" removed successfully`, 'success');
+            await loadEmployeesList();
+            if (typeof loadStaffList === 'function') {
+                await loadStaffList();
+            }
+        } else {
+            showToast(data.error || 'Failed to remove employee', 'warning');
+        }
+    } catch (err) {
+        showToast('Network error removing employee: ' + err.message, 'warning');
+    }
+}
+
+async function viewEmployeeHistory(empId, empName) {
+    const modal = document.getElementById('modal-emp-history');
+    if (!modal) return;
+
+    // Show modal
+    modal.classList.remove('hidden');
+    document.getElementById('emp-history-name').textContent = empName || 'Employee';
+    const contentEl = document.getElementById('emp-history-content');
+    contentEl.innerHTML = '<div class="p-8 text-center text-[#5c5f60] animate-pulse">Loading employee history...</div>';
+
+    // Find employee in cache
+    const emp = employeesCache.find(e => e.id === empId);
+
+    // Build employee summary card
+    let summaryHtml = '';
+    if (emp) {
+        const roles = (emp.roles || []).map(r => {
+            if (r === 'owner') return '👑 Owner';
+            if (r === 'store_manager') return '🏢 Store Manager';
+            if (r === 'inventory_manager') return '📦 Inventory Manager';
+            if (r === 'delivery_person') return '🛵 Delivery Boy';
+            return r;
+        }).join(', ');
+
+        const hostel = emp.is_owner ? '🌐 All Hostels (Master)' : (emp.assigned_hostel_name || emp.assigned_hostel_id || 'General Operations');
+        const joinDate = emp.created_at ? new Date(emp.created_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Unknown';
+        const lastLogin = emp.last_login ? new Date(emp.last_login).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
+
+        summaryHtml = `
+            <div class="glass-panel p-5 mb-4">
+                <h4 class="text-sm font-bold text-[#181c1f] mb-3 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-indigo-600 text-base">person</span> Employee Details
+                </h4>
+                <div class="grid grid-cols-2 gap-3 text-xs">
+                    <div><span class="text-[#5c5f60] font-semibold">Name:</span> <span class="font-bold text-[#181c1f]">${escapeHtml(emp.name)}</span></div>
+                    <div><span class="text-[#5c5f60] font-semibold">Email:</span> <span class="font-mono text-[#181c1f]">${escapeHtml(emp.email || 'N/A')}</span></div>
+                    <div><span class="text-[#5c5f60] font-semibold">Phone:</span> <span class="font-bold text-[#181c1f]">${escapeHtml(emp.phone || 'None')}</span></div>
+                    <div><span class="text-[#5c5f60] font-semibold">Roles:</span> <span class="text-[#181c1f]">${roles}</span></div>
+                    <div><span class="text-[#5c5f60] font-semibold">Assigned Hostel:</span> <span class="font-bold text-[#0066cc]">${escapeHtml(hostel)}</span></div>
+                    <div><span class="text-[#5c5f60] font-semibold">Status:</span> <span class="font-bold ${emp.account_status === 'ACTIVE' ? 'text-emerald-700' : 'text-slate-500'}">${emp.account_status || 'ACTIVE'}</span></div>
+                    <div><span class="text-[#5c5f60] font-semibold">Joined:</span> <span class="text-[#181c1f]">${joinDate}</span></div>
+                    <div><span class="text-[#5c5f60] font-semibold">Last Login:</span> <span class="text-[#181c1f]">${lastLogin}</span></div>
+                </div>
+            </div>`;
+
+        // Delivery stats card (if delivery boy)
+        if (emp.is_delivery_boy && emp.delivery_data) {
+            const dd = emp.delivery_data;
+            summaryHtml += `
+                <div class="glass-panel p-5 mb-4 border-l-4 border-l-emerald-500">
+                    <h4 class="text-sm font-bold text-[#181c1f] mb-3 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-emerald-600 text-base">two_wheeler</span> Delivery Performance Summary
+                    </h4>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div class="bg-emerald-50 rounded-xl p-3 text-center">
+                            <p class="text-[10px] font-semibold text-emerald-700 uppercase">Total Deliveries</p>
+                            <p class="text-2xl font-bold text-emerald-800">${dd.total_deliveries}</p>
+                        </div>
+                        <div class="bg-blue-50 rounded-xl p-3 text-center">
+                            <p class="text-[10px] font-semibold text-blue-700 uppercase">Total Earnings</p>
+                            <p class="text-2xl font-bold text-blue-800">₹${(dd.total_earnings || 0).toFixed(0)}</p>
+                        </div>
+                        <div class="bg-amber-50 rounded-xl p-3 text-center">
+                            <p class="text-[10px] font-semibold text-amber-700 uppercase">Today Deliveries</p>
+                            <p class="text-2xl font-bold text-amber-800">${dd.today_deliveries || 0}</p>
+                        </div>
+                        <div class="bg-purple-50 rounded-xl p-3 text-center">
+                            <p class="text-[10px] font-semibold text-purple-700 uppercase">Duty Status</p>
+                            <p class="text-lg font-bold ${dd.duty_status === 'ON_DUTY' ? 'text-emerald-700' : 'text-gray-500'}">${dd.duty_status === 'ON_DUTY' ? '🟢 On Duty' : '⚪ Off Duty'}</p>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-[#5c5f60] mt-2">Rate: ₹${dd.rate_per_order}/order · Active in-transit: ${dd.active_deliveries || 0}</p>
+                </div>`;
+        }
+    }
+
+    // Now fetch order history for this employee
+    try {
+        const ordRes = await fetch('/api/admin/orders', { headers: getAuthHeaders() });
+        const ordData = await ordRes.json();
+        let orders = [];
+        if (ordData.success && Array.isArray(ordData.orders)) {
+            orders = ordData.orders;
+        } else if (Array.isArray(ordData)) {
+            orders = ordData;
+        }
+
+        // Filter orders where rider_name matches employee name
+        const empNameLower = (empName || '').toLowerCase().trim();
+        const matchedOrders = orders.filter(o => {
+            const riderLower = (o.rider_name || '').toLowerCase().trim();
+            return riderLower && empNameLower && (riderLower === empNameLower || riderLower.includes(empNameLower));
+        }).sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
+        let historyTableHtml = '';
+        if (matchedOrders.length > 0) {
+            const rows = matchedOrders.slice(0, 50).map(o => {
+                const dt = o.created_at ? new Date(o.created_at).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+                const st = String(o.status || '').toLowerCase();
+                let statusBdg = '';
+                if (['delivered', 'completed'].includes(st)) {
+                    statusBdg = '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">✅ Delivered</span>';
+                } else if (['claimed', 'runner_assigned', 'picked_up', 'out_for_delivery'].includes(st)) {
+                    statusBdg = '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-800 animate-pulse">🚀 In Transit</span>';
+                } else {
+                    statusBdg = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-600">${escapeHtml(o.status || 'Unknown')}</span>`;
+                }
+                const total = o.total ? `₹${Number(o.total).toFixed(0)}` : '—';
+                const customer = escapeHtml(o.customer_name || o.user_name || 'Unknown');
+                const hostel = escapeHtml(o.hostel_id || o.delivery_hostel || '—');
+                return `<tr class="hover:bg-gray-50 transition-colors">
+                    <td class="p-3 text-[11px] text-[#5c5f60]">${dt}</td>
+                    <td class="p-3 text-xs font-medium text-[#181c1f]">${customer}</td>
+                    <td class="p-3 text-xs font-mono text-[#181c1f]">${total}</td>
+                    <td class="p-3 text-xs">${hostel}</td>
+                    <td class="p-3">${statusBdg}</td>
+                </tr>`;
+            }).join('');
+
+            historyTableHtml = `
+                <div class="glass-panel overflow-hidden">
+                    <div class="p-4 border-b border-[#DADCE0] flex items-center justify-between">
+                        <h4 class="text-sm font-bold text-[#181c1f] flex items-center gap-2">
+                            <span class="material-symbols-outlined text-indigo-600 text-base">receipt_long</span>
+                            Order Delivery History
+                        </h4>
+                        <span class="text-[11px] text-[#5c5f60] font-semibold">${matchedOrders.length} order${matchedOrders.length !== 1 ? 's' : ''} found</span>
+                    </div>
+                    <div class="overflow-x-auto max-h-[350px] overflow-y-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead class="sticky top-0 bg-[#f7fafd] z-10">
+                                <tr class="border-b border-[#DADCE0] text-[#5c5f60] font-semibold uppercase text-[11px]">
+                                    <th class="p-3">Date</th>
+                                    <th class="p-3">Customer</th>
+                                    <th class="p-3">Amount</th>
+                                    <th class="p-3">Hostel</th>
+                                    <th class="p-3">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-[#DADCE0]">${rows}</tbody>
+                        </table>
+                    </div>
+                    ${matchedOrders.length > 50 ? `<div class="p-3 border-t border-[#DADCE0] bg-gray-50 text-center text-[11px] text-[#5c5f60]">Showing latest 50 of ${matchedOrders.length} orders</div>` : ''}
+                </div>`;
+        } else {
+            historyTableHtml = `
+                <div class="glass-panel p-6 text-center text-[#5c5f60]">
+                    <span class="material-symbols-outlined text-3xl text-gray-300 mb-2 block">receipt_long</span>
+                    <p class="text-xs">No delivery order history found for this employee.</p>
+                </div>`;
+        }
+
+        contentEl.innerHTML = summaryHtml + historyTableHtml;
+    } catch (err) {
+        contentEl.innerHTML = summaryHtml + `<div class="glass-panel p-6 text-center text-rose-600 text-xs">Failed to load order history: ${err.message}</div>`;
+    }
+}
+
+function closeEmployeeHistoryModal() {
+    const modal = document.getElementById('modal-emp-history');
+    if (modal) modal.classList.add('hidden');
+}
+
 
 // ==========================================
 // CAMPUS MULTI-HOSTEL CONTROLLER
@@ -6073,6 +6335,23 @@ function populateHostelDropdowns() {
             }
         }
     });
+
+    // Keep Employees hostel filter in sync with ONLY active hostels (active by owner)
+    const empHostelSelect = document.getElementById('emp-filter-hostel');
+    if (empHostelSelect) {
+        const curVal = empHostelSelect.value;
+        empHostelSelect.innerHTML = '<option value="">🏢 All Stores &amp; Active Hostels</option>';
+        const activeHostels = (hostelsCache || []).filter(h => h.status === 'ACTIVE' || h.status === 'active');
+        activeHostels.forEach(h => {
+            const opt = document.createElement('option');
+            opt.value = h.id;
+            opt.textContent = `🏢 ${h.name || h.id}`;
+            empHostelSelect.appendChild(opt);
+        });
+        if (curVal && Array.from(empHostelSelect.options).some(o => o.value === curVal)) {
+            empHostelSelect.value = curVal;
+        }
+    }
 }
 
 function onProductsHostelFilterChange(val) {
@@ -10244,3 +10523,61 @@ async function confirmAndExecuteRestore() {
 
 
 
+
+
+// Toggle Employee / Staff Duty Status (On Duty / Off Duty) across Admin Console
+window.toggleEmployeeDuty = async function(empId, setOnDuty) {
+    if (!empId) return;
+    try {
+        const res = await fetch(`/api/admin/employees/${empId}/duty-status`, {
+            method: 'PUT',
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ is_on_duty: setOnDuty, duty_status: setOnDuty ? 'ON_DUTY' : 'OFF_DUTY', status: setOnDuty ? 'Active' : 'Offline' })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(`Duty status updated: ${setOnDuty ? '🟢 ON DUTY (Online)' : '⚪ OFF DUTY (Offline)'}`, 'success');
+            
+            // 1. Update in-memory employeesCache
+            if (typeof employeesCache !== 'undefined' && Array.isArray(employeesCache)) {
+                const found = employeesCache.find(e => e.id === empId);
+                if (found) {
+                    found.is_on_duty = setOnDuty;
+                    found.duty_status = setOnDuty ? 'ON_DUTY' : 'OFF_DUTY';
+                    if (found.delivery_data) {
+                        found.delivery_data.duty_status = setOnDuty ? 'ON_DUTY' : 'OFF_DUTY';
+                    }
+                }
+                const onDutyCount = employeesCache.filter(e => e.duty_status === 'ON_DUTY' || e.is_on_duty).length;
+                const statOnDuty = document.getElementById('stat-emp-onduty');
+                if (statOnDuty) statOnDuty.textContent = onDutyCount;
+                filterEmployeesList();
+            } else if (typeof loadEmployeesList === 'function') {
+                loadEmployeesList();
+            }
+
+            // 2. Update in-memory staffCache
+            if (typeof staffCache !== 'undefined' && Array.isArray(staffCache)) {
+                const foundStaff = staffCache.find(s => s.id === empId);
+                if (foundStaff) {
+                    foundStaff.is_on_duty = setOnDuty;
+                    foundStaff.duty_status = setOnDuty ? 'ON_DUTY' : 'OFF_DUTY';
+                }
+                renderStaffTable(staffCache);
+            }
+
+            // 3. If current logged-in user changed their own duty status, keep local state in sync
+            if (currentAdminProfile && currentAdminProfile.id === empId) {
+                partnerIsOnDuty = setOnDuty;
+                if (typeof updatePartnerDutyUI === 'function') {
+                    updatePartnerDutyUI(partnerIsOnDuty);
+                }
+            }
+        } else {
+            showToast(data.error || 'Failed to update duty status', 'error');
+        }
+    } catch (err) {
+        console.error('[toggleEmployeeDuty Error]:', err);
+        showToast('Network error updating duty status: ' + err.message, 'error');
+    }
+};

@@ -17,7 +17,7 @@
         rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="/admin/css/admin.css?v=20261001_v16">
+    <link rel="stylesheet" href="/admin/css/admin.css?v=20261002_duty_v17">
     <script>
         // Proactively unregister any stale service worker for /admin and clear PWA cache
         if ('caches' in window) {
@@ -99,7 +99,7 @@
                 <span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded-full border border-emerald-300">₹3/Ord</span>
             </button>
             <button onclick="switchView('daily-revenue')" data-view="daily-revenue" data-required-role="owner"
-                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full owner-only-nav">
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full owner-only-nav hidden">
                 <span class="material-symbols-outlined text-emerald-600">payments</span>
                 <span class="flex-1 font-bold text-[#181c1f]">Daily Revenue</span>
                 <span class="text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Owner</span>
@@ -129,31 +129,31 @@
                     class="text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-bold">4</span>
             </button>
             <button onclick="switchView('hostels')" data-view="hostels" data-required-role="owner"
-                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full owner-only-nav">
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full owner-only-nav hidden">
                 <span class="material-symbols-outlined text-[#0066cc]">domain</span>
                 <span class="flex-1 font-bold text-[#181c1f]">Campus Hostels</span>
                 <span class="text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Owner</span>
             </button>
             <button onclick="switchView('staff')" data-view="staff" data-required-role="owner"
-                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full owner-only-nav">
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full owner-only-nav hidden">
                 <span class="material-symbols-outlined text-[#1a73e8]">manage_accounts</span>
                 <span class="flex-1 font-bold text-[#1a73e8]">Manage Admins</span>
                 <span class="text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Owner</span>
             </button>
             <button onclick="switchView('employees')" data-view="employees" data-required-role="owner"
-                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full owner-only-nav">
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full owner-only-nav hidden">
                 <span class="material-symbols-outlined text-indigo-600">badge</span>
                 <span class="flex-1 font-bold text-[#181c1f]">Employees</span>
                 <span class="text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Owner</span>
             </button>
             <button onclick="switchView('backup')" data-view="backup" data-required-role="owner"
-                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full owner-only-nav hidden">
                 <span class="material-symbols-outlined text-[#1a73e8]">settings_backup_restore</span>
                 <span class="flex-1 font-bold text-[#1a73e8]">Backup & Restore</span>
                 <span class="text-[9px] bg-emerald-600 text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">0-100</span>
             </button>
             <button onclick="switchView('settings')" data-view="settings" data-required-role="owner"
-                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full owner-only-nav hidden">
                 <span class="material-symbols-outlined">settings</span>
                 <span>Settings</span>
             </button>
@@ -4193,7 +4193,7 @@
     <div id="partner-modal-container"></div>
 
     <!-- Application Script Reference -->
-    <script src="/admin/js/admin.js?v=20261001_multihostel_v16"></script>
+    <script src="/admin/js/admin.js?v=20261002_duty_v17"></script>
 </body>
 
 </html>
