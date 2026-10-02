@@ -1,26 +1,36 @@
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 const AVAILABILITY_FILE = path.join(__dirname, '../data/rider_availability.json');
+const TMP_AVAILABILITY_FILE = path.join(os.tmpdir(), 'lpuquick_rider_availability.json');
 
 // In-memory cache for speed
 let availabilityCache = null;
 
 function loadCache() {
     try {
+        if (fs.existsSync(TMP_AVAILABILITY_FILE)) {
+            const raw = fs.readFileSync(TMP_AVAILABILITY_FILE, 'utf8');
+            availabilityCache = JSON.parse(raw);
+            return;
+        }
+    } catch (e) {}
+
+    try {
         if (fs.existsSync(AVAILABILITY_FILE)) {
             const raw = fs.readFileSync(AVAILABILITY_FILE, 'utf8');
             availabilityCache = JSON.parse(raw);
-        } else {
-            availabilityCache = {};
+            return;
         }
     } catch (e) {
         console.warn('[Rider Availability Read Error]:', e.message);
-        availabilityCache = {};
     }
+    availabilityCache = {};
 }
 
 function saveCache() {
+    // 1. Try local project path
     try {
         const dir = path.dirname(AVAILABILITY_FILE);
         if (!fs.existsSync(dir)) {
@@ -28,7 +38,12 @@ function saveCache() {
         }
         fs.writeFileSync(AVAILABILITY_FILE, JSON.stringify(availabilityCache || {}, null, 2), 'utf8');
     } catch (e) {
-        console.error('[Rider Availability Write Error]:', e.message);
+        // 2. Serverless fallback: write to /tmp
+        try {
+            fs.writeFileSync(TMP_AVAILABILITY_FILE, JSON.stringify(availabilityCache || {}, null, 2), 'utf8');
+        } catch (tmpErr) {
+            console.error('[Rider Availability Write Error]:', tmpErr.message);
+        }
     }
 }
 

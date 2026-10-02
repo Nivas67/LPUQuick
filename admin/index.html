@@ -129,22 +129,22 @@
                     class="text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-bold">4</span>
             </button>
             <button onclick="switchView('hostels')" data-view="hostels" data-required-role="owner"
-                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full owner-only-nav">
                 <span class="material-symbols-outlined text-[#0066cc]">domain</span>
                 <span class="flex-1 font-bold text-[#181c1f]">Campus Hostels</span>
-                <span class="text-[9px] bg-[#0066cc] text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Owner</span>
+                <span class="text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Owner</span>
             </button>
             <button onclick="switchView('staff')" data-view="staff" data-required-role="owner"
-                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full owner-only-nav">
                 <span class="material-symbols-outlined text-[#1a73e8]">manage_accounts</span>
                 <span class="flex-1 font-bold text-[#1a73e8]">Manage Admins</span>
-                <span class="text-[9px] bg-[#1a73e8] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Owner</span>
+                <span class="text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Owner</span>
             </button>
             <button onclick="switchView('employees')" data-view="employees" data-required-role="owner"
-                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full owner-only-nav">
                 <span class="material-symbols-outlined text-indigo-600">badge</span>
                 <span class="flex-1 font-bold text-[#181c1f]">Employees</span>
-                <span class="text-[9px] bg-indigo-600 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Staff</span>
+                <span class="text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Owner</span>
             </button>
             <button onclick="switchView('backup')" data-view="backup" data-required-role="owner"
                 class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
@@ -2192,6 +2192,7 @@
                                     <th class="p-4">Phone</th>
                                     <th class="p-4">Assigned Roles & Capabilities</th>
                                     <th class="p-4">Assigned Hostel</th>
+                                    <th class="p-4">Duty Status</th>
                                     <th class="p-4">Last Active</th>
                                     <th class="p-4">Account Status</th>
                                     <th class="p-4 text-right">Actions</th>
@@ -2199,7 +2200,7 @@
                             </thead>
                             <tbody id="staff-table-tbody" class="divide-y divide-[#DADCE0]">
                                 <tr>
-                                    <td colspan="7" class="p-6 text-center text-[#5c5f60]">Loading admin staff members...</td>
+                                    <td colspan="8" class="p-6 text-center text-[#5c5f60]">Loading admin staff members...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -2332,6 +2333,7 @@
                                     <th class="p-4">Employee Profile</th>
                                     <th class="p-4">Assigned Store / BH Hostel</th>
                                     <th class="p-4">Position &amp; Role</th>
+                                    <th class="p-4">Live Duty Status</th>
                                     <th class="p-4">Phone / Contact</th>
                                     <th class="p-4">Delivery Operations &amp; Performance</th>
                                     <th class="p-4">Account Status</th>
@@ -2340,7 +2342,7 @@
                             </thead>
                             <tbody id="employees-table-tbody" class="divide-y divide-[#DADCE0]">
                                 <tr>
-                                    <td colspan="7" class="p-8 text-center text-[#5c5f60] animate-pulse">
+                                    <td colspan="8" class="p-8 text-center text-[#5c5f60] animate-pulse">
                                         Loading campus employees and store operations data...
                                     </td>
                                 </tr>
@@ -3484,6 +3486,33 @@
                     <p class="text-[11px] text-[#5c5f60]">
                         Assign this Delivery Person or Store Manager to an available campus hostel. When they log in, they will only see and manage orders, inventory, and activity for their assigned hostel.
                     </p>
+                </div>
+
+                <!-- Live Duty Status (Online / Offline) -->
+                <div class="bg-[#f7fafd] border border-[#DADCE0] p-4 rounded-xl space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <label class="font-bold text-[#181c1f] text-xs flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-sm text-emerald-600">sensors</span>
+                            <span>Live Operational Duty Status (Online / Offline) *</span>
+                        </label>
+                        <span class="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">Shift Availability</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 pt-1">
+                        <label class="flex items-start gap-2.5 p-3 rounded-xl border border-emerald-300 bg-white hover:bg-emerald-50/50 cursor-pointer transition-all shadow-xs">
+                            <input type="radio" name="form-staff-duty" id="staff-duty-on" value="ON_DUTY" checked class="mt-0.5 text-emerald-600 focus:ring-emerald-500 w-4 h-4">
+                            <div>
+                                <span class="font-bold text-xs text-emerald-950 flex items-center gap-1">🟢 On Duty (Online)</span>
+                                <p class="text-[10px] text-emerald-700 mt-0.5 font-medium">Ready for live orders &amp; active operations</p>
+                            </div>
+                        </label>
+                        <label class="flex items-start gap-2.5 p-3 rounded-xl border border-[#DADCE0] bg-white hover:bg-gray-50 cursor-pointer transition-all shadow-xs">
+                            <input type="radio" name="form-staff-duty" id="staff-duty-off" value="OFF_DUTY" class="mt-0.5 text-gray-600 focus:ring-gray-500 w-4 h-4">
+                            <div>
+                                <span class="font-bold text-xs text-[#181c1f] flex items-center gap-1">⚪ Off Duty (Offline)</span>
+                                <p class="text-[10px] text-[#5c5f60] mt-0.5 font-medium">Shift paused / resting (No dispatch)</p>
+                            </div>
+                        </label>
+                    </div>
                 </div>
 
                 <div id="staff-form-error" class="hidden p-3 rounded-xl bg-rose-50 text-[#ba1a1a] text-xs font-semibold"></div>

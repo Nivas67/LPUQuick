@@ -6,6 +6,7 @@ const supabaseDb = require('../db/supabaseDb');
 const requireAdmin = require('../middleware/adminAuth');
 const { requireRole } = require('../middleware/adminAuth');
 const { broadcastClientLockUpdate, broadcastUserBlocked, broadcastUserUnblocked, broadcastAdvertisementsUpdate, broadcastHostelStatusChanged } = require('../realtime');
+const { getRiderStatus, isRiderOnline, setRiderStatus } = require('../services/riderAvailability');
 const cache = require('../cache');
 
 // All routes in this file require Administrator Authorization
@@ -534,6 +535,9 @@ router.get('/employees', requireRole('owner'), async (req, res) => {
                 });
             }
 
+            const riderDuty = getRiderStatus(s.id);
+            const isDuty = riderDuty === 'Active' && s.account_status === 'ACTIVE';
+
             return {
                 id: s.id,
                 name: s.name,
@@ -542,6 +546,8 @@ router.get('/employees', requireRole('owner'), async (req, res) => {
                 roles: Array.isArray(s.roles) ? s.roles : ['store_manager'],
                 is_owner: Boolean(s.is_owner),
                 account_status: s.account_status || 'ACTIVE',
+                duty_status: isDuty ? 'ON_DUTY' : 'OFF_DUTY',
+                is_on_duty: isDuty,
                 assigned_hostel_id: s.assigned_hostel_id || null,
                 assigned_hostel_name: assignedHostel ? assignedHostel.name : (s.is_owner ? 'All Campus Hostels (Master)' : (s.assigned_hostel_id || 'General Operations')),
                 managed_hostels: managed.map(h => ({ id: h.id, name: h.name, status: h.status })),
@@ -556,7 +562,7 @@ router.get('/employees', requireRole('owner'), async (req, res) => {
                     today_deliveries: todayDeliveries,
                     today_earnings: todayDeliveries * ratePerOrder,
                     active_deliveries: activeDeliveries,
-                    duty_status: s.account_status === 'ACTIVE' ? 'ON_DUTY' : 'OFF_DUTY',
+                    duty_status: isDuty ? 'ON_DUTY' : 'OFF_DUTY',
                     rate_per_order: ratePerOrder
                 } : null
             };
@@ -570,7 +576,7 @@ router.get('/employees', requireRole('owner'), async (req, res) => {
             delivery_boys: employees.filter(e => e.is_delivery_boy).length,
             inventory_managers: employees.filter(e => e.is_inventory_manager).length,
             hostels_covered: new Set(employees.map(e => e.assigned_hostel_id).filter(Boolean)).size,
-            active_on_duty: employees.filter(e => e.delivery_data?.duty_status === 'ON_DUTY').length
+            active_on_duty: employees.filter(e => e.duty_status === 'ON_DUTY').length
         };
 
         res.json({
@@ -591,7 +597,16 @@ router.get('/employees', requireRole('owner'), async (req, res) => {
 router.get('/staff', requireRole('owner'), async (req, res) => {
     try {
         const staff = await supabaseDb.staff.getAllStaff();
-        res.json({ success: true, staff });
+        const enrichedStaff = (staff || []).map(s => {
+            const riderDuty = getRiderStatus(s.id);
+            const isDuty = riderDuty === 'Active' && s.account_status === 'ACTIVE';
+            return {
+                ...s,
+                duty_status: isDuty ? 'ON_DUTY' : 'OFF_DUTY',
+                is_on_duty: isDuty
+            };
+        });
+        res.json({ success: true, staff: enrichedStaff });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -599,7 +614,7 @@ router.get('/staff', requireRole('owner'), async (req, res) => {
 
 // POST /api/admin/staff (Create a new admin team member)
 router.post('/staff', requireRole('owner'), async (req, res) => {
-    const { name, email, phone, password, roles, assigned_hostel_id } = req.body;
+    const { name, email, phone, password, roles, assigned_hostel_id, is_on_duty, duty_status, status } = req.body;
     if (!name || !email || !password) {
         return res.status(400).json({ error: 'Name, email, and password are required' });
     }
@@ -613,6 +628,11 @@ router.post('/staff', requireRole('owner'), async (req, res) => {
             roles: Array.isArray(roles) && roles.length > 0 ? roles : ['store_manager'],
             assigned_hostel_id: assigned_hostel_id || null
         });
+
+        if (created && created.id) {
+            const shouldBeOnDuty = is_on_duty === true || duty_status === 'ON_DUTY' || status === 'Active';
+            setRiderStatus(created.id, shouldBeOnDuty ? 'Active' : 'Offline');
+        }
 
         await supabaseDb.audit.logAction({
             adminId: req.admin.id,
@@ -631,12 +651,63 @@ router.put('/staff/:id', requireRole('owner'), async (req, res) => {
     const { id } = req.params;
     try {
         const updated = await supabaseDb.staff.updateStaff(id, req.body);
+        if (req.body.is_on_duty !== undefined || req.body.duty_status !== undefined || req.body.status !== undefined) {
+            const shouldBeOnDuty = req.body.is_on_duty === true || req.body.duty_status === 'ON_DUTY' || req.body.status === 'Active';
+            setRiderStatus(id, shouldBeOnDuty ? 'Active' : 'Offline');
+        }
         await supabaseDb.audit.logAction({
             adminId: req.admin.id,
             action: 'STAFF_UPDATED',
             metadata: { targetId: id, updates: req.body }
         });
         res.json({ success: true, message: 'Staff member updated successfully', staff: updated });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// PUT /api/admin/employees/:id/duty-status (Toggle On Duty / Off Duty for employee - Owner Only)
+router.put('/employees/:id/duty-status', requireRole('owner'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const isOnDuty = req.body.is_on_duty === true || req.body.duty_status === 'ON_DUTY' || req.body.status === 'Active';
+        const newStatus = isOnDuty ? 'Active' : 'Offline';
+        setRiderStatus(id, newStatus);
+        
+        await supabaseDb.audit.logAction({
+            adminId: req.admin.id,
+            action: 'EMPLOYEE_DUTY_STATUS_CHANGED',
+            metadata: { targetId: id, status: newStatus, is_on_duty: isOnDuty }
+        });
+
+        res.json({
+            success: true,
+            employee_id: id,
+            duty_status: isOnDuty ? 'ON_DUTY' : 'OFF_DUTY',
+            is_on_duty: isOnDuty,
+            status: newStatus
+        });
+    } catch (err) {
+        console.error('[Employee Duty Status Error]:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// POST /api/admin/employees/:id/duty-status (Also accept POST)
+router.post('/employees/:id/duty-status', requireRole('owner'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const isOnDuty = req.body.is_on_duty === true || req.body.duty_status === 'ON_DUTY' || req.body.status === 'Active';
+        const newStatus = isOnDuty ? 'Active' : 'Offline';
+        setRiderStatus(id, newStatus);
+
+        res.json({
+            success: true,
+            employee_id: id,
+            duty_status: isOnDuty ? 'ON_DUTY' : 'OFF_DUTY',
+            is_on_duty: isOnDuty,
+            status: newStatus
+        });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }

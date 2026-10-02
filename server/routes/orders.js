@@ -12,14 +12,29 @@ const pushService = require('../notifications/pushService');
 const cache = require('../cache');
 const financialEngine = require('../utils/financialEngine');
 
+const os = require('os');
 const DELIVERY_SETTINGS_PATH = path.join(__dirname, '../data/delivery_settings.json');
+const TMP_DELIVERY_SETTINGS_PATH = path.join(os.tmpdir(), 'lpuquick_delivery_settings.json');
+let _memoryDeliverySettings = null;
 
 function getDeliveryPricingSettings() {
+    if (_memoryDeliverySettings) {
+        return _memoryDeliverySettings;
+    }
+    // Check /tmp first (persisted during serverless instance life)
+    try {
+        if (fs.existsSync(TMP_DELIVERY_SETTINGS_PATH)) {
+            const raw = fs.readFileSync(TMP_DELIVERY_SETTINGS_PATH, 'utf8');
+            _memoryDeliverySettings = JSON.parse(raw);
+            return _memoryDeliverySettings;
+        }
+    } catch (e) {}
+
     try {
         if (fs.existsSync(DELIVERY_SETTINGS_PATH)) {
             const raw = fs.readFileSync(DELIVERY_SETTINGS_PATH, 'utf8');
             const data = JSON.parse(raw);
-            return {
+            _memoryDeliverySettings = {
                 rate_per_order: typeof data.rate_per_order === 'number' && data.rate_per_order > 0 ? data.rate_per_order : 3.00,
                 currency: data.currency || 'INR',
                 surge_rate: Number(data.surge_rate) || 0.00,
@@ -31,11 +46,12 @@ function getDeliveryPricingSettings() {
                 updated_at: data.updated_at || new Date().toISOString(),
                 updated_by: data.updated_by || 'Owner'
             };
+            return _memoryDeliverySettings;
         }
     } catch (e) {
         console.warn('[Delivery Settings Read Warning]:', e.message);
     }
-    return {
+    _memoryDeliverySettings = {
         rate_per_order: 3.00,
         currency: 'INR',
         surge_rate: 0.00,
@@ -47,6 +63,7 @@ function getDeliveryPricingSettings() {
         updated_at: new Date().toISOString(),
         updated_by: 'Owner'
     };
+    return _memoryDeliverySettings;
 }
 
 function saveDeliveryPricingSettings(newSettings) {
@@ -60,11 +77,22 @@ function saveDeliveryPricingSettings(newSettings) {
         stats_start_timestamp: newSettings.stats_start_timestamp !== undefined ? newSettings.stats_start_timestamp : current.stats_start_timestamp,
         updated_at: new Date().toISOString()
     };
-    const dir = path.dirname(DELIVERY_SETTINGS_PATH);
-    if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
+    _memoryDeliverySettings = updated;
+
+    // Try local project path first, with fallback to /tmp on serverless (read-only filesystem EROFS)
+    try {
+        const dir = path.dirname(DELIVERY_SETTINGS_PATH);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        fs.writeFileSync(DELIVERY_SETTINGS_PATH, JSON.stringify(updated, null, 2), 'utf8');
+    } catch (writeErr) {
+        try {
+            fs.writeFileSync(TMP_DELIVERY_SETTINGS_PATH, JSON.stringify(updated, null, 2), 'utf8');
+        } catch (tmpErr) {
+            console.warn('[Delivery Settings] Fallback write to /tmp failed, kept in memory:', tmpErr.message);
+        }
     }
-    fs.writeFileSync(DELIVERY_SETTINGS_PATH, JSON.stringify(updated, null, 2), 'utf8');
     return updated;
 }
 
@@ -821,31 +849,45 @@ router.post('/delivery-duty-status', async (req, res) => {
                 } catch (err) {}
             }
         }
-        if (!adminId && req.body.riderId) {
-            adminId = req.body.riderId;
-            adminName = req.body.riderName || adminName;
+        let isOwner = false;
+        if (adminId === 'user_admin_bh13') {
+            isOwner = true;
+        } else if (adminId) {
+            try {
+                const u = await supabaseDb.users.getUserById(adminId);
+                if (u && (u.is_owner || (Array.isArray(u.roles) && u.roles.includes('owner')))) {
+                    isOwner = true;
+                }
+            } catch (err) {}
         }
-        if (!adminId) {
-            return res.status(401).json({ success: false, error: 'Authentication required to toggle duty status' });
+
+        let targetId = adminId;
+        let targetName = adminName;
+        const requestedRiderId = req.body.riderId || req.body.staffId;
+        if (requestedRiderId && (isOwner || requestedRiderId === adminId)) {
+            targetId = requestedRiderId;
+            targetName = req.body.riderName || req.body.staffName || targetName;
         }
-        const requestedStatus = req.body.status || (req.body.is_on_duty === false ? 'Offline' : 'Active');
-        const updated = setRiderStatus(adminId, requestedStatus);
+
+        const requestedStatus = req.body.status || (req.body.is_on_duty === false || req.body.duty_status === 'OFF_DUTY' ? 'Offline' : 'Active');
+        const updated = setRiderStatus(targetId, requestedStatus);
 
         broadcastDutyStatusChanged({
-            riderId: adminId,
-            riderName: adminName,
+            riderId: targetId,
+            riderName: targetName,
             status: updated.status,
             is_on_duty: updated.status === 'Active'
         });
 
         res.json({
             success: true,
-            rider_id: adminId,
+            rider_id: targetId,
             status: updated.status,
             is_on_duty: updated.status === 'Active',
+            duty_status: updated.status === 'Active' ? 'ON_DUTY' : 'OFF_DUTY',
             message: updated.status === 'Active' 
-                ? '🟢 You are now ON DUTY. You will receive express delivery orders and transfer requests.'
-                : '⚪ You are now OFFLINE. Delivery orders and transfers paused.'
+                ? `🟢 ${targetName} is now ON DUTY (Online).`
+                : `⚪ ${targetName} is now OFFLINE (Off Duty).`
         });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
@@ -1393,12 +1435,9 @@ router.get('/delivery-earnings', async (req, res) => {
             }
         }
 
-        // Orders within current period range
-        const periodOrders = filteredOrders.filter(o => {
-            if (!o.created_at) return false;
-            const oTime = new Date(o.created_at).getTime();
-            return oTime >= startDate.getTime() && oTime <= endDate.getTime();
-        });
+        // Orders within current period range - matching exact days in daysList
+        const periodDayDates = new Set(daysList.map(d => d.date));
+        const periodOrders = filteredOrders.filter(o => o.created_at && periodDayDates.has(formatISTDate(o.created_at)));
 
         const periodCompletedOrders = periodOrders.filter(o => isCompleted(o.status));
         const periodPendingOrders = periodOrders.filter(o => isPending(o.status));
