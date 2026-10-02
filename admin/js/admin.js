@@ -825,14 +825,39 @@ async function loadDashboard() {
             try { localStorage.setItem('lpuquick_admin_orders_cache', JSON.stringify(ordersCache)); } catch(e){}
         }
 
+        // Ensure productsCache is populated if empty so products and stock numbers display immediately
+        if (!productsCache || productsCache.length === 0) {
+            try {
+                const prodRes = await fetchWithTimeout(`/api/products?includeInactive=true${hostelParam}`, { headers: getAuthHeaders() }, 8000);
+                if (prodRes && prodRes.ok) {
+                    const prodJson = await prodRes.json();
+                    const list = Array.isArray(prodJson) ? prodJson : (prodJson.products || prodJson.data || []);
+                    if (list.length > 0) {
+                        productsCache = list;
+                        try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch(e){}
+                    }
+                }
+            } catch(e) {}
+        }
+
         const m = analyticsData.metrics || {};
 
-        // Compute metrics with instant fallback from cached orders & products (never display '--')
-        const totalOrdersVal = m.totalOrdersCount !== undefined ? m.totalOrdersCount : (ordersCache.length || 0);
-        const pendingCountVal = m.pendingOrdersCount !== undefined ? m.pendingOrdersCount : (ordersCache.filter(o => ['Order Placed', 'Preparing', 'Out for Delivery', 'pending', 'confirmed', 'accepted'].includes(o.status)).length);
-        const totalProdVal = m.totalProducts !== undefined ? m.totalProducts : (productsCache.length || 0);
-        const totalStockVal = m.totalStock !== undefined ? m.totalStock : (productsCache.reduce((s, p) => s + (Number(p.stock_left) || 0), 0) || 0);
-        const lowStockVal = m.lowStockCount !== undefined ? m.lowStockCount : (productsCache.filter(p => p.stock_left > 0 && p.stock_left <= 4).length || 0);
+        // Compute metrics with instant fallback from cached orders & products (never display zeros when data is in cache)
+        const totalOrdersVal = (m.totalOrdersCount !== undefined && m.totalOrdersCount > 0)
+            ? m.totalOrdersCount
+            : (ordersCache.length || (m.totalOrdersCount !== undefined ? m.totalOrdersCount : 0));
+        const pendingCountVal = m.pendingOrdersCount !== undefined
+            ? m.pendingOrdersCount
+            : (ordersCache.filter(o => ['Order Placed', 'Preparing', 'Out for Delivery', 'pending', 'confirmed', 'accepted'].includes(o.status)).length);
+        const totalProdVal = (m.totalProducts !== undefined && m.totalProducts > 0)
+            ? m.totalProducts
+            : (productsCache.length || (m.totalProducts !== undefined ? m.totalProducts : 0));
+        const totalStockVal = (m.totalStock !== undefined && m.totalStock > 0)
+            ? m.totalStock
+            : (productsCache.reduce((s, p) => s + (Number(p.stock_left) || 0), 0) || 0);
+        const lowStockVal = m.lowStockCount !== undefined
+            ? m.lowStockCount
+            : (productsCache.filter(p => p.stock_left > 0 && p.stock_left <= 4).length || 0);
 
         const elTotalProd = document.getElementById('dash-total-products');
         const elTotalStock = document.getElementById('dash-total-stock');

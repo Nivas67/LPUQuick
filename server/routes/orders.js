@@ -359,18 +359,18 @@ router.get('/admin/analytics', requireAdmin, async (req, res) => {
         const payload = await cache.wrap(cacheKey, async () => {
             const supabase = getSupabaseClient();
 
-            // Run independent queries concurrently with bounded order_items lookup
+            // Run independent queries concurrently
             const queryPromise = Promise.all([
-                supabase.from('orders').select('id, status, total, hostel_id, delivery_address').order('created_at', { ascending: false }).limit(500),
+                supabase.from('orders').select('id, status, total, delivery_address, created_at').order('created_at', { ascending: false }),
                 cleanHostel
                     ? supabaseDb.products.getAll({ hostel_id: cleanHostel })
-                    : supabase.from('products').select('id, name, category, in_stock, tags, price'),
-                supabase.from('order_items').select('order_id, product_id, quantity, unit_price').limit(500)
+                    : supabaseDb.products.getAll({}),
+                supabase.from('order_items').select('order_id, product_id, quantity, unit_price')
             ]);
 
-            const [ordersRes, productsRes, topItemsRes] = await withTimeout(queryPromise, 12000, [
+            const [ordersRes, productsRes, topItemsRes] = await withTimeout(queryPromise, 15000, [
                 { data: null },
-                cleanHostel ? [] : { data: null },
+                [],
                 { data: null }
             ]);
 
@@ -378,17 +378,15 @@ router.get('/admin/analytics', requireAdmin, async (req, res) => {
             if (cleanHostel) {
                 const normTarget = cleanHostel.toLowerCase().replace('-', '');
                 orders = orders.filter(o => {
-                    const h = (o.hostel_id || (o.delivery_address && o.delivery_address.match(/(BH-?\d+|GH-?\d+)/i)?.[1]?.replace('BH', 'BH-')) || 'BH-13');
+                    const h = (o.delivery_address && o.delivery_address.match(/(BH-?\d+|GH-?\d+)/i)?.[1]?.replace('BH', 'BH-')) || 'BH-13';
                     return h.toLowerCase().replace('-', '') === normTarget;
                 });
             }
 
-            const rawProducts = cleanHostel 
-                ? (Array.isArray(productsRes) ? productsRes : (productsRes?.data || []))
-                : (productsRes?.data || []);
+            const rawProducts = Array.isArray(productsRes) ? productsRes : (productsRes?.data || []);
 
             const products = rawProducts.map(p => {
-                if (cleanHostel && p.stock_left !== undefined) {
+                if (p.stock_left !== undefined) {
                     return p;
                 }
                 const match = (p.tags || '').match(/stock:(\d+)/);

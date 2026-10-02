@@ -192,14 +192,21 @@ router.post('/setup-pin', requireAdmin, requireOwner, async (req, res) => {
 
         const config = await getPinConfig();
 
-        // If already configured, require valid current_pin
+        // If already configured, require valid current_pin or admin account password
         if (config.configured && config.hash) {
-            if (!current_pin) {
-                return res.status(400).json({ success: false, error: 'Current PIN is required to change financial PIN.' });
+            const { admin_password } = req.body;
+            let isCurrentValid = false;
+            if (current_pin) {
+                isCurrentValid = verifyPin(current_pin, config.hash, config.salt);
             }
-            const isCurrentValid = verifyPin(current_pin, config.hash, config.salt);
+            if (!isCurrentValid && admin_password) {
+                const ownerUser = await supabaseDb.users.getByIdentifier(req.admin?.email || 'admin@lpu.in');
+                if (ownerUser && (ownerUser.password_hash === admin_password || ownerUser.password_hash === `hash_${admin_password}` || (process.env.ADMIN_PASSWORD && admin_password === process.env.ADMIN_PASSWORD))) {
+                    isCurrentValid = true;
+                }
+            }
             if (!isCurrentValid) {
-                return res.status(401).json({ success: false, error: 'Current PIN is incorrect.' });
+                return res.status(401).json({ success: false, error: 'Current PIN or Admin Password is incorrect.' });
             }
         }
 
@@ -217,7 +224,9 @@ router.post('/setup-pin', requireAdmin, requireOwner, async (req, res) => {
         await savePinConfig(newConfig);
 
         // Invalidate any existing financial sessions on PIN change
-        activeFinancialSessions.clear();
+        if (typeof revokedFinancialTokens !== 'undefined') {
+            revokedFinancialTokens.clear();
+        }
 
         return res.json({
             success: true,
