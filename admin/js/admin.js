@@ -10405,7 +10405,7 @@ async function startFullSystemExport() {
         updateExportProgress(10, 'Extracting database tables & server configs...');
         const res = await fetchWithTimeout('/api/admin/backup/export-data', {
             headers: { 'Authorization': `Bearer ${token}` }
-        });
+        }, 60000);
         const payload = await res.json();
 
         if (!payload.success) {
@@ -10632,7 +10632,7 @@ async function confirmAndExecuteRestore() {
                 'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({ tables, configs, mode })
-        });
+        }, 60000);
         const dbData = await dbRestoreRes.json();
         if (!dbData.success) {
             throw new Error(dbData.error || 'Database restoration failed on server');
@@ -10665,7 +10665,7 @@ async function confirmAndExecuteRestore() {
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({ files: batch })
-            });
+            }, 60000);
             const imgData = await imgRes.json();
             if (!imgData.success) {
                 console.warn('[Restore Image Batch Warning]:', imgData.error);
@@ -10682,7 +10682,7 @@ async function confirmAndExecuteRestore() {
                 'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({ manifest: currentLoadedBackupManifest })
-        });
+        }, 60000);
         const verifyData = await verifyRes.json();
 
         updateRestoreProgress(100, 'Restoration complete!');

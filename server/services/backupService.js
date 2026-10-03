@@ -272,8 +272,8 @@ const backupService = {
             }
         }
 
-        // 2. Insert records in strict forward dependency order in batches of 50
-        const batchSize = 50;
+        // 2. Insert records in strict forward dependency order in batches of 250
+        const batchSize = 250;
         for (const table of TABLES_DEPENDENCY_ORDER) {
             const rows = tablesData[table] || [];
             if (!Array.isArray(rows) || rows.length === 0) {
