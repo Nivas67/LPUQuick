@@ -147,8 +147,6 @@ router.get('/:id', async (req, res) => {
 
         // Security: Verified Admins (Owner & Store Managers) can view cost to estimate profits.
         // Public storefront customers MUST NOT see admin cost
-        const authHeader = req.headers['x-admin-token'] || req.headers.authorization || '';
-        const isAdmin = isAdminToken(authHeader);
         if (!isAdmin) {
             res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=120, stale-while-revalidate=300');
             const sanitized = { ...details };
@@ -252,7 +250,6 @@ router.get('/', async (req, res) => {
         // Security: Verified Admins (Owner & Store Managers) can view cost to estimate profits.
         // Public storefront customers MUST NOT see admin cost or profit margins
         const authHeader = req.headers['x-admin-token'] || req.headers.authorization || '';
-        const isAdmin = isAdminToken(authHeader);
         const isOwner = isPlatformOwnerToken(authHeader);
 
         // Filter out deleted items for hostel stores and store managers
