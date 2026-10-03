@@ -626,6 +626,10 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
                 }
                 localStorage.setItem('lpuquick_address_configured', 'true');
 
+                if (window.api && typeof window.api.clearProductsCache === 'function') {
+                    window.api.clearProductsCache();
+                }
+
                 if (typeof window.syncStoreAvailability === 'function') {
                     window.syncStoreAvailability(selectedHostel);
                 }
@@ -686,6 +690,10 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
 
         if (typeof window.syncStoreAvailability === 'function') {
             window.syncStoreAvailability(selectedHostel);
+        }
+
+        if (window.api && typeof window.api.clearProductsCache === 'function') {
+            window.api.clearProductsCache();
         }
 
         modal.remove();

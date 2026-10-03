@@ -1483,14 +1483,15 @@ async function quickLockSingleHostel(hostelId) {
 
 
 // ================= 2. PRODUCTS LOAD =================
-async function loadProducts() {
+async function loadProducts(force = false) {
     try {
         const hostelId = (typeof getActiveAdminHostelFilter === 'function') ? getActiveAdminHostelFilter('products') : null;
         const hostelParam = hostelId ? `&hostel_id=${encodeURIComponent(hostelId)}` : '';
-        const res = await fetchWithTimeout(`/api/products?includeInactive=true${hostelParam}`, { headers: getAuthHeaders() }, 7000);
+        const forceParam = force ? `&force=true&_t=${Date.now()}` : `&_t=${Date.now()}`;
+        const res = await fetchWithTimeout(`/api/products?includeInactive=true${hostelParam}${forceParam}`, { headers: getAuthHeaders() }, 7000);
         if (res.ok) {
             const data = await res.json();
-            if (data.products && Array.isArray(data.products) && data.products.length > 0) {
+            if (data.products && Array.isArray(data.products)) {
                 productsCache = data.products;
                 try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) {}
             }
@@ -1521,6 +1522,7 @@ function filterProducts() {
     const query = (document.getElementById('product-search-input')?.value || '').toLowerCase();
     const prodHostel = (typeof getActiveAdminHostelFilter === 'function') ? getActiveAdminHostelFilter('products') : null;
     let filtered = productsCache.filter(p => {
+        if (p.deleted) return false;
         const matchesQuery = p.name.toLowerCase().includes(query) || p.category.toLowerCase().includes(query);
         if (!matchesQuery) return false;
         if (prodHostel && prodHostel !== 'ALL') {
@@ -1726,7 +1728,15 @@ async function adjustStock(productId, delta) {
         });
         const data = await res.json();
         if (data.success) {
-            loadInventory();
+            const p = productsCache.find(x => x.id === productId);
+            if (p) {
+                p.stock_left = data.stock_left;
+                p.in_stock = data.in_stock;
+                filterProducts();
+            }
+            if (typeof filterInventory === 'function') filterInventory();
+            if (typeof loadInventory === 'function') loadInventory();
+            if (typeof loadProducts === 'function') loadProducts(true);
         }
     } catch (err) {
         alert('Stock update failed: ' + err.message);
@@ -1766,6 +1776,8 @@ async function promptCustomStock(productId, name, current) {
             p.in_stock = data.in_stock;
             filterProducts();
             if (typeof filterInventory === 'function') filterInventory();
+            if (typeof loadInventory === 'function') loadInventory();
+            if (typeof loadProducts === 'function') loadProducts(true);
             showToast(`Updated "${name}" stock to ${parsed}`, 'success');
         }
     } catch (err) {
@@ -1812,6 +1824,8 @@ async function toggleProductStock(productId, inStock) {
             p.in_stock = data.in_stock;
             filterProducts();
             if (typeof filterInventory === 'function') filterInventory();
+            if (typeof loadInventory === 'function') loadInventory();
+            if (typeof loadProducts === 'function') loadProducts(true);
             showToast(targetStock > 0 ? `Set "${p.name}" stock to ${targetStock}` : `Marked "${p.name}" Out of Stock`, 'success');
         }
     } catch (err) {
@@ -3912,7 +3926,9 @@ async function handleProductSubmit(e) {
         };
 
         const hostelSelect = document.getElementById('form-product-hostel');
-        const hostelVal = hostelSelect ? hostelSelect.value : (currentAdminProfile?.assigned_hostel_id || 'BH-13');
+        const hostelVal = (currentAdminProfile && currentAdminProfile.assigned_hostel_id && !isOwner)
+            ? currentAdminProfile.assigned_hostel_id
+            : (hostelSelect?.value || currentAdminProfile?.assigned_hostel_id || 'BH-13');
         payload.hostel_id = hostelVal;
 
         const costVal = Number(document.getElementById('form-product-cost')?.value);
@@ -3929,7 +3945,7 @@ async function handleProductSubmit(e) {
         const data = await res.json();
         if (data.success) {
             closeProductModal();
-            await loadProducts();
+            await loadProducts(true);
             await loadInventory();
             await loadDashboard();
             if (typeof showToast === 'function') {
@@ -3962,7 +3978,7 @@ async function deactivateProduct(id, name) {
         });
         const data = await res.json();
         if (data.success) {
-            loadProducts();
+            loadProducts(true);
             if (typeof loadInventory === 'function') loadInventory();
         }
     } catch (err) {
@@ -3994,7 +4010,8 @@ async function deleteProductPermanently(id, name) {
                 ? `"${name}" was permanently removed from inventory.`
                 : `"${name}" was removed from ${activeHostel || 'your hostel'} store.`;
             alert(successMsg);
-            loadProducts();
+            if (typeof closeProductModal === 'function') closeProductModal();
+            loadProducts(true);
             if (typeof loadInventory === 'function') loadInventory();
         } else {
             alert('Failed to delete: ' + (data.error || data.message || 'Unknown error'));

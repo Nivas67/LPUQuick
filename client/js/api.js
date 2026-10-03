@@ -341,7 +341,7 @@ const api = {
                         }
                         homeFeedCache = data;
                         homeFeedCacheTime = Date.now();
-                        homeFeedCacheUserId = uid;
+                        homeFeedCacheUserId = homeCacheKey;
                     }
                 })
                 .catch(() => {});
@@ -369,7 +369,7 @@ const api = {
             }
             homeFeedCache = data;
             homeFeedCacheTime = Date.now();
-            homeFeedCacheUserId = uid;
+            homeFeedCacheUserId = homeCacheKey;
         }
         return data;
     },
@@ -727,6 +727,24 @@ const api = {
             body: JSON.stringify({ orderId, status })
         });
         return res.json();
+    },
+
+    clearProductsCache() {
+        homeFeedCache = null;
+        homeFeedCacheTime = 0;
+        homeFeedCacheUserId = null;
+        if (productsMemoryCache && typeof productsMemoryCache.clear === 'function') {
+            productsMemoryCache.clear();
+        }
+        if (productsMemoryCacheTime && typeof productsMemoryCacheTime.clear === 'function') {
+            productsMemoryCacheTime.clear();
+        }
+        if (searchCache && typeof searchCache.clear === 'function') {
+            searchCache.clear();
+        }
+        if (window.__cachedProducts && typeof window.__cachedProducts.clear === 'function') {
+            window.__cachedProducts.clear();
+        }
     },
 
     clearOrdersCache() {

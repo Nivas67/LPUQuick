@@ -70,7 +70,13 @@ router.get('/', async (req, res) => {
             }
 
             const section = getTimeSection(hour);
-            const allProducts = await supabaseDb.products.getAll({ hostel_id: hostelId, includeInactive: false });
+            const rawProducts = await supabaseDb.products.getAll({ hostel_id: hostelId, includeInactive: false });
+            const allProducts = (rawProducts || []).filter(p => !p.deleted).map(p => {
+                const clean = { ...p };
+                delete clean.cost_price;
+                delete clean.cost;
+                return clean;
+            });
 
             const promos = [
                 {

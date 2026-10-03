@@ -263,12 +263,14 @@ const supabaseDb = {
         _formatProduct(p) {
             if (!p) return null;
             const match = (p.tags || '').match(/stock:(\d+)/);
-            const stock_left = match ? parseInt(match[1], 10) : 0;
+            const stock_left = match ? parseInt(match[1], 10) : (p.stock_left !== undefined ? parseInt(p.stock_left, 10) : 0);
             const in_stock = Boolean(stock_left > 0 && p.in_stock !== false);
             
             // Extract hostel_id from direct column or tag fallback (Defaulting cleanly to BH-13)
             const hostelMatch = (p.tags || '').match(/hostel:([A-Za-z0-9_-]+)/);
             const hostel_id = p.hostel_id || (hostelMatch ? hostelMatch[1] : 'BH-13');
+            const cleanOrigin = hostel_id.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const isCampus = cleanOrigin === 'BH13' || cleanOrigin === 'ALL' || cleanOrigin === 'CAMPUS';
 
             let image_url = p.image_url;
             const localUploads = getLocalUploadsSet();
@@ -296,6 +298,8 @@ const supabaseDb = {
             return {
                 ...p,
                 hostel_id,
+                origin_hostel: hostel_id,
+                is_campus_baseline: isCampus,
                 image_url,
                 cost_price: Number(p.cost_price) || 0,
                 description: p.size || p.name,
@@ -308,9 +312,17 @@ const supabaseDb = {
 
         _applyHostelStockOverlay(prod, cleanHostel, hostelInventory = {}) {
             if (!prod || !cleanHostel) return prod;
-            const originHostel = (prod.hostel_id || 'BH-13').toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const rawOrigin = prod.origin_hostel || prod.hostel_id || 'BH-13';
+            const originHostel = rawOrigin.toUpperCase().replace(/[^A-Z0-9]/g, '');
             const targetHostelNorm = cleanHostel.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            
+            // Preserve origin hostel identity while assigning active hostel view
+            prod.origin_hostel = rawOrigin;
             prod.hostel_id = cleanHostel;
+
+            const isCampusBaseline = originHostel === 'BH13' || originHostel === 'ALL' || originHostel === 'CAMPUS';
+            const isLocalCustom = originHostel === targetHostelNorm;
+
             const override = hostelInventory[prod.id];
             if (override !== undefined) {
                 if (override.deleted) {
@@ -322,16 +334,18 @@ const supabaseDb = {
                     prod.stock_left = Math.max(0, Number(override.stock_left) || 0);
                     prod.in_stock = Boolean(override.in_stock && prod.stock_left > 0);
                 }
-            } else if (originHostel !== targetHostelNorm && originHostel !== 'BH13' && originHostel !== 'ALL' && originHostel !== 'CAMPUS') {
+            } else if (!isCampusBaseline && !isLocalCustom) {
                 // Isolated custom product created specifically for a different hostel -> not in this hostel
                 prod.deleted = true;
                 prod.stock_left = 0;
                 prod.in_stock = false;
             } else {
-                // Campus baseline catalog product: starts at ZERO stock for this hostel until the hostel store manager adds/updates stock!
+                // Campus baseline catalog product OR local custom product for this hostel:
                 prod.deleted = false;
-                prod.stock_left = 0;
-                prod.in_stock = false;
+                const baseStock = prod.stock_left !== undefined ? Number(prod.stock_left) : 10;
+                // Ensure default availability (10 units) for campus baseline items in active dark stores
+                prod.stock_left = Math.max(0, isCampusBaseline && baseStock <= 0 ? 10 : baseStock);
+                prod.in_stock = Boolean(prod.stock_left > 0);
             }
             return prod;
         },
@@ -625,7 +639,7 @@ const supabaseDb = {
             if (updates.stock_left !== undefined || updates.hostel_id !== undefined) {
                 const existing = await this.getById(id);
                 const stockNum = updates.stock_left !== undefined ? (parseInt(updates.stock_left, 10) || 0) : (existing?.stock_left || 0);
-                const hId = updates.hostel_id || existing?.hostel_id || 'BH-13';
+                const hId = updates.hostel_id || existing?.origin_hostel || existing?.hostel_id || 'BH-13';
 
                 const currentTags = ((updates.tags !== undefined ? updates.tags : existing?.tags) || '')
                     .split(',')
@@ -681,46 +695,48 @@ const supabaseDb = {
 
         async adjustStock(id, delta, hostel_id = null) {
             const cleanHostel = (hostel_id && hostel_id !== 'all' && hostel_id !== 'ALL') ? String(hostel_id).trim().toUpperCase() : 'BH-13';
+            const current = await this.getById(id, cleanHostel);
+            if (!current) throw new Error('Product not found');
+            const newStock = Math.max(0, (current.stock_left || 0) + delta);
+            const inStock = newStock > 0;
             if (cleanHostel !== 'BH-13' && supabaseDb.inventory) {
-                const current = await this.getById(id, cleanHostel);
-                if (!current) throw new Error('Product not found');
-                const newStock = Math.max(0, (current.stock_left || 0) + delta);
-                return await supabaseDb.inventory.setProductStock(cleanHostel, id, { stock_left: newStock, in_stock: newStock > 0 });
+                await supabaseDb.inventory.setProductStock(cleanHostel, id, { stock_left: newStock, in_stock: inStock, deleted: false });
             }
-
-            const supabase = getSupabaseClient();
-            if (!supabase) throw new Error('PostgreSQL client unavailable');
-
-            const product = await this.getById(id, 'BH-13');
-            if (!product) throw new Error('Product not found');
-
-            const newStock = Math.max(0, (product.stock_left || 0) + delta);
-            const updated = await this.update(id, { stock_left: newStock });
-            if (supabaseDb.inventory) {
-                await supabaseDb.inventory.setProductStock('BH-13', id, { stock_left: newStock, in_stock: newStock > 0 }).catch(() => {});
+            const normOrigin = (current.origin_hostel || 'BH-13').toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const normTarget = cleanHostel.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            if (normOrigin === 'BH13' && normTarget === 'BH13') {
+                await this.update(id, { stock_left: newStock, in_stock: inStock }).catch(() => {});
+                if (supabaseDb.inventory) {
+                    await supabaseDb.inventory.setProductStock('BH-13', id, { stock_left: newStock, in_stock: inStock, deleted: false }).catch(() => {});
+                }
+            } else if (normOrigin === normTarget) {
+                await this.update(id, { stock_left: newStock, in_stock: inStock }).catch(() => {});
             }
-            return updated;
+            cache.invalidateProducts();
+            return { ...current, stock_left: newStock, in_stock: inStock, hostel_id: cleanHostel };
         },
 
         async toggleStock(id, hostel_id = null) {
             const cleanHostel = (hostel_id && hostel_id !== 'all' && hostel_id !== 'ALL') ? String(hostel_id).trim().toUpperCase() : 'BH-13';
+            const current = await this.getById(id, cleanHostel);
+            if (!current) throw new Error('Product not found');
+            const newInStock = !current.in_stock;
+            const newStock = newInStock ? (current.stock_left > 0 ? current.stock_left : 50) : 0;
             if (cleanHostel !== 'BH-13' && supabaseDb.inventory) {
-                const current = await this.getById(id, cleanHostel);
-                if (!current) throw new Error('Product not found');
-                const newInStock = !current.in_stock;
-                const newStock = newInStock ? 50 : 0;
-                return await supabaseDb.inventory.setProductStock(cleanHostel, id, { in_stock: newInStock, stock_left: newStock });
+                await supabaseDb.inventory.setProductStock(cleanHostel, id, { in_stock: newInStock, stock_left: newStock, deleted: false });
             }
-
-            const product = await this.getById(id, 'BH-13');
-            if (!product) throw new Error('Product not found');
-            const newInStock = !product.in_stock;
-            const newStock = newInStock ? 50 : 0;
-            const updated = await this.update(id, { in_stock: newInStock, stock_left: newStock });
-            if (supabaseDb.inventory) {
-                await supabaseDb.inventory.setProductStock('BH-13', id, { in_stock: newInStock, stock_left: newStock }).catch(() => {});
+            const normOrigin = (current.origin_hostel || 'BH-13').toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const normTarget = cleanHostel.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            if (normOrigin === 'BH13' && normTarget === 'BH13') {
+                await this.update(id, { in_stock: newInStock, stock_left: newStock }).catch(() => {});
+                if (supabaseDb.inventory) {
+                    await supabaseDb.inventory.setProductStock('BH-13', id, { in_stock: newInStock, stock_left: newStock, deleted: false }).catch(() => {});
+                }
+            } else if (normOrigin === normTarget) {
+                await this.update(id, { in_stock: newInStock, stock_left: newStock }).catch(() => {});
             }
-            return updated;
+            cache.invalidateProducts();
+            return { ...current, in_stock: newInStock, stock_left: newStock, hostel_id: cleanHostel };
         },
 
         async deactivate(id) {
