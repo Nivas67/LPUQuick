@@ -43,7 +43,7 @@ window.pages.cart = async function() {
             </div>
             <h3 class="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight">Your Cart is Empty</h3>
             <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1.5 mb-6 max-w-sm mx-auto leading-relaxed">
-                Add midnight snacks, cold energy drinks, Maggi, or study supplies from BH13 Campus Hub.
+                Add midnight snacks, cold energy drinks, Maggi, or study supplies from ${window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus')} Hub.
             </p>
             <a href="#/" class="clay-btn clay-btn-primary inline-flex items-center gap-2 px-7 py-3 rounded-2xl text-xs font-black shadow-xl tracking-wide uppercase">
                 <span>Explore Store</span>
@@ -112,7 +112,7 @@ window.pages.cart = async function() {
                 </a>
                 <div>
                     <h1 class="text-sm sm:text-base font-black text-slate-900 dark:text-white tracking-tight leading-tight">Your Cart</h1>
-                    <p class="text-[10px] sm:text-[11px] text-slate-500 font-semibold" id="cart-header-subtitle">${totalQuantity} ${totalQuantity === 1 ? 'item' : 'items'} · Delivering to ${window.currentAddress || 'BH13'} (3 mins)</p>
+                    <p class="text-[10px] sm:text-[11px] text-slate-500 font-semibold" id="cart-header-subtitle">${totalQuantity} ${totalQuantity === 1 ? 'item' : 'items'} · Delivering to ${window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus')} (3 mins)</p>
                 </div>
             </div>
             <div class="flex items-center gap-2">
@@ -193,7 +193,7 @@ window.pages.cart = async function() {
                     <span class="material-symbols-outlined text-base text-emerald">room_service</span>
                     <div>
                         <p class="text-[11px] font-black text-slate-900 dark:text-white">Room Delivery</p>
-                        <p class="text-[9px] text-slate-400">BH13 hostel door drop</p>
+                        <p class="text-[9px] text-slate-400">${window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus')} hostel door drop</p>
                     </div>
                 </div>
             </div>
@@ -269,7 +269,7 @@ window.pages.cart = async function() {
                 ${window.__isUserBlocked ? `
                 <div class="p-3 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-center space-y-1">
                     <p class="font-black text-xs text-rose-600 dark:text-rose-400">Account Restricted</p>
-                    <p class="text-[11px] text-slate-500">Contact BH13 Campus Hub for assistance.</p>
+                    <p class="text-[11px] text-slate-500">Contact ${window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus')} Campus Hub for assistance.</p>
                 </div>
                 <button disabled class="w-full clay-card text-slate-400 rounded-2xl py-3.5 font-bold text-xs cursor-not-allowed">
                     Checkout Disabled
@@ -444,7 +444,7 @@ window.pageInits.cart = function() {
         // Header subtitle
         const cartSubtitle = document.getElementById('cart-header-subtitle');
         if (cartSubtitle) {
-            cartSubtitle.textContent = `${totalQty} ${totalQty === 1 ? 'item' : 'items'} · Delivering to ${window.currentAddress || 'BH13'} (3 mins)`;
+            cartSubtitle.textContent = `${totalQty} ${totalQty === 1 ? 'item' : 'items'} · Delivering to ${window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus')} (3 mins)`;
         }
 
         // Bill details

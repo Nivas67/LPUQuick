@@ -20,7 +20,7 @@ window.pages.signin = async function() {
                 </div>
                 <div class="text-center">
                     <span class="text-2xl font-black tracking-tight text-slate-900 dark:text-white">LPUQuick</span>
-                    <span class="block text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mt-0.5">BH13 Express Quick-Commerce</span>
+                    <span class="block text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mt-0.5">Campus Express Quick-Commerce</span>
                 </div>
             </a>
             <p class="text-xs text-slate-500 dark:text-slate-400 font-semibold">
@@ -45,7 +45,7 @@ window.pages.signin = async function() {
                 </div>
                 <div class="clay-card p-3 rounded-2xl flex items-center gap-3 text-xs text-slate-700 dark:text-slate-300 font-bold">
                     <span class="material-symbols-outlined text-base text-emerald">storefront</span>
-                    <span>BH13 Ground Floor Fulfillment</span>
+                    <span>Campus Dark Store Fulfillment</span>
                 </div>
                 <div class="clay-card p-3 rounded-2xl flex items-center gap-3 text-xs text-slate-700 dark:text-slate-300 font-bold">
                     <span class="material-symbols-outlined text-base text-emerald">directions_walk</span>

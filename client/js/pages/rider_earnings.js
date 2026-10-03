@@ -252,7 +252,7 @@ window.pages.rider_earnings = function () {
 
                 <div class="space-y-1">
                     <div class="text-xs font-semibold text-blue-100 uppercase tracking-wider">Store</div>
-                    <div class="text-lg font-black tracking-tight" id="client-drawer-store">66365 • BH13 Ground Hub</div>
+                    <div class="text-lg font-black tracking-tight" id="client-drawer-store">66365 • Campus Ground Hub</div>
                 </div>
 
                 <div class="space-y-0.5 pt-1 border-t border-white/20">
@@ -789,7 +789,7 @@ window.renderClientOrdersList = function (orders, dayFilter) {
                         <span class="font-black text-xs text-slate-900">#${(o.id || '').slice(-8)}</span>
                         <span class="text-[10px] text-slate-500 font-semibold">${o.time || ''}</span>
                     </div>
-                    <p class="text-[11px] text-slate-600 truncate font-medium mt-0.5">${o.address || 'BH13 Campus'}</p>
+                    <p class="text-[11px] text-slate-600 truncate font-medium mt-0.5">${o.address || 'Campus Room'}</p>
                 </div>
             </div>
 
@@ -846,7 +846,7 @@ window.openClientPartnerShiftModal = function () {
                     <div class="p-3 bg-blue-50 rounded-2xl border border-blue-200">
                         <div class="font-black text-[#0066cc]">Night Express Shift</div>
                         <div class="text-slate-600 font-semibold mt-1">🕒 06:00 PM – 02:00 AM (7 Days)</div>
-                        <div class="text-slate-600 font-semibold">📍 Hub: BH13 Ground Floor Hub</div>
+                        <div class="text-slate-600 font-semibold">📍 Hub: Campus Ground Floor Hub</div>
                     </div>
                     <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-slate-600 space-y-1">
                         <div>• Payout: Fixed ₹3.00 for every delivered order.</div>
@@ -995,7 +995,7 @@ window.openClientPartnerHelpModal = function () {
                     <button onclick="window.closeClientPartnerModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500">✕</button>
                 </div>
                 <div class="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-xs text-emerald-900 space-y-1">
-                    <div class="font-bold">BH13 Ground Station Supervisor</div>
+                    <div class="font-bold">Campus Ground Station Supervisor</div>
                     <div class="text-[11px]">Phone: +91 98765 43210 (Extension 66365)</div>
                     <div class="text-[11px]">Dispatch Location: Ground Floor Room 002</div>
                 </div>
@@ -1155,7 +1155,7 @@ window.openClientPartnerProfileModal = function () {
                     </div>
                     <div class="flex justify-between py-1.5 border-b border-slate-100">
                         <span class="text-slate-500">Assigned Hub</span>
-                        <span class="font-bold text-[#181c1f]">BH13 Ground Station</span>
+                        <span class="font-bold text-[#181c1f]">Campus Ground Station</span>
                     </div>
                     <div class="flex justify-between py-1.5 border-b border-slate-100">
                         <span class="text-slate-500">Delivery Wage</span>

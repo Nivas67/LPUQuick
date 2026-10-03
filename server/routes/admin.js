@@ -47,10 +47,20 @@ router.get('/client-lock', async (req, res) => {
         }
 
         const canonicalTarget = supabaseDb.availability._normalizeHostelId(targetHostel);
-        const availability = await supabaseDb.availability.getHostelStatusDirect(canonicalTarget);
+        const availability = await supabaseDb.availability.getStatus(canonicalTarget);
         let allHostelLocks = null;
         if (isOwner) {
             allHostelLocks = await supabaseDb.availability.getAllHostelLocks();
+
+            // Detect if any individual hostel was locked by a store manager
+            if (canonicalTarget === 'ALL' && !availability.is_locked && allHostelLocks?.hostels) {
+                const lockedHostels = allHostelLocks.hostels.filter(h => h.direct_lock && h.direct_lock.is_locked);
+                if (lockedHostels.length > 0) {
+                    availability.partial_locked = true;
+                    availability.locked_hostels = lockedHostels.map(h => h.hostel_id);
+                    availability.locked_hostel_names = lockedHostels.map(h => h.hostel_name || h.hostel_id);
+                }
+            }
         }
 
         res.json({

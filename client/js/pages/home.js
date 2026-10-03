@@ -2,11 +2,15 @@
 window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
+function getHomeHostelDisplayName() {
+    return window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus');
+}
+
 const STORE_CATEGORIES = [
-    { 
-        id: 'all', 
-        name: 'All', 
-        emoji: '🛒', 
+    {
+        id: 'all',
+        name: 'All',
+        emoji: '🛒',
         img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=160&auto=format&fit=crop&q=80',
         banner: {
             title: 'Campus Supermart',
@@ -16,10 +20,10 @@ const STORE_CATEGORIES = [
             bg: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #064e3b 100%)'
         }
     },
-    { 
-        id: 'biscuits', 
-        name: 'Biscuits', 
-        emoji: '🍪', 
+    {
+        id: 'biscuits',
+        name: 'Biscuits',
+        emoji: '🍪',
         img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_124633c4_1788463612432.jpg',
         banner: {
             title: 'Cadbury Brownie & Cookies',
@@ -29,10 +33,10 @@ const STORE_CATEGORIES = [
             bg: 'linear-gradient(135deg, #2b0938 0%, #4a154b 50%, #6b1d5c 100%)'
         }
     },
-    { 
-        id: 'chips', 
-        name: 'Chips', 
-        emoji: '🥔', 
+    {
+        id: 'chips',
+        name: 'Chips',
+        emoji: '🥔',
         img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_73ad9ca2_1788463605585.webp',
         banner: {
             title: 'Mad Angles & Crisps',
@@ -42,10 +46,10 @@ const STORE_CATEGORIES = [
             bg: 'linear-gradient(135deg, #451a03 0%, #78350f 50%, #b45309 100%)'
         }
     },
-    { 
-        id: 'namkeen', 
-        name: 'Namkeen', 
-        emoji: '🥜', 
+    {
+        id: 'namkeen',
+        name: 'Namkeen',
+        emoji: '🥜',
         img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/Bikaji_Chowpati_Bhelpuri_1788533073973.jpg',
         banner: {
             title: 'Bikaji Chowpati & Namkeen',
@@ -55,10 +59,10 @@ const STORE_CATEGORIES = [
             bg: 'linear-gradient(135deg, #78350f 0%, #9a3412 50%, #c2410c 100%)'
         }
     },
-    { 
-        id: 'chocolates', 
-        name: 'Chocolates', 
-        emoji: '🍫', 
+    {
+        id: 'chocolates',
+        name: 'Chocolates',
+        emoji: '🍫',
         img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_e581ce64_1788463600537.jpg',
         banner: {
             title: 'Cadbury Silk & Bubbly',
@@ -68,10 +72,10 @@ const STORE_CATEGORIES = [
             bg: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)'
         }
     },
-    { 
-        id: 'candies', 
-        name: 'Candies', 
-        emoji: '🍬', 
+    {
+        id: 'candies',
+        name: 'Candies',
+        emoji: '🍬',
         img: 'https://images.unsplash.com/photo-1582058091505-f87a2e55a40f?w=160&auto=format&fit=crop&q=80',
         banner: {
             title: 'Sweet Toffees & Candies',
@@ -81,10 +85,10 @@ const STORE_CATEGORIES = [
             bg: 'linear-gradient(135deg, #831843 0%, #be185d 50%, #db2777 100%)'
         }
     },
-    { 
-        id: 'drinks', 
-        name: 'Drinks', 
-        emoji: '🥤', 
+    {
+        id: 'drinks',
+        name: 'Drinks',
+        emoji: '🥤',
         img: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=160&auto=format&fit=crop&q=80',
         banner: {
             title: 'Ice Chilled Soft Drinks',
@@ -94,10 +98,10 @@ const STORE_CATEGORIES = [
             bg: 'linear-gradient(135deg, #082f49 0%, #0369a1 50%, #0284c7 100%)'
         }
     },
-    { 
-        id: 'instant', 
-        name: 'Instant Food', 
-        emoji: '🍜', 
+    {
+        id: 'instant',
+        name: 'Instant Food',
+        emoji: '🍜',
         img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/CUP_NOODLES_Mazedaar_masala__Delicious_Masala_Flavour__1788531084520.jpg',
         banner: {
             title: 'Cup Noodles & Maggi',
@@ -107,10 +111,10 @@ const STORE_CATEGORIES = [
             bg: 'linear-gradient(135deg, #701a75 0%, #86198f 50%, #c026d3 100%)'
         }
     },
-    { 
-        id: 'snacks', 
-        name: 'Snacks', 
-        emoji: '🍿', 
+    {
+        id: 'snacks',
+        name: 'Snacks',
+        emoji: '🍿',
         img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_db41fad9_1788463611792.jpg',
         banner: {
             title: 'Tedhe Medhe & Munchies',
@@ -120,10 +124,10 @@ const STORE_CATEGORIES = [
             bg: 'linear-gradient(135deg, #14532d 0%, #166534 50%, #15803d 100%)'
         }
     },
-    { 
-        id: 'bakery', 
-        name: 'Bakery', 
-        emoji: '🧁', 
+    {
+        id: 'bakery',
+        name: 'Bakery',
+        emoji: '🧁',
         img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/BRITANNIA_Gobbles_Cake_Fruity_Fun_100g_1788530879398.jpg',
         banner: {
             title: 'Britannia Gobbles & Cakes',
@@ -133,10 +137,10 @@ const STORE_CATEGORIES = [
             bg: 'linear-gradient(135deg, #831843 0%, #9d174d 50%, #e11d48 100%)'
         }
     },
-    { 
-        id: 'juices', 
-        name: 'Juices', 
-        emoji: '🧃', 
+    {
+        id: 'juices',
+        name: 'Juices',
+        emoji: '🧃',
         img: 'https://images.unsplash.com/photo-1600271886742-f049cd451bba?w=160&auto=format&fit=crop&q=80',
         banner: {
             title: 'Real Fruit Juices',
@@ -146,10 +150,10 @@ const STORE_CATEGORIES = [
             bg: 'linear-gradient(135deg, #7c2d12 0%, #9a3412 50%, #ea580c 100%)'
         }
     },
-    { 
-        id: 'sweets', 
-        name: 'Sweets', 
-        emoji: '🍭', 
+    {
+        id: 'sweets',
+        name: 'Sweets',
+        emoji: '🍭',
         img: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=160&auto=format&fit=crop&q=80',
         banner: {
             title: 'Indian Sweets & Desserts',
@@ -159,10 +163,10 @@ const STORE_CATEGORIES = [
             bg: 'linear-gradient(135deg, #831843 0%, #9d174d 50%, #f43f5e 100%)'
         }
     },
-    { 
-        id: 'popcorn', 
-        name: 'Popcorn', 
-        emoji: '🌽', 
+    {
+        id: 'popcorn',
+        name: 'Popcorn',
+        emoji: '🌽',
         img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_78de005c_1788463606110.jpg',
         banner: {
             title: 'Act II Caramel Popcorn',
@@ -172,10 +176,10 @@ const STORE_CATEGORIES = [
             bg: 'linear-gradient(135deg, #713f12 0%, #854d0e 50%, #ca8a04 100%)'
         }
     },
-    { 
-        id: 'others', 
-        name: 'Others', 
-        emoji: '📦', 
+    {
+        id: 'others',
+        name: 'Others',
+        emoji: '📦',
         img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_78de005c_1788463606110.jpg',
         banner: {
             title: 'Popcorn & Essentials',
@@ -387,7 +391,7 @@ const DEFAULT_HOME_BANNERS = [
         title: 'Corridor Express Snacks & Munchies',
         subtitle: 'Instant noodles, chilled drinks, and snacks delivered right to your hostel room door in 3 minutes.',
         badge: '⚡ 3-MIN ROOM DROP',
-        pill: 'BH13 GROUND HUB',
+        pill: 'CAMPUS GROUND HUB',
         link_url: '#/categories',
         link_text: 'Browse Snacks',
         gradient: 'emerald',
@@ -443,7 +447,7 @@ const DEFAULT_HOME_BANNERS = [
 // ============================================================
 // UNIVERSAL BANNER TARGET CLICK & NAVIGATION HANDLER
 // ============================================================
-window.handleBannerTargetClick = function(targetUrl, event) {
+window.handleBannerTargetClick = function (targetUrl, event) {
     if (event) {
         if (typeof event.preventDefault === 'function') event.preventDefault();
         if (typeof event.stopPropagation === 'function') event.stopPropagation();
@@ -563,8 +567,8 @@ function renderHomeBannerSlideHTML(poster, index) {
     const safeJsUrl = rawLinkUrl.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     const imageUrl = poster.image_url ? poster.image_url : '';
     const keys = ['emerald', 'purple', 'amber', 'cyan'];
-    const themeKey = (poster.gradient && HOME_GRADIENT_THEMES[poster.gradient]) 
-        ? poster.gradient 
+    const themeKey = (poster.gradient && HOME_GRADIENT_THEMES[poster.gradient])
+        ? poster.gradient
         : keys[index % keys.length];
     const theme = HOME_GRADIENT_THEMES[themeKey] || HOME_GRADIENT_THEMES.emerald;
 
@@ -624,7 +628,7 @@ function renderHomeBannerSlideHTML(poster, index) {
         </div>`;
 }
 
-window.pages.home = async function() {
+window.pages.home = async function () {
     const effectiveUserId = (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : window.CURRENT_USER_ID) || null;
     let data = null;
     let productsRes = null;
@@ -633,7 +637,7 @@ window.pages.home = async function() {
         if (!data?.all_products || data.all_products.length === 0) {
             productsRes = await window.api.fetchProducts();
         }
-    } catch(e) {
+    } catch (e) {
         console.warn('Home data load warning:', e);
     }
 
@@ -647,7 +651,7 @@ window.pages.home = async function() {
 
     const buyAgain = (data?.buy_again || []).filter(p => Boolean(p.in_stock && Number(p.stock_left) > 0));
     const isPersonalizedBuyAgain = Boolean(data?.is_personalized_buy_again);
-    
+
     // Compute category product counts
     const categoryCounts = {};
     STORE_CATEGORIES.forEach(c => { categoryCounts[c.id] = 0; });
@@ -667,8 +671,8 @@ window.pages.home = async function() {
     const chocolates = inStockProducts.filter(p => classifyProductCategory(p) === 'chocolates');
     const instantFood = inStockProducts.filter(p => classifyProductCategory(p) === 'instant');
     const snacks = inStockProducts.filter(p => classifyProductCategory(p) === 'snacks');
-    
-    const address = window.currentAddress || 'BH13';
+
+    const address = getHomeHostelDisplayName();
 
     const isProductInStock = (p) => Boolean(p.in_stock && Number(p.stock_left) > 0);
 
@@ -713,7 +717,7 @@ window.pages.home = async function() {
                     activeBanners = parsed.filter(b => b.is_active !== false);
                 }
             }
-        } catch (e) {}
+        } catch (e) { }
     }
 
     if (!activeBanners || activeBanners.length === 0) {
@@ -762,7 +766,8 @@ window.pages.home = async function() {
                 </div>
             </div>
         </div>
-    `;}).join('');
+    `;
+    }).join('');
 
     return `
 <div class="min-h-screen pb-32">
@@ -1118,7 +1123,7 @@ window.pages.home = async function() {
                             <span class="text-xl sm:text-2xl select-none" id="active-category-emoji">🛒</span>
                             <div>
                                 <h2 class="text-xs sm:text-base font-black text-slate-900 dark:text-white tracking-tight" id="active-category-title">All Products</h2>
-                                <p class="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium" id="active-category-subtitle">Showing all available products in BH13 Campus Hub</p>
+                                <p class="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium" id="active-category-subtitle">Showing all available products in ${getHomeHostelDisplayName()} Campus Hub</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
@@ -1293,7 +1298,7 @@ window.pages.home = async function() {
 </div>`;
 };
 
-window.pageInits.home = function() {
+window.pageInits.home = function () {
     const mainGrid = document.getElementById('home-main-products-grid');
     const remainingGrid = document.getElementById('home-remaining-products-grid');
     const remainingSection = document.getElementById('home-remaining-products-section');
@@ -1306,7 +1311,7 @@ window.pageInits.home = function() {
     function applyFilters() {
         if (!mainGrid) return;
         const query = currentSearchQuery.trim().toLowerCase();
-        
+
         // Collect all catalog cards from beside-rail grid and full-width remaining grid
         const allCards = Array.from(document.querySelectorAll('#home-main-products-grid .product-card-item, #home-remaining-products-grid .product-card-item'));
         let visibleCount = 0;
@@ -1315,7 +1320,7 @@ window.pageInits.home = function() {
             const cardCat = card.dataset.category;
             const title = (card.querySelector('h3')?.textContent || '').toLowerCase();
             const isVeg = card.dataset.veg === '1';
-            
+
             // If user typed a search query, search across ALL categories in store
             const matchesCategory = (!query && currentCategory !== 'all') ? (cardCat === currentCategory) : true;
             const matchesSearch = (!query || title.includes(query) || (cardCat && cardCat.includes(query)));
@@ -1410,13 +1415,13 @@ window.pageInits.home = function() {
         const subtitleEl = document.getElementById('active-category-subtitle');
         if (query) {
             if (titleEl) titleEl.textContent = `Search: "${currentSearchQuery}"`;
-            if (subtitleEl) subtitleEl.textContent = `Found ${visibleCount} snacks in BH13 Campus Hub`;
+            if (subtitleEl) subtitleEl.textContent = `Found ${visibleCount} snacks in ${getHomeHostelDisplayName()} Campus Hub`;
         } else {
             if (titleEl) titleEl.textContent = catObj.id === 'all' ? 'All Products' : catObj.name;
             if (subtitleEl) {
-                subtitleEl.textContent = catObj.id === 'all' 
-                    ? 'Showing all available products in BH13 Campus Hub' 
-                    : `Showing ${catObj.name} in BH13 Campus Hub`;
+                subtitleEl.textContent = catObj.id === 'all'
+                    ? `Showing all available products in ${getHomeHostelDisplayName()} Campus Hub`
+                    : `Showing ${catObj.name} in ${getHomeHostelDisplayName()} Campus Hub`;
             }
         }
 
@@ -1466,7 +1471,7 @@ window.pageInits.home = function() {
                 item.classList.add('active');
                 try {
                     item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                } catch(e) {}
+                } catch (e) { }
             } else {
                 item.classList.remove('active');
             }
@@ -1480,9 +1485,9 @@ window.pageInits.home = function() {
         if (emojiEl) emojiEl.textContent = catObj.emoji;
         if (titleEl) titleEl.textContent = catObj.id === 'all' ? 'All Products' : catObj.name;
         if (subtitleEl) {
-            subtitleEl.textContent = catObj.id === 'all' 
-                ? 'Showing all available products in BH13 Campus Hub' 
-                : `Showing ${catObj.name} in BH13 Campus Hub`;
+            subtitleEl.textContent = catObj.id === 'all'
+                ? `Showing all available products in ${getHomeHostelDisplayName()} Campus Hub`
+                : `Showing ${catObj.name} in ${getHomeHostelDisplayName()} Campus Hub`;
         }
 
         // Update Promo Banner (Cadbury Brownie Style)
@@ -1903,7 +1908,7 @@ window.pageInits.home = function() {
             if (parsed.autoplay_delay) autoplayDelay = Math.max(1000, Number(parsed.autoplay_delay));
             if (parsed.autoplay_enabled !== undefined) autoplayEnabled = Boolean(parsed.autoplay_enabled);
         }
-    } catch (e) {}
+    } catch (e) { }
 
     function updateCarouselView() {
         if (!carouselTrack) return;
@@ -2001,7 +2006,7 @@ window.pageInits.home = function() {
     }
 
     // Expose global refresh function for real-time WebSocket & BroadcastChannel
-    window.refreshHomeCarousel = function(payload) {
+    window.refreshHomeCarousel = function (payload) {
         if (!payload) return;
         const banners = payload.banners || payload.posters;
         const settings = payload.settings;
@@ -2013,7 +2018,7 @@ window.pageInits.home = function() {
             if (settings) {
                 localStorage.setItem('lpuquick_carousel_settings', JSON.stringify(settings));
             }
-        } catch (e) {}
+        } catch (e) { }
     };
 
     if (carouselContainer && carouselTrack) {
@@ -2096,10 +2101,10 @@ window.pageInits.home = function() {
                         if (res.settings) {
                             localStorage.setItem('lpuquick_carousel_settings', JSON.stringify(res.settings));
                         }
-                    } catch (e) {}
+                    } catch (e) { }
                 }
             })
-            .catch(() => {});
+            .catch(() => { });
 
         // Listen for Realtime Events
         window.addEventListener('advertisementsUpdated', (e) => {
@@ -2113,7 +2118,7 @@ window.pageInits.home = function() {
                     window.refreshHomeCarousel(e.data);
                 }
             };
-        } catch (e) {}
+        } catch (e) { }
     }
 
     // ============================================================

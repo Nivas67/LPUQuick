@@ -141,7 +141,7 @@ const RAIL_CATEGORIES = [
 ];
 
 window.pages.categories = async function() {
-    const address = window.currentAddressDetail?.label || 'BH13 (Block A), Room 304';
+    const address = window.currentAddressDetail?.label || `${window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus')} (Block A), Room 304`;
 
     return `
 <div class="bg-background text-on-background min-h-screen flex flex-col selection:bg-emerald/20 selection:text-primary relative overflow-hidden" style="height: 100dvh; max-height: 100dvh;">

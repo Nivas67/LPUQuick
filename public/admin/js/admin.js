@@ -1003,7 +1003,14 @@ function updateClientLockUI(avail, targetHostelLabel) {
     if (dashPill && dashText) {
         if (isLocked) {
             dashPill.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-[#ffdad6] text-[#ba1a1a] border border-[#ffb4ab]';
-            dashText.textContent = 'STORE LOCKED' + hostelTag;
+            if (avail.locked_by_master) {
+                dashText.textContent = 'STORE LOCKED (All Hostels - Closed by Platform Owner)';
+            } else {
+                dashText.textContent = 'STORE LOCKED' + hostelTag;
+            }
+        } else if (avail.partial_locked && avail.locked_hostel_names?.length) {
+            dashPill.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-[#ffeed9] text-[#b06000] border border-[#ffcc80]';
+            dashText.textContent = `⚠️ ${avail.locked_hostel_names.length} HOSTEL CLOSED (${avail.locked_hostel_names.join(', ')})`;
         } else if (lockStatus === 'SCHEDULED') {
             dashPill.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-[#fef7e0] text-[#b06000] border border-[#fce8b2]';
             dashText.textContent = 'LOCK SCHEDULED' + hostelTag;
@@ -1017,6 +1024,10 @@ function updateClientLockUI(avail, targetHostelLabel) {
         if (isLocked) {
             navBadge.textContent = 'LOCKED';
             navBadge.className = 'text-[10px] bg-[#ba1a1a] text-white px-2 py-0.5 rounded-full font-bold';
+            navBadge.classList.remove('hidden');
+        } else if (avail.partial_locked && avail.locked_hostel_names?.length) {
+            navBadge.textContent = 'PARTIAL';
+            navBadge.className = 'text-[10px] bg-[#b06000] text-white px-2 py-0.5 rounded-full font-bold';
             navBadge.classList.remove('hidden');
         } else if (lockStatus === 'SCHEDULED') {
             navBadge.textContent = 'SCHED';
@@ -1040,9 +1051,13 @@ function updateClientLockUI(avail, targetHostelLabel) {
     if (isLocked) {
         heroCard.className = 'glass-panel p-6 border-l-4 border-l-[#ba1a1a] bg-[#ffdad6]/20';
         stateBadge.className = 'px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wide bg-[#ffdad6] text-[#ba1a1a] border border-[#ffb4ab]';
-        stateBadge.textContent = 'STORE LOCKED' + hostelTag;
+        stateBadge.textContent = avail.locked_by_master ? 'STORE LOCKED (Global - Closed by Platform Owner)' : ('STORE LOCKED' + hostelTag);
         headline.textContent = formatClientReopenHeadline(avail);
-        sub.textContent = avail.message ? `Admin message: "${avail.message}"` : "Students cannot submit checkout orders. Cart building is preserved.";
+        sub.textContent = avail.message
+            ? `Admin message: "${avail.message}"`
+            : (avail.locked_by_master
+                ? "Platform Owner has closed all hostels for orders. Students cannot submit checkout orders."
+                : "Students cannot submit checkout orders for this hostel. Cart building is preserved.");
         quickUnlockBtn?.classList.remove('hidden');
 
         const targetEnd = avail.end_at || avail.reopen_at;
@@ -1058,6 +1073,15 @@ function updateClientLockUI(avail, targetHostelLabel) {
             timerBox?.classList.add('hidden');
             if (lockTickerInterval) clearInterval(lockTickerInterval);
         }
+    } else if (avail.partial_locked && avail.locked_hostel_names?.length) {
+        heroCard.className = 'glass-panel p-6 border-l-4 border-l-[#b06000] bg-[#ffeed9]/20';
+        stateBadge.className = 'px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wide bg-[#ffeed9] text-[#b06000] border border-[#ffcc80]';
+        stateBadge.textContent = `⚠️ PARTIAL LOCK (${avail.locked_hostel_names.join(', ')})`;
+        headline.textContent = `${avail.locked_hostel_names.join(', ')} closed by store manager`;
+        sub.textContent = 'Other hostels are open. You can click on the hostel card in the overview grid below to view details or unlock.';
+        timerBox?.classList.add('hidden');
+        quickUnlockBtn?.classList.add('hidden');
+        if (lockTickerInterval) clearInterval(lockTickerInterval);
     } else if (lockStatus === 'SCHEDULED') {
         heroCard.className = 'glass-panel p-6 border-l-4 border-l-[#b06000] bg-[#fef7e0]/20';
         stateBadge.className = 'px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wide bg-[#fef7e0] text-[#b06000] border border-[#fce8b2]';
@@ -2691,7 +2715,7 @@ async function submitOrderEdit(event) {
         return;
     }
 
-    const reason = document.getElementById('edit-order-reason')?.value || 'Item Out of Stock at BH13 Dark Store';
+    const reason = document.getElementById('edit-order-reason')?.value || 'Item Out of Stock at Dark Store';
     const notes = document.getElementById('edit-order-notes')?.value || '';
     const restockRemoved = document.getElementById('edit-restock-checkbox')?.checked !== false;
 
@@ -7972,7 +7996,7 @@ const DEFAULT_ADMIN_POSTERS = [
         title: 'Corridor Express Snacks & Munchies',
         subtitle: 'Instant noodles, chilled drinks, and snacks delivered right to your hostel room door in 3 minutes.',
         badge: '⚡ 3-MIN ROOM DROP',
-        pill: 'BH13 GROUND HUB',
+        pill: 'CAMPUS GROUND HUB',
         link_url: '#/categories',
         link_text: 'Browse Snacks',
         gradient: 'emerald',
@@ -9497,7 +9521,7 @@ function renderEarningsOrders(orders, dateFilter) {
                         <span class="font-black text-xs text-[#181c1f]">#${escapeHtml((o.id || '').slice(-8))}</span>
                         <span class="text-[10px] text-[#5c5f60] font-semibold">${escapeHtml(o.time || '')}</span>
                     </div>
-                    <p class="text-[11px] text-[#5c5f60] truncate font-medium mt-0.5">${escapeHtml(o.address || 'BH13 Campus')}</p>
+                    <p class="text-[11px] text-[#5c5f60] truncate font-medium mt-0.5">${escapeHtml(o.address || 'Campus Room')}</p>
                 </div>
             </div>
 
@@ -10156,7 +10180,7 @@ function openPartnerProfileModal() {
                     </div>
                     <div class="flex justify-between py-2 border-b border-slate-100">
                         <span class="text-slate-500">Assigned Hub</span>
-                        <span class="font-bold text-[#181c1f]">BH13 Ground Station</span>
+                        <span class="font-bold text-[#181c1f]">${escapeHtml(activeAdminHostelFilter?.deliveryEarnings || 'Campus')} Ground Station</span>
                     </div>
                     <div class="flex justify-between py-2 border-b border-slate-100">
                         <span class="text-slate-500">Delivery Rate</span>
@@ -10214,7 +10238,7 @@ function openEarningsNotificationModal() {
                         <p class="text-blue-800 text-[11px] mt-0.5">Every successfully marked Delivered order automatically credits ₹3 to your ledger. Check your weekly bar chart for day-wise breakdown.</p>
                     </div>
                     <div class="p-3 bg-amber-50 rounded-2xl border border-amber-200">
-                        <div class="font-bold text-amber-900">⚡ BH13 Express Rush Hours</div>
+                        <div class="font-bold text-amber-900">⚡ Campus Express Rush Hours</div>
                         <p class="text-amber-800 text-[11px] mt-0.5">Peak midnight hunger hours (10:00 PM - 01:30 AM). Multi-run orders eligible for fastest corridor batching.</p>
                     </div>
                 </div>
@@ -10269,9 +10293,9 @@ function openPartnerHelpModal() {
                 </div>
                 <div class="space-y-3 text-xs">
                     <div class="p-3 bg-emerald-50 rounded-2xl border border-emerald-200">
-                        <div class="font-bold text-emerald-900">BH13 Hub Central Dispatch Desk</div>
-                        <div class="text-emerald-800 text-[11px] mt-0.5">Phone: +91 98765 43210 (Direct extension 66365)</div>
-                        <div class="text-emerald-800 text-[11px]">Location: Ground Floor, Room 002, BH13</div>
+                        <div class="font-bold text-emerald-900">Campus Hub Central Dispatch Desk</div>
+                        <div class="text-emerald-800 text-[11px] mt-0.5">Phone: +91 98765 43210 (Direct Campus extension)</div>
+                        <div class="text-emerald-800 text-[11px]">Location: Ground Floor Dispatch Hub</div>
                     </div>
                     <div class="p-3 bg-[#F8FAFD] rounded-2xl border border-[#EBF0F7]">
                         <div class="font-bold text-[#181c1f]">Emergency Assistance</div>

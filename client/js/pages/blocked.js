@@ -30,7 +30,7 @@ window.renderBlockedPage = function(reason = 'Fake Orders') {
                         Your student account has been restricted from placing orders on <b>LPU Quick</b> due to flagged policy violations (such as fake orders, repeated non-acceptance, or fraud).
                     </p>
                     <p class="text-[11px] text-[#74777a]">
-                        If you believe this restriction is in error, please visit the <b>BH13 Central Campus Hub</b> or reach out to campus operations.
+                        If you believe this restriction is in error, please visit the <b>Central Campus Operations Hub</b> or reach out to campus operations.
                     </p>
                 </div>
 

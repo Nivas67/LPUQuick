@@ -47,6 +47,8 @@ const os = require('os');
 const DELIVERY_SETTINGS_PATH = path.join(__dirname, '../data/delivery_settings.json');
 const TMP_DELIVERY_SETTINGS_PATH = path.join(os.tmpdir(), 'lpuquick_delivery_settings.json');
 let _memoryDeliverySettings = null;
+let _deliverySettingsLastFetch = 0;
+const PRICING_CACHE_TTL_MS = 5000;
 
 function getDeliveryPricingSettings() {
     if (_memoryDeliverySettings) {
@@ -71,7 +73,7 @@ function getDeliveryPricingSettings() {
                 surge_rate: Number(data.surge_rate) || 0.00,
                 night_surcharge: Number(data.night_surcharge) || 0.00,
                 daily_bonus_threshold: Number(data.daily_bonus_threshold) || 20,
-                daily_bonus_amount: Number(data.daily_bonus_amount) || 20.00,
+                daily_bonus_amount: Number(data.daily_bonus_amount) !== undefined ? Number(data.daily_bonus_amount) : 20.00,
                 base_payout_rule: data.base_payout_rule || 'per_delivered_order',
                 stats_start_timestamp: data.stats_start_timestamp || null,
                 updated_at: data.updated_at || new Date().toISOString(),
@@ -97,8 +99,54 @@ function getDeliveryPricingSettings() {
     return _memoryDeliverySettings;
 }
 
-function saveDeliveryPricingSettings(newSettings) {
-    const current = getDeliveryPricingSettings();
+async function getDeliveryPricingSettingsAsync(forceFresh = false) {
+    const now = Date.now();
+    if (!forceFresh && _memoryDeliverySettings && (now - _deliverySettingsLastFetch < PRICING_CACHE_TTL_MS)) {
+        return _memoryDeliverySettings;
+    }
+
+    try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            const { data, error } = await supabase
+                .from('app_availability')
+                .select('message')
+                .eq('id', 'delivery_pricing_config')
+                .maybeSingle();
+
+            if (!error && data && data.message) {
+                try {
+                    const parsed = JSON.parse(data.message);
+                    if (parsed && typeof parsed === 'object') {
+                        _memoryDeliverySettings = {
+                            rate_per_order: typeof parsed.rate_per_order === 'number' && parsed.rate_per_order > 0 ? parsed.rate_per_order : 3.00,
+                            currency: parsed.currency || 'INR',
+                            surge_rate: Number(parsed.surge_rate) || 0.00,
+                            night_surcharge: Number(parsed.night_surcharge) || 0.00,
+                            daily_bonus_threshold: Number(parsed.daily_bonus_threshold) || 20,
+                            daily_bonus_amount: Number(parsed.daily_bonus_amount) !== undefined ? Number(parsed.daily_bonus_amount) : 20.00,
+                            base_payout_rule: parsed.base_payout_rule || 'per_delivered_order',
+                            stats_start_timestamp: parsed.stats_start_timestamp || null,
+                            updated_at: parsed.updated_at || new Date().toISOString(),
+                            updated_by: parsed.updated_by || 'Owner'
+                        };
+                        _deliverySettingsLastFetch = now;
+                        return _memoryDeliverySettings;
+                    }
+                } catch (parseErr) {}
+            }
+        }
+    } catch (e) {
+        console.warn('[Delivery Settings Supabase Fetch Note]:', e.message);
+    }
+
+    const fallback = getDeliveryPricingSettings();
+    _deliverySettingsLastFetch = now;
+    return fallback;
+}
+
+async function saveDeliveryPricingSettingsAsync(newSettings) {
+    const current = await getDeliveryPricingSettingsAsync(true);
     const updated = {
         ...current,
         ...newSettings,
@@ -106,11 +154,31 @@ function saveDeliveryPricingSettings(newSettings) {
         daily_bonus_threshold: Math.max(1, Number(newSettings.daily_bonus_threshold !== undefined ? newSettings.daily_bonus_threshold : current.daily_bonus_threshold)),
         daily_bonus_amount: Math.max(0, Number(newSettings.daily_bonus_amount !== undefined ? newSettings.daily_bonus_amount : current.daily_bonus_amount)),
         stats_start_timestamp: newSettings.stats_start_timestamp !== undefined ? newSettings.stats_start_timestamp : current.stats_start_timestamp,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        updated_by: newSettings.updated_by || current.updated_by || 'Owner'
     };
     _memoryDeliverySettings = updated;
+    _deliverySettingsLastFetch = Date.now();
 
-    // Try local project path first, with fallback to /tmp on serverless (read-only filesystem EROFS)
+    // 1. Authoritative persistence: Supabase app_availability table
+    try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            await supabase
+                .from('app_availability')
+                .upsert([{
+                    id: 'delivery_pricing_config',
+                    is_locked: false,
+                    lock_type: 'DELIVERY_PRICING',
+                    message: JSON.stringify(updated),
+                    updated_at: updated.updated_at
+                }]);
+        }
+    } catch (dbErr) {
+        console.warn('[Delivery Settings Supabase Save Warning]:', dbErr.message);
+    }
+
+    // 2. Local file & /tmp persistence for serverless/local resilience
     try {
         const dir = path.dirname(DELIVERY_SETTINGS_PATH);
         if (!fs.existsSync(dir)) {
@@ -123,6 +191,51 @@ function saveDeliveryPricingSettings(newSettings) {
         } catch (tmpErr) {
             console.warn('[Delivery Settings] Fallback write to /tmp failed, kept in memory:', tmpErr.message);
         }
+    }
+    return updated;
+}
+
+function saveDeliveryPricingSettings(newSettings) {
+    const current = getDeliveryPricingSettings();
+    const updated = {
+        ...current,
+        ...newSettings,
+        rate_per_order: Math.max(0.50, Number(newSettings.rate_per_order !== undefined ? newSettings.rate_per_order : current.rate_per_order)),
+        daily_bonus_threshold: Math.max(1, Number(newSettings.daily_bonus_threshold !== undefined ? newSettings.daily_bonus_threshold : current.daily_bonus_threshold)),
+        daily_bonus_amount: Math.max(0, Number(newSettings.daily_bonus_amount !== undefined ? newSettings.daily_bonus_amount : current.daily_bonus_amount)),
+        stats_start_timestamp: newSettings.stats_start_timestamp !== undefined ? newSettings.stats_start_timestamp : current.stats_start_timestamp,
+        updated_at: new Date().toISOString(),
+        updated_by: newSettings.updated_by || current.updated_by || 'Owner'
+    };
+    _memoryDeliverySettings = updated;
+    _deliverySettingsLastFetch = Date.now();
+
+    // Async push to Supabase in background
+    try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            supabase
+                .from('app_availability')
+                .upsert([{
+                    id: 'delivery_pricing_config',
+                    is_locked: false,
+                    lock_type: 'DELIVERY_PRICING',
+                    message: JSON.stringify(updated),
+                    updated_at: updated.updated_at
+                }]).then(() => {}).catch(e => console.warn('[Delivery Settings Sync Warning]:', e.message));
+        }
+    } catch (e) {}
+
+    try {
+        const dir = path.dirname(DELIVERY_SETTINGS_PATH);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        fs.writeFileSync(DELIVERY_SETTINGS_PATH, JSON.stringify(updated, null, 2), 'utf8');
+    } catch (writeErr) {
+        try {
+            fs.writeFileSync(TMP_DELIVERY_SETTINGS_PATH, JSON.stringify(updated, null, 2), 'utf8');
+        } catch (tmpErr) {}
     }
     return updated;
 }
@@ -761,9 +874,9 @@ router.get('/admin/delivery-staff', requireAdmin, async (req, res) => {
 // ============================================================
 
 // GET /api/orders/delivery-pricing-config
-router.get('/delivery-pricing-config', (req, res) => {
+router.get('/delivery-pricing-config', async (req, res) => {
     try {
-        const config = getDeliveryPricingSettings();
+        const config = await getDeliveryPricingSettingsAsync(true);
         res.json({ success: true, config });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -810,7 +923,7 @@ router.post('/delivery-pricing-config', async (req, res) => {
         if (reset_stats_baseline) {
             resolvedStatsStart = new Date().toISOString();
         }
-        const updated = saveDeliveryPricingSettings({
+        const updated = await saveDeliveryPricingSettingsAsync({
             rate_per_order: rate_per_order !== undefined ? Number(rate_per_order) : undefined,
             daily_bonus_threshold: daily_bonus_threshold !== undefined ? Number(daily_bonus_threshold) : undefined,
             daily_bonus_amount: daily_bonus_amount !== undefined ? Number(daily_bonus_amount) : undefined,
@@ -982,7 +1095,7 @@ router.get('/delivery-earnings', async (req, res) => {
         }
 
         // Dynamic Configurable Delivery Pricing Engine
-        const pricingConfig = getDeliveryPricingSettings();
+        const pricingConfig = await getDeliveryPricingSettingsAsync();
         const RATE_PER_ORDER = (Number(req.query.rate) > 0) ? Number(req.query.rate) : (pricingConfig.rate_per_order || 3.00);
         const statsStartTs = (req.query.includeHistorical === 'true' || req.query.allTime === 'true')
             ? 0
@@ -1649,8 +1762,8 @@ router.get('/delivery-earnings', async (req, res) => {
                 }],
             store_info: {
                 store_id: '66365',
-                store_name: 'BH13 Ground Hub',
-                employee_id: '2000516247_DPI66365',
+                store_name: `${requesterAdmin?.assigned_hostel_id || 'Central'} Ground Hub`,
+                employee_id: requesterAdmin?.id || '2000516247_DPI66365',
                 service: 'Domino’s / LPUQuick Express 3m Delivery'
             }
         });

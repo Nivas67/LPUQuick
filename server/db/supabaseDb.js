@@ -2742,19 +2742,11 @@ const supabaseDb = {
                 }
             }
 
-            if (masterEnriched.is_locked) {
-                return {
-                    ...masterEnriched,
-                    is_global_lock: true,
-                    target_hostel: 'ALL'
-                };
-            }
-
             // If no specific hostel requested or ALL, return master status
             if (!hostelId || hostelId === 'ALL') {
                 return {
                     ...masterEnriched,
-                    is_global_lock: false,
+                    is_global_lock: Boolean(masterEnriched.is_locked),
                     target_hostel: 'ALL'
                 };
             }
@@ -2768,21 +2760,55 @@ const supabaseDb = {
                 const end = new Date(hostelRaw.end_at);
                 if (now > end) {
                     await this.unlock('SYSTEM_EXPIRY', canonicalHostel);
-                    return this._enrichAvailability({
-                        ...hostelRaw,
-                        is_locked: false,
-                        lock_type: 'NONE',
-                        message: null,
-                        end_at: null,
-                        is_global_lock: false,
-                        target_hostel: canonicalHostel
-                    });
+                    hostelRaw.is_locked = false;
+                    hostelRaw.lock_type = 'NONE';
+                    hostelRaw.message = null;
+                    hostelRaw.end_at = null;
                 }
             }
 
             const hostelEnriched = this._enrichAvailability(hostelRaw);
+
+            // Bidirectional evaluation:
+            // Case A: Individual hostel is explicitly locked
+            if (hostelEnriched.is_locked) {
+                return {
+                    ...hostelEnriched,
+                    is_locked: true,
+                    is_global_lock: false,
+                    direct_locked: true,
+                    target_hostel: canonicalHostel
+                };
+            }
+
+            // Case B: Master lock is active
+            if (masterEnriched.is_locked) {
+                // If the individual hostel was explicitly unlocked AFTER master lock was applied
+                const masterTime = new Date(masterRaw.updated_at || 0).getTime();
+                const hostelTime = new Date(hostelRaw.updated_at || 0).getTime();
+                if (hostelTime > masterTime && !hostelRaw.is_locked) {
+                    return {
+                        ...hostelEnriched,
+                        is_locked: false,
+                        is_global_lock: false,
+                        target_hostel: canonicalHostel
+                    };
+                }
+
+                // Global master lock applies to this hostel
+                return {
+                    ...masterEnriched,
+                    is_locked: true,
+                    is_global_lock: true,
+                    locked_by_master: true,
+                    target_hostel: canonicalHostel
+                };
+            }
+
+            // Case C: Both are open
             return {
                 ...hostelEnriched,
+                is_locked: false,
                 is_global_lock: false,
                 target_hostel: canonicalHostel
             };

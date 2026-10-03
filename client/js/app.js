@@ -5,15 +5,15 @@ window.pageInits = window.pageInits || {};
 // Persistent Student Session Management (Permanent Login — Never auto-logout once logged in)
 // The student will remain securely logged in until they explicitly click "Log Out"
 
-window.refreshUserActivity = function() {
+window.refreshUserActivity = function () {
     if (window.isUserLoggedIn()) {
         try {
             localStorage.setItem('lpuquick_last_active', Date.now().toString());
-        } catch(e) {}
+        } catch (e) { }
     }
 };
 
-window.logoutUser = function() {
+window.logoutUser = function () {
     try {
         localStorage.removeItem('lpuquick_user');
         localStorage.removeItem('lpuquick_last_active');
@@ -21,7 +21,7 @@ window.logoutUser = function() {
         localStorage.removeItem('lpuquick_room');
         localStorage.removeItem('lpuquick_phone');
         localStorage.removeItem('lpuquick_address_detail');
-    } catch(e) {}
+    } catch (e) { }
     window.CURRENT_USER_ID = null;
     window.CURRENT_USER_NAME = null;
     window.CURRENT_USER_EMAIL = null;
@@ -35,7 +35,7 @@ window.logoutUser = function() {
 (function initUserSession() {
     try {
         const savedUserStr = localStorage.getItem('lpuquick_user');
-        
+
         if (savedUserStr) {
             const savedUser = JSON.parse(savedUserStr);
             const uid = savedUser?.id || savedUser?.user_id || savedUser?.uid;
@@ -79,7 +79,7 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
     });
 }
 
-window.isUserLoggedIn = function() {
+window.isUserLoggedIn = function () {
     if (Boolean(window.CURRENT_USER_ID)) return true;
     try {
         const savedUserStr = localStorage.getItem('lpuquick_user');
@@ -93,11 +93,11 @@ window.isUserLoggedIn = function() {
             window.CURRENT_USER_PICTURE = savedUser.picture || '';
             return true;
         }
-    } catch(e) {}
+    } catch (e) { }
     return false;
 };
 
-window.getEffectiveUserId = function() {
+window.getEffectiveUserId = function () {
     if (window.isUserLoggedIn()) return window.CURRENT_USER_ID;
     let guestId = localStorage.getItem('lpuquick_guest_cart_id');
     if (!guestId) {
@@ -138,21 +138,21 @@ window.currentRoom = localStorage.getItem('lpuquick_room') || '';
 window.currentAddressDetail = localStorage.getItem('lpuquick_address_detail') || '';
 
 // Theme state & global theme toggle manager
-window.setNightMode = function() {
+window.setNightMode = function () {
     document.documentElement.classList.add('dark');
     if (document.body) document.body.classList.add('dark');
     localStorage.setItem('lpuquick_theme', 'dark');
     window.syncAllThemeToggles();
 };
 
-window.setLightMode = function() {
+window.setLightMode = function () {
     document.documentElement.classList.remove('dark');
     if (document.body) document.body.classList.remove('dark');
     localStorage.setItem('lpuquick_theme', 'light');
     window.syncAllThemeToggles();
 };
 
-window.toggleTheme = function() {
+window.toggleTheme = function () {
     const isCurrentlyDark = document.documentElement.classList.contains('dark') || localStorage.getItem('lpuquick_theme') === 'dark';
     if (isCurrentlyDark) {
         window.setLightMode();
@@ -161,7 +161,7 @@ window.toggleTheme = function() {
     }
 };
 
-window.syncAllThemeToggles = function() {
+window.syncAllThemeToggles = function () {
     const isDark = document.documentElement.classList.contains('dark') || localStorage.getItem('lpuquick_theme') === 'dark';
     document.querySelectorAll('.theme-toggle-switch').forEach(toggle => {
         toggle.setAttribute('aria-checked', isDark ? 'true' : 'false');
@@ -231,7 +231,7 @@ function navigate(path) {
 window.navigate = navigate;
 
 // Global fallback for banner target navigation
-window.handleBannerTargetClick = window.handleBannerTargetClick || function(targetUrl, event) {
+window.handleBannerTargetClick = window.handleBannerTargetClick || function (targetUrl, event) {
     if (event) {
         if (typeof event.preventDefault === 'function') event.preventDefault();
         if (typeof event.stopPropagation === 'function') event.stopPropagation();
@@ -293,7 +293,7 @@ function getPageName(path) {
 }
 
 // Address Configuration State Helper
-window.hasUserConfiguredAddress = function() {
+window.hasUserConfiguredAddress = function () {
     const isConfigured = localStorage.getItem('lpuquick_address_configured') === 'true';
     const room = (localStorage.getItem('lpuquick_room') || '').replace(/\D/g, '');
     const phone = (localStorage.getItem('lpuquick_phone') || '').replace(/\D/g, '');
@@ -301,7 +301,7 @@ window.hasUserConfiguredAddress = function() {
 };
 
 // Global Address Selection Modal (Multi-Hostel Live Selection, Block A/B, Room No, Phone)
-window.openAddressModal = async function(isMandatorySetup = false, onComplete = null) {
+window.openAddressModal = async function (isMandatorySetup = false, onComplete = null) {
     const existing = document.getElementById('address-modal');
     if (existing) existing.remove();
 
@@ -309,7 +309,7 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
     let liveHostels = [];
     try {
         liveHostels = (await window.api?.getActiveHostels?.(true)) || [];
-    } catch (e) {}
+    } catch (e) { }
 
     // Robust hostel normalization helper: strips spaces, hyphens, underscores and handles prefixes
     function normalizeHostelKey(str) {
@@ -432,7 +432,7 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
     let selectedBlock = window.currentBlock || localStorage.getItem('lpuquick_block') || 'Block A';
     const savedRoom = window.currentRoom || localStorage.getItem('lpuquick_room') || '';
     let savedPhone = localStorage.getItem('lpuquick_phone') || '';
-    if (savedPhone === '7671836211' || savedPhone === '9877982857') savedPhone = '';
+    if (savedPhone === '7671836211' || savedPhone === '7671836211') savedPhone = '';
 
     const liveDisplayNames = allLocations.filter(h => h.active).map(h => h.name).join(', ') || 'BH13';
 
@@ -475,17 +475,17 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
                 </div>
                 <div class="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-36 overflow-y-auto p-0.5 no-scrollbar" id="hostels-container">
                     ${allLocations.map(h => {
-                        const isSelected = h.active && (normalizeHostelKey(h.id) === normalizeHostelKey(selectedHostel) || normalizeHostelKey(h.name) === normalizeHostelKey(selectedHostel));
-                        const activeClass = h.active 
-                            ? (isSelected ? 'clay-pill text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 bg-emerald-500/15' : 'clay-card text-slate-700 dark:text-slate-300 hover:border-emerald')
-                            : 'clay-card text-slate-400 dark:text-slate-500 opacity-60 hover:border-amber-400/50';
-                        return `
+        const isSelected = h.active && (normalizeHostelKey(h.id) === normalizeHostelKey(selectedHostel) || normalizeHostelKey(h.name) === normalizeHostelKey(selectedHostel));
+        const activeClass = h.active
+            ? (isSelected ? 'clay-pill text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 bg-emerald-500/15' : 'clay-card text-slate-700 dark:text-slate-300 hover:border-emerald')
+            : 'clay-card text-slate-400 dark:text-slate-500 opacity-60 hover:border-amber-400/50';
+        return `
                         <button type="button" class="p-2 rounded-xl text-xs font-bold transition-all relative flex flex-col items-center justify-center gap-1 hostel-pick-btn cursor-pointer ${activeClass}" data-hostel="${h.name}" data-hostel-id="${h.id}" data-active="${h.active ? 'true' : 'false'}">
                             <span>${h.name}</span>
                             <span class="${h.active ? 'bg-emerald text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'} text-[8px] px-1.5 py-0.2 rounded-full font-black">${h.active ? 'Live' : 'Soon'}</span>
                         </button>
                         `;
-                    }).join('')}
+    }).join('')}
                 </div>
             </div>
 
@@ -531,7 +531,7 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
             <!-- Inline Alert for Blocked Hostels -->
             <div id="blocked-hostel-alert" class="hidden p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-600 dark:text-amber-400 text-xs font-medium flex items-center gap-1.5">
                 <span class="material-symbols-outlined text-sm">info</span>
-                <span id="blocked-hostel-msg">This hostel is opening soon. Delivering to BH13 right now.</span>
+                <span id="blocked-hostel-msg">This hostel is opening soon. Delivering to ${liveDisplayNames} right now.</span>
             </div>
 
             <!-- Save Button -->
@@ -760,7 +760,7 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
 window.openLocationModal = window.openAddressModal;
 
 // Global Campus & Order Help Modal (24/7 WhatsApp, Phone Call, Room Change, & Live Dispatch Query)
-window.openCampusHelpModal = function(orderId = null) {
+window.openCampusHelpModal = function (orderId = null) {
     const existing = document.getElementById('campus-help-modal');
     if (existing) existing.remove();
 
@@ -779,7 +779,7 @@ window.openCampusHelpModal = function(orderId = null) {
                         <h3 class="font-black text-sm sm:text-base text-slate-900 dark:text-white tracking-tight">Campus Help & Support</h3>
                         <p class="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
                             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                            BH13 Ground Hub · Active 24/7
+                            ${window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus')} Ground Hub · Active 24/7
                         </p>
                     </div>
                 </div>
@@ -790,7 +790,7 @@ window.openCampusHelpModal = function(orderId = null) {
 
             <!-- Instant Contact Buttons (WhatsApp & Phone) -->
             <div class="grid grid-cols-2 gap-3">
-                <a href="https://wa.me/919877982857?text=Hi%20LPUQuick%20Helpdesk%2C%20I%20am%20a%20hostel%20student%20and%20need%20assistance." target="_blank" rel="noopener noreferrer" class="p-3.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 flex flex-col items-center text-center group transition-all shadow-xs cursor-pointer">
+                <a href="https://wa.me/917671836211?text=Hi%20LPUQuick%20Helpdesk%2C%20I%20am%20a%20hostel%20student%20and%20need%20assistance." target="_blank" rel="noopener noreferrer" class="p-3.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 flex flex-col items-center text-center group transition-all shadow-xs cursor-pointer">
                     <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center mb-1.5 shadow-sm group-hover:scale-105 transition-transform">
                         <span class="material-symbols-outlined text-lg">chat</span>
                     </div>
@@ -798,7 +798,7 @@ window.openCampusHelpModal = function(orderId = null) {
                     <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">Instant Reply (~1 min)</span>
                 </a>
 
-                <a href="tel:+919877982857" class="p-3.5 rounded-2xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800/60 text-blue-800 dark:text-blue-300 flex flex-col items-center text-center group transition-all shadow-xs cursor-pointer">
+                <a href="tel:+917671836211" class="p-3.5 rounded-2xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800/60 text-blue-800 dark:text-blue-300 flex flex-col items-center text-center group transition-all shadow-xs cursor-pointer">
                     <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center mb-1.5 shadow-sm group-hover:scale-105 transition-transform">
                         <span class="material-symbols-outlined text-lg">call</span>
                     </div>
@@ -817,7 +817,7 @@ window.openCampusHelpModal = function(orderId = null) {
                         <span>Where is my order? (3-Min Delivery Guarantee)</span>
                     </div>
                     <p class="text-[11px] text-slate-600 dark:text-slate-300 pl-6 leading-relaxed">
-                        All orders are dispatched immediately from the BH13 Ground Floor Dark Store. Delivery runners walk directly to your room door within 3 to 5 minutes.
+                        All orders are dispatched immediately from the ${window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus')} Dark Store. Delivery runners walk directly to your room door within 3 to 5 minutes.
                     </p>
                 </div>
 
@@ -847,7 +847,7 @@ window.openCampusHelpModal = function(orderId = null) {
             <div class="space-y-2 pt-2 border-t border-[var(--glass-border)]">
                 <label for="help-query-text" class="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
                     <span class="material-symbols-outlined text-sm text-purple-500">edit_note</span>
-                    <span>Send Message to BH13 Dispatcher</span>
+                    <span>Send Message to ${window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus')} Dispatcher</span>
                 </label>
                 <textarea id="help-query-text" rows="2" class="w-full rounded-2xl p-3 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50" placeholder="e.g., Leave package near room door, or runner please call before coming up..."></textarea>
                 <button type="button" id="help-send-btn" class="clay-btn clay-btn-primary w-full py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 text-white shadow-md cursor-pointer transition-all active:scale-98">
@@ -874,10 +874,11 @@ window.openCampusHelpModal = function(orderId = null) {
             sendBtn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span><span>Sending...</span>';
             setTimeout(() => {
                 modal.remove();
+                const hubName = window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus');
                 if (typeof window.showClientToast === 'function') {
-                    window.showClientToast('Message sent to BH13 Ground Hub dispatcher! Our runner has been notified.', 'success', 'support_agent');
+                    window.showClientToast(`Message sent to ${hubName} Ground Hub dispatcher! Our runner has been notified.`, 'success', 'support_agent');
                 } else {
-                    alert('Message dispatched to BH13 Hub!');
+                    alert(`Message dispatched to ${hubName} Hub!`);
                 }
             }, 600);
         };
@@ -888,7 +889,7 @@ window.openCampusHelpModal = function(orderId = null) {
 window.openOrderHelpModal = window.openCampusHelpModal;
 
 // Global Coupons Modal (Active Campus Offers)
-window.openCouponsModal = function() {
+window.openCouponsModal = function () {
     const existing = document.getElementById('coupons-modal');
     if (existing) existing.remove();
 
@@ -987,7 +988,7 @@ window.openCouponsModal = function() {
 };
 
 // Global Product Details Modal
-window.openProductModal = async function(productId) {
+window.openProductModal = async function (productId) {
     if (!productId) return;
     const existing = document.getElementById('product-modal');
     if (existing) existing.remove();
@@ -1006,7 +1007,7 @@ window.openProductModal = async function(productId) {
     try {
         const res = await window.api.getProduct(productId, null, true);
         const p = (res && res.product) ? res.product : (res && res.id ? res : (window.__cachedProducts && window.__cachedProducts.get(productId)) || {});
-        
+
         const pid = p.id || productId;
         const pName = p.name || 'Campus Essential';
         const pCategory = p.category || 'Snacks & Drinks';
@@ -1076,7 +1077,7 @@ window.openProductModal = async function(productId) {
                         </div>
                         <div class="clay-card p-2.5 rounded-xl">
                             <span class="text-slate-400 block text-[10px] font-medium">Campus Delivery</span>
-                            <span class="font-bold text-emerald-500">3 mins to BH13</span>
+                            <span class="font-bold text-emerald-500">3 mins to ${window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus')}</span>
                         </div>
                     </div>
                 </div>
@@ -1088,7 +1089,7 @@ window.openProductModal = async function(productId) {
         modal.dataset.productId = pid;
         renderModalActionContainer(pid, pPrice, stockLeft, isOutOfStock);
 
-    } catch(e) {
+    } catch (e) {
         console.error('[Product Modal Error]:', e);
         modal.innerHTML = `
             <div class="modal-content p-6 text-center space-y-3">
@@ -1217,7 +1218,7 @@ function renderSlotContent(productId, slotEl) {
 }
 
 // Targeted Instant Update for a Single Product (< 1ms DOM execution)
-window.updateSingleProductSlot = function(productId) {
+window.updateSingleProductSlot = function (productId) {
     document.querySelectorAll(`.product-action-slot[data-id="${productId}"]`).forEach(slot => {
         renderSlotContent(productId, slot);
     });
@@ -1236,7 +1237,7 @@ window.updateSingleProductSlot = function(productId) {
 };
 
 // Global Card Stepper Synchronizer (Fast batch render)
-window.syncCardSteppers = function() {
+window.syncCardSteppers = function () {
     document.querySelectorAll('.product-action-slot').forEach(slot => {
         const id = slot.dataset.id;
         if (id) renderSlotContent(id, slot);
@@ -1247,15 +1248,15 @@ window.syncCardSteppers = function() {
 };
 
 // Global Floating "View cart" Bar Synchronizer (Zepto / Blinkit Quick-Commerce Pill)
-window.updateFloatingCartBar = function() {
+window.updateFloatingCartBar = function () {
     const floatingBar = document.getElementById('global-floating-cart-bar');
     if (!floatingBar) return;
 
     // Check route: Hide on cart, checkout, signin, or blocked pages
     const currentHash = (window.location.hash || '#/').toLowerCase();
-    if (currentHash.startsWith('#/cart') || 
-        currentHash.startsWith('#/checkout') || 
-        currentHash.startsWith('#/signin') || 
+    if (currentHash.startsWith('#/cart') ||
+        currentHash.startsWith('#/checkout') ||
+        currentHash.startsWith('#/signin') ||
         currentHash.startsWith('#/blocked')) {
         floatingBar.classList.add('translate-y-12', 'opacity-0', 'pointer-events-none');
         setTimeout(() => {
@@ -1344,7 +1345,7 @@ window.updateFloatingCartBar = function() {
 };
 
 // Global Cart Count Badges Synchronizer (Bottom Nav, Header Badges & Floating Cart Bar)
-window.updateGlobalCartBadges = function() {
+window.updateGlobalCartBadges = function () {
     let totalItems = 0;
     if (window.cartState && typeof window.cartState === 'object') {
         Object.values(window.cartState).forEach(item => {
@@ -1465,7 +1466,7 @@ window.__isUserBlocked = false;
 window.__userBlockReason = null;
 window.__clientLockTicker = null;
 
-window.syncStoreAvailability = async function(hostelId) {
+window.syncStoreAvailability = async function (hostelId) {
     try {
         const targetHostel = hostelId || window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
         const data = await window.api.getClientStatus(targetHostel);
@@ -1507,7 +1508,7 @@ function formatClientReopenHeadline(avail) {
     return avail.display_reopen?.fullHeadline || (avail.message ? avail.message : "We'll reopen soon");
 }
 
-window.renderStoreClosedBannerOrOverlay = function() {
+window.renderStoreClosedBannerOrOverlay = function () {
     const avail = window.__storeAvailability;
     const isUserBlocked = Boolean(window.__isUserBlocked);
     const homeHeroContainer = document.getElementById('store-closed-banner-slot');
@@ -1531,7 +1532,7 @@ window.renderStoreClosedBannerOrOverlay = function() {
                                     You are blocked due to ${(blockReason).toLowerCase()}.
                                 </h2>
                                 <p class="text-xs sm:text-sm text-white/90 font-medium max-w-xl">
-                                    Your student account is restricted from placing orders on LPUQuick. Please contact BH13 Central Campus Hub to appeal or resolve this restriction.
+                                    Your student account is restricted from placing orders on LPUQuick. Please contact Campus Operations to appeal or resolve this restriction.
                                 </p>
                             </div>
                         </div>
@@ -1551,7 +1552,7 @@ window.renderStoreClosedBannerOrOverlay = function() {
     if (!avail) return;
 
     const isLocked = Boolean(avail.is_locked);
-    
+
     // 1. Manage Global Sticky Announcement Bar (Visible across ALL pages)
     let globalBar = document.getElementById('global-store-lock-bar');
 
@@ -1758,7 +1759,7 @@ function updateCheckoutButtonsForLock(isLocked, reopenText = 'Soon') {
 }
 
 // Blocked Account Page Route & Real-Time Client Synchronization
-window.syncUserBlockStatus = async function() {
+window.syncUserBlockStatus = async function () {
     const uid = window.isUserLoggedIn() ? window.CURRENT_USER_ID : (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : null);
     if (!uid) {
         window.__isUserBlocked = false;
@@ -1776,7 +1777,7 @@ window.syncUserBlockStatus = async function() {
                 window.renderStoreClosedBannerOrOverlay();
             }
             updateBlockedUI(true, window.__userBlockReason);
-            
+
             const currentRoute = getCurrentRoute();
             if (currentRoute === '/checkout' || currentRoute === '/cart') {
                 window.location.hash = '#/blocked';
@@ -1829,7 +1830,7 @@ function updateBlockedUI(isBlocked, reason = 'Fake Orders') {
 }
 
 window.pages = window.pages || {};
-window.pages.blocked = async function() {
+window.pages.blocked = async function () {
     const reason = window.__userBlockReason || 'Fake Orders';
     return `
     <div class="min-h-screen bg-background flex flex-col items-center justify-center p-4">
@@ -1851,7 +1852,7 @@ window.pages.blocked = async function() {
                     Your student account has been restricted from placing orders on <b>LPU Quick</b> due to flagged policy violations (e.g. fake or cancelled orders).
                 </p>
                 <p class="text-[11px] text-slate-500 dark:text-slate-400">
-                    If you believe this restriction is in error, please visit the <b>BH13 Central Campus Hub</b> or reach out to campus operations.
+                    If you believe this restriction is in error, please visit the <b>Central Campus Operations Hub</b> or reach out to campus operations.
                 </p>
             </div>
             <a href="#/" class="clay-btn clay-btn-primary inline-block w-full py-3.5 px-4 rounded-2xl text-white font-bold text-xs tracking-wide shadow-md active:scale-95 transition-transform">
@@ -1891,7 +1892,7 @@ async function router() {
     }
 
     const path = getCurrentRoute();
-    
+
     // Save previous scroll position before transition
     if (lastActiveRoute) {
         routeScrollPositions.set(lastActiveRoute, window.scrollY || 0);
@@ -1901,10 +1902,10 @@ async function router() {
     // Track navigation generation & abort obsolete in-flight requests
     const thisNavGen = ++currentNavGeneration;
     if (currentNavAbortController) {
-        try { currentNavAbortController.abort(); } catch (e) {}
+        try { currentNavAbortController.abort(); } catch (e) { }
     }
     currentNavAbortController = new AbortController();
-    
+
     // Only prompt login on checkout if unauthenticated; allow free store browsing
     if (!window.isUserLoggedIn()) {
         if (path === '/checkout') {
@@ -1939,7 +1940,7 @@ async function router() {
 
     const pageName = getPageName(path);
     const appRoot = document.getElementById('app');
-    
+
     if (!appRoot) return;
 
     try {
@@ -1975,7 +1976,7 @@ async function router() {
                 `;
                 return;
             }
-            
+
             // 🛡️ RACE CONDITION GUARD: Discard response if user navigated away while loading
             if (thisNavGen !== currentNavGeneration) {
                 return;
@@ -2093,7 +2094,7 @@ function stopClientPollingFallback() {
 function scheduleNextClientPoll(customDelay = null) {
     if (!_clientPollActive) return;
     if (_clientPollTimer) clearTimeout(_clientPollTimer);
-    
+
     if (customDelay !== null && customDelay <= 0) {
         _executeClientPoll();
         return;
@@ -2163,7 +2164,7 @@ async function _executeClientPoll() {
                             });
                         }
                     }
-                } catch (e2) {}
+                } catch (e2) { }
             }
         } catch (e) {
             // Silently retry next cycle
@@ -2172,7 +2173,7 @@ async function _executeClientPoll() {
     scheduleNextClientPoll(nextDelay);
 }
 
-window.triggerActiveOrderPoll = function() {
+window.triggerActiveOrderPoll = function () {
     scheduleNextClientPoll(0);
     if (typeof scheduleBackgroundOrderSync === 'function') {
         scheduleBackgroundOrderSync(true);
@@ -2189,7 +2190,7 @@ function scheduleNextStorePoll() {
                 if (typeof window.syncStoreAvailability === 'function') {
                     await window.syncStoreAvailability();
                 }
-            } catch (e) {}
+            } catch (e) { }
         }
         scheduleNextStorePoll();
     }, CLIENT_POLL_STORE_MS);
@@ -2339,7 +2340,7 @@ function initGlobalClientWebSocket() {
                         window.__userBlockReason = data.reason || 'Fake Orders';
                         if (typeof updateBlockedUI === 'function') updateBlockedUI(true, window.__userBlockReason);
                         window.location.hash = '#/blocked';
-                        alert(`⚠️ Account Suspended:\n\nYou are blocked due to ${(data.reason || 'fake orders').toLowerCase()}.\n\nPlease contact BH13 Central Campus Hub.`);
+                        alert(`⚠️ Account Suspended:\n\nYou are blocked due to ${(data.reason || 'fake orders').toLowerCase()}.\n\nPlease contact Central Campus Operations Hub.`);
                     }
                 }
                 // 6. Account Unblocked Real-Time Notification
@@ -2392,7 +2393,7 @@ function initGlobalClientWebSocket() {
                 else if (data.type === 'HOSTEL_STATUS_CHANGED') {
                     window.__activeHostelsCache = null;
                     if (window.api?.getActiveHostels) {
-                        window.api.getActiveHostels(true).catch(() => {});
+                        window.api.getActiveHostels(true).catch(() => { });
                     }
                     const activeModal = document.getElementById('address-modal');
                     if (activeModal && typeof window.openLocationModal === 'function') {
@@ -2419,7 +2420,7 @@ function initGlobalClientWebSocket() {
         };
 
         globalClientWs.onerror = () => {
-            try { globalClientWs.close(); } catch(e) {}
+            try { globalClientWs.close(); } catch (e) { }
         };
 
     } catch (e) {
@@ -2541,13 +2542,14 @@ function handleLiveOrderStatusChange(data) {
                 osc.start(ctx.currentTime);
                 osc.stop(ctx.currentTime + 0.4);
             }
-        } catch (e) {}
+        } catch (e) { }
     }
 
     // 3. Show dynamic client status toast
+    const activeHub = window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Store');
     const statusMessages = {
-        'Order Confirmed': '👍 BH13 Store accepted your order!',
-        'Preparing': '📦 Items packed & sealed at BH13 Dark Store!',
+        'Order Confirmed': `👍 ${activeHub} accepted your order!`,
+        'Preparing': `📦 Items packed & sealed at ${activeHub} Dark Store!`,
         'Out for Delivery': `🚶‍♂️ ${riderName} is speeding towards your room!`,
         'Delivered': '🎉 Order delivered to your room door!',
         'Cancelled': '❌ Order was cancelled by Admin.'
@@ -2598,7 +2600,7 @@ function updateGlobalDeliveryBar(status, riderName) {
     const statusEl = document.getElementById('global-delivery-status');
     const etaEl = document.getElementById('global-delivery-eta');
     const subEl = document.getElementById('global-delivery-subtitle');
-    const hostelShort = window.currentAddress || 'BH13';
+    const hostelShort = window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus');
 
     if (!bar || !statusEl || !etaEl || !subEl) return;
 
@@ -2606,13 +2608,13 @@ function updateGlobalDeliveryBar(status, riderName) {
 
     if (status === 'Order Placed') {
         etaEl.textContent = '3 mins';
-        subEl.textContent = `BH13 Dark Store is verifying your snacks`;
+        subEl.textContent = `${hostelShort} Dark Store is verifying your snacks`;
     } else if (status === 'Order Confirmed') {
         etaEl.textContent = '3 mins';
-        subEl.textContent = `Confirmed by BH13 Hub · Packing shortly`;
+        subEl.textContent = `Confirmed by ${hostelShort} Hub · Packing shortly`;
     } else if (status === 'Preparing') {
         etaEl.textContent = '2 mins';
-        subEl.textContent = `Staff is packing your bag at BH13 Hub`;
+        subEl.textContent = `Staff is packing your bag at ${hostelShort} Hub`;
     } else if (status === 'Out for Delivery') {
         etaEl.textContent = '1 min';
         subEl.textContent = `🚶‍♂️ ${riderName} is walking to ${hostelShort} (Block A)`;
@@ -2637,7 +2639,7 @@ window.navigate = navigate;
 // ============================================================
 // Mobile Pull-to-Refresh & Live Page Reload Engine
 // ============================================================
-window.refreshLiveApp = async function(isFullReload = false) {
+window.refreshLiveApp = async function (isFullReload = false) {
     if (window.__cachedProducts) {
         window.__cachedProducts.clear();
     }
@@ -2648,7 +2650,7 @@ window.refreshLiveApp = async function(isFullReload = false) {
     if (isFullReload) {
         try {
             sessionStorage.setItem('lpuquick_just_reloaded', 'true');
-        } catch (e) {}
+        } catch (e) { }
         window.location.reload();
         return;
     }
@@ -2713,7 +2715,7 @@ function initPullToRefresh() {
 
         if (delta > 0 && (window.scrollY || document.documentElement.scrollTop || 0) <= 2) {
             const pullDistance = Math.min(MAX_PULL, delta * 0.45);
-            
+
             indicator.classList.add('dragging');
             indicator.style.opacity = `${Math.min(1, pullDistance / 40)}`;
             indicator.style.transform = `translate3d(-50%, ${pullDistance - 45}px, 0)`;
@@ -2725,7 +2727,7 @@ function initPullToRefresh() {
                     if (!hasVibrated) {
                         try {
                             if (navigator.vibrate) navigator.vibrate(25);
-                        } catch(vErr) {}
+                        } catch (vErr) { }
                         hasVibrated = true;
                     }
                 }
@@ -2757,7 +2759,7 @@ function initPullToRefresh() {
 
             try {
                 if (navigator.vibrate) navigator.vibrate([20, 50, 20]);
-            } catch(e) {}
+            } catch (e) { }
 
             setTimeout(async () => {
                 await window.refreshLiveApp(true);
@@ -2790,7 +2792,7 @@ function handlePostReloadToast() {
                 }
             }, 350);
         }
-    } catch (e) {}
+    } catch (e) { }
 }
 
 window.addEventListener('hashchange', router);

@@ -385,10 +385,9 @@ window.pages.orders = async function() {
     const activeRiderPhone = activeOrder?.rider_phone || activeRiderInfo.phone || '7671836211';
     const activeEdit = activeOrder?.delivery_assignment?.latest_edit || null;
     const pastOrders = ordersData?.past || [];
-    const savedRoom = localStorage.getItem('lpuquick_room') || window.currentRoom;
-    const savedBlock = localStorage.getItem('lpuquick_block') || window.currentBlock || 'Block A';
-    const hostelAddress = savedRoom ? `BH13 (${savedBlock}), Room ${savedRoom}` : 'BH13 (Block A)';
-    const hostelShort = window.currentAddress || 'BH13';
+    const currentH = window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus');
+    const hostelAddress = savedRoom ? `${currentH} (${savedBlock}), Room ${savedRoom}` : `${currentH} (Block A)`;
+    const hostelShort = currentH;
 
     window.CURRENT_ACTIVE_ORDER_ID = activeOrder ? activeOrder.id : null;
     window.CURRENT_ACTIVE_ORDER_STATUS = activeOrder ? activeOrder.status : 'Order Placed';
@@ -440,7 +439,7 @@ window.pages.orders = async function() {
                 </a>
                 <div>
                     <h1 class="text-sm sm:text-base font-black text-slate-900 dark:text-white tracking-tight leading-tight">Live Tracking & Orders</h1>
-                    <p class="text-[10px] text-slate-500 font-semibold">LPU BH13 corridor hyper-fast dispatch</p>
+                    <p class="text-[10px] text-slate-500 font-semibold">LPU ${hostelShort} corridor hyper-fast dispatch</p>
                 </div>
             </div>
             <div class="clay-pill px-3 py-1 flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
@@ -499,7 +498,7 @@ window.pages.orders = async function() {
                     <div class="absolute top-3 inset-x-3 sm:inset-x-4 flex justify-between items-center z-30 pointer-events-none">
                         <div class="clay-pill px-2.5 py-1 text-[10px] font-bold text-emerald-400 bg-slate-900/80 border border-emerald-500/30 flex items-center gap-1.5">
                             <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                            <span>BH13 Corridor Express</span>
+                            <span>${hostelShort} Corridor Express</span>
                         </div>
                         <div class="clay-pill px-2.5 py-1 text-[10px] font-bold text-slate-300 bg-slate-900/80 border border-slate-700 flex items-center gap-1">
                             <span class="text-emerald-400">1.4 m/s</span>
@@ -513,13 +512,13 @@ window.pages.orders = async function() {
                         <path d="M 80 120 C 220 70, 340 170, 480 100 S 620 160, 720 120" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-dasharray="8,10" style="filter: drop-shadow(0 0 6px #10b981);"/>
                     </svg>
 
-                    <!-- Origin: BH13 Hub Pin -->
+                    <!-- Origin: Hub Pin -->
                     <div class="absolute left-4 sm:left-10 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center">
                         <div class="clay-card w-11 h-11 sm:w-12 sm:h-12 rounded-2xl text-emerald-400 flex items-center justify-center border border-emerald-500/40 bg-slate-900/90 shadow-lg">
                             <span class="material-symbols-outlined text-xl">storefront</span>
                         </div>
                         <span class="mt-1.5 clay-pill px-2 py-0.5 text-[9px] font-black text-emerald-400 bg-slate-950/90 border border-emerald-500/30">
-                            BH13 Hub
+                            ${hostelShort} Hub
                         </span>
                     </div>
 
@@ -795,7 +794,7 @@ window.promptCancelActiveOrder = function(orderId) {
                 </div>
                 <div>
                     <h3 class="font-black text-base text-slate-900 dark:text-white tracking-tight">Cancel Order #${shortId}?</h3>
-                    <p class="text-[11px] text-slate-500 dark:text-slate-400">BH13 Campus Express Delivery</p>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400">${window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus')} Campus Express Delivery</p>
                 </div>
             </div>
 
