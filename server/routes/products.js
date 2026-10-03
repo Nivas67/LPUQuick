@@ -245,9 +245,16 @@ router.get('/', async (req, res) => {
         // Store Managers and Delivery Partners MUST NOT see admin cost or profit margins
         const authHeader = req.headers['x-admin-token'] || req.headers.authorization || '';
         const isOwner = isPlatformOwnerToken(authHeader);
+
+        // Filter out deleted items for hostel stores and store managers
+        let sanitizedList = rawList;
+        if (!isOwner || (hostelId && hostelId !== 'all' && hostelId !== 'ALL')) {
+            sanitizedList = sanitizedList.filter(p => !p.deleted);
+        }
+
         const filteredList = isOwner
-            ? rawList
-            : rawList.map(p => {
+            ? sanitizedList
+            : sanitizedList.map(p => {
                 const copy = { ...p };
                 delete copy.cost_price;
                 delete copy.cost;
@@ -281,6 +288,13 @@ router.post('/admin/create', requireAdmin, async (req, res) => {
             targetHostel = req.admin.assigned_hostel_id;
         }
 
+        const normTarget = targetHostel.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const targetStock = stock_left !== undefined ? Math.max(0, Number(stock_left)) : 50;
+        const targetInStock = targetStock > 0;
+
+        // If creating for BH-13 (master hub), stock is in the master record.
+        // If creating for a specific hostel (e.g. BH-11), master stock is 0 (or out of stock) so other hostels do NOT inherit it,
+        // and isolated inventory is set for targetHostel!
         const created = await supabaseDb.products.create({
             name,
             hostel_id: targetHostel,
@@ -289,7 +303,7 @@ router.post('/admin/create', requireAdmin, async (req, res) => {
             price: Number(price),
             mrp: mrp ? Number(mrp) : Number(price),
             cost_price: isOwner ? (Number(cost_price !== undefined ? cost_price : (cost !== undefined ? cost : 0)) || 0) : 0,
-            stock_left: stock_left !== undefined ? Number(stock_left) : 50,
+            stock_left: normTarget === 'BH13' ? targetStock : 0,
             unit,
             size,
             image_url: finalImageUrl,
@@ -297,11 +311,27 @@ router.post('/admin/create', requireAdmin, async (req, res) => {
             tags,
             bestseller,
             is_new,
-            in_stock: stock_left !== undefined ? Number(stock_left) > 0 : true
+            in_stock: normTarget === 'BH13' ? targetInStock : false
         });
 
+        // Always save isolated inventory for targetHostel so this specific hostel gets the stock
+        if (supabaseDb.inventory) {
+            await supabaseDb.inventory.setProductStock(targetHostel, created.id, {
+                stock_left: targetStock,
+                in_stock: targetInStock
+            });
+        }
+
         cache.invalidateProducts();
-        res.json({ success: true, message: 'Product created in Supabase Cloud', product: created });
+        if (typeof broadcastInventoryUpdate === 'function') {
+            broadcastInventoryUpdate(created.id, targetStock, targetInStock, targetHostel);
+        }
+
+        res.json({
+            success: true,
+            message: `Product created for ${targetHostel}`,
+            product: { ...created, stock_left: targetStock, in_stock: targetInStock, hostel_id: targetHostel }
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -315,44 +345,111 @@ router.put('/admin/update/:id', requireAdmin, async (req, res) => {
         const isOwner = Boolean(req.admin && req.admin.is_owner);
         const assignedHostel = req.admin?.assigned_hostel_id || null;
 
-        // Verify manager permission on this specific product
-        const existing = await supabaseDb.products.getById(id, assignedHostel || req.body.hostel_id || 'BH-13');
+        // Target hostel: Store Manager is strictly locked to assigned_hostel_id.
+        // Platform owner uses req.body.hostel_id if specified, or assignedHostel, or 'BH-13'.
+        const targetHostel = (!isOwner && assignedHostel)
+            ? assignedHostel
+            : (req.body.hostel_id || req.body.hostel || assignedHostel || 'BH-13');
+
+        const normTarget = targetHostel.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+        // Verify existing product exists
+        const existing = await supabaseDb.products.getById(id, targetHostel);
         if (!existing) return res.status(404).json({ error: 'Product not found' });
 
-        // If Store Manager, they are modifying stock in their assigned hostel
-        if (!isOwner && assignedHostel) {
+        // Non-owner (Store Manager) can only adjust stock/in_stock in their assigned hostel
+        if (!isOwner) {
+            if (assignedHostel && req.body.hostel_id) {
+                const normReq = req.body.hostel_id.toLowerCase().replace(/[^a-z0-9]/g, '');
+                const normAssigned = assignedHostel.toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (normReq !== normAssigned) {
+                    return res.status(403).json({ error: 'Forbidden: You only have access to manage stock in your assigned hostel.' });
+                }
+            }
+
             if (updateData.stock_left !== undefined || updateData.in_stock !== undefined) {
                 const targetStock = updateData.stock_left !== undefined ? Math.max(0, Number(updateData.stock_left)) : (updateData.in_stock ? 10 : 0);
                 const targetInStock = updateData.in_stock !== undefined ? Boolean(updateData.in_stock) : targetStock > 0;
 
-                const updatedStock = await supabaseDb.inventory.setProductStock(assignedHostel, id, {
+                const updatedStock = await supabaseDb.inventory.setProductStock(targetHostel, id, {
                     stock_left: targetStock,
-                    in_stock: targetInStock
+                    in_stock: targetInStock,
+                    deleted: false
                 });
+
+                // If product was custom created by/for this hostel, also allow updating its local fields
+                const originHostel = (existing.hostel_id || 'BH-13').toUpperCase().replace(/[^A-Z0-9]/g, '');
+                if (originHostel === normTarget && normTarget !== 'BH13') {
+                    const localUpdates = { ...updateData };
+                    delete localUpdates.cost_price;
+                    delete localUpdates.cost;
+                    delete localUpdates.hostel_id;
+                    delete localUpdates.stock_left;
+                    delete localUpdates.in_stock;
+                    if (Object.keys(localUpdates).length > 0) {
+                        await supabaseDb.products.update(id, localUpdates).catch(() => {});
+                    }
+                }
+
+
 
                 cache.invalidateProducts();
                 if (typeof broadcastInventoryUpdate === 'function') {
-                    broadcastInventoryUpdate(id, updatedStock.stock_left, updatedStock.in_stock, assignedHostel);
+                    broadcastInventoryUpdate(id, targetStock, targetInStock, targetHostel);
                 }
                 return res.json({
                     success: true,
-                    message: `Stock updated for ${assignedHostel}`,
-                    product: { ...existing, ...updatedStock }
+                    message: `Stock updated for ${targetHostel}`,
+                    product: { ...existing, ...updatedStock, hostel_id: targetHostel }
                 });
             }
             return res.status(403).json({ error: 'Forbidden: Only the platform owner can edit global product catalog details.' });
         }
 
-        // Platform owner updating master product:
-        if (updateData.image_url && updateData.image_url.startsWith('data:image/')) {
-            updateData.image_url = await uploadBase64ToSupabaseStorage(updateData.image_url, `prod_${id}`);
+        // Platform owner / Admin updating product:
+        let updatedStock = null;
+        if (updateData.stock_left !== undefined || updateData.in_stock !== undefined) {
+            const targetStock = updateData.stock_left !== undefined ? Math.max(0, Number(updateData.stock_left)) : (updateData.in_stock ? 10 : 0);
+            const targetInStock = updateData.in_stock !== undefined ? Boolean(updateData.in_stock) : targetStock > 0;
+
+            updatedStock = await supabaseDb.inventory.setProductStock(targetHostel, id, {
+                stock_left: targetStock,
+                in_stock: targetInStock
+            });
+
+            if (typeof broadcastInventoryUpdate === 'function') {
+                broadcastInventoryUpdate(id, targetStock, targetInStock, targetHostel);
+            }
         }
-        const updated = await supabaseDb.products.update(id, updateData);
+
+        // Update catalog details on the master record
+        const catalogUpdates = { ...updateData };
+        // Never overwrite master catalog base stock or origin hostel from hostel-scoped edits
+        delete catalogUpdates.stock_left;
+        delete catalogUpdates.in_stock;
+        delete catalogUpdates.hostel_id;
+
+        if (catalogUpdates.image_url && catalogUpdates.image_url.startsWith('data:image/')) {
+            catalogUpdates.image_url = await uploadBase64ToSupabaseStorage(catalogUpdates.image_url, `prod_${id}`);
+        }
+
+        let updated = existing;
+        if (Object.keys(catalogUpdates).length > 0) {
+            updated = await supabaseDb.products.update(id, catalogUpdates);
+        }
         cache.invalidateProducts();
-        if (typeof broadcastInventoryUpdate === 'function') {
-            broadcastInventoryUpdate(updated.id, updated.stock_left, updated.in_stock, 'BH-13');
-        }
-        res.json({ success: true, message: 'Product updated in Supabase Cloud', product: updated });
+
+
+
+        res.json({
+            success: true,
+            message: `Product updated successfully for ${targetHostel}`,
+            product: {
+                ...updated,
+                ...(updatedStock || {}),
+                hostel_id: targetHostel
+            }
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -405,18 +502,69 @@ router.delete('/admin/deactivate/:id', requireAdmin, async (req, res) => {
     }
 });
 
-// DELETE /api/products/admin/delete/:id (Hard delete from Supabase)
+// DELETE /api/products/admin/delete/:id (Delete from hostel store for store manager; permanent deletion for owner)
 router.delete('/admin/delete/:id', requireAdmin, async (req, res) => {
     const { id } = req.params;
     try {
         const isOwner = Boolean(req.admin && req.admin.is_owner);
+        const assignedHostel = req.admin?.assigned_hostel_id || null;
+        const targetHostel = (!isOwner && assignedHostel)
+            ? assignedHostel
+            : (req.query.hostel_id || req.body?.hostel_id || null);
+
         if (!isOwner) {
-            return res.status(403).json({ error: 'Forbidden: Only the platform owner can permanently delete products from the catalog.' });
+            if (!assignedHostel) {
+                return res.status(403).json({ error: 'Forbidden: No assigned hostel store found.' });
+            }
+
+            // Store Manager deletes product for their assigned hostel only
+            const existing = await supabaseDb.products.getById(id, assignedHostel);
+            const originHostel = (existing?.hostel_id || 'BH-13').toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const assignedNorm = assignedHostel.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+            // If product was created solely by/for this hostel, remove master record
+            if (originHostel === assignedNorm && originHostel !== 'BH13') {
+                await supabaseDb.products.delete(id).catch(() => {});
+            }
+
+            await supabaseDb.inventory.setProductStock(assignedHostel, id, {
+                stock_left: 0,
+                in_stock: false,
+                deleted: true
+            });
+
+            cache.invalidateProducts();
+            if (typeof broadcastInventoryUpdate === 'function') {
+                broadcastInventoryUpdate(id, 0, false, assignedHostel);
+            }
+            return res.json({
+                success: true,
+                message: `Product removed from ${assignedHostel} store successfully`,
+                hostel_id: assignedHostel
+            });
+        }
+
+        // Platform Owner:
+        if (targetHostel && targetHostel !== 'ALL' && targetHostel !== 'all') {
+            await supabaseDb.inventory.setProductStock(targetHostel, id, {
+                stock_left: 0,
+                in_stock: false,
+                deleted: true
+            });
+            cache.invalidateProducts();
+            if (typeof broadcastInventoryUpdate === 'function') {
+                broadcastInventoryUpdate(id, 0, false, targetHostel);
+            }
+            return res.json({
+                success: true,
+                message: `Product removed from ${targetHostel} store`,
+                hostel_id: targetHostel
+            });
         }
 
         await supabaseDb.products.delete(id);
         cache.invalidateProducts();
-        res.json({ success: true, message: 'Product deleted from Supabase Cloud' });
+        res.json({ success: true, message: 'Product permanently deleted from Supabase Cloud' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -459,12 +607,7 @@ router.post('/admin/toggle-stock', requireAdmin, async (req, res) => {
             in_stock: targetInStock && newStock > 0
         });
 
-        if (targetHostel.toUpperCase().replace(/[^A-Z0-9]/g, '') === 'BH13') {
-            await supabaseDb.products.update(productId, {
-                stock_left: newStock,
-                in_stock: updated.in_stock
-            }).catch(() => {});
-        }
+
 
         cache.invalidateProducts();
         if (typeof broadcastInventoryUpdate === 'function') {

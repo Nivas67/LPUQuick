@@ -42,7 +42,7 @@
     <!-- Hard Client Storage & Cache Purge (Preserving Auth & Address) -->
     <script>
         (function() {
-            const PURGE_TAG = 'LPUQUICK_TURBO_PURGE_2026_10_02_V16';
+            const PURGE_TAG = 'LPUQUICK_TURBO_PURGE_2026_10_03_V10';
             if (localStorage.getItem('LPUQUICK_PURGE_KEY') !== PURGE_TAG) {
                 try {
                     const user = localStorage.getItem('lpuquick_user');
@@ -51,6 +51,7 @@
                     const block = localStorage.getItem('lpuquick_block');
                     const addr = localStorage.getItem('lpuquick_address');
                     const addrDetail = localStorage.getItem('lpuquick_address_detail');
+                    const hostelId = localStorage.getItem('lpuquick_hostel_id');
 
                     sessionStorage.clear();
                     if (window.caches) {
@@ -68,6 +69,7 @@
                     if (block) localStorage.setItem('lpuquick_block', block);
                     if (addr) localStorage.setItem('lpuquick_address', addr);
                     if (addrDetail) localStorage.setItem('lpuquick_address_detail', addrDetail);
+                    if (hostelId) localStorage.setItem('lpuquick_hostel_id', hostelId);
                 } catch(e){}
                 localStorage.setItem('LPUQUICK_PURGE_KEY', PURGE_TAG);
             }
@@ -302,25 +304,25 @@
     </script>
 
     <!-- API Client -->
-    <script defer src="/js/api.js?v=20261002_v16"></script>
+    <script defer src="/js/api.js?v=20261003_v3"></script>
 
     <!-- Page Templates -->
-    <script defer src="/js/pages/signin.js?v=20261002_v16"></script>
-    <script defer src="/js/pages/home.js?v=20261002_v16"></script>
-    <script defer src="/js/pages/categories.js?v=20261002_v16"></script>
-    <script defer src="/js/pages/cart.js?v=20261002_v16"></script>
-    <script defer src="/js/pages/checkout.js?v=20261002_v16"></script>
-    <script defer src="/js/pages/flowassist.js?v=20261002_v16"></script>
-    <script defer src="/js/pages/orders.js?v=20261002_v16"></script>
-    <script defer src="/js/pages/settings.js?v=20261002_v16"></script>
-    <script defer src="/js/pages/blocked.js?v=20261002_v16"></script>
-    <script defer src="/js/pages/rider_earnings.js?v=20261002_v16"></script>
+    <script defer src="/js/pages/signin.js?v=20261003_v3"></script>
+    <script defer src="/js/pages/home.js?v=20261003_v3"></script>
+    <script defer src="/js/pages/categories.js?v=20261003_v3"></script>
+    <script defer src="/js/pages/cart.js?v=20261003_v3"></script>
+    <script defer src="/js/pages/checkout.js?v=20261003_v3"></script>
+    <script defer src="/js/pages/flowassist.js?v=20261003_v3"></script>
+    <script defer src="/js/pages/orders.js?v=20261003_v3"></script>
+    <script defer src="/js/pages/settings.js?v=20261003_v3"></script>
+    <script defer src="/js/pages/blocked.js?v=20261003_v3"></script>
+    <script defer src="/js/pages/rider_earnings.js?v=20261003_v3"></script>
 
     <!-- PWA Install Engine for Android & Apple iOS -->
-    <script defer src="/js/pwa-install.js?v=20261002_v16"></script>
+    <script defer src="/js/pwa-install.js?v=20261003_v3"></script>
 
     <!-- App Router & Real-Time Sync Hub -->
-    <script defer src="/js/app.js?v=20261002_v16"></script>
+    <script defer src="/js/app.js?v=20261003_v3"></script>
 
 </body>
 </html>

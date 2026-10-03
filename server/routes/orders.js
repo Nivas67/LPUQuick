@@ -12,6 +12,37 @@ const pushService = require('../notifications/pushService');
 const cache = require('../cache');
 const financialEngine = require('../utils/financialEngine');
 
+function normalizeHostelId(input) {
+    if (!input || input === 'all' || input === 'ALL') return null;
+    const str = String(input).trim().toUpperCase();
+    const match = str.match(/^(?:\[)?(BH|GH)[-\s]?(\d+)(?:\])?/i) || str.match(/(?:\[)?(BH|GH)[-\s]?(\d+)(?:\])?/i);
+    if (match) {
+        return `${match[1].toUpperCase()}-${match[2]}`;
+    }
+    return str.replace(/[^A-Z0-9]/g, '');
+}
+
+function extractHostelId(order) {
+    if (!order) return 'BH-13';
+    if (order.hostel_id && order.hostel_id !== 'all') {
+        const norm = normalizeHostelId(order.hostel_id);
+        if (norm) return norm;
+    }
+    const addr = order.delivery_address || '';
+    const match = addr.match(/\[(BH|GH)[-\s]?(\d+)\]/i) || addr.match(/(BH|GH)[-\s]?(\d+)/i);
+    if (match) {
+        return `${match[1].toUpperCase()}-${match[2]}`;
+    }
+    return 'BH-13';
+}
+
+function matchHostel(h1, h2) {
+    if (!h1 || !h2) return false;
+    const n1 = String(h1).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const n2 = String(h2).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    return n1 === n2;
+}
+
 const os = require('os');
 const DELIVERY_SETTINGS_PATH = path.join(__dirname, '../data/delivery_settings.json');
 const TMP_DELIVERY_SETTINGS_PATH = path.join(os.tmpdir(), 'lpuquick_delivery_settings.json');
@@ -287,7 +318,7 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
                 const customerPhone = order.customer_phone || user?.phone || '';
                 const customerEmail = (order.customer_email && !order.customer_email.endsWith('@lpu.in')) ? order.customer_email : (user?.email || order.customer_email || '');
                 const deliveryInfo = supabaseDb.orders.parseDeliveryMeta(order.rider_name);
-                const hId = order.hostel_id || (order.delivery_address && order.delivery_address.match(/(BH-?\d+|GH-?\d+)/i)?.[1]?.replace('BH', 'BH-')) || 'BH-13';
+                const hId = extractHostelId(order);
 
                 return {
                     id: order.id,
@@ -316,8 +347,8 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
 
             // Filter by target hostel if specified
             if (hostelId && hostelId !== 'all') {
-                const normTarget = hostelId.toLowerCase().replace('-', '');
-                enriched = enriched.filter(o => (o.hostel_id || 'BH-13').toLowerCase().replace('-', '') === normTarget);
+                const normTarget = normalizeHostelId(hostelId);
+                enriched = enriched.filter(o => matchHostel(o.hostel_id, normTarget));
             }
 
             return { orders: enriched };
@@ -325,8 +356,8 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
 
         let resultOrders = payload?.orders || [];
         if (hostelId && hostelId !== 'all' && (!resultOrders || resultOrders.length === 0) && Array.isArray(fallbackOrdersCache)) {
-            const normTarget = hostelId.toLowerCase().replace('-', '');
-            resultOrders = fallbackOrdersCache.filter(o => ((o.hostel_id || 'BH-13').toLowerCase().replace('-', '')) === normTarget);
+            const normTarget = normalizeHostelId(hostelId);
+            resultOrders = fallbackOrdersCache.filter(o => matchHostel(extractHostelId(o), normTarget));
         }
 
         res.json({ orders: resultOrders, hostel_id: hostelId || 'all' });
@@ -376,11 +407,8 @@ router.get('/admin/analytics', requireAdmin, async (req, res) => {
 
             let orders = ordersRes?.data || [];
             if (cleanHostel) {
-                const normTarget = cleanHostel.toLowerCase().replace('-', '');
-                orders = orders.filter(o => {
-                    const h = (o.delivery_address && o.delivery_address.match(/(BH-?\d+|GH-?\d+)/i)?.[1]?.replace('BH', 'BH-')) || 'BH-13';
-                    return h.toLowerCase().replace('-', '') === normTarget;
-                });
+                const normTarget = normalizeHostelId(cleanHostel);
+                orders = orders.filter(o => matchHostel(extractHostelId(o), normTarget));
             }
 
             const rawProducts = Array.isArray(productsRes) ? productsRes : (productsRes?.data || []);
@@ -500,8 +528,8 @@ router.get('/admin/detail/:orderId', requireAdmin, async (req, res) => {
         
         // Enforce store manager hostel isolation
         if (!req.admin.is_owner && req.admin.assigned_hostel_id) {
-            const hId = order.hostel_id || (order.delivery_address && order.delivery_address.match(/(BH-?\d+|GH-?\d+)/i)?.[1]?.replace('BH', 'BH-')) || 'BH-13';
-            if (hId.toLowerCase().replace('-', '') !== req.admin.assigned_hostel_id.toLowerCase().replace('-', '')) {
+            const hId = extractHostelId(order);
+            if (!matchHostel(hId, req.admin.assigned_hostel_id)) {
                 return res.status(403).json({ error: 'Forbidden: You do not have access to orders from other hostels.' });
             }
         }
@@ -564,8 +592,8 @@ router.post('/admin/status', requireAdmin, async (req, res) => {
             } catch (e) {}
         }
         if (existingOrder) {
-            const hId = existingOrder.hostel_id || (existingOrder.delivery_address && existingOrder.delivery_address.match(/(BH-?\d+|GH-?\d+)/i)?.[1]?.replace('BH', 'BH-')) || 'BH-13';
-            if (hId.toLowerCase().replace('-', '') !== req.admin.assigned_hostel_id.toLowerCase().replace('-', '')) {
+            const hId = extractHostelId(existingOrder);
+            if (!matchHostel(hId, req.admin.assigned_hostel_id)) {
                 return res.status(403).json({ error: 'Forbidden: You do not have permission to modify orders from other hostels.' });
             }
         }
@@ -1679,8 +1707,8 @@ router.post('/:orderId/claim', requireAdmin, requireRole('delivery_person'), asy
             } catch (e) {}
         }
         if (existingOrder) {
-            const hId = existingOrder.hostel_id || (existingOrder.delivery_address && existingOrder.delivery_address.match(/(BH-?\d+|GH-?\d+)/i)?.[1]?.replace('BH', 'BH-')) || 'BH-13';
-            if (hId.toLowerCase().replace('-', '') !== req.admin.assigned_hostel_id.toLowerCase().replace('-', '')) {
+            const hId = extractHostelId(existingOrder);
+            if (!matchHostel(hId, req.admin.assigned_hostel_id)) {
                 return res.status(403).json({
                     success: false,
                     error: `Forbidden: You are assigned to ${req.admin.assigned_hostel_id} and cannot accept deliveries for ${hId}.`
@@ -1763,8 +1791,8 @@ router.post('/:orderId/transfer/request', requireAdmin, async (req, res) => {
 
     // Verify store manager / delivery personnel hostel scoping
     if (!req.admin.is_owner && req.admin.assigned_hostel_id) {
-        const hId = order.hostel_id || (order.delivery_address && order.delivery_address.match(/(BH-?\d+|GH-?\d+)/i)?.[1]?.replace('BH', 'BH-')) || 'BH-13';
-        if (hId.toLowerCase().replace('-', '') !== req.admin.assigned_hostel_id.toLowerCase().replace('-', '')) {
+        const hId = extractHostelId(order);
+        if (!matchHostel(hId, req.admin.assigned_hostel_id)) {
             return res.status(403).json({
                 success: false,
                 error: `Forbidden: You are assigned to ${req.admin.assigned_hostel_id} and cannot transfer orders from ${hId}.`

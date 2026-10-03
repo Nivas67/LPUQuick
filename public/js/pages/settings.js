@@ -9,13 +9,13 @@ window.pages.settings = async function () {
     const userPicture = isLoggedIn ? (window.CURRENT_USER_PICTURE || '') : '';
     const initial = isLoggedIn && userName ? userName[0].toUpperCase() : 'G';
 
-    const currentHostel = localStorage.getItem('lpuquick_address') || 'BH13';
+    const currentHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || localStorage.getItem('lpuquick_address') || 'BH-13';
     const currentBlock = localStorage.getItem('lpuquick_block') || 'Block A';
     const currentRoom = localStorage.getItem('lpuquick_room') || '';
     const currentPhone = (localStorage.getItem('lpuquick_phone') || '').replace(/\D/g, '');
     const currentDetail = (currentRoom && currentPhone.length === 10)
-        ? `BH13 (${currentBlock}), Room ${currentRoom} • 📞 +91 ${currentPhone}`
-        : (currentRoom ? `BH13 (${currentBlock}), Room ${currentRoom} (Mobile Mandatory)` : 'No address configured yet');
+        ? `${currentHostel} (${currentBlock}), Room ${currentRoom} • 📞 +91 ${currentPhone}`
+        : (currentRoom ? `${currentHostel} (${currentBlock}), Room ${currentRoom} (Mobile Mandatory)` : 'No address configured yet');
 
     return `
 <div class="bg-background text-on-background min-h-screen pb-32">

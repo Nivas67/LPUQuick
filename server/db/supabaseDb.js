@@ -265,7 +265,8 @@ const supabaseDb = {
         _formatProduct(p) {
             if (!p) return null;
             const match = (p.tags || '').match(/stock:(\d+)/);
-            const stock_left = match ? parseInt(match[1], 10) : (p.in_stock ? 50 : 0);
+            const stock_left = match ? parseInt(match[1], 10) : 0;
+            const in_stock = Boolean(stock_left > 0 && p.in_stock !== false);
             
             // Extract hostel_id from direct column or tag fallback (Defaulting cleanly to BH-13)
             const hostelMatch = (p.tags || '').match(/hostel:([A-Za-z0-9_-]+)/);
@@ -305,6 +306,36 @@ const supabaseDb = {
                 is_active: true,
                 stock_left
             };
+        },
+
+        _applyHostelStockOverlay(prod, cleanHostel, hostelInventory = {}) {
+            if (!prod || !cleanHostel) return prod;
+            const originHostel = (prod.hostel_id || 'BH-13').toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const targetHostelNorm = cleanHostel.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            prod.hostel_id = cleanHostel;
+            const override = hostelInventory[prod.id];
+            if (override !== undefined) {
+                if (override.deleted) {
+                    prod.deleted = true;
+                    prod.stock_left = 0;
+                    prod.in_stock = false;
+                } else {
+                    prod.deleted = false;
+                    prod.stock_left = Math.max(0, Number(override.stock_left) || 0);
+                    prod.in_stock = Boolean(override.in_stock && prod.stock_left > 0);
+                }
+            } else if (originHostel !== targetHostelNorm && originHostel !== 'BH13' && originHostel !== 'ALL' && originHostel !== 'CAMPUS') {
+                // Isolated custom product created specifically for a different hostel -> not in this hostel
+                prod.deleted = true;
+                prod.stock_left = 0;
+                prod.in_stock = false;
+            } else {
+                // Campus baseline catalog product: starts at ZERO stock for this hostel until the hostel store manager adds/updates stock!
+                prod.deleted = false;
+                prod.stock_left = 0;
+                prod.in_stock = false;
+            }
+            return prod;
         },
 
         async getAll({ includeInactive = false, category, subcategory, sort, hostel_id } = {}) {
@@ -362,13 +393,7 @@ const supabaseDb = {
                 const formatted = (data || []).map(p => {
                     const prod = this._formatProduct(p);
                     if (cleanHostel) {
-                        prod.hostel_id = cleanHostel;
-                        const override = hostelInventory[prod.id];
-                        if (override !== undefined) {
-                            prod.stock_left = Math.max(0, Number(override.stock_left) || 0);
-                            prod.in_stock = Boolean(override.in_stock && prod.stock_left > 0);
-                        }
-                        // If no override, prod.stock_left and in_stock inherit from master BH-13 ("as like items from 13")
+                        return this._applyHostelStockOverlay(prod, cleanHostel, hostelInventory);
                     }
                     return prod;
                 });
@@ -393,14 +418,9 @@ const supabaseDb = {
             const prod = this._formatProduct(data);
             const cleanHostel = (hostel_id && hostel_id !== 'all' && hostel_id !== 'ALL') ? String(hostel_id).trim().toUpperCase() : null;
             if (cleanHostel && supabaseDb.inventory) {
-                prod.hostel_id = cleanHostel;
                 try {
                     const inv = await supabaseDb.inventory.getHostelInventory(cleanHostel);
-                    const override = inv[prod.id];
-                    if (override !== undefined) {
-                        prod.stock_left = Math.max(0, Number(override.stock_left) || 0);
-                        prod.in_stock = Boolean(override.in_stock && prod.stock_left > 0);
-                    }
+                    return this._applyHostelStockOverlay(prod, cleanHostel, inv);
                 } catch (e) {}
             }
             return prod;
@@ -428,12 +448,7 @@ const supabaseDb = {
             return (data || []).map(p => {
                 const prod = this._formatProduct(p);
                 if (cleanHostel) {
-                    prod.hostel_id = cleanHostel;
-                    const override = inv[prod.id];
-                    if (override !== undefined) {
-                        prod.stock_left = Math.max(0, Number(override.stock_left) || 0);
-                        prod.in_stock = Boolean(override.in_stock && prod.stock_left > 0);
-                    }
+                    return this._applyHostelStockOverlay(prod, cleanHostel, inv);
                 }
                 return prod;
             });
@@ -477,12 +492,7 @@ const supabaseDb = {
             return (data || []).map(p => {
                 const prod = this._formatProduct(p);
                 if (cleanHostel) {
-                    prod.hostel_id = cleanHostel;
-                    const override = inv[prod.id];
-                    if (override !== undefined) {
-                        prod.stock_left = Math.max(0, Number(override.stock_left) || 0);
-                        prod.in_stock = Boolean(override.in_stock && prod.stock_left > 0);
-                    }
+                    return this._applyHostelStockOverlay(prod, cleanHostel, inv);
                 }
                 return prod;
             });
@@ -511,15 +521,10 @@ const supabaseDb = {
             let formatted = (data || []).map(p => {
                 const prod = this._formatProduct(p);
                 if (cleanHostel) {
-                    prod.hostel_id = cleanHostel;
-                    const override = inv[prod.id];
-                    if (override !== undefined) {
-                        prod.stock_left = Math.max(0, Number(override.stock_left) || 0);
-                        prod.in_stock = Boolean(override.in_stock && prod.stock_left > 0);
-                    }
+                    return this._applyHostelStockOverlay(prod, cleanHostel, inv);
                 }
                 return prod;
-            }).filter(p => p.in_stock);
+            }).filter(p => p.in_stock && !p.deleted);
 
             const shuffled = [...formatted].sort(() => 0.5 - Math.random());
             return shuffled.slice(0, limit);
@@ -636,6 +641,10 @@ const supabaseDb = {
                 }
             }
 
+            if (Object.keys(updateFields).length === 0) {
+                return await this.getById(id);
+            }
+
             let data = null;
             let error = null;
 
@@ -744,7 +753,12 @@ const supabaseDb = {
 
         _normalizeHostelId(hostelId) {
             if (!hostelId || hostelId === 'all' || hostelId === 'ALL') return 'BH-13';
-            return String(hostelId).trim().toUpperCase();
+            let str = String(hostelId).trim().toUpperCase();
+            const match = str.match(/^(?:\[)?(BH|GH)[-\s]?(\d+)(?:\])?/i) || str.match(/(?:\[)?(BH|GH)[-\s]?(\d+)(?:\])?/i);
+            if (match) {
+                return `${match[1].toUpperCase()}-${match[2]}`;
+            }
+            return str.replace(/[^A-Z0-9]/g, '');
         },
 
         _getStorageKey(hostelId) {
@@ -805,25 +819,30 @@ const supabaseDb = {
                     }
                 }
 
-                // 3. Fallback to local file
+                // 3. Fallback to local file (with backward compatibility for un-hyphenated keys)
                 const fileData = this._loadLocalFile();
-                const hostelData = fileData[normHostel] || {};
+                const hostelData = fileData[normHostel]
+                    || fileData[normHostel.replace('-', ' ')]
+                    || fileData[normHostel.replace('-', '')]
+                    || {};
                 this._memoryHostelInventory.set(normHostel, hostelData);
                 return hostelData;
             }, 60000); // 1-minute TTL, invalidated immediately on write
         },
 
-        async setProductStock(hostelId, productId, { stock_left, in_stock }) {
+        async setProductStock(hostelId, productId, { stock_left, in_stock, deleted }) {
             const normHostel = this._normalizeHostelId(hostelId);
             const key = this._getStorageKey(normHostel);
 
             const inv = await this.getHostelInventory(normHostel);
-            const finalStock = Math.max(0, parseInt(stock_left !== undefined ? stock_left : (in_stock ? 10 : 0), 10));
-            const finalInStock = in_stock !== undefined ? Boolean(in_stock) : finalStock > 0;
+            const isDeleted = Boolean(deleted);
+            const finalStock = isDeleted ? 0 : Math.max(0, parseInt(stock_left !== undefined ? stock_left : (in_stock ? 10 : 0), 10));
+            const finalInStock = isDeleted ? false : (in_stock !== undefined ? Boolean(in_stock) : finalStock > 0);
 
             inv[productId] = {
                 stock_left: finalStock,
                 in_stock: finalInStock,
+                deleted: isDeleted,
                 updated_at: new Date().toISOString()
             };
 
@@ -861,6 +880,7 @@ const supabaseDb = {
                 productId,
                 stock_left: finalStock,
                 in_stock: finalInStock,
+                deleted: isDeleted,
                 hostel_id: normHostel
             };
         },
@@ -1177,6 +1197,37 @@ const supabaseDb = {
     // ORDERS
     // ==========================================
     orders: {
+        _normalizeHostelId(hostelId) {
+            if (!hostelId || hostelId === 'all' || hostelId === 'ALL') return null;
+            const str = String(hostelId).trim().toUpperCase();
+            const match = str.match(/^(?:\[)?(BH|GH)[-\s]?(\d+)(?:\])?/i) || str.match(/(?:\[)?(BH|GH)[-\s]?(\d+)(?:\])?/i);
+            if (match) {
+                return `${match[1].toUpperCase()}-${match[2]}`;
+            }
+            return str.replace(/[^A-Z0-9]/g, '');
+        },
+
+        _extractHostelId(order) {
+            if (!order) return 'BH-13';
+            if (order.hostel_id && order.hostel_id !== 'all') {
+                const norm = this._normalizeHostelId(order.hostel_id);
+                if (norm) return norm;
+            }
+            const addr = order.delivery_address || '';
+            const match = addr.match(/\[(BH|GH)[-\s]?(\d+)\]/i) || addr.match(/(BH|GH)[-\s]?(\d+)/i);
+            if (match) {
+                return `${match[1].toUpperCase()}-${match[2]}`;
+            }
+            return 'BH-13';
+        },
+
+        _matchHostel(h1, h2) {
+            if (!h1 || !h2) return false;
+            const n1 = String(h1).toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const n2 = String(h2).toUpperCase().replace(/[^A-Z0-9]/g, '');
+            return n1 === n2;
+        },
+
         async createOrder(orderPayload, items) {
             const supabase = getSupabaseClient();
             if (!supabase) throw new Error('PostgreSQL client unavailable');
@@ -1195,8 +1246,8 @@ const supabaseDb = {
             if (prodFetchErr) throw new Error(`Failed to verify products: ${prodFetchErr.message}`);
             const prodMap = new Map((dbProducts || []).map(p => [p.id, p]));
 
-            const hostelId = orderPayload.hostel_id || 'BH-13';
-            const cleanHostel = (hostelId && hostelId !== 'all') ? String(hostelId).trim().toUpperCase() : 'BH-13';
+            const rawHostel = orderPayload.hostel_id || orderPayload.delivery_address || 'BH-13';
+            const cleanHostel = this._normalizeHostelId(rawHostel) || 'BH-13';
 
             let hostelInv = {};
             if (cleanHostel && supabaseDb.inventory) {
@@ -1212,17 +1263,13 @@ const supabaseDb = {
                     throw new Error(`Product "${item.name || item.product_id}" is no longer available in the campus store.`);
                 }
 
-                // Check hostel-isolated stock
-                let currentStock;
-                let currentInStock;
+                // Check hostel-isolated stock: ALL STOCK DEFAULTS TO 0 UNLESS OVERRIDDEN BY STORE MANAGER
+                let currentStock = 0;
+                let currentInStock = false;
                 const override = hostelInv[p.id];
-                if (override !== undefined) {
+                if (override !== undefined && !override.deleted) {
                     currentStock = Math.max(0, Number(override.stock_left) || 0);
                     currentInStock = Boolean(override.in_stock && currentStock > 0);
-                } else {
-                    const match = (p.tags || '').match(/stock:(\d+)/);
-                    currentStock = match ? parseInt(match[1], 10) : (p.in_stock ? 50 : 0);
-                    currentInStock = p.in_stock && currentStock > 0;
                 }
 
                 const reqQty = Math.max(1, Number(item.quantity) || 1);
@@ -1259,9 +1306,14 @@ const supabaseDb = {
                 });
             }
             const orderId = orderPayload.id || `order_${uuidv4().slice(0, 8)}`;
+            let orderAddr = (orderPayload.delivery_address || `${cleanHostel} (Block A), Room 304`).trim();
+            if (!orderAddr.toUpperCase().startsWith(`[${cleanHostel}]`)) {
+                orderAddr = `[${cleanHostel}] ${orderAddr.replace(/^\[(BH|GH)[-\s]?\d+\]\s*/i, '')}`;
+            }
+
             const coreOrderPayload = {
                 id: orderId,
-                hostel_id: hostelId,
+                hostel_id: cleanHostel,
                 user_id: orderPayload.user_id,
                 customer_name: orderPayload.customer_name || 'Student',
                 customer_phone: orderPayload.customer_phone || '',
@@ -1277,7 +1329,7 @@ const supabaseDb = {
                 rider_name: orderPayload.rider_name || 'Alex',
                 rider_lat: orderPayload.rider_lat || 31.2560,
                 rider_lng: orderPayload.rider_lng || 75.7030,
-                delivery_address: orderPayload.delivery_address || 'BH13 (Block A), Room 304'
+                delivery_address: orderAddr
             };
 
             // 2. Insert core order record with automatic fallback if hostel_id column not yet present
@@ -1347,36 +1399,9 @@ const supabaseDb = {
             // 4. Atomically decrement stock according to hostel dark-store inventory
             const appliedStockUpdates = [];
             try {
-                if (cleanHostel === 'BH-13') {
-                    await Promise.all(stockUpdates.map(async su => {
-                        let updateQuery = supabase
-                            .from('products')
-                            .update({
-                                tags: su.updatedTags,
-                                in_stock: su.newInStock
-                            })
-                            .eq('id', su.productId);
-
-                        // If tags were previously defined, enforce optimistic concurrency check
-                        if (su.originalTags) {
-                            updateQuery = updateQuery.eq('tags', su.originalTags);
-                        }
-
-                        const { data: updatedRows, error: stockErr } = await updateQuery.select('id');
-
-                        if (stockErr) throw stockErr;
-                        if (su.originalTags && (!updatedRows || updatedRows.length === 0)) {
-                            throw new Error(`Item "${su.name}" was just purchased by another student. Stock is no longer available.`);
-                        }
-                        appliedStockUpdates.push(su);
-                    }));
-                }
-
                 if (supabaseDb.inventory) {
                     await supabaseDb.inventory.batchUpdateStock(cleanHostel, stockUpdates);
-                    if (cleanHostel !== 'BH-13') {
-                        appliedStockUpdates.push(...stockUpdates);
-                    }
+                    appliedStockUpdates.push(...stockUpdates);
                 }
             } catch (stockUpdateErr) {
                 // Rollback order items & order
@@ -1385,13 +1410,6 @@ const supabaseDb = {
 
                 // Rollback any partially applied stock decrements
                 for (const revert of appliedStockUpdates) {
-                    if (cleanHostel === 'BH-13') {
-                        const revertTags = revert.updatedTags.replace(`stock:${revert.newStock}`, `stock:${revert.previousStock}`);
-                        await supabase.from('products').update({
-                            tags: revertTags,
-                            in_stock: revert.previousStock > 0
-                        }).eq('id', revert.productId).catch(() => {});
-                    }
                     if (supabaseDb.inventory) {
                         await supabaseDb.inventory.setProductStock(cleanHostel, revert.productId, {
                             stock_left: revert.previousStock,
@@ -1427,7 +1445,8 @@ const supabaseDb = {
 
             return {
                 ...orderData,
-                hostel_id: orderData?.hostel_id || hostelId,
+                hostel_id: cleanHostel,
+                delivery_address: orderAddr,
                 items: formattedItems.map(it => ({ ...it, price: it.unit_price })),
                 stockUpdates
             };
@@ -1511,8 +1530,10 @@ const supabaseDb = {
             const deliveryMeta = this.parseDeliveryMeta(order.rider_name);
             const humanRiderName = this.formatRiderDisplayName(order.rider_name, 'Alex');
 
+            const hId = this._extractHostelId(order);
             return {
                 ...order,
+                hostel_id: hId,
                 rider_name: humanRiderName,
                 delivery_assignment: deliveryMeta,
                 items: (items || []).map(it => ({
@@ -1560,8 +1581,10 @@ const supabaseDb = {
                     products: it.products || null
                 }));
                 const itemNames = formattedItems.map(it => `${it.name} (x${it.quantity})`).join(', ');
+                const hId = this._extractHostelId(o);
                 const full = {
                     ...o,
+                    hostel_id: hId,
                     rider_name: humanRiderName,
                     delivery_assignment: deliveryMeta,
                     items: formattedItems,
@@ -1659,10 +1682,10 @@ const supabaseDb = {
 
             if (!orders) return [];
 
-            return orders.map(o => {
+            let formatted = orders.map(o => {
                 const deliveryMeta = this.parseDeliveryMeta(o.rider_name);
                 const humanRiderName = this.formatRiderDisplayName(o.rider_name, 'Unassigned');
-                const hId = o.hostel_id || (o.delivery_address && o.delivery_address.match(/(BH-?\d+|GH-?\d+)/i)?.[1]?.replace('BH', 'BH-')) || 'BH-13';
+                const hId = this._extractHostelId(o);
 
                 const formattedItems = (o.order_items || []).map(it => ({
                     id: it.id,
@@ -1684,14 +1707,14 @@ const supabaseDb = {
                     items: formattedItems,
                     item_names: itemNames || o.item_names || 'Campus Groceries & Essentials'
                 };
-            }).filter(o => {
-                if (hostelId && hostelId !== 'all') {
-                    const normTarget = hostelId.toLowerCase().replace('-', '');
-                    const normO = (o.hostel_id || 'BH-13').toLowerCase().replace('-', '');
-                    return normO === normTarget;
-                }
-                return true;
             });
+
+            if (hostelId && hostelId !== 'all') {
+                const normTarget = this._normalizeHostelId(hostelId);
+                formatted = formatted.filter(o => this._matchHostel(o.hostel_id, normTarget));
+            }
+
+            return formatted;
         },
 
         async updateStatus(orderId, status, options = {}) {

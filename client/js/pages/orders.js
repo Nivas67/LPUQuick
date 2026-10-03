@@ -32,8 +32,13 @@ function isOrderCancellable(status) {
 }
 
 // Compute exact corridor positioning and HUD attributes for each admin order status
-function getOrderTrackingDetails(status, riderName = 'Alex', address = 'BH13') {
+function getOrderTrackingDetails(status, riderName = 'Alex', address = '') {
     const s = (status || '').toLowerCase().trim();
+    let hostelName = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
+    if (address) {
+        const m = address.match(/([B|G]H[-\s]?\d+|UniMall)/i);
+        if (m) hostelName = m[1].toUpperCase();
+    }
     
     // Default fallback (Order Placed / Incoming)
     let percent = 25;
@@ -42,7 +47,7 @@ function getOrderTrackingDetails(status, riderName = 'Alex', address = 'BH13') {
     let step = 1;
     let icon = 'inventory_2';
     let badge = `${riderName} · Order Placed`;
-    let msg = `Order placed! BH13 Dark Store received your items.`;
+    let msg = `Order placed! ${hostelName} Dark Store received your items.`;
     let eta = '3 Mins';
 
     if (s.includes('confirm') || s === 'accepted') {
@@ -52,7 +57,7 @@ function getOrderTrackingDetails(status, riderName = 'Alex', address = 'BH13') {
         step = 2;
         icon = 'thumb_up';
         badge = `${riderName} · Confirmed`;
-        msg = `Order confirmed by BH13 Dark Store. Runner ${riderName} assigned.`;
+        msg = `Order confirmed by ${hostelName} Dark Store. Runner ${riderName} assigned.`;
         eta = '2.5 Mins';
     } else if (s.includes('prepar') || s.includes('pack')) {
         percent = 60;
@@ -61,7 +66,7 @@ function getOrderTrackingDetails(status, riderName = 'Alex', address = 'BH13') {
         step = 3;
         icon = 'package_2';
         badge = `${riderName} · Packing Items`;
-        msg = `${riderName} is packing your items in a tamper-proof bag at BH13 Hub.`;
+        msg = `${riderName} is packing your items in a tamper-proof bag at ${hostelName} Hub.`;
         eta = '2 Mins';
     } else if (s.includes('out') || s.includes('route') || s.includes('dispatch')) {
         percent = 80;
@@ -70,7 +75,7 @@ function getOrderTrackingDetails(status, riderName = 'Alex', address = 'BH13') {
         step = 4;
         icon = 'directions_walk';
         badge = `${riderName} · Walking to Room`;
-        msg = `${riderName} picked up your snacks from BH13 Hub and is walking to ${address}.`;
+        msg = `${riderName} picked up your snacks from ${hostelName} Hub and is walking to ${address || hostelName}.`;
         eta = '1 Min';
     } else if (s.includes('deliver')) {
         percent = 100;
@@ -123,8 +128,8 @@ window.applyOrderStatusUI = function(newStatus, riderName, targetOrderId, riderP
     window.__lastWsStatusTime = Date.now();
     const effectiveRider = riderName || 'Alex';
     const savedRoom = localStorage.getItem('lpuquick_room') || window.currentRoom;
-    const savedBlock = localStorage.getItem('lpuquick_block') || window.currentBlock || 'Block A';
-    const address = savedRoom ? `BH13 (${savedBlock}), Room ${savedRoom}` : 'BH13';
+    const savedHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
+    const address = savedRoom ? `${savedHostel} (${savedBlock}), Room ${savedRoom}` : savedHostel;
 
     const details = getOrderTrackingDetails(newStatus, effectiveRider, address);
 

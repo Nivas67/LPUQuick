@@ -825,14 +825,39 @@ async function loadDashboard() {
             try { localStorage.setItem('lpuquick_admin_orders_cache', JSON.stringify(ordersCache)); } catch(e){}
         }
 
+        // Ensure productsCache is populated if empty so products and stock numbers display immediately
+        if (!productsCache || productsCache.length === 0) {
+            try {
+                const prodRes = await fetchWithTimeout(`/api/products?includeInactive=true${hostelParam}`, { headers: getAuthHeaders() }, 8000);
+                if (prodRes && prodRes.ok) {
+                    const prodJson = await prodRes.json();
+                    const list = Array.isArray(prodJson) ? prodJson : (prodJson.products || prodJson.data || []);
+                    if (list.length > 0) {
+                        productsCache = list;
+                        try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch(e){}
+                    }
+                }
+            } catch(e) {}
+        }
+
         const m = analyticsData.metrics || {};
 
-        // Compute metrics with instant fallback from cached orders & products (never display '--')
-        const totalOrdersVal = m.totalOrdersCount !== undefined ? m.totalOrdersCount : (ordersCache.length || 0);
-        const pendingCountVal = m.pendingOrdersCount !== undefined ? m.pendingOrdersCount : (ordersCache.filter(o => ['Order Placed', 'Preparing', 'Out for Delivery', 'pending', 'confirmed', 'accepted'].includes(o.status)).length);
-        const totalProdVal = m.totalProducts !== undefined ? m.totalProducts : (productsCache.length || 0);
-        const totalStockVal = m.totalStock !== undefined ? m.totalStock : (productsCache.reduce((s, p) => s + (Number(p.stock_left) || 0), 0) || 0);
-        const lowStockVal = m.lowStockCount !== undefined ? m.lowStockCount : (productsCache.filter(p => p.stock_left > 0 && p.stock_left <= 4).length || 0);
+        // Compute metrics with instant fallback from cached orders & products (never display zeros when data is in cache)
+        const totalOrdersVal = (m.totalOrdersCount !== undefined && m.totalOrdersCount > 0)
+            ? m.totalOrdersCount
+            : (ordersCache.length || (m.totalOrdersCount !== undefined ? m.totalOrdersCount : 0));
+        const pendingCountVal = m.pendingOrdersCount !== undefined
+            ? m.pendingOrdersCount
+            : (ordersCache.filter(o => ['Order Placed', 'Preparing', 'Out for Delivery', 'pending', 'confirmed', 'accepted'].includes(o.status)).length);
+        const totalProdVal = (m.totalProducts !== undefined && m.totalProducts > 0)
+            ? m.totalProducts
+            : (productsCache.length || (m.totalProducts !== undefined ? m.totalProducts : 0));
+        const totalStockVal = (m.totalStock !== undefined && m.totalStock > 0)
+            ? m.totalStock
+            : (productsCache.reduce((s, p) => s + (Number(p.stock_left) || 0), 0) || 0);
+        const lowStockVal = m.lowStockCount !== undefined
+            ? m.lowStockCount
+            : (productsCache.filter(p => p.stock_left > 0 && p.stock_left <= 4).length || 0);
 
         const elTotalProd = document.getElementById('dash-total-products');
         const elTotalStock = document.getElementById('dash-total-stock');
@@ -3756,15 +3781,19 @@ function openProductModal(product = null) {
             deleteBtn.classList.remove('hidden');
             deleteBtn.dataset.productId = product.id;
             deleteBtn.dataset.productName = product.name;
+            const delLabel = deleteBtn.querySelector('span:last-child');
+            if (delLabel) {
+                delLabel.textContent = isOwner ? 'Delete Completely' : 'Remove from My Hostel';
+            }
         }
         if (isOwner) updateModalProfitPreview();
     } else {
-        document.getElementById('modal-product-title').textContent = 'Add New Campus Product';
+        document.getElementById('modal-product-title').textContent = 'Add New Product';
         document.getElementById('product-form').reset();
         document.getElementById('form-product-id').value = '';
         const costInput = document.getElementById('form-product-cost');
         if (costInput) costInput.value = '';
-        document.getElementById('form-product-stock').value = '50';
+        document.getElementById('form-product-stock').value = '10';
         clearProductImage();
         if (deleteBtn) {
             deleteBtn.classList.add('hidden');
@@ -3792,6 +3821,29 @@ function openProductModal(product = null) {
         }
     }
 }
+
+async function onModalHostelChange() {
+    const productId = document.getElementById('form-product-id')?.value;
+    const hostelSelect = document.getElementById('form-product-hostel');
+    const hostelVal = hostelSelect?.value;
+    if (!productId || !hostelVal) return;
+
+    try {
+        const res = await fetch(`/api/products/${productId}?hostel_id=${encodeURIComponent(hostelVal)}`, {
+            headers: getAuthHeaders()
+        });
+        if (res.ok) {
+            const data = await res.json();
+            const stockInput = document.getElementById('form-product-stock');
+            if (stockInput && data && data.stock_left !== undefined) {
+                stockInput.value = data.stock_left;
+            }
+        }
+    } catch (e) {
+        console.warn('Failed to load hostel product stock preview:', e);
+    }
+}
+window.onModalHostelChange = onModalHostelChange;
 
 function closeProductModal() {
     document.getElementById('product-modal').classList.add('hidden');
@@ -3925,20 +3977,33 @@ async function deactivateProduct(id, name) {
 }
 
 async function deleteProductPermanently(id, name) {
-    if (!confirm(`⚠️ PERMANENT DELETE:\n\nAre you sure you want to permanently delete "${name}" from Supabase Cloud inventory?\n\nThis will completely remove the item and cannot be undone.`)) return;
+    const isOwner = isPlatformOwner();
+    const activeHostel = (!isOwner && currentAdminProfile?.assigned_hostel_id)
+        ? currentAdminProfile.assigned_hostel_id
+        : (document.getElementById('form-product-hostel')?.value || (typeof getActiveAdminHostelFilter === 'function' ? getActiveAdminHostelFilter('products') : null));
+
+    const promptMsg = isOwner && (!activeHostel || activeHostel === 'ALL')
+        ? `⚠️ PERMANENT DELETE:\n\nAre you sure you want to permanently delete "${name}" from Supabase Cloud inventory?\n\nThis will completely remove the item and cannot be undone.`
+        : `Remove Product:\n\nAre you sure you want to remove "${name}" from ${activeHostel || 'your hostel'} store?`;
+
+    if (!confirm(promptMsg)) return;
 
     try {
-        const res = await fetch(`/api/products/admin/delete/${id}`, {
+        const queryParam = activeHostel && activeHostel !== 'ALL' ? `?hostel_id=${encodeURIComponent(activeHostel)}` : '';
+        const res = await fetch(`/api/products/admin/delete/${id}${queryParam}`, {
             method: 'DELETE',
             headers: getAuthHeaders()
         });
         const data = await res.json();
         if (data.success) {
-            alert(`"${name}" was permanently removed from inventory.`);
+            const successMsg = isOwner && (!activeHostel || activeHostel === 'ALL')
+                ? `"${name}" was permanently removed from inventory.`
+                : `"${name}" was removed from ${activeHostel || 'your hostel'} store.`;
+            alert(successMsg);
             loadProducts();
             if (typeof loadInventory === 'function') loadInventory();
         } else {
-            alert('Failed to delete: ' + (data.error || 'Unknown error'));
+            alert('Failed to delete: ' + (data.error || data.message || 'Unknown error'));
         }
     } catch (err) {
         alert('Delete failed: ' + err.message);
@@ -5131,6 +5196,21 @@ function handleRealtimeInventoryUpdate(data) {
 // Handle Incoming Order in Real-Time (Strict Single Alert Deduplication)
 function handleRealtimeNewOrder(order) {
     if (!order || !order.id) return;
+
+    // Strict Dark-Store Hostel Isolation: Store Managers ONLY receive orders for their assigned hostel
+    const assignedHostel = (!currentAdminProfile?.is_owner && currentAdminProfile?.assigned_hostel_id)
+        ? currentAdminProfile.assigned_hostel_id
+        : (typeof getActiveAdminHostelFilter === 'function' ? getActiveAdminHostelFilter('orders') : null);
+
+    if (assignedHostel && assignedHostel !== 'all' && assignedHostel !== 'ALL') {
+        const orderHostel = order.hostel_id || (order.delivery_address && (order.delivery_address.match(/\[(BH|GH)[-\s]?(\d+)\]/i) || order.delivery_address.match(/(BH|GH)[-\s]?(\d+)/i))?.[0]) || 'BH-13';
+        const normOrder = String(orderHostel).toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const normAssigned = String(assignedHostel).toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (normOrder !== normAssigned) {
+            // This order belongs to a different hostel store! Do not show to this store manager!
+            return;
+        }
+    }
 
     // 🛡️ DEDUPLICATION GUARD: Prevent duplicate toasts/sounds for the same order
     if (processedOrderNotificationIds.has(order.id)) {

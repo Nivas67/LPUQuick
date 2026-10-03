@@ -37,12 +37,35 @@ window.pages.checkout = async function() {
     const deliverySavings = subtotal > 0 ? 25 : 0;
     const totalSavings = mrpDiscount + discount5 + deliverySavings;
 
+    let savedHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id');
+    if (!savedHostel) {
+        const addrDetail = localStorage.getItem('lpuquick_address_detail') || '';
+        const match = addrDetail.match(/([B|G]H[\s\-]?\d+|UniMall)/i);
+        if (match) {
+            savedHostel = match[1].toUpperCase().replace(/\s+/g, '-');
+            if (/^[BG]H\d+$/.test(savedHostel)) {
+                savedHostel = savedHostel.replace(/^([A-Z]+)(\d+)/, '$1-$2');
+            }
+        }
+    }
+    if (!savedHostel) {
+        const addr = localStorage.getItem('lpuquick_address') || '';
+        const match = addr.match(/([B|G]H[\s\-]?\d+|UniMall)/i);
+        if (match) {
+            savedHostel = match[1].toUpperCase().replace(/\s+/g, '-');
+            if (/^[BG]H\d+$/.test(savedHostel)) {
+                savedHostel = savedHostel.replace(/^([A-Z]+)(\d+)/, '$1-$2');
+            }
+        }
+    }
+    savedHostel = savedHostel || 'BH-13';
+
     const savedRoom = localStorage.getItem('lpuquick_room') || window.currentRoom;
     const savedBlock = localStorage.getItem('lpuquick_block') || window.currentBlock || 'Block A';
     const savedPhone = (localStorage.getItem('lpuquick_phone') || window.currentPhone || '').replace(/\D/g, '');
     const address = (savedRoom && savedPhone.length === 10) 
-        ? `BH13 (${savedBlock}), Room ${savedRoom} • 📞 +91 ${savedPhone}` 
-        : (savedRoom ? `BH13 (${savedBlock}), Room ${savedRoom} • ⚠️ Mobile Number Mandatory` : 'Please set your hostel room & mobile number');
+        ? `${savedHostel} (${savedBlock}), Room ${savedRoom} • +91${savedPhone}` 
+        : (savedRoom ? `${savedHostel} (${savedBlock}), Room ${savedRoom} • ⚠️ Mobile Number Mandatory` : `Please set your ${savedHostel} room & mobile number`);
 
     const itemRows = items.map(item => {
         const itemMrp = Number(item.mrp) || Number(item.price) || 0;
@@ -149,6 +172,7 @@ window.pages.checkout = async function() {
                             <div class="flex items-center gap-2">
                                 <h3 class="font-black text-slate-900 dark:text-white text-xs sm:text-sm tracking-tight">Hostel Delivery Destination</h3>
                                 <span class="liquid-badge text-[10px] text-emerald-800 dark:text-emerald-300 px-2 py-0.5 font-black">3 mins</span>
+                                <span class="clay-pill text-[10px] text-emerald-600 dark:text-emerald-400 font-black px-2 py-0.5">${savedHostel}</span>
                             </div>
                             <p class="text-xs text-slate-600 dark:text-slate-300 mt-1 font-medium" id="checkout-address-text">${address}</p>
                             ${(!savedPhone || savedPhone.length !== 10) ? `
@@ -162,7 +186,7 @@ window.pages.checkout = async function() {
                             `}
                         </div>
                     </div>
-                    <button type="button" class="clay-pill px-3.5 py-1 text-xs font-black text-emerald-700 dark:text-emerald-300 address-selector-trigger hover:scale-105 active:scale-95 transition-transform cursor-pointer" onclick="window.openAddressModal(true)">Change</button>
+                    <button type="button" class="clay-pill px-3.5 py-1 text-xs font-black text-emerald-700 dark:text-emerald-300 hover:scale-105 active:scale-95 transition-transform cursor-pointer" onclick="window.openAddressModal(false, () => { if (typeof window.router === 'function') window.router(); })">Change</button>
                 </div>
             </div>
 
@@ -260,7 +284,7 @@ window.pages.checkout = async function() {
                         <input type="radio" name="paymentMethod" value="cod" checked class="text-emerald focus:ring-emerald">
                         <div>
                             <p class="font-black text-xs text-slate-900 dark:text-white">Cash on Delivery</p>
-                            <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Pay at BH13 room door</p>
+                            <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Pay at ${savedHostel} room door</p>
                         </div>
                     </label>
 
@@ -463,6 +487,29 @@ window.pageInits.checkout = function() {
             return;
         }
 
+        let savedHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id');
+        if (!savedHostel) {
+            const addrDetail = localStorage.getItem('lpuquick_address_detail') || '';
+            const match = addrDetail.match(/([B|G]H[\s\-]?\d+|UniMall)/i);
+            if (match) {
+                savedHostel = match[1].toUpperCase().replace(/\s+/g, '-');
+                if (/^[BG]H\d+$/.test(savedHostel)) {
+                    savedHostel = savedHostel.replace(/^([A-Z]+)(\d+)/, '$1-$2');
+                }
+            }
+        }
+        if (!savedHostel) {
+            const addr = localStorage.getItem('lpuquick_address') || '';
+            const match = addr.match(/([B|G]H[\s\-]?\d+|UniMall)/i);
+            if (match) {
+                savedHostel = match[1].toUpperCase().replace(/\s+/g, '-');
+                if (/^[BG]H\d+$/.test(savedHostel)) {
+                    savedHostel = savedHostel.replace(/^([A-Z]+)(\d+)/, '$1-$2');
+                }
+            }
+        }
+        savedHostel = savedHostel || 'BH-13';
+
         const savedRoom = localStorage.getItem('lpuquick_room') || window.currentRoom;
         const savedBlock = localStorage.getItem('lpuquick_block') || window.currentBlock || 'Block A';
         const savedPhone = (localStorage.getItem('lpuquick_phone') || window.currentPhone || '').replace(/\D/g, '');
@@ -475,7 +522,7 @@ window.pageInits.checkout = function() {
             return;
         }
 
-        const fullAddress = `BH13 (${savedBlock}), Room ${savedRoom}`;
+        const fullAddress = `[${savedHostel}] ${savedHostel} (${savedBlock}), Room ${savedRoom}`;
         const selectedMethod = 'Cash on Delivery';
 
         const tapBtn = document.getElementById('tap-to-pay-btn');
@@ -489,7 +536,7 @@ window.pageInits.checkout = function() {
                 phone: savedPhone,
                 name: window.CURRENT_USER_NAME || 'LPU Student',
                 email: window.CURRENT_USER_EMAIL || '',
-                hostel_id: window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13'
+                hostel_id: savedHostel
             });
 
             if (orderRes && orderRes.success && orderRes.order) {

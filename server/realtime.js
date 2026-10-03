@@ -313,6 +313,7 @@ async function notifyAdminNewOrder(orderData) {
 // Broadcast status update to tracking clients, admin sockets, AND client sockets
 function broadcastStatusUpdate(orderId, newStatus, riderName = 'Alex', extraMeta = {}) {
     const now = new Date();
+    const hostelId = extraMeta.hostel_id || extraMeta.hostel || 'BH-13';
 
     // Payload for student tracking clients
     const trackingPayload = JSON.stringify({
@@ -323,7 +324,7 @@ function broadcastStatusUpdate(orderId, newStatus, riderName = 'Alex', extraMeta
         rider_name: riderName,
         riderName: riderName,
         step: getStepNumber(newStatus),
-        message: getStatusMessage(newStatus, riderName),
+        message: getStatusMessage(newStatus, riderName, hostelId),
         timestamp: now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
         ...extraMeta
     });
@@ -342,7 +343,7 @@ function broadcastStatusUpdate(orderId, newStatus, riderName = 'Alex', extraMeta
         rider_name: riderName,
         riderName: riderName,
         step: getStepNumber(newStatus),
-        message: getStatusMessage(newStatus, riderName),
+        message: getStatusMessage(newStatus, riderName, hostelId),
         timestamp: now.toISOString(),
         ...extraMeta
     });
@@ -378,10 +379,11 @@ function getStepNumber(status) {
     }
 }
 
-function getStatusMessage(status, riderName) {
+function getStatusMessage(status, riderName, hostelId = 'BH-13') {
+    const cleanHostel = (hostelId || 'BH-13').replace('-', '');
     switch (status) {
-        case 'Order Placed': return 'Order placed! Dark Store BH13 receiving items...';
-        case 'Order Confirmed': return 'Order accepted by BH13 Store Manager.';
+        case 'Order Placed': return `Order placed! Dark Store ${cleanHostel} receiving items...`;
+        case 'Order Confirmed': return `Order accepted by ${cleanHostel} Store Manager.`;
         case 'Preparing': return 'Items packed and sealed in tamper-proof bag.';
         case 'Out for Delivery': return `Rider ${riderName} is speeding towards your hostel!`;
         case 'Delivered': return 'Delivered to your room door! Enjoy your snack.';

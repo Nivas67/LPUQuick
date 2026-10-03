@@ -461,8 +461,8 @@ router.get('/daily-breakdown', requireAdmin, requireOwner, async (req, res) => {
         // Normalize hostel_id on every order
         allOrders.forEach(o => {
             if (!o.hostel_id) {
-                const match = o.delivery_address && o.delivery_address.match(/(BH-?\d+|GH-?\d+)/i);
-                o.hostel_id = match ? match[1].toUpperCase().replace('BH', 'BH-').replace('GH', 'GH-') : 'BH-13';
+                const match = o.delivery_address && (o.delivery_address.match(/\[(BH|GH)[-\s]?(\d+)\]/i) || o.delivery_address.match(/(BH|GH)[-\s]?(\d+)/i));
+                o.hostel_id = match ? `${match[1].toUpperCase()}-${match[2]}` : 'BH-13';
             }
         });
 

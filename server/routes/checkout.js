@@ -174,21 +174,50 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
             price: Number(item.price) || 0
         }));
 
-        // Validate stock limits directly from items without sequential DB roundtrips
-        for (const item of orderItems) {
-            const hasExplicitStock = item.stock_left !== undefined && item.stock_left !== null;
-            const availableStock = hasExplicitStock ? Number(item.stock_left) : 50;
-            if (item.in_stock === false || (hasExplicitStock && availableStock <= 0)) {
-                return res.status(400).json({ error: `"${item.name || 'Item'}" is currently out of stock. Please remove it from your cart to proceed.` });
+        // Multi-Hostel Validation & Resolution
+        function normalizeCheckoutHostel(input) {
+            if (!input || input === 'all' || input === 'ALL') return null;
+            const str = String(input).trim().toUpperCase();
+            const match = str.match(/^(?:\[)?(BH|GH)[-\s]?(\d+)(?:\])?/i) || str.match(/(?:\[)?(BH|GH)[-\s]?(\d+)(?:\])?/i);
+            if (match) {
+                return `${match[1].toUpperCase()}-${match[2]}`;
             }
-            if (hasExplicitStock && item.quantity > availableStock) {
-                return res.status(400).json({ error: `Only ${availableStock} units of "${item.name}" left in stock (you have ${item.quantity} in cart). Please adjust quantity.` });
-            }
+            return str.replace(/[^A-Z0-9]/g, '');
         }
 
-        // Multi-Hostel Validation & Resolution
-        const parsedHostelFromAddr = deliveryAddress.match(/(BH-?\d+|GH-?\d+)/i)?.[1]?.replace('BH', 'BH-');
-        const targetHostelId = req.body.hostel_id || req.body.hostel || orderItems[0]?.hostel_id || parsedHostelFromAddr || 'BH-13';
+        const rawHostel = req.body.hostel_id || (
+            typeof deliveryAddress === 'string' ? deliveryAddress.match(/(BH-?\d+|GH-?\d+)/i)?.[0] : null
+        ) || req.body.hostel || orderItems[0]?.hostel_id || 'BH-13';
+        const targetHostelId = normalizeCheckoutHostel(rawHostel) || 'BH-13';
+
+        // Load specific dark store inventory for this selected hostel
+        let hostelInv = {};
+        if (targetHostelId && supabaseDb.inventory) {
+            try {
+                hostelInv = await supabaseDb.inventory.getHostelInventory(targetHostelId);
+            } catch (e) {}
+        }
+
+        // Validate stock limits against the selected hostel's inventory
+        for (const item of orderItems) {
+            const override = hostelInv[item.product_id];
+            let availableStock = 0;
+            let isInStock = false;
+            if (override !== undefined && !override.deleted) {
+                availableStock = Math.max(0, Number(override.stock_left) || 0);
+                isInStock = Boolean(override.in_stock && availableStock > 0);
+            } else if (item.stock_left !== undefined && item.stock_left !== null && item.in_stock) {
+                availableStock = Number(item.stock_left);
+                isInStock = Boolean(item.in_stock && availableStock > 0);
+            }
+
+            if (!isInStock || availableStock <= 0) {
+                return res.status(400).json({ error: `"${item.name || 'Item'}" is currently out of stock in ${targetHostelId}. Please remove it from your cart to proceed.` });
+            }
+            if (item.quantity > availableStock) {
+                return res.status(400).json({ error: `Only ${availableStock} units of "${item.name}" left in stock in ${targetHostelId} (you have ${item.quantity} in cart). Please adjust quantity.` });
+            }
+        }
 
         // 1. Prevent ordering from an OFF hostel
         try {
@@ -232,7 +261,10 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
         const initialStatus = 'Order Placed';
         const rider = 'Alex';
         const method = paymentMethod || 'Cash on Delivery';
-        const address = deliveryAddress.trim();
+        let address = deliveryAddress.trim();
+        if (!address.toUpperCase().startsWith(`[${targetHostelId}]`)) {
+            address = `[${targetHostelId}] ${address.replace(/^\[(BH|GH)[-\s]?\d+\]\s*/i, '')}`;
+        }
 
         // 3. SECURE FAST CUSTOMER PROFILE RESOLUTION & SNAPSHOT
         const submittedPhone = (req.body.customerPhone || req.body.phone || '').trim();
@@ -272,6 +304,11 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
             }
         })();
 
+        let normalizedDeliveryAddress = address;
+        if (targetHostelId && !normalizedDeliveryAddress.includes(`[${targetHostelId}]`)) {
+            normalizedDeliveryAddress = `[${targetHostelId}] ${normalizedDeliveryAddress}`;
+        }
+
         const orderPayload = {
             id: orderId,
             hostel_id: targetHostelId,
@@ -288,7 +325,7 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
             payment_method: method,
             payment_status: 'pending',
             rider_name: rider,
-            delivery_address: address
+            delivery_address: normalizedDeliveryAddress
         };
 
         const createdOrder = await supabaseDb.orders.createOrder(orderPayload, orderItems);
@@ -316,6 +353,7 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
         try {
             broadcastOrderPlaced({
                 id: orderId,
+                hostel_id: targetHostelId,
                 user_id: userId,
                 customer_name: customerName,
                 customer_phone: customerPhone,
@@ -323,7 +361,7 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
                 status: initialStatus,
                 total,
                 item_summary: orderItems.map(i => `${i.name} (x${i.quantity})`).join(', '),
-                delivery_address: address,
+                delivery_address: normalizedDeliveryAddress,
                 payment_method: method,
                 created_at: new Date().toISOString()
             });

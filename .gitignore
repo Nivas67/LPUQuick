@@ -6,5 +6,7 @@ server/data/backups/
 .env
 .DS_Store
 scripts/debug_*.js
-scripts/test_category_rail_verification.js
+scripts/test_*.js
+scripts/verify_*.js
+server/data/order_snapshots.json
 scratch/

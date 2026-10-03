@@ -110,7 +110,28 @@ window.getEffectiveUserId = function() {
 window.cartState = window.cartState || {};
 
 // Address state (Unconfigured until user signs in and sets room)
-window.currentHostelId = localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
+window.currentHostelId = localStorage.getItem('lpuquick_hostel_id');
+if (!window.currentHostelId) {
+    const addrDetail = localStorage.getItem('lpuquick_address_detail') || '';
+    const match = addrDetail.match(/([B|G]H[\s\-]?\d+|UniMall)/i);
+    if (match) {
+        window.currentHostelId = match[1].toUpperCase().replace(/\s+/g, '-');
+        if (/^[BG]H\d+$/.test(window.currentHostelId)) {
+            window.currentHostelId = window.currentHostelId.replace(/^([A-Z]+)(\d+)/, '$1-$2');
+        }
+    }
+}
+if (!window.currentHostelId) {
+    const addr = localStorage.getItem('lpuquick_address') || '';
+    const match = addr.match(/([B|G]H[\s\-]?\d+|UniMall)/i);
+    if (match) {
+        window.currentHostelId = match[1].toUpperCase().replace(/\s+/g, '-');
+        if (/^[BG]H\d+$/.test(window.currentHostelId)) {
+            window.currentHostelId = window.currentHostelId.replace(/^([A-Z]+)(\d+)/, '$1-$2');
+        }
+    }
+}
+window.currentHostelId = window.currentHostelId || 'BH-13';
 window.currentAddress = localStorage.getItem('lpuquick_address') || window.currentHostelId.replace('-', '');
 window.currentBlock = localStorage.getItem('lpuquick_block') || 'Block A';
 window.currentRoom = localStorage.getItem('lpuquick_room') || '';
@@ -379,15 +400,18 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
         };
     });
 
-    let selectedHostel = window.currentHostelId || 'BH-13';
-    // If selected hostel is not active, pick the first active hostel
-    const normSelected = normalizeHostelKey(selectedHostel);
-    if (!activeKeySet.has(normSelected) && activeKeySet.size > 0) {
-        const firstActive = allLocations.find(l => l.active);
-        if (firstActive) {
-            selectedHostel = firstActive.id;
+    let selectedHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id');
+    if (!selectedHostel) {
+        const addrDetail = localStorage.getItem('lpuquick_address_detail') || '';
+        const match = addrDetail.match(/([B|G]H[\s\-]?\d+|UniMall)/i);
+        if (match) {
+            selectedHostel = match[1].toUpperCase().replace(/\s+/g, '-');
+            if (/^[BG]H\d+$/.test(selectedHostel)) {
+                selectedHostel = selectedHostel.replace(/^([A-Z]+)(\d+)/, '$1-$2');
+            }
         }
     }
+    selectedHostel = selectedHostel || 'BH-13';
 
     let selectedBlock = window.currentBlock || localStorage.getItem('lpuquick_block') || 'Block A';
     const savedRoom = window.currentRoom || localStorage.getItem('lpuquick_room') || '';
@@ -415,7 +439,7 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
                 ${isMandatorySetup ? `
                 <span class="liquid-badge text-[10px] font-bold px-2.5 py-0.5">Step 2</span>
                 ` : `
-                <button type="button" class="clay-pill w-8 h-8 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center justify-center transition-transform active:scale-95 cursor-pointer" onclick="document.getElementById('address-modal').remove()">
+                <button type="button" id="close-address-modal-btn" class="clay-pill w-8 h-8 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center justify-center transition-transform active:scale-95 cursor-pointer">
                     <span class="material-symbols-outlined text-base">close</span>
                 </button>
                 `}
@@ -436,21 +460,12 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
                 <div class="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-36 overflow-y-auto p-0.5 no-scrollbar" id="hostels-container">
                     ${allLocations.map(h => {
                         const isSelected = normalizeHostelKey(h.id) === normalizeHostelKey(selectedHostel) || normalizeHostelKey(h.name) === normalizeHostelKey(selectedHostel);
-                        if (h.active) {
-                            return `
-                            <button type="button" class="p-2 rounded-xl text-xs font-bold transition-all relative flex flex-col items-center justify-center gap-1 hostel-pick-btn cursor-pointer ${isSelected ? 'clay-pill text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 bg-emerald-500/15' : 'clay-card text-slate-700 dark:text-slate-300 hover:border-emerald'}" data-hostel="${h.name}" data-hostel-id="${h.id}">
-                                <span>${h.name}</span>
-                                <span class="bg-emerald text-white text-[8px] px-1.5 py-0.2 rounded-full font-black">Live</span>
-                            </button>
-                            `;
-                        } else {
-                            return `
-                            <button type="button" class="p-2 rounded-xl border border-[var(--glass-border)] bg-slate-500/10 text-slate-400 text-xs font-medium transition-all relative flex flex-col items-center justify-center gap-1 hostel-disabled-btn cursor-not-allowed opacity-50" data-hostel="${h.name}">
-                                <span>${h.name}</span>
-                                <span class="text-[8px] text-slate-400 font-bold">Soon</span>
-                            </button>
-                            `;
-                        }
+                        return `
+                        <button type="button" class="p-2 rounded-xl text-xs font-bold transition-all relative flex flex-col items-center justify-center gap-1 hostel-pick-btn cursor-pointer ${isSelected ? 'clay-pill text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 bg-emerald-500/15' : 'clay-card text-slate-700 dark:text-slate-300 hover:border-emerald'}" data-hostel="${h.name}" data-hostel-id="${h.id}">
+                            <span>${h.name}</span>
+                            <span class="${h.active ? 'bg-emerald text-white' : 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'} text-[8px] px-1.5 py-0.2 rounded-full font-black">${h.active ? 'Live' : 'Active'}</span>
+                        </button>
+                        `;
                     }).join('')}
                 </div>
             </div>
@@ -507,8 +522,19 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
         </div>
     `;
 
+    const closeModal = () => {
+        modal.remove();
+        if (typeof onComplete === 'function') {
+            onComplete();
+        }
+    };
+
     if (!isMandatorySetup) {
-        modal.onclick = () => modal.remove();
+        modal.onclick = closeModal;
+    }
+    const closeBtn = modal.querySelector('#close-address-modal-btn');
+    if (closeBtn) {
+        closeBtn.onclick = closeModal;
     }
     document.body.appendChild(modal);
 
@@ -527,24 +553,11 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
         };
     }
 
-    // Active hostel click handler with Cart isolation confirmation
+    // Active hostel click handler
     modal.querySelectorAll('.hostel-pick-btn').forEach(btn => {
-        btn.onclick = async () => {
+        btn.onclick = () => {
             const chosenId = btn.dataset.hostelId || btn.dataset.hostel;
-            if (chosenId !== selectedHostel) {
-                const cartKeys = Object.keys(window.cartState || {});
-                if (cartKeys.length > 0) {
-                    const confirmed = confirm(`Your cart contains items from ${selectedHostel}. Changing hostel to ${chosenId} will clear your current cart. Proceed?`);
-                    if (!confirmed) return;
-
-                    const uid = typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : window.CURRENT_USER_ID;
-                    if (window.api?.clearCart) {
-                        try { await window.api.clearCart(uid); } catch (e) {}
-                    }
-                    window.cartState = {};
-                    if (typeof window.updateGlobalCartBadges === 'function') window.updateGlobalCartBadges();
-                }
-
+            if (chosenId) {
                 selectedHostel = chosenId;
 
                 modal.querySelectorAll('.hostel-pick-btn').forEach(b => {
@@ -558,6 +571,25 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
                 if (hLabel) hLabel.textContent = `${selectedHostel} Selected`;
                 const btnSave = modal.querySelector('#save-address-btn');
                 if (btnSave) btnSave.innerHTML = `Confirm Address & Deliver to ${selectedHostel} (<span id="btn-block-label">${selectedBlock}</span>)`;
+
+                // INSTANT PERSISTENCE: Save immediately to state and storage
+                window.currentHostelId = selectedHostel;
+                window.currentAddress = selectedHostel.replace('-', '');
+                localStorage.setItem('lpuquick_hostel_id', selectedHostel);
+                localStorage.setItem('lpuquick_address', window.currentAddress);
+
+                const currentRoomVal = (modal.querySelector('#room-input')?.value || savedRoom || '').trim().replace(/\D/g, '');
+                if (currentRoomVal) {
+                    window.currentRoom = currentRoomVal;
+                    localStorage.setItem('lpuquick_room', currentRoomVal);
+                    window.currentAddressDetail = `${selectedHostel} (${selectedBlock}), Room ${currentRoomVal}`;
+                    localStorage.setItem('lpuquick_address_detail', window.currentAddressDetail);
+                }
+                localStorage.setItem('lpuquick_address_configured', 'true');
+
+                if (typeof window.syncStoreAvailability === 'function') {
+                    window.syncStoreAvailability(selectedHostel);
+                }
             }
         };
     });
@@ -1919,10 +1951,12 @@ async function router() {
 
             // Bind global address modal trigger
             document.querySelectorAll('.address-selector-trigger').forEach(el => {
-                el.onclick = (e) => {
-                    e.preventDefault();
-                    window.openAddressModal();
-                };
+                if (!el.getAttribute('onclick')) {
+                    el.onclick = (e) => {
+                        e.preventDefault();
+                        window.openAddressModal();
+                    };
+                }
             });
 
             // Intelligent Scroll Restoration

@@ -1,5 +1,5 @@
-// LPUQuick High-Performance Ultra-Fast Service Worker (V2026.09.21-OfflineResilienceV12)
-const CACHE_NAME = 'lpuquick-pwa-v12-shell';
+// LPUQuick High-Performance Ultra-Fast Service Worker (V2026.10.03-V13)
+const CACHE_NAME = 'lpuquick-pwa-v13-shell';
 const API_CACHE_NAME = 'lpuquick-api-cache-v2';
 
 const STATIC_ASSETS = [
