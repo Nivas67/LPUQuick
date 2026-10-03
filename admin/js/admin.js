@@ -3751,12 +3751,10 @@ function openProductModal(product = null) {
     const profitPreview = document.getElementById('modal-profit-preview');
     const pricingGrid = document.getElementById('modal-pricing-grid');
 
-    if (costContainer) costContainer.classList.toggle('hidden', !isOwner);
-    if (profitPreview) profitPreview.classList.toggle('hidden', !isOwner);
+    if (costContainer) costContainer.classList.remove('hidden');
+    if (profitPreview) profitPreview.classList.remove('hidden');
     if (pricingGrid) {
-        pricingGrid.className = isOwner 
-            ? 'grid grid-cols-2 sm:grid-cols-4 gap-3' 
-            : 'grid grid-cols-1 sm:grid-cols-3 gap-3';
+        pricingGrid.className = 'grid grid-cols-2 sm:grid-cols-4 gap-3';
     }
 
     if (product) {
@@ -3767,9 +3765,7 @@ function openProductModal(product = null) {
         document.getElementById('form-product-subcategory').value = product.subcategory || '';
         const costInput = document.getElementById('form-product-cost');
         if (costInput) {
-            costInput.value = isOwner 
-                ? (product.cost_price !== undefined ? product.cost_price : (product.cost || 0))
-                : '';
+            costInput.value = product.cost_price !== undefined ? product.cost_price : (product.cost || 0);
         }
         document.getElementById('form-product-price').value = product.price;
         document.getElementById('form-product-mrp').value = product.mrp || product.price;
@@ -3786,7 +3782,7 @@ function openProductModal(product = null) {
                 delLabel.textContent = isOwner ? 'Delete Completely' : 'Remove from My Hostel';
             }
         }
-        if (isOwner) updateModalProfitPreview();
+        updateModalProfitPreview();
     } else {
         document.getElementById('modal-product-title').textContent = 'Add New Product';
         document.getElementById('product-form').reset();
@@ -3800,7 +3796,7 @@ function openProductModal(product = null) {
             deleteBtn.dataset.productId = '';
             deleteBtn.dataset.productName = '';
         }
-        if (isOwner) updateModalProfitPreview();
+        updateModalProfitPreview();
     }
 
     // Set and lock hostel selector based on product/role
@@ -3919,10 +3915,8 @@ async function handleProductSubmit(e) {
         const hostelVal = hostelSelect ? hostelSelect.value : (currentAdminProfile?.assigned_hostel_id || 'BH-13');
         payload.hostel_id = hostelVal;
 
-        if (isOwner) {
-            const costVal = Number(document.getElementById('form-product-cost')?.value);
-            payload.cost_price = !isNaN(costVal) ? costVal : 0;
-        }
+        const costVal = Number(document.getElementById('form-product-cost')?.value);
+        payload.cost_price = !isNaN(costVal) ? costVal : 0;
 
         const url = id ? `/api/products/admin/update/${id}` : '/api/products/admin/create';
         const method = id ? 'PUT' : 'POST';
@@ -6584,7 +6578,13 @@ function renderHostelsTable() {
         return;
     }
 
-    tbody.innerHTML = hostelsCache.map(h => {
+    const sortedHostels = [...hostelsCache].sort((a, b) => {
+        if (a.status === 'ACTIVE' && b.status !== 'ACTIVE') return -1;
+        if (a.status !== 'ACTIVE' && b.status === 'ACTIVE') return 1;
+        return 0;
+    });
+
+    tbody.innerHTML = sortedHostels.map(h => {
         const isActive = h.status === 'ACTIVE';
         const statusBadge = isActive
             ? `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">

@@ -21,6 +21,14 @@ function isPlatformOwnerToken(tokenString) {
     return roles.includes('owner');
 }
 
+function isAdminToken(tokenString) {
+    if (!tokenString || typeof tokenString !== 'string') return false;
+    let cleanToken = tokenString.trim();
+    if (cleanToken.startsWith('Bearer ')) cleanToken = cleanToken.slice(7).trim();
+    const verified = verifyAdminToken(cleanToken);
+    return Boolean(verified);
+}
+
 const { getSupabaseClient } = require('../supabase');
 
 /**
@@ -137,11 +145,11 @@ router.get('/:id', async (req, res) => {
             return res.status(404).json({ error: 'Product not found' });
         }
 
-        // Security: Only the verified platform OWNER can view purchase cost
-        // Store Managers and Delivery Partners MUST NOT see admin cost
+        // Security: Verified Admins (Owner & Store Managers) can view cost to estimate profits.
+        // Public storefront customers MUST NOT see admin cost
         const authHeader = req.headers['x-admin-token'] || req.headers.authorization || '';
-        const isOwner = isPlatformOwnerToken(authHeader);
-        if (!isOwner) {
+        const isAdmin = isAdminToken(authHeader);
+        if (!isAdmin) {
             res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=120, stale-while-revalidate=300');
             const sanitized = { ...details };
             delete sanitized.cost_price;
@@ -241,9 +249,10 @@ router.get('/', async (req, res) => {
 
         const rawList = payload?.products || fallbackProductsCache || [];
         
-        // Security: Only the verified platform OWNER can view purchase cost
-        // Store Managers and Delivery Partners MUST NOT see admin cost or profit margins
+        // Security: Verified Admins (Owner & Store Managers) can view cost to estimate profits.
+        // Public storefront customers MUST NOT see admin cost or profit margins
         const authHeader = req.headers['x-admin-token'] || req.headers.authorization || '';
+        const isAdmin = isAdminToken(authHeader);
         const isOwner = isPlatformOwnerToken(authHeader);
 
         // Filter out deleted items for hostel stores and store managers
@@ -252,7 +261,7 @@ router.get('/', async (req, res) => {
             sanitizedList = sanitizedList.filter(p => !p.deleted);
         }
 
-        const filteredList = isOwner
+        const filteredList = isAdmin
             ? sanitizedList
             : sanitizedList.map(p => {
                 const copy = { ...p };
@@ -302,7 +311,7 @@ router.post('/admin/create', requireAdmin, async (req, res) => {
             subcategory,
             price: Number(price),
             mrp: mrp ? Number(mrp) : Number(price),
-            cost_price: isOwner ? (Number(cost_price !== undefined ? cost_price : (cost !== undefined ? cost : 0)) || 0) : 0,
+            cost_price: Number(cost_price !== undefined ? cost_price : (cost !== undefined ? cost : 0)) || 0,
             stock_left: normTarget === 'BH13' ? targetStock : 0,
             unit,
             size,
@@ -381,8 +390,6 @@ router.put('/admin/update/:id', requireAdmin, async (req, res) => {
                 const originHostel = (existing.hostel_id || 'BH-13').toUpperCase().replace(/[^A-Z0-9]/g, '');
                 if (originHostel === normTarget && normTarget !== 'BH13') {
                     const localUpdates = { ...updateData };
-                    delete localUpdates.cost_price;
-                    delete localUpdates.cost;
                     delete localUpdates.hostel_id;
                     delete localUpdates.stock_left;
                     delete localUpdates.in_stock;

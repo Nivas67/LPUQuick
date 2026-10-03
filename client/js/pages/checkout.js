@@ -522,6 +522,28 @@ window.pageInits.checkout = function() {
             return;
         }
 
+        try {
+            const activeHostels = await window.api?.getActiveHostels?.() || [];
+            if (activeHostels && activeHostels.length > 0) {
+                const normSelected = (savedHostel || '').toUpperCase().replace(/[\s\-_]/g, '');
+                const isHostelLive = activeHostels.some(h => {
+                    const normH = (h.id || h.name || '').toUpperCase().replace(/[\s\-_]/g, '');
+                    return normH === normSelected;
+                });
+                if (!isHostelLive) {
+                    isSubmitting = false;
+                    const errBanner = document.getElementById('checkout-error-banner');
+                    const errMsg = document.getElementById('checkout-error-msg');
+                    if (errBanner) errBanner.classList.remove('hidden');
+                    if (errMsg) errMsg.textContent = `${savedHostel} is currently closed / opening soon. Please select an active hostel to order.`;
+                    window.openAddressModal(true, () => {
+                        if (window.router) window.router();
+                    });
+                    return;
+                }
+            }
+        } catch (e) {}
+
         const fullAddress = `[${savedHostel}] ${savedHostel} (${savedBlock}), Room ${savedRoom}`;
         const selectedMethod = 'Cash on Delivery';
 

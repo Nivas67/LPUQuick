@@ -42,13 +42,12 @@ const supabaseDb = {
                     this._memoryHostels = JSON.parse(fs.readFileSync(this._hostelsFilePath, 'utf8'));
                 } else {
                     this._memoryHostels = [
-                        { id: 'BH-13', name: 'Boys Hostel 13', status: 'ACTIVE', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-                        { id: 'BH-5', name: 'Boys Hostel 5', status: 'ACTIVE', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-                        { id: 'BH-14', name: 'Boys Hostel 12', status: 'ACTIVE', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-                        { id: 'GH-1', name: 'Girls Hostel 1', status: 'OFF', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-                        { id: 'BH 11', name: 'Boys Hostel 11', status: 'OFF', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-                        { id: 'BH 6', name: 'Boys Hostel 6', status: 'OFF', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-                        { id: 'BH 4', name: 'Boys Hostel 4', status: 'ACTIVE', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+                        { id: 'BH-13', name: 'Boys Hostel 13', status: 'ACTIVE', manager_user_id: 'admin_4a30214501', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                        { id: 'BH-12', name: 'Boys Hostel 12', status: 'ACTIVE', manager_user_id: 'user_881d5b03', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                        { id: 'BH-11', name: 'Boys Hostel 11', status: 'ACTIVE', manager_user_id: 'user_full_test_mtncad0n', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                        { id: 'BH-6', name: 'Boys Hostel 6', status: 'OFF', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                        { id: 'BH-5', name: 'Boys Hostel 5', status: 'OFF', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                        { id: 'BH-4', name: 'Boys Hostel 4', status: 'OFF', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
                     ];
                     try {
                         const dir = path.dirname(this._hostelsFilePath);
@@ -58,13 +57,12 @@ const supabaseDb = {
                 }
             } catch (e) {
                 this._memoryHostels = [
-                    { id: 'BH-13', name: 'Boys Hostel 13', status: 'ACTIVE', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-                    { id: 'BH-5', name: 'Boys Hostel 5', status: 'ACTIVE', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-                    { id: 'BH-14', name: 'Boys Hostel 12', status: 'ACTIVE', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-                    { id: 'GH-1', name: 'Girls Hostel 1', status: 'OFF', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-                    { id: 'BH 11', name: 'Boys Hostel 11', status: 'OFF', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-                    { id: 'BH 6', name: 'Boys Hostel 6', status: 'OFF', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-                    { id: 'BH 4', name: 'Boys Hostel 4', status: 'ACTIVE', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+                    { id: 'BH-13', name: 'Boys Hostel 13', status: 'ACTIVE', manager_user_id: 'admin_4a30214501', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                    { id: 'BH-12', name: 'Boys Hostel 12', status: 'ACTIVE', manager_user_id: 'user_881d5b03', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                    { id: 'BH-11', name: 'Boys Hostel 11', status: 'ACTIVE', manager_user_id: 'user_full_test_mtncad0n', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                    { id: 'BH-6', name: 'Boys Hostel 6', status: 'OFF', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                    { id: 'BH-5', name: 'Boys Hostel 5', status: 'OFF', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                    { id: 'BH-4', name: 'Boys Hostel 4', status: 'OFF', manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
                 ];
             }
             return this._memoryHostels;
@@ -2474,19 +2472,20 @@ const supabaseDb = {
             const supabase = getSupabaseClient();
             if (!supabase || !userId) return;
             try {
-                const { data: u } = await supabase.from('users').select('dob').eq('id', userId).single();
+                const { data: u } = await supabase.from('users').select('dob, role').eq('id', userId).single();
+                let meta = {};
                 let address = u?.dob || '';
-                if (address.startsWith('{')) {
+                if (address && address.startsWith('{')) {
                     try {
-                        const parsed = JSON.parse(address);
-                        address = parsed.address || '';
+                        meta = JSON.parse(address);
+                        address = meta.address || '';
                     } catch(e) {}
+                } else if (address) {
+                    meta.address = address;
                 }
-                const updatedMeta = JSON.stringify({
-                    address: address,
-                    last_login: new Date().toISOString()
-                });
-                await supabase.from('users').update({ dob: updatedMeta }).eq('id', userId);
+                meta.last_login = new Date().toISOString();
+                // CRUCIAL: Retain any employee roles and hostel assignment in dob metadata
+                await supabase.from('users').update({ dob: JSON.stringify(meta) }).eq('id', userId);
             } catch (e) {}
         }
     },
@@ -3539,6 +3538,8 @@ const supabaseDb = {
                 let currentMeta = {};
                 if (current.dob && current.dob.startsWith('{')) {
                     try { currentMeta = JSON.parse(current.dob); } catch (e) {}
+                } else if (current.dob) {
+                    currentMeta.address = current.dob;
                 }
                 const newRoles = updates.roles && Array.isArray(updates.roles) ? [...updates.roles] : (currentMeta.roles || []);
                 if (isOwner && !newRoles.includes('owner')) newRoles.unshift('owner');
@@ -3557,6 +3558,16 @@ const supabaseDb = {
                 if (finalHostel && newRoles.includes('store_manager')) {
                     try { await supabaseDb.hostels.assignManager(finalHostel, id); } catch (e) {}
                 }
+
+                // If user was removed as store manager or moved to another hostel, clean old manager assignments
+                try {
+                    const allHostels = await supabaseDb.hostels.getAll({ includeInactive: true });
+                    for (const h of (allHostels || [])) {
+                        if (h.manager_user_id === id && (!newRoles.includes('store_manager') || h.id !== finalHostel)) {
+                            await supabaseDb.hostels.removeManager(h.id);
+                        }
+                    }
+                } catch (e) {}
             }
 
             const { data, error } = await supabase
@@ -3567,7 +3578,17 @@ const supabaseDb = {
                 .single();
 
             if (error) throw new Error(`Staff update failed: ${error.message}`);
-            if (id) cache.delete(`user:id:${id}`);
+            if (id) {
+                cache.delete(`user:id:${id}`);
+                try {
+                    const { staffUserCache, KNOWN_STAFF_FALLBACKS } = require('../middleware/adminAuth');
+                    if (staffUserCache) staffUserCache.delete(id);
+                    if (KNOWN_STAFF_FALLBACKS && KNOWN_STAFF_FALLBACKS[id]) {
+                        if (payload.dob) KNOWN_STAFF_FALLBACKS[id].dob = payload.dob;
+                        if (payload.phone) KNOWN_STAFF_FALLBACKS[id].phone = payload.phone;
+                    }
+                } catch (e) {}
+            }
             cache.clearByPrefix('staff:');
 
             let roles = [];
@@ -3618,10 +3639,12 @@ const supabaseDb = {
             const supabase = getSupabaseClient();
             if (!supabase || !id) return;
             try {
-                const { data: u } = await supabase.from('users').select('dob').eq('id', id).single();
+                const { data: u } = await supabase.from('users').select('dob, role').eq('id', id).single();
                 let meta = {};
                 if (u?.dob && u.dob.startsWith('{')) {
                     try { meta = JSON.parse(u.dob); } catch (e) {}
+                } else if (u?.dob) {
+                    meta.address = u.dob;
                 }
                 meta.last_login = new Date().toISOString();
                 await supabase.from('users').update({ dob: JSON.stringify(meta) }).eq('id', id);

@@ -274,8 +274,17 @@ router.post('/update-address', async (req, res) => {
     try {
         const supabase = getSupabaseClient();
         if (supabase) {
-            const payload = { phone: cleanPhone };
-            if (room) payload.dob = `${hostel || 'BH13'}, ${block || 'Block A'}, Room ${room}`;
+            let meta = {};
+            const { data: u } = await supabase.from('users').select('dob, role').eq('id', userId).maybeSingle();
+            if (u?.dob && typeof u.dob === 'string' && u.dob.startsWith('{')) {
+                try { meta = JSON.parse(u.dob); } catch (e) {}
+            }
+            const addressStr = `${hostel || 'BH13'}, ${block || 'Block A'}, Room ${room || ''}`.trim();
+            meta.address = addressStr;
+            meta.hostel = hostel || meta.hostel || 'BH13';
+            meta.block = block || meta.block || 'Block A';
+            meta.room = room || meta.room || '';
+            const payload = { phone: cleanPhone, dob: JSON.stringify(meta) };
             await supabase.from('users').update(payload).eq('id', userId);
         }
         res.json({ success: true, message: 'Campus delivery address saved successfully' });

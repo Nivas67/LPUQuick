@@ -219,15 +219,15 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
             }
         }
 
-        // 1. Prevent ordering from an OFF hostel
+        // 1. Prevent ordering from an inactive / OFF hostel
         try {
             const targetHostel = await supabaseDb.hostels.getById(targetHostelId);
-            if (targetHostel && targetHostel.status === 'OFF') {
+            if (targetHostel && targetHostel.status !== 'ACTIVE') {
                 return res.status(400).json({
                     success: false,
                     error: 'HOSTEL_OFF',
                     code: 'HOSTEL_OFF',
-                    message: `${targetHostel.name || targetHostelId} is currently not accepting new orders.`
+                    message: `${targetHostel.name || targetHostelId} is currently not accepting new orders (opening soon).`
                 });
             }
         } catch (hErr) {

@@ -400,6 +400,13 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
         };
     });
 
+    // Active hostels go to the top ("GOES UP ON THE IMAGE")
+    allLocations.sort((a, b) => {
+        if (a.active && !b.active) return -1;
+        if (!a.active && b.active) return 1;
+        return 0;
+    });
+
     let selectedHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id');
     if (!selectedHostel) {
         const addrDetail = localStorage.getItem('lpuquick_address_detail') || '';
@@ -412,6 +419,15 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
         }
     }
     selectedHostel = selectedHostel || 'BH-13';
+
+    // If currently selected hostel is inactive, switch to the first active hostel
+    const isSelectedActive = allLocations.some(h => (normalizeHostelKey(h.id) === normalizeHostelKey(selectedHostel) || normalizeHostelKey(h.name) === normalizeHostelKey(selectedHostel)) && h.active);
+    if (!isSelectedActive) {
+        const firstActive = allLocations.find(h => h.active);
+        if (firstActive) {
+            selectedHostel = firstActive.id;
+        }
+    }
 
     let selectedBlock = window.currentBlock || localStorage.getItem('lpuquick_block') || 'Block A';
     const savedRoom = window.currentRoom || localStorage.getItem('lpuquick_room') || '';
@@ -459,11 +475,14 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
                 </div>
                 <div class="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-36 overflow-y-auto p-0.5 no-scrollbar" id="hostels-container">
                     ${allLocations.map(h => {
-                        const isSelected = normalizeHostelKey(h.id) === normalizeHostelKey(selectedHostel) || normalizeHostelKey(h.name) === normalizeHostelKey(selectedHostel);
+                        const isSelected = h.active && (normalizeHostelKey(h.id) === normalizeHostelKey(selectedHostel) || normalizeHostelKey(h.name) === normalizeHostelKey(selectedHostel));
+                        const activeClass = h.active 
+                            ? (isSelected ? 'clay-pill text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 bg-emerald-500/15' : 'clay-card text-slate-700 dark:text-slate-300 hover:border-emerald')
+                            : 'clay-card text-slate-400 dark:text-slate-500 opacity-60 hover:border-amber-400/50';
                         return `
-                        <button type="button" class="p-2 rounded-xl text-xs font-bold transition-all relative flex flex-col items-center justify-center gap-1 hostel-pick-btn cursor-pointer ${isSelected ? 'clay-pill text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 bg-emerald-500/15' : 'clay-card text-slate-700 dark:text-slate-300 hover:border-emerald'}" data-hostel="${h.name}" data-hostel-id="${h.id}">
+                        <button type="button" class="p-2 rounded-xl text-xs font-bold transition-all relative flex flex-col items-center justify-center gap-1 hostel-pick-btn cursor-pointer ${activeClass}" data-hostel="${h.name}" data-hostel-id="${h.id}" data-active="${h.active ? 'true' : 'false'}">
                             <span>${h.name}</span>
-                            <span class="${h.active ? 'bg-emerald text-white' : 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'} text-[8px] px-1.5 py-0.2 rounded-full font-black">${h.active ? 'Live' : 'Active'}</span>
+                            <span class="${h.active ? 'bg-emerald text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'} text-[8px] px-1.5 py-0.2 rounded-full font-black">${h.active ? 'Live' : 'Soon'}</span>
                         </button>
                         `;
                     }).join('')}
@@ -556,13 +575,33 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
     // Active hostel click handler
     modal.querySelectorAll('.hostel-pick-btn').forEach(btn => {
         btn.onclick = () => {
-            const chosenId = btn.dataset.hostelId || btn.dataset.hostel;
+            const isActive = btn.dataset.active === 'true';
+            const chosenName = btn.dataset.hostel;
+            const chosenId = btn.dataset.hostelId || chosenName;
+
+            if (!isActive) {
+                const alertBox = modal.querySelector('#blocked-hostel-alert');
+                const alertMsg = modal.querySelector('#blocked-hostel-msg');
+                if (alertBox && alertMsg) {
+                    alertBox.classList.remove('hidden');
+                    alertMsg.textContent = `${chosenName} is opening soon! Express delivery is currently active at ${liveDisplayNames}.`;
+                }
+                return;
+            }
+
+            const alertBox = modal.querySelector('#blocked-hostel-alert');
+            if (alertBox) alertBox.classList.add('hidden');
+
             if (chosenId) {
                 selectedHostel = chosenId;
 
                 modal.querySelectorAll('.hostel-pick-btn').forEach(b => {
                     b.classList.remove('clay-pill', 'text-emerald-600', 'dark:text-emerald-400', 'border-emerald-500/40', 'bg-emerald-500/15');
-                    b.classList.add('clay-card', 'text-slate-700', 'dark:text-slate-300');
+                    if (b.dataset.active === 'true') {
+                        b.classList.add('clay-card', 'text-slate-700', 'dark:text-slate-300');
+                    } else {
+                        b.classList.add('clay-card', 'text-slate-400', 'dark:text-slate-500', 'opacity-60');
+                    }
                 });
                 btn.classList.add('clay-pill', 'text-emerald-600', 'dark:text-emerald-400', 'border-emerald-500/40', 'bg-emerald-500/15');
                 btn.classList.remove('clay-card');
@@ -666,6 +705,18 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
     const saveAddressBtn = modal.querySelector('#save-address-btn');
     if (saveAddressBtn) {
         saveAddressBtn.onclick = async () => {
+            // Prevent saving if selected hostel is inactive
+            const isTargetActive = allLocations.some(h => (normalizeHostelKey(h.id) === normalizeHostelKey(selectedHostel) || normalizeHostelKey(h.name) === normalizeHostelKey(selectedHostel)) && h.active);
+            if (!isTargetActive) {
+                const blockedBox = modal.querySelector('#blocked-hostel-alert');
+                const blockedMsg = modal.querySelector('#blocked-hostel-msg');
+                if (blockedBox && blockedMsg) {
+                    blockedBox.classList.remove('hidden');
+                    blockedMsg.textContent = `${selectedHostel} is opening soon! Please select an active hostel to proceed.`;
+                }
+                return;
+            }
+
             const room = modal.querySelector('#room-input')?.value?.trim();
             const phone = modal.querySelector('#phone-input')?.value?.trim();
             const alertBox = modal.querySelector('#address-validation-alert');
@@ -698,6 +749,7 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
         };
     }
 };
+window.openLocationModal = window.openAddressModal;
 
 // Global Campus & Order Help Modal (24/7 WhatsApp, Phone Call, Room Change, & Live Dispatch Query)
 window.openCampusHelpModal = function(orderId = null) {
