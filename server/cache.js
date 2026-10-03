@@ -11,6 +11,20 @@ class HighConcurrencyCache {
         this.inflight = new Map(); // Promise deduplication / single-flight coalescing
         this.hits = 0;
         this.misses = 0;
+        this.listeners = new Map();
+    }
+
+    on(event, fn) {
+        if (!this.listeners.has(event)) this.listeners.set(event, []);
+        this.listeners.get(event).push(fn);
+    }
+
+    emit(event, ...args) {
+        if (this.listeners && this.listeners.has(event)) {
+            for (const fn of this.listeners.get(event)) {
+                try { fn(...args); } catch (e) {}
+            }
+        }
     }
 
     get(key) {
@@ -68,7 +82,9 @@ class HighConcurrencyCache {
         this.clearByPrefix('products:');
         this.clearByPrefix('categories:');
         this.clearByPrefix('search:');
-        console.log('[Cache Engine] ⚡ Product, Home & Category cache atomically invalidated.');
+        this.clearByPrefix('inventory:');
+        this.emit('invalidateProducts');
+        console.log('[Cache Engine] ⚡ Product, Home, Category & Inventory cache atomically invalidated.');
     }
 
     invalidateOrders() {

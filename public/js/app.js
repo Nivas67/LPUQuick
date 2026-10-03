@@ -626,6 +626,10 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
                 }
                 localStorage.setItem('lpuquick_address_configured', 'true');
 
+                if (window.api && typeof window.api.clearProductsCache === 'function') {
+                    window.api.clearProductsCache();
+                }
+
                 if (typeof window.syncStoreAvailability === 'function') {
                     window.syncStoreAvailability(selectedHostel);
                 }
@@ -686,6 +690,10 @@ window.openAddressModal = async function(isMandatorySetup = false, onComplete = 
 
         if (typeof window.syncStoreAvailability === 'function') {
             window.syncStoreAvailability(selectedHostel);
+        }
+
+        if (window.api && typeof window.api.clearProductsCache === 'function') {
+            window.api.clearProductsCache();
         }
 
         modal.remove();
@@ -996,7 +1004,7 @@ window.openProductModal = async function(productId) {
     document.body.appendChild(modal);
 
     try {
-        const res = await window.api.getProduct(productId);
+        const res = await window.api.getProduct(productId, null, true);
         const p = (res && res.product) ? res.product : (res && res.id ? res : (window.__cachedProducts && window.__cachedProducts.get(productId)) || {});
         
         const pid = p.id || productId;
@@ -1010,7 +1018,7 @@ window.openProductModal = async function(productId) {
         const pSize = p.size || p.unit || '1 Pack';
         const pDesc = p.description || `${pName} is available for express 3-minute delivery right to your hostel room.`;
         const pShelfLife = p.shelf_life || '12 Months';
-        const stockLeft = p.stock_left !== undefined && p.stock_left !== null ? Number(p.stock_left) : (p.in_stock !== false ? 50 : 0);
+        const stockLeft = p.stock_left !== undefined && p.stock_left !== null ? Number(p.stock_left) : 0;
         const isOutOfStock = p.in_stock === false || stockLeft <= 0;
         const isLowStock = !isOutOfStock && stockLeft <= 4;
 
@@ -1174,7 +1182,7 @@ function renderSlotContent(productId, slotEl) {
     const cached = window.__cachedProducts?.get(productId);
     const stockAttr = slotEl.dataset.stockLeft || slotEl.getAttribute('data-stock-left');
     const isOutOfStock = slotEl.dataset.outOfStock === 'true' || slotEl.getAttribute('data-out-of-stock') === 'true' || (cached && !cached.in_stock);
-    const stockLeft = cached?.stock_left !== undefined && cached?.stock_left !== null ? Number(cached.stock_left) : (stockAttr !== undefined && stockAttr !== '' && stockAttr !== null ? Number(stockAttr) : (isOutOfStock ? 0 : 50));
+    const stockLeft = cached?.stock_left !== undefined && cached?.stock_left !== null ? Number(cached.stock_left) : (stockAttr !== undefined && stockAttr !== '' && stockAttr !== null ? Number(stockAttr) : 0);
 
     if (isOutOfStock || stockLeft <= 0) {
         slotEl.innerHTML = `
@@ -1218,7 +1226,7 @@ window.updateSingleProductSlot = function(productId) {
     if (modalEl && modalEl.dataset.productId === productId) {
         const cached = window.__cachedProducts?.get(productId);
         const pPrice = Number(cached?.price) || 0;
-        const stockLeft = cached?.stock_left !== undefined ? Number(cached.stock_left) : 50;
+        const stockLeft = cached?.stock_left !== undefined ? Number(cached.stock_left) : 0;
         const isOutOfStock = cached ? !cached.in_stock : false;
         renderModalActionContainer(productId, pPrice, stockLeft, isOutOfStock);
     }
@@ -1380,7 +1388,7 @@ function initGlobalEventDelegation() {
 
             const slot = addBtn.closest('.product-action-slot');
             const cachedProd = window.__cachedProducts?.get(id);
-            const stockLeft = cachedProd?.stock_left !== undefined ? Number(cachedProd.stock_left) : (slot?.dataset?.stockLeft !== undefined ? Number(slot.dataset.stockLeft) : (addBtn.dataset.stockLeft !== undefined ? Number(addBtn.dataset.stockLeft) : 50));
+            const stockLeft = cachedProd?.stock_left !== undefined ? Number(cachedProd.stock_left) : (slot?.dataset?.stockLeft !== undefined ? Number(slot.dataset.stockLeft) : (addBtn.dataset.stockLeft !== undefined ? Number(addBtn.dataset.stockLeft) : 0));
 
             if (stockLeft <= 0) {
                 if (typeof window.showClientToast === 'function') {
@@ -1404,7 +1412,7 @@ function initGlobalEventDelegation() {
 
             const slot = incBtn.closest('.product-action-slot');
             const cachedProd = window.__cachedProducts?.get(id);
-            const stockLeft = cachedProd?.stock_left !== undefined ? Number(cachedProd.stock_left) : (slot?.dataset?.stockLeft !== undefined ? Number(slot.dataset.stockLeft) : (incBtn.dataset.stockLeft !== undefined ? Number(incBtn.dataset.stockLeft) : 50));
+            const stockLeft = cachedProd?.stock_left !== undefined ? Number(cachedProd.stock_left) : (slot?.dataset?.stockLeft !== undefined ? Number(slot.dataset.stockLeft) : (incBtn.dataset.stockLeft !== undefined ? Number(incBtn.dataset.stockLeft) : 0));
             const currentQty = window.cartState?.[id]?.quantity || 0;
 
             if (currentQty >= stockLeft) {
@@ -1429,7 +1437,7 @@ function initGlobalEventDelegation() {
 
             const slot = decBtn.closest('.product-action-slot');
             const cachedProd = window.__cachedProducts?.get(id);
-            const stockLeft = cachedProd?.stock_left !== undefined ? Number(cachedProd.stock_left) : (slot?.dataset?.stockLeft !== undefined ? Number(slot.dataset.stockLeft) : 50);
+            const stockLeft = cachedProd?.stock_left !== undefined ? Number(cachedProd.stock_left) : (slot?.dataset?.stockLeft !== undefined ? Number(slot.dataset.stockLeft) : 0);
             const currentQty = window.cartState?.[id]?.quantity || 0;
 
             // Instant Atomic Sync

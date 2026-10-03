@@ -239,9 +239,9 @@ function buildProductCardsHTML(items, isAboveFold = false, startIndex = 0) {
         const overallIndex = startIndex + idx;
         const discountPercent = p.mrp && p.mrp > p.price ? Math.round(((p.mrp - p.price) / p.mrp) * 100) : 0;
         const isLcpCandidate = isAboveFold && idx === 0;
-        const stockLeft = p.stock_left !== undefined && p.stock_left !== null ? p.stock_left : (p.in_stock ? 50 : 0);
+        const stockLeft = p.stock_left !== undefined && p.stock_left !== null ? Number(p.stock_left) : 0;
         const isLowStock = stockLeft > 0 && stockLeft <= 4;
-        const isOutOfStock = !p.in_stock || stockLeft === 0;
+        const isOutOfStock = !p.in_stock || stockLeft <= 0;
         const catTag = classifyProductCategory(p);
 
         return `
@@ -642,10 +642,10 @@ window.pages.home = async function() {
         : ((productsRes?.products && productsRes.products.length > 0) ? productsRes.products : (data?.products || []));
 
     const inStockProducts = allProductsFromApi.filter(p => {
-        return p.in_stock !== false && (p.stock_left === undefined || p.stock_left === null || p.stock_left > 0);
+        return Boolean(p.in_stock && Number(p.stock_left) > 0);
     });
 
-    const buyAgain = (data?.buy_again || []).filter(p => p.in_stock !== false && (p.stock_left === undefined || p.stock_left > 0));
+    const buyAgain = (data?.buy_again || []).filter(p => Boolean(p.in_stock && Number(p.stock_left) > 0));
     const isPersonalizedBuyAgain = Boolean(data?.is_personalized_buy_again);
     
     // Compute category product counts
@@ -670,7 +670,7 @@ window.pages.home = async function() {
     
     const address = window.currentAddress || 'BH13';
 
-    const isProductInStock = (p) => (p.in_stock !== false && (p.stock_left === undefined || p.stock_left === null || p.stock_left > 0));
+    const isProductInStock = (p) => Boolean(p.in_stock && Number(p.stock_left) > 0);
 
     // Order products: In-Stock items first, followed by Out-of-Stock items so all items are searchable
     const sortedCatalogProducts = [...allProductsFromApi].sort((a, b) => {

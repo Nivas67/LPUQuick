@@ -6,7 +6,7 @@ const requireAdmin = require('../middleware/adminAuth');
 const { verifyAdminToken, staffUserCache, KNOWN_STAFF_FALLBACKS, resolveAdminRoles } = require('../middleware/adminAuth');
 const supabaseDb = require('../db/supabaseDb');
 const cache = require('../cache');
-const { broadcastInventoryUpdate } = require('../realtime');
+const { broadcastInventoryUpdate, broadcastCatalogUpdate } = require('../realtime');
 
 function isPlatformOwnerToken(tokenString) {
     if (!tokenString || typeof tokenString !== 'string') return false;
@@ -111,6 +111,15 @@ router.post('/admin/upload-image', requireAdmin, async (req, res) => {
     }
 });
 
+// POST /api/products/admin/invalidate-cache (Admin manual refresh cache burst)
+router.post('/admin/invalidate-cache', requireAdmin, (req, res) => {
+    cache.invalidateProducts();
+    if (supabaseDb.inventory && supabaseDb.inventory._memoryHostelInventory) {
+        supabaseDb.inventory._memoryHostelInventory.clear();
+    }
+    res.json({ success: true, message: 'Products and inventory cache cleared' });
+});
+
 // GET /api/products/:id
 router.get('/:id', async (req, res) => {
     const { id } = req.params;
@@ -118,10 +127,17 @@ router.get('/:id', async (req, res) => {
         const hostelId = req.query.hostel_id || req.query.hostel;
         const cleanHostel = (hostelId && hostelId !== 'all' && hostelId !== 'ALL') ? String(hostelId).trim().toUpperCase() : null;
 
-        const adminToken = req.headers['x-admin-token'] || (req.headers.authorization && req.headers.authorization.startsWith('Bearer ') ? req.headers.authorization.slice(7) : null);
-        const isAdmin = adminToken ? Boolean(verifyAdminToken(adminToken)) : false;
+        const authHeader = req.headers['x-admin-token'] || req.headers.authorization || '';
+        const isOwner = isPlatformOwnerToken(authHeader);
+        const isAdmin = isAdminToken(authHeader);
+        const forceFresh = req.query.force === 'true' || isAdmin;
 
-        const details = await cache.wrap(`products:detail:${id}:${cleanHostel || 'all'}`, async () => {
+        const cacheKey = `products:detail:${id}:${cleanHostel || 'all'}`;
+        if (forceFresh) {
+            cache.delete(cacheKey);
+        }
+
+        const details = await cache.wrap(cacheKey, async () => {
             const product = await supabaseDb.products.getById(id, cleanHostel);
             if (!product) return null;
 
@@ -139,15 +155,15 @@ router.get('/:id', async (req, res) => {
                 storage: 'Store in a cool, dry place away from direct sunlight.',
                 delivery_eta: `3 mins to ${cleanHostel || 'Campus'} (LPU Hostels)`
             };
-        }, 300000);
+        }, forceFresh ? 0 : 300000);
 
         if (!details) {
             return res.status(404).json({ error: 'Product not found' });
         }
 
-        // Security: Verified Admins (Owner & Store Managers) can view cost to estimate profits.
-        // Public storefront customers MUST NOT see admin cost
-        if (!isAdmin) {
+        // Security: Only Platform Owner can view cost to estimate profits.
+        // Store Managers, delivery partners, and public storefront customers MUST NOT see admin cost
+        if (!isOwner) {
             res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=120, stale-while-revalidate=300');
             const sanitized = { ...details };
             delete sanitized.cost_price;
@@ -206,7 +222,7 @@ router.get('/', async (req, res) => {
         const category = req.query.category || '';
         const subcategory = req.query.subcategory || '';
         const sort = req.query.sort || '';
-        const forceFresh = req.query.force === 'true';
+        const forceFresh = req.query.force === 'true' || isAdmin || includeInactive;
 
         if (!isAdmin && !includeInactive && !forceFresh) {
             res.setHeader('Cache-Control', 'public, max-age=15, s-maxage=60, stale-while-revalidate=120');
@@ -220,10 +236,10 @@ router.get('/', async (req, res) => {
         }
 
         const payload = await cache.wrap(cacheKey, async () => {
-            const queryPromise = supabaseDb.products.getAll({ hostel_id: hostelId, includeInactive, category, subcategory, sort });
+            const queryPromise = supabaseDb.products.getAll({ hostel_id: hostelId, includeInactive, category, subcategory, sort, force: forceFresh });
             const products = await Promise.race([
                 queryPromise,
-                new Promise(resolve => setTimeout(() => resolve(null), 5000))
+                new Promise(resolve => setTimeout(() => resolve(null), 10000))
             ]);
 
             if (products && Array.isArray(products)) {
@@ -258,7 +274,7 @@ router.get('/', async (req, res) => {
             sanitizedList = sanitizedList.filter(p => !p.deleted);
         }
 
-        const filteredList = isAdmin
+        const filteredList = isOwner
             ? sanitizedList
             : sanitizedList.map(p => {
                 const copy = { ...p };
@@ -295,7 +311,7 @@ router.post('/admin/create', requireAdmin, async (req, res) => {
         }
 
         const normTarget = targetHostel.toUpperCase().replace(/[^A-Z0-9]/g, '');
-        const targetStock = stock_left !== undefined ? Math.max(0, Number(stock_left)) : 50;
+        const targetStock = stock_left !== undefined ? Math.max(0, Number(stock_left)) : 0;
         const targetInStock = targetStock > 0;
 
         // When creating a product for targetHostel, pass actual stock and in_stock so tags encode stock:<num>, hostel:<hostel>
@@ -330,6 +346,9 @@ router.post('/admin/create', requireAdmin, async (req, res) => {
         cache.invalidateProducts();
         if (typeof broadcastInventoryUpdate === 'function') {
             broadcastInventoryUpdate(created.id, targetStock, targetInStock, targetHostel);
+        }
+        if (typeof broadcastCatalogUpdate === 'function') {
+            broadcastCatalogUpdate(created.id, targetHostel, 'create');
         }
 
         const freshProduct = await supabaseDb.products.getById(created.id, targetHostel);
@@ -388,8 +407,8 @@ router.put('/admin/update/:id', requireAdmin, async (req, res) => {
         if (updateData.stock_left !== undefined || updateData.in_stock !== undefined) {
             targetStock = updateData.stock_left !== undefined 
                 ? Math.max(0, Number(updateData.stock_left)) 
-                : (updateData.in_stock ? (existing.stock_left > 0 ? existing.stock_left : 10) : 0);
-            targetInStock = updateData.in_stock !== undefined ? Boolean(updateData.in_stock) : targetStock > 0;
+                : (updateData.in_stock ? (existing.stock_left > 0 ? existing.stock_left : 0) : 0);
+            targetInStock = updateData.in_stock !== undefined ? Boolean(updateData.in_stock && targetStock > 0) : targetStock > 0;
         }
 
         if (!isOwner) {
@@ -431,6 +450,9 @@ router.put('/admin/update/:id', requireAdmin, async (req, res) => {
             if (targetStock !== undefined && typeof broadcastInventoryUpdate === 'function') {
                 broadcastInventoryUpdate(id, targetStock, targetInStock, targetHostel);
             }
+            if (typeof broadcastCatalogUpdate === 'function') {
+                broadcastCatalogUpdate(id, targetHostel, 'update');
+            }
 
             const fresh = await supabaseDb.products.getById(id, targetHostel);
             return res.json({
@@ -469,6 +491,9 @@ router.put('/admin/update/:id', requireAdmin, async (req, res) => {
         }
 
         cache.invalidateProducts();
+        if (typeof broadcastCatalogUpdate === 'function') {
+            broadcastCatalogUpdate(id, targetHostel, 'update');
+        }
         const fresh = await supabaseDb.products.getById(id, targetHostel);
         res.json({
             success: true,
@@ -502,6 +527,9 @@ router.delete('/admin/deactivate/:id', requireAdmin, async (req, res) => {
             if (typeof broadcastInventoryUpdate === 'function') {
                 broadcastInventoryUpdate(id, 0, false, assignedHostel);
             }
+            if (typeof broadcastCatalogUpdate === 'function') {
+                broadcastCatalogUpdate(id, assignedHostel, 'deactivate');
+            }
             return res.json({ success: true, message: `Product marked out of stock in ${assignedHostel}`, product: updatedStock });
         }
 
@@ -514,6 +542,9 @@ router.delete('/admin/deactivate/:id', requireAdmin, async (req, res) => {
             if (typeof broadcastInventoryUpdate === 'function') {
                 broadcastInventoryUpdate(id, 0, false, targetHostel);
             }
+            if (typeof broadcastCatalogUpdate === 'function') {
+                broadcastCatalogUpdate(id, targetHostel, 'deactivate');
+            }
             return res.json({ success: true, message: `Product marked out of stock in ${targetHostel}`, product: updatedStock });
         }
 
@@ -524,6 +555,9 @@ router.delete('/admin/deactivate/:id', requireAdmin, async (req, res) => {
         cache.invalidateProducts();
         if (typeof broadcastInventoryUpdate === 'function') {
             broadcastInventoryUpdate(updated.id, 0, false, 'BH-13');
+        }
+        if (typeof broadcastCatalogUpdate === 'function') {
+            broadcastCatalogUpdate(updated.id, 'BH-13', 'deactivate');
         }
         res.json({ success: true, message: `Product deactivated successfully`, product: updated });
     } catch (err) {
@@ -566,6 +600,9 @@ router.delete('/admin/delete/:id', requireAdmin, async (req, res) => {
             if (typeof broadcastInventoryUpdate === 'function') {
                 broadcastInventoryUpdate(id, 0, false, assignedHostel);
             }
+            if (typeof broadcastCatalogUpdate === 'function') {
+                broadcastCatalogUpdate(id, assignedHostel, 'delete');
+            }
             return res.json({
                 success: true,
                 message: `Product removed from ${assignedHostel} store successfully`,
@@ -592,6 +629,9 @@ router.delete('/admin/delete/:id', requireAdmin, async (req, res) => {
             if (typeof broadcastInventoryUpdate === 'function') {
                 broadcastInventoryUpdate(id, 0, false, targetHostel);
             }
+            if (typeof broadcastCatalogUpdate === 'function') {
+                broadcastCatalogUpdate(id, targetHostel, 'delete');
+            }
             return res.json({
                 success: true,
                 message: `Product removed from ${targetHostel} store`,
@@ -601,6 +641,9 @@ router.delete('/admin/delete/:id', requireAdmin, async (req, res) => {
 
         await supabaseDb.products.delete(id);
         cache.invalidateProducts();
+        if (typeof broadcastCatalogUpdate === 'function') {
+            broadcastCatalogUpdate(id, 'ALL', 'delete');
+        }
         res.json({ success: true, message: 'Product permanently deleted from Supabase Cloud' });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -636,7 +679,7 @@ router.post('/admin/toggle-stock', requireAdmin, async (req, res) => {
 
         const targetInStock = Boolean(inStock);
         let newStock = targetInStock 
-            ? (req.body.stock !== undefined ? Math.max(1, Number(req.body.stock)) : (existing.stock_left > 0 ? existing.stock_left : 10)) 
+            ? (req.body.stock !== undefined ? Math.max(0, Number(req.body.stock)) : (existing.stock_left > 0 ? existing.stock_left : 0)) 
             : 0;
 
         const updated = await supabaseDb.inventory.setProductStock(targetHostel, productId, {

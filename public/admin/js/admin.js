@@ -736,10 +736,16 @@ async function refreshCurrentView() {
     try {
         // Burst backend cache so fresh queries run against Supabase
         try {
-            await fetchWithTimeout(`/api/orders/admin/invalidate-cache?_t=${Date.now()}`, {
-                method: 'POST',
-                headers: getAuthHeaders()
-            }, 3000).catch(() => {});
+            await Promise.allSettled([
+                fetchWithTimeout(`/api/orders/admin/invalidate-cache?_t=${Date.now()}`, {
+                    method: 'POST',
+                    headers: getAuthHeaders()
+                }, 3000),
+                fetchWithTimeout(`/api/products/admin/invalidate-cache?_t=${Date.now()}`, {
+                    method: 'POST',
+                    headers: getAuthHeaders()
+                }, 3000)
+            ]);
         } catch (e) {}
 
         // Reload data based on active view and refresh global components
@@ -753,9 +759,9 @@ async function refreshCurrentView() {
         } else if (activeView === 'client-lock') {
             promises.push(loadClientLockState());
         } else if (activeView === 'products') {
-            promises.push(loadProducts());
+            promises.push(loadProducts(true));
         } else if (activeView === 'inventory') {
-            promises.push(loadInventory());
+            promises.push(loadInventory(true));
         } else if (activeView === 'orders') {
             promises.push(loadOrders());
         } else if (activeView === 'earnings') {
@@ -825,20 +831,18 @@ async function loadDashboard() {
             try { localStorage.setItem('lpuquick_admin_orders_cache', JSON.stringify(ordersCache)); } catch(e){}
         }
 
-        // Ensure productsCache is populated if empty so products and stock numbers display immediately
-        if (!productsCache || productsCache.length === 0) {
-            try {
-                const prodRes = await fetchWithTimeout(`/api/products?includeInactive=true${hostelParam}`, { headers: getAuthHeaders() }, 8000);
-                if (prodRes && prodRes.ok) {
-                    const prodJson = await prodRes.json();
-                    const list = Array.isArray(prodJson) ? prodJson : (prodJson.products || prodJson.data || []);
-                    if (list.length > 0) {
-                        productsCache = list;
-                        try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch(e){}
-                    }
+        // Ensure productsCache is populated with authoritative live data from Supabase
+        try {
+            const prodRes = await fetchWithTimeout(`/api/products?includeInactive=true${hostelParam}&force=true&_t=${Date.now()}`, { headers: getAuthHeaders() }, 8000);
+            if (prodRes && prodRes.ok) {
+                const prodJson = await prodRes.json();
+                const list = Array.isArray(prodJson) ? prodJson : (prodJson.products || prodJson.data || []);
+                if (list.length > 0) {
+                    productsCache = list;
+                    try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch(e){}
                 }
-            } catch(e) {}
-        }
+            }
+        } catch(e) {}
 
         const m = analyticsData.metrics || {};
 
@@ -1483,20 +1487,26 @@ async function quickLockSingleHostel(hostelId) {
 
 
 // ================= 2. PRODUCTS LOAD =================
-async function loadProducts() {
+let currentProductRequestSeq = 0;
+async function loadProducts(force = true) {
+    const reqSeq = ++currentProductRequestSeq;
     try {
         const hostelId = (typeof getActiveAdminHostelFilter === 'function') ? getActiveAdminHostelFilter('products') : null;
         const hostelParam = hostelId ? `&hostel_id=${encodeURIComponent(hostelId)}` : '';
-        const res = await fetchWithTimeout(`/api/products?includeInactive=true${hostelParam}`, { headers: getAuthHeaders() }, 7000);
+        const forceParam = `&force=true&_t=${Date.now()}`;
+        const res = await fetchWithTimeout(`/api/products?includeInactive=true${hostelParam}${forceParam}`, { headers: getAuthHeaders() }, 8000);
+        if (reqSeq !== currentProductRequestSeq) return; // Stale query finished late, discard
         if (res.ok) {
             const data = await res.json();
-            if (data.products && Array.isArray(data.products) && data.products.length > 0) {
+            if (reqSeq !== currentProductRequestSeq) return;
+            if (data.products && Array.isArray(data.products)) {
                 productsCache = data.products;
                 try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) {}
             }
         }
         filterProducts();
     } catch (err) {
+        if (reqSeq !== currentProductRequestSeq) return;
         console.warn('Network timeout loading products, rendering available cache:', err);
         filterProducts();
     }
@@ -1521,6 +1531,7 @@ function filterProducts() {
     const query = (document.getElementById('product-search-input')?.value || '').toLowerCase();
     const prodHostel = (typeof getActiveAdminHostelFilter === 'function') ? getActiveAdminHostelFilter('products') : null;
     let filtered = productsCache.filter(p => {
+        if (p.deleted) return false;
         const matchesQuery = p.name.toLowerCase().includes(query) || p.category.toLowerCase().includes(query);
         if (!matchesQuery) return false;
         if (prodHostel && prodHostel !== 'ALL') {
@@ -1544,7 +1555,7 @@ function filterProducts() {
     }
 
     tbody.innerHTML = filtered.map(p => {
-        const stock = p.stock_left !== undefined ? p.stock_left : (p.in_stock ? 10 : 0);
+        const stock = p.stock_left !== undefined ? Math.max(0, Number(p.stock_left)) : (p.in_stock ? (p.stock_left || 0) : 0);
         const statusBadge = stock > 4 
             ? `<button onclick="toggleProductStock('${p.id}', false)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold badge-in-stock cursor-pointer hover:opacity-80 transition-all" title="Click to mark Out of Stock">In Stock</button>`
             : (stock > 0 
@@ -1608,20 +1619,26 @@ function filterProducts() {
 }
 
 // ================= 3. INVENTORY LOAD =================
-async function loadInventory() {
+let currentInventoryRequestSeq = 0;
+async function loadInventory(force = true) {
+    const reqSeq = ++currentInventoryRequestSeq;
     try {
         const hostelId = (typeof getActiveAdminHostelFilter === 'function') ? getActiveAdminHostelFilter('inventory') : null;
         const hostelParam = hostelId ? `&hostel_id=${encodeURIComponent(hostelId)}` : '';
-        const res = await fetchWithTimeout(`/api/products?includeInactive=true${hostelParam}`, { headers: getAuthHeaders() }, 7000);
+        const forceParam = `&force=true&_t=${Date.now()}`;
+        const res = await fetchWithTimeout(`/api/products?includeInactive=true${hostelParam}${forceParam}`, { headers: getAuthHeaders() }, 8000);
+        if (reqSeq !== currentInventoryRequestSeq) return;
         if (res.ok) {
             const data = await res.json();
-            if (data.products && Array.isArray(data.products) && data.products.length > 0) {
+            if (reqSeq !== currentInventoryRequestSeq) return;
+            if (data.products && Array.isArray(data.products)) {
                 productsCache = data.products;
                 try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) {}
             }
         }
         filterInventory();
     } catch (err) {
+        if (reqSeq !== currentInventoryRequestSeq) return;
         console.warn('Network timeout loading inventory, rendering available cache:', err);
         filterInventory();
     }
@@ -1636,7 +1653,7 @@ function updateInventoryKpiTiles() {
     let stockAlerts = 0;
 
     for (const p of productsCache) {
-        const stock = p.stock_left !== undefined ? Math.max(0, Number(p.stock_left)) : (p.in_stock ? 40 : 0);
+        const stock = p.stock_left !== undefined ? Math.max(0, Number(p.stock_left)) : (p.in_stock ? (p.stock_left || 0) : 0);
         const price = Number(p.price) || 0;
         totalVal += (stock * price);
         totalUnits += stock;
@@ -1675,7 +1692,7 @@ function filterInventory() {
     }
 
     tbody.innerHTML = filtered.map(p => {
-        const stock = p.stock_left !== undefined ? p.stock_left : (p.in_stock ? 40 : 0);
+        const stock = p.stock_left !== undefined ? Math.max(0, Number(p.stock_left)) : (p.in_stock ? (p.stock_left || 0) : 0);
         const statusBadge = stock > 4 
             ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold badge-in-stock">In Stock</span>'
             : (stock > 0 
@@ -1726,7 +1743,16 @@ async function adjustStock(productId, delta) {
         });
         const data = await res.json();
         if (data.success) {
-            loadInventory();
+            const p = productsCache.find(x => x.id === productId);
+            if (p) {
+                p.stock_left = data.stock_left;
+                p.in_stock = data.in_stock;
+                try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) {}
+                filterProducts();
+            }
+            if (typeof filterInventory === 'function') filterInventory();
+            if (typeof loadInventory === 'function') loadInventory();
+            if (typeof loadProducts === 'function') loadProducts(true);
         }
     } catch (err) {
         alert('Stock update failed: ' + err.message);
@@ -1750,6 +1776,7 @@ async function promptCustomStock(productId, name, current) {
     if (p) {
         p.stock_left = parsed;
         p.in_stock = parsed > 0;
+        try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) {}
     }
     filterProducts();
     if (typeof filterInventory === 'function') filterInventory();
@@ -1764,8 +1791,11 @@ async function promptCustomStock(productId, name, current) {
         if (data.success && p) {
             p.stock_left = data.stock_left;
             p.in_stock = data.in_stock;
+            try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) {}
             filterProducts();
             if (typeof filterInventory === 'function') filterInventory();
+            if (typeof loadInventory === 'function') loadInventory();
+            if (typeof loadProducts === 'function') loadProducts(true);
             showToast(`Updated "${name}" stock to ${parsed}`, 'success');
         }
     } catch (err) {
@@ -1783,7 +1813,7 @@ async function toggleProductStock(productId, inStock) {
 
     let targetStock = 0;
     if (inStock) {
-        const input = prompt(`Enter exact stock quantity for "${p.name}":`, p.stock_left > 0 ? p.stock_left : '10');
+        const input = prompt(`Enter exact stock quantity for "${p.name}":`, p.stock_left > 0 ? p.stock_left : '1');
         if (input === null) return;
         targetStock = parseInt(input, 10);
         if (isNaN(targetStock) || targetStock < 0) {
@@ -1797,6 +1827,7 @@ async function toggleProductStock(productId, inStock) {
 
     p.in_stock = targetStock > 0;
     p.stock_left = targetStock;
+    try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) {}
     filterProducts();
     if (typeof filterInventory === 'function') filterInventory();
 
@@ -1810,8 +1841,11 @@ async function toggleProductStock(productId, inStock) {
         if (data.success && p) {
             p.stock_left = data.stock_left;
             p.in_stock = data.in_stock;
+            try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) {}
             filterProducts();
             if (typeof filterInventory === 'function') filterInventory();
+            if (typeof loadInventory === 'function') loadInventory();
+            if (typeof loadProducts === 'function') loadProducts(true);
             showToast(targetStock > 0 ? `Set "${p.name}" stock to ${targetStock}` : `Marked "${p.name}" Out of Stock`, 'success');
         }
     } catch (err) {
@@ -3758,6 +3792,20 @@ function openProductModal(product = null) {
     }
 
     if (product) {
+        window.modalInitialProductValues = {
+            id: product.id,
+            name: product.name || '',
+            category: product.category || '',
+            subcategory: product.subcategory || '',
+            cost_price: product.cost_price !== undefined ? product.cost_price : (product.cost || 0),
+            price: Number(product.price) || 0,
+            mrp: Number(product.mrp) || Number(product.price) || 0,
+            stock_left: product.stock_left !== undefined ? Number(product.stock_left) : 0,
+            image_url: product.image_url || '',
+            description: product.description || '',
+            hostel_id: product.hostel_id || 'BH-13'
+        };
+
         document.getElementById('modal-product-title').textContent = 'Edit Product';
         document.getElementById('form-product-id').value = product.id;
         document.getElementById('form-product-name').value = product.name;
@@ -3769,7 +3817,7 @@ function openProductModal(product = null) {
         }
         document.getElementById('form-product-price').value = product.price;
         document.getElementById('form-product-mrp').value = product.mrp || product.price;
-        document.getElementById('form-product-stock').value = product.stock_left !== undefined ? product.stock_left : 50;
+        document.getElementById('form-product-stock').value = product.stock_left !== undefined ? product.stock_left : 0;
         document.getElementById('form-product-image').value = product.image_url || '';
         if (preview) preview.src = product.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200';
         document.getElementById('form-product-desc').value = product.description || '';
@@ -3784,12 +3832,13 @@ function openProductModal(product = null) {
         }
         updateModalProfitPreview();
     } else {
+        window.modalInitialProductValues = null;
         document.getElementById('modal-product-title').textContent = 'Add New Product';
         document.getElementById('product-form').reset();
         document.getElementById('form-product-id').value = '';
         const costInput = document.getElementById('form-product-cost');
         if (costInput) costInput.value = '';
-        document.getElementById('form-product-stock').value = '10';
+        document.getElementById('form-product-stock').value = '0';
         clearProductImage();
         if (deleteBtn) {
             deleteBtn.classList.add('hidden');
@@ -3825,7 +3874,7 @@ async function onModalHostelChange() {
     if (!productId || !hostelVal) return;
 
     try {
-        const res = await fetch(`/api/products/${productId}?hostel_id=${encodeURIComponent(hostelVal)}`, {
+        const res = await fetch(`/api/products/${productId}?hostel_id=${encodeURIComponent(hostelVal)}&force=true&_t=${Date.now()}`, {
             headers: getAuthHeaders()
         });
         if (res.ok) {
@@ -3833,6 +3882,10 @@ async function onModalHostelChange() {
             const stockInput = document.getElementById('form-product-stock');
             if (stockInput && data && data.stock_left !== undefined) {
                 stockInput.value = data.stock_left;
+                if (window.modalInitialProductValues && window.modalInitialProductValues.id === productId) {
+                    window.modalInitialProductValues.stock_left = Number(data.stock_left);
+                    window.modalInitialProductValues.hostel_id = hostelVal;
+                }
             }
         }
     } catch (e) {
@@ -3842,6 +3895,7 @@ async function onModalHostelChange() {
 window.onModalHostelChange = onModalHostelChange;
 
 function closeProductModal() {
+    window.modalInitialProductValues = null;
     document.getElementById('product-modal').classList.add('hidden');
 }
 
@@ -3855,12 +3909,34 @@ async function handleModalDeleteProduct() {
 }
 
 async function editProduct(id) {
+    const isOwner = isPlatformOwner();
+    const hostelId = (currentAdminProfile && currentAdminProfile.assigned_hostel_id && !isOwner)
+        ? currentAdminProfile.assigned_hostel_id
+        : ((typeof getActiveAdminHostelFilter === 'function') ? getActiveAdminHostelFilter('products') : null);
+    const hostelParam = hostelId ? `?hostel_id=${encodeURIComponent(hostelId)}&force=true` : '?force=true';
+    try {
+        const res = await fetch(`/api/products/${id}${hostelParam}&_t=${Date.now()}`, {
+            headers: getAuthHeaders()
+        });
+        if (res.ok) {
+            const freshProd = await res.json();
+            if (freshProd && freshProd.id) {
+                openProductModal(freshProd);
+                return;
+            }
+        }
+    } catch (e) {
+        console.warn('Could not fetch fresh product details for edit, falling back to cache:', e);
+    }
     const p = productsCache.find(x => x.id === id);
     if (p) openProductModal(p);
 }
 
 async function handleProductSubmit(e) {
     e.preventDefault();
+    if (window.__isSavingProduct) return;
+    window.__isSavingProduct = true;
+
     const saveBtn = document.getElementById('btn-save-product');
     if (saveBtn) {
         saveBtn.disabled = true;
@@ -3899,24 +3975,54 @@ async function handleProductSubmit(e) {
         }
 
         const isOwner = isPlatformOwner();
-        const payload = {
-            name: document.getElementById('form-product-name').value.trim(),
-            category: document.getElementById('form-product-category').value,
-            subcategory: document.getElementById('form-product-subcategory').value.trim(),
-            price: Number(document.getElementById('form-product-price').value),
-            mrp: Number(document.getElementById('form-product-mrp').value) || Number(document.getElementById('form-product-price').value),
-            stock_left: stockVal,
-            in_stock: stockVal > 0,
-            image_url: imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400',
-            description: document.getElementById('form-product-desc').value.trim()
-        };
-
         const hostelSelect = document.getElementById('form-product-hostel');
-        const hostelVal = hostelSelect ? hostelSelect.value : (currentAdminProfile?.assigned_hostel_id || 'BH-13');
-        payload.hostel_id = hostelVal;
+        const hostelVal = (currentAdminProfile && currentAdminProfile.assigned_hostel_id && !isOwner)
+            ? currentAdminProfile.assigned_hostel_id
+            : (hostelSelect?.value || currentAdminProfile?.assigned_hostel_id || 'BH-13');
 
+        const currentName = document.getElementById('form-product-name').value.trim();
+        const currentCategory = document.getElementById('form-product-category').value;
+        const currentSubcategory = document.getElementById('form-product-subcategory').value.trim();
+        const currentPrice = Number(document.getElementById('form-product-price').value);
+        const currentMrp = Number(document.getElementById('form-product-mrp').value) || currentPrice;
+        const currentDesc = document.getElementById('form-product-desc').value.trim();
         const costVal = Number(document.getElementById('form-product-cost')?.value);
-        payload.cost_price = !isNaN(costVal) ? costVal : 0;
+        const currentCost = !isNaN(costVal) ? costVal : 0;
+
+        let payload;
+        if (id && window.modalInitialProductValues && window.modalInitialProductValues.id === id) {
+            const init = window.modalInitialProductValues;
+            payload = { id, hostel_id: hostelVal };
+
+            if (currentName !== init.name) payload.name = currentName;
+            if (currentCategory !== init.category) payload.category = currentCategory;
+            if (currentSubcategory !== (init.subcategory || '')) payload.subcategory = currentSubcategory;
+            if (currentPrice !== init.price) payload.price = currentPrice;
+            if (currentMrp !== init.mrp) payload.mrp = currentMrp;
+            if (currentDesc !== (init.description || '')) payload.description = currentDesc;
+            if (imageUrl && imageUrl !== (init.image_url || '')) payload.image_url = imageUrl;
+            if (currentCost !== (init.cost_price || 0)) payload.cost_price = currentCost;
+
+            // Only send stock if stock actually changed from what was loaded into modal
+            if (stockVal !== init.stock_left) {
+                payload.stock_left = stockVal;
+                payload.in_stock = stockVal > 0;
+            }
+        } else {
+            payload = {
+                name: currentName,
+                category: currentCategory,
+                subcategory: currentSubcategory,
+                price: currentPrice,
+                mrp: currentMrp,
+                stock_left: stockVal,
+                in_stock: stockVal > 0,
+                image_url: imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400',
+                description: currentDesc,
+                cost_price: currentCost,
+                hostel_id: hostelVal
+            };
+        }
 
         const url = id ? `/api/products/admin/update/${id}` : '/api/products/admin/create';
         const method = id ? 'PUT' : 'POST';
@@ -3929,11 +4035,11 @@ async function handleProductSubmit(e) {
         const data = await res.json();
         if (data.success) {
             closeProductModal();
-            await loadProducts();
-            await loadInventory();
+            await loadProducts(true);
+            await loadInventory(true);
             await loadDashboard();
             if (typeof showToast === 'function') {
-                showToast(`Product "${payload.name}" saved successfully!`, 'success');
+                showToast(`Product "${payload.name || currentName}" saved successfully!`, 'success');
             }
         } else {
             alert('Error saving product: ' + (data.error || 'Unknown error'));
@@ -3941,6 +4047,7 @@ async function handleProductSubmit(e) {
     } catch (err) {
         alert('Save failed: ' + err.message);
     } finally {
+        window.__isSavingProduct = false;
         if (saveBtn) {
             saveBtn.disabled = false;
             saveBtn.innerHTML = '<span>Save Product</span>';
@@ -3962,8 +4069,8 @@ async function deactivateProduct(id, name) {
         });
         const data = await res.json();
         if (data.success) {
-            loadProducts();
-            if (typeof loadInventory === 'function') loadInventory();
+            loadProducts(true);
+            if (typeof loadInventory === 'function') loadInventory(true);
         }
     } catch (err) {
         alert('Deactivation failed: ' + err.message);
@@ -3994,8 +4101,9 @@ async function deleteProductPermanently(id, name) {
                 ? `"${name}" was permanently removed from inventory.`
                 : `"${name}" was removed from ${activeHostel || 'your hostel'} store.`;
             alert(successMsg);
-            loadProducts();
-            if (typeof loadInventory === 'function') loadInventory();
+            if (typeof closeProductModal === 'function') closeProductModal();
+            loadProducts(true);
+            if (typeof loadInventory === 'function') loadInventory(true);
         } else {
             alert('Failed to delete: ' + (data.error || data.message || 'Unknown error'));
         }
@@ -4976,6 +5084,9 @@ function initRealtimeWebSocket() {
                     handleRealtimeStatusUpdate(data);
                 } else if (data.type === 'INVENTORY_UPDATE') {
                     handleRealtimeInventoryUpdate(data);
+                } else if (data.type === 'CATALOG_UPDATE') {
+                    if (typeof loadProducts === 'function') loadProducts(true);
+                    if (typeof loadInventory === 'function') loadInventory(true);
                 } else if (data.type === 'ORDER_CLAIMED') {
                     handleRealtimeOrderClaimed(data);
                 } else if (data.type === 'TRANSFER_REQUESTED') {
@@ -5173,6 +5284,9 @@ function handleRealtimeInventoryUpdate(data) {
     if (p) {
         p.stock_left = stock_left;
         p.in_stock = in_stock;
+    } else {
+        if (typeof loadProducts === 'function') loadProducts(true);
+        if (typeof loadInventory === 'function') loadInventory(true);
     }
 
     // Surgically recalculate total stock KPI without full network reload
@@ -6430,12 +6544,12 @@ function populateHostelDropdowns() {
 
 function onProductsHostelFilterChange(val) {
     activeAdminHostelFilter.products = val;
-    loadProducts();
+    loadProducts(true);
 }
 
 function onInventoryHostelFilterChange(val) {
     activeAdminHostelFilter.inventory = val;
-    loadInventory();
+    loadInventory(true);
 }
 
 function onOrdersHostelFilterChange(val) {

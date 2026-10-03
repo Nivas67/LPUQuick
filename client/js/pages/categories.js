@@ -481,8 +481,8 @@ window.pageInits.categories = async function() {
         }
 
         filtered.sort((a, b) => {
-            const stockA = a.stock_left !== undefined && a.stock_left !== null ? a.stock_left : (a.in_stock ? 50 : 0);
-            const stockB = b.stock_left !== undefined && b.stock_left !== null ? b.stock_left : (b.in_stock ? 50 : 0);
+            const stockA = a.stock_left !== undefined && a.stock_left !== null ? Number(a.stock_left) : 0;
+            const stockB = b.stock_left !== undefined && b.stock_left !== null ? Number(b.stock_left) : 0;
             const aOOS = (!a.in_stock || stockA <= 0) ? 1 : 0;
             const bOOS = (!b.in_stock || stockB <= 0) ? 1 : 0;
             if (aOOS !== bOOS) return aOOS - bOOS; // In-stock first (0), Out-of-stock last (1)
@@ -514,7 +514,7 @@ window.pageInits.categories = async function() {
 
         productsGrid.innerHTML = filtered.map(p => {
             const discountPercent = p.mrp && p.mrp > p.price ? Math.round(((p.mrp - p.price) / p.mrp) * 100) : 0;
-            const stockLeft = p.stock_left !== undefined && p.stock_left !== null ? p.stock_left : (p.in_stock ? 50 : 0);
+            const stockLeft = p.stock_left !== undefined && p.stock_left !== null ? Number(p.stock_left) : 0;
             const isOutOfStock = !p.in_stock || stockLeft <= 0;
             const isLowStock = stockLeft > 0 && stockLeft <= 4;
             const isWishlisted = wishlistItems.has(String(p.id));

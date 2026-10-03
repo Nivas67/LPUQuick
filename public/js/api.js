@@ -341,7 +341,7 @@ const api = {
                         }
                         homeFeedCache = data;
                         homeFeedCacheTime = Date.now();
-                        homeFeedCacheUserId = uid;
+                        homeFeedCacheUserId = homeCacheKey;
                     }
                 })
                 .catch(() => {});
@@ -369,7 +369,7 @@ const api = {
             }
             homeFeedCache = data;
             homeFeedCacheTime = Date.now();
-            homeFeedCacheUserId = uid;
+            homeFeedCacheUserId = homeCacheKey;
         }
         return data;
     },
@@ -463,17 +463,18 @@ const api = {
         return this.getProducts(category, hostelId);
     },
 
-    // Single Product Details (0ms in-memory fast path)
-    async getProduct(id, hostelId = null) {
+    // Single Product Details (0ms in-memory fast path, with force option)
+    async getProduct(id, hostelId = null, force = false) {
         const targetHostel = hostelId || window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
-        if (window.__cachedProducts && window.__cachedProducts.has(id)) {
+        if (!force && window.__cachedProducts && window.__cachedProducts.has(id)) {
             const cached = window.__cachedProducts.get(id);
             if (!targetHostel || !cached.hostel_id || cached.hostel_id.toLowerCase().replace(/[^a-z0-9]/g, '') === targetHostel.toLowerCase().replace(/[^a-z0-9]/g, '')) {
                 return { product: cached, ...cached };
             }
         }
         try {
-            const res = await fetch(`${API_BASE}/products/${id}?hostel_id=${encodeURIComponent(targetHostel)}`);
+            const timeParam = force ? `&_t=${Date.now()}` : '';
+            const res = await fetch(`${API_BASE}/products/${id}?hostel_id=${encodeURIComponent(targetHostel)}${timeParam}`);
             const data = await res.json();
             if (data && data.product) {
                 indexProducts([data.product]);
@@ -727,6 +728,24 @@ const api = {
             body: JSON.stringify({ orderId, status })
         });
         return res.json();
+    },
+
+    clearProductsCache() {
+        homeFeedCache = null;
+        homeFeedCacheTime = 0;
+        homeFeedCacheUserId = null;
+        if (productsMemoryCache && typeof productsMemoryCache.clear === 'function') {
+            productsMemoryCache.clear();
+        }
+        if (productsMemoryCacheTime && typeof productsMemoryCacheTime.clear === 'function') {
+            productsMemoryCacheTime.clear();
+        }
+        if (searchCache && typeof searchCache.clear === 'function') {
+            searchCache.clear();
+        }
+        if (window.__cachedProducts && typeof window.__cachedProducts.clear === 'function') {
+            window.__cachedProducts.clear();
+        }
     },
 
     clearOrdersCache() {

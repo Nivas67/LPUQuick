@@ -368,6 +368,20 @@ function broadcastInventoryUpdate(productId, stockLeft, inStock, hostelId = null
     chunkedBroadcast(clientSockets, payload);
 }
 
+// Broadcast general catalog modification (name, price, mrp, addition, deletion)
+function broadcastCatalogUpdate(productId, hostelId = null, action = 'update') {
+    const payload = JSON.stringify({
+        type: 'CATALOG_UPDATE',
+        productId,
+        action,
+        hostel_id: hostelId || null,
+        timestamp: new Date().toISOString()
+    });
+
+    chunkedBroadcast(adminSockets, payload);
+    chunkedBroadcast(clientSockets, payload);
+}
+
 function getStepNumber(status) {
     switch (status) {
         case 'Order Placed': case 'pending': return 1;
@@ -554,6 +568,7 @@ module.exports = {
     broadcastOrderPlaced: notifyAdminNewOrder,
     broadcastStatusUpdate,
     broadcastInventoryUpdate,
+    broadcastCatalogUpdate,
     broadcastClientLockUpdate,
     broadcastUserBlocked,
     broadcastUserUnblocked,

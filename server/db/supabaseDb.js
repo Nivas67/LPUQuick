@@ -306,7 +306,8 @@ const supabaseDb = {
                 badge: p.bestseller ? 'Bestseller' : (p.is_new ? 'New' : ''),
                 rating: 4.5,
                 is_active: true,
-                stock_left
+                stock_left,
+                in_stock
             };
         },
 
@@ -342,17 +343,21 @@ const supabaseDb = {
             } else {
                 // Campus baseline catalog product OR local custom product for this hostel:
                 prod.deleted = false;
-                const baseStock = prod.stock_left !== undefined ? Number(prod.stock_left) : 10;
-                // Ensure default availability (10 units) for campus baseline items in active dark stores
-                prod.stock_left = Math.max(0, isCampusBaseline && baseStock <= 0 ? 10 : baseStock);
+                const baseStock = prod.stock_left !== undefined ? Number(prod.stock_left) : 0;
+                prod.stock_left = Math.max(0, baseStock);
                 prod.in_stock = Boolean(prod.stock_left > 0);
             }
             return prod;
         },
 
-        async getAll({ includeInactive = false, category, subcategory, sort, hostel_id } = {}) {
+        async getAll({ includeInactive = false, category, subcategory, sort, hostel_id, force = false } = {}) {
             const cleanHostel = (hostel_id && hostel_id !== 'all' && hostel_id !== 'ALL') ? String(hostel_id).trim().toUpperCase() : null;
             const cacheKey = `products:${cleanHostel || 'all'}:${category || 'all'}:${subcategory || 'all'}:${sort || 'default'}:${includeInactive}`;
+            const isFreshRequired = Boolean(force || includeInactive);
+            if (isFreshRequired) {
+                cache.delete(cacheKey);
+            }
+
             return await cache.wrap(cacheKey, async () => {
                 const supabase = getSupabaseClient();
                 if (!supabase) throw new Error('PostgreSQL client unavailable. Verify SUPABASE_URL and credentials.');
@@ -395,7 +400,7 @@ const supabaseDb = {
                 let hostelInventory = {};
                 if (cleanHostel && supabaseDb.inventory) {
                     try {
-                        hostelInventory = await supabaseDb.inventory.getHostelInventory(cleanHostel);
+                        hostelInventory = await supabaseDb.inventory.getHostelInventory(cleanHostel, isFreshRequired);
                     } catch (invErr) {
                         console.warn('[Hostel Inventory Load Note]:', invErr.message);
                     }
@@ -411,7 +416,7 @@ const supabaseDb = {
                 });
 
                 return formatted;
-            }, 300000); // 5-minute single-flight micro-cache (drastically reduces DB egress)
+            }, isFreshRequired ? 0 : 300000);
         },
 
         async getById(id, hostel_id = null) {
@@ -547,7 +552,7 @@ const supabaseDb = {
             if (!supabase) throw new Error('PostgreSQL client unavailable');
 
             const id = productData.id || `prod_${uuidv4().slice(0, 8)}`;
-            const stockNum = productData.stock_left !== undefined ? parseInt(productData.stock_left, 10) : 50;
+            const stockNum = productData.stock_left !== undefined ? Math.max(0, parseInt(productData.stock_left, 10)) : 0;
             const inStock = stockNum > 0 && productData.in_stock !== false;
             const hostelId = productData.hostel_id || 'BH-13';
 
@@ -561,7 +566,6 @@ const supabaseDb = {
 
             const record = {
                 id,
-                hostel_id: hostelId,
                 name: productData.name,
                 category: productData.category || 'Snacks & Drinks',
                 subcategory: productData.subcategory || '',
@@ -593,19 +597,7 @@ const supabaseDb = {
                 error = e;
             }
 
-            // Fallback if hostel_id column is not yet in Supabase schema
-            if (error && error.message && (error.message.includes('hostel_id') || error.code === '42703')) {
-                const fallbackRecord = { ...record };
-                delete fallbackRecord.hostel_id;
-                const res2 = await supabase
-                    .from('products')
-                    .insert([fallbackRecord])
-                    .select()
-                    .single();
-                if (res2.error) throw new Error(`PostgreSQL product insert error: ${res2.error.message}`);
-                data = res2.data;
-                error = null;
-            } else if (error) {
+            if (error) {
                 throw new Error(`PostgreSQL product insert error: ${error.message}`);
             }
 
@@ -618,7 +610,6 @@ const supabaseDb = {
             if (!supabase) throw new Error('PostgreSQL client unavailable');
 
             const updateFields = {};
-            if (updates.hostel_id !== undefined) updateFields.hostel_id = updates.hostel_id;
             if (updates.name !== undefined) updateFields.name = updates.name;
             if (updates.category !== undefined) updateFields.category = updates.category;
             if (updates.subcategory !== undefined) updateFields.subcategory = updates.subcategory;
@@ -721,7 +712,7 @@ const supabaseDb = {
             const current = await this.getById(id, cleanHostel);
             if (!current) throw new Error('Product not found');
             const newInStock = !current.in_stock;
-            const newStock = newInStock ? (current.stock_left > 0 ? current.stock_left : 50) : 0;
+            const newStock = newInStock ? (current.stock_left > 0 ? current.stock_left : 0) : 0;
             if (cleanHostel !== 'BH-13' && supabaseDb.inventory) {
                 await supabaseDb.inventory.setProductStock(cleanHostel, id, { in_stock: newInStock, stock_left: newStock, deleted: false });
             }
@@ -799,17 +790,17 @@ const supabaseDb = {
             }
         },
 
-        async getHostelInventory(hostelId) {
+        async getHostelInventory(hostelId, forceFresh = false) {
             const normHostel = this._normalizeHostelId(hostelId);
             const key = this._getStorageKey(normHostel);
 
-            return await cache.wrap(`inventory:hostel:${normHostel}`, async () => {
-                // 1. Check memory cache first
-                if (this._memoryHostelInventory.has(normHostel)) {
-                    return this._memoryHostelInventory.get(normHostel);
-                }
+            if (forceFresh) {
+                this._memoryHostelInventory.delete(normHostel);
+                cache.delete(`inventory:hostel:${normHostel}`);
+            }
 
-                // 2. Fetch from Supabase app_availability table
+            return await cache.wrap(`inventory:hostel:${normHostel}`, async () => {
+                // 1. Fetch from Supabase app_availability table as authoritative single source of truth
                 const supabase = getSupabaseClient();
                 if (supabase) {
                     try {
@@ -833,6 +824,11 @@ const supabaseDb = {
                     }
                 }
 
+                // 2. Secondary fallback: check memory cache
+                if (this._memoryHostelInventory.has(normHostel)) {
+                    return this._memoryHostelInventory.get(normHostel);
+                }
+
                 // 3. Fallback to local file (with backward compatibility for un-hyphenated keys)
                 const fileData = this._loadLocalFile();
                 const hostelData = fileData[normHostel]
@@ -841,17 +837,17 @@ const supabaseDb = {
                     || {};
                 this._memoryHostelInventory.set(normHostel, hostelData);
                 return hostelData;
-            }, 60000); // 1-minute TTL, invalidated immediately on write
+            }, forceFresh ? 0 : 30000); // 30s TTL for public storefront, 0 for forceFresh/admin
         },
 
         async setProductStock(hostelId, productId, { stock_left, in_stock, deleted }) {
             const normHostel = this._normalizeHostelId(hostelId);
             const key = this._getStorageKey(normHostel);
 
-            const inv = await this.getHostelInventory(normHostel);
+            const inv = await this.getHostelInventory(normHostel, true);
             const isDeleted = Boolean(deleted);
-            const finalStock = isDeleted ? 0 : Math.max(0, parseInt(stock_left !== undefined ? stock_left : (in_stock ? 10 : 0), 10));
-            const finalInStock = isDeleted ? false : (in_stock !== undefined ? Boolean(in_stock) : finalStock > 0);
+            const finalStock = isDeleted ? 0 : Math.max(0, parseInt(stock_left !== undefined ? stock_left : 0, 10));
+            const finalInStock = isDeleted ? false : (finalStock > 0 && (in_stock !== undefined ? Boolean(in_stock) : true));
 
             inv[productId] = {
                 stock_left: finalStock,
@@ -886,6 +882,7 @@ const supabaseDb = {
             }
 
             // Invalidate caches
+            this._memoryHostelInventory.delete(normHostel);
             cache.delete(`inventory:hostel:${normHostel}`);
             cache.invalidateProducts();
             cache.clearByPrefix('home:base:');
@@ -3668,5 +3665,13 @@ const supabaseDb = {
         }
     }
 };
+
+if (typeof cache.on === 'function') {
+    cache.on('invalidateProducts', () => {
+        if (supabaseDb.inventory && supabaseDb.inventory._memoryHostelInventory) {
+            supabaseDb.inventory._memoryHostelInventory.clear();
+        }
+    });
+}
 
 module.exports = supabaseDb;
