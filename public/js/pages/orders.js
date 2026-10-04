@@ -128,8 +128,9 @@ window.applyOrderStatusUI = function(newStatus, riderName, targetOrderId, riderP
     window.__lastWsStatusTime = Date.now();
     const effectiveRider = riderName || 'Alex';
     const savedRoom = localStorage.getItem('lpuquick_room') || window.currentRoom;
+    const savedBlock = localStorage.getItem('lpuquick_block') || window.currentBlock || 'Block A';
     const savedHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
-    const address = savedRoom ? `${savedHostel} (${savedBlock}), Room ${savedRoom}` : savedHostel;
+    const address = savedRoom ? `${savedHostel} (${savedBlock}), Room ${savedRoom}` : `${savedHostel} (${savedBlock})`;
 
     const details = getOrderTrackingDetails(newStatus, effectiveRider, address);
 
@@ -361,14 +362,14 @@ window.pages.orders = async function() {
         window.api.getActiveOrder(userId, true)
     ]);
 
-    const ordersData = ordersDataRes.status === 'fulfilled' ? ordersDataRes.value : { active: [], past: [] };
-    const activeData = activeDataRes.status === 'fulfilled' ? activeDataRes.value : { active: null };
+    const ordersData = (ordersDataRes.status === 'fulfilled' && ordersDataRes.value) ? ordersDataRes.value : { active: [], past: [] };
+    const activeData = (activeDataRes.status === 'fulfilled' && activeDataRes.value) ? activeDataRes.value : { active: null };
 
-    let activeOrder = activeData?.active || (ordersData?.active && ordersData.active[0]) || null;
+    let activeOrder = activeData?.active || (Array.isArray(ordersData?.active) && ordersData.active[0]) || null;
 
     // If no ongoing active order, check if user's latest order was Delivered within last 30 minutes
     // so the student can see their Delivered order on the map with full celebratory HUD instead of blank 'No active' card
-    if (!activeOrder && ordersData?.past && ordersData.past.length > 0) {
+    if (!activeOrder && Array.isArray(ordersData?.past) && ordersData.past.length > 0) {
         const latestPast = ordersData.past[0];
         const normalizeId = id => String(id || '').replace(/^order_/, '').trim().toLowerCase();
         const isRecentDelivered = latestPast && ['Delivered', 'delivered'].includes(latestPast.status) && (
@@ -380,13 +381,16 @@ window.pages.orders = async function() {
             activeOrder = latestPast;
         }
     }
+    const savedRoom = localStorage.getItem('lpuquick_room') || window.currentRoom;
+    const savedBlock = localStorage.getItem('lpuquick_block') || window.currentBlock || 'Block A';
+    const savedHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
     const activeRiderInfo = formatClientRiderInfo(activeOrder?.rider_name);
     const activeRiderName = activeRiderInfo.name;
     const activeRiderPhone = activeOrder?.rider_phone || activeRiderInfo.phone || '7671836211';
     const activeEdit = activeOrder?.delivery_assignment?.latest_edit || null;
-    const pastOrders = ordersData?.past || [];
-    const currentH = window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus');
-    const hostelAddress = savedRoom ? `${currentH} (${savedBlock}), Room ${savedRoom}` : `${currentH} (Block A)`;
+    const pastOrders = Array.isArray(ordersData?.past) ? ordersData.past : [];
+    const currentH = window.currentAddress || (savedHostel ? savedHostel.replace('-', '') : 'Campus');
+    const hostelAddress = savedRoom ? `${currentH} (${savedBlock}), Room ${savedRoom}` : `${currentH} (${savedBlock})`;
     const hostelShort = currentH;
 
     window.CURRENT_ACTIVE_ORDER_ID = activeOrder ? activeOrder.id : null;
@@ -408,7 +412,7 @@ window.pages.orders = async function() {
         <div class="glass-panel card-pedestal rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row justify-between sm:items-center gap-3.5 hover:translate-y-[-2px] transition-all shadow-md">
             <div class="space-y-1.5">
                 <div class="flex items-center gap-2">
-                    <span class="font-black text-xs sm:text-sm text-slate-900 dark:text-white tracking-tight">Order #${o.id.replace('order_', '').toUpperCase()}</span>
+                    <span class="font-black text-xs sm:text-sm text-slate-900 dark:text-white tracking-tight">Order #${String(o.id || '').replace('order_', '').toUpperCase()}</span>
                     <span class="text-[10px] ${statusBadgeClass} font-bold px-2.5 py-0.5 rounded-full capitalize">${o.status}</span>
                 </div>
                 <p class="text-xs text-slate-600 dark:text-slate-300 font-medium line-clamp-1">${o.item_names || 'Campus Groceries & Essentials'}</p>

@@ -686,21 +686,29 @@ const supabaseDb = {
 
         async adjustStock(id, delta, hostel_id = null) {
             const cleanHostel = (hostel_id && hostel_id !== 'all' && hostel_id !== 'ALL') ? String(hostel_id).trim().toUpperCase() : 'BH-13';
-            const current = await this.getById(id, cleanHostel);
+            let current = null;
+            try {
+                current = await this.getById(id, cleanHostel);
+            } catch (e) {}
+
+            if (!current && supabaseDb.inventory) {
+                try {
+                    const inv = await supabaseDb.inventory.getHostelInventory(cleanHostel);
+                    if (inv && inv[id]) {
+                        current = { id, stock_left: inv[id].stock_left || 0, in_stock: Boolean(inv[id].in_stock) };
+                    }
+                } catch (e) {}
+            }
+
             if (!current) throw new Error('Product not found');
             const newStock = Math.max(0, (current.stock_left || 0) + delta);
             const inStock = newStock > 0;
-            if (cleanHostel !== 'BH-13' && supabaseDb.inventory) {
+            if (supabaseDb.inventory) {
                 await supabaseDb.inventory.setProductStock(cleanHostel, id, { stock_left: newStock, in_stock: inStock, deleted: false });
             }
             const normOrigin = (current.origin_hostel || 'BH-13').toUpperCase().replace(/[^A-Z0-9]/g, '');
             const normTarget = cleanHostel.toUpperCase().replace(/[^A-Z0-9]/g, '');
-            if (normOrigin === 'BH13' && normTarget === 'BH13') {
-                await this.update(id, { stock_left: newStock, in_stock: inStock }).catch(() => {});
-                if (supabaseDb.inventory) {
-                    await supabaseDb.inventory.setProductStock('BH-13', id, { stock_left: newStock, in_stock: inStock, deleted: false }).catch(() => {});
-                }
-            } else if (normOrigin === normTarget) {
+            if (normOrigin === 'BH13' || normOrigin === normTarget) {
                 await this.update(id, { stock_left: newStock, in_stock: inStock }).catch(() => {});
             }
             cache.invalidateProducts();
@@ -1280,6 +1288,50 @@ const supabaseDb = {
     // ORDERS
     // ==========================================
     orders: {
+        _restockedOrdersSet: new Set(),
+
+        markOrderRestocked(orderId) {
+            if (!orderId) return;
+            this._restockedOrdersSet.add(orderId);
+            try {
+                const snapshotsPath = path.join(__dirname, '..', 'data', 'order_snapshots.json');
+                let existingSnapshots = {};
+                if (fs.existsSync(snapshotsPath)) {
+                    try {
+                        existingSnapshots = JSON.parse(fs.readFileSync(snapshotsPath, 'utf8'));
+                    } catch (e) {
+                        existingSnapshots = {};
+                    }
+                }
+                if (!existingSnapshots[orderId]) {
+                    existingSnapshots[orderId] = { order_id: orderId, items: [] };
+                }
+                existingSnapshots[orderId].is_restocked = true;
+                existingSnapshots[orderId].restocked_at = new Date().toISOString();
+                const dir = path.dirname(snapshotsPath);
+                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                fs.writeFileSync(snapshotsPath, JSON.stringify(existingSnapshots, null, 2), 'utf8');
+            } catch (err) {
+                console.warn('[Mark Restocked Note]:', err.message);
+            }
+        },
+
+        isOrderRestocked(orderId) {
+            if (!orderId) return false;
+            if (this._restockedOrdersSet.has(orderId)) return true;
+            try {
+                const snapshotsPath = path.join(__dirname, '..', 'data', 'order_snapshots.json');
+                if (fs.existsSync(snapshotsPath)) {
+                    const data = JSON.parse(fs.readFileSync(snapshotsPath, 'utf8'));
+                    if (data[orderId]?.is_restocked) {
+                        this._restockedOrdersSet.add(orderId);
+                        return true;
+                    }
+                }
+            } catch (e) {}
+            return false;
+        },
+
         _normalizeHostelId(hostelId) {
             if (!hostelId || hostelId === 'all' || hostelId === 'ALL') return null;
             const str = String(hostelId).trim().toUpperCase();
@@ -1518,7 +1570,7 @@ const supabaseDb = {
             });
 
             try {
-                this.saveOrderSnapshot(orderId, itemSnapshots);
+                this.saveOrderSnapshot(orderId, itemSnapshots, cleanHostel);
             } catch (snapErr) {
                 console.warn('[Order Snapshot Save Warning]:', snapErr.message);
             }
@@ -1535,7 +1587,7 @@ const supabaseDb = {
             };
         },
 
-        saveOrderSnapshot(orderId, itemSnapshots) {
+        saveOrderSnapshot(orderId, itemSnapshots, hostelId = null) {
             try {
                 const snapshotsPath = path.join(__dirname, '..', 'data', 'order_snapshots.json');
                 let existingSnapshots = {};
@@ -1547,9 +1599,12 @@ const supabaseDb = {
                     }
                 }
                 existingSnapshots[orderId] = {
+                    ...(existingSnapshots[orderId] || {}),
                     order_id: orderId,
-                    created_at: new Date().toISOString(),
-                    items: itemSnapshots
+                    hostel_id: hostelId || (existingSnapshots[orderId]?.hostel_id) || null,
+                    created_at: existingSnapshots[orderId]?.created_at || new Date().toISOString(),
+                    items: itemSnapshots,
+                    stock_restored: existingSnapshots[orderId]?.stock_restored || false
                 };
                 const dir = path.dirname(snapshotsPath);
                 if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -1563,7 +1618,7 @@ const supabaseDb = {
                         admin_id: 'system',
                         action: 'ORDER_FINANCIAL_SNAPSHOT',
                         reason: orderId,
-                        metadata: { items: itemSnapshots },
+                        metadata: { items: itemSnapshots, hostel_id: hostelId },
                         created_at: new Date().toISOString()
                     }]).then(() => {}).catch(() => {});
                 }
@@ -1577,7 +1632,7 @@ const supabaseDb = {
                 const snapshotsPath = path.join(__dirname, '..', 'data', 'order_snapshots.json');
                 if (fs.existsSync(snapshotsPath)) {
                     const data = JSON.parse(fs.readFileSync(snapshotsPath, 'utf8'));
-                    return data[orderId]?.items || null;
+                    return data[orderId] || null;
                 }
             } catch (e) {}
             return null;
@@ -1591,6 +1646,47 @@ const supabaseDb = {
                 }
             } catch (e) {}
             return {};
+        },
+
+        _restockedOrdersSet: new Set(),
+
+        isOrderRestocked(orderId) {
+            if (!orderId) return false;
+            if (this._restockedOrdersSet.has(orderId)) return true;
+            try {
+                const snapshot = this.getOrderSnapshot(orderId);
+                if (snapshot && snapshot.stock_restored === true) {
+                    this._restockedOrdersSet.add(orderId);
+                    return true;
+                }
+            } catch (e) {}
+            return false;
+        },
+
+        markOrderRestocked(orderId) {
+            if (!orderId) return;
+            this._restockedOrdersSet.add(orderId);
+            try {
+                const snapshotsPath = path.join(__dirname, '..', 'data', 'order_snapshots.json');
+                let existingSnapshots = {};
+                if (fs.existsSync(snapshotsPath)) {
+                    try {
+                        existingSnapshots = JSON.parse(fs.readFileSync(snapshotsPath, 'utf8'));
+                    } catch (e) {
+                        existingSnapshots = {};
+                    }
+                }
+                if (!existingSnapshots[orderId]) {
+                    existingSnapshots[orderId] = { order_id: orderId };
+                }
+                existingSnapshots[orderId].stock_restored = true;
+                existingSnapshots[orderId].restocked_at = new Date().toISOString();
+                const dir = path.dirname(snapshotsPath);
+                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                fs.writeFileSync(snapshotsPath, JSON.stringify(existingSnapshots, null, 2), 'utf8');
+            } catch (err) {
+                console.warn('[Mark Restocked Snapshot Warning]:', err.message);
+            }
         },
 
         async getOrderById(orderId) {
@@ -1811,9 +1907,11 @@ const supabaseDb = {
                 .eq('id', orderId)
                 .maybeSingle();
 
-            const wasNotCancelled = prevOrder && prevOrder.status !== 'Cancelled';
+            const normStatus = String(status || '').trim();
+            const isCancelling = ['cancelled', 'canceled', 'rejected'].includes(normStatus.toLowerCase());
+            const wasAlreadyCancelled = prevOrder && ['cancelled', 'canceled', 'rejected'].includes(String(prevOrder.status || '').toLowerCase().trim());
 
-            const updatePayload = { status };
+            const updatePayload = { status: normStatus };
             if (options.payment_method) updatePayload.payment_method = options.payment_method;
             if (options.payment_status) updatePayload.payment_status = options.payment_status;
 
@@ -1827,8 +1925,8 @@ const supabaseDb = {
             if (error) throw new Error(`PostgreSQL order status update failed: ${error.message}`);
             cache.invalidateOrders();
 
-            // 2. Automatically restock inventory if order is transitioned to 'Cancelled'
-            if (status === 'Cancelled' && wasNotCancelled) {
+            // 2. Automatically restock inventory if order is transitioned to Cancelled and was not already cancelled/restocked
+            if (isCancelling && !wasAlreadyCancelled) {
                 try {
                     await this.restockOrderItems(orderId);
                 } catch (restockErr) {
@@ -1840,17 +1938,61 @@ const supabaseDb = {
         },
 
         async restockOrderItems(orderId) {
-            const supabase = getSupabaseClient();
-            if (!supabase || !orderId) return;
+            if (!orderId) return;
 
-            const [orderRes, itemsRes] = await Promise.all([
-                supabase.from('orders').select('hostel_id').eq('id', orderId).maybeSingle(),
-                supabase.from('order_items').select('product_id, quantity').eq('order_id', orderId)
-            ]);
+            // Prevent double restocking
+            if (this.isOrderRestocked(orderId)) {
+                console.log(`[Order Restock] Order #${orderId} was already restocked. Skipping.`);
+                return;
+            }
 
-            const targetHostel = orderRes.data?.hostel_id || 'BH-13';
-            const items = itemsRes.data || [];
-            if (items.length === 0) return;
+            let order = null;
+            try {
+                order = await this.getOrderById(orderId);
+            } catch (e) {}
+
+            if (!order) {
+                const snap = this.getOrderSnapshot(orderId);
+                if (snap) {
+                    order = {
+                        id: orderId,
+                        hostel_id: snap.hostel_id || 'BH-13',
+                        delivery_address: snap.delivery_address || `[${snap.hostel_id || 'BH-13'}]`,
+                        items: Array.isArray(snap.items) ? snap.items : (Array.isArray(snap) ? snap : [])
+                    };
+                }
+            }
+            if (!order) {
+                try {
+                    const snapPath = path.join(__dirname, '..', 'data', 'orders_snapshot.json');
+                    if (fs.existsSync(snapPath)) {
+                        const snaps = JSON.parse(fs.readFileSync(snapPath, 'utf8'));
+                        const found = snaps.find(x => x.id === orderId);
+                        if (found) order = found;
+                    }
+                } catch (e) {}
+            }
+
+            if (!order) {
+                console.warn(`[Order Restock Warning] Order #${orderId} not found to restock.`);
+                return;
+            }
+
+            const targetHostel = this._extractHostelId(order) || 'BH-13';
+            let items = order.items || [];
+            if (!items.length) {
+                const snap = this.getOrderSnapshot(orderId);
+                if (snap && Array.isArray(snap.items)) items = snap.items;
+                else if (Array.isArray(snap)) items = snap;
+            }
+
+            if (!items || items.length === 0) {
+                console.warn(`[Order Restock Note] Order #${orderId} has no items to restock.`);
+                return;
+            }
+
+            // Immediately mark as restocked to prevent duplicate concurrent executions
+            this.markOrderRestocked(orderId);
 
             let broadcastInventoryUpdate;
             try {
@@ -1859,19 +2001,22 @@ const supabaseDb = {
             } catch (e) {}
 
             for (const item of items) {
-                if (item.product_id && Number(item.quantity) > 0) {
+                const pId = item.product_id || item.productId || item.id;
+                const qty = Math.max(0, Number(item.quantity) || 0);
+                if (pId && qty > 0) {
                     try {
-                        const updated = await supabaseDb.products.adjustStock(item.product_id, Number(item.quantity), targetHostel);
+                        const updated = await supabaseDb.products.adjustStock(pId, qty, targetHostel);
                         if (typeof broadcastInventoryUpdate === 'function') {
-                            broadcastInventoryUpdate(item.product_id, updated.stock_left, updated.in_stock, targetHostel);
+                            broadcastInventoryUpdate(pId, updated.stock_left, updated.in_stock, targetHostel);
                         }
-                        console.log(`[Order Restock] Restocked +${item.quantity} units for product ${item.product_id} in ${targetHostel} (New stock: ${updated.stock_left})`);
+                        console.log(`[Order Restock] Restocked +${qty} units for product ${pId} in ${targetHostel} (New stock: ${updated.stock_left})`);
                     } catch (pErr) {
-                        console.warn(`[Order Restock Error] Product ${item.product_id}:`, pErr.message);
+                        console.warn(`[Order Restock Error] Product ${pId}:`, pErr.message);
                     }
                 }
             }
             cache.invalidateProducts();
+            cache.invalidateOrders();
         },
 
         formatRiderDisplayName(riderName, fallback = 'Alex') {

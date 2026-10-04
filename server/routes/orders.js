@@ -769,6 +769,11 @@ router.post('/admin/status', requireAdmin, async (req, res) => {
         res.json({ success: true, order: updated });
     } catch (err) {
         console.error('[Admin Status Update Exception]:', err.message);
+        if (['cancelled', 'canceled', 'rejected'].includes(String(status || '').toLowerCase().trim())) {
+            try {
+                await supabaseDb.orders.restockOrderItems(orderId);
+            } catch (e) {}
+        }
         broadcastStatusUpdate(orderId, status, riderName, {
             payment_method: paymentMethod,
             payment_status: paymentStatus
@@ -2312,6 +2317,10 @@ router.post('/:orderId/status', requireAdmin, async (req, res) => {
 
     try {
         const updated = await supabaseDb.orders.updateStatus(orderId, status);
+        if (Array.isArray(fallbackOrdersCache)) {
+            const o = fallbackOrdersCache.find(x => x.id === orderId);
+            if (o) o.status = status;
+        }
         cache.invalidateOrders();
         const existingRider = updated?.rider_name 
             ? (typeof updated.rider_name === 'string' && updated.rider_name.startsWith('{') ? (JSON.parse(updated.rider_name).name || 'Alex') : updated.rider_name) 
@@ -2359,6 +2368,10 @@ router.post('/:orderId/cancel', async (req, res) => {
         }
 
         const updated = await supabaseDb.orders.updateStatus(orderId, 'Cancelled');
+        if (Array.isArray(fallbackOrdersCache)) {
+            const o = fallbackOrdersCache.find(x => x.id === orderId);
+            if (o) o.status = 'Cancelled';
+        }
         cache.invalidateOrders();
         broadcastStatusUpdate(orderId, 'Cancelled');
         res.json({ success: true, message: 'Order cancelled successfully', reason: reason || 'User requested cancellation' });
