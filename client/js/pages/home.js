@@ -575,25 +575,22 @@ function renderHomeBannerSlideHTML(poster, index) {
     // 1. STORE ANNOUNCE MODE (Full plain artwork image with 1 clean action button)
     if (isStoreAnnounce && imageUrl) {
         return `
-            <div class="hero-carousel-slide hero-carousel-slide-announce flex-shrink-0 cursor-pointer h-48 sm:h-60 md:h-72"
+            <div class="hero-carousel-slide hero-carousel-slide-announce flex-shrink-0 cursor-pointer h-52 sm:h-60 md:h-72"
                 onclick="window.handleBannerTargetClick('${safeJsUrl}', event)"
                 data-link-url="${escapedLinkUrl}"
                 role="button"
                 tabindex="0"
-                style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; overflow: hidden; background: #090d16; padding: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important;">
+                style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; overflow: hidden; border-radius: inherit; padding: 0 !important; display: block !important;">
                 
-                <!-- Ambient blurred backdrop filling edges for any screen ratio -->
-                <img src="${imageUrl}" alt="" class="absolute inset-0 w-full h-full object-cover blur-xl opacity-40 scale-105 pointer-events-none" aria-hidden="true" onerror="this.style.display='none'">
-                
-                <!-- Entire announcement image, perfectly adjusted so whole graphic is visible with zero cropping -->
-                <img src="${imageUrl}" alt="${(poster.title || 'Store Announcement').replace(/"/g, '&quot;')}" class="relative z-[2] w-full h-full object-contain object-center transition-transform duration-500 hover:scale-[1.01]" style="max-height: 100%; display: block;" onerror="this.style.display='none'">
+                <!-- Entire announcement image, perfectly adjusted edge-to-edge with NO black bars -->
+                <img src="${imageUrl}" alt="${(poster.title || 'Store Announcement').replace(/"/g, '&quot;')}" class="announce-img w-full h-full object-cover object-center transition-transform duration-500 hover:scale-[1.01]" style="width: 100%; height: 100%; object-fit: cover; object-position: center; display: block;" onerror="this.style.display='none'">
                 
                 <!-- One Action Button -->
                 ${showButton ? `
-                    <div class="absolute bottom-3 left-3 sm:bottom-4 sm:left-6 z-10 pointer-events-auto">
+                    <div class="absolute bottom-3.5 left-4 sm:bottom-4 sm:left-6 z-10 pointer-events-auto">
                         <a href="${hrefAttr}" ${targetAttr}
                             onclick="window.handleBannerTargetClick('${safeJsUrl}', event)" 
-                            class="clay-btn text-xs sm:text-sm px-4 py-1.5 sm:px-5 sm:py-2 rounded-full inline-flex items-center gap-1.5 shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer font-black"
+                            class="clay-btn text-xs sm:text-sm px-3.5 py-1.5 sm:px-5 sm:py-2 rounded-full inline-flex items-center gap-1.5 shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer font-black"
                             style="background: #ffffff !important; color: #0f172a !important; font-weight: 900 !important; border: 1px solid rgba(255,255,255,0.7) !important;">
                             <span style="color: #0f172a !important; font-weight: 900 !important;">${linkText}</span>
                             <svg class="w-3.5 h-3.5" style="color: #0f172a !important;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
@@ -603,7 +600,7 @@ function renderHomeBannerSlideHTML(poster, index) {
             </div>`;
     }
 
-    // 2. CAMPUS PROMOTION MODE (Picture 3 style: styled gradient card with badges, bold headline, and CTA button)
+    // 2. CAMPUS PROMOTION MODE (Picture 1 style: styled gradient card with badges, bold headline, and CTA button)
     const title = (poster.title || 'Campus Promotion').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const pill = (poster.pill || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const badge = (poster.badge || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -615,49 +612,49 @@ function renderHomeBannerSlideHTML(poster, index) {
     const theme = HOME_GRADIENT_THEMES[themeKey] || HOME_GRADIENT_THEMES.purple;
 
     return `
-        <div class="hero-carousel-slide hero-carousel-slide-promo flex-shrink-0 cursor-pointer h-48 sm:h-60 md:h-72"
+        <div class="hero-carousel-slide hero-carousel-slide-promo flex-shrink-0 cursor-pointer h-52 sm:h-60 md:h-72"
             onclick="window.handleBannerTargetClick('${safeJsUrl}', event)"
             data-link-url="${escapedLinkUrl}"
             role="button"
             tabindex="0"
-            style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; padding: 1.75rem 1.5rem; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff; overflow: hidden; background: ${theme.bg};">
+            style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; padding: 1.25rem 1.15rem 2.25rem 1.15rem; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff; overflow: hidden; background: ${theme.bg};">
             
             ${imageUrl ? `
                 <img src="${imageUrl}" alt="${title}" class="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 hover:scale-105" style="filter: brightness(0.72);" onerror="this.style.display='none'">
                 <div class="absolute inset-0 bg-gradient-to-r from-black/85 via-black/45 to-transparent z-[1]"></div>
             ` : ''}
 
-            <div class="space-y-2 max-w-lg z-10 relative pointer-events-none">
-                <div class="flex items-center gap-2 flex-wrap">
+            <div class="space-y-1.5 sm:space-y-2 max-w-lg z-10 relative pointer-events-none">
+                <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                     ${pill ? `
-                        <span class="clay-pill px-3 py-0.5 text-[10px] font-black ${theme.pillClass} flex items-center gap-1.5 backdrop-blur-md">
+                        <span class="clay-pill px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black ${theme.pillClass} flex items-center gap-1 backdrop-blur-md rounded-full">
                             ${theme.dot || ''}
                             <span>${pill}</span>
                         </span>` : ''}
                     ${badge ? `
-                        <span class="liquid-badge text-[10px] font-black px-2.5 py-0.5 shadow-sm ${theme.badgeClass} backdrop-blur-md">
+                        <span class="liquid-badge text-[9px] sm:text-[10px] font-black px-2 py-0.5 shadow-sm ${theme.badgeClass} backdrop-blur-md rounded-full">
                             ${badge}
                         </span>` : ''}
                 </div>
-                <h2 class="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight drop-shadow-sm">
+                <h2 class="text-base sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-snug sm:leading-tight drop-shadow-sm line-clamp-2">
                     ${title}
                 </h2>
                 ${subtitle ? `
-                    <p class="text-xs sm:text-sm ${theme.subtitleClass} font-medium leading-relaxed max-w-md">
+                    <p class="text-[11px] sm:text-sm ${theme.subtitleClass} font-medium leading-snug sm:leading-relaxed max-w-md line-clamp-2">
                         ${subtitle}
                     </p>` : ''}
             </div>
 
-            <div class="pt-3 z-10 relative flex items-center gap-2.5">
+            <div class="pt-1.5 sm:pt-3 z-10 relative flex items-center gap-2 flex-wrap">
                 <a href="${hrefAttr}" ${targetAttr}
                     onclick="window.handleBannerTargetClick('${safeJsUrl}', event)" 
-                    class="clay-btn text-xs px-4 py-2 rounded-full inline-flex items-center gap-1.5 shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                    class="clay-btn text-xs px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full inline-flex items-center gap-1.5 shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer font-bold"
                     style="background: #ffffff !important; color: ${theme.btnColor} !important; font-weight: 800 !important;">
                     <span style="color: ${theme.btnColor} !important; font-weight: 800 !important;">${linkText}</span>
                     <svg class="w-3.5 h-3.5" style="color: ${theme.btnColor} !important;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                 </a>
                 ${poster.has_assistant_btn ? `
-                    <a href="#/flow-assist" onclick="event.stopPropagation()" class="clay-pill bg-white/20 text-white font-bold text-xs px-3.5 py-2 rounded-full inline-flex items-center gap-1.5 hover:bg-white/30 backdrop-blur-md border border-white/25 transition-all">
+                    <a href="#/flow-assist" onclick="event.stopPropagation()" class="clay-pill bg-white/20 text-white font-bold text-[11px] sm:text-xs px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-full inline-flex items-center gap-1 hover:bg-white/30 backdrop-blur-md border border-white/25 transition-all">
                         <span class="text-amber-300 font-bold">✨</span>
                         <span>AI Assistant</span>
                     </a>
@@ -954,11 +951,11 @@ window.pages.home = async function () {
              NEXT-GEN PROMOTIONAL BANNER CAROUSEL (SWIPEABLE & AUTO-SLIDING)
              ============================================================ -->
         <section class="hero-carousel-container relative overflow-hidden w-full rounded-3xl" id="hero-banner-carousel" style="position: relative; overflow: hidden; width: 100%; border-radius: 1.5rem; user-select: none; box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.12), 0 4px 12px -2px rgba(0, 0, 0, 0.06); touch-action: pan-y pinch-zoom;">
-            <!-- Left & Right Arrow Navigation (Visible on laptop / desktop hover) -->
-            <button type="button" class="hero-carousel-arrow hero-carousel-prev hidden sm:flex" id="carousel-prev-btn" aria-label="Previous Slide" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 9999px; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid rgba(255, 255, 255, 0.35); color: #ffffff; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 25; transition: all 0.2s ease; box-shadow: 0 4px 14px rgba(0,0,0,0.3);">
+            <!-- Left & Right Arrow Navigation (Visible on laptop / desktop hover, hidden on mobile) -->
+            <button type="button" class="hero-carousel-arrow hero-carousel-prev hidden sm:flex" id="carousel-prev-btn" aria-label="Previous Slide">
                 <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"></path></svg>
             </button>
-            <button type="button" class="hero-carousel-arrow hero-carousel-next hidden sm:flex" id="carousel-next-btn" aria-label="Next Slide" style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 9999px; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid rgba(255, 255, 255, 0.35); color: #ffffff; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 25; transition: all 0.2s ease; box-shadow: 0 4px 14px rgba(0,0,0,0.3);">
+            <button type="button" class="hero-carousel-arrow hero-carousel-next hidden sm:flex" id="carousel-next-btn" aria-label="Next Slide">
                 <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path></svg>
             </button>
 
@@ -968,7 +965,7 @@ window.pages.home = async function () {
             </div>
 
             <!-- Bottom Pagination Dots -->
-            <div class="hero-carousel-dots" id="carousel-dots" style="position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; z-index: 25;">
+            <div class="hero-carousel-dots" id="carousel-dots">
                 ${carouselDotsHTML}
             </div>
         </section>
