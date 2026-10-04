@@ -132,28 +132,6 @@ window.pages.checkout = async function() {
     const deliverySavings = isFreeDelivery ? (deliveryFeeBase > 0 ? deliveryFeeBase : 25) : 0;
     const totalSavings = mrpDiscount + globalDiscount + deliverySavings;
 
-    let savedHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id');
-    if (!savedHostel) {
-        const addrDetail = localStorage.getItem('lpuquick_address_detail') || '';
-        const match = addrDetail.match(/([B|G]H[\s\-]?\d+|UniMall)/i);
-        if (match) {
-            savedHostel = match[1].toUpperCase().replace(/\s+/g, '-');
-            if (/^[BG]H\d+$/.test(savedHostel)) {
-                savedHostel = savedHostel.replace(/^([A-Z]+)(\d+)/, '$1-$2');
-            }
-        }
-    }
-    if (!savedHostel) {
-        const addr = localStorage.getItem('lpuquick_address') || '';
-        const match = addr.match(/([B|G]H[\s\-]?\d+|UniMall)/i);
-        if (match) {
-            savedHostel = match[1].toUpperCase().replace(/\s+/g, '-');
-            if (/^[BG]H\d+$/.test(savedHostel)) {
-                savedHostel = savedHostel.replace(/^([A-Z]+)(\d+)/, '$1-$2');
-            }
-        }
-    }
-    savedHostel = savedHostel || 'BH-13';
 
     const savedRoom = localStorage.getItem('lpuquick_room') || window.currentRoom;
     const savedBlock = localStorage.getItem('lpuquick_block') || window.currentBlock || 'Block A';
