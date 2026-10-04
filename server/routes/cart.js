@@ -23,14 +23,23 @@ function formatCartResponse(cart) {
     };
 }
 
+function getHostelFromReq(req) {
+    const raw = req.query?.hostel_id || req.query?.hostelId || req.query?.hostel || req.body?.hostel_id || req.body?.hostelId || req.body?.hostel || req.headers?.['x-hostel-id'];
+    if (!raw || raw === 'all' || raw === 'ALL') return null;
+    const match = String(raw).match(/(BH|GH)[-\s]?(\d+)/i);
+    if (match) return `${match[1].toUpperCase()}-${match[2]}`;
+    return String(raw).trim().toUpperCase();
+}
+
 // GET /api/cart?userId=... or GET /api/cart?user_id=...
 router.get('/', async (req, res) => {
     const userId = req.query.userId || req.query.user_id || req.query.id;
     if (!userId) {
         return res.status(400).json({ error: 'userId is required' });
     }
+    const hostelId = getHostelFromReq(req);
     try {
-        const cart = await supabaseDb.cart.getCart(userId);
+        const cart = await supabaseDb.cart.getCart(userId, hostelId);
         res.json(formatCartResponse(cart));
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -40,8 +49,9 @@ router.get('/', async (req, res) => {
 // GET /api/cart/:userId
 router.get('/:userId', async (req, res) => {
     const { userId } = req.params;
+    const hostelId = getHostelFromReq(req);
     try {
-        const cart = await supabaseDb.cart.getCart(userId);
+        const cart = await supabaseDb.cart.getCart(userId, hostelId);
         res.json(formatCartResponse(cart));
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -93,6 +103,7 @@ router.post('/set-quantity', async (req, res) => {
     const userId = req.body.userId || req.body.user_id;
     const productId = req.body.productId || req.body.product_id;
     const quantity = req.body.quantity !== undefined ? Number(req.body.quantity) : 0;
+    const hostelId = getHostelFromReq(req);
 
     if (!userId || !productId) {
         return res.status(400).json({ error: 'userId and productId are required' });
@@ -111,7 +122,7 @@ router.post('/set-quantity', async (req, res) => {
     }
 
     try {
-        const cart = await supabaseDb.cart.setQuantity(userId, productId, quantity);
+        const cart = await supabaseDb.cart.setQuantity(userId, productId, quantity, hostelId);
         res.json(formatCartResponse(cart));
     } catch (err) {
         res.status(400).json({ error: err.message });
@@ -123,6 +134,7 @@ async function handleAddToCart(req, res) {
     const userId = req.body.userId || req.body.user_id;
     const productId = req.body.productId || req.body.product_id;
     const quantity = req.body.quantity !== undefined ? Number(req.body.quantity) : 1;
+    const hostelId = getHostelFromReq(req);
 
     if (!userId || !productId) {
         return res.status(400).json({ error: 'userId and productId are required' });
@@ -139,7 +151,7 @@ async function handleAddToCart(req, res) {
     }
 
     try {
-        const cart = await supabaseDb.cart.addItem(userId, productId, quantity);
+        const cart = await supabaseDb.cart.addItem(userId, productId, quantity, hostelId);
         res.json(formatCartResponse(cart));
     } catch (err) {
         res.status(400).json({ error: err.message });
@@ -153,13 +165,14 @@ router.post('/add', handleAddToCart);
 router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const { quantity, userId } = req.body;
+    const hostelId = getHostelFromReq(req);
 
     if (quantity === undefined) {
         return res.status(400).json({ error: 'quantity is required' });
     }
 
     try {
-        const cart = await supabaseDb.cart.updateItem(id, Number(quantity), userId || 'guest_cart');
+        const cart = await supabaseDb.cart.updateItem(id, Number(quantity), userId || 'guest_cart', hostelId);
         res.json(formatCartResponse(cart));
     } catch (err) {
         res.status(400).json({ error: err.message });
@@ -170,13 +183,14 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     const userId = req.body?.userId || req.query?.userId || 'guest_cart';
+    const hostelId = getHostelFromReq(req);
 
     try {
         if (id && id.startsWith('prod_')) {
-            const cart = await supabaseDb.cart.setQuantity(userId, id, 0);
+            const cart = await supabaseDb.cart.setQuantity(userId, id, 0, hostelId);
             return res.json(formatCartResponse(cart));
         }
-        const cart = await supabaseDb.cart.updateItem(id, 0, userId);
+        const cart = await supabaseDb.cart.updateItem(id, 0, userId, hostelId);
         res.json(formatCartResponse(cart));
     } catch (err) {
         res.status(500).json({ error: err.message });

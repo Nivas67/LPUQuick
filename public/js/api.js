@@ -508,13 +508,17 @@ const api = {
     },
 
     // Cart (Instant 0ms SWR Memory Cache)
-    async getCart(userId) {
+    async getCart(userId, hostelId = null) {
+        const hid = hostelId || window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
         const now = Date.now();
-        if (cartMemoryCache && Array.isArray(cartMemoryCache.items) && (now - cartMemoryCacheTime < 4000)) {
+        if (cartMemoryCache && Array.isArray(cartMemoryCache.items) && (now - cartMemoryCacheTime < 4000) && (window.__lastCartHostel === hid)) {
             return cartMemoryCache;
         }
         try {
-            const res = await fetch(`${API_BASE}/cart/${userId}`);
+            const queryParam = hid ? `?hostel_id=${encodeURIComponent(hid)}` : '';
+            const res = await fetch(`${API_BASE}/cart/${userId}${queryParam}`, {
+                headers: { 'x-hostel-id': hid }
+            });
             if (!res.ok) {
                 if (cartMemoryCache && Array.isArray(cartMemoryCache.items)) return cartMemoryCache;
                 return { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 } };
@@ -543,11 +547,13 @@ const api = {
 
                 cartMemoryCache = data;
                 cartMemoryCacheTime = Date.now();
+                window.__lastCartHostel = hid;
                 data.items.forEach(item => {
                     if (item.product_id && item.stock_left !== undefined) {
                         if (window.__cachedProducts && window.__cachedProducts.has(item.product_id)) {
                             const cp = window.__cachedProducts.get(item.product_id);
                             cp.stock_left = item.stock_left;
+                            if (item.in_stock !== undefined) cp.in_stock = item.in_stock;
                         }
                     }
                 });
@@ -560,12 +566,16 @@ const api = {
             return { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 } };
         }
     },
-    async setCartQuantity(userId, productId, quantity) {
+    async setCartQuantity(userId, productId, quantity, hostelId = null) {
         const uid = userId || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : window.CURRENT_USER_ID);
+        const hid = hostelId || window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
         const res = await fetch(`${API_BASE}/cart/set-quantity`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: uid, productId, quantity })
+            headers: { 
+                'Content-Type': 'application/json',
+                'x-hostel-id': hid
+            },
+            body: JSON.stringify({ userId: uid, productId, quantity, hostel_id: hid })
         });
         const result = await res.json();
         if (!res.ok || result.error) {
@@ -574,14 +584,20 @@ const api = {
         if (result && Array.isArray(result.items)) {
             cartMemoryCache = result;
             cartMemoryCacheTime = Date.now();
+            window.__lastCartHostel = hid;
             updateLocalCartState(result);
         }
         return result;
     },
-    async addToCart(userId, productId, quantity = 1) {
+    async addToCart(userId, productId, quantity = 1, hostelId = null) {
+        const hid = hostelId || window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
         const res = await fetch(`${API_BASE}/cart`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, productId, quantity })
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'x-hostel-id': hid
+            },
+            body: JSON.stringify({ userId, productId, quantity, hostel_id: hid })
         });
         const result = await res.json();
         if (!res.ok || result.error) {
@@ -590,14 +606,20 @@ const api = {
         if (result && Array.isArray(result.items)) {
             cartMemoryCache = result;
             cartMemoryCacheTime = Date.now();
+            window.__lastCartHostel = hid;
             updateLocalCartState(result);
         }
         return result;
     },
-    async updateCartItem(cartId, quantity, userId) {
+    async updateCartItem(cartId, quantity, userId, hostelId = null) {
+        const hid = hostelId || window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
         const res = await fetch(`${API_BASE}/cart/${cartId}`, {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ quantity, userId })
+            method: 'PUT',
+            headers: { 
+                'Content-Type': 'application/json',
+                'x-hostel-id': hid
+            },
+            body: JSON.stringify({ quantity, userId, hostel_id: hid })
         });
         const result = await res.json();
         if (!res.ok || result.error) {
@@ -606,16 +628,21 @@ const api = {
         if (result && Array.isArray(result.items)) {
             cartMemoryCache = result;
             cartMemoryCacheTime = Date.now();
+            window.__lastCartHostel = hid;
             updateLocalCartState(result);
         }
         return result;
     },
-    async removeCartItem(cartId) {
-        const userId = typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : window.CURRENT_USER_ID;
+    async removeCartItem(cartId, userId = null, hostelId = null) {
+        const uid = userId || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : window.CURRENT_USER_ID);
+        const hid = hostelId || window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
         const res = await fetch(`${API_BASE}/cart/${cartId}`, {
             method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId })
+            headers: { 
+                'Content-Type': 'application/json',
+                'x-hostel-id': hid
+            },
+            body: JSON.stringify({ userId: uid, hostel_id: hid })
         });
         const result = await res.json();
         if (!res.ok || result.error) {
@@ -624,6 +651,7 @@ const api = {
         if (result && Array.isArray(result.items)) {
             cartMemoryCache = result;
             cartMemoryCacheTime = Date.now();
+            window.__lastCartHostel = hid;
             updateLocalCartState(result);
         }
         return result;

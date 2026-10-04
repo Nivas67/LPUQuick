@@ -3,10 +3,33 @@ window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
 window.pages.checkout = async function() {
+    let savedHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id');
+    if (!savedHostel) {
+        const addrDetail = localStorage.getItem('lpuquick_address_detail') || '';
+        const match = addrDetail.match(/([B|G]H[\s\-]?\d+|UniMall)/i);
+        if (match) {
+            savedHostel = match[1].toUpperCase().replace(/\s+/g, '-');
+            if (/^[BG]H\d+$/.test(savedHostel)) {
+                savedHostel = savedHostel.replace(/^([A-Z]+)(\d+)/, '$1-$2');
+            }
+        }
+    }
+    if (!savedHostel) {
+        const addr = localStorage.getItem('lpuquick_address') || '';
+        const match = addr.match(/([B|G]H[\s\-]?\d+|UniMall)/i);
+        if (match) {
+            savedHostel = match[1].toUpperCase().replace(/\s+/g, '-');
+            if (/^[BG]H\d+$/.test(savedHostel)) {
+                savedHostel = savedHostel.replace(/^([A-Z]+)(\d+)/, '$1-$2');
+            }
+        }
+    }
+    savedHostel = savedHostel || 'BH-13';
+
     let cartData;
     const userId = window.getEffectiveUserId();
     try { 
-        cartData = await window.api.getCart(userId); 
+        cartData = await window.api.getCart(userId, savedHostel); 
     } catch(e) { 
         cartData = { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 } }; 
     }
@@ -145,8 +168,11 @@ window.pages.checkout = async function() {
         const hasItemDiscount = itemMrp > itemPrice;
         const discPercent = hasItemDiscount ? Math.round(((itemMrp - itemPrice) / itemMrp) * 100) : 0;
 
+        const stockLeft = (item.stock_left !== undefined && item.stock_left !== null) ? Number(item.stock_left) : 50;
+        const isMaxStockReached = (Number(item.quantity) || 1) >= stockLeft && stockLeft > 0;
+
         return `
-        <div class="flex items-center justify-between py-3 border-b border-[var(--glass-border)] text-xs cart-checkout-row" data-cart-id="${item.cart_id}">
+        <div class="flex items-center justify-between py-3 border-b border-[var(--glass-border)] text-xs cart-checkout-row" data-cart-id="${item.cart_id}" data-product-id="${item.product_id}" data-stock-left="${stockLeft}">
             <div class="flex items-center gap-3 min-w-0">
                 <div class="w-12 h-12 rounded-xl bg-slate-100/90 dark:bg-slate-800/90 p-1 shrink-0 flex items-center justify-center border border-[var(--glass-border)] shadow-inner">
                     <img class="w-full h-full object-contain" src="${item.image_url}" alt="${item.name}" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=100'">
@@ -162,11 +188,11 @@ window.pages.checkout = async function() {
             
             <div class="flex items-center gap-3 shrink-0 ml-2">
                 <div class="card-qty-stepper flex items-center shrink-0">
-                    <button class="checkout-qty-dec" data-id="${item.cart_id}" data-qty="${item.quantity}">
+                    <button class="checkout-qty-dec" data-id="${item.cart_id}" data-product-id="${item.product_id}" data-qty="${item.quantity}" data-stock-left="${stockLeft}" title="Decrease or remove">
                         <span class="material-symbols-outlined text-xs">remove</span>
                     </button>
                     <span class="qty-num">${item.quantity}</span>
-                    <button class="checkout-qty-inc" data-id="${item.cart_id}" data-qty="${item.quantity}">
+                    <button class="checkout-qty-inc ${isMaxStockReached ? 'opacity-40 cursor-not-allowed' : ''}" data-id="${item.cart_id}" data-product-id="${item.product_id}" data-qty="${item.quantity}" data-stock-left="${stockLeft}" ${isMaxStockReached ? 'disabled' : ''} title="${isMaxStockReached ? `Max stock limit (${stockLeft})` : 'Add one more'}">
                         <span class="material-symbols-outlined text-xs">add</span>
                     </button>
                 </div>
@@ -511,9 +537,25 @@ window.pageInits.checkout = function() {
             e.stopPropagation();
             const row = btn.closest('.cart-checkout-row');
             const cartId = btn.dataset.id || row?.dataset?.cartId;
+            const productId = btn.dataset.productId || row?.dataset?.productId;
+            const stockLeft = Number(btn.dataset.stockLeft || row?.dataset?.stockLeft) || 50;
             const curQty = parseInt(btn.dataset.qty) || 1;
+
+            if (curQty >= stockLeft) {
+                btn.classList.add('opacity-40', 'cursor-not-allowed');
+                btn.setAttribute('title', `Max stock limit (${stockLeft})`);
+                btn.disabled = true;
+                if (typeof window.showClientToast === 'function') {
+                    window.showClientToast(`⚠️ Only ${stockLeft} unit${stockLeft === 1 ? '' : 's'} available in store!`, 'warning', 'inventory_2');
+                }
+                return;
+            }
+
             const nextQty = curQty + 1;
-            if (cartId) {
+            if (productId) {
+                window.setOptimisticCartQuantity(productId, nextQty, stockLeft);
+                if (window.router) window.router();
+            } else if (cartId) {
                 await window.api.updateCartItem(cartId, nextQty, userId);
                 if (window.router) window.router();
             }
@@ -525,14 +567,29 @@ window.pageInits.checkout = function() {
             e.stopPropagation();
             const row = btn.closest('.cart-checkout-row');
             const cartId = btn.dataset.id || row?.dataset?.cartId;
+            const productId = btn.dataset.productId || row?.dataset?.productId;
+            const stockLeft = Number(btn.dataset.stockLeft || row?.dataset?.stockLeft) || 50;
             const curQty = parseInt(btn.dataset.qty) || 1;
-            if (cartId) {
-                if (curQty <= 1) {
+
+            if (curQty <= 1) {
+                if (productId) {
+                    window.setOptimisticCartQuantity(productId, 0, stockLeft);
+                } else if (cartId) {
                     await window.api.removeCartItem(cartId);
-                } else {
-                    await window.api.updateCartItem(cartId, curQty - 1, userId);
+                }
+                if (typeof window.showClientToast === 'function') {
+                    window.showClientToast('Item removed from cart', 'info', 'delete');
                 }
                 if (window.router) window.router();
+            } else {
+                const nextQty = curQty - 1;
+                if (productId) {
+                    window.setOptimisticCartQuantity(productId, nextQty, stockLeft);
+                    if (window.router) window.router();
+                } else if (cartId) {
+                    await window.api.updateCartItem(cartId, nextQty, userId);
+                    if (window.router) window.router();
+                }
             }
         };
     });

@@ -91,8 +91,9 @@ function calculateCartCharges(cartSubtotal, settings) {
 window.pages.cart = async function() {
     let cartData;
     const userId = typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : (window.CURRENT_USER_ID || 'guest');
+    const currentHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
     try { 
-        cartData = await window.api.getCart(userId); 
+        cartData = await window.api.getCart(userId, currentHostel); 
     } catch(e) { 
         cartData = { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0, free_delivery_remaining: 199 } }; 
     }
@@ -156,21 +157,19 @@ window.pages.cart = async function() {
         const discPercent = hasItemDiscount ? Math.round(((itemMrp - itemPrice) / itemMrp) * 100) : 0;
         const cachedProd = window.__cachedProducts?.get(item.product_id);
         
-        // Robust Authoritative Stock Determination
+        // Authoritative Store Stock Determination
         let stockLeft = 50;
-        if (cachedProd && Number(cachedProd.stock_left) > 0) {
-            stockLeft = Number(cachedProd.stock_left);
-        } else if (item.stock_left !== undefined && item.stock_left !== null && Number(item.stock_left) > 0) {
+        if (item.stock_left !== undefined && item.stock_left !== null) {
             stockLeft = Number(item.stock_left);
-        } else if (cachedProd?.in_stock !== false && item.in_stock !== false) {
-            stockLeft = 50;
-        } else {
-            stockLeft = Math.max((Number(item.quantity) || 1) + 10, 50);
+        } else if (cachedProd && cachedProd.stock_left !== undefined) {
+            stockLeft = Number(cachedProd.stock_left);
         }
+        
+        const isOutOfStock = (item.in_stock === false) || stockLeft <= 0;
         const isMaxStockReached = (Number(item.quantity) || 1) >= stockLeft && stockLeft > 0;
 
         return `
-        <div class="glass-panel card-pedestal rounded-2xl p-3.5 sm:p-4 flex items-center justify-between gap-3.5 shadow-md mb-3 border border-[var(--glass-border)] cart-row transition-all hover:translate-y-[-1px]" data-cart-id="${item.cart_id}" data-product-id="${item.product_id}" data-price="${itemPrice}" data-mrp="${itemMrp}" data-stock-left="${stockLeft}">
+        <div class="glass-panel card-pedestal rounded-2xl p-3.5 sm:p-4 flex items-center justify-between gap-3.5 shadow-md mb-3 border border-[var(--glass-border)] cart-row transition-all hover:translate-y-[-1px] ${isOutOfStock ? 'border-rose-500/30 bg-rose-500/5' : ''}" data-cart-id="${item.cart_id}" data-product-id="${item.product_id}" data-price="${itemPrice}" data-mrp="${itemMrp}" data-stock-left="${stockLeft}" data-in-stock="${!isOutOfStock}">
             <div class="flex items-center gap-3.5 min-w-0">
                 <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-white/90 to-slate-100/90 dark:from-slate-800/90 dark:to-slate-900/90 p-2 shrink-0 flex items-center justify-center border border-[var(--glass-border)] shadow-[inset_1px_1px_3px_rgba(255,255,255,0.8),inset_-1px_-1px_3px_rgba(0,0,0,0.05)] relative overflow-hidden group">
                     <img class="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110" src="${item.image_url}" alt="${item.name}" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200'">
@@ -178,12 +177,17 @@ window.pages.cart = async function() {
                 <div class="min-w-0">
                     <h4 class="font-black text-xs sm:text-sm text-slate-900 dark:text-white truncate tracking-tight">${item.name}</h4>
                     <p class="text-[11px] text-slate-500 dark:text-slate-400 font-medium">${item.size || item.unit || '1 unit'}</p>
-                    ${stockLeft > 0 && stockLeft <= 4 ? `
+                    ${isOutOfStock ? `
+                    <p class="text-[10px] font-black text-rose-500 mt-0.5 flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                        Out of stock in ${currentHostel.replace('-', '')} store
+                    </p>
+                    ` : (stockLeft > 0 && stockLeft <= 5 ? `
                     <p class="text-[10px] font-black text-amber-500 mt-0.5 flex items-center gap-1">
                         <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
                         Only ${stockLeft} left in stock
                     </p>
-                    ` : ''}
+                    ` : '')}
                     <div class="flex items-baseline gap-1.5 mt-1">
                         <span class="font-black text-sm text-slate-900 dark:text-white tracking-tight item-price-total">₹${itemPrice * item.quantity}</span>
                         <span class="text-[10px] text-slate-400 font-medium item-price-multi">${item.quantity > 1 ? `(₹${itemPrice} × ${item.quantity})` : ''}</span>
@@ -196,11 +200,11 @@ window.pages.cart = async function() {
             </div>
             
             <div class="card-qty-stepper flex items-center shrink-0">
-                <button class="qty-dec-btn" data-id="${item.cart_id}" data-product-id="${item.product_id}" data-qty="${item.quantity}" data-stock-left="${stockLeft}" title="Decrease quantity">
+                <button class="qty-dec-btn" data-id="${item.cart_id}" data-product-id="${item.product_id}" data-qty="${item.quantity}" data-stock-left="${stockLeft}" title="Decrease quantity or remove">
                     <span class="material-symbols-outlined text-sm">remove</span>
                 </button>
                 <span class="qty-num">${item.quantity}</span>
-                <button class="qty-inc-btn ${isMaxStockReached ? 'opacity-40 cursor-not-allowed' : ''}" data-id="${item.cart_id}" data-product-id="${item.product_id}" data-qty="${item.quantity}" data-stock-left="${stockLeft}" title="${isMaxStockReached ? `Max stock limit (${stockLeft})` : 'Add one more'}" ${isMaxStockReached ? 'disabled' : ''}>
+                <button class="qty-inc-btn ${(isMaxStockReached || isOutOfStock) ? 'opacity-40 cursor-not-allowed' : ''}" data-id="${item.cart_id}" data-product-id="${item.product_id}" data-qty="${item.quantity}" data-stock-left="${stockLeft}" title="${isOutOfStock ? 'Out of stock in this store' : (isMaxStockReached ? `Max stock limit (${stockLeft})` : 'Add one more')}" ${(isMaxStockReached || isOutOfStock) ? 'disabled' : ''}>
                     <span class="material-symbols-outlined text-sm">add</span>
                 </button>
             </div>
@@ -770,31 +774,27 @@ window.pageInits.cart = function() {
             const productId = btn.dataset.productId || row?.dataset?.productId;
             if (!productId) return;
 
+            const activeHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
             const cachedProd = window.__cachedProducts?.get(productId);
             const stockLeftAttr = btn.dataset.stockLeft || row?.dataset?.stockLeft;
             
-            // Robust Authoritative Stock Determination
+            // Accurate Dark Store Stock Determination
             let stockLeft = 50;
-            if (cachedProd && Number(cachedProd.stock_left) > 0) {
-                stockLeft = Number(cachedProd.stock_left);
-            } else if (stockLeftAttr !== undefined && stockLeftAttr !== '' && stockLeftAttr !== null && Number(stockLeftAttr) > 0) {
+            if (stockLeftAttr !== undefined && stockLeftAttr !== '' && stockLeftAttr !== null) {
                 stockLeft = Number(stockLeftAttr);
-            } else if (cachedProd?.in_stock !== false) {
-                stockLeft = 50;
-            } else {
-                const cur = parseInt(row?.querySelector('.qty-num')?.textContent || btn.dataset.qty) || 1;
-                stockLeft = Math.max(cur + 10, 50);
+            } else if (cachedProd && cachedProd.stock_left !== undefined) {
+                stockLeft = Number(cachedProd.stock_left);
             }
 
             const qtyNum = row?.querySelector('.qty-num');
             const currentQty = parseInt(qtyNum?.textContent || btn.dataset.qty) || 1;
 
-            if (currentQty >= stockLeft && stockLeft > 0) {
+            if (currentQty >= stockLeft) {
                 btn.classList.add('opacity-40', 'cursor-not-allowed');
                 btn.setAttribute('title', `Max stock limit (${stockLeft})`);
                 btn.disabled = true;
                 if (typeof window.showClientToast === 'function') {
-                    window.showClientToast(`⚠️ Only ${stockLeft} unit${stockLeft === 1 ? '' : 's'} available in stock!`, 'warning', 'inventory_2');
+                    window.showClientToast(`⚠️ Only ${stockLeft} unit${stockLeft === 1 ? '' : 's'} available in ${activeHostel.replace('-', '')} store!`, 'warning', 'inventory_2');
                 }
                 return;
             }
@@ -809,7 +809,7 @@ window.pageInits.cart = function() {
                 decBtn.dataset.stockLeft = stockLeft;
             }
 
-            if (nextQty >= stockLeft && stockLeft > 0) {
+            if (nextQty >= stockLeft) {
                 btn.classList.add('opacity-40', 'cursor-not-allowed');
                 btn.setAttribute('title', `Max stock limit (${stockLeft})`);
                 btn.disabled = true;
@@ -827,29 +827,35 @@ window.pageInits.cart = function() {
             const productId = btn.dataset.productId || row?.dataset?.productId;
             if (!productId) return;
 
+            const activeHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
             const cachedProd = window.__cachedProducts?.get(productId);
             const stockLeftAttr = btn.dataset.stockLeft || row?.dataset?.stockLeft;
             let stockLeft = 50;
-            if (cachedProd && Number(cachedProd.stock_left) > 0) {
-                stockLeft = Number(cachedProd.stock_left);
-            } else if (stockLeftAttr !== undefined && stockLeftAttr !== '' && stockLeftAttr !== null && Number(stockLeftAttr) > 0) {
+            if (stockLeftAttr !== undefined && stockLeftAttr !== '' && stockLeftAttr !== null) {
                 stockLeft = Number(stockLeftAttr);
-            } else if (cachedProd?.in_stock !== false) {
-                stockLeft = 50;
-            } else {
-                const cur = parseInt(row?.querySelector('.qty-num')?.textContent || btn.dataset.qty) || 1;
-                stockLeft = Math.max(cur + 10, 50);
+            } else if (cachedProd && cachedProd.stock_left !== undefined) {
+                stockLeft = Number(cachedProd.stock_left);
             }
 
             const qtyNum = row?.querySelector('.qty-num');
             const currentQty = parseInt(qtyNum?.textContent || btn.dataset.qty) || 1;
 
             if (currentQty <= 1) {
+                // Remove product completely from cart!
                 if (row) {
+                    row.style.opacity = '0.3';
+                    row.style.transform = 'scale(0.95)';
                     row.remove();
                 }
                 updateCartDOMBill();
                 window.setOptimisticCartQuantity(productId, 0, stockLeft);
+                if (typeof window.showClientToast === 'function') {
+                    window.showClientToast('Item removed from cart', 'info', 'delete');
+                }
+                const remaining = document.querySelectorAll('.cart-row');
+                if (remaining.length === 0) {
+                    if (window.router) window.router();
+                }
             } else {
                 const nextQty = currentQty - 1;
                 if (qtyNum) qtyNum.textContent = nextQty;

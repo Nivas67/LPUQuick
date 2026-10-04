@@ -948,7 +948,7 @@ const supabaseDb = {
     // CART
     // ==========================================
     cart: {
-        async getCart(userId) {
+        async getCart(userId, hostelId = null) {
             const supabase = getSupabaseClient();
             if (!supabase || !userId) return { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0, total_savings: 0, deliveryFee: 0, platformFee: 0 } };
 
@@ -983,14 +983,58 @@ const supabaseDb = {
 
             const rawItems = Array.from(itemMap.values());
 
+            // 🏬 Resolve dark store inventory for the specified hostel
+            let cleanHostel = (hostelId && hostelId !== 'all' && hostelId !== 'ALL') ? String(hostelId).trim().toUpperCase() : null;
+            if (cleanHostel) {
+                const match = cleanHostel.match(/(BH|GH)[-\s]?(\d+)/i);
+                if (match) {
+                    cleanHostel = `${match[1].toUpperCase()}-${match[2]}`;
+                }
+            }
+
+            let hostelInventory = {};
+            if (cleanHostel && supabaseDb.inventory) {
+                try {
+                    hostelInventory = await supabaseDb.inventory.getHostelInventory(cleanHostel);
+                } catch (invErr) {
+                    console.warn('[Cart Hostel Inventory Load Note]:', invErr.message);
+                }
+            }
+
             const items = rawItems.map(item => {
                 const prod = item.products || {};
-                const match = (prod.tags || '').match(/stock:(\d+)/);
-                let stock_left = match ? parseInt(match[1], 10) : (prod.in_stock !== false ? 50 : 0);
-                if (stock_left <= 0 && prod.in_stock !== false) {
+                let stock_left = 50;
+                let in_stock = prod.in_stock !== false;
+
+                if (cleanHostel && hostelInventory) {
+                    const override = hostelInventory[item.product_id];
+                    if (override !== undefined) {
+                        if (override.deleted) {
+                            stock_left = 0;
+                            in_stock = false;
+                        } else {
+                            stock_left = Math.max(0, Number(override.stock_left) || 0);
+                            in_stock = Boolean(override.in_stock && stock_left > 0);
+                        }
+                    } else {
+                        const match = (prod.tags || '').match(/stock:(\d+)/);
+                        stock_left = match ? parseInt(match[1], 10) : (prod.in_stock !== false ? 50 : 0);
+                        in_stock = prod.in_stock !== false && stock_left > 0;
+                    }
+                } else {
+                    const match = (prod.tags || '').match(/stock:(\d+)/);
+                    stock_left = match ? parseInt(match[1], 10) : (prod.in_stock !== false ? 50 : 0);
+                    in_stock = prod.in_stock !== false && stock_left > 0;
+                }
+
+                if (in_stock && stock_left <= 0) {
                     stock_left = 50;
                 }
-                const clampedQty = Math.max(1, Math.min(Number(item.quantity) || 1, stock_left > 0 ? stock_left : 50));
+
+                const currentQty = Number(item.quantity) || 1;
+                const maxStock = (in_stock && stock_left > 0) ? stock_left : (in_stock ? 50 : 0);
+                const clampedQty = maxStock > 0 ? Math.max(1, Math.min(currentQty, maxStock)) : currentQty;
+
                 return {
                     id: item.id,
                     cart_id: item.id,
@@ -1001,11 +1045,12 @@ const supabaseDb = {
                     price: Number(prod.price) || 0,
                     mrp: Number(prod.mrp) || Number(prod.price) || 0,
                     image_url: prod.image_url || '',
-                    in_stock: prod.in_stock !== false,
+                    in_stock,
                     stock_left,
                     unit: prod.unit || '',
                     size: prod.size || '',
-                    category: prod.category || ''
+                    category: prod.category || '',
+                    hostel_id: cleanHostel || 'BH-13'
                 };
             });
 
@@ -1052,12 +1097,36 @@ const supabaseDb = {
         },
 
         // 🛡️ Atomic Idempotent Quantity Setter (Eliminates all duplication & re-add glitches)
-        async setQuantity(userId, productId, quantity) {
+        async setQuantity(userId, productId, quantity, hostelId = null) {
             const supabase = getSupabaseClient();
             if (!supabase) throw new Error('PostgreSQL client unavailable');
             if (!userId || !productId) throw new Error('userId and productId are required');
 
-            const targetQty = Number(quantity);
+            let targetQty = Number(quantity);
+
+            let cleanHostel = (hostelId && hostelId !== 'all' && hostelId !== 'ALL') ? String(hostelId).trim().toUpperCase() : null;
+            if (cleanHostel) {
+                const match = cleanHostel.match(/(BH|GH)[-\s]?(\d+)/i);
+                if (match) {
+                    cleanHostel = `${match[1].toUpperCase()}-${match[2]}`;
+                }
+            }
+
+            // Enforce store stock limit if known
+            if (targetQty > 0 && cleanHostel && supabaseDb.inventory) {
+                try {
+                    const inv = await supabaseDb.inventory.getHostelInventory(cleanHostel);
+                    const override = inv[productId];
+                    if (override !== undefined) {
+                        const storeStock = override.deleted ? 0 : Math.max(0, Number(override.stock_left) || 0);
+                        if (override.in_stock && storeStock > 0) {
+                            targetQty = Math.min(targetQty, storeStock);
+                        } else if (override.deleted || !override.in_stock || storeStock <= 0) {
+                            targetQty = 0;
+                        }
+                    }
+                } catch (e) {}
+            }
 
             // Fetch ALL existing rows for this user and product
             const { data: existingRows } = await supabase
@@ -1098,10 +1167,10 @@ const supabaseDb = {
                 }
             }
 
-            return await this.getCart(userId);
+            return await this.getCart(userId, cleanHostel);
         },
 
-        async addItem(userId, productId, quantity = 1) {
+        async addItem(userId, productId, quantity = 1, hostelId = null) {
             const supabase = getSupabaseClient();
             if (!supabase) throw new Error('PostgreSQL client unavailable');
             if (!userId || !productId) throw new Error('userId and productId are required');
@@ -1117,13 +1186,13 @@ const supabaseDb = {
             if (rows && rows.length > 0) {
                 const currentTotal = rows.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0);
                 const nextQty = currentTotal + reqQty;
-                return await this.setQuantity(userId, productId, nextQty);
+                return await this.setQuantity(userId, productId, nextQty, hostelId);
             } else {
-                return await this.setQuantity(userId, productId, reqQty);
+                return await this.setQuantity(userId, productId, reqQty, hostelId);
             }
         },
 
-        async updateItem(cartId, quantity, userId) {
+        async updateItem(cartId, quantity, userId, hostelId = null) {
             const supabase = getSupabaseClient();
             if (!supabase) throw new Error('PostgreSQL client unavailable');
             if (!cartId) throw new Error('cartId is required');
@@ -1140,7 +1209,7 @@ const supabaseDb = {
             const productId = item?.product_id;
 
             if (effectiveUserId && productId) {
-                return await this.setQuantity(effectiveUserId, productId, targetQty);
+                return await this.setQuantity(effectiveUserId, productId, targetQty, hostelId);
             }
 
             if (targetQty <= 0) {
@@ -1150,17 +1219,17 @@ const supabaseDb = {
             }
 
             if (effectiveUserId && effectiveUserId !== 'guest_cart') {
-                return await this.getCart(effectiveUserId);
+                return await this.getCart(effectiveUserId, hostelId);
             }
             return { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 } };
         },
 
-        async updateQuantity(cartId, quantity, userId) {
-            return await this.updateItem(cartId, quantity, userId);
+        async updateQuantity(cartId, quantity, userId, hostelId = null) {
+            return await this.updateItem(cartId, quantity, userId, hostelId);
         },
 
-        async removeItem(cartId, userId) {
-            return await this.updateItem(cartId, 0, userId);
+        async removeItem(cartId, userId, hostelId = null) {
+            return await this.updateItem(cartId, 0, userId, hostelId);
         },
 
         async removeProduct(userId, productId) {
