@@ -8307,12 +8307,16 @@ function renderAdminCarouselSlides() {
         if (isStoreAnnounce && imageUrl) {
             return `
                 <div class="hero-carousel-slide hero-carousel-slide-announce flex-shrink-0"
-                    style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; overflow: hidden; border-radius: inherit; padding: 0 !important; display: block !important; min-height: 230px; height: 230px; cursor: pointer;">
+                    style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; overflow: hidden; border-radius: inherit; padding: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important; min-height: 230px; height: 230px; cursor: pointer;">
                     
-                    <!-- Entire announcement image, perfectly adjusted edge-to-edge with NO black bars (matching Pic 1) -->
+                    <!-- Ambient blurred background from image (eliminates empty black bars) -->
+                    <img src="${imageUrl}" alt="" class="announce-bg absolute inset-0 w-full h-full object-cover blur-2xl opacity-75 scale-110 pointer-events-none" aria-hidden="true" onerror="this.style.display='none'">
+                    <div class="absolute inset-0 bg-black/15 pointer-events-none"></div>
+
+                    <!-- 100% Complete Announcement Graphic (Never cropped, whole image visible) -->
                     <img src="${imageUrl}" alt="${escapeHtmlStr(poster.title || 'Store Announcement')}"
-                        class="w-full h-full object-cover object-center transition-transform duration-500 hover:scale-[1.01]"
-                        style="width: 100%; height: 100%; object-fit: cover; object-position: center; display: block;"
+                        class="announce-img relative z-[2] w-full h-full object-contain object-center transition-transform duration-500 hover:scale-[1.01]"
+                        style="width: 100%; height: 100%; max-height: 100%; object-fit: contain; object-position: center; display: block;"
                         onerror="this.style.display='none'">
                     
                     ${showButton ? `

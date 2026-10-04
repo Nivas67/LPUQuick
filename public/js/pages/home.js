@@ -575,25 +575,29 @@ function renderHomeBannerSlideHTML(poster, index) {
     // 1. STORE ANNOUNCE MODE (Full plain artwork image with 1 clean action button)
     if (isStoreAnnounce && imageUrl) {
         return `
-            <div class="hero-carousel-slide hero-carousel-slide-announce flex-shrink-0 cursor-pointer h-52 sm:h-60 md:h-72"
+            <div class="hero-carousel-slide hero-carousel-slide-announce flex-shrink-0 cursor-pointer h-[165px] sm:h-56 md:h-64"
                 onclick="window.handleBannerTargetClick('${safeJsUrl}', event)"
                 data-link-url="${escapedLinkUrl}"
                 role="button"
                 tabindex="0"
-                style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; overflow: hidden; border-radius: inherit; padding: 0 !important; display: block !important;">
+                style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; overflow: hidden; border-radius: inherit; padding: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important;">
                 
-                <!-- Entire announcement image, perfectly adjusted edge-to-edge with NO black bars -->
-                <img src="${imageUrl}" alt="${(poster.title || 'Store Announcement').replace(/"/g, '&quot;')}" class="announce-img w-full h-full object-cover object-center transition-transform duration-500 hover:scale-[1.01]" style="width: 100%; height: 100%; object-fit: cover; object-position: center; display: block;" onerror="this.style.display='none'">
+                <!-- Ambient blurred background from image (fills card with matching lighting, ZERO black bars) -->
+                <img src="${imageUrl}" alt="" class="announce-bg absolute inset-0 w-full h-full object-cover blur-2xl opacity-75 scale-110 pointer-events-none" aria-hidden="true" onerror="this.style.display='none'">
+                <div class="absolute inset-0 bg-black/15 pointer-events-none"></div>
+
+                <!-- 100% Full Graphic, Zero Cropping, Whole Banner Adjusted and Completely Visible on Mobile -->
+                <img src="${imageUrl}" alt="${(poster.title || 'Store Announcement').replace(/"/g, '&quot;')}" class="announce-img relative z-[2] w-full h-full object-contain object-center transition-transform duration-500 hover:scale-[1.01]" style="width: 100%; height: 100%; max-height: 100%; object-fit: contain; object-position: center; display: block;" onerror="this.style.display='none'">
                 
                 <!-- One Action Button -->
                 ${showButton ? `
-                    <div class="absolute bottom-3.5 left-4 sm:bottom-4 sm:left-6 z-10 pointer-events-auto">
+                    <div class="absolute bottom-2.5 left-3 sm:bottom-4 sm:left-6 z-10 pointer-events-auto">
                         <a href="${hrefAttr}" ${targetAttr}
                             onclick="window.handleBannerTargetClick('${safeJsUrl}', event)" 
-                            class="clay-btn text-xs sm:text-sm px-3.5 py-1.5 sm:px-5 sm:py-2 rounded-full inline-flex items-center gap-1.5 shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer font-black"
+                            class="clay-btn text-[11px] sm:text-sm px-3 py-1 sm:px-5 sm:py-2 rounded-full inline-flex items-center gap-1.5 shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer font-black"
                             style="background: #ffffff !important; color: #0f172a !important; font-weight: 900 !important; border: 1px solid rgba(255,255,255,0.7) !important;">
                             <span style="color: #0f172a !important; font-weight: 900 !important;">${linkText}</span>
-                            <svg class="w-3.5 h-3.5" style="color: #0f172a !important;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                            <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" style="color: #0f172a !important;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                         </a>
                     </div>
                 ` : ''}
@@ -612,22 +616,22 @@ function renderHomeBannerSlideHTML(poster, index) {
     const theme = HOME_GRADIENT_THEMES[themeKey] || HOME_GRADIENT_THEMES.purple;
 
     return `
-        <div class="hero-carousel-slide hero-carousel-slide-promo flex-shrink-0 cursor-pointer h-52 sm:h-60 md:h-72"
+        <div class="hero-carousel-slide hero-carousel-slide-promo flex-shrink-0 cursor-pointer h-[165px] sm:h-56 md:h-64"
             onclick="window.handleBannerTargetClick('${safeJsUrl}', event)"
             data-link-url="${escapedLinkUrl}"
             role="button"
             tabindex="0"
-            style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; padding: 1.25rem 1.15rem 2.25rem 1.15rem; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff; overflow: hidden; background: ${theme.bg};">
+            style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; padding: 1rem 1rem 1.85rem 1rem; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff; overflow: hidden; background: ${theme.bg};">
             
             ${imageUrl ? `
                 <img src="${imageUrl}" alt="${title}" class="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 hover:scale-105" style="filter: brightness(0.72);" onerror="this.style.display='none'">
                 <div class="absolute inset-0 bg-gradient-to-r from-black/85 via-black/45 to-transparent z-[1]"></div>
             ` : ''}
 
-            <div class="space-y-1.5 sm:space-y-2 max-w-lg z-10 relative pointer-events-none">
-                <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            <div class="space-y-1 max-w-lg z-10 relative pointer-events-none">
+                <div class="flex items-center gap-1.5 flex-wrap">
                     ${pill ? `
-                        <span class="clay-pill px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black ${theme.pillClass} flex items-center gap-1 backdrop-blur-md rounded-full">
+                        <span class="clay-pill px-2 py-0.5 text-[9px] sm:text-[10px] font-black ${theme.pillClass} flex items-center gap-1 backdrop-blur-md rounded-full">
                             ${theme.dot || ''}
                             <span>${pill}</span>
                         </span>` : ''}
@@ -636,25 +640,25 @@ function renderHomeBannerSlideHTML(poster, index) {
                             ${badge}
                         </span>` : ''}
                 </div>
-                <h2 class="text-base sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-snug sm:leading-tight drop-shadow-sm line-clamp-2">
+                <h2 class="text-sm sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-snug sm:leading-tight drop-shadow-sm line-clamp-1 sm:line-clamp-2">
                     ${title}
                 </h2>
                 ${subtitle ? `
-                    <p class="text-[11px] sm:text-sm ${theme.subtitleClass} font-medium leading-snug sm:leading-relaxed max-w-md line-clamp-2">
+                    <p class="text-[10.5px] sm:text-sm ${theme.subtitleClass} font-medium leading-snug sm:leading-relaxed max-w-md line-clamp-1 sm:line-clamp-2">
                         ${subtitle}
                     </p>` : ''}
             </div>
 
-            <div class="pt-1.5 sm:pt-3 z-10 relative flex items-center gap-2 flex-wrap">
+            <div class="z-10 relative flex items-center gap-2 flex-wrap pb-0.5">
                 <a href="${hrefAttr}" ${targetAttr}
                     onclick="window.handleBannerTargetClick('${safeJsUrl}', event)" 
-                    class="clay-btn text-xs px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full inline-flex items-center gap-1.5 shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer font-bold"
+                    class="clay-btn text-[11px] sm:text-xs px-3 py-1.5 sm:px-4 sm:py-2 rounded-full inline-flex items-center gap-1.5 shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer font-bold"
                     style="background: #ffffff !important; color: ${theme.btnColor} !important; font-weight: 800 !important;">
                     <span style="color: ${theme.btnColor} !important; font-weight: 800 !important;">${linkText}</span>
-                    <svg class="w-3.5 h-3.5" style="color: ${theme.btnColor} !important;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                    <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" style="color: ${theme.btnColor} !important;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                 </a>
                 ${poster.has_assistant_btn ? `
-                    <a href="#/flow-assist" onclick="event.stopPropagation()" class="clay-pill bg-white/20 text-white font-bold text-[11px] sm:text-xs px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-full inline-flex items-center gap-1 hover:bg-white/30 backdrop-blur-md border border-white/25 transition-all">
+                    <a href="#/flow-assist" onclick="event.stopPropagation()" class="clay-pill bg-white/20 text-white font-bold text-[10px] sm:text-xs px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-full inline-flex items-center gap-1 hover:bg-white/30 backdrop-blur-md border border-white/25 transition-all">
                         <span class="text-amber-300 font-bold">✨</span>
                         <span>AI Assistant</span>
                     </a>
