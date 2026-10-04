@@ -575,29 +575,25 @@ function renderHomeBannerSlideHTML(poster, index) {
     // 1. STORE ANNOUNCE MODE (Full plain artwork image with 1 clean action button)
     if (isStoreAnnounce && imageUrl) {
         return `
-            <div class="hero-carousel-slide hero-carousel-slide-announce flex-shrink-0 cursor-pointer h-[165px] sm:h-56 md:h-64"
+            <div class="hero-carousel-slide hero-carousel-slide-announce flex-shrink-0 cursor-pointer h-[190px] sm:h-60 md:h-72"
                 onclick="window.handleBannerTargetClick('${safeJsUrl}', event)"
                 data-link-url="${escapedLinkUrl}"
                 role="button"
                 tabindex="0"
-                style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; overflow: hidden; border-radius: inherit; padding: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important;">
+                style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; overflow: hidden; border-radius: inherit; padding: 0 !important; display: block !important;">
                 
-                <!-- Ambient blurred background from image (fills card with matching lighting, ZERO black bars) -->
-                <img src="${imageUrl}" alt="" class="announce-bg absolute inset-0 w-full h-full object-cover blur-2xl opacity-75 scale-110 pointer-events-none" aria-hidden="true" onerror="this.style.display='none'">
-                <div class="absolute inset-0 bg-black/15 pointer-events-none"></div>
-
-                <!-- 100% Full Graphic, Zero Cropping, Whole Banner Adjusted and Completely Visible on Mobile -->
-                <img src="${imageUrl}" alt="${(poster.title || 'Store Announcement').replace(/"/g, '&quot;')}" class="announce-img relative z-[2] w-full h-full object-contain object-center transition-transform duration-500 hover:scale-[1.01]" style="width: 100%; height: 100%; max-height: 100%; object-fit: contain; object-position: center; display: block;" onerror="this.style.display='none'">
+                <!-- 100% Full Edge-to-Edge Poster Graphic (Full poster, completely fills slide) -->
+                <img src="${imageUrl}" alt="${(poster.title || 'Store Announcement').replace(/"/g, '&quot;')}" class="announce-img w-full h-full object-cover object-center transition-transform duration-500 hover:scale-[1.01]" style="width: 100%; height: 100%; object-fit: cover; object-position: center; display: block;" onerror="this.style.display='none'">
                 
                 <!-- One Action Button -->
                 ${showButton ? `
-                    <div class="absolute bottom-2.5 left-3 sm:bottom-4 sm:left-6 z-10 pointer-events-auto">
+                    <div class="absolute bottom-3 left-3 sm:bottom-4 sm:left-6 z-10 pointer-events-auto">
                         <a href="${hrefAttr}" ${targetAttr}
                             onclick="window.handleBannerTargetClick('${safeJsUrl}', event)" 
-                            class="clay-btn text-[11px] sm:text-sm px-3 py-1 sm:px-5 sm:py-2 rounded-full inline-flex items-center gap-1.5 shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer font-black"
+                            class="clay-btn text-xs sm:text-sm px-3.5 py-1.5 sm:px-5 sm:py-2 rounded-full inline-flex items-center gap-1.5 shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer font-black"
                             style="background: #ffffff !important; color: #0f172a !important; font-weight: 900 !important; border: 1px solid rgba(255,255,255,0.7) !important;">
                             <span style="color: #0f172a !important; font-weight: 900 !important;">${linkText}</span>
-                            <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" style="color: #0f172a !important;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                            <svg class="w-3.5 h-3.5" style="color: #0f172a !important;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                         </a>
                     </div>
                 ` : ''}
@@ -616,12 +612,12 @@ function renderHomeBannerSlideHTML(poster, index) {
     const theme = HOME_GRADIENT_THEMES[themeKey] || HOME_GRADIENT_THEMES.purple;
 
     return `
-        <div class="hero-carousel-slide hero-carousel-slide-promo flex-shrink-0 cursor-pointer h-[165px] sm:h-56 md:h-64"
+        <div class="hero-carousel-slide hero-carousel-slide-promo flex-shrink-0 cursor-pointer h-[190px] sm:h-60 md:h-72"
             onclick="window.handleBannerTargetClick('${safeJsUrl}', event)"
             data-link-url="${escapedLinkUrl}"
             role="button"
             tabindex="0"
-            style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; padding: 1rem 1rem 1.85rem 1rem; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff; overflow: hidden; background: ${theme.bg};">
+            style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; padding: 1.15rem 1.15rem 2rem 1.15rem; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff; overflow: hidden; background: ${theme.bg};">
             
             ${imageUrl ? `
                 <img src="${imageUrl}" alt="${title}" class="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 hover:scale-105" style="filter: brightness(0.72);" onerror="this.style.display='none'">
@@ -929,28 +925,6 @@ window.pages.home = async function () {
         <!-- Store Closed / Reopening Hero Alert Slot -->
         <div id="store-closed-banner-slot" class="hidden"></div>
 
-        <!-- Mobile Search Capsule (Visible on mobile only) -->
-        <section class="md:hidden relative w-full pt-1 z-30" id="mobile-search-container">
-            <div class="relative flex items-center">
-                <button type="button" 
-                        id="btn-mobile-search" 
-                        class="absolute left-3 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center text-slate-400 hover:text-emerald-500 transition-colors cursor-pointer active:scale-90 z-10"
-                        title="Search Catalog">
-                    <span class="material-symbols-outlined text-lg">search</span>
-                </button>
-                <input class="w-full pl-10 pr-10 py-2.5 rounded-2xl border border-[var(--glass-border)] bg-slate-100/70 dark:bg-slate-800/70 backdrop-blur-md text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 shadow-xs font-medium" 
-                       placeholder="Search snacks, drinks, maggi, chips..." 
-                       type="text" 
-                       id="mobile-search" 
-                       autocomplete="off">
-                <button type="button" 
-                        id="btn-clear-mobile-search" 
-                        class="hidden absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center text-xs font-bold transition-all cursor-pointer active:scale-90 z-10"
-                        title="Clear search">✕</button>
-            </div>
-            <div id="mobile-search-dropdown" class="hidden absolute top-full mt-2 left-0 w-full rounded-2xl shadow-2xl z-50 max-h-80 overflow-y-auto p-2 border border-[var(--glass-border)] bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl"></div>
-        </section>
-
         <!-- ============================================================
              NEXT-GEN PROMOTIONAL BANNER CAROUSEL (SWIPEABLE & AUTO-SLIDING)
              ============================================================ -->
@@ -1020,6 +994,28 @@ window.pages.home = async function () {
                     <span>Install App Now</span>
                 </button>
             </div>
+        </section>
+
+        <!-- Mobile Search Capsule (Relocated to sit directly on top of Filters & Sort) -->
+        <section class="md:hidden relative w-full pt-1 z-30" id="mobile-search-container">
+            <div class="relative flex items-center">
+                <button type="button" 
+                        id="btn-mobile-search" 
+                        class="absolute left-3 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center text-slate-400 hover:text-emerald-500 transition-colors cursor-pointer active:scale-90 z-10"
+                        title="Search Catalog">
+                    <span class="material-symbols-outlined text-lg">search</span>
+                </button>
+                <input class="w-full pl-10 pr-10 py-2.5 rounded-2xl border border-[var(--glass-border)] bg-slate-100/70 dark:bg-slate-800/70 backdrop-blur-md text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 shadow-xs font-medium" 
+                       placeholder="Search snacks, drinks, maggi, chips..." 
+                       type="text" 
+                       id="mobile-search" 
+                       autocomplete="off">
+                <button type="button" 
+                        id="btn-clear-mobile-search" 
+                        class="hidden absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center text-xs font-bold transition-all cursor-pointer active:scale-90 z-10"
+                        title="Clear search">✕</button>
+            </div>
+            <div id="mobile-search-dropdown" class="hidden absolute top-full mt-2 left-0 w-full rounded-2xl shadow-2xl z-50 max-h-80 overflow-y-auto p-2 border border-[var(--glass-border)] bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl"></div>
         </section>
 
         <!-- ============================================================
