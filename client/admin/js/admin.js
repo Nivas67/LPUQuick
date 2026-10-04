@@ -486,7 +486,7 @@ function applyAdminRolePermissions(profile) {
     document.querySelectorAll('#desktop-nav .nav-item, .nav-item, .owner-only-nav, [data-required-role]').forEach(btn => {
         const req = btn.dataset?.requiredRole || '';
         const view = btn.dataset?.view || '';
-        const isOwnerOnly = btn.classList.contains('owner-only-nav') || req === 'owner' || view === 'employees' || view === 'staff' || view === 'hostels' || view === 'daily-revenue' || view === 'backup';
+        const isOwnerOnly = btn.classList.contains('owner-only-nav') || req === 'owner' || view === 'employees' || view === 'staff' || view === 'hostels' || view === 'daily-revenue' || view === 'backup' || view === 'advertisements';
 
         if (isOwnerOnly && !isOwner) {
             btn.classList.add('hidden');
@@ -659,7 +659,7 @@ function switchView(viewName) {
             'analytics': ['owner', 'store_manager'],
             'staff': ['owner'],
             'employees': ['owner'],
-            'advertisements': ['owner', 'store_manager'],
+            'advertisements': ['owner'],
             'backup': ['owner'],
             'settings': ['owner'],
             'hostels': ['owner']
@@ -9024,11 +9024,15 @@ async function togglePosterActive(id) {
     if (!poster) return;
 
     poster.is_active = poster.is_active === false ? true : false;
-    localStorage.setItem('lpuquick_admin_posters', JSON.stringify(adminPosters));
     notifyLocalAdsUpdated();
 
+    renderAdminCarouselSlides();
+    renderAdminPostersGrid();
+    updateAdminCarouselView();
+    startAdminCarouselAutoSlide();
+
     try {
-        await fetch('/api/admin/advertisements', {
+        const res = await fetch('/api/admin/advertisements', {
             method: 'POST',
             headers: {
                 ...getAuthHeaders(),
@@ -9036,12 +9040,16 @@ async function togglePosterActive(id) {
             },
             body: JSON.stringify(poster)
         });
+        if (res.ok) {
+            const data = await res.json();
+            if (data.success && Array.isArray(data.posters)) {
+                adminPosters = data.posters;
+                notifyLocalAdsUpdated();
+                renderAdminCarouselSlides();
+                renderAdminPostersGrid();
+            }
+        }
     } catch (netErr) {}
-
-    renderAdminCarouselSlides();
-    renderAdminPostersGrid();
-    updateAdminCarouselView();
-    startAdminCarouselAutoSlide();
 
     showToast(`Poster ${poster.is_active ? 'activated' : 'paused'} in carousel`, 'info');
 }
@@ -9151,14 +9159,23 @@ try {
 
 function notifyLocalAdsUpdated() {
     try {
-        adsBroadcastChannel?.postMessage({
+        const payload = {
             type: 'ADVERTISEMENTS_UPDATED',
             posters: adminPosters,
+            banners: adminPosters,
             settings: {
                 autoplay_delay: adminCarouselDelay,
                 autoplay_enabled: adminCarouselAutoplay
             }
-        });
+        };
+        try {
+            localStorage.setItem('lpuquick_admin_posters', JSON.stringify(adminPosters));
+            localStorage.setItem('lpuquick_active_banners', JSON.stringify(adminPosters));
+            localStorage.setItem('lpuquick_carousel_settings', JSON.stringify(payload.settings));
+        } catch (storageErr) {}
+
+        adsBroadcastChannel?.postMessage(payload);
+        window.dispatchEvent(new CustomEvent('advertisementsUpdated', { detail: payload }));
     } catch (e) {}
 }
 

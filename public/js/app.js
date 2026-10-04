@@ -2356,6 +2356,16 @@ function initGlobalClientWebSocket() {
                 }
                 // 7. Live Promotional Banner Carousel Updates from Admin
                 else if (data.type === 'ADVERTISEMENTS_UPDATED') {
+                    if (window.api?.clearHomeCache) window.api.clearHomeCache();
+                    const banners = data.posters || data.banners;
+                    try {
+                        if (Array.isArray(banners)) {
+                            localStorage.setItem('lpuquick_active_banners', JSON.stringify(banners));
+                        }
+                        if (data.settings) {
+                            localStorage.setItem('lpuquick_carousel_settings', JSON.stringify(data.settings));
+                        }
+                    } catch (e) {}
                     window.dispatchEvent(new CustomEvent('advertisementsUpdated', { detail: data }));
                     if (typeof window.refreshHomeCarousel === 'function') {
                         window.refreshHomeCarousel(data);
@@ -2431,6 +2441,31 @@ function initGlobalClientWebSocket() {
         }
     }
 }
+
+// Multi-Tab Instant Ads Synchronization
+try {
+    if (typeof BroadcastChannel !== 'undefined') {
+        const clientAdsChannel = new BroadcastChannel('lpuquick_ads_sync');
+        clientAdsChannel.onmessage = (event) => {
+            if (event.data && (event.data.type === 'ADVERTISEMENTS_UPDATED' || event.data.posters || event.data.banners)) {
+                if (window.api?.clearHomeCache) window.api.clearHomeCache();
+                const banners = event.data.posters || event.data.banners;
+                try {
+                    if (Array.isArray(banners)) {
+                        localStorage.setItem('lpuquick_active_banners', JSON.stringify(banners));
+                    }
+                    if (event.data.settings) {
+                        localStorage.setItem('lpuquick_carousel_settings', JSON.stringify(event.data.settings));
+                    }
+                } catch (e) {}
+                window.dispatchEvent(new CustomEvent('advertisementsUpdated', { detail: event.data }));
+                if (typeof window.refreshHomeCarousel === 'function') {
+                    window.refreshHomeCarousel(event.data);
+                }
+            }
+        };
+    }
+} catch (e) {}
 
 
 // In-place Real-Time Stock Updates across DOM

@@ -121,12 +121,13 @@
                 <span class="material-symbols-outlined">analytics</span>
                 <span>Analytics</span>
             </button>
-            <button onclick="switchView('advertisements')" data-view="advertisements" data-required-role="owner,store_manager"
-                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
-                <span class="material-symbols-outlined">campaign</span>
-                <span class="flex-1">Advertisements</span>
+            <button onclick="switchView('advertisements')" data-view="advertisements" data-required-role="owner"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full owner-only-nav hidden">
+                <span class="material-symbols-outlined text-[#0066cc]">campaign</span>
+                <span class="flex-1 font-bold text-[#181c1f]">Advertisements</span>
                 <span id="nav-ads-badge"
-                    class="text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-bold">4</span>
+                    class="text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-bold mr-1">4</span>
+                <span class="text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Owner</span>
             </button>
             <button onclick="switchView('hostels')" data-view="hostels" data-required-role="owner"
                 class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full owner-only-nav hidden">

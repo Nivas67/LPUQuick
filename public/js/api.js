@@ -291,6 +291,12 @@ const api = {
         }
     },
 
+    clearHomeCache() {
+        homeFeedCache = null;
+        homeFeedCacheTime = 0;
+        homeFeedCacheUserId = null;
+    },
+
     // Home with Intelligent SWR Memory Cache (0ms instant page loads)
     async fetchHome(userId = null, hostelId = null) {
         const uid = userId || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : window.CURRENT_USER_ID) || '';

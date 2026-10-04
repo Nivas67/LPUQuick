@@ -6,23 +6,67 @@ const supabaseDb = require('../db/supabaseDb');
 const cache = require('../cache');
 
 const BANNERS_FILE = path.join(__dirname, '..', 'data', 'banners.json');
+let _homeBannersMemoryCache = null;
+let _homeBannersLastFetch = 0;
 
-function getActiveBannersData() {
-    try {
-        if (!fs.existsSync(BANNERS_FILE)) {
-            return { posters: [], settings: { autoplay_delay: 4500, autoplay_enabled: true } };
-        }
-        const parsed = JSON.parse(fs.readFileSync(BANNERS_FILE, 'utf8'));
-        const posters = (parsed.banners || [])
+async function getActiveBannersData(forceRefresh = false) {
+    const now = Date.now();
+    if (!forceRefresh && _homeBannersMemoryCache && (now - _homeBannersLastFetch < 5000)) {
+        const posters = (_homeBannersMemoryCache.banners || [])
             .filter(b => b.is_active !== false)
             .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
         return {
             posters,
-            settings: parsed.settings || { autoplay_delay: 4500, autoplay_enabled: true }
+            settings: _homeBannersMemoryCache.settings || { autoplay_delay: 4500, autoplay_enabled: true }
         };
-    } catch (e) {
-        return { posters: [], settings: { autoplay_delay: 4500, autoplay_enabled: true } };
     }
+
+    // 1. Authoritative: Supabase app_availability table
+    try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            const { data, error } = await supabase
+                .from('app_availability')
+                .select('message')
+                .eq('id', 'banners_data')
+                .maybeSingle();
+
+            if (!error && data && data.message) {
+                const parsed = JSON.parse(data.message);
+                if (parsed && typeof parsed === 'object') {
+                    _homeBannersMemoryCache = parsed;
+                    _homeBannersLastFetch = now;
+                    const posters = (parsed.banners || [])
+                        .filter(b => b.is_active !== false)
+                        .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+                    return {
+                        posters,
+                        settings: parsed.settings || { autoplay_delay: 4500, autoplay_enabled: true }
+                    };
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('[Home Banners] Supabase fetch notice:', e.message);
+    }
+
+    // 2. Fallback to local banners.json on disk
+    try {
+        if (fs.existsSync(BANNERS_FILE)) {
+            const parsed = JSON.parse(fs.readFileSync(BANNERS_FILE, 'utf8'));
+            _homeBannersMemoryCache = parsed;
+            _homeBannersLastFetch = now;
+            const posters = (parsed.banners || [])
+                .filter(b => b.is_active !== false)
+                .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+            return {
+                posters,
+                settings: parsed.settings || { autoplay_delay: 4500, autoplay_enabled: true }
+            };
+        }
+    } catch (e) {}
+
+    return { posters: [], settings: { autoplay_delay: 4500, autoplay_enabled: true } };
 }
 
 // Time-based content mapping
@@ -127,7 +171,7 @@ router.get('/', async (req, res) => {
             }
         }
 
-        const bannerData = getActiveBannersData();
+        const bannerData = await getActiveBannersData();
 
         // 3. Fast shallow merge and send
         // Cache on Vercel Edge CDN for 60s for public catalog feed
@@ -209,11 +253,13 @@ router.get('/user-buy-again', async (req, res) => {
 router.get('/buy-again', (req, res) => res.redirect(307, `/api/home/user-buy-again${req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''}`));
 
 // GET /api/home/banners - Public endpoint for active promotional posters & carousel settings
-router.get('/banners', (req, res) => {
+router.get('/banners', async (req, res) => {
     try {
-        // Banners are static JSON; cache aggressively on CDN edge
-        res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
-        const bannerData = getActiveBannersData();
+        // Guarantee instant real-time synchronization with zero edge staleness
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        const bannerData = await getActiveBannersData(true);
         res.json({
             success: true,
             posters: bannerData.posters,

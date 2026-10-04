@@ -704,23 +704,26 @@ window.pages.home = async function () {
     const snackCards = buildProductCardsHTML(sortInStockFirst(allProductsFromApi.filter(p => classifyProductCategory(p) === 'snacks')));
 
     // Prepare promotional carousel banners (support dynamically added admin posters & gradients)
-    let activeBanners = (data?.banners && Array.isArray(data.banners) && data.banners.length > 0)
-        ? data.banners.filter(b => b.is_active !== false)
+    let bannerList = (data?.banners && Array.isArray(data.banners) && data.banners.length > 0)
+        ? data.banners
         : null;
 
-    if (!activeBanners || activeBanners.length === 0) {
-        try {
-            const cached = localStorage.getItem('lpuquick_active_banners');
-            if (cached) {
-                const parsed = JSON.parse(cached);
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                    activeBanners = parsed.filter(b => b.is_active !== false);
-                }
+    try {
+        const cached = localStorage.getItem('lpuquick_active_banners');
+        if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                bannerList = parsed;
             }
-        } catch (e) { }
+        }
+    } catch (e) { }
+
+    let activeBanners = [];
+    if (Array.isArray(bannerList) && bannerList.length > 0) {
+        activeBanners = bannerList.filter(b => b.is_active !== false);
     }
 
-    if (!activeBanners || activeBanners.length === 0) {
+    if (activeBanners.length === 0 && (!bannerList || bannerList.length === 0)) {
         activeBanners = DEFAULT_HOME_BANNERS;
     }
 
@@ -1911,8 +1914,9 @@ window.pageInits.home = function () {
     } catch (e) { }
 
     function updateCarouselView() {
-        if (!carouselTrack) return;
-        carouselTrack.style.transform = `translateX(-${currentSlide * 100}%)`;
+        const track = document.getElementById('carousel-track');
+        if (!track) return;
+        track.style.transform = `translateX(-${currentSlide * 100}%)`;
         const dots = document.querySelectorAll('#carousel-dots .hero-carousel-dot');
         dots.forEach((d, idx) => {
             if (idx === currentSlide) {
@@ -1963,7 +1967,8 @@ window.pageInits.home = function () {
     }
 
     function syncHomeCarousel(banners, settings) {
-        if (!carouselTrack) return;
+        const track = document.getElementById('carousel-track');
+        if (!track) return;
 
         let active = [];
         if (Array.isArray(banners) && banners.length > 0) {
@@ -1982,7 +1987,7 @@ window.pageInits.home = function () {
 
         if (active.length > 0) {
             totalSlides = active.length;
-            carouselTrack.innerHTML = active.map(renderHomeBannerSlideHTML).join('');
+            track.innerHTML = active.map(renderHomeBannerSlideHTML).join('');
 
             const dotsContainer = document.getElementById('carousel-dots');
             if (dotsContainer) {
@@ -1996,9 +2001,17 @@ window.pageInits.home = function () {
                 currentSlide = 0;
             }
             updateCarouselView();
+        } else {
+            // When all posters are paused, display clean fallback banner
+            totalSlides = 1;
+            track.innerHTML = DEFAULT_HOME_BANNERS.slice(0, 1).map(renderHomeBannerSlideHTML).join('');
+            const dotsContainer = document.getElementById('carousel-dots');
+            if (dotsContainer) dotsContainer.innerHTML = '';
+            currentSlide = 0;
+            updateCarouselView();
         }
 
-        if (autoplayEnabled && !isCarouselHovered) {
+        if (autoplayEnabled && !isCarouselHovered && totalSlides > 1) {
             startAutoSlide();
         } else {
             stopAutoSlide();
@@ -2010,7 +2023,7 @@ window.pageInits.home = function () {
         if (!payload) return;
         const banners = payload.banners || payload.posters;
         const settings = payload.settings;
-        syncHomeCarousel(banners, settings);
+        if (window.api?.clearHomeCache) window.api.clearHomeCache();
         try {
             if (Array.isArray(banners)) {
                 localStorage.setItem('lpuquick_active_banners', JSON.stringify(banners));
@@ -2019,6 +2032,7 @@ window.pageInits.home = function () {
                 localStorage.setItem('lpuquick_carousel_settings', JSON.stringify(settings));
             }
         } catch (e) { }
+        syncHomeCarousel(banners, settings);
     };
 
     if (carouselContainer && carouselTrack) {
@@ -2091,7 +2105,7 @@ window.pageInits.home = function () {
         });
 
         // Background fetch for fresh banners on page initialization
-        fetch('/api/home/banners')
+        fetch('/api/home/banners?_t=' + Date.now(), { cache: 'no-store' })
             .then(r => r.json())
             .then(res => {
                 if (res && res.success && Array.isArray(res.posters)) {
@@ -2109,6 +2123,15 @@ window.pageInits.home = function () {
         // Listen for Realtime Events
         window.addEventListener('advertisementsUpdated', (e) => {
             if (e.detail) window.refreshHomeCarousel(e.detail);
+        });
+
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'lpuquick_active_banners' && e.newValue) {
+                try {
+                    const parsed = JSON.parse(e.newValue);
+                    if (Array.isArray(parsed)) syncHomeCarousel(parsed);
+                } catch (err) { }
+            }
         });
 
         try {

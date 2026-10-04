@@ -743,33 +743,157 @@ router.delete('/staff/:id', requireRole('owner'), async (req, res) => {
 // ADVERTISEMENTS & PROMOTIONAL POSTERS (ADMIN PANEL)
 // ============================================================
 const BANNERS_DATA_FILE = path.join(__dirname, '..', 'data', 'banners.json');
+let _bannersMemoryCache = null;
+let _bannersLastFetch = 0;
 
-function loadAdminBannersData() {
+async function savePosterImageIfBase64(imageUrl, posterId = 'poster') {
+    if (!imageUrl || typeof imageUrl !== 'string') return imageUrl;
+    if (!imageUrl.startsWith('data:image/')) return imageUrl;
+
     try {
-        if (!fs.existsSync(BANNERS_DATA_FILE)) {
-            return {
-                banners: [],
-                settings: { autoplay_delay: 4500, autoplay_enabled: true }
-            };
-        }
-        const content = fs.readFileSync(BANNERS_DATA_FILE, 'utf8');
-        const parsed = JSON.parse(content);
-        if (!Array.isArray(parsed.banners)) parsed.banners = [];
-        if (!parsed.settings) parsed.settings = { autoplay_delay: 4500, autoplay_enabled: true };
-        return parsed;
-    } catch (err) {
-        console.error('[Admin Advertisements] Error reading banners data:', err);
-        return {
-            banners: [],
-            settings: { autoplay_delay: 4500, autoplay_enabled: true }
-        };
+        const matches = imageUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (!matches || matches.length !== 3) return imageUrl;
+
+        const mimeType = matches[1];
+        const buffer = Buffer.from(matches[2], 'base64');
+        let ext = 'jpg';
+        if (mimeType.includes('png')) ext = 'png';
+        else if (mimeType.includes('webp')) ext = 'webp';
+        else if (mimeType.includes('gif')) ext = 'gif';
+
+        const fileName = `banner_${posterId}_${Date.now()}.${ext}`;
+
+        // Save locally to public/uploads & client/uploads if available
+        try {
+            const pubUploads = path.join(__dirname, '..', '..', 'public', 'uploads');
+            if (!fs.existsSync(pubUploads)) fs.mkdirSync(pubUploads, { recursive: true });
+            fs.writeFileSync(path.join(pubUploads, fileName), buffer);
+
+            const clientUploads = path.join(__dirname, '..', '..', 'client', 'uploads');
+            if (fs.existsSync(clientUploads)) {
+                fs.writeFileSync(path.join(clientUploads, fileName), buffer);
+            }
+        } catch (e) {}
+
+        // Upload to Supabase Storage
+        try {
+            const { getSupabaseClient } = require('../supabase');
+            const supabase = getSupabaseClient();
+            if (supabase) {
+                await supabase.storage.createBucket('products', { public: true, fileSizeLimit: 5242880 }).catch(() => {});
+                const { error: upErr } = await supabase.storage
+                    .from('products')
+                    .upload(fileName, buffer, { contentType: mimeType, upsert: true });
+
+                if (!upErr) {
+                    const { data: pubData } = supabase.storage.from('products').getPublicUrl(fileName);
+                    if (pubData?.publicUrl) return pubData.publicUrl;
+                }
+            }
+        } catch (sbErr) {}
+
+        return `/uploads/${fileName}`;
+    } catch (e) {
+        return imageUrl;
     }
 }
 
-function saveAdminBannersData(data) {
+async function loadAdminBannersData(forceRefresh = false) {
+    const now = Date.now();
+    if (!forceRefresh && _bannersMemoryCache && (now - _bannersLastFetch < 5000)) {
+        return _bannersMemoryCache;
+    }
+
+    // 1. Authoritative persistence: Supabase app_availability table
+    try {
+        const { getSupabaseClient } = require('../supabase');
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            const { data, error } = await supabase
+                .from('app_availability')
+                .select('message')
+                .eq('id', 'banners_data')
+                .maybeSingle();
+
+            if (!error && data && data.message) {
+                const parsed = JSON.parse(data.message);
+                if (parsed && typeof parsed === 'object') {
+                    if (!Array.isArray(parsed.banners)) parsed.banners = [];
+                    if (!parsed.settings) parsed.settings = { autoplay_delay: 4500, autoplay_enabled: true };
+                    _bannersMemoryCache = parsed;
+                    _bannersLastFetch = now;
+                    // Mirror to disk if possible
+                    try {
+                        fs.writeFileSync(BANNERS_DATA_FILE, JSON.stringify(parsed, null, 2), 'utf8');
+                    } catch (e) {}
+                    return parsed;
+                }
+            }
+        }
+    } catch (dbErr) {
+        console.warn('[Admin Advertisements] Supabase read warning:', dbErr.message);
+    }
+
+    // 2. Fallback to local banners.json on disk
+    try {
+        if (fs.existsSync(BANNERS_DATA_FILE)) {
+            const content = fs.readFileSync(BANNERS_DATA_FILE, 'utf8');
+            const parsed = JSON.parse(content);
+            if (!Array.isArray(parsed.banners)) parsed.banners = [];
+            if (!parsed.settings) parsed.settings = { autoplay_delay: 4500, autoplay_enabled: true };
+            _bannersMemoryCache = parsed;
+            _bannersLastFetch = now;
+            return parsed;
+        }
+    } catch (diskErr) {
+        console.error('[Admin Advertisements] Error reading banners file:', diskErr);
+    }
+
+    const fallback = {
+        banners: [],
+        settings: { autoplay_delay: 4500, autoplay_enabled: true }
+    };
+    _bannersMemoryCache = fallback;
+    _bannersLastFetch = now;
+    return fallback;
+}
+
+async function saveAdminBannersData(data) {
     try {
         data.updated_at = new Date().toISOString();
-        fs.writeFileSync(BANNERS_DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
+        _bannersMemoryCache = data;
+        _bannersLastFetch = Date.now();
+
+        // 1. Authoritative: Supabase app_availability
+        try {
+            const { getSupabaseClient } = require('../supabase');
+            const supabase = getSupabaseClient();
+            if (supabase) {
+                await supabase
+                    .from('app_availability')
+                    .upsert([{
+                        id: 'banners_data',
+                        is_locked: false,
+                        lock_type: 'BANNERS_CONFIG',
+                        message: JSON.stringify(data),
+                        updated_at: data.updated_at
+                    }]);
+            }
+        } catch (dbErr) {
+            console.error('[Admin Advertisements] Supabase save error:', dbErr.message);
+        }
+
+        // 2. Local disk file persistence with /tmp resilience
+        try {
+            const dir = path.dirname(BANNERS_DATA_FILE);
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+            fs.writeFileSync(BANNERS_DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
+        } catch (writeErr) {
+            try {
+                fs.writeFileSync(path.join('/tmp', 'banners.json'), JSON.stringify(data, null, 2), 'utf8');
+            } catch (tmpErr) {}
+        }
+
         return true;
     } catch (err) {
         console.error('[Admin Advertisements] Error saving banners data:', err);
@@ -777,10 +901,10 @@ function saveAdminBannersData(data) {
     }
 }
 
-// GET /api/admin/advertisements - Fetch all promotional posters & carousel settings
-router.get('/advertisements', (req, res) => {
+// GET /api/admin/advertisements - Fetch all promotional posters & carousel settings (Owner Only)
+router.get('/advertisements', requireRole('owner'), async (req, res) => {
     try {
-        const data = loadAdminBannersData();
+        const data = await loadAdminBannersData();
         res.json({
             success: true,
             posters: data.banners || [],
@@ -791,16 +915,21 @@ router.get('/advertisements', (req, res) => {
     }
 });
 
-// POST /api/admin/advertisements - Create or Update a promotional poster
-router.post('/advertisements', requireRole('owner,store_manager'), (req, res) => {
+// POST /api/admin/advertisements - Create or Update a promotional poster (Owner Only)
+router.post('/advertisements', requireRole('owner'), async (req, res) => {
     try {
-        const { id, title, subtitle, badge, pill, link_url, link_text, image_url, is_full_poster, is_active, display_order, gradient } = req.body;
+        let { id, title, subtitle, badge, pill, link_url, link_text, image_url, is_full_poster, is_active, display_order, gradient } = req.body;
         
         if (!image_url && !title) {
             return res.status(400).json({ success: false, error: 'Poster image or title is required' });
         }
 
-        const data = loadAdminBannersData();
+        // Convert base64 data URLs to permanent hosted image assets
+        if (image_url && typeof image_url === 'string' && image_url.startsWith('data:image/')) {
+            image_url = await savePosterImageIfBase64(image_url, id || 'new');
+        }
+
+        const data = await loadAdminBannersData();
         const now = new Date().toISOString();
 
         if (id) {
@@ -862,7 +991,7 @@ router.post('/advertisements', requireRole('owner,store_manager'), (req, res) =>
         // Keep sorted by display order
         data.banners.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
 
-        saveAdminBannersData(data);
+        await saveAdminBannersData(data);
         try { broadcastAdvertisementsUpdate(data.banners, data.settings); } catch (e) {}
 
         res.json({
@@ -876,15 +1005,15 @@ router.post('/advertisements', requireRole('owner,store_manager'), (req, res) =>
     }
 });
 
-// POST /api/admin/advertisements/reorder - Fast batch reorder of posters
-router.post('/advertisements/reorder', requireRole('owner,store_manager'), (req, res) => {
+// POST /api/admin/advertisements/reorder - Fast batch reorder of posters (Owner Only)
+router.post('/advertisements/reorder', requireRole('owner'), async (req, res) => {
     try {
         const { ordered_ids } = req.body;
         if (!Array.isArray(ordered_ids)) {
             return res.status(400).json({ success: false, error: 'ordered_ids array required' });
         }
 
-        const data = loadAdminBannersData();
+        const data = await loadAdminBannersData();
         const map = new Map(data.banners.map(b => [b.id, b]));
 
         const reordered = [];
@@ -904,7 +1033,7 @@ router.post('/advertisements/reorder', requireRole('owner,store_manager'), (req,
         }
 
         data.banners = reordered;
-        saveAdminBannersData(data);
+        await saveAdminBannersData(data);
         try { broadcastAdvertisementsUpdate(data.banners, data.settings); } catch (e) {}
 
         res.json({
@@ -918,11 +1047,11 @@ router.post('/advertisements/reorder', requireRole('owner,store_manager'), (req,
     }
 });
 
-// DELETE /api/admin/advertisements/:id - Remove a poster
-router.delete('/advertisements/:id', requireRole('owner,store_manager'), (req, res) => {
+// DELETE /api/admin/advertisements/:id - Remove a poster (Owner Only)
+router.delete('/advertisements/:id', requireRole('owner'), async (req, res) => {
     try {
         const { id } = req.params;
-        const data = loadAdminBannersData();
+        const data = await loadAdminBannersData();
         const initialCount = data.banners.length;
         data.banners = data.banners.filter(b => b.id !== id);
 
@@ -930,7 +1059,7 @@ router.delete('/advertisements/:id', requireRole('owner,store_manager'), (req, r
             return res.status(404).json({ success: false, error: 'Poster not found' });
         }
 
-        saveAdminBannersData(data);
+        await saveAdminBannersData(data);
         try { broadcastAdvertisementsUpdate(data.banners, data.settings); } catch (e) {}
 
         res.json({
@@ -944,11 +1073,11 @@ router.delete('/advertisements/:id', requireRole('owner,store_manager'), (req, r
     }
 });
 
-// POST /api/admin/advertisements/settings - Update carousel delay and autoplay
-router.post('/advertisements/settings', requireRole('owner,store_manager'), (req, res) => {
+// POST /api/admin/advertisements/settings - Update carousel delay and autoplay (Owner Only)
+router.post('/advertisements/settings', requireRole('owner'), async (req, res) => {
     try {
         const { autoplay_delay, autoplay_enabled } = req.body;
-        const data = loadAdminBannersData();
+        const data = await loadAdminBannersData();
 
         if (autoplay_delay !== undefined) {
             const delayNum = Math.max(1000, Math.min(30000, Number(autoplay_delay) || 4500));
@@ -959,7 +1088,7 @@ router.post('/advertisements/settings', requireRole('owner,store_manager'), (req
             data.settings.autoplay_enabled = Boolean(autoplay_enabled);
         }
 
-        saveAdminBannersData(data);
+        await saveAdminBannersData(data);
         try { broadcastAdvertisementsUpdate(data.banners, data.settings); } catch (e) {}
 
         res.json({
