@@ -1,45 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const supabaseDb = require('../db/supabaseDb');
+const checkoutSettingsService = require('../services/checkoutSettingsService');
 
-// Pricing Calculation Engine (Zero GST, Free Delivery Offer, 5% Bulk Discount >= ₹350, ₹3 Handling Fee, Min Order ₹35)
-function calculatePricing(items = []) {
-    const list = Array.isArray(items) ? items : [];
-    const totalQuantity = list.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
-    const totalMrp = list.reduce((sum, item) => sum + ((Number(item.mrp) || Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
-    const subtotal = list.reduce((sum, item) => sum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
-    const mrpDiscount = Math.max(0, totalMrp - subtotal);
-    const hasDiscount = subtotal >= 350;
-    const discount5 = hasDiscount ? Math.round(subtotal * 0.05) : 0;
-    const delivery_fee = 0; // Free Campus Delivery
-    const platform_fee = list.length > 0 ? 3 : 0; // ₹3 Handling Fee for every order
-    const tax = 0; // Zero hidden taxes
-    const total = Math.max(0, subtotal - discount5 + platform_fee + delivery_fee + tax);
-    const deliverySavings = subtotal > 0 ? 25 : 0; // ₹25 free campus delivery offer
-    const total_savings = mrpDiscount + discount5 + deliverySavings;
-    const min_order_value = 35;
-    const is_min_order_met = subtotal >= min_order_value;
-    const min_order_shortfall = Math.max(0, min_order_value - subtotal);
-
-    return {
-        subtotal,
-        total_mrp: totalMrp,
-        mrp_discount: mrpDiscount,
-        discount5,
-        bulk_discount: discount5,
-        delivery_fee,
-        platform_fee,
-        tax,
-        total,
-        total_savings,
-        min_order_value,
-        is_min_order_met,
-        min_order_shortfall,
-        item_count: totalQuantity,
-        total_items: totalQuantity,
-        deliveryFee: delivery_fee,
-        platformFee: platform_fee
-    };
+// Pricing Calculation Engine (Powered by checkoutSettingsService with fallback)
+function calculatePricing(items = [], settings = null) {
+    return checkoutSettingsService.calculateCharges(items, settings);
 }
 
 function formatCartResponse(cart) {

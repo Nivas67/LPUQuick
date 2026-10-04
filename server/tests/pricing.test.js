@@ -72,4 +72,110 @@ console.log('--- Running Pricing Calculator Unit Tests ---');
     console.log('✓ Test 4: 5% Bulk Discount and item quantity calculation passed');
 }
 
+// Test 5: Section 9 Specification Example: Subtotal ₹250, 10% offer, max discount 50, free delivery, ₹3 handling fee = ₹228
+{
+    const items = [
+        { price: 250, quantity: 1 }
+    ];
+    const customSettings = {
+        offers_enabled: true,
+        offer_type: 'percentage',
+        offer_value: 10,
+        minimum_order_value: 100,
+        maximum_discount: 50,
+        free_delivery_enabled: true,
+        free_delivery_threshold: 199,
+        delivery_fee: 25,
+        handling_fee: 3,
+        handling_fee_enabled: true
+    };
+    const result = calculatePricing(items, customSettings);
+    assert.strictEqual(result.subtotal, 250, 'Subtotal should be 250');
+    assert.strictEqual(result.global_discount, 25, '10% discount on 250 should be 25');
+    assert.strictEqual(result.delivery_fee, 0, 'Delivery fee should be 0 (Free Delivery above 199)');
+    assert.strictEqual(result.platform_fee, 3, 'Handling fee should be 3');
+    assert.strictEqual(result.total, 228, 'Total should be 250 - 25 + 0 + 3 = 228');
+    console.log('✓ Test 5: Section 9 Specification Example passed (Subtotal ₹250 -> Total ₹228)');
+}
+
+// Test 6: Delivery Fee ₹25 with Free Delivery threshold ₹199
+{
+    const settings = {
+        offers_enabled: false,
+        delivery_fee: 25,
+        free_delivery_enabled: true,
+        free_delivery_threshold: 199,
+        handling_fee: 3,
+        handling_fee_enabled: true
+    };
+    // 6a: Subtotal 150 -> delivery 25
+    const res150 = calculatePricing([{ price: 150, quantity: 1 }], settings);
+    assert.strictEqual(res150.delivery_fee, 25, 'Delivery should be 25 for order 150');
+    assert.strictEqual(res150.total, 178, 'Total should be 150 + 25 + 3 = 178');
+
+    // 6b: Subtotal 199 -> FREE delivery
+    const res199 = calculatePricing([{ price: 199, quantity: 1 }], settings);
+    assert.strictEqual(res199.delivery_fee, 0, 'Delivery should be FREE for order 199');
+    assert.strictEqual(res199.total, 202, 'Total should be 199 + 0 + 3 = 202');
+
+    // 6c: Subtotal 300 -> FREE delivery
+    const res300 = calculatePricing([{ price: 300, quantity: 1 }], settings);
+    assert.strictEqual(res300.delivery_fee, 0, 'Delivery should be FREE for order 300');
+    console.log('✓ Test 6: Delivery Fee ₹25 and Free Delivery Threshold ₹199 passed');
+}
+
+// Test 7: Handling Fee update ₹3 -> ₹5
+{
+    const settings = {
+        offers_enabled: false,
+        delivery_fee: 0,
+        handling_fee: 5,
+        handling_fee_enabled: true
+    };
+    const res = calculatePricing([{ price: 100, quantity: 1 }], settings);
+    assert.strictEqual(res.platform_fee, 5, 'Handling fee should be 5');
+    assert.strictEqual(res.total, 105, 'Total should be 100 + 5 = 105');
+    console.log('✓ Test 7: Handling Fee update ₹3 -> ₹5 passed');
+}
+
+// Test 8: Fixed Discount Offer (₹20 OFF on orders >= ₹199)
+{
+    const settings = {
+        offers_enabled: true,
+        offer_type: 'fixed',
+        offer_value: 20,
+        minimum_order_value: 199,
+        delivery_fee: 0,
+        handling_fee: 3,
+        handling_fee_enabled: true
+    };
+    // 8a: Meets threshold
+    const resAbove = calculatePricing([{ price: 200, quantity: 1 }], settings);
+    assert.strictEqual(resAbove.global_discount, 20, 'Fixed discount should be 20');
+    assert.strictEqual(resAbove.total, 183, 'Total should be 200 - 20 + 3 = 183');
+
+    // 8b: Below threshold
+    const resBelow = calculatePricing([{ price: 150, quantity: 1 }], settings);
+    assert.strictEqual(resBelow.global_discount, 0, 'Discount should be 0 below min order');
+    assert.strictEqual(resBelow.total, 153, 'Total should be 150 + 3 = 153');
+    console.log('✓ Test 8: Fixed Discount Offer (₹20 OFF >= ₹199) passed');
+}
+
+// Test 9: Master Switch OFF: No global offers applied
+{
+    const settings = {
+        offers_enabled: false,
+        offer_type: 'percentage',
+        offer_value: 20,
+        minimum_order_value: 50,
+        delivery_fee: 0,
+        handling_fee: 3,
+        handling_fee_enabled: true
+    };
+    const res = calculatePricing([{ price: 200, quantity: 1 }], settings);
+    assert.strictEqual(res.global_discount, 0, 'Discount must be 0 when offers are disabled');
+    assert.strictEqual(res.total, 203, 'Total should be 200 + 3 = 203');
+    console.log('✓ Test 9: Global Offers Master Switch OFF passed');
+}
+
 console.log('\n--- All Pricing Calculator Tests Passed Successfully! ---');

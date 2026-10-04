@@ -486,7 +486,7 @@ function applyAdminRolePermissions(profile) {
     document.querySelectorAll('#desktop-nav .nav-item, .nav-item, .owner-only-nav, [data-required-role]').forEach(btn => {
         const req = btn.dataset?.requiredRole || '';
         const view = btn.dataset?.view || '';
-        const isOwnerOnly = btn.classList.contains('owner-only-nav') || req === 'owner' || view === 'employees' || view === 'staff' || view === 'hostels' || view === 'daily-revenue' || view === 'backup' || view === 'advertisements';
+        const isOwnerOnly = btn.classList.contains('owner-only-nav') || req === 'owner' || view === 'employees' || view === 'staff' || view === 'hostels' || view === 'daily-revenue' || view === 'backup' || view === 'advertisements' || view === 'offers-charges';
 
         if (isOwnerOnly && !isOwner) {
             btn.classList.add('hidden');
@@ -662,7 +662,8 @@ function switchView(viewName) {
             'advertisements': ['owner'],
             'backup': ['owner'],
             'settings': ['owner'],
-            'hostels': ['owner']
+            'hostels': ['owner'],
+            'offers-charges': ['owner']
         };
 
         const required = viewRoles[viewName];
@@ -702,7 +703,8 @@ function switchView(viewName) {
         'backup': 'Backup & Disaster Recovery (0 - 100)',
         'settings': 'Store Settings',
         'hostels': 'Campus Hostels & Dark Stores (Owner Only)',
-        'employees': 'Employees & Dark Store Roster'
+        'employees': 'Employees & Dark Store Roster',
+        'offers-charges': 'Offers & Charges — Global Pricing & Offer Rules (Owner Only)'
     };
     document.getElementById('top-title').textContent = titles[viewName] || 'Dashboard';
 
@@ -721,6 +723,7 @@ function switchView(viewName) {
     else if (viewName === 'backup') loadBackupDashboard();
     else if (viewName === 'hostels') loadHostels();
     else if (viewName === 'employees') loadEmployeesList();
+    else if (viewName === 'offers-charges') loadOffersChargesView();
 }
 
 // Master Live Real-Time Refresh Controller
@@ -780,6 +783,8 @@ async function refreshCurrentView() {
             promises.push(loadHostels());
         } else if (activeView === 'employees') {
             promises.push(loadEmployeesList());
+        } else if (activeView === 'offers-charges') {
+            promises.push(loadOffersChargesView());
         }
 
         await Promise.allSettled(promises);
@@ -11116,3 +11121,538 @@ window.toggleEmployeeDuty = async function(empId, setOnDuty) {
         showToast('Network error updating duty status: ' + err.message, 'error');
     }
 };
+
+// =========================================================================
+// OWNER-ONLY: OFFERS & CHARGES CONTROLLER
+// =========================================================================
+
+let currentOffersSettings = null;
+
+/**
+ * Loads the active Offers & Charges configuration from backend API
+ */
+async function loadOffersChargesView() {
+    // 1. Role-check guard: Owner only
+    if (currentAdminProfile && !currentAdminProfile.is_owner) {
+        showToast('Access restricted: Owner/Super Admin only.', 'error');
+        switchView('dashboard');
+        return;
+    }
+
+    const alertEl = document.getElementById('offers-charges-alert');
+    if (alertEl) alertEl.classList.add('hidden');
+
+    const statusPill = document.getElementById('offers-status-pill');
+    if (statusPill) {
+        statusPill.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-spin"></span> Syncing...';
+    }
+
+    try {
+        const res = await fetchWithTimeout('/api/admin/offers-charges', {
+            headers: getAuthHeaders()
+        }, 5000);
+
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || `HTTP ${res.status} Error`);
+        }
+
+        const data = await res.json();
+        if (data.success && data.settings) {
+            currentOffersSettings = data.settings;
+            populateOffersChargesForm(data.settings);
+            updateOffersChargesLivePreview();
+
+            if (statusPill) {
+                statusPill.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Cloud Synced';
+            }
+        } else {
+            throw new Error(data.error || 'Failed to load offers configuration');
+        }
+    } catch (err) {
+        console.error('[loadOffersChargesView Error]:', err);
+        showOffersChargesAlert('Could not load configuration: ' + err.message, 'error');
+        if (statusPill) {
+            statusPill.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Sync Failed';
+        }
+    }
+}
+
+/**
+ * Populates all form fields with settings received from the server
+ */
+function populateOffersChargesForm(settings) {
+    if (!settings) return;
+
+    // Master Switch
+    const offersActive = Boolean(settings.offers_enabled);
+    updateMasterSwitchUI('offers-master-switch', 'offers-master-switch-knob', 'offers-master-switch-label', offersActive, 'ON', 'OFF');
+    const fieldsContainer = document.getElementById('offers-config-fields');
+    if (fieldsContainer) {
+        fieldsContainer.style.opacity = offersActive ? '1' : '0.55';
+    }
+
+    // Offer Type
+    const offerType = settings.offer_type || 'percentage';
+    const radio = document.querySelector(`input[name="offer_type"][value="${offerType}"]`);
+    if (radio) radio.checked = true;
+
+    // Discount Value & Unit
+    const discInput = document.getElementById('input-discount-val');
+    if (discInput) discInput.value = settings.offer_value ?? 10;
+    updateOfferUnitLabel(offerType);
+
+    // Min Order & Max Discount
+    const minOrderInput = document.getElementById('input-offer-min-order');
+    if (minOrderInput) minOrderInput.value = settings.minimum_order_value ?? 199;
+
+    const maxDiscInput = document.getElementById('input-offer-max-discount');
+    if (maxDiscInput) maxDiscInput.value = settings.maximum_discount ?? 50;
+
+    // Dates
+    const startInput = document.getElementById('input-offer-start-date');
+    if (startInput) {
+        startInput.value = settings.start_date ? formatForDatetimeLocal(settings.start_date) : '';
+    }
+    const endInput = document.getElementById('input-offer-end-date');
+    if (endInput) {
+        endInput.value = settings.end_date ? formatForDatetimeLocal(settings.end_date) : '';
+    }
+
+    // Delivery Fee
+    const delFeeInput = document.getElementById('input-delivery-fee');
+    if (delFeeInput) delFeeInput.value = settings.delivery_fee ?? 0;
+
+    const freeDelActive = Boolean(settings.free_delivery_enabled);
+    updateMasterSwitchUI('free-delivery-switch', 'free-delivery-switch-knob', 'free-delivery-switch-label', freeDelActive, 'Free: ON', 'Free: OFF');
+
+    const freeThreshInput = document.getElementById('input-free-delivery-threshold');
+    if (freeThreshInput) freeThreshInput.value = settings.free_delivery_threshold ?? 199;
+
+    // Handling Fee
+    const handlingActive = Boolean(settings.handling_fee_enabled);
+    updateMasterSwitchUI('handling-fee-switch', 'handling-fee-switch-knob', 'handling-fee-switch-label', handlingActive, 'ON', 'OFF');
+
+    const handlingFeeInput = document.getElementById('input-handling-fee');
+    if (handlingFeeInput) handlingFeeInput.value = settings.handling_fee ?? 3;
+
+    const minCartInput = document.getElementById('input-min-cart-val');
+    if (minCartInput) minCartInput.value = settings.min_cart_value ?? 35;
+
+    // Audit Info
+    const updatedByEl = document.getElementById('offers-last-updated-by');
+    if (updatedByEl) updatedByEl.textContent = settings.updated_by || 'Owner';
+
+    const updatedAtEl = document.getElementById('offers-last-updated-at');
+    if (updatedAtEl) {
+        if (settings.updated_at) {
+            const dt = new Date(settings.updated_at);
+            updatedAtEl.textContent = dt.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+        } else {
+            updatedAtEl.textContent = 'Never';
+        }
+    }
+}
+
+function updateMasterSwitchUI(btnId, knobId, labelId, isActive, activeText, inactiveText) {
+    const btn = document.getElementById(btnId);
+    const knob = document.getElementById(knobId);
+    const label = document.getElementById(labelId);
+
+    if (btn) {
+        btn.dataset.active = isActive ? 'true' : 'false';
+        btn.className = `relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isActive ? 'bg-emerald-600' : 'bg-slate-300'}`;
+    }
+    if (knob) {
+        knob.className = `pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isActive ? 'translate-x-5' : 'translate-x-0'}`;
+    }
+    if (label) {
+        label.textContent = isActive ? activeText : inactiveText;
+        label.className = `text-xs font-bold ${isActive ? 'text-emerald-700' : 'text-slate-500'}`;
+    }
+}
+
+function toggleOffersMasterSwitch() {
+    const btn = document.getElementById('offers-master-switch');
+    if (!btn) return;
+    const current = btn.dataset.active === 'true';
+    const next = !current;
+    updateMasterSwitchUI('offers-master-switch', 'offers-master-switch-knob', 'offers-master-switch-label', next, 'ON', 'OFF');
+    
+    const fieldsContainer = document.getElementById('offers-config-fields');
+    if (fieldsContainer) {
+        fieldsContainer.style.opacity = next ? '1' : '0.55';
+    }
+    updateOffersChargesLivePreview();
+}
+
+function toggleFreeDeliverySwitch() {
+    const btn = document.getElementById('free-delivery-switch');
+    if (!btn) return;
+    const current = btn.dataset.active === 'true';
+    const next = !current;
+    updateMasterSwitchUI('free-delivery-switch', 'free-delivery-switch-knob', 'free-delivery-switch-label', next, 'Free: ON', 'Free: OFF');
+    updateOffersChargesLivePreview();
+}
+
+function toggleHandlingFeeSwitch() {
+    const btn = document.getElementById('handling-fee-switch');
+    if (!btn) return;
+    const current = btn.dataset.active === 'true';
+    const next = !current;
+    updateMasterSwitchUI('handling-fee-switch', 'handling-fee-switch-knob', 'handling-fee-switch-label', next, 'ON', 'OFF');
+    updateOffersChargesLivePreview();
+}
+
+function updateOfferUnitLabel(offerType) {
+    const lbl = document.getElementById('lbl-discount-val');
+    const unit = document.getElementById('unit-discount-val');
+    const discInput = document.getElementById('input-discount-val');
+
+    if (offerType === 'percentage') {
+        if (lbl) lbl.textContent = 'Discount Value (%)';
+        if (unit) unit.textContent = '%';
+        if (discInput) {
+            discInput.max = '100';
+            discInput.step = '1';
+        }
+    } else if (offerType === 'fixed') {
+        if (lbl) lbl.textContent = 'Discount Amount (₹)';
+        if (unit) unit.textContent = '₹';
+        if (discInput) {
+            discInput.removeAttribute('max');
+            discInput.step = '1';
+        }
+    } else {
+        if (lbl) lbl.textContent = 'Discount (N/A for Free Delivery)';
+        if (unit) unit.textContent = '—';
+    }
+}
+
+function handleOfferFieldChange() {
+    const offerType = document.querySelector('input[name="offer_type"]:checked')?.value || 'percentage';
+    updateOfferUnitLabel(offerType);
+    updateOffersChargesLivePreview();
+}
+
+function setPreviewSubtotal(amount) {
+    const input = document.getElementById('preview-sample-subtotal');
+    if (input) {
+        input.value = amount;
+        updateOffersChargesLivePreview();
+    }
+}
+
+/**
+ * Live Interactive Preview Calculation (Section 16 Specification)
+ */
+function updateOffersChargesLivePreview() {
+    const sampleSubtotal = Math.max(0, Number(document.getElementById('preview-sample-subtotal')?.value) || 0);
+    const offersEnabled = document.getElementById('offers-master-switch')?.dataset.active === 'true';
+    const offerType = document.querySelector('input[name="offer_type"]:checked')?.value || 'percentage';
+    const offerValue = Math.max(0, Number(document.getElementById('input-discount-val')?.value) || 0);
+    const minOrderValue = Math.max(0, Number(document.getElementById('input-offer-min-order')?.value) || 0);
+    const maxDiscount = Math.max(0, Number(document.getElementById('input-offer-max-discount')?.value) || 0);
+
+    const deliveryFeeBase = Math.max(0, Number(document.getElementById('input-delivery-fee')?.value) || 0);
+    const freeDeliveryEnabled = document.getElementById('free-delivery-switch')?.dataset.active === 'true';
+    const freeDeliveryThreshold = Math.max(0, Number(document.getElementById('input-free-delivery-threshold')?.value) || 0);
+
+    const handlingFeeEnabled = document.getElementById('handling-fee-switch')?.dataset.active === 'true';
+    const handlingFeeVal = Math.max(0, Number(document.getElementById('input-handling-fee')?.value) || 0);
+
+    // 1. Subtotal
+    const subtotal = sampleSubtotal;
+
+    // 2. Global Offer Calculation
+    let discount = 0;
+    let offerNote = 'None';
+    const meetsOfferMin = subtotal >= minOrderValue;
+
+    if (offersEnabled && meetsOfferMin && subtotal > 0) {
+        if (offerType === 'percentage') {
+            const rawDisc = Math.round(subtotal * (offerValue / 100));
+            discount = maxDiscount > 0 ? Math.min(rawDisc, maxDiscount) : rawDisc;
+            offerNote = `${offerValue}% OFF`;
+        } else if (offerType === 'fixed') {
+            discount = Math.min(subtotal, offerValue);
+            offerNote = `₹${offerValue} OFF`;
+        } else if (offerType === 'free_delivery') {
+            discount = 0;
+            offerNote = 'Free Delivery';
+        }
+    }
+
+    // 3. Delivery Fee
+    let calculatedDelivery = deliveryFeeBase;
+    let isFreeDelivery = false;
+
+    if (subtotal === 0) {
+        calculatedDelivery = 0;
+        isFreeDelivery = true;
+    } else if (deliveryFeeBase <= 0) {
+        calculatedDelivery = 0;
+        isFreeDelivery = true;
+    } else {
+        const meetsThreshold = freeDeliveryEnabled && subtotal >= freeDeliveryThreshold;
+        const meetsFreeOffer = offersEnabled && offerType === 'free_delivery' && meetsOfferMin;
+        if (meetsThreshold || meetsFreeOffer) {
+            calculatedDelivery = 0;
+            isFreeDelivery = true;
+        } else {
+            calculatedDelivery = deliveryFeeBase;
+            isFreeDelivery = false;
+        }
+    }
+
+    // 4. Handling Fee
+    let calculatedHandling = 0;
+    if (subtotal > 0 && handlingFeeEnabled) {
+        calculatedHandling = handlingFeeVal;
+    }
+
+    // 5. Final Total
+    const finalTotal = Math.max(0, subtotal - discount + calculatedDelivery + calculatedHandling);
+
+    // Update DOM
+    const simLabel = document.getElementById('preview-simulated-label');
+    if (simLabel) simLabel.textContent = `₹${subtotal}`;
+
+    const lineSubtotal = document.getElementById('preview-line-subtotal');
+    if (lineSubtotal) lineSubtotal.textContent = `₹${subtotal}`;
+
+    const offerRow = document.getElementById('preview-line-offer-row');
+    const lineOffer = document.getElementById('preview-line-offer');
+    const lineOfferName = document.getElementById('preview-line-offer-name');
+    if (lineOffer && lineOfferName) {
+        if (discount > 0) {
+            lineOffer.textContent = `-₹${discount}`;
+            lineOfferName.textContent = offerNote;
+            if (offerRow) offerRow.style.display = 'flex';
+        } else {
+            lineOffer.textContent = '₹0';
+            lineOfferName.textContent = offersEnabled ? (meetsOfferMin ? '₹0' : `Min ₹${minOrderValue}`) : 'OFF';
+            if (offerRow) offerRow.style.display = offersEnabled ? 'flex' : 'none';
+        }
+    }
+
+    const lineDelivery = document.getElementById('preview-line-delivery');
+    const lineDeliveryWrap = document.getElementById('preview-line-delivery-wrap');
+    if (lineDelivery) {
+        if (isFreeDelivery) {
+            lineDelivery.textContent = 'FREE';
+            lineDelivery.className = 'text-emerald-600 font-black';
+            if (deliveryFeeBase > 0 && lineDeliveryWrap) {
+                lineDeliveryWrap.innerHTML = `<span class="line-through text-[11px] text-slate-400">₹${deliveryFeeBase}</span> <span class="text-emerald-600 font-black">FREE</span>`;
+            } else if (lineDeliveryWrap) {
+                lineDeliveryWrap.innerHTML = `<span class="text-emerald-600 font-black">FREE</span>`;
+            }
+        } else {
+            if (lineDeliveryWrap) {
+                lineDeliveryWrap.innerHTML = `<span class="text-slate-900 font-bold">₹${calculatedDelivery}</span>`;
+            }
+        }
+    }
+
+    const lineHandling = document.getElementById('preview-line-handling');
+    if (lineHandling) {
+        lineHandling.textContent = calculatedHandling > 0 ? `₹${calculatedHandling}` : '₹0';
+    }
+
+    const lineTotal = document.getElementById('preview-line-total');
+    if (lineTotal) lineTotal.textContent = `₹${finalTotal}`;
+
+    // Explanation banner
+    const expText = document.getElementById('preview-explanation-text');
+    if (expText) {
+        let msg = `Subtotal ₹${subtotal}: `;
+        if (offersEnabled) {
+            if (meetsOfferMin) {
+                msg += `Qualifies for ${offerNote}${discount > 0 ? ` (-₹${discount})` : ''}. `;
+            } else {
+                msg += `Order below offer min (₹${minOrderValue}) — no discount applied. `;
+            }
+        } else {
+            msg += 'Global offers are turned OFF. ';
+        }
+
+        if (isFreeDelivery) {
+            msg += 'Delivery is FREE. ';
+        } else {
+            msg += `Delivery fee is ₹${calculatedDelivery}. `;
+        }
+
+        if (calculatedHandling > 0) {
+            msg += `Handling fee is ₹${calculatedHandling}.`;
+        }
+        expText.textContent = msg;
+    }
+}
+
+/**
+ * Saves all Offers & Charges settings to Supabase
+ */
+async function saveOffersCharges() {
+    if (currentAdminProfile && !currentAdminProfile.is_owner) {
+        showToast('Access restricted: Owner only.', 'error');
+        return;
+    }
+
+    // 1. Gather & Validate Inputs
+    const offersEnabled = document.getElementById('offers-master-switch')?.dataset.active === 'true';
+    const offerType = document.querySelector('input[name="offer_type"]:checked')?.value || 'percentage';
+    const offerValue = Number(document.getElementById('input-discount-val')?.value);
+    const minOrderValue = Number(document.getElementById('input-offer-min-order')?.value);
+    const maxDiscount = Number(document.getElementById('input-offer-max-discount')?.value);
+
+    const startDateVal = document.getElementById('input-offer-start-date')?.value;
+    const endDateVal = document.getElementById('input-offer-end-date')?.value;
+
+    const deliveryFee = Number(document.getElementById('input-delivery-fee')?.value);
+    const freeDeliveryEnabled = document.getElementById('free-delivery-switch')?.dataset.active === 'true';
+    const freeDeliveryThreshold = Number(document.getElementById('input-free-delivery-threshold')?.value);
+
+    const handlingFeeEnabled = document.getElementById('handling-fee-switch')?.dataset.active === 'true';
+    const handlingFee = Number(document.getElementById('input-handling-fee')?.value);
+    const minCartVal = Number(document.getElementById('input-min-cart-val')?.value);
+
+    // Validation (Section 18)
+    const errors = [];
+    if (!Number.isFinite(deliveryFee) || deliveryFee < 0) {
+        errors.push('Delivery Fee must be a valid number >= 0.');
+    }
+    if (!Number.isFinite(handlingFee) || handlingFee < 0) {
+        errors.push('Handling Fee must be a valid number >= 0.');
+    }
+    if (!Number.isFinite(offerValue) || offerValue < 0) {
+        errors.push('Discount Value must be a valid number >= 0.');
+    } else if (offerType === 'percentage' && (offerValue < 0 || offerValue > 100)) {
+        errors.push('Percentage discount must be between 0% and 100%.');
+    }
+    if (!Number.isFinite(minOrderValue) || minOrderValue < 0) {
+        errors.push('Minimum Order Value must be a valid number >= 0.');
+    }
+    if (!Number.isFinite(maxDiscount) || maxDiscount < 0) {
+        errors.push('Maximum Discount must be a valid number >= 0.');
+    }
+    if (!Number.isFinite(freeDeliveryThreshold) || freeDeliveryThreshold < 0) {
+        errors.push('Free Delivery Threshold must be a valid number >= 0.');
+    }
+    if (!Number.isFinite(minCartVal) || minCartVal < 0) {
+        errors.push('Minimum Cart Order must be a valid number >= 0.');
+    }
+
+    let startDateIso = null;
+    if (startDateVal) {
+        const d = new Date(startDateVal);
+        if (isNaN(d.getTime())) errors.push('Start Date is invalid.');
+        else startDateIso = d.toISOString();
+    }
+
+    let endDateIso = null;
+    if (endDateVal) {
+        const d = new Date(endDateVal);
+        if (isNaN(d.getTime())) errors.push('End Date is invalid.');
+        else endDateIso = d.toISOString();
+    }
+
+    if (startDateIso && endDateIso && new Date(startDateIso) > new Date(endDateIso)) {
+        errors.push('End Date cannot be earlier than Start Date.');
+    }
+
+    if (errors.length > 0) {
+        showOffersChargesAlert(errors.join('<br>'), 'error');
+        showToast('Please fix validation errors before saving.', 'error');
+        return;
+    }
+
+    // 2. Prepare payload
+    const payload = {
+        offers_enabled: offersEnabled,
+        offer_type: offerType,
+        offer_value: offerValue,
+        minimum_order_value: minOrderValue,
+        maximum_discount: maxDiscount,
+        free_delivery_enabled: freeDeliveryEnabled,
+        free_delivery_threshold: freeDeliveryThreshold,
+        delivery_fee: deliveryFee,
+        handling_fee: handlingFee,
+        handling_fee_enabled: handlingFeeEnabled,
+        min_cart_value: minCartVal,
+        start_date: startDateIso,
+        end_date: endDateIso,
+        expected_updated_at: currentOffersSettings?.updated_at || null
+    };
+
+    // 3. UI Loading State (Prevent duplicate Save requests - Section 17)
+    const btnSave = document.getElementById('btn-save-offers');
+    const btnSaveTop = document.getElementById('btn-save-offers-top');
+    const btnText = document.getElementById('btn-save-offers-text');
+
+    if (btnSave) btnSave.disabled = true;
+    if (btnSaveTop) btnSaveTop.disabled = true;
+    if (btnText) btnText.textContent = 'Saving to Supabase Cloud...';
+
+    try {
+        const res = await fetchWithTimeout('/api/admin/offers-charges', {
+            method: 'POST',
+            headers: {
+                ...getAuthHeaders(),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        }, 8000);
+
+        const data = await res.json();
+        if (res.ok && data.success && data.settings) {
+            currentOffersSettings = data.settings;
+            populateOffersChargesForm(data.settings);
+            updateOffersChargesLivePreview();
+
+            showOffersChargesAlert('✓ Saved successfully! The new offers, delivery fees, and handling charges are now live for all customer checkouts.', 'success');
+            showToast('✓ Offers & charges saved successfully!', 'success');
+        } else {
+            throw new Error(data.error || 'Failed to save settings.');
+        }
+    } catch (err) {
+        console.error('[saveOffersCharges Error]:', err);
+        showOffersChargesAlert('Database update failed: ' + err.message + '. Last confirmed configuration was kept.', 'error');
+        showToast('Failed to save settings: ' + err.message, 'error');
+    } finally {
+        if (btnSave) btnSave.disabled = false;
+        if (btnSaveTop) btnSaveTop.disabled = false;
+        if (btnText) btnText.textContent = 'Save All Offers & Charges';
+    }
+}
+
+function showOffersChargesAlert(htmlMessage, type = 'success') {
+    const alertEl = document.getElementById('offers-charges-alert');
+    if (!alertEl) return;
+
+    alertEl.innerHTML = htmlMessage;
+    alertEl.classList.remove('hidden', 'bg-emerald-50', 'border-emerald-300', 'text-emerald-900', 'bg-rose-50', 'border-rose-300', 'text-rose-900');
+
+    if (type === 'success') {
+        alertEl.classList.add('bg-emerald-50', 'border-emerald-300', 'text-emerald-900');
+    } else {
+        alertEl.classList.add('bg-rose-50', 'border-rose-300', 'text-rose-900');
+    }
+    alertEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function formatForDatetimeLocal(isoString) {
+    if (!isoString) return '';
+    try {
+        const d = new Date(isoString);
+        const pad = n => String(n).padStart(2, '0');
+        const YYYY = d.getFullYear();
+        const MM = pad(d.getMonth() + 1);
+        const DD = pad(d.getDate());
+        const hh = pad(d.getHours());
+        const mm = pad(d.getMinutes());
+        return `${YYYY}-${MM}-${DD}T${hh}:${mm}`;
+    } catch (e) {
+        return '';
+    }
+}
+

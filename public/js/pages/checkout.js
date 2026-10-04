@@ -20,22 +20,94 @@ window.pages.checkout = async function() {
     const subtotal = items.reduce((sum, item) => sum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
     const mrpDiscount = Math.max(0, totalMrp - subtotal);
     
-    // Minimum Order Value (₹35) & Handling Fee (₹3 for every order)
-    const MIN_ORDER_VALUE = 35;
+    // Dynamic Settings from Owner
+    let checkoutSettings = window.latestCheckoutSettings || null;
+    try {
+        const settingsRes = await fetch('/api/checkout/settings', { cache: 'no-store' }).then(r => r.json()).catch(() => null);
+        if (settingsRes && settingsRes.success && settingsRes.settings) {
+            checkoutSettings = settingsRes.settings;
+            window.latestCheckoutSettings = checkoutSettings;
+        }
+    } catch(e) {}
+
+    checkoutSettings = checkoutSettings || {
+        offers_enabled: false,
+        offer_type: 'percentage',
+        offer_value: 0,
+        minimum_order_value: 35,
+        maximum_discount: 0,
+        free_delivery_enabled: true,
+        free_delivery_threshold: 0,
+        delivery_fee: 0,
+        handling_fee: 3,
+        handling_fee_enabled: true,
+        min_cart_value: 35
+    };
+
+    // Calculate Eligible Global Offer
+    let globalDiscount = 0;
+    let offerLabel = '';
+    let isOfferActive = Boolean(checkoutSettings.offers_enabled);
+    if (isOfferActive && (checkoutSettings.start_date || checkoutSettings.end_date)) {
+        const now = Date.now();
+        if (checkoutSettings.start_date && now < new Date(checkoutSettings.start_date).getTime()) isOfferActive = false;
+        if (checkoutSettings.end_date && now > new Date(checkoutSettings.end_date).getTime()) isOfferActive = false;
+    }
+    const meetsOfferMin = subtotal >= (Number(checkoutSettings.minimum_order_value) || 0);
+
+    if (isOfferActive && meetsOfferMin && subtotal > 0) {
+        if (checkoutSettings.offer_type === 'percentage') {
+            const raw = Math.round(subtotal * (Number(checkoutSettings.offer_value || 0) / 100));
+            const maxD = Number(checkoutSettings.maximum_discount) || 0;
+            globalDiscount = maxD > 0 ? Math.min(raw, maxD) : raw;
+            offerLabel = `${checkoutSettings.offer_value}% OFF`;
+        } else if (checkoutSettings.offer_type === 'fixed') {
+            globalDiscount = Math.min(subtotal, Number(checkoutSettings.offer_value) || 0);
+            offerLabel = `₹${checkoutSettings.offer_value} OFF`;
+        } else if (checkoutSettings.offer_type === 'free_delivery') {
+            globalDiscount = 0;
+            offerLabel = 'Free Delivery';
+        }
+    }
+
+    // Delivery Fee calculation
+    const deliveryFeeBase = Math.max(0, Number(checkoutSettings.delivery_fee) || 0);
+    let deliveryFee = 0;
+    let isFreeDelivery = false;
+    if (items.length > 0) {
+        if (deliveryFeeBase <= 0) {
+            deliveryFee = 0;
+            isFreeDelivery = true;
+        } else {
+            const meetsFreeThreshold = checkoutSettings.free_delivery_enabled && subtotal >= (Number(checkoutSettings.free_delivery_threshold) || 0);
+            const meetsFreeOffer = isOfferActive && checkoutSettings.offer_type === 'free_delivery' && meetsOfferMin;
+            if (meetsFreeThreshold || meetsFreeOffer) {
+                deliveryFee = 0;
+                isFreeDelivery = true;
+            } else {
+                deliveryFee = deliveryFeeBase;
+                isFreeDelivery = false;
+            }
+        }
+    }
+
+    // Handling Fee calculation
+    const handlingFee = (items.length > 0 && checkoutSettings.handling_fee_enabled) ? (Number(checkoutSettings.handling_fee) || 0) : 0;
+
+    // Minimum Order Value
+    const MIN_ORDER_VALUE = Number(checkoutSettings.min_cart_value) || 35;
     const isMinOrderMet = subtotal >= MIN_ORDER_VALUE;
     const minOrderShortfall = Math.max(0, MIN_ORDER_VALUE - subtotal);
-    const handlingFee = items.length > 0 ? 3 : 0;
 
-    // 5% Campus Bulk Offer for orders above ₹350
-    const hasDiscount = subtotal >= 350;
-    const discount5 = hasDiscount ? Math.round(subtotal * 0.05) : 0;
-    const exactTotal = Math.max(0, subtotal - discount5 + handlingFee);
+    // Exact Total
+    const exactTotal = Math.max(0, subtotal - globalDiscount + deliveryFee + handlingFee);
     window.cartTotalCache = exactTotal;
     window.cartSubtotalCache = subtotal;
+    window.cartMinOrderCache = MIN_ORDER_VALUE;
 
-    // Total Real Savings: MRP discount + 5% offer + ₹25 delivery
-    const deliverySavings = subtotal > 0 ? 25 : 0;
-    const totalSavings = mrpDiscount + discount5 + deliverySavings;
+    // Total Real Savings: MRP discount + offer + delivery savings
+    const deliverySavings = isFreeDelivery ? (deliveryFeeBase > 0 ? deliveryFeeBase : 25) : 0;
+    const totalSavings = mrpDiscount + globalDiscount + deliverySavings;
 
     let savedHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id');
     if (!savedHostel) {
@@ -232,18 +304,22 @@ window.pages.checkout = async function() {
                         <span class="font-black text-slate-900 dark:text-white" id="checkout-subtotal-val">₹${subtotal}</span>
                     </div>
 
-                    ${hasDiscount ? `
+                    ${globalDiscount > 0 ? `
                     <div class="flex justify-between items-center text-emerald-700 dark:text-emerald-400 font-bold">
-                        <span>5% Bulk Offer</span>
-                        <span>-₹${discount5}</span>
+                        <span>Offer (${offerLabel})</span>
+                        <span>-₹${globalDiscount}</span>
                     </div>
                     ` : ''}
 
                     <div class="flex justify-between items-center text-slate-600 dark:text-slate-400 font-medium">
                         <span>Delivery Fee</span>
                         <div class="flex items-center gap-1.5">
-                            <span class="line-through text-[11px] text-slate-400">₹25</span>
-                            <span class="font-black text-emerald-600 dark:text-emerald-400">FREE</span>
+                            ${isFreeDelivery ? `
+                                ${deliveryFeeBase > 0 ? `<span class="line-through text-[11px] text-slate-400">₹${deliveryFeeBase}</span>` : ''}
+                                <span class="font-black text-emerald-600 dark:text-emerald-400">FREE</span>
+                            ` : `
+                                <span class="font-bold text-slate-900 dark:text-white">₹${deliveryFee}</span>
+                            `}
                         </div>
                     </div>
 
@@ -258,7 +334,7 @@ window.pages.checkout = async function() {
                     <div class="border-t border-[var(--glass-border)] pt-3.5 mt-2 flex justify-between items-center text-sm font-black">
                         <div>
                             <span class="text-slate-900 dark:text-white tracking-tight">Total to Pay</span>
-                            <p class="text-[10px] text-emerald font-bold">Free campus delivery</p>
+                            <p class="text-[10px] text-emerald font-bold">${isFreeDelivery ? 'Free campus delivery' : `Delivery ₹${deliveryFee}`}</p>
                         </div>
                         <span class="text-2xl font-black text-slate-900 dark:text-white tracking-tight" id="checkout-total-val">₹${exactTotal}</span>
                     </div>
@@ -334,7 +410,7 @@ window.pages.checkout = async function() {
                         <div class="flex items-center gap-2.5">
                             <span class="material-symbols-outlined text-2xl text-amber-500 animate-bounce">shopping_bag</span>
                             <div>
-                                <p class="font-black text-xs sm:text-sm">Minimum Order Value is ₹35</p>
+                                <p class="font-black text-xs sm:text-sm">Minimum Order Value is ₹${MIN_ORDER_VALUE}</p>
                                 <p class="text-[11px] text-slate-600 dark:text-slate-400 font-medium">Your current subtotal is ₹${subtotal}. Add ₹${minOrderShortfall} more to place this order.</p>
                             </div>
                         </div>
@@ -477,11 +553,12 @@ window.pageInits.checkout = function() {
         if (isSubmitting) return;
         isSubmitting = true;
 
-        if ((window.cartSubtotalCache !== undefined) && window.cartSubtotalCache < 35) {
+        const minOrderLimit = window.cartMinOrderCache || 35;
+        if ((window.cartSubtotalCache !== undefined) && window.cartSubtotalCache < minOrderLimit) {
             isSubmitting = false;
-            const shortfall = 35 - (window.cartSubtotalCache || 0);
+            const shortfall = minOrderLimit - (window.cartSubtotalCache || 0);
             if (typeof window.showClientToast === 'function') {
-                window.showClientToast(`⚠️ Minimum order value is ₹35. Please add items worth ₹${shortfall} more.`, 'warning', 'shopping_bag');
+                window.showClientToast(`⚠️ Minimum order value is ₹${minOrderLimit}. Please add items worth ₹${shortfall} more.`, 'warning', 'shopping_bag');
             }
             window.location.hash = '#/cart';
             return;

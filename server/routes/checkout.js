@@ -4,6 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 const supabaseDb = require('../db/supabaseDb');
 const { broadcastOrderPlaced, broadcastInventoryUpdate } = require('../realtime');
 const cache = require('../cache');
+const checkoutSettingsService = require('../services/checkoutSettingsService');
 
 // In-Process Concurrency Mutex for Checkout Idempotency & Duplicate Order Prevention
 const checkoutLocks = new Map();
@@ -245,17 +246,20 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
             });
         }
 
+        const checkoutSettings = await checkoutSettingsService.getSettings();
         const subtotal = orderItems.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 1)), 0);
-        const MIN_ORDER_VALUE = 35;
+        const MIN_ORDER_VALUE = Number(checkoutSettings.min_cart_value) || 35;
         if (subtotal < MIN_ORDER_VALUE) {
             return res.status(400).json({
                 error: `Minimum order value is ₹${MIN_ORDER_VALUE}. Please add items worth ₹${MIN_ORDER_VALUE - subtotal} more to place your order.`
             });
         }
 
-        const handlingFee = 3;
-        const discount5 = subtotal >= 350 ? Math.round(subtotal * 0.05) : 0;
-        const total = Math.max(0, subtotal - discount5 + handlingFee);
+        const pricingBreakdown = checkoutSettingsService.calculateCharges(orderItems, checkoutSettings);
+        const handlingFee = pricingBreakdown.platform_fee;
+        const deliveryFee = pricingBreakdown.delivery_fee;
+        const discountVal = pricingBreakdown.global_discount;
+        const total = pricingBreakdown.total;
 
         const orderId = customOrderId || `order_${uuidv4().slice(0, 8)}`;
         const initialStatus = 'Order Placed';
@@ -318,7 +322,7 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
             customer_email: customerEmail,
             status: initialStatus,
             subtotal,
-            delivery_fee: 0,
+            delivery_fee: deliveryFee,
             platform_fee: handlingFee,
             tax: 0,
             total,
@@ -386,9 +390,10 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
             order: createdOrder,
             pricing: {
                 subtotal,
-                discount_5_percent: discount5,
-                delivery_fee: 0,
-                platform_fee: 0,
+                global_discount: discountVal,
+                discount_5_percent: discountVal,
+                delivery_fee: deliveryFee,
+                platform_fee: handlingFee,
                 tax: 0,
                 total
             },
@@ -404,6 +409,19 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
         });
     }
 }
+
+// GET /api/checkout/settings (Public - returns active offers & charges for checkout calculations)
+router.get('/settings', async (req, res) => {
+    try {
+        const settings = await checkoutSettingsService.getSettings();
+        res.json({
+            success: true,
+            settings
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
 
 router.post('/', handlePlaceOrder);
 router.post('/place', handlePlaceOrder);

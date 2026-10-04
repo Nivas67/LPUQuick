@@ -8,9 +8,46 @@ const { requireRole } = require('../middleware/adminAuth');
 const { broadcastClientLockUpdate, broadcastUserBlocked, broadcastUserUnblocked, broadcastAdvertisementsUpdate, broadcastHostelStatusChanged } = require('../realtime');
 const { getRiderStatus, isRiderOnline, setRiderStatus } = require('../services/riderAvailability');
 const cache = require('../cache');
+const checkoutSettingsService = require('../services/checkoutSettingsService');
 
 // All routes in this file require Administrator Authorization
 router.use(requireAdmin);
+
+// ============================================================
+// OWNER-ONLY: OFFERS & CHARGES CONTROL
+// ============================================================
+
+// GET /api/admin/offers-charges (Owner Only)
+router.get('/offers-charges', requireRole('owner'), async (req, res) => {
+    try {
+        const settings = await checkoutSettingsService.getSettings(true);
+        res.json({
+            success: true,
+            settings
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// POST /api/admin/offers-charges (Owner Only)
+router.post('/offers-charges', requireRole('owner'), async (req, res) => {
+    try {
+        const updated = await checkoutSettingsService.updateSettings(req.body, req.admin);
+        res.json({
+            success: true,
+            message: 'Offers & charges settings saved successfully',
+            settings: updated
+        });
+    } catch (err) {
+        const status = err.statusCode || 400;
+        res.status(status).json({
+            success: false,
+            error: err.message,
+            validationErrors: err.validationErrors || [err.message]
+        });
+    }
+});
 
 // GET /api/admin/verify (Cryptographic & Database-validated admin session verification)
 router.get('/verify', (req, res) => {

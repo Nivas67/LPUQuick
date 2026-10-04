@@ -1,0 +1,17 @@
+{
+  "offers_enabled": true,
+  "offer_type": "percentage",
+  "offer_value": 5,
+  "minimum_order_value": 350,
+  "maximum_discount": 50,
+  "free_delivery_enabled": true,
+  "free_delivery_threshold": 0,
+  "delivery_fee": 0,
+  "handling_fee": 3,
+  "handling_fee_enabled": true,
+  "min_cart_value": 35,
+  "start_date": null,
+  "end_date": null,
+  "updated_at": "2026-10-04T06:48:28.074Z",
+  "updated_by": "Nivas Naidu"
+}
