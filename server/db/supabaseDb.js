@@ -986,7 +986,10 @@ const supabaseDb = {
             const items = rawItems.map(item => {
                 const prod = item.products || {};
                 const match = (prod.tags || '').match(/stock:(\d+)/);
-                const stock_left = match ? parseInt(match[1], 10) : (prod.in_stock !== false ? 50 : 0);
+                let stock_left = match ? parseInt(match[1], 10) : (prod.in_stock !== false ? 50 : 0);
+                if (stock_left <= 0 && prod.in_stock !== false) {
+                    stock_left = 50;
+                }
                 const clampedQty = Math.max(1, Math.min(Number(item.quantity) || 1, stock_left > 0 ? stock_left : 50));
                 return {
                     id: item.id,

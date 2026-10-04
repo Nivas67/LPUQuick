@@ -2,6 +2,92 @@
 window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
+function calculateCartCharges(cartSubtotal, settings) {
+    const s = settings || window.latestCheckoutSettings || {
+        offers_enabled: true,
+        offer_type: 'percentage',
+        offer_value: 5,
+        minimum_order_value: 350,
+        maximum_discount: 50,
+        free_delivery_enabled: true,
+        free_delivery_threshold: 0,
+        delivery_fee: 0,
+        handling_fee: 3,
+        handling_fee_enabled: true,
+        min_cart_value: 35
+    };
+
+    const minCart = Number(s.min_cart_value) || 35;
+    const isMinMet = cartSubtotal >= minCart;
+    const minShortfall = Math.max(0, minCart - cartSubtotal);
+
+    let isOfferActive = Boolean(s.offers_enabled);
+    if (isOfferActive && (s.start_date || s.end_date)) {
+        const now = Date.now();
+        if (s.start_date && now < new Date(s.start_date).getTime()) isOfferActive = false;
+        if (s.end_date && now > new Date(s.end_date).getTime()) isOfferActive = false;
+    }
+
+    const minOrderVal = Number(s.minimum_order_value) || 0;
+    const meetsMinOrder = cartSubtotal >= minOrderVal;
+
+    let discount = 0;
+    let offerLabel = '';
+    if (isOfferActive && meetsMinOrder && cartSubtotal > 0) {
+        if (s.offer_type === 'percentage') {
+            const raw = Math.round(cartSubtotal * (Number(s.offer_value || 0) / 100));
+            const maxD = Number(s.maximum_discount) || 0;
+            discount = maxD > 0 ? Math.min(raw, maxD) : raw;
+            offerLabel = `${s.offer_value}% Bulk Offer`;
+        } else if (s.offer_type === 'fixed') {
+            discount = Math.min(cartSubtotal, Number(s.offer_value) || 0);
+            offerLabel = `₹${s.offer_value} Flat Offer`;
+        } else if (s.offer_type === 'free_delivery') {
+            discount = 0;
+            offerLabel = 'Free Delivery';
+        }
+    }
+
+    const baseDelivery = Math.max(0, Number(s.delivery_fee) || 0);
+    let delivery = 0;
+    let isFreeDel = false;
+    if (cartSubtotal > 0) {
+        if (baseDelivery <= 0) {
+            delivery = 0;
+            isFreeDel = true;
+        } else {
+            const meetsFreeThreshold = s.free_delivery_enabled && cartSubtotal >= (Number(s.free_delivery_threshold) || 0);
+            const meetsFreeOffer = isOfferActive && s.offer_type === 'free_delivery' && meetsMinOrder;
+            if (meetsFreeThreshold || meetsFreeOffer) {
+                delivery = 0;
+                isFreeDel = true;
+            } else {
+                delivery = baseDelivery;
+                isFreeDel = false;
+            }
+        }
+    }
+
+    const handling = (s.handling_fee_enabled !== false && cartSubtotal > 0) ? (Number(s.handling_fee) || 0) : 0;
+    const total = Math.max(0, cartSubtotal - discount + delivery + handling);
+
+    return {
+        minCart,
+        isMinMet,
+        minShortfall,
+        isOfferActive,
+        minOrderVal,
+        meetsMinOrder,
+        discount,
+        offerLabel: offerLabel || (s.offer_type === 'percentage' ? `${s.offer_value}% Bulk Offer` : (s.offer_type === 'fixed' ? `₹${s.offer_value} Flat Offer` : 'Special Offer')),
+        baseDelivery,
+        delivery,
+        isFreeDel,
+        handling,
+        total
+    };
+}
+
 window.pages.cart = async function() {
     let cartData;
     const userId = typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : (window.CURRENT_USER_ID || 'guest');
@@ -12,28 +98,41 @@ window.pages.cart = async function() {
     }
 
     const items = cartData.items || [];
-    const p = cartData.pricing || { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 };
     
+    // Dynamic Settings from Owner/Admin
+    let checkoutSettings = window.latestCheckoutSettings || null;
+    try {
+        const settingsRes = await fetch('/api/checkout/settings', { cache: 'no-store' }).then(r => r.json()).catch(() => null);
+        if (settingsRes && settingsRes.success && settingsRes.settings) {
+            checkoutSettings = settingsRes.settings;
+            window.latestCheckoutSettings = checkoutSettings;
+        }
+    } catch(e) {}
+
+    checkoutSettings = checkoutSettings || {
+        offers_enabled: true,
+        offer_type: 'percentage',
+        offer_value: 5,
+        minimum_order_value: 350,
+        maximum_discount: 50,
+        free_delivery_enabled: true,
+        free_delivery_threshold: 0,
+        delivery_fee: 0,
+        handling_fee: 3,
+        handling_fee_enabled: true,
+        min_cart_value: 35
+    };
+
     // Accurate MRP, Subtotal & Quantity calculations
     const totalQuantity = items.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
     const totalMrp = items.reduce((sum, item) => sum + ((Number(item.mrp) || Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
     const subtotal = items.reduce((sum, item) => sum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
     const mrpDiscount = Math.max(0, totalMrp - subtotal);
     
-    // Minimum Order Value (₹35) & Handling Fee (₹3 for every order)
-    const MIN_ORDER_VALUE = 35;
-    const isMinOrderMet = subtotal >= MIN_ORDER_VALUE;
-    const minOrderShortfall = Math.max(0, MIN_ORDER_VALUE - subtotal);
-    const handlingFee = items.length > 0 ? 3 : 0;
-
-    // 5% Campus Bulk Offer for orders above ₹350
-    const hasDiscount = subtotal >= 350;
-    const discount5 = hasDiscount ? Math.round(subtotal * 0.05) : 0;
-    const exactTotal = Math.max(0, subtotal - discount5 + handlingFee);
-    
-    // Total Real Savings: MRP discount + 5% offer + ₹25 delivery
-    const deliverySavings = subtotal > 0 ? 25 : 0;
-    const totalSavings = mrpDiscount + discount5 + deliverySavings;
+    // Dynamic charges calculation
+    const charges = calculateCartCharges(subtotal, checkoutSettings);
+    const exactTotal = charges.total;
+    const totalSavings = mrpDiscount + charges.discount + (charges.isFreeDel ? (charges.baseDelivery > 0 ? charges.baseDelivery : 25) : 0);
 
     const itemCards = items.length === 0 ? `
         <div class="glass-panel card-pedestal rounded-3xl p-8 sm:p-14 text-center my-6 shadow-2xl border border-[var(--glass-border)]">
@@ -56,12 +155,19 @@ window.pages.cart = async function() {
         const hasItemDiscount = itemMrp > itemPrice;
         const discPercent = hasItemDiscount ? Math.round(((itemMrp - itemPrice) / itemMrp) * 100) : 0;
         const cachedProd = window.__cachedProducts?.get(item.product_id);
-        const stockLeft = (item.stock_left !== undefined && item.stock_left !== null) 
-            ? Number(item.stock_left) 
-            : (cachedProd?.stock_left !== undefined && cachedProd?.stock_left !== null 
-                ? Number(cachedProd.stock_left) 
-                : (item.in_stock ? 50 : 0));
-        const isMaxStockReached = item.quantity >= stockLeft;
+        
+        // Robust Authoritative Stock Determination
+        let stockLeft = 50;
+        if (cachedProd && Number(cachedProd.stock_left) > 0) {
+            stockLeft = Number(cachedProd.stock_left);
+        } else if (item.stock_left !== undefined && item.stock_left !== null && Number(item.stock_left) > 0) {
+            stockLeft = Number(item.stock_left);
+        } else if (cachedProd?.in_stock !== false && item.in_stock !== false) {
+            stockLeft = 50;
+        } else {
+            stockLeft = Math.max((Number(item.quantity) || 1) + 10, 50);
+        }
+        const isMaxStockReached = (Number(item.quantity) || 1) >= stockLeft && stockLeft > 0;
 
         return `
         <div class="glass-panel card-pedestal rounded-2xl p-3.5 sm:p-4 flex items-center justify-between gap-3.5 shadow-md mb-3 border border-[var(--glass-border)] cart-row transition-all hover:translate-y-[-1px]" data-cart-id="${item.cart_id}" data-product-id="${item.product_id}" data-price="${itemPrice}" data-mrp="${itemMrp}" data-stock-left="${stockLeft}">
@@ -130,14 +236,15 @@ window.pages.cart = async function() {
     <main class="px-3 sm:px-6 max-w-5xl mx-auto pt-5 grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6">
         <!-- Left: Cart Items & Campus Perks -->
         <div class="lg:col-span-2 space-y-3.5">
-            <!-- Minimum Order Value Alert (₹35) -->
-            ${!isMinOrderMet && subtotal > 0 ? `
+            <!-- Dynamic Minimum Order Value Alert -->
+            <div id="cart-min-order-banner-wrap">
+            ${!charges.isMinMet && subtotal > 0 ? `
             <div class="glass-panel rounded-2xl p-3.5 flex items-center justify-between text-xs border border-amber-500/40 bg-amber-500/10 shadow-sm backdrop-blur-xl">
                 <div class="flex items-center gap-2.5 font-bold text-amber-700 dark:text-amber-300">
                     <span class="material-symbols-outlined text-lg text-amber-500 animate-bounce">shopping_bag</span>
                     <div>
-                        <p class="font-black text-xs">Minimum Order Value is ₹35</p>
-                        <p class="text-[11px] text-amber-600/90 dark:text-amber-400 font-medium">Add items worth ₹${minOrderShortfall} more to place your hostel order.</p>
+                        <p class="font-black text-xs">Minimum Order Value is ₹${charges.minCart}</p>
+                        <p class="text-[11px] text-amber-600/90 dark:text-amber-400 font-medium">Add items worth ₹${charges.minShortfall} more to place your hostel order.</p>
                     </div>
                 </div>
                 <a href="#/" class="clay-btn clay-btn-primary px-3 py-1.5 text-[11px] font-black rounded-xl text-white shrink-0 shadow-sm">
@@ -145,33 +252,47 @@ window.pages.cart = async function() {
                 </a>
             </div>
             ` : ''}
+            </div>
 
-            <!-- 5% Campus Bulk Banner -->
-            ${hasDiscount ? `
+            <!-- Dynamic Campus Offer Banner -->
+            <div id="cart-offer-banner-wrap">
+            ${charges.isOfferActive && charges.meetsMinOrder && charges.discount > 0 ? `
             <div class="glass-panel rounded-2xl p-3.5 flex items-center justify-between text-xs border border-emerald-500/30 bg-emerald-500/10 shadow-sm backdrop-blur-xl">
                 <div class="flex items-center gap-2 font-bold text-emerald-700 dark:text-emerald-300">
                     <span class="material-symbols-outlined text-base">verified</span>
-                    <span>5% Campus Bulk Offer Applied (Above ₹350)</span>
+                    <span>${charges.offerLabel} Applied</span>
                 </div>
-                <span class="text-[11px] font-black text-emerald-700 dark:text-emerald-300 liquid-badge px-2.5 py-0.5">Extra ₹${discount5} OFF</span>
+                <span class="text-[11px] font-black text-emerald-700 dark:text-emerald-300 liquid-badge px-2.5 py-0.5">Extra ₹${charges.discount} OFF</span>
             </div>
-            ` : subtotal > 0 ? `
+            ` : (charges.isOfferActive && !charges.meetsMinOrder && subtotal > 0 ? `
             <div class="glass-panel rounded-2xl p-3.5 flex items-center justify-between text-xs border border-amber-500/30 bg-amber-500/10 shadow-sm backdrop-blur-xl">
                 <div class="flex items-center gap-2 font-bold text-amber-700 dark:text-amber-300">
                     <span class="material-symbols-outlined text-base">local_offer</span>
-                    <span>Add ₹${350 - subtotal} more to get 5% FLAT OFF on your order</span>
+                    <span>Add ₹${charges.minOrderVal - subtotal} more to get ${charges.offerLabel} on your order</span>
                 </div>
                 <a href="#/" class="text-[11px] font-black text-amber-700 dark:text-amber-400 underline">Add Items</a>
             </div>
-            ` : ''}
+            ` : '')}
+            </div>
 
-            <!-- Free Delivery & Campus Shield Banner -->
+            <!-- Dynamic Delivery Banner -->
+            <div id="cart-delivery-banner-wrap">
+            ${charges.isFreeDel ? `
             <div class="glass-panel card-pedestal rounded-2xl p-3.5 flex items-center justify-between text-xs shadow-xs border border-[var(--glass-border)]">
                 <div class="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-200">
                     <span class="material-symbols-outlined text-base text-emerald">electric_bolt</span>
                     <span>Free 3-Min Campus Room Delivery Guaranteed</span>
                 </div>
-                <span class="text-[11px] font-black text-emerald-700 dark:text-emerald-400 liquid-badge px-2 py-0.5">Saved ₹25</span>
+                <span class="text-[11px] font-black text-emerald-700 dark:text-emerald-400 liquid-badge px-2 py-0.5">Saved ₹${charges.baseDelivery > 0 ? charges.baseDelivery : 25}</span>
+            </div>
+            ` : `
+            <div class="glass-panel card-pedestal rounded-2xl p-3.5 flex items-center justify-between text-xs shadow-xs border border-[var(--glass-border)]">
+                <div class="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-200">
+                    <span class="material-symbols-outlined text-base text-emerald">electric_bolt</span>
+                    <span>3-Min Campus Room Delivery: ₹${charges.delivery}</span>
+                </div>
+            </div>
+            `}
             </div>
 
             <!-- Items Container -->
@@ -229,16 +350,20 @@ window.pages.cart = async function() {
                         <span class="font-black text-slate-900 dark:text-white" id="bill-subtotal-val">₹${subtotal}</span>
                     </div>
 
-                    <div id="bill-discount-row" class="flex justify-between items-center text-emerald-700 dark:text-emerald-400 font-bold ${hasDiscount ? '' : 'hidden'}">
-                        <span>5% Bulk Offer</span>
-                        <span id="bill-discount-val">-₹${discount5}</span>
+                    <div id="bill-discount-row" class="flex justify-between items-center text-emerald-700 dark:text-emerald-400 font-bold ${charges.discount > 0 ? '' : 'hidden'}">
+                        <span id="bill-discount-label">${charges.offerLabel || 'Offer Discount'}</span>
+                        <span id="bill-discount-val">-₹${charges.discount}</span>
                     </div>
 
                     <div class="flex justify-between items-center text-slate-600 dark:text-slate-400 font-medium">
                         <span>Delivery Fee</span>
-                        <div class="flex items-center gap-1.5">
-                            <span class="line-through text-[11px] text-slate-400">₹25</span>
-                            <span class="font-black text-emerald-600 dark:text-emerald-400">FREE</span>
+                        <div class="flex items-center gap-1.5" id="bill-delivery-val-wrap">
+                            ${charges.isFreeDel ? `
+                            <span class="line-through text-[11px] text-slate-400" id="bill-delivery-strike">₹${charges.baseDelivery > 0 ? charges.baseDelivery : 25}</span>
+                            <span class="font-black text-emerald-600 dark:text-emerald-400" id="bill-delivery-val">FREE</span>
+                            ` : `
+                            <span class="font-black text-slate-900 dark:text-white" id="bill-delivery-val">₹${charges.delivery}</span>
+                            `}
                         </div>
                     </div>
 
@@ -247,13 +372,13 @@ window.pages.cart = async function() {
                             <span>Handling Fee</span>
                             <span class="text-[10px] text-slate-400" title="Pack & handling fee">ℹ️</span>
                         </div>
-                        <span class="font-black text-slate-900 dark:text-white">₹${handlingFee}</span>
+                        <span class="font-black text-slate-900 dark:text-white" id="bill-handling-val">${charges.handling > 0 ? `₹${charges.handling}` : '<span class="text-emerald-600 font-bold">FREE</span>'}</span>
                     </div>
                     
                     <div class="border-t border-[var(--glass-border)] pt-3.5 mt-2 flex justify-between items-center text-sm font-black">
                         <div>
                             <span class="text-slate-900 dark:text-white tracking-tight">To Pay</span>
-                            <p class="text-[10px] text-emerald font-bold">Free campus delivery included</p>
+                            <p class="text-[10px] text-emerald font-bold" id="bill-topay-subtitle">${charges.isFreeDel ? 'Free campus delivery included' : 'Fast room delivery'}</p>
                         </div>
                         <span class="text-2xl font-black text-slate-900 dark:text-white tracking-tight" id="bill-total-val">₹${exactTotal}</span>
                     </div>
@@ -275,10 +400,10 @@ window.pages.cart = async function() {
                     Checkout Disabled
                 </button>
                 ` : (items.length > 0 ? (
-                    !isMinOrderMet ? `
+                    !charges.isMinMet ? `
                     <button disabled class="w-full clay-card text-slate-400 dark:text-slate-500 rounded-2xl py-4 font-bold text-xs text-center cursor-not-allowed flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-700 opacity-90 shadow-none" id="proceed-to-checkout-btn">
                         <span class="material-symbols-outlined text-sm">lock</span>
-                        <span>Min Order Value ₹35 (Add ₹${minOrderShortfall} more)</span>
+                        <span>Min Order Value ₹${charges.minCart} (Add ₹${charges.minShortfall} more)</span>
                     </button>
                     ` : `
                     <a href="#/checkout" id="proceed-to-checkout-btn" class="clay-btn clay-btn-primary w-full py-4 rounded-2xl font-black text-xs sm:text-sm text-center flex items-center justify-center gap-2 shadow-2xl tracking-wide uppercase active:scale-95 transition-transform">
@@ -299,12 +424,12 @@ window.pages.cart = async function() {
     <!-- Mobile Sticky Checkout Capsule (Liquid Glass) -->
     <div id="cart-mobile-checkout-container">
     ${items.length > 0 && !window.__isUserBlocked ? (
-        !isMinOrderMet ? `
+        !charges.isMinMet ? `
         <div class="lg:hidden fixed bottom-16 inset-x-3 z-30 pointer-events-none flex justify-center">
             <div class="pointer-events-auto liquid-dock-pill max-w-md w-full p-3 px-4 flex items-center justify-between gap-3 rounded-3xl shadow-2xl border border-amber-500/40">
                 <div>
-                    <span class="text-[10px] font-bold text-amber-500">Min Order ₹35</span>
-                    <p class="text-xs font-black text-slate-900 dark:text-white leading-tight mt-0.5" id="mobile-min-order-val">Add ₹${minOrderShortfall} more</p>
+                    <span class="text-[10px] font-bold text-amber-500">Min Order ₹${charges.minCart}</span>
+                    <p class="text-xs font-black text-slate-900 dark:text-white leading-tight mt-0.5" id="mobile-min-order-val">Add ₹${charges.minShortfall} more</p>
                 </div>
                 <a href="#/" class="clay-btn clay-btn-primary px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md active:scale-95 transition-transform">
                     <span>Add Items</span>
@@ -433,18 +558,85 @@ window.pageInits.cart = function() {
         }
 
         const mrpDiscount = Math.max(0, totalMrp - subtotal);
-        const handlingFee = 3;
-        const hasDiscount = subtotal >= 350;
-        const discount5 = hasDiscount ? Math.round(subtotal * 0.05) : 0;
-        const exactTotal = Math.max(0, subtotal - discount5 + handlingFee);
-        const totalSavings = mrpDiscount + discount5 + (subtotal > 0 ? 25 : 0);
-        const isMinOrderMet = subtotal >= 35;
-        const minOrderShortfall = Math.max(0, 35 - subtotal);
+        const charges = calculateCartCharges(subtotal, window.latestCheckoutSettings);
+        const exactTotal = charges.total;
+        const totalSavings = mrpDiscount + charges.discount + (charges.isFreeDel ? (charges.baseDelivery > 0 ? charges.baseDelivery : 25) : 0);
+        const isMinOrderMet = charges.isMinMet;
+        const minOrderShortfall = charges.minShortfall;
 
         // Header subtitle
         const cartSubtitle = document.getElementById('cart-header-subtitle');
         if (cartSubtitle) {
             cartSubtitle.textContent = `${totalQty} ${totalQty === 1 ? 'item' : 'items'} · Delivering to ${window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus')} (3 mins)`;
+        }
+
+        // Dynamic Banners
+        const minOrderWrap = document.getElementById('cart-min-order-banner-wrap');
+        if (minOrderWrap) {
+            if (!isMinOrderMet && subtotal > 0) {
+                minOrderWrap.innerHTML = `
+                <div class="glass-panel rounded-2xl p-3.5 flex items-center justify-between text-xs border border-amber-500/40 bg-amber-500/10 shadow-sm backdrop-blur-xl">
+                    <div class="flex items-center gap-2.5 font-bold text-amber-700 dark:text-amber-300">
+                        <span class="material-symbols-outlined text-lg text-amber-500 animate-bounce">shopping_bag</span>
+                        <div>
+                            <p class="font-black text-xs">Minimum Order Value is ₹${charges.minCart}</p>
+                            <p class="text-[11px] text-amber-600/90 dark:text-amber-400 font-medium">Add items worth ₹${minOrderShortfall} more to place your hostel order.</p>
+                        </div>
+                    </div>
+                    <a href="#/" class="clay-btn clay-btn-primary px-3 py-1.5 text-[11px] font-black rounded-xl text-white shrink-0 shadow-sm">
+                        + Add Items
+                    </a>
+                </div>`;
+            } else {
+                minOrderWrap.innerHTML = '';
+            }
+        }
+
+        const offerWrap = document.getElementById('cart-offer-banner-wrap');
+        if (offerWrap) {
+            if (charges.isOfferActive && charges.meetsMinOrder && charges.discount > 0) {
+                offerWrap.innerHTML = `
+                <div class="glass-panel rounded-2xl p-3.5 flex items-center justify-between text-xs border border-emerald-500/30 bg-emerald-500/10 shadow-sm backdrop-blur-xl">
+                    <div class="flex items-center gap-2 font-bold text-emerald-700 dark:text-emerald-300">
+                        <span class="material-symbols-outlined text-base">verified</span>
+                        <span>${charges.offerLabel} Applied</span>
+                    </div>
+                    <span class="text-[11px] font-black text-emerald-700 dark:text-emerald-300 liquid-badge px-2.5 py-0.5">Extra ₹${charges.discount} OFF</span>
+                </div>`;
+            } else if (charges.isOfferActive && !charges.meetsMinOrder && subtotal > 0) {
+                offerWrap.innerHTML = `
+                <div class="glass-panel rounded-2xl p-3.5 flex items-center justify-between text-xs border border-amber-500/30 bg-amber-500/10 shadow-sm backdrop-blur-xl">
+                    <div class="flex items-center gap-2 font-bold text-amber-700 dark:text-amber-300">
+                        <span class="material-symbols-outlined text-base">local_offer</span>
+                        <span>Add ₹${charges.minOrderVal - subtotal} more to get ${charges.offerLabel} on your order</span>
+                    </div>
+                    <a href="#/" class="text-[11px] font-black text-amber-700 dark:text-amber-400 underline">Add Items</a>
+                </div>`;
+            } else {
+                offerWrap.innerHTML = '';
+            }
+        }
+
+        const deliveryWrap = document.getElementById('cart-delivery-banner-wrap');
+        if (deliveryWrap) {
+            if (charges.isFreeDel) {
+                deliveryWrap.innerHTML = `
+                <div class="glass-panel card-pedestal rounded-2xl p-3.5 flex items-center justify-between text-xs shadow-xs border border-[var(--glass-border)]">
+                    <div class="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-200">
+                        <span class="material-symbols-outlined text-base text-emerald">electric_bolt</span>
+                        <span>Free 3-Min Campus Room Delivery Guaranteed</span>
+                    </div>
+                    <span class="text-[11px] font-black text-emerald-700 dark:text-emerald-400 liquid-badge px-2 py-0.5">Saved ₹${charges.baseDelivery > 0 ? charges.baseDelivery : 25}</span>
+                </div>`;
+            } else {
+                deliveryWrap.innerHTML = `
+                <div class="glass-panel card-pedestal rounded-2xl p-3.5 flex items-center justify-between text-xs shadow-xs border border-[var(--glass-border)]">
+                    <div class="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-200">
+                        <span class="material-symbols-outlined text-base text-emerald">electric_bolt</span>
+                        <span>3-Min Campus Room Delivery: ₹${charges.delivery}</span>
+                    </div>
+                </div>`;
+            }
         }
 
         // Bill details
@@ -464,13 +656,39 @@ window.pageInits.cart = function() {
         
         const discountRow = document.getElementById('bill-discount-row');
         const billDiscount = document.getElementById('bill-discount-val');
+        const billDiscountLabel = document.getElementById('bill-discount-label');
         if (discountRow && billDiscount) {
-            if (hasDiscount) {
+            if (charges.discount > 0) {
                 discountRow.classList.remove('hidden');
-                billDiscount.textContent = `-₹${discount5}`;
+                if (billDiscountLabel) billDiscountLabel.textContent = charges.offerLabel;
+                billDiscount.textContent = `-₹${charges.discount}`;
             } else {
                 discountRow.classList.add('hidden');
             }
+        }
+
+        const deliveryValWrap = document.getElementById('bill-delivery-val-wrap');
+        if (deliveryValWrap) {
+            if (charges.isFreeDel) {
+                deliveryValWrap.innerHTML = `
+                    <span class="line-through text-[11px] text-slate-400" id="bill-delivery-strike">₹${charges.baseDelivery > 0 ? charges.baseDelivery : 25}</span>
+                    <span class="font-black text-emerald-600 dark:text-emerald-400" id="bill-delivery-val">FREE</span>
+                `;
+            } else {
+                deliveryValWrap.innerHTML = `
+                    <span class="font-black text-slate-900 dark:text-white" id="bill-delivery-val">₹${charges.delivery}</span>
+                `;
+            }
+        }
+
+        const handlingVal = document.getElementById('bill-handling-val');
+        if (handlingVal) {
+            handlingVal.innerHTML = charges.handling > 0 ? `₹${charges.handling}` : '<span class="text-emerald-600 font-bold">FREE</span>';
+        }
+
+        const billTopaySubtitle = document.getElementById('bill-topay-subtitle');
+        if (billTopaySubtitle) {
+            billTopaySubtitle.textContent = charges.isFreeDel ? 'Free campus delivery included' : 'Fast room delivery';
         }
 
         const billTotal = document.getElementById('bill-total-val');
@@ -485,7 +703,7 @@ window.pageInits.cart = function() {
                 actionContainer.innerHTML = `
                     <button disabled class="w-full clay-card text-slate-400 dark:text-slate-500 rounded-2xl py-4 font-bold text-xs text-center cursor-not-allowed flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-700 opacity-90 shadow-none" id="proceed-to-checkout-btn">
                         <span class="material-symbols-outlined text-sm">lock</span>
-                        <span>Min Order Value ₹35 (Add ₹${minOrderShortfall} more)</span>
+                        <span>Min Order Value ₹${charges.minCart} (Add ₹${minOrderShortfall} more)</span>
                     </button>
                 `;
             } else {
@@ -516,7 +734,7 @@ window.pageInits.cart = function() {
                     <div class="lg:hidden fixed bottom-16 inset-x-3 z-30 pointer-events-none flex justify-center">
                         <div class="pointer-events-auto liquid-dock-pill max-w-md w-full p-3 px-4 flex items-center justify-between gap-3 rounded-3xl shadow-2xl border border-amber-500/40">
                             <div>
-                                <span class="text-[10px] font-bold text-amber-500">Min Order ₹35</span>
+                                <span class="text-[10px] font-bold text-amber-500">Min Order ₹${charges.minCart}</span>
                                 <p class="text-xs font-black text-slate-900 dark:text-white leading-tight mt-0.5" id="mobile-min-order-val">Add ₹${minOrderShortfall} more</p>
                             </div>
                             <a href="#/" class="clay-btn clay-btn-primary px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md active:scale-95 transition-transform">
@@ -554,14 +772,24 @@ window.pageInits.cart = function() {
 
             const cachedProd = window.__cachedProducts?.get(productId);
             const stockLeftAttr = btn.dataset.stockLeft || row?.dataset?.stockLeft;
-            const stockLeft = (cachedProd?.stock_left !== undefined && cachedProd?.stock_left !== null)
-                ? Number(cachedProd.stock_left)
-                : (stockLeftAttr !== undefined && stockLeftAttr !== '' && stockLeftAttr !== null ? Number(stockLeftAttr) : 50);
+            
+            // Robust Authoritative Stock Determination
+            let stockLeft = 50;
+            if (cachedProd && Number(cachedProd.stock_left) > 0) {
+                stockLeft = Number(cachedProd.stock_left);
+            } else if (stockLeftAttr !== undefined && stockLeftAttr !== '' && stockLeftAttr !== null && Number(stockLeftAttr) > 0) {
+                stockLeft = Number(stockLeftAttr);
+            } else if (cachedProd?.in_stock !== false) {
+                stockLeft = 50;
+            } else {
+                const cur = parseInt(row?.querySelector('.qty-num')?.textContent || btn.dataset.qty) || 1;
+                stockLeft = Math.max(cur + 10, 50);
+            }
 
             const qtyNum = row?.querySelector('.qty-num');
             const currentQty = parseInt(qtyNum?.textContent || btn.dataset.qty) || 1;
 
-            if (currentQty >= stockLeft) {
+            if (currentQty >= stockLeft && stockLeft > 0) {
                 btn.classList.add('opacity-40', 'cursor-not-allowed');
                 btn.setAttribute('title', `Max stock limit (${stockLeft})`);
                 btn.disabled = true;
@@ -574,10 +802,14 @@ window.pageInits.cart = function() {
             const nextQty = currentQty + 1;
             if (qtyNum) qtyNum.textContent = nextQty;
             btn.dataset.qty = nextQty;
+            btn.dataset.stockLeft = stockLeft;
             const decBtn = row?.querySelector('.qty-dec-btn');
-            if (decBtn) decBtn.dataset.qty = nextQty;
+            if (decBtn) {
+                decBtn.dataset.qty = nextQty;
+                decBtn.dataset.stockLeft = stockLeft;
+            }
 
-            if (nextQty >= stockLeft) {
+            if (nextQty >= stockLeft && stockLeft > 0) {
                 btn.classList.add('opacity-40', 'cursor-not-allowed');
                 btn.setAttribute('title', `Max stock limit (${stockLeft})`);
                 btn.disabled = true;
@@ -597,9 +829,17 @@ window.pageInits.cart = function() {
 
             const cachedProd = window.__cachedProducts?.get(productId);
             const stockLeftAttr = btn.dataset.stockLeft || row?.dataset?.stockLeft;
-            const stockLeft = (cachedProd?.stock_left !== undefined && cachedProd?.stock_left !== null)
-                ? Number(cachedProd.stock_left)
-                : (stockLeftAttr !== undefined && stockLeftAttr !== '' && stockLeftAttr !== null ? Number(stockLeftAttr) : 50);
+            let stockLeft = 50;
+            if (cachedProd && Number(cachedProd.stock_left) > 0) {
+                stockLeft = Number(cachedProd.stock_left);
+            } else if (stockLeftAttr !== undefined && stockLeftAttr !== '' && stockLeftAttr !== null && Number(stockLeftAttr) > 0) {
+                stockLeft = Number(stockLeftAttr);
+            } else if (cachedProd?.in_stock !== false) {
+                stockLeft = 50;
+            } else {
+                const cur = parseInt(row?.querySelector('.qty-num')?.textContent || btn.dataset.qty) || 1;
+                stockLeft = Math.max(cur + 10, 50);
+            }
 
             const qtyNum = row?.querySelector('.qty-num');
             const currentQty = parseInt(qtyNum?.textContent || btn.dataset.qty) || 1;
@@ -614,9 +854,11 @@ window.pageInits.cart = function() {
                 const nextQty = currentQty - 1;
                 if (qtyNum) qtyNum.textContent = nextQty;
                 btn.dataset.qty = nextQty;
+                btn.dataset.stockLeft = stockLeft;
                 const incBtn = row?.querySelector('.qty-inc-btn');
                 if (incBtn) {
                     incBtn.dataset.qty = nextQty;
+                    incBtn.dataset.stockLeft = stockLeft;
                     if (nextQty < stockLeft) {
                         incBtn.classList.remove('opacity-40', 'cursor-not-allowed');
                         incBtn.setAttribute('title', 'Add one more');
@@ -629,5 +871,4 @@ window.pageInits.cart = function() {
             }
         };
     });
-
 };

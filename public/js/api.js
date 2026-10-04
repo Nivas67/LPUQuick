@@ -75,8 +75,9 @@ window.setOptimisticCartQuantity = function(productId, targetQty, maxStock = 50,
     window.__pendingCartSync = window.__pendingCartSync || {};
     window.__cartSyncDebounceTimers = window.__cartSyncDebounceTimers || {};
 
-    // 1. Clamp target quantity to [0, maxStock]
-    const clampedQty = Math.max(0, Math.min(Number(targetQty), Number(maxStock)));
+    // 1. Clamp target quantity to [0, maxStock] (safeguard against accidental 0 maxStock)
+    const effectiveMax = Number(maxStock) > 0 ? Number(maxStock) : 50;
+    const clampedQty = Math.max(0, Math.min(Number(targetQty), effectiveMax));
     
     // Track original confirmed quantity for rollback on network failure
     if (!window.__pendingCartSync[productId]) {

@@ -59,10 +59,10 @@
   },
   "BH-12": {
     "prod_78de005c": {
-      "stock_left": 0,
-      "in_stock": false,
+      "stock_left": 20,
+      "in_stock": true,
       "deleted": false,
-      "updated_at": "2026-10-03T16:31:48.610Z"
+      "updated_at": "2026-10-04T07:22:00.000Z"
     },
     "prod_8b7edab1": {
       "stock_left": 7,
