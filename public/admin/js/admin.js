@@ -2887,9 +2887,28 @@ function updateDrawerDispatchCard(order) {
     }
 }
 
+function getISTDateStr(dateInput) {
+    try {
+        const d = new Date(dateInput);
+        if (isNaN(d.getTime())) return '';
+        return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(d);
+    } catch (e) {
+        return '';
+    }
+}
+
 let currentOrderFilter = 'all';
 function setOrderStatusFilter(status) {
     currentOrderFilter = status;
+    const filterSelect = document.getElementById('orders-quick-filter');
+    if (filterSelect) {
+        const optionExists = Array.from(filterSelect.options).some(opt => opt.value === status);
+        if (optionExists) {
+            filterSelect.value = status;
+        } else {
+            filterSelect.value = 'all';
+        }
+    }
     document.querySelectorAll('.order-tab-btn').forEach(btn => {
         const active = btn.dataset.status === status;
         if (active) {
@@ -2908,7 +2927,7 @@ function filterOrders() {
 
     // Update dispatch tab badges
     const unassignedCount = ordersCache.filter(o => {
-        const isDone = ['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(o.status);
+        const isDone = ['Delivered', 'delivered', 'cancelled', 'Cancelled', 'canceled', 'Canceled'].includes(o.status);
         const da = o.delivery_assignment || {};
         const rawRider = typeof o.rider_name === 'string' && !o.rider_name.startsWith('{') ? o.rider_name.trim() : null;
         const hasExplicitRider = rawRider && !['Alex', 'Campus Express', 'Unassigned', 'unassigned'].includes(rawRider);
@@ -2921,7 +2940,7 @@ function filterOrders() {
     }).length;
 
     const myDeliveriesCount = ordersCache.filter(o => {
-        const isDone = ['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(o.status);
+        const isDone = ['Delivered', 'delivered', 'cancelled', 'Cancelled', 'canceled', 'Canceled'].includes(o.status);
         const da = o.delivery_assignment || {};
         const rawRider = typeof o.rider_name === 'string' && !o.rider_name.startsWith('{') ? o.rider_name.trim() : null;
         const assignedName = da.assigned_to_name || da.name || (rawRider && !['Alex', 'Campus Express', 'Unassigned', 'unassigned'].includes(rawRider) ? rawRider : null) || '';
@@ -2935,6 +2954,51 @@ function filterOrders() {
         return da && da.transfer && da.transfer.status === 'PENDING' && (da.transfer.to_id === myId || isOwnerOrStoreMgr || da.transfer.from_id === myId);
     }).length;
 
+    const deliveredCount = ordersCache.filter(o => 
+        ['Delivered', 'delivered', 'completed', 'Completed'].includes(o.status)
+    ).length;
+
+    const cancelledCount = ordersCache.filter(o => 
+        ['Cancelled', 'cancelled', 'canceled', 'Canceled', 'rejected', 'Rejected'].includes(o.status)
+    ).length;
+
+    const notAcceptedCount = ordersCache.filter(o => {
+        const s = (o.status || '').toLowerCase().trim();
+        const isDone = ['delivered', 'completed', 'cancelled', 'canceled', 'rejected'].includes(s);
+        const da = o.delivery_assignment || {};
+        const rawRider = typeof o.rider_name === 'string' && !o.rider_name.startsWith('{') ? o.rider_name.trim() : null;
+        const hasExplicitRider = rawRider && !['Alex', 'Campus Express', 'Unassigned', 'unassigned'].includes(rawRider);
+        const isClaimed = Boolean(
+            (da.is_claimed && (da.assigned_to || da.assigned_to_name || da.name)) ||
+            da.assigned_to ||
+            hasExplicitRider
+        );
+        const isUnassigned = !isClaimed;
+        return !isDone && (isUnassigned || s === 'order placed' || s === 'pending');
+    }).length;
+
+    const todayIST = getISTDateStr(new Date());
+    const todayCount = ordersCache.filter(o => {
+        if (!o || !o.created_at) return false;
+        const ordDate = getISTDateStr(o.created_at);
+        return ordDate ? (ordDate === todayIST) : (new Date(o.created_at).toDateString() === new Date().toDateString());
+    }).length;
+
+    const upiCount = ordersCache.filter(o => {
+        const pm = (o.payment_method || '').toLowerCase();
+        return pm.includes('upi') && !pm.includes('both');
+    }).length;
+
+    const cashCount = ordersCache.filter(o => {
+        const pm = (o.payment_method || '').toLowerCase();
+        return (pm.includes('cash') || pm.includes('cod')) && !pm.includes('both');
+    }).length;
+
+    const bothCount = ordersCache.filter(o => {
+        const pm = (o.payment_method || '').toLowerCase();
+        return pm.includes('both');
+    }).length;
+
     const badgeUnassigned = document.getElementById('badge-unassigned-count');
     if (badgeUnassigned) badgeUnassigned.textContent = unassignedCount;
 
@@ -2946,6 +3010,27 @@ function filterOrders() {
         badgeTransfers.textContent = transfersCount;
         badgeTransfers.classList.toggle('hidden', transfersCount === 0);
     }
+
+    const badgeDelivered = document.getElementById('badge-delivered-count');
+    if (badgeDelivered) badgeDelivered.textContent = deliveredCount;
+
+    const badgeCancelled = document.getElementById('badge-cancelled-count');
+    if (badgeCancelled) badgeCancelled.textContent = cancelledCount;
+
+    const badgeNotAccepted = document.getElementById('badge-not-accepted-count');
+    if (badgeNotAccepted) badgeNotAccepted.textContent = notAcceptedCount;
+
+    const badgeToday = document.getElementById('badge-today-count');
+    if (badgeToday) badgeToday.textContent = todayCount;
+
+    const badgeUpi = document.getElementById('badge-upi-count');
+    if (badgeUpi) badgeUpi.textContent = upiCount;
+
+    const badgeCash = document.getElementById('badge-cash-count');
+    if (badgeCash) badgeCash.textContent = cashCount;
+
+    const badgeBoth = document.getElementById('badge-both-count');
+    if (badgeBoth) badgeBoth.textContent = bothCount;
 
     const query = (document.getElementById('orders-search-input')?.value || '').toLowerCase();
     const ordHostel = (typeof getActiveAdminHostelFilter === 'function') ? getActiveAdminHostelFilter('orders') : null;
@@ -2962,7 +3047,7 @@ function filterOrders() {
 
     if (currentOrderFilter === 'unassigned') {
         filtered = filtered.filter(o => {
-            const isDone = ['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(o.status);
+            const isDone = ['Delivered', 'delivered', 'cancelled', 'Cancelled', 'canceled', 'Canceled'].includes(o.status);
             const da = o.delivery_assignment || {};
             const rawRider = typeof o.rider_name === 'string' && !o.rider_name.startsWith('{') ? o.rider_name.trim() : null;
             const hasExplicitRider = rawRider && !['Alex', 'Campus Express', 'Unassigned', 'unassigned'].includes(rawRider);
@@ -2975,7 +3060,7 @@ function filterOrders() {
         });
     } else if (currentOrderFilter === 'my_deliveries') {
         filtered = filtered.filter(o => {
-            const isDone = ['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(o.status);
+            const isDone = ['Delivered', 'delivered', 'cancelled', 'Cancelled', 'canceled', 'Canceled'].includes(o.status);
             const da = o.delivery_assignment || {};
             const rawRider = typeof o.rider_name === 'string' && !o.rider_name.startsWith('{') ? o.rider_name.trim() : null;
             const assignedName = da.assigned_to_name || da.name || (rawRider && !['Alex', 'Campus Express', 'Unassigned', 'unassigned'].includes(rawRider) ? rawRider : null) || '';
@@ -2989,9 +3074,50 @@ function filterOrders() {
             return da && da.transfer && da.transfer.status === 'PENDING';
         });
     } else if (currentOrderFilter === 'active') {
-        filtered = filtered.filter(o => !['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(o.status));
+        filtered = filtered.filter(o => !['Delivered', 'delivered', 'completed', 'Completed', 'cancelled', 'Cancelled', 'canceled', 'Canceled', 'rejected', 'Rejected'].includes(o.status));
     } else if (currentOrderFilter === 'delivered') {
-        filtered = filtered.filter(o => ['Delivered', 'delivered'].includes(o.status));
+        filtered = filtered.filter(o => ['Delivered', 'delivered', 'completed', 'Completed'].includes(o.status));
+    } else if (currentOrderFilter === 'cancelled') {
+        filtered = filtered.filter(o => ['Cancelled', 'cancelled', 'canceled', 'Canceled', 'rejected', 'Rejected'].includes(o.status));
+    } else if (currentOrderFilter === 'not_accepted') {
+        filtered = filtered.filter(o => {
+            const s = (o.status || '').toLowerCase().trim();
+            const isDone = ['delivered', 'completed', 'cancelled', 'canceled', 'rejected'].includes(s);
+            const da = o.delivery_assignment || {};
+            const rawRider = typeof o.rider_name === 'string' && !o.rider_name.startsWith('{') ? o.rider_name.trim() : null;
+            const hasExplicitRider = rawRider && !['Alex', 'Campus Express', 'Unassigned', 'unassigned'].includes(rawRider);
+            const isClaimed = Boolean(
+                (da.is_claimed && (da.assigned_to || da.assigned_to_name || da.name)) ||
+                da.assigned_to ||
+                hasExplicitRider
+            );
+            const isUnassigned = !isClaimed;
+            return !isDone && (isUnassigned || s === 'order placed' || s === 'pending');
+        });
+    } else if (currentOrderFilter === 'today') {
+        const todayISTStr = getISTDateStr(new Date());
+        filtered = filtered.filter(o => {
+            if (!o || !o.created_at) return false;
+            const ordDate = getISTDateStr(o.created_at);
+            return ordDate ? (ordDate === todayISTStr) : (new Date(o.created_at).toDateString() === new Date().toDateString());
+        });
+    } else if (currentOrderFilter === 'upi') {
+        filtered = filtered.filter(o => {
+            const pm = (o.payment_method || '').toLowerCase();
+            return pm.includes('upi') && !pm.includes('both');
+        });
+    } else if (currentOrderFilter === 'cash') {
+        filtered = filtered.filter(o => {
+            const pm = (o.payment_method || '').toLowerCase();
+            return (pm.includes('cash') || pm.includes('cod')) && !pm.includes('both');
+        });
+    } else if (currentOrderFilter === 'both') {
+        filtered = filtered.filter(o => {
+            const pm = (o.payment_method || '').toLowerCase();
+            return pm.includes('both');
+        });
+    } else if (currentOrderFilter === 'high_to_low') {
+        filtered.sort((a, b) => (parseFloat(b.total) || 0) - (parseFloat(a.total) || 0));
     }
 
     const tbody = document.getElementById('orders-table-tbody');

@@ -1019,9 +1019,9 @@
                 <!-- Orders Filter Tabs -->
                 <div class="glass-panel p-4 space-y-3">
                     <div class="flex flex-col lg:flex-row gap-3 items-center justify-between">
-                        <div class="flex items-center gap-2 w-full lg:w-auto flex-1">
+                        <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto flex-1">
                             <input id="orders-search-input" oninput="filterOrders()"
-                                class="bg-[#F1F3F4] border-transparent focus:bg-white rounded-full px-4 py-2 text-xs w-full lg:w-80 outline-none"
+                                class="bg-[#F1F3F4] border-transparent focus:bg-white rounded-full px-4 py-2 text-xs w-full sm:w-72 outline-none"
                                 placeholder="Search by Order ID, Customer, Address..." type="text" />
                             <div class="flex items-center gap-1.5 shrink-0" id="orders-hostel-filter-wrap">
                                 <span class="text-[11px] font-bold text-[#5c5f60] uppercase tracking-wider hidden sm:inline">Hostel:</span>
@@ -1030,12 +1030,66 @@
                                     <option value="">All Hostels</option>
                                 </select>
                             </div>
+                            <div class="flex items-center gap-1.5 shrink-0" id="orders-quick-filter-wrap">
+                                <span class="text-[11px] font-bold text-[#5c5f60] uppercase tracking-wider hidden sm:inline">Filter:</span>
+                                <select id="orders-quick-filter" onchange="setOrderStatusFilter(this.value)"
+                                    class="text-xs border border-[#DADCE0] rounded-full px-3 py-2 text-[#181c1f] bg-white outline-none font-semibold cursor-pointer shadow-2xs hover:border-[#3c4043]">
+                                    <option value="all">All Orders</option>
+                                    <option value="delivered">Delivery Success</option>
+                                    <option value="cancelled">Cancel</option>
+                                    <option value="not_accepted">Not Accepted</option>
+                                    <option value="today">Today Orders</option>
+                                    <option value="high_to_low">Above: High to Low</option>
+                                    <option value="upi">UPI</option>
+                                    <option value="cash">Cash</option>
+                                    <option value="both">Both (Cash & UPI)</option>
+                                </select>
+                            </div>
                         </div>
 
                         <div class="flex flex-wrap overflow-x-auto w-full lg:w-auto no-scrollbar gap-2" id="orders-status-tabs">
                             <button onclick="setOrderStatusFilter('all')" data-status="all"
                                 class="order-tab-btn px-4 py-1.5 rounded-full bg-[#3c4043] text-white text-xs font-semibold">All
                                 Orders</button>
+                            <button onclick="setOrderStatusFilter('delivered')" data-status="delivered"
+                                class="order-tab-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium flex items-center gap-1.5">
+                                <span>Delivery Success</span>
+                                <span id="badge-delivered-count" class="px-1.5 py-0.2 rounded-full bg-emerald-700 text-white text-[10px]">0</span>
+                            </button>
+                            <button onclick="setOrderStatusFilter('cancelled')" data-status="cancelled"
+                                class="order-tab-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium flex items-center gap-1.5">
+                                <span>Cancel</span>
+                                <span id="badge-cancelled-count" class="px-1.5 py-0.2 rounded-full bg-rose-600 text-white text-[10px]">0</span>
+                            </button>
+                            <button onclick="setOrderStatusFilter('not_accepted')" data-status="not_accepted"
+                                class="order-tab-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium flex items-center gap-1.5">
+                                <span>Not Accepted</span>
+                                <span id="badge-not-accepted-count" class="px-1.5 py-0.2 rounded-full bg-amber-600 text-white text-[10px]">0</span>
+                            </button>
+                            <button onclick="setOrderStatusFilter('today')" data-status="today"
+                                class="order-tab-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium flex items-center gap-1.5">
+                                <span>Today Orders</span>
+                                <span id="badge-today-count" class="px-1.5 py-0.2 rounded-full bg-blue-600 text-white text-[10px]">0</span>
+                            </button>
+                            <button onclick="setOrderStatusFilter('upi')" data-status="upi"
+                                class="order-tab-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium flex items-center gap-1.5">
+                                <span>UPI</span>
+                                <span id="badge-upi-count" class="px-1.5 py-0.2 rounded-full bg-violet-600 text-white text-[10px]">0</span>
+                            </button>
+                            <button onclick="setOrderStatusFilter('cash')" data-status="cash"
+                                class="order-tab-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium flex items-center gap-1.5">
+                                <span>Cash</span>
+                                <span id="badge-cash-count" class="px-1.5 py-0.2 rounded-full bg-emerald-600 text-white text-[10px]">0</span>
+                            </button>
+                            <button onclick="setOrderStatusFilter('both')" data-status="both"
+                                class="order-tab-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium flex items-center gap-1.5">
+                                <span>Both</span>
+                                <span id="badge-both-count" class="px-1.5 py-0.2 rounded-full bg-amber-600 text-white text-[10px]">0</span>
+                            </button>
+                            <button onclick="setOrderStatusFilter('high_to_low')" data-status="high_to_low"
+                                class="order-tab-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium flex items-center gap-1.5">
+                                <span>Above: High to Low</span>
+                            </button>
                             <button onclick="setOrderStatusFilter('unassigned')" data-status="unassigned"
                                 class="order-tab-btn px-4 py-1.5 rounded-full border border-emerald-300 bg-emerald-50 text-emerald-800 text-xs font-bold flex items-center gap-1.5">
                                 <span>⚡ Unassigned (Claim)</span>
@@ -1054,8 +1108,6 @@
                             <button onclick="setOrderStatusFilter('active')" data-status="active"
                                 class="order-tab-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] text-xs font-medium">Pending
                                 / Active</button>
-                            <button onclick="setOrderStatusFilter('delivered')" data-status="delivered"
-                                class="order-tab-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] text-xs font-medium">Delivered</button>
                         </div>
                     </div>
                 </div>
@@ -1070,7 +1122,7 @@
                                     <th class="p-4">Order ID</th>
                                     <th class="p-4">Customer</th>
                                     <th class="p-4">Hostel Address</th>
-                                    <th class="p-4">Total</th>
+                                    <th class="p-4 cursor-pointer hover:text-[#181c1f]" onclick="setOrderStatusFilter('high_to_low')" title="Sort Total High to Low">Total <span class="material-symbols-outlined text-[13px] align-middle">swap_vert</span></th>
                                     <th class="p-4">Payment</th>
                                     <th class="p-4">Status</th>
                                     <th class="p-4">Delivery Dispatch</th>
