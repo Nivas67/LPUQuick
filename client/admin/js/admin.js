@@ -8299,16 +8299,52 @@ function renderAdminCarouselSlides() {
 
     // Render each slide exactly matching customer home page aesthetic
     track.innerHTML = activePosters.map((poster, index) => {
+        const isStoreAnnounce = poster.type === 'store_announce' || poster.poster_type === 'store_announce' || (poster.image_url && (poster.is_full_poster || (!poster.subtitle && !poster.pill && !poster.badge)));
+        const imageUrl = poster.image_url ? poster.image_url : '';
+        const linkText = escapeHtmlStr(poster.link_text || 'Shop Now');
+        const showButton = poster.show_button !== false && Boolean(poster.link_text && poster.link_text.trim() !== '');
+
+        if (isStoreAnnounce && imageUrl) {
+            return `
+                <div class="hero-carousel-slide hero-carousel-slide-announce flex-shrink-0"
+                    style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; overflow: hidden; background: #090d16; padding: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important; min-height: 220px; cursor: pointer;">
+                    
+                    <!-- Ambient blurred backdrop -->
+                    <img src="${imageUrl}" alt="" class="absolute inset-0 w-full h-full object-cover blur-xl opacity-40 scale-105 pointer-events-none" aria-hidden="true" onerror="this.style.display='none'">
+                    
+                    <!-- Entire announcement image, perfectly adjusted -->
+                    <img src="${imageUrl}" alt="${escapeHtmlStr(poster.title || 'Store Announcement')}" class="relative z-[2] w-full h-full object-contain object-center transition-transform duration-500 hover:scale-[1.01]" style="max-height: 220px; display: block;" onerror="this.style.display='none'">
+                    
+                    ${showButton ? `
+                        <div class="absolute bottom-3 left-3 sm:bottom-4 sm:left-6 z-10 pointer-events-auto">
+                            <span class="clay-btn text-xs sm:text-sm px-4 py-1.5 sm:px-5 sm:py-2 rounded-full inline-flex items-center gap-1.5 shadow-xl font-black"
+                                style="background: #ffffff !important; color: #0f172a !important; font-weight: 900 !important; border: 1px solid rgba(255,255,255,0.7) !important;">
+                                <span style="color: #0f172a !important; font-weight: 900 !important;">${linkText}</span>
+                                <svg class="w-3.5 h-3.5" style="color: #0f172a !important;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                            </span>
+                        </div>
+                    ` : ''}
+
+                    <div class="absolute top-3 right-3 z-10 flex items-center gap-1.5 pointer-events-none">
+                        <span class="text-[9px] font-bold text-white bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded-full">
+                            📢 Store Announce
+                        </span>
+                        <span class="text-[10px] font-semibold text-white/90 bg-black/60 backdrop-blur-sm px-2.5 py-0.5 rounded-full">
+                            Slide #${index + 1}
+                        </span>
+                    </div>
+                </div>`;
+        }
+
+        // Campus Promotion (Picture 3 style)
         const title = escapeHtmlStr(poster.title || 'Campus Promotion');
         const pill = escapeHtmlStr(poster.pill || 'CAMPUS PERK');
         const badge = escapeHtmlStr(poster.badge || '⚡ INSTANT DELIVERY');
         const subtitle = escapeHtmlStr(poster.subtitle || '');
-        const linkText = escapeHtmlStr(poster.link_text || 'Shop Now');
-        const imageUrl = poster.image_url ? poster.image_url : '';
         const theme = getAdminGradientTheme(poster, index);
 
         return `
-            <div class="hero-carousel-slide flex-shrink-0"
+            <div class="hero-carousel-slide hero-carousel-slide-promo flex-shrink-0"
                 style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; padding: 1.75rem 1.5rem; min-height: 220px; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff; cursor: pointer; overflow: hidden; background: ${theme.bg};">
                 
                 ${imageUrl ? `
@@ -8343,13 +8379,10 @@ function renderAdminCarouselSlides() {
                         <span style="color: ${theme.btnColor} !important; font-weight: 800 !important;">${linkText}</span>
                         <svg class="w-3.5 h-3.5" style="color: ${theme.btnColor} !important;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                     </span>
-                    ${poster.has_assistant_btn ? `
-                        <span class="clay-pill bg-white/20 text-white font-bold text-xs px-3.5 py-2 rounded-full inline-flex items-center gap-1.5 backdrop-blur-md border border-white/25">
-                            <span class="text-amber-300 font-bold">✨</span>
-                            <span>AI Assistant</span>
-                        </span>
-                    ` : ''}
-                    <span class="text-[10px] font-semibold text-white/80 bg-black/40 backdrop-blur-sm px-2.5 py-1 rounded-full ml-auto">
+                    <span class="text-[9px] font-bold text-white bg-black/40 backdrop-blur-sm px-2 py-0.5 rounded-full ml-auto">
+                        🏷️ Campus Promo
+                    </span>
+                    <span class="text-[10px] font-semibold text-white/80 bg-black/40 backdrop-blur-sm px-2.5 py-1 rounded-full">
                         Slide #${index + 1}
                     </span>
                 </div>
@@ -8583,7 +8616,8 @@ function renderAdminPostersGrid() {
     }
 
     let cardsHtml = adminPosters.map((poster, index) => {
-        const title = escapeHtmlStr(poster.title || 'Untitled Poster');
+        const isStoreAnnounce = poster.type === 'store_announce' || poster.poster_type === 'store_announce' || (poster.image_url && (poster.is_full_poster || (!poster.subtitle && !poster.pill && !poster.badge)));
+        const title = escapeHtmlStr(poster.title || (isStoreAnnounce ? 'Store Announcement' : 'Untitled Poster'));
         const badge = escapeHtmlStr(poster.badge || '');
         const pill = escapeHtmlStr(poster.pill || '');
         const subtitle = escapeHtmlStr(poster.subtitle || '');
@@ -8594,8 +8628,11 @@ function renderAdminPostersGrid() {
         return `
             <div class="bg-white rounded-2xl border ${isActive ? 'border-[#DADCE0]' : 'border-dashed border-slate-300 opacity-75'} shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md group">
                 <!-- Thumbnail with Status Badges -->
-                <div class="relative w-full h-36 overflow-hidden flex items-center justify-center p-4" style="background: ${theme.bg};">
-                    ${imageUrl ? `
+                <div class="relative w-full h-36 overflow-hidden flex items-center justify-center p-2.5" style="background: ${isStoreAnnounce ? '#090d16' : theme.bg};">
+                    ${(isStoreAnnounce && imageUrl) ? `
+                        <img src="${imageUrl}" alt="${title}" class="absolute inset-0 w-full h-full object-cover blur-md opacity-35 pointer-events-none" aria-hidden="true" onerror="this.style.display='none'">
+                        <img src="${imageUrl}" alt="${title}" class="relative z-[2] w-full h-full object-contain transition-transform duration-500 group-hover:scale-105" onerror="this.style.display='none'">
+                    ` : (imageUrl ? `
                         <img src="${imageUrl}" alt="${title}" class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" onerror="this.style.display='none'">
                         <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30"></div>
                     ` : `
@@ -8603,20 +8640,25 @@ function renderAdminPostersGrid() {
                             <span class="text-[10px] font-black px-2 py-0.5 rounded-full ${theme.badgeClass}">${badge || theme.key.toUpperCase()}</span>
                             <h5 class="text-xs font-bold text-white drop-shadow-sm">${title}</h5>
                         </div>
-                    `}
+                    `)}
                     
                     <!-- Top Badges -->
                     <div class="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none z-10">
                         <span class="text-[10px] font-black px-2 py-0.5 rounded-full ${isActive ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-700 text-slate-300'}">
                             ${isActive ? '● ACTIVE' : '○ PAUSED'}
                         </span>
-                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-black/60 text-white backdrop-blur-sm">
-                            Slide #${poster.display_order || index + 1}
-                        </span>
+                        <div class="flex items-center gap-1">
+                            <span class="text-[9px] font-black px-2 py-0.5 rounded-full ${isStoreAnnounce ? 'bg-amber-500 text-white' : 'bg-purple-600 text-white'} shadow-sm">
+                                ${isStoreAnnounce ? '📢 ANNOUNCE' : '🏷️ PROMO'}
+                            </span>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-black/60 text-white backdrop-blur-sm">
+                                #${poster.display_order || index + 1}
+                            </span>
+                        </div>
                     </div>
 
-                    <!-- Bottom Overlay Text if Image is Present -->
-                    ${imageUrl ? `
+                    <!-- Bottom Overlay Text if Image is Present & Campus Promo -->
+                    ${(!isStoreAnnounce && imageUrl) ? `
                         <div class="absolute bottom-2 left-2.5 right-2.5 z-10">
                             ${badge ? `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/20 text-white backdrop-blur-xs">${badge}</span>` : ''}
                             <h4 class="font-bold text-white text-xs truncate drop-shadow-sm mt-0.5">${title}</h4>
@@ -8628,10 +8670,15 @@ function renderAdminPostersGrid() {
                 <div class="p-3.5 flex-1 flex flex-col justify-between space-y-2.5">
                     <div>
                         <div class="flex items-center justify-between text-[11px] text-[#5c5f60] mb-1">
-                            <span class="font-semibold truncate">Target: ${escapeHtmlStr(poster.link_url || '#shop-catalog-section')}</span>
-                            ${pill ? `<span class="text-[9px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">${pill}</span>` : ''}
+                            <h4 class="font-bold text-[#181c1f] text-xs truncate max-w-[170px]" title="${title}">${title}</h4>
+                            <span class="text-[9px] ${isStoreAnnounce ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-purple-50 text-purple-800 border border-purple-200'} px-1.5 py-0.5 rounded font-bold">
+                                ${isStoreAnnounce ? '1-Button Image' : (pill || 'Campus Perk')}
+                            </span>
                         </div>
-                        ${subtitle ? `<p class="text-[11px] text-[#5c5f60] line-clamp-2">${subtitle}</p>` : ''}
+                        <div class="text-[11px] text-[#74777a] truncate">
+                            <span class="font-medium text-[#5c5f60]">Target:</span> ${escapeHtmlStr(poster.link_url || '#shop-catalog-section')}
+                        </div>
+                        ${(!isStoreAnnounce && subtitle) ? `<p class="text-[11px] text-[#5c5f60] line-clamp-2 mt-1">${subtitle}</p>` : ''}
                     </div>
 
                     <!-- Action Toolbar -->
@@ -8801,10 +8848,75 @@ function initPosterDropzone() {
     }, false);
 }
 
+function setPosterType(type) {
+    const hiddenType = document.getElementById('form-poster-type');
+    if (hiddenType) hiddenType.value = type;
+
+    const btnAnnounce = document.getElementById('btn-type-store-announce');
+    const btnPromo = document.getElementById('btn-type-campus-promotion');
+    const descText = document.getElementById('type-description-text');
+    const storeFields = document.getElementById('store-announce-fields');
+    const promoFields = document.getElementById('campus-promotion-fields');
+    const labelImage = document.getElementById('label-poster-image');
+    const uploadHelp = document.getElementById('upload-help-text');
+    const modalTitle = document.getElementById('modal-poster-title');
+
+    if (type === 'store_announce') {
+        if (btnAnnounce) {
+            btnAnnounce.className = 'flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg font-bold text-xs transition-all shadow-sm bg-white text-emerald-700';
+        }
+        if (btnPromo) {
+            btnPromo.className = 'flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg font-bold text-xs transition-all text-slate-600 hover:text-slate-900';
+        }
+        if (descText) {
+            descText.textContent = "Full plain image announcement with 1 button (Picture 1). Shows the complete image with zero cropping or dark overlay.";
+        }
+        if (storeFields) storeFields.classList.remove('hidden');
+        if (promoFields) promoFields.classList.add('hidden');
+        if (labelImage) {
+            labelImage.innerHTML = 'Announcement Graphic Image * <span class="text-emerald-700 font-bold">(Full Image)</span>';
+        }
+        if (uploadHelp) {
+            uploadHelp.textContent = 'PNG, JPG, WEBP, GIF (widescreen 3:1 or 16:9 banner recommended)';
+        }
+        if (modalTitle) {
+            modalTitle.textContent = editingPosterId ? 'Edit Store Announcement' : 'Add Store Announcement';
+        }
+    } else {
+        if (btnPromo) {
+            btnPromo.className = 'flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg font-bold text-xs transition-all shadow-sm bg-white text-purple-700';
+        }
+        if (btnAnnounce) {
+            btnAnnounce.className = 'flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg font-bold text-xs transition-all text-slate-600 hover:text-slate-900';
+        }
+        if (descText) {
+            descText.textContent = "Styled promotional card with gradient background, badges, title, description, and button (Picture 3).";
+        }
+        if (storeFields) storeFields.classList.add('hidden');
+        if (promoFields) promoFields.classList.remove('hidden');
+        if (labelImage) {
+            labelImage.innerHTML = 'Background Image <span class="text-slate-500 font-normal">(Optional background for card)</span>';
+        }
+        if (uploadHelp) {
+            uploadHelp.textContent = 'PNG, JPG, WEBP, GIF (optional background)';
+        }
+        if (modalTitle) {
+            modalTitle.textContent = editingPosterId ? 'Edit Campus Promotion' : 'Add Campus Promotion';
+        }
+    }
+}
+
+function toggleAnnounceButtonInputs(show) {
+    const inputs = document.getElementById('announce-button-inputs');
+    if (inputs) {
+        if (show) inputs.classList.remove('opacity-40', 'pointer-events-none');
+        else inputs.classList.add('opacity-40', 'pointer-events-none');
+    }
+}
+
 function openPosterModal(posterId = null) {
     editingPosterId = posterId;
     const modal = document.getElementById('poster-modal');
-    const titleEl = document.getElementById('modal-poster-title');
     const delBtn = document.getElementById('btn-modal-delete-poster');
 
     clearPosterImage();
@@ -8819,18 +8931,37 @@ function openPosterModal(posterId = null) {
     if (posterId) {
         const poster = adminPosters.find(p => p.id === posterId);
         if (poster) {
-            if (titleEl) titleEl.textContent = 'Edit Promotional Poster';
+            const isAnnounce = poster.type === 'store_announce' || poster.poster_type === 'store_announce' || (poster.image_url && (poster.is_full_poster || (!poster.subtitle && !poster.pill && !poster.badge)));
+            setPosterType(isAnnounce ? 'store_announce' : 'campus_promotion');
+
             document.getElementById('form-poster-id').value = poster.id;
+
+            // Store Announce fields
+            const announceTitle = document.getElementById('form-poster-title-announce');
+            if (announceTitle) announceTitle.value = isAnnounce ? (poster.title || '') : '';
+            const announceCtaText = document.getElementById('form-poster-cta-text-announce');
+            if (announceCtaText) announceCtaText.value = poster.link_text || 'Shop Now';
+            const announceCtaUrl = document.getElementById('form-poster-cta-url-announce');
+            if (announceCtaUrl) announceCtaUrl.value = poster.link_url || '#shop-catalog-section';
+            const showBtnEl = document.getElementById('form-poster-show-button');
+            const hasButton = poster.show_button !== false && Boolean(poster.link_text && poster.link_text.trim() !== '');
+            if (showBtnEl) {
+                showBtnEl.checked = hasButton;
+                toggleAnnounceButtonInputs(hasButton);
+            }
+
+            // Campus Promo fields
             document.getElementById('form-poster-title').value = poster.title || '';
             document.getElementById('form-poster-pill').value = poster.pill || '';
             document.getElementById('form-poster-badge').value = poster.badge || '';
             document.getElementById('form-poster-subtitle').value = poster.subtitle || '';
-            document.getElementById('form-poster-cta-text').value = poster.link_text || 'Shop Now';
-            document.getElementById('form-poster-cta-url').value = poster.link_url || '#shop-catalog-section';
+            document.getElementById('form-poster-cta-text').value = poster.link_text || 'Explore Combos';
+            document.getElementById('form-poster-cta-url').value = poster.link_url || '#/categories';
+            const gradEl = document.getElementById('form-poster-gradient');
+            if (gradEl) gradEl.value = poster.gradient || 'purple';
+
             document.getElementById('form-poster-order').value = poster.display_order || 1;
             document.getElementById('form-poster-active').checked = poster.is_active !== false;
-            const gradEl = document.getElementById('form-poster-gradient');
-            if (gradEl) gradEl.value = poster.gradient || 'emerald';
 
             if (poster.image_url) {
                 handlePosterUrlInput(poster.image_url);
@@ -8840,18 +8971,34 @@ function openPosterModal(posterId = null) {
             if (delBtn) delBtn.classList.remove('hidden');
         }
     } else {
-        if (titleEl) titleEl.textContent = 'Add Promotional Image Poster';
+        setPosterType('store_announce');
         document.getElementById('form-poster-id').value = '';
+
+        // Store Announce defaults
+        const announceTitle = document.getElementById('form-poster-title-announce');
+        if (announceTitle) announceTitle.value = '';
+        const announceCtaText = document.getElementById('form-poster-cta-text-announce');
+        if (announceCtaText) announceCtaText.value = 'Shop Now';
+        const announceCtaUrl = document.getElementById('form-poster-cta-url-announce');
+        if (announceCtaUrl) announceCtaUrl.value = '#shop-catalog-section';
+        const showBtnEl = document.getElementById('form-poster-show-button');
+        if (showBtnEl) {
+            showBtnEl.checked = true;
+            toggleAnnounceButtonInputs(true);
+        }
+
+        // Campus Promo defaults
         document.getElementById('form-poster-title').value = '';
-        document.getElementById('form-poster-pill').value = 'CAMPUS PERK';
-        document.getElementById('form-poster-badge').value = '⚡ 3-MIN ROOM DROP';
+        document.getElementById('form-poster-pill').value = 'MIDNIGHT FUEL';
+        document.getElementById('form-poster-badge').value = '🌙 TILL 3 AM';
         document.getElementById('form-poster-subtitle').value = '';
-        document.getElementById('form-poster-cta-text').value = 'Shop Now';
-        document.getElementById('form-poster-cta-url').value = '#shop-catalog-section';
+        document.getElementById('form-poster-cta-text').value = 'Explore Combos';
+        document.getElementById('form-poster-cta-url').value = '#/categories';
+        const gradEl = document.getElementById('form-poster-gradient');
+        if (gradEl) gradEl.value = 'purple';
+
         document.getElementById('form-poster-order').value = adminPosters.length + 1;
         document.getElementById('form-poster-active').checked = true;
-        const gradEl = document.getElementById('form-poster-gradient');
-        if (gradEl) gradEl.value = 'emerald';
 
         if (delBtn) delBtn.classList.add('hidden');
     }
@@ -8871,42 +9018,69 @@ async function handlePosterSubmit(e) {
         if (typeof e.stopPropagation === 'function') e.stopPropagation();
     }
 
+    const type = document.getElementById('form-poster-type')?.value || 'store_announce';
     const id = document.getElementById('form-poster-id')?.value.trim() || '';
-    let title = document.getElementById('form-poster-title')?.value.trim() || '';
-    const pill = document.getElementById('form-poster-pill')?.value.trim() || '';
-    const badge = document.getElementById('form-poster-badge')?.value.trim() || '';
-    const subtitle = document.getElementById('form-poster-subtitle')?.value.trim() || '';
-    const link_text = document.getElementById('form-poster-cta-text')?.value.trim() || 'Shop Now';
-    let link_url = document.getElementById('form-poster-cta-url')?.value.trim() || '#shop-catalog-section';
-    if (/^wa\.me\//i.test(link_url) || /^api\.whatsapp\.com\//i.test(link_url)) {
-        link_url = 'https://' + link_url;
-    }
+    const image_url = document.getElementById('form-poster-image-url')?.value.trim() || '';
     const display_order = parseInt(document.getElementById('form-poster-order')?.value, 10) || (adminPosters.length + 1);
     const is_active = document.getElementById('form-poster-active') ? document.getElementById('form-poster-active').checked : true;
-    const image_url = document.getElementById('form-poster-image-url')?.value.trim() || '';
-    const gradient = document.getElementById('form-poster-gradient')?.value || 'emerald';
 
-    if (!title && !image_url) {
-        showToast('Please provide a poster image or title', 'warning');
-        return;
+    let title = '';
+    let pill = '';
+    let badge = '';
+    let subtitle = '';
+    let link_text = '';
+    let link_url = '';
+    let gradient = 'purple';
+    let show_button = true;
+
+    if (type === 'store_announce') {
+        if (!image_url) {
+            showToast('Please upload or provide an image for the store announcement', 'warning');
+            return;
+        }
+        title = document.getElementById('form-poster-title-announce')?.value.trim() || 'Store Announcement';
+        pill = '';
+        badge = '';
+        subtitle = '';
+        show_button = document.getElementById('form-poster-show-button') ? document.getElementById('form-poster-show-button').checked : true;
+        link_text = show_button ? (document.getElementById('form-poster-cta-text-announce')?.value.trim() || 'Shop Now') : '';
+        link_url = document.getElementById('form-poster-cta-url-announce')?.value.trim() || '#shop-catalog-section';
+        gradient = 'emerald';
+    } else {
+        title = document.getElementById('form-poster-title')?.value.trim() || '';
+        if (!title && !image_url) {
+            showToast('Please provide a promotion title', 'warning');
+            return;
+        }
+        pill = document.getElementById('form-poster-pill')?.value.trim() || '';
+        badge = document.getElementById('form-poster-badge')?.value.trim() || '';
+        subtitle = document.getElementById('form-poster-subtitle')?.value.trim() || '';
+        link_text = document.getElementById('form-poster-cta-text')?.value.trim() || 'Explore Combos';
+        link_url = document.getElementById('form-poster-cta-url')?.value.trim() || '#/categories';
+        gradient = document.getElementById('form-poster-gradient')?.value || 'purple';
+        show_button = true;
     }
-    if (!title && image_url) {
-        title = 'Campus Promotion';
+
+    if (/^wa\.me\//i.test(link_url) || /^api\.whatsapp\.com\//i.test(link_url)) {
+        link_url = 'https://' + link_url;
     }
 
     const payload = {
         id: id || undefined,
+        type,
+        poster_type: type,
         title,
         pill,
         badge,
         subtitle,
         link_text,
         link_url,
+        show_button,
         display_order,
         is_active,
         image_url,
         gradient,
-        is_full_poster: Boolean(image_url && !subtitle)
+        is_full_poster: type === 'store_announce'
     };
 
     const saveBtn = document.getElementById('btn-save-poster');
@@ -8966,11 +9140,11 @@ async function handlePosterSubmit(e) {
         const countBadge = document.getElementById('admin-posters-count-badge');
         const activeCount = adminPosters.filter(p => p.is_active !== false).length;
         if (navBadge) navBadge.textContent = String(adminPosters.length);
-        if (countBadge) countBadge.textContent = `${adminPosters.length} poster${adminPosters.length === 1 ? '' : 's'} (${activeCount} active)`;
+        if (countBadge) countBadge.textContent = `${adminPosters.length} advertisement${adminPosters.length === 1 ? '' : 's'} (${activeCount} active)`;
 
-        showToast('✓ Poster saved successfully to carousel!', 'success');
+        showToast(id ? '✓ Advertisement updated successfully!' : '✓ New advertisement added to carousel!', 'success');
     } catch (err) {
-        showToast('Failed to save poster: ' + err.message, 'warning');
+        showToast('Error saving advertisement: ' + err.message, 'warning');
     } finally {
         if (saveBtn) {
             saveBtn.disabled = false;

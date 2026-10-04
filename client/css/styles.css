@@ -1714,6 +1714,7 @@ html.dark #category-sidebar-rail {
     flex-direction: column;
     justify-content: space-between;
     min-height: 180px;
+    height: 190px;
     color: #ffffff;
     cursor: pointer;
 }
@@ -1721,8 +1722,24 @@ html.dark #category-sidebar-rail {
 @media (min-width: 640px) {
     .hero-carousel-slide {
         padding: 2.25rem 2.5rem;
-        min-height: 220px;
+        min-height: 240px;
+        height: 240px;
     }
+}
+
+@media (min-width: 1024px) {
+    .hero-carousel-slide {
+        min-height: 280px;
+        height: 280px;
+    }
+}
+
+.hero-carousel-slide.hero-carousel-slide-announce {
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: #090d16;
 }
 
 .hero-carousel-slide a.clay-btn {

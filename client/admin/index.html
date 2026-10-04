@@ -4013,20 +4013,43 @@
 
             <form id="poster-form" onsubmit="handlePosterSubmit(event)" class="space-y-4 text-xs">
                 <input type="hidden" id="form-poster-id" value="">
+                <input type="hidden" id="form-poster-type" value="store_announce">
+
+                <!-- Advertisement Type Selector (Store Announce vs Campus Promotion) -->
+                <div class="space-y-1.5 bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                    <label class="font-bold text-[#181c1f] block text-xs">Advertisement Type *</label>
+                    <div class="grid grid-cols-2 gap-2 p-1 bg-slate-200/80 rounded-xl">
+                        <button type="button" id="btn-type-store-announce" onclick="setPosterType('store_announce')"
+                            class="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg font-bold text-xs transition-all shadow-sm bg-white text-emerald-700">
+                            <span class="material-symbols-outlined text-base">campaign</span>
+                            <span>Store Announce</span>
+                        </button>
+                        <button type="button" id="btn-type-campus-promotion" onclick="setPosterType('campus_promotion')"
+                            class="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg font-bold text-xs transition-all text-slate-600 hover:text-slate-900">
+                            <span class="material-symbols-outlined text-base">local_offer</span>
+                            <span>Campus Promotion</span>
+                        </button>
+                    </div>
+                    <p id="type-description-text" class="text-[11px] text-slate-600 font-medium">
+                        Full plain image announcement with 1 button (Picture 1). Shows the complete image with zero cropping or dark overlay.
+                    </p>
+                </div>
 
                 <!-- Poster Image Upload Zone & Instant Canvas Preview -->
                 <div class="space-y-1.5">
-                    <label class="font-semibold text-[#262a2d] block">Poster Graphic Image *</label>
+                    <label id="label-poster-image" class="font-semibold text-[#262a2d] block">
+                        Announcement Graphic Image * <span class="text-emerald-700 font-bold">(Full Image)</span>
+                    </label>
                     
                     <!-- Live Image Preview Box -->
                     <div id="poster-img-preview-box"
                         onclick="document.getElementById('form-poster-file').click()"
                         class="relative w-full h-44 rounded-2xl border-2 border-dashed border-[#DADCE0] hover:border-emerald-500 bg-[#f8f9fa] hover:bg-emerald-50/20 flex items-center justify-center overflow-hidden group transition-all cursor-pointer">
-                        <img id="poster-img-preview" src="" alt="Poster Preview" class="w-full h-full object-cover hidden">
+                        <img id="poster-img-preview" src="" alt="Poster Preview" class="w-full h-full object-contain hidden">
                         <div id="poster-img-placeholder" class="flex flex-col items-center justify-center text-center p-4 text-[#74777a] space-y-1">
                             <span class="material-symbols-outlined text-3xl text-emerald-600">cloud_upload</span>
                             <p class="font-bold text-xs text-[#181c1f]">Click to upload poster image</p>
-                            <p class="text-[10px] text-[#5c5f60]">PNG, JPG, WEBP, GIF (widescreen 16:9 recommended)</p>
+                            <p id="upload-help-text" class="text-[10px] text-[#5c5f60]">PNG, JPG, WEBP, GIF (widescreen 3:1 or 16:9 banner)</p>
                         </div>
                         <button type="button" id="btn-remove-poster-img" onclick="event.stopPropagation(); clearPosterImage();"
                             title="Remove image"
@@ -4050,47 +4073,82 @@
                     </div>
 
                     <!-- Direct URL input -->
-                    <input id="form-poster-image-url" placeholder="https://images.unsplash.com/... or paste image URL"
+                    <input id="form-poster-image-url" placeholder="https://... or paste image URL"
                         oninput="handlePosterUrlInput(this.value)"
                         class="w-full border border-[#DADCE0] rounded-xl px-3 py-2 text-xs text-[#181c1f] focus:border-emerald-600 outline-none">
                 </div>
 
-                <!-- Poster Title & Details -->
-                <div class="space-y-3 pt-2 border-t border-[#DADCE0]">
+                <!-- SECTION A: STORE ANNOUNCE FIELDS -->
+                <div id="store-announce-fields" class="space-y-3 pt-2 border-t border-[#DADCE0]">
                     <div>
-                        <label class="font-semibold text-[#262a2d] block mb-1">Poster Title <span class="text-[#74777a] font-normal">(Optional if Image provided)</span></label>
-                        <input id="form-poster-title" placeholder="e.g. 50% Off Midnight Hostel Munchies"
+                        <label class="font-semibold text-[#262a2d] block mb-1">
+                            Announcement Note / Title <span class="text-[#74777a] font-normal">(Admin reference only — will NOT cover or print over image)</span>
+                        </label>
+                        <input id="form-poster-title-announce" placeholder="e.g. LPU Is Healing Announcement"
+                            class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-emerald-600 outline-none font-semibold">
+                    </div>
+
+                    <!-- Single Button Configuration -->
+                    <div class="p-3 bg-emerald-50/60 rounded-xl border border-emerald-200 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <label class="flex items-center gap-2 cursor-pointer font-bold text-emerald-950">
+                                <input type="checkbox" id="form-poster-show-button" checked onchange="toggleAnnounceButtonInputs(this.checked)"
+                                    class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-[#DADCE0]">
+                                <span>Include Action Button on Poster</span>
+                            </label>
+                            <span class="text-[10px] text-emerald-800 font-semibold bg-emerald-100 px-2 py-0.5 rounded-full">1 Button</span>
+                        </div>
+                        <div id="announce-button-inputs" class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="font-semibold text-[#262a2d] block mb-1">Button Text</label>
+                                <input id="form-poster-cta-text-announce" value="Shop Now" placeholder="e.g. Shop Now or Order Now"
+                                    class="w-full border border-[#DADCE0] rounded-lg p-2 focus:border-emerald-600 outline-none">
+                            </div>
+                            <div>
+                                <label class="font-semibold text-[#262a2d] block mb-1">Action Target URL</label>
+                                <input id="form-poster-cta-url-announce" value="#shop-catalog-section" placeholder="e.g. #shop-catalog-section or https://..."
+                                    class="w-full border border-[#DADCE0] rounded-lg p-2 focus:border-emerald-600 outline-none">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION B: CAMPUS PROMOTION FIELDS (Picture 3 style) -->
+                <div id="campus-promotion-fields" class="space-y-3 pt-2 border-t border-[#DADCE0] hidden">
+                    <div>
+                        <label class="font-semibold text-[#262a2d] block mb-1">Promotion Title *</label>
+                        <input id="form-poster-title" placeholder="e.g. Late Night Study & Gaming Fuel"
                             class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-emerald-600 outline-none font-semibold">
                     </div>
 
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="font-semibold text-[#262a2d] block mb-1">Top Pill Label</label>
-                            <input id="form-poster-pill" placeholder="e.g. CAMPUS GROUND HUB"
+                            <input id="form-poster-pill" placeholder="e.g. MIDNIGHT FUEL"
                                 class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-emerald-600 outline-none">
                         </div>
                         <div>
                             <label class="font-semibold text-[#262a2d] block mb-1">Highlight Badge</label>
-                            <input id="form-poster-badge" placeholder="e.g. ⚡ 3-MIN ROOM DROP"
+                            <input id="form-poster-badge" placeholder="e.g. 🌙 TILL 3 AM"
                                 class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-emerald-600 outline-none">
                         </div>
                     </div>
 
                     <div>
                         <label class="font-semibold text-[#262a2d] block mb-1">Subtitle / Description</label>
-                        <input id="form-poster-subtitle" placeholder="e.g. Instant noodles, snacks and chilled drinks delivered to your room."
+                        <input id="form-poster-subtitle" placeholder="e.g. Hot Maggi, cold drinks, chocolate bars ready for your midnight grind."
                             class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-emerald-600 outline-none">
                     </div>
 
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="font-semibold text-[#262a2d] block mb-1">Action Button Text</label>
-                            <input id="form-poster-cta-text" placeholder="e.g. Shop Now"
+                            <input id="form-poster-cta-text" placeholder="e.g. Explore Combos"
                                 class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-emerald-600 outline-none">
                         </div>
                         <div>
                             <label class="font-semibold text-[#262a2d] block mb-1">Action Target URL</label>
-                            <input id="form-poster-cta-url" placeholder="e.g. #shop-catalog-section, #/categories, or https://wa.me/..."
+                            <input id="form-poster-cta-url" placeholder="e.g. #/categories or #shop-catalog-section"
                                 class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-emerald-600 outline-none">
                         </div>
                     </div>
@@ -4099,27 +4157,27 @@
                     <div>
                         <label class="font-semibold text-[#262a2d] block mb-1">Theme Gradient (slide theme & styling)</label>
                         <select id="form-poster-gradient" class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-emerald-600 outline-none font-medium">
-                            <option value="emerald">Emerald Gradient (Ground Hub style)</option>
                             <option value="purple">Purple Gradient (Midnight Fuel style)</option>
+                            <option value="emerald">Emerald Gradient (Ground Hub style)</option>
                             <option value="amber">Amber Gradient (Campus Perk style)</option>
                             <option value="cyan">Cyan Gradient (100% Private style)</option>
                         </select>
                     </div>
+                </div>
 
-                    <!-- Display Order & Active Toggle -->
-                    <div class="grid grid-cols-2 gap-3 items-center pt-2">
-                        <div>
-                            <label class="font-semibold text-[#262a2d] block mb-1">Slide Order #</label>
-                            <input id="form-poster-order" type="number" min="1" step="1" value="1"
-                                class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-emerald-600 outline-none">
-                        </div>
-                        <div class="pt-4">
-                            <label class="flex items-center gap-2 cursor-pointer font-semibold text-[#181c1f]">
-                                <input type="checkbox" id="form-poster-active" checked
-                                    class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-[#DADCE0]">
-                                <span>Active in Carousel</span>
-                            </label>
-                        </div>
+                <!-- Common Display Order & Active Toggle -->
+                <div class="grid grid-cols-2 gap-3 items-center pt-2 border-t border-[#DADCE0]">
+                    <div>
+                        <label class="font-semibold text-[#262a2d] block mb-1">Slide Order #</label>
+                        <input id="form-poster-order" type="number" min="1" step="1" value="1"
+                            class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-emerald-600 outline-none">
+                    </div>
+                    <div class="pt-4">
+                        <label class="flex items-center gap-2 cursor-pointer font-semibold text-[#181c1f]">
+                            <input type="checkbox" id="form-poster-active" checked
+                                class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-[#DADCE0]">
+                            <span>Active in Carousel</span>
+                        </label>
                     </div>
                 </div>
 

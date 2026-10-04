@@ -918,10 +918,20 @@ router.get('/advertisements', requireRole('owner'), async (req, res) => {
 // POST /api/admin/advertisements - Create or Update a promotional poster (Owner Only)
 router.post('/advertisements', requireRole('owner'), async (req, res) => {
     try {
-        let { id, title, subtitle, badge, pill, link_url, link_text, image_url, is_full_poster, is_active, display_order, gradient } = req.body;
+        let { id, type, poster_type, title, subtitle, badge, pill, link_url, link_text, image_url, is_full_poster, is_active, display_order, gradient, show_button } = req.body;
         
-        if (!image_url && !title) {
-            return res.status(400).json({ success: false, error: 'Poster image or title is required' });
+        const finalType = (type || poster_type) === 'store_announce' || is_full_poster || (image_url && !subtitle && !badge && !pill && (type !== 'campus_promotion'))
+            ? 'store_announce'
+            : 'campus_promotion';
+
+        if (finalType === 'store_announce') {
+            if (!image_url) {
+                return res.status(400).json({ success: false, error: 'Poster graphic image is required for Store Announcement' });
+            }
+        } else {
+            if (!title && !image_url) {
+                return res.status(400).json({ success: false, error: 'Title is required for Campus Promotion' });
+            }
         }
 
         // Convert base64 data URLs to permanent hosted image assets
@@ -932,20 +942,25 @@ router.post('/advertisements', requireRole('owner'), async (req, res) => {
         const data = await loadAdminBannersData();
         const now = new Date().toISOString();
 
+        const defaultTitle = finalType === 'store_announce' ? (title || 'Store Announcement') : (title || 'Campus Promotion');
+
         if (id) {
             // Update existing poster
             const index = data.banners.findIndex(b => b.id === id);
             if (index !== -1) {
                 data.banners[index] = {
                     ...data.banners[index],
-                    title: title !== undefined ? title : data.banners[index].title || '',
-                    subtitle: subtitle !== undefined ? subtitle : data.banners[index].subtitle || '',
-                    badge: badge !== undefined ? badge : data.banners[index].badge || '',
-                    pill: pill !== undefined ? pill : data.banners[index].pill || '',
-                    link_url: link_url !== undefined ? link_url : data.banners[index].link_url || '#shop-catalog-section',
-                    link_text: link_text !== undefined ? link_text : data.banners[index].link_text || 'Shop Now',
-                    image_url: image_url !== undefined ? image_url : data.banners[index].image_url || '',
-                    is_full_poster: is_full_poster !== undefined ? Boolean(is_full_poster) : (data.banners[index].is_full_poster || false),
+                    type: finalType,
+                    poster_type: finalType,
+                    title: title !== undefined ? title : (data.banners[index].title || defaultTitle),
+                    subtitle: finalType === 'store_announce' ? '' : (subtitle !== undefined ? subtitle : (data.banners[index].subtitle || '')),
+                    badge: finalType === 'store_announce' ? '' : (badge !== undefined ? badge : (data.banners[index].badge || '')),
+                    pill: finalType === 'store_announce' ? '' : (pill !== undefined ? pill : (data.banners[index].pill || '')),
+                    link_url: link_url !== undefined ? link_url : (data.banners[index].link_url || '#shop-catalog-section'),
+                    link_text: link_text !== undefined ? link_text : (data.banners[index].link_text || 'Shop Now'),
+                    show_button: show_button !== undefined ? Boolean(show_button) : (data.banners[index].show_button !== false),
+                    image_url: image_url !== undefined ? image_url : (data.banners[index].image_url || ''),
+                    is_full_poster: finalType === 'store_announce',
                     is_active: is_active !== undefined ? Boolean(is_active) : (data.banners[index].is_active !== false),
                     display_order: display_order !== undefined ? Number(display_order) : (data.banners[index].display_order || 1),
                     gradient: gradient || data.banners[index].gradient || 'emerald',
@@ -954,14 +969,17 @@ router.post('/advertisements', requireRole('owner'), async (req, res) => {
             } else {
                 data.banners.push({
                     id,
-                    title: title || 'Campus Promotion',
-                    subtitle: subtitle || '',
-                    badge: badge || '⚡ SPECIAL PERK',
-                    pill: pill || 'CAMPUS DEALS',
+                    type: finalType,
+                    poster_type: finalType,
+                    title: defaultTitle,
+                    subtitle: finalType === 'store_announce' ? '' : (subtitle || ''),
+                    badge: finalType === 'store_announce' ? '' : (badge || ''),
+                    pill: finalType === 'store_announce' ? '' : (pill || ''),
                     link_url: link_url || '#shop-catalog-section',
-                    link_text: link_text || 'Shop Now',
+                    link_text: link_text !== undefined ? link_text : 'Shop Now',
+                    show_button: show_button !== undefined ? Boolean(show_button) : true,
                     image_url: image_url || '',
-                    is_full_poster: Boolean(is_full_poster),
+                    is_full_poster: finalType === 'store_announce',
                     is_active: is_active !== undefined ? Boolean(is_active) : true,
                     display_order: display_order !== undefined ? Number(display_order) : (data.banners.length + 1),
                     gradient: gradient || 'emerald',
@@ -973,14 +991,17 @@ router.post('/advertisements', requireRole('owner'), async (req, res) => {
             const newId = `poster_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
             data.banners.push({
                 id: newId,
-                title: title || 'Campus Promotion',
-                subtitle: subtitle || '',
-                badge: badge || '⚡ SPECIAL PERK',
-                pill: pill || 'CAMPUS DEALS',
+                type: finalType,
+                poster_type: finalType,
+                title: defaultTitle,
+                subtitle: finalType === 'store_announce' ? '' : (subtitle || ''),
+                badge: finalType === 'store_announce' ? '' : (badge || ''),
+                pill: finalType === 'store_announce' ? '' : (pill || ''),
                 link_url: link_url || '#shop-catalog-section',
-                link_text: link_text || 'Shop Now',
+                link_text: link_text !== undefined ? link_text : 'Shop Now',
+                show_button: show_button !== undefined ? Boolean(show_button) : true,
                 image_url: image_url || '',
-                is_full_poster: Boolean(is_full_poster),
+                is_full_poster: finalType === 'store_announce',
                 is_active: is_active !== undefined ? Boolean(is_active) : true,
                 display_order: display_order !== undefined ? Number(display_order) : (data.banners.length + 1),
                 gradient: gradient || 'emerald',

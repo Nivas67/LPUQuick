@@ -388,6 +388,7 @@ const HOME_GRADIENT_THEMES = {
 const DEFAULT_HOME_BANNERS = [
     {
         id: 'banner_default_1',
+        type: 'campus_promotion',
         title: 'Corridor Express Snacks & Munchies',
         subtitle: 'Instant noodles, chilled drinks, and snacks delivered right to your hostel room door in 3 minutes.',
         badge: '⚡ 3-MIN ROOM DROP',
@@ -402,6 +403,7 @@ const DEFAULT_HOME_BANNERS = [
     },
     {
         id: 'banner_default_2',
+        type: 'campus_promotion',
         title: 'Late Night Study & Gaming Fuel',
         subtitle: 'Hot Maggi, cold drinks, chocolate bars, and crunchy chips ready for your midnight grind.',
         badge: '🌙 TILL 3 AM',
@@ -416,6 +418,7 @@ const DEFAULT_HOME_BANNERS = [
     },
     {
         id: 'banner_default_3',
+        type: 'campus_promotion',
         title: 'Zero Delivery Fees On Every Order',
         subtitle: 'No convenience charges, no minimum order traps. 100% calm commerce delivery.',
         badge: '🎉 ₹0 DELIVERY FEE',
@@ -430,6 +433,7 @@ const DEFAULT_HOME_BANNERS = [
     },
     {
         id: 'banner_default_4',
+        type: 'campus_promotion',
         title: 'Discreet Tamper-Proof Room Drop',
         subtitle: 'All hostel orders sealed in opaque bags for privacy and peace of mind.',
         badge: '🔒 HOSTEL SAFE',
@@ -557,32 +561,66 @@ window.handleBannerTargetClick = function (targetUrl, event) {
 };
 
 function renderHomeBannerSlideHTML(poster, index) {
+    const isStoreAnnounce = poster.type === 'store_announce' || poster.poster_type === 'store_announce' || (poster.image_url && (poster.is_full_poster || (!poster.subtitle && !poster.pill && !poster.badge)));
+    const rawLinkUrl = poster.link_url || '#shop-catalog-section';
+    const escapedLinkUrl = rawLinkUrl.replace(/"/g, '&quot;');
+    const safeJsUrl = rawLinkUrl.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const isExternal = /^(https?:|\/\/|wa\.me|tel:|mailto:|whatsapp:)/i.test(rawLinkUrl);
+    const hrefAttr = isExternal ? (rawLinkUrl.startsWith('wa.me') ? 'https://' + rawLinkUrl : rawLinkUrl) : 'javascript:void(0);';
+    const targetAttr = isExternal ? 'target="_blank" rel="noopener noreferrer"' : '';
+    const imageUrl = poster.image_url ? poster.image_url : '';
+    const linkText = (poster.link_text || 'Shop Now').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const showButton = poster.show_button !== false && Boolean(poster.link_text && poster.link_text.trim() !== '');
+
+    // 1. STORE ANNOUNCE MODE (Full plain artwork image with 1 clean action button)
+    if (isStoreAnnounce && imageUrl) {
+        return `
+            <div class="hero-carousel-slide hero-carousel-slide-announce flex-shrink-0 cursor-pointer h-48 sm:h-60 md:h-72"
+                onclick="window.handleBannerTargetClick('${safeJsUrl}', event)"
+                data-link-url="${escapedLinkUrl}"
+                role="button"
+                tabindex="0"
+                style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; overflow: hidden; background: #090d16; padding: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important;">
+                
+                <!-- Ambient blurred backdrop filling edges for any screen ratio -->
+                <img src="${imageUrl}" alt="" class="absolute inset-0 w-full h-full object-cover blur-xl opacity-40 scale-105 pointer-events-none" aria-hidden="true" onerror="this.style.display='none'">
+                
+                <!-- Entire announcement image, perfectly adjusted so whole graphic is visible with zero cropping -->
+                <img src="${imageUrl}" alt="${(poster.title || 'Store Announcement').replace(/"/g, '&quot;')}" class="relative z-[2] w-full h-full object-contain object-center transition-transform duration-500 hover:scale-[1.01]" style="max-height: 100%; display: block;" onerror="this.style.display='none'">
+                
+                <!-- One Action Button -->
+                ${showButton ? `
+                    <div class="absolute bottom-3 left-3 sm:bottom-4 sm:left-6 z-10 pointer-events-auto">
+                        <a href="${hrefAttr}" ${targetAttr}
+                            onclick="window.handleBannerTargetClick('${safeJsUrl}', event)" 
+                            class="clay-btn text-xs sm:text-sm px-4 py-1.5 sm:px-5 sm:py-2 rounded-full inline-flex items-center gap-1.5 shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer font-black"
+                            style="background: #ffffff !important; color: #0f172a !important; font-weight: 900 !important; border: 1px solid rgba(255,255,255,0.7) !important;">
+                            <span style="color: #0f172a !important; font-weight: 900 !important;">${linkText}</span>
+                            <svg class="w-3.5 h-3.5" style="color: #0f172a !important;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                        </a>
+                    </div>
+                ` : ''}
+            </div>`;
+    }
+
+    // 2. CAMPUS PROMOTION MODE (Picture 3 style: styled gradient card with badges, bold headline, and CTA button)
     const title = (poster.title || 'Campus Promotion').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const pill = (poster.pill || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const badge = (poster.badge || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const subtitle = (poster.subtitle || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const linkText = (poster.link_text || 'Shop Now').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const rawLinkUrl = poster.link_url || '#shop-catalog-section';
-    const escapedLinkUrl = rawLinkUrl.replace(/"/g, '&quot;');
-    const safeJsUrl = rawLinkUrl.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-    const imageUrl = poster.image_url ? poster.image_url : '';
-    const keys = ['emerald', 'purple', 'amber', 'cyan'];
+    const keys = ['purple', 'emerald', 'amber', 'cyan'];
     const themeKey = (poster.gradient && HOME_GRADIENT_THEMES[poster.gradient])
         ? poster.gradient
         : keys[index % keys.length];
-    const theme = HOME_GRADIENT_THEMES[themeKey] || HOME_GRADIENT_THEMES.emerald;
-
-    const isExternal = /^(https?:|\/\/|wa\.me|tel:|mailto:|whatsapp:)/i.test(rawLinkUrl);
-    const hrefAttr = isExternal ? (rawLinkUrl.startsWith('wa.me') ? 'https://' + rawLinkUrl : rawLinkUrl) : 'javascript:void(0);';
-    const targetAttr = isExternal ? 'target="_blank" rel="noopener noreferrer"' : '';
+    const theme = HOME_GRADIENT_THEMES[themeKey] || HOME_GRADIENT_THEMES.purple;
 
     return `
-        <div class="hero-carousel-slide flex-shrink-0 cursor-pointer"
+        <div class="hero-carousel-slide hero-carousel-slide-promo flex-shrink-0 cursor-pointer h-48 sm:h-60 md:h-72"
             onclick="window.handleBannerTargetClick('${safeJsUrl}', event)"
             data-link-url="${escapedLinkUrl}"
             role="button"
             tabindex="0"
-            style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; padding: 1.75rem 1.5rem; min-height: 200px; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff; overflow: hidden; background: ${theme.bg};">
+            style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; padding: 1.75rem 1.5rem; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff; overflow: hidden; background: ${theme.bg};">
             
             ${imageUrl ? `
                 <img src="${imageUrl}" alt="${title}" class="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 hover:scale-105" style="filter: brightness(0.72);" onerror="this.style.display='none'">
