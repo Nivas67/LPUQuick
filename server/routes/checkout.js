@@ -229,9 +229,6 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
             if (override !== undefined && !override.deleted) {
                 availableStock = Math.max(0, Number(override.stock_left) || 0);
                 isInStock = Boolean(override.in_stock && availableStock > 0);
-            } else if (item.stock_left !== undefined && item.stock_left !== null && item.in_stock) {
-                availableStock = Number(item.stock_left);
-                isInStock = Boolean(item.in_stock && availableStock > 0);
             }
 
             if (!isInStock || availableStock <= 0) {

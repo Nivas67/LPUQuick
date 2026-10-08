@@ -1765,10 +1765,14 @@ async function adjustStock(productId, delta) {
         const hostelId = (typeof getActiveAdminHostelFilter === 'function') 
             ? (getActiveAdminHostelFilter('inventory') || getActiveAdminHostelFilter('products')) 
             : null;
+        if (!hostelId) {
+            alert('Please select a specific hostel store from the top dropdown filter first to change its stock.');
+            return;
+        }
         const res = await fetch('/api/products/admin/adjust-stock', {
             method: 'POST',
             headers: getAuthHeaders(),
-            body: JSON.stringify({ productId, delta, hostel_id: hostelId || undefined })
+            body: JSON.stringify({ productId, delta, hostel_id: hostelId })
         });
         const data = await res.json();
         if (data.success) {
@@ -1789,17 +1793,22 @@ async function adjustStock(productId, delta) {
 }
 
 async function promptCustomStock(productId, name, current) {
-    const input = prompt(`Enter exact stock quantity for "${name}":`, current !== undefined ? current : 0);
+    const hostelId = (typeof getActiveAdminHostelFilter === 'function') 
+        ? (getActiveAdminHostelFilter(activeView === 'inventory' ? 'inventory' : 'products')) 
+        : null;
+
+    if (!hostelId) {
+        alert('Please select a specific hostel store from the top dropdown filter first to change its stock.');
+        return;
+    }
+
+    const input = prompt(`Enter exact stock quantity for "${name}" in ${hostelId}:`, current !== undefined ? current : 0);
     if (input === null) return;
     const parsed = parseInt(input, 10);
     if (isNaN(parsed) || parsed < 0) {
         alert('Please enter a valid non-negative integer.');
         return;
     }
-
-    const hostelId = (typeof getActiveAdminHostelFilter === 'function') 
-        ? (getActiveAdminHostelFilter(activeView === 'inventory' ? 'inventory' : 'products')) 
-        : null;
 
     const p = productsCache.find(x => x.id === productId);
     if (p) {
@@ -1814,7 +1823,7 @@ async function promptCustomStock(productId, name, current) {
         const res = await fetch('/api/products/admin/adjust-stock', {
             method: 'POST',
             headers: getAuthHeaders(),
-            body: JSON.stringify({ productId, stock: parsed, hostel_id: hostelId || undefined })
+            body: JSON.stringify({ productId, stock: parsed, hostel_id: hostelId })
         });
         const data = await res.json();
         if (data.success && p) {
@@ -1825,7 +1834,7 @@ async function promptCustomStock(productId, name, current) {
             if (typeof filterInventory === 'function') filterInventory();
             if (typeof loadInventory === 'function') loadInventory();
             if (typeof loadProducts === 'function') loadProducts(true);
-            showToast(`Updated "${name}" stock to ${parsed}`, 'success');
+            showToast(`Updated "${name}" stock in ${hostelId} to ${parsed}`, 'success');
         }
     } catch (err) {
         alert('Stock update failed: ' + err.message);
@@ -1840,9 +1849,14 @@ async function toggleProductStock(productId, inStock) {
         ? (getActiveAdminHostelFilter(activeView === 'inventory' ? 'inventory' : 'products')) 
         : null;
 
+    if (!hostelId) {
+        alert('Please select a specific hostel store from the top dropdown filter first to change its stock.');
+        return;
+    }
+
     let targetStock = 0;
     if (inStock) {
-        const input = prompt(`Enter exact stock quantity for "${p.name}":`, p.stock_left > 0 ? p.stock_left : '1');
+        const input = prompt(`Enter exact stock quantity for "${p.name}" in ${hostelId}:`, p.stock_left > 0 ? p.stock_left : '1');
         if (input === null) return;
         targetStock = parseInt(input, 10);
         if (isNaN(targetStock) || targetStock < 0) {
@@ -1850,7 +1864,7 @@ async function toggleProductStock(productId, inStock) {
             return;
         }
     } else {
-        if (!confirm(`Mark "${p.name}" as Out of Stock?`)) return;
+        if (!confirm(`Mark "${p.name}" as Out of Stock in ${hostelId}?`)) return;
         targetStock = 0;
     }
 
@@ -1864,7 +1878,7 @@ async function toggleProductStock(productId, inStock) {
         const res = await fetch('/api/products/admin/adjust-stock', {
             method: 'POST',
             headers: getAuthHeaders(),
-            body: JSON.stringify({ productId, stock: targetStock, hostel_id: hostelId || undefined })
+            body: JSON.stringify({ productId, stock: targetStock, hostel_id: hostelId })
         });
         const data = await res.json();
         if (data.success && p) {
@@ -1875,7 +1889,7 @@ async function toggleProductStock(productId, inStock) {
             if (typeof filterInventory === 'function') filterInventory();
             if (typeof loadInventory === 'function') loadInventory();
             if (typeof loadProducts === 'function') loadProducts(true);
-            showToast(targetStock > 0 ? `Set "${p.name}" stock to ${targetStock}` : `Marked "${p.name}" Out of Stock`, 'success');
+            showToast(targetStock > 0 ? `Set "${p.name}" stock in ${hostelId} to ${targetStock}` : `Marked "${p.name}" Out of Stock in ${hostelId}`, 'success');
         }
     } catch (err) {
         console.error('Toggle stock error:', err);

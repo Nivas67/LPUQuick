@@ -342,10 +342,11 @@ const supabaseDb = {
                 prod.in_stock = false;
             } else {
                 // Campus baseline catalog product OR local custom product for this hostel:
+                // Strictly store-isolated inventory: each store maintains its own independent stock.
+                // If this store has not had stock added for this item yet, stock is strictly 0.
                 prod.deleted = false;
-                const baseStock = prod.stock_left !== undefined ? Number(prod.stock_left) : 0;
-                prod.stock_left = Math.max(0, baseStock);
-                prod.in_stock = Boolean(prod.stock_left > 0);
+                prod.stock_left = 0;
+                prod.in_stock = false;
             }
             return prod;
         },
@@ -706,11 +707,6 @@ const supabaseDb = {
             if (supabaseDb.inventory) {
                 await supabaseDb.inventory.setProductStock(cleanHostel, id, { stock_left: newStock, in_stock: inStock, deleted: false });
             }
-            const normOrigin = (current.origin_hostel || 'BH-13').toUpperCase().replace(/[^A-Z0-9]/g, '');
-            const normTarget = cleanHostel.toUpperCase().replace(/[^A-Z0-9]/g, '');
-            if (normOrigin === 'BH13' || normOrigin === normTarget) {
-                await this.update(id, { stock_left: newStock, in_stock: inStock }).catch(() => {});
-            }
             cache.invalidateProducts();
             return { ...current, stock_left: newStock, in_stock: inStock, hostel_id: cleanHostel };
         },
@@ -721,18 +717,8 @@ const supabaseDb = {
             if (!current) throw new Error('Product not found');
             const newInStock = !current.in_stock;
             const newStock = newInStock ? (current.stock_left > 0 ? current.stock_left : 0) : 0;
-            if (cleanHostel !== 'BH-13' && supabaseDb.inventory) {
+            if (supabaseDb.inventory) {
                 await supabaseDb.inventory.setProductStock(cleanHostel, id, { in_stock: newInStock, stock_left: newStock, deleted: false });
-            }
-            const normOrigin = (current.origin_hostel || 'BH-13').toUpperCase().replace(/[^A-Z0-9]/g, '');
-            const normTarget = cleanHostel.toUpperCase().replace(/[^A-Z0-9]/g, '');
-            if (normOrigin === 'BH13' && normTarget === 'BH13') {
-                await this.update(id, { in_stock: newInStock, stock_left: newStock }).catch(() => {});
-                if (supabaseDb.inventory) {
-                    await supabaseDb.inventory.setProductStock('BH-13', id, { in_stock: newInStock, stock_left: newStock, deleted: false }).catch(() => {});
-                }
-            } else if (normOrigin === normTarget) {
-                await this.update(id, { in_stock: newInStock, stock_left: newStock }).catch(() => {});
             }
             cache.invalidateProducts();
             return { ...current, in_stock: newInStock, stock_left: newStock, hostel_id: cleanHostel };

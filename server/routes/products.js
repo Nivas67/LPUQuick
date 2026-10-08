@@ -435,10 +435,8 @@ router.put('/admin/update/:id', requireAdmin, async (req, res) => {
                 const productUpdates = { ...updateData };
                 delete productUpdates.id;
                 delete productUpdates.hostel_id;
-                if (targetStock !== undefined) {
-                    productUpdates.stock_left = targetStock;
-                    productUpdates.in_stock = targetInStock;
-                }
+                delete productUpdates.stock_left;
+                delete productUpdates.in_stock;
                 if (Object.keys(productUpdates).length > 0) {
                     await supabaseDb.products.update(id, productUpdates);
                 }
@@ -490,17 +488,12 @@ router.put('/admin/update/:id', requireAdmin, async (req, res) => {
             }
         }
 
-        // Update catalog details on the master record
+        // Update catalog details on the master record (metadata only, stock is 100% store-isolated)
         const catalogUpdates = { ...updateData };
         delete catalogUpdates.id;
         delete catalogUpdates.hostel_id;
-        if (targetStock !== undefined && (normTarget === 'BH13' || isCustomForThisHostel)) {
-            catalogUpdates.stock_left = targetStock;
-            catalogUpdates.in_stock = targetInStock;
-        } else {
-            delete catalogUpdates.stock_left;
-            delete catalogUpdates.in_stock;
-        }
+        delete catalogUpdates.stock_left;
+        delete catalogUpdates.in_stock;
 
         if (Object.keys(catalogUpdates).length > 0) {
             await supabaseDb.products.update(id, catalogUpdates);
@@ -534,49 +527,22 @@ router.delete('/admin/deactivate/:id', requireAdmin, async (req, res) => {
         const assignedHostel = req.admin?.assigned_hostel_id || null;
         const targetHostel = (!isOwner && assignedHostel) ? assignedHostel : (req.query.hostel_id || req.body?.hostel_id || 'BH-13');
 
-        if (!isOwner && assignedHostel) {
-            // Store manager deactivates (marks out of stock) in their assigned dark-store only
-            const updatedStock = await supabaseDb.inventory.setProductStock(assignedHostel, id, {
-                in_stock: false,
-                stock_left: 0
-            });
-            cache.invalidateProducts();
-            if (typeof broadcastInventoryUpdate === 'function') {
-                broadcastInventoryUpdate(id, 0, false, assignedHostel);
-            }
-            if (typeof broadcastCatalogUpdate === 'function') {
-                broadcastCatalogUpdate(id, assignedHostel, 'deactivate');
-            }
-            return res.json({ success: true, message: `Product marked out of stock in ${assignedHostel}`, product: updatedStock });
-        }
+        const storeToDeactivate = (!isOwner && assignedHostel)
+            ? assignedHostel
+            : (req.query.hostel_id || req.body?.hostel_id || 'BH-13');
 
-        if (targetHostel && targetHostel.toUpperCase().replace(/[^A-Z0-9]/g, '') !== 'BH13') {
-            const updatedStock = await supabaseDb.inventory.setProductStock(targetHostel, id, {
-                in_stock: false,
-                stock_left: 0
-            });
-            cache.invalidateProducts();
-            if (typeof broadcastInventoryUpdate === 'function') {
-                broadcastInventoryUpdate(id, 0, false, targetHostel);
-            }
-            if (typeof broadcastCatalogUpdate === 'function') {
-                broadcastCatalogUpdate(id, targetHostel, 'deactivate');
-            }
-            return res.json({ success: true, message: `Product marked out of stock in ${targetHostel}`, product: updatedStock });
-        }
-
-        const updated = await supabaseDb.products.update(id, { in_stock: false, stock_left: 0 });
-        if (supabaseDb.inventory) {
-            await supabaseDb.inventory.setProductStock('BH-13', id, { in_stock: false, stock_left: 0 }).catch(() => {});
-        }
+        const updatedStock = await supabaseDb.inventory.setProductStock(storeToDeactivate, id, {
+            in_stock: false,
+            stock_left: 0
+        });
         cache.invalidateProducts();
         if (typeof broadcastInventoryUpdate === 'function') {
-            broadcastInventoryUpdate(updated.id, 0, false, 'BH-13');
+            broadcastInventoryUpdate(id, 0, false, storeToDeactivate);
         }
         if (typeof broadcastCatalogUpdate === 'function') {
-            broadcastCatalogUpdate(updated.id, 'BH-13', 'deactivate');
+            broadcastCatalogUpdate(id, storeToDeactivate, 'deactivate');
         }
-        res.json({ success: true, message: `Product deactivated successfully`, product: updated });
+        return res.json({ success: true, message: `Product marked out of stock in ${storeToDeactivate}`, product: updatedStock });
     } catch (err) {
         console.error('[Deactivate Product Error]:', err.message);
         res.status(500).json({ error: 'Failed to deactivate product.' });
@@ -707,15 +673,6 @@ router.post('/admin/toggle-stock', requireAdmin, async (req, res) => {
             deleted: false
         });
 
-        const normTarget = targetHostel.toUpperCase().replace(/[^A-Z0-9]/g, '');
-        const normOrigin = (existing.origin_hostel || existing.hostel_id || 'BH-13').toUpperCase().replace(/[^A-Z0-9]/g, '');
-        if (normTarget === 'BH13' || normOrigin === normTarget) {
-            await supabaseDb.products.update(productId, {
-                stock_left: newStock,
-                in_stock: targetInStock && newStock > 0
-            }).catch(() => {});
-        }
-
         cache.invalidateProducts();
         if (typeof broadcastInventoryUpdate === 'function') {
             broadcastInventoryUpdate(productId, updated.stock_left, updated.in_stock, targetHostel);
@@ -766,15 +723,6 @@ router.post('/admin/adjust-stock', requireAdmin, async (req, res) => {
             in_stock: newStock > 0,
             deleted: false
         });
-
-        const normTarget = targetHostel.toUpperCase().replace(/[^A-Z0-9]/g, '');
-        const normOrigin = (product.origin_hostel || product.hostel_id || 'BH-13').toUpperCase().replace(/[^A-Z0-9]/g, '');
-        if (normTarget === 'BH13' || normOrigin === normTarget) {
-            await supabaseDb.products.update(productId, {
-                stock_left: newStock,
-                in_stock: newStock > 0
-            }).catch(() => {});
-        }
 
         cache.invalidateProducts();
         if (typeof broadcastInventoryUpdate === 'function') {
