@@ -3191,18 +3191,31 @@ function filterOrders() {
             currentAdminProfile.is_owner || 
             (Array.isArray(currentAdminProfile.roles) && (currentAdminProfile.roles.includes('delivery_person') || currentAdminProfile.roles.includes('owner')))
         ));
+        const isOwner = isPlatformOwner();
+        const ownerDeleteBtnHtml = isOwner ? `
+            <button onclick="event.stopPropagation(); deleteOrderPermanently('${o.id}')" 
+                class="text-rose-600 hover:text-rose-800 hover:bg-rose-50 p-1.5 rounded-lg transition-all ml-1 cursor-pointer shrink-0" 
+                title="Delete Order Permanently (Owner Only)">
+                <span class="material-symbols-outlined text-base">delete</span>
+            </button>
+        ` : '';
         let actionButtonsHtml = '';
         if (!isDone && isUnassigned) {
-            actionButtonsHtml = canAcceptDelivery ? `
-                <button onclick="event.stopPropagation(); claimOrder('${o.id}')" 
-                    class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs active:scale-95 transition-all flex items-center gap-1 ml-auto">
-                    <span class="material-symbols-outlined text-sm">electric_bolt</span>
-                    <span>Accept Delivery</span>
-                </button>
-            ` : `
-                <span class="inline-flex items-center px-2 py-1 rounded-md text-[11px] font-semibold text-slate-400 bg-slate-50 border border-slate-200 ml-auto">
-                    Awaiting Courier
-                </span>
+            actionButtonsHtml = `
+                <div class="flex items-center gap-1.5 justify-end ml-auto">
+                    ${canAcceptDelivery ? `
+                    <button onclick="event.stopPropagation(); claimOrder('${o.id}')" 
+                        class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs active:scale-95 transition-all flex items-center gap-1">
+                        <span class="material-symbols-outlined text-sm">electric_bolt</span>
+                        <span>Accept Delivery</span>
+                    </button>
+                    ` : `
+                    <span class="inline-flex items-center px-2 py-1 rounded-md text-[11px] font-semibold text-slate-400 bg-slate-50 border border-slate-200">
+                        Awaiting Courier
+                    </span>
+                    `}
+                    ${ownerDeleteBtnHtml}
+                </div>
             `;
         } else if (!isDone && isOfferedToMe) {
             actionButtonsHtml = `
@@ -3215,6 +3228,7 @@ function filterOrders() {
                         class="px-2 py-1 bg-rose-100 hover:bg-rose-200 text-rose-700 font-semibold text-[11px] rounded-lg">
                         Decline
                     </button>
+                    ${ownerDeleteBtnHtml}
                 </div>
             `;
         } else if (!isDone && (isAssignedToMe || isOwnerOrStoreMgr)) {
@@ -3230,14 +3244,18 @@ function filterOrders() {
                         class="text-xs font-semibold text-[#3c4043] bg-[#ebeef2] hover:bg-[#e0e3e6] px-2.5 py-1 rounded-lg">
                         Manage
                     </button>
+                    ${ownerDeleteBtnHtml}
                 </div>
             `;
         } else {
             actionButtonsHtml = `
-                <button onclick="event.stopPropagation(); openOrderDrawer('${o.id}')" 
-                    class="text-xs font-semibold text-[#3c4043] bg-[#ebeef2] hover:bg-[#e0e3e6] px-3 py-1 rounded-full">
-                    Manage
-                </button>
+                <div class="flex items-center gap-1.5 justify-end">
+                    <button onclick="event.stopPropagation(); openOrderDrawer('${o.id}')" 
+                        class="text-xs font-semibold text-[#3c4043] bg-[#ebeef2] hover:bg-[#e0e3e6] px-3 py-1 rounded-full">
+                        Manage
+                    </button>
+                    ${ownerDeleteBtnHtml}
+                </div>
             `;
         }
 
@@ -3294,6 +3312,12 @@ async function openOrderDrawer(orderId) {
     currentDrawerOrderId = orderId;
     currentDrawerOrderUserId = null;
     document.getElementById('order-drawer').classList.remove('hidden');
+
+    // Owner-only delete button in drawer
+    const drawerDeleteBtn = document.getElementById('btn-drawer-delete-order');
+    if (drawerDeleteBtn) {
+        drawerDeleteBtn.classList.toggle('hidden', !isPlatformOwner());
+    }
 
     // Make customer name clickable
     const custNameEl = document.getElementById('drawer-cust-name');
@@ -3439,9 +3463,67 @@ async function openOrderDrawer(orderId) {
 }
 
 function closeOrderDrawer() {
+    currentDrawerOrderId = null;
     const drawer = document.getElementById('order-drawer');
     if (drawer) drawer.classList.add('hidden');
 }
+
+// ==========================================
+// OWNER-ONLY ORDER PERMANENT DELETION
+// ==========================================
+async function deleteOrderPermanently(orderId) {
+    if (!orderId) {
+        orderId = currentDrawerOrderId;
+    }
+    if (!orderId) return;
+
+    if (!isPlatformOwner()) {
+        showToast('Access Denied: Only the platform owner can delete orders.', 'error');
+        return;
+    }
+
+    const shortId = String(orderId).replace('order_', '').slice(0, 8).toUpperCase();
+    const confirmed = window.confirm(`⚠️ PERMANENT DELETE ORDER #${shortId}?\n\nAre you sure you want to permanently delete this order and all its items from the database?\nThis action CANNOT be undone.`);
+    if (!confirmed) return;
+
+    try {
+        showToast(`Deleting order #${shortId}...`, 'info');
+        const res = await fetch(`/api/orders/${orderId}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data.error || `HTTP ${res.status}`);
+        }
+
+        showToast(`Order #${shortId} was permanently deleted.`, 'success');
+
+        // Remove from local memory cache
+        ordersCache = ordersCache.filter(o => o.id !== orderId);
+
+        // Remove from DOM if exists
+        const row = document.getElementById(`order-row-${orderId}`);
+        if (row) {
+            row.remove();
+        }
+
+        // Close drawer if it's open for this order
+        if (currentDrawerOrderId === orderId) {
+            closeOrderDrawer();
+        }
+
+        // Re-filter orders and update KPIs
+        if (typeof filterOrders === 'function') filterOrders();
+        if (typeof updateKpiCountersFromCache === 'function') updateKpiCountersFromCache();
+        if (typeof loadDashboard === 'function') loadDashboard();
+    } catch (err) {
+        console.error('[Delete Order Error]:', err);
+        showToast(err.message || 'Failed to delete order', 'error');
+    }
+}
+window.deleteOrderPermanently = deleteOrderPermanently;
 
 // ==========================================
 // PAYMENT COLLECTION MODE HANDLERS (Cash, UPI, Both)
@@ -5281,6 +5363,17 @@ function initRealtimeWebSocket() {
                 } else if (data.type === 'HOSTEL_STATUS_CHANGED') {
                     if (typeof loadHostels === 'function') {
                         loadHostels();
+                    }
+                } else if (data.type === 'ORDER_DELETED') {
+                    if (data.orderId) {
+                        ordersCache = ordersCache.filter(x => x.id !== data.orderId);
+                        const row = document.getElementById(`order-row-${data.orderId}`);
+                        if (row) row.remove();
+                        if (currentDrawerOrderId === data.orderId && typeof closeOrderDrawer === 'function') {
+                            closeOrderDrawer();
+                        }
+                        if (typeof filterOrders === 'function') filterOrders();
+                        if (typeof updateKpiCountersFromCache === 'function') updateKpiCountersFromCache();
                     }
                 } else if (data.type === 'CONNECTED') {
                     console.log('[Admin WS] Server confirmed connection:', data.message);

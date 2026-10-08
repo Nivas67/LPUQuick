@@ -2490,6 +2490,75 @@ const supabaseDb = {
                 item_names: itemSummary,
                 latest_edit: editEntry
             };
+        },
+
+        async deleteOrder(orderId) {
+            const supabase = getSupabaseClient();
+            if (!supabase) throw new Error('Database client unavailable');
+
+            // 1. Fetch order details before deletion (to restock active inventory if needed)
+            let order = null;
+            try {
+                order = await this.getOrderById(orderId);
+            } catch (e) {}
+
+            // Restock items if order wasn't already delivered or cancelled/restocked
+            if (order && !['Delivered', 'delivered', 'Cancelled', 'cancelled'].includes(order.status)) {
+                try {
+                    await this.restockOrderItems(orderId);
+                } catch (restockErr) {
+                    console.warn(`[Delete Order Restock Note] Order #${orderId}:`, restockErr.message);
+                }
+            }
+
+            // 2. Delete line items first (referential integrity)
+            const { error: itemsErr } = await supabase
+                .from('order_items')
+                .delete()
+                .eq('order_id', orderId);
+
+            if (itemsErr) {
+                console.warn(`[Delete Order Items Warning]:`, itemsErr.message);
+            }
+
+            // 3. Delete order record
+            const { data, error: orderErr } = await supabase
+                .from('orders')
+                .delete()
+                .eq('id', orderId)
+                .select()
+                .maybeSingle();
+
+            if (orderErr) {
+                throw new Error(`Failed to delete order from database: ${orderErr.message}`);
+            }
+
+            // 4. Also clean up local SQLite if localDb exists
+            try {
+                const localDb = require('./localDb');
+                if (localDb?.db) {
+                    localDb.db.prepare('DELETE FROM order_items WHERE order_id = ?').run(orderId);
+                    localDb.db.prepare('DELETE FROM orders WHERE id = ?').run(orderId);
+                }
+            } catch (e) {}
+
+            // 5. Clean up snapshots
+            try {
+                const snapshotsPath = path.join(__dirname, '..', 'data', 'order_snapshots.json');
+                if (fs.existsSync(snapshotsPath)) {
+                    const snaps = JSON.parse(fs.readFileSync(snapshotsPath, 'utf8'));
+                    if (snaps[orderId]) {
+                        delete snaps[orderId];
+                        fs.writeFileSync(snapshotsPath, JSON.stringify(snaps, null, 2), 'utf8');
+                    }
+                }
+            } catch (e) {}
+
+            // 6. Invalidate caches
+            cache.invalidateOrders();
+            cache.invalidateProducts();
+
+            return { success: true, deletedOrderId: orderId };
         }
     },
 

@@ -10,7 +10,7 @@ async function syncProductCreate(db, p) {
     // 1a. Insert into SQLite
     const inStock = p.in_stock !== undefined ? (p.in_stock ? 1 : 0) : (p.stock_left > 0 ? 1 : 0);
     const stockLeft = p.stock_left !== undefined ? parseInt(p.stock_left, 10) : 40;
-    
+
     db.prepare(`
         INSERT OR REPLACE INTO products 
         (id, name, category, subcategory, price, mrp, unit, size, image_url, image_alt, tags, in_stock, stock_left, is_active, description)
@@ -176,6 +176,20 @@ async function syncOrderStatus(orderId, status) {
     }
 }
 
+// 6b. SYNC ORDER DELETE
+async function syncOrderDelete(orderId) {
+    try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            await supabase.from('order_items').delete().eq('order_id', orderId);
+            await supabase.from('orders').delete().eq('id', orderId);
+            console.log(`[DualSync] Order deleted from Cloud: ${orderId}`);
+        }
+    } catch (err) {
+        console.error(`[DualSync Order Delete Error]:`, err.message);
+    }
+}
+
 // 7. LISTEN TO SUPABASE REALTIME (Cloud -> SQLite downward sync)
 function setupCloudDownwardSync(db) {
     try {
@@ -231,5 +245,6 @@ module.exports = {
     syncProductStock,
     syncOrderCreate,
     syncOrderStatus,
+    syncOrderDelete,
     setupCloudDownwardSync
 };

@@ -3,7 +3,7 @@ const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const supabaseDb = require('../db/supabaseDb');
-const { broadcastStatusUpdate, broadcastOrderClaimed, broadcastTransferRequested, broadcastTransferResolved, broadcastOrderEdited, broadcastDutyStatusChanged } = require('../realtime');
+const { broadcastStatusUpdate, broadcastOrderClaimed, broadcastTransferRequested, broadcastTransferResolved, broadcastOrderEdited, broadcastDutyStatusChanged, broadcastOrderDeleted } = require('../realtime');
 const { getSupabaseClient } = require('../supabase');
 const requireAdmin = require('../middleware/adminAuth');
 const { requireRole, verifyAdminToken, resolveAdminRoles } = require('../middleware/adminAuth');
@@ -2472,6 +2472,106 @@ router.post('/:orderId/change-address', async (req, res) => {
     } catch (err) {
         console.error('[Change Address Error]:', err.message);
         res.status(500).json({ error: 'Failed to update delivery address.' });
+    }
+});
+
+// Middleware: Strictly verify requester is the Platform Owner
+async function requireOwner(req, res, next) {
+    try {
+        // 1. Check admin token header
+        const authHeader = req.headers['authorization'] || req.headers['x-admin-token'] || req.headers['x-admin-key'] || '';
+        if (authHeader) {
+            const verified = verifyAdminToken(authHeader);
+            if (verified && verified.sub) {
+                if (verified.sub === 'user_admin_bh13' || verified.role === 'owner') {
+                    req.admin = { id: verified.sub, role: 'owner', is_owner: true };
+                    return next();
+                }
+                let user = await supabaseDb.users.getUserById(verified.sub).catch(() => null);
+                if (!user) {
+                    const { staffUserCache, KNOWN_STAFF_FALLBACKS } = require('../middleware/adminAuth');
+                    user = (staffUserCache && staffUserCache.get(verified.sub)) || (KNOWN_STAFF_FALLBACKS && KNOWN_STAFF_FALLBACKS[verified.sub]);
+                }
+                if (user) {
+                    const roles = resolveAdminRoles(user);
+                    if (roles.includes('owner') || user.id === 'user_admin_bh13' || user.email === 'admin@lpu.in' || user.role === 'owner') {
+                        req.admin = user;
+                        return next();
+                    }
+                }
+            }
+        }
+
+        // 2. Check client user ID if passed
+        const userId = req.headers['x-user-id'] || req.body?.userId || req.query?.userId;
+        if (userId) {
+            if (userId === 'user_admin_bh13') return next();
+            const user = await supabaseDb.users.getUserById(userId).catch(() => null);
+            if (user && (user.email === 'admin@lpu.in' || user.role === 'owner' || user.id === 'user_admin_bh13')) {
+                return next();
+            }
+        }
+    } catch (e) {
+        console.warn('[requireOwner Error]:', e.message);
+    }
+
+    console.warn(`[SECURITY AUDIT] ORDER_DELETE_DENIED | IP: ${req.ip} | Path: ${req.originalUrl}`);
+    return res.status(403).json({
+        success: false,
+        code: 'FORBIDDEN',
+        error: 'Access denied. Only the platform owner can delete orders.'
+    });
+}
+
+// DELETE /api/orders/:orderId (Permanently delete order - Owner Only)
+router.delete('/:orderId', requireOwner, async (req, res) => {
+    const { orderId } = req.params;
+    try {
+        const result = await supabaseDb.orders.deleteOrder(orderId);
+        if (Array.isArray(fallbackOrdersCache)) {
+            fallbackOrdersCache = fallbackOrdersCache.filter(x => x.id !== orderId);
+        }
+        cache.invalidateOrders();
+        try {
+            if (typeof broadcastOrderDeleted === 'function') {
+                broadcastOrderDeleted(orderId);
+            }
+        } catch (e) {}
+        console.log(`[Order Delete] Order #${orderId} was permanently deleted by Owner`);
+        res.json({
+            success: true,
+            message: `Order #${orderId} was permanently deleted.`,
+            orderId
+        });
+    } catch (err) {
+        console.error('[Delete Order Error]:', err.message);
+        res.status(500).json({ success: false, error: err.message || 'Failed to delete order.' });
+    }
+});
+
+// DELETE /api/orders/admin/:orderId (Permanently delete order alias - Owner Only)
+router.delete('/admin/:orderId', requireOwner, async (req, res) => {
+    const { orderId } = req.params;
+    try {
+        const result = await supabaseDb.orders.deleteOrder(orderId);
+        if (Array.isArray(fallbackOrdersCache)) {
+            fallbackOrdersCache = fallbackOrdersCache.filter(x => x.id !== orderId);
+        }
+        cache.invalidateOrders();
+        try {
+            if (typeof broadcastOrderDeleted === 'function') {
+                broadcastOrderDeleted(orderId);
+            }
+        } catch (e) {}
+        console.log(`[Order Delete] Order #${orderId} was permanently deleted by Owner`);
+        res.json({
+            success: true,
+            message: `Order #${orderId} was permanently deleted.`,
+            orderId
+        });
+    } catch (err) {
+        console.error('[Delete Order Error]:', err.message);
+        res.status(500).json({ success: false, error: err.message || 'Failed to delete order.' });
     }
 });
 

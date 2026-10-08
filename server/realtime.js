@@ -563,10 +563,31 @@ function broadcastHostelStatusChanged(hostel) {
     chunkedBroadcast(clientSockets, payload);
 }
 
+// Broadcast when an order is permanently deleted by owner
+function broadcastOrderDeleted(orderId) {
+    const payload = JSON.stringify({
+        type: 'ORDER_DELETED',
+        orderId,
+        order_id: orderId,
+        status: 'Deleted',
+        message: 'Order was permanently deleted from the system',
+        timestamp: new Date().toISOString()
+    });
+    chunkedBroadcast(adminSockets, payload);
+    chunkedBroadcast(clientSockets, payload);
+
+    const trackingSet = orderTrackingSockets.get(orderId);
+    if (trackingSet) {
+        chunkedBroadcast(trackingSet, payload);
+        orderTrackingSockets.delete(orderId);
+    }
+}
+
 module.exports = {
     setupRealtime,
     broadcastOrderPlaced: notifyAdminNewOrder,
     broadcastStatusUpdate,
+    broadcastOrderDeleted,
     broadcastInventoryUpdate,
     broadcastCatalogUpdate,
     broadcastClientLockUpdate,

@@ -605,6 +605,12 @@ const localDb = {
             const db = getLocalDb();
             db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(status, orderId);
             return this.getOrderById(orderId);
+        },
+
+        deleteOrder(orderId) {
+            const db = getLocalDb();
+            db.prepare('DELETE FROM order_items WHERE order_id = ?').run(orderId);
+            return db.prepare('DELETE FROM orders WHERE id = ?').run(orderId);
         }
     },
 

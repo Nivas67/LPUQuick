@@ -836,6 +836,32 @@ const api = {
         });
         return res.json();
     },
+    async deleteOrder(orderId) {
+        const adminToken = (typeof localStorage !== 'undefined' && (localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token'))) || '';
+        const userToken = (typeof localStorage !== 'undefined' && (localStorage.getItem('lpuquick_token') || sessionStorage.getItem('lpuquick_token'))) || '';
+        let userId = (typeof window !== 'undefined' && window.CURRENT_USER_ID) || '';
+        if (!userId && typeof localStorage !== 'undefined') {
+            try {
+                const u = JSON.parse(localStorage.getItem('lpuquick_user') || '{}');
+                userId = u.id || '';
+            } catch (e) {}
+        }
+        const headers = { 'Content-Type': 'application/json' };
+        if (adminToken) {
+            headers['Authorization'] = `Bearer ${adminToken}`;
+            headers['x-admin-token'] = adminToken;
+        } else if (userToken) {
+            headers['Authorization'] = `Bearer ${userToken}`;
+        }
+        if (userId) {
+            headers['x-user-id'] = userId;
+        }
+        const res = await fetch(`${API_BASE}/orders/${orderId}`, {
+            method: 'DELETE',
+            headers
+        });
+        return res.json();
+    },
     async changeOrderAddress(orderId, newAddress) {
         const res = await fetch(`${API_BASE}/orders/${orderId}/change-address`, {
             method: 'POST',

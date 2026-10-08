@@ -803,7 +803,7 @@ window.openCampusHelpModal = function (orderId = null) {
                         <span class="material-symbols-outlined text-lg">call</span>
                     </div>
                     <span class="text-xs font-black">Call Helpline</span>
-                    <span class="text-[10px] text-blue-600 dark:text-blue-400 font-semibold mt-0.5">+91 98779 82857</span>
+                    <span class="text-[10px] text-blue-600 dark:text-blue-400 font-semibold mt-0.5">+91 76718 36211</span>
                 </a>
             </div>
 
@@ -2305,6 +2305,18 @@ function initGlobalClientWebSocket() {
                         }
                     }
                 }
+                // Live Order Deletion Handler
+                else if (data.type === 'ORDER_DELETED') {
+                    if (window.CURRENT_ACTIVE_ORDER_ID === data.orderId) {
+                        window.CURRENT_ACTIVE_ORDER_ID = null;
+                        if (typeof window.api?.clearOrdersCache === 'function') {
+                            window.api.clearOrdersCache();
+                        }
+                        if (window.location.hash.includes('orders') && typeof window.renderPage === 'function') {
+                            window.renderPage();
+                        }
+                    }
+                }
                 // 4. Live Store Lock / Availability Updates from Admin
                 else if (data.type === 'CLIENT_LOCK_UPDATE' && data.availability) {
                     const clientHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
@@ -2365,7 +2377,7 @@ function initGlobalClientWebSocket() {
                         if (data.settings) {
                             localStorage.setItem('lpuquick_carousel_settings', JSON.stringify(data.settings));
                         }
-                    } catch (e) {}
+                    } catch (e) { }
                     window.dispatchEvent(new CustomEvent('advertisementsUpdated', { detail: data }));
                     if (typeof window.refreshHomeCarousel === 'function') {
                         window.refreshHomeCarousel(data);
@@ -2457,7 +2469,7 @@ try {
                     if (event.data.settings) {
                         localStorage.setItem('lpuquick_carousel_settings', JSON.stringify(event.data.settings));
                     }
-                } catch (e) {}
+                } catch (e) { }
                 window.dispatchEvent(new CustomEvent('advertisementsUpdated', { detail: event.data }));
                 if (typeof window.refreshHomeCarousel === 'function') {
                     window.refreshHomeCarousel(event.data);
@@ -2465,7 +2477,7 @@ try {
             }
         };
     }
-} catch (e) {}
+} catch (e) { }
 
 
 // In-place Real-Time Stock Updates across DOM
