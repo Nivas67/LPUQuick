@@ -4,7 +4,6 @@ node_modules/
 *.db-shm
 server/data/backups/
 server/backups/
-server/config/vapid.json
 .env
 .DS_Store
 scripts/debug_*.js

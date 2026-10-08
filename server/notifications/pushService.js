@@ -9,32 +9,49 @@ const DATA_DIR = path.join(__dirname, '..', 'data');
 const VAPID_FILE = path.join(CONFIG_DIR, 'vapid.json');
 const SUBS_FILE = path.join(DATA_DIR, 'push_subscriptions.json');
 
-// Ensure directories exist
-if (!fs.existsSync(CONFIG_DIR)) fs.mkdirSync(CONFIG_DIR, { recursive: true });
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+// Ensure directories exist safely without throwing on read-only serverless filesystems
+try {
+    if (!fs.existsSync(CONFIG_DIR)) fs.mkdirSync(CONFIG_DIR, { recursive: true });
+} catch (e) {}
+try {
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+} catch (e) {}
+
+// Stable fallback VAPID keys for zero-config and read-only serverless environments
+const DEFAULT_VAPID_KEYS = {
+    publicKey: 'BIbDYL9eYQn5V-yONZGWuMURDwAvuG8liBT7SNmQxeVHA62Qo4I2LgGSZdYRrVfW5UGAeGAjoZE5ThGTXdITl0E',
+    privateKey: '4aBeU8au19rwlm_aTMDoNQieTg6fLFHR1OYI6QpIdss'
+};
 
 // Load or generate stable VAPID keys
-let vapidKeys;
+let vapidKeys = DEFAULT_VAPID_KEYS;
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
     vapidKeys = {
         publicKey: process.env.VAPID_PUBLIC_KEY,
         privateKey: process.env.VAPID_PRIVATE_KEY
     };
-} else if (fs.existsSync(VAPID_FILE)) {
-    try {
-        vapidKeys = JSON.parse(fs.readFileSync(VAPID_FILE, 'utf8'));
-    } catch (e) {
-        vapidKeys = webpush.generateVAPIDKeys();
-        fs.writeFileSync(VAPID_FILE, JSON.stringify(vapidKeys, null, 2));
-    }
 } else {
-    vapidKeys = webpush.generateVAPIDKeys();
-    fs.writeFileSync(VAPID_FILE, JSON.stringify(vapidKeys, null, 2));
+    try {
+        if (fs.existsSync(VAPID_FILE)) {
+            vapidKeys = JSON.parse(fs.readFileSync(VAPID_FILE, 'utf8'));
+        } else {
+            vapidKeys = DEFAULT_VAPID_KEYS;
+            try {
+                fs.writeFileSync(VAPID_FILE, JSON.stringify(vapidKeys, null, 2));
+            } catch (wErr) {}
+        }
+    } catch (e) {
+        vapidKeys = DEFAULT_VAPID_KEYS;
+    }
 }
 
 // Configure web-push with VAPID details
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:admin@lpu.in';
-webpush.setVapidDetails(VAPID_SUBJECT, vapidKeys.publicKey, vapidKeys.privateKey);
+try {
+    webpush.setVapidDetails(VAPID_SUBJECT, vapidKeys.publicKey, vapidKeys.privateKey);
+} catch (vErr) {
+    console.warn('[Push Service] VAPID configuration note:', vErr.message);
+}
 
 // In-memory subscription cache synced to disk
 let subscriptions = [];
@@ -50,7 +67,10 @@ function persistSubscriptions() {
     try {
         fs.writeFileSync(SUBS_FILE, JSON.stringify(subscriptions, null, 2));
     } catch (e) {
-        console.warn('[Push Service] Could not write subscriptions file:', e.message);
+        try {
+            const tmpFile = path.join(require('os').tmpdir(), 'push_subscriptions.json');
+            fs.writeFileSync(tmpFile, JSON.stringify(subscriptions, null, 2));
+        } catch (tmpErr) {}
     }
 }
 

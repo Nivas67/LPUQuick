@@ -304,10 +304,15 @@ router.post('/admin-login', async (req, res) => {
     const trimmedEmail = email.trim().toLowerCase();
 
     try {
-        // Look up user in database
-        let user = await supabaseDb.users.getByIdentifier(trimmedEmail);
+        // Look up user in database with isolated error guard
+        let user = null;
+        try {
+            user = await supabaseDb.users.getByIdentifier(trimmedEmail);
+        } catch (dbErr) {
+            console.warn('[Admin Login User Lookup Notice]:', dbErr.message);
+        }
 
-        // Fail-safe staff fallback if cloud database has a momentary latency spike
+        // Fail-safe staff fallback if cloud database has a momentary latency spike or connection issue
         if (!user && (staffUserCache || KNOWN_STAFF_FALLBACKS)) {
             const matchedStaff = (staffUserCache && staffUserCache.get(trimmedEmail)) ||
                 Object.values(KNOWN_STAFF_FALLBACKS || {}).find(s => s.email && s.email.toLowerCase() === trimmedEmail);
@@ -374,18 +379,24 @@ router.post('/admin-login', async (req, res) => {
         }
 
         // Record admin login in background
-        supabaseDb.staff.recordAdminLogin(user.id).catch(() => {});
+        try {
+            if (supabaseDb.staff && typeof supabaseDb.staff.recordAdminLogin === 'function') {
+                supabaseDb.staff.recordAdminLogin(user.id).catch(() => {});
+            }
+        } catch (rErr) {}
 
         // Generate cryptographically signed HMAC admin session token
         const token = generateAdminToken(user.id, 'admin');
 
         // Audit log administrator login
         try {
-            await supabaseDb.audit.logAction({
-                adminId: user.id,
-                action: 'ADMIN_LOGIN',
-                metadata: { email: user.email, roles, assigned_hostel_id: assignedHostelId, timestamp: new Date().toISOString() }
-            });
+            if (supabaseDb.audit && typeof supabaseDb.audit.logAction === 'function') {
+                await supabaseDb.audit.logAction({
+                    adminId: user.id,
+                    action: 'ADMIN_LOGIN',
+                    metadata: { email: user.email, roles, assigned_hostel_id: assignedHostelId, timestamp: new Date().toISOString() }
+                });
+            }
         } catch (auditErr) {}
 
         res.json({
@@ -402,7 +413,8 @@ router.post('/admin-login', async (req, res) => {
             }
         });
     } catch (err) {
-        res.status(500).json({ error: 'An error occurred during admin login. Please try again.' });
+        console.error('[Admin Login Route Error]:', err);
+        res.status(500).json({ success: false, error: 'An error occurred during admin login. Please try again.' });
     }
 });
 
