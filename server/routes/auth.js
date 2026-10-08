@@ -48,7 +48,7 @@ router.post('/signin', async (req, res) => {
         }
 
         // Verify password
-        if (user.password_hash && user.password_hash !== password && user.password_hash !== `hash_${password}` && user.password_hash !== 'google_oauth' && password !== 'demo123') {
+        if (user.password_hash && user.password_hash !== password && user.password_hash !== `hash_${password}` && user.password_hash !== 'google_oauth') {
             return res.status(401).json({ error: 'Incorrect password. Please check and try again.' });
         }
 
@@ -74,7 +74,7 @@ router.post('/signin', async (req, res) => {
             }
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'An error occurred during sign in. Please try again.' });
     }
 });
 
@@ -246,7 +246,7 @@ router.get('/check-status/:userId', async (req, res) => {
             reason: blacklistCheck.reason || (blacklistCheck.isBlacklisted ? 'Fake Orders' : null)
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'An error occurred. Please try again.' });
     }
 });
 
@@ -289,7 +289,7 @@ router.post('/update-address', async (req, res) => {
         }
         res.json({ success: true, message: 'Campus delivery address saved successfully' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'An error occurred updating your address. Please try again.' });
     }
 });
 
@@ -388,7 +388,7 @@ router.post('/admin-login', async (req, res) => {
             }
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'An error occurred during admin login. Please try again.' });
     }
 });
 
@@ -405,7 +405,6 @@ async function sendRealSms(phone, otp) {
             const url = `https://www.fast2sms.com/dev/bulkV2?authorization=${process.env.FAST2SMS_API_KEY}&route=otp&variables_values=${otp}&numbers=${phone}`;
             const res = await fetch(url);
             const data = await res.json();
-            console.log(`[Fast2SMS] Dispatched to +91${phone}:`, data);
             return { success: true, provider: 'fast2sms' };
         } catch (e) {
             console.error('[Fast2SMS Error]:', e.message);
@@ -418,7 +417,6 @@ async function sendRealSms(phone, otp) {
             const url = `https://2factor.in/API/V1/${process.env.TWOFACTOR_API_KEY}/SMS/+91${phone}/${otp}/AUTOGEN`;
             const res = await fetch(url);
             const data = await res.json();
-            console.log(`[2Factor] Dispatched to +91${phone}:`, data);
             return { success: true, provider: '2factor' };
         } catch (e) {
             console.error('[2Factor Error]:', e.message);
@@ -443,7 +441,6 @@ async function sendRealSms(phone, otp) {
                 body: params.toString()
             });
             const data = await res.json();
-            console.log(`[Twilio SMS] Dispatched to +91${phone}:`, data.sid);
             return { success: true, provider: 'twilio' };
         } catch (e) {
             console.error('[Twilio Error]:', e.message);
@@ -458,7 +455,6 @@ async function sendRealSms(phone, otp) {
                 phone: `+91${phone}`
             });
             if (!error) {
-                console.log(`[Supabase SMS] Dispatched to +91${phone}`);
                 return { success: true, provider: 'supabase' };
             }
         }
@@ -466,7 +462,6 @@ async function sendRealSms(phone, otp) {
         // Fallback to server SMS logger
     }
 
-    console.log(`[SMS Gateway] 📲 Real-Time OTP [${otp}] dispatched to +91 ${phone}`);
     return { success: true, provider: 'console' };
 }
 
@@ -498,11 +493,9 @@ router.post('/send-otp', async (req, res) => {
     // Send real carrier SMS
     await sendRealSms(cleanPhone, otp);
 
-    // Direct WhatsApp Delivery Deep Link
-    const waText = encodeURIComponent(`⚡ *LPUQuick Campus Express*\n\nYour Mobile Verification OTP is: *${otp}*\n\n(Enter this 6-digit code in LPUQuick to verify your hostel delivery room. Valid for 5 minutes.)`);
+    // Direct WhatsApp Delivery Deep Link (OTP is sent via SMS, not exposed in URL)
+    const waText = encodeURIComponent(`⚡ *LPUQuick Campus Express*\n\nPlease check your SMS for the verification OTP code.\n\n(Enter the 6-digit code in LPUQuick to verify your hostel delivery room. Valid for 5 minutes.)`);
     const whatsappUrl = `https://api.whatsapp.com/send?phone=91${cleanPhone}&text=${waText}`;
-
-    console.log(`[WhatsApp Gateway] 💬 Generated WhatsApp OTP dispatch for +91${cleanPhone}: ${otp}`);
 
     res.json({
         success: true,
@@ -528,10 +521,8 @@ router.post('/verify-otp', async (req, res) => {
 
     const record = otpStore.get(cleanPhone);
 
-    // Support master test OTP (123456 or 000000) or valid generated OTP
-    const isValidOtp = (record && record.otp === cleanOtp && Date.now() <= record.expiresAt) ||
-                        cleanOtp === '123456' ||
-                        cleanOtp === '000000';
+    // Validate OTP against stored record
+    const isValidOtp = (record && record.otp === cleanOtp && Date.now() <= record.expiresAt);
 
     if (!isValidOtp) {
         if (record) {
@@ -556,7 +547,7 @@ router.post('/verify-otp', async (req, res) => {
         }
     }
 
-    console.log(`[SMS Gateway] ✅ Mobile number +91 ${cleanPhone} successfully verified!`);
+
 
     res.json({
         success: true,
@@ -574,7 +565,7 @@ router.get('/profile/:id', async (req, res) => {
         if (!user) return res.status(404).json({ error: 'User not found' });
         res.json({ user: { id: user.id, name: user.name, email: user.email, phone: user.phone, dob: user.dob } });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'An error occurred fetching profile.' });
     }
 });
 

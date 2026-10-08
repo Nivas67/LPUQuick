@@ -135,7 +135,6 @@ app.use('/api/products', require('./routes/products'));
 app.use('/api/hostels', require('./routes/hostels'));
 app.use('/api/admin/sync', require('./routes/sync'));
 app.use('/api/notifications', require('./routes/notifications'));
-app.use('/api/test-supabase', require('./routes/test-supabase'));
 
 // Dedicated 404 Shield for all unhandled /api/* endpoints
 // Returns ultra-light JSON (<60 bytes), caches 404 at edge CDN, and records 404 probe against attacker IP
@@ -145,7 +144,6 @@ app.all('/api/*', (req, res) => {
     res.status(404).json({
         success: false,
         error: 'API endpoint not found',
-        path: req.originalUrl,
         code: 'NOT_FOUND'
     });
 });
@@ -160,4 +158,16 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'client', 'index.html'));
 });
 
+// Global Error Handler — catches unhandled exceptions and returns sanitized JSON
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+    console.error('[Unhandled Error]:', err.message);
+    res.status(err.status || 500).json({
+        success: false,
+        error: 'An unexpected error occurred. Please try again.',
+        code: 'INTERNAL_ERROR'
+    });
+});
+
 module.exports = app;
+

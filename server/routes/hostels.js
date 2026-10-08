@@ -43,7 +43,8 @@ router.get('/', async (req, res) => {
         const activeHostels = await supabaseDb.hostels.getActiveHostels();
         res.json({ success: true, hostels: activeHostels });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        console.error('[Hostels Fetch Error]:', err.message);
+        res.status(500).json({ success: false, error: 'Failed to load hostels list.' });
     }
 });
 

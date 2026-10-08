@@ -6,7 +6,8 @@ const { getSupabaseClient } = require('../supabase');
 const financialEngine = require('../utils/financialEngine');
 const supabaseDb = require('../db/supabaseDb');
 
-const FINANCIAL_SECRET = process.env.JWT_SECRET || process.env.ADMIN_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'lpuquick_financial_pin_secure_secret_2026';
+const RUNTIME_FINANCIAL_SECRET = crypto.randomBytes(32).toString('hex');
+const FINANCIAL_SECRET = process.env.JWT_SECRET || process.env.ADMIN_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || RUNTIME_FINANCIAL_SECRET;
 const SESSION_DURATION_MS = 15 * 60 * 1000; // 15 minutes auto-lock timeout
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes lockout after 5 consecutive failures
@@ -233,8 +234,8 @@ router.post('/setup-pin', requireAdmin, requireOwner, async (req, res) => {
             message: 'Financial PIN successfully configured and secured.'
         });
     } catch (err) {
-        console.error('Setup PIN error:', err);
-        return res.status(500).json({ success: false, error: err.message || 'Failed to configure financial PIN.' });
+        console.error('Setup PIN error:', err.message);
+        return res.status(500).json({ success: false, error: 'Failed to configure financial PIN.' });
     }
 });
 
@@ -310,8 +311,8 @@ router.post('/unlock', requireAdmin, requireOwner, async (req, res) => {
             expires_at: tokenData.expiresAt
         });
     } catch (err) {
-        console.error('Unlock error:', err);
-        return res.status(500).json({ success: false, error: err.message || 'Failed to verify financial PIN.' });
+        console.error('Unlock error:', err.message);
+        return res.status(500).json({ success: false, error: 'Failed to verify financial PIN.' });
     }
 });
 

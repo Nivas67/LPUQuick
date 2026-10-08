@@ -32,7 +32,8 @@ router.get('/', async (req, res) => {
         res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=300');
         res.json(payload);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[Categories Fetch Error]:', err.message);
+        res.status(500).json({ error: 'Failed to load categories. Please try again.' });
     }
 });
 
@@ -72,7 +73,8 @@ router.get('/:name', async (req, res) => {
         res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
         res.json(payload);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[Category Details Error]:', err.message);
+        res.status(500).json({ error: 'Failed to load category products. Please try again.' });
     }
 });
 

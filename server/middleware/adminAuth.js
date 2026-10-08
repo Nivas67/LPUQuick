@@ -1,8 +1,9 @@
 const crypto = require('crypto');
 const supabaseDb = require('../db/supabaseDb');
 
-// Server secret key for HMAC token signing (falls back to process.env.JWT_SECRET or stable server secret)
-const ADMIN_AUTH_SECRET = process.env.JWT_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'lpuquick_secure_admin_auth_hmac_2026';
+// Server secret key for HMAC token signing (uses env var or random in-memory runtime secret)
+const RUNTIME_HMAC_SECRET = crypto.randomBytes(32).toString('hex');
+const ADMIN_AUTH_SECRET = process.env.JWT_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || RUNTIME_HMAC_SECRET;
 
 /**
  * Generate a cryptographically signed HMAC token for an authenticated administrator.
@@ -33,8 +34,7 @@ function generateAdminToken(adminId, role = 'admin') {
 const CANDIDATE_SECRETS = Array.from(new Set([
     process.env.JWT_SECRET,
     process.env.SUPABASE_SERVICE_ROLE_KEY,
-    'lpuquick_secret_jwt_key_2026',
-    'lpuquick_secure_admin_auth_hmac_2026'
+    RUNTIME_HMAC_SECRET
 ].filter(Boolean)));
 
 /**

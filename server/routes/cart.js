@@ -42,7 +42,8 @@ router.get('/', async (req, res) => {
         const cart = await supabaseDb.cart.getCart(userId, hostelId);
         res.json(formatCartResponse(cart));
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[Cart Fetch Error]:', err.message);
+        res.status(500).json({ error: 'Failed to retrieve cart. Please try again.' });
     }
 });
 
@@ -54,7 +55,8 @@ router.get('/:userId', async (req, res) => {
         const cart = await supabaseDb.cart.getCart(userId, hostelId);
         res.json(formatCartResponse(cart));
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[Cart Fetch User Error]:', err.message);
+        res.status(500).json({ error: 'Failed to retrieve cart. Please try again.' });
     }
 });
 
@@ -193,7 +195,8 @@ router.delete('/:id', async (req, res) => {
         const cart = await supabaseDb.cart.updateItem(id, 0, userId, hostelId);
         res.json(formatCartResponse(cart));
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[Cart Remove Error]:', err.message);
+        res.status(500).json({ error: 'Failed to update cart. Please try again.' });
     }
 });
 
@@ -204,7 +207,8 @@ router.delete('/user/:userId', async (req, res) => {
         await supabaseDb.cart.clearCart(userId);
         res.json({ message: 'Cart cleared successfully', ...formatCartResponse({ items: [] }) });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[Cart Clear Error]:', err.message);
+        res.status(500).json({ error: 'Failed to clear cart. Please try again.' });
     }
 });
 
@@ -218,7 +222,8 @@ router.post('/merge', async (req, res) => {
         const cart = await supabaseDb.cart.mergeCart(guestUserId, targetUserId);
         res.json(formatCartResponse(cart));
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[Cart Merge Error]:', err.message);
+        res.status(500).json({ error: 'Failed to merge cart. Please try again.' });
     }
 });
 

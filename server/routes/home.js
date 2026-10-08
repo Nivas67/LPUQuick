@@ -189,7 +189,8 @@ router.get('/', async (req, res) => {
             banner_settings: bannerData.settings
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[Home Feed Error]:', err.message);
+        res.status(500).json({ error: 'Failed to load home feed. Please try again.' });
     }
 });
 
@@ -246,7 +247,8 @@ router.get('/user-buy-again', async (req, res) => {
             is_personalized_buy_again: Boolean(userPersonalized?.isPersonalized)
         });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message, buy_again: [] });
+        console.error('[User Buy Again Error]:', err.message);
+        res.status(500).json({ success: false, error: 'Failed to load items.', buy_again: [] });
     }
 });
 
@@ -266,7 +268,8 @@ router.get('/banners', async (req, res) => {
             settings: bannerData.settings
         });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        console.error('[Banners Fetch Error]:', err.message);
+        res.status(500).json({ success: false, error: 'Failed to load banners.' });
     }
 });
 

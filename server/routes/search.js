@@ -90,7 +90,8 @@ router.get('/', async (req, res) => {
         res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
         res.json(payload);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[Search Error]:', err.message);
+        res.status(500).json({ error: 'Search failed. Please try again.' });
     }
 });
 

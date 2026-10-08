@@ -106,8 +106,8 @@ router.post('/admin/upload-image', requireAdmin, async (req, res) => {
 
         return res.json({ success: true, image_url: image_data });
     } catch (err) {
-        console.error('[Upload Image Error]:', err);
-        res.status(500).json({ error: err.message });
+        console.error('[Upload Image Error]:', err.message);
+        res.status(500).json({ error: 'Failed to upload image. Please try again.' });
     }
 });
 
@@ -174,7 +174,8 @@ router.get('/:id', async (req, res) => {
         res.setHeader('Cache-Control', 'private, no-cache, no-store');
         res.json(details);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[Product Fetch Error]:', err.message);
+        res.status(500).json({ error: 'Failed to fetch product details.' });
     }
 });
 
@@ -359,7 +360,8 @@ router.post('/admin/create', requireAdmin, async (req, res) => {
             product: freshProduct || { ...created, stock_left: targetStock, in_stock: targetInStock, hostel_id: targetHostel, origin_hostel: targetHostel }
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[Create Product Error]:', err.message);
+        res.status(500).json({ error: 'Failed to create product.' });
     }
 });
 
@@ -505,7 +507,8 @@ router.put('/admin/update/:id', requireAdmin, async (req, res) => {
             }
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[Update Product Error]:', err.message);
+        res.status(500).json({ error: 'Failed to update product.' });
     }
 });
 
@@ -561,7 +564,8 @@ router.delete('/admin/deactivate/:id', requireAdmin, async (req, res) => {
         }
         res.json({ success: true, message: `Product deactivated successfully`, product: updated });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[Deactivate Product Error]:', err.message);
+        res.status(500).json({ error: 'Failed to deactivate product.' });
     }
 });
 
@@ -646,7 +650,8 @@ router.delete('/admin/delete/:id', requireAdmin, async (req, res) => {
         }
         res.json({ success: true, message: 'Product permanently deleted from Supabase Cloud' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[Delete Product Error]:', err.message);
+        res.status(500).json({ error: 'Failed to delete product.' });
     }
 });
 
@@ -703,7 +708,8 @@ router.post('/admin/toggle-stock', requireAdmin, async (req, res) => {
         }
         res.json({ success: true, message: `Stock updated for ${targetHostel}`, in_stock: updated.in_stock, stock_left: updated.stock_left, hostel_id: targetHostel });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[Toggle Stock Error]:', err.message);
+        res.status(500).json({ error: 'Failed to update stock.' });
     }
 });
 
@@ -770,7 +776,8 @@ router.post('/admin/adjust-stock', requireAdmin, async (req, res) => {
             status: updated.in_stock ? 'In Stock' : 'Out of Stock'
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[Adjust Stock Error]:', err.message);
+        res.status(500).json({ error: 'Failed to adjust stock.' });
     }
 });
 

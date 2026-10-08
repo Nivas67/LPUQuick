@@ -191,6 +191,28 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
         ) || req.body.hostel || orderItems[0]?.hostel_id || 'BH-13';
         const targetHostelId = normalizeCheckoutHostel(rawHostel) || 'BH-13';
 
+        // Authoritative Server-Side Price Verification: Re-fetch catalog prices from DB
+        try {
+            const productIds = orderItems.map(item => item.product_id).filter(Boolean);
+            if (productIds.length > 0 && supabaseDb.products) {
+                const dbProducts = await supabaseDb.products.getByIds(productIds, targetHostelId);
+                if (dbProducts && dbProducts.length > 0) {
+                    const dbProductMap = new Map(dbProducts.map(p => [p.id, p]));
+                    for (const item of orderItems) {
+                        const dbProd = dbProductMap.get(item.product_id);
+                        if (dbProd) {
+                            item.price = Number(dbProd.price);
+                            item.name = dbProd.name || item.name;
+                            if (dbProd.cost_price !== undefined) item.cost_price = Number(dbProd.cost_price) || 0;
+                            if (dbProd.mrp !== undefined) item.mrp = Number(dbProd.mrp) || item.price;
+                        }
+                    }
+                }
+            }
+        } catch (pvErr) {
+            console.warn('[Checkout Price Verification Notice]:', pvErr.message);
+        }
+
         // Load specific dark store inventory for this selected hostel
         let hostelInv = {};
         if (targetHostelId && supabaseDb.inventory) {
@@ -404,7 +426,7 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
         const isClientError = /out of stock|available|Cart is empty|no longer available|insufficient/i.test(err.message);
         res.status(isClientError ? 400 : 500).json({
             success: false,
-            error: err.message,
+            error: isClientError ? err.message : 'Unable to complete checkout at this time. Please try again.',
             code: isClientError ? 'STOCK_ERROR' : 'CHECKOUT_ERROR'
         });
     }
@@ -419,7 +441,8 @@ router.get('/settings', async (req, res) => {
             settings
         });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        console.error('[Checkout Settings Error]:', err.message);
+        res.status(500).json({ success: false, error: 'Failed to load checkout settings.' });
     }
 });
 

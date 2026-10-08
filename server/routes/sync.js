@@ -39,7 +39,8 @@ router.get('/status', requireAdmin, async (req, res) => {
             timestamp: new Date().toISOString()
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[Sync Status Error]:', err.message);
+        res.status(500).json({ error: 'Failed to retrieve sync status.' });
     }
 });
 

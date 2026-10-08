@@ -8,7 +8,8 @@ router.get('/vapid-public-key', (req, res) => {
         const publicKey = pushService.getPublicKey();
         res.json({ success: true, publicKey });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        console.error('[VAPID Key Error]:', err.message);
+        res.status(500).json({ success: false, error: 'Failed to retrieve notification key.' });
     }
 });
 
@@ -27,7 +28,8 @@ router.post('/subscribe', (req, res) => {
         });
         res.json({ success: ok, message: 'Push subscription registered successfully' });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        console.error('[Subscribe Error]:', err.message);
+        res.status(500).json({ success: false, error: 'Failed to register push subscription.' });
     }
 });
 
@@ -42,7 +44,8 @@ router.post('/unsubscribe', (req, res) => {
         pushService.removeSubscription(endpoint);
         res.json({ success: true, message: 'Unsubscribed from push notifications' });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        console.error('[Unsubscribe Error]:', err.message);
+        res.status(500).json({ success: false, error: 'Failed to remove push subscription.' });
     }
 });
 
@@ -71,7 +74,8 @@ router.post('/test', async (req, res) => {
             result
         });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        console.error('[Test Push Error]:', err.message);
+        res.status(500).json({ success: false, error: 'Failed to dispatch test notification.' });
     }
 });
 

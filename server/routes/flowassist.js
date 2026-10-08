@@ -147,7 +147,7 @@ router.post('/', async (req, res) => {
         res.json(response);
     } catch (err) {
         console.error('[Flow Assist Error]:', err.message);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Failed to process assist request. Please try again.' });
     }
 });
 

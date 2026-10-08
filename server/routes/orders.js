@@ -627,7 +627,7 @@ router.get('/admin/customers', requireAdmin, async (req, res) => {
         res.json(payload);
     } catch (err) {
         console.error('[Admin Customers Error]:', err.message);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Failed to load customers.' });
     }
 });
 
@@ -685,7 +685,8 @@ router.get('/admin/detail/:orderId', requireAdmin, async (req, res) => {
             }
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[Admin Order Detail Error]:', err.message);
+        res.status(500).json({ error: 'Failed to load order details.' });
     }
 });
 
@@ -789,7 +790,8 @@ router.get('/admin/live', requireAdmin, async (req, res) => {
         const active = orders.filter(o => ACTIVE_STATUSES.includes(o.status));
         res.json({ orders: active });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[Live Orders Error]:', err.message);
+        res.status(500).json({ error: 'Failed to fetch live orders.' });
     }
 });
 
@@ -813,7 +815,8 @@ router.get('/admin/metrics', requireAdmin, async (req, res) => {
 
         res.json(payload);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[Order Metrics Error]:', err.message);
+        res.status(500).json({ error: 'Failed to calculate metrics.' });
     }
 });
 
@@ -870,7 +873,8 @@ router.get('/admin/delivery-staff', requireAdmin, async (req, res) => {
 
         res.json(payload);
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        console.error('[Delivery Staff Error]:', err.message);
+        res.status(500).json({ success: false, error: 'Failed to retrieve delivery staff.' });
     }
 });
 
@@ -884,7 +888,8 @@ router.get('/delivery-pricing-config', async (req, res) => {
         const config = await getDeliveryPricingSettingsAsync(true);
         res.json({ success: true, config });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        console.error('[Delivery Pricing Config Error]:', err.message);
+        res.status(500).json({ success: false, error: 'Failed to load delivery pricing configuration.' });
     }
 });
 
@@ -944,7 +949,8 @@ router.post('/delivery-pricing-config', async (req, res) => {
             config: updated
         });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        console.error('[Update Delivery Pricing Error]:', err.message);
+        res.status(500).json({ success: false, error: 'Failed to update delivery pricing configuration.' });
     }
 });
 
@@ -1773,8 +1779,8 @@ router.get('/delivery-earnings', async (req, res) => {
             }
         });
     } catch (err) {
-        console.error('[Delivery Earnings Error]:', err);
-        res.status(500).json({ success: false, error: err.message });
+        console.error('[Delivery Earnings Error]:', err.message);
+        res.status(500).json({ success: false, error: 'Failed to calculate delivery earnings.' });
     }
 });
 
@@ -1978,7 +1984,8 @@ router.post('/:orderId/transfer/request', requireAdmin, async (req, res) => {
                 order: updated
             });
         } catch (err) {
-            return res.status(500).json({ success: false, error: err.message });
+            console.error('[Direct Assign Error]:', err.message);
+            return res.status(500).json({ success: false, error: 'Failed to assign order.' });
         }
     }
 
@@ -2030,7 +2037,8 @@ router.post('/:orderId/transfer/request', requireAdmin, async (req, res) => {
             order: updated
         });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        console.error('[Transfer Request Error]:', err.message);
+        res.status(500).json({ success: false, error: 'Failed to send transfer request.' });
     }
 });
 
@@ -2083,7 +2091,8 @@ router.post('/:orderId/transfer/respond', requireAdmin, async (req, res) => {
             order: updated
         });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        console.error('[Transfer Response Error]:', err.message);
+        res.status(500).json({ success: false, error: 'Failed to respond to transfer request.' });
     }
 });
 
@@ -2146,7 +2155,8 @@ router.post('/:orderId/transfer/direct', requireAdmin, requireRole('owner', 'sto
             order: updated
         });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        console.error('[Direct Transfer Error]:', err.message);
+        res.status(500).json({ success: false, error: 'Failed to reassign delivery order.' });
     }
 });
 
@@ -2225,7 +2235,8 @@ router.get('/', requireAdmin, async (req, res) => {
         const orders = await supabaseDb.orders.getAllOrders();
         res.json({ orders });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[Orders Fetch Error]:', err.message);
+        res.status(500).json({ error: 'Failed to fetch orders.' });
     }
 });
 
@@ -2237,7 +2248,8 @@ router.get('/detail/:orderId', async (req, res) => {
         if (!order) return res.status(404).json({ error: 'Order not found' });
         res.json(order);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[Order Detail Error]:', err.message);
+        res.status(500).json({ error: 'Failed to fetch order details.' });
     }
 });
 
@@ -2268,7 +2280,8 @@ router.get('/:userId', async (req, res) => {
         res.setHeader('Cache-Control', 'no-cache, private');
         res.json({ active: cleanActive, past: cleanPast });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[User Orders Error]:', err.message);
+        res.status(500).json({ error: 'Failed to fetch user orders.' });
     }
 });
 
@@ -2304,7 +2317,8 @@ router.get('/:userId/active', async (req, res) => {
         res.setHeader('Cache-Control', 'no-cache, private');
         res.json({ active: activeOrder || null });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[Active Order Error]:', err.message);
+        res.status(500).json({ error: 'Failed to fetch active order.' });
     }
 });
 
@@ -2328,7 +2342,8 @@ router.post('/:orderId/status', requireAdmin, async (req, res) => {
         broadcastStatusUpdate(orderId, status, existingRider);
         res.json({ success: true, order: updated });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[Update Order Status Error]:', err.message);
+        res.status(500).json({ error: 'Failed to update order status.' });
     }
 });
 
@@ -2376,7 +2391,8 @@ router.post('/:orderId/cancel', async (req, res) => {
         broadcastStatusUpdate(orderId, 'Cancelled');
         res.json({ success: true, message: 'Order cancelled successfully', reason: reason || 'User requested cancellation' });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        console.error('[Cancel Order Error]:', err.message);
+        res.status(500).json({ success: false, error: 'Failed to cancel order.' });
     }
 });
 
@@ -2428,8 +2444,8 @@ router.post('/:orderId/reorder', async (req, res) => {
             reordered_count: (items.length || 1)
         });
     } catch (err) {
-        console.error('[Reorder Route Error]:', err);
-        res.status(500).json({ error: err.message });
+        console.error('[Reorder Route Error]:', err.message);
+        res.status(500).json({ error: 'Failed to reorder items.' });
     }
 });
 
@@ -2454,7 +2470,8 @@ router.post('/:orderId/change-address', async (req, res) => {
         if (error) throw error;
         res.json({ success: true, message: 'Delivery address updated successfully', order: data });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[Change Address Error]:', err.message);
+        res.status(500).json({ error: 'Failed to update delivery address.' });
     }
 });
 
