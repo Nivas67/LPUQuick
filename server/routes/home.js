@@ -114,7 +114,22 @@ router.get('/', async (req, res) => {
             }
 
             const section = getTimeSection(hour);
-            const rawProducts = await supabaseDb.products.getAll({ hostel_id: hostelId, includeInactive: false });
+            let rawProducts = [];
+            try {
+                rawProducts = await supabaseDb.products.getAll({ hostel_id: hostelId, includeInactive: false });
+            } catch (prodErr) {
+                console.warn('[Home Feed Products Notice]:', prodErr.message);
+            }
+
+            if (!rawProducts || rawProducts.length === 0) {
+                try {
+                    const pSnapPath = path.join(__dirname, '..', 'data', 'products_snapshot.json');
+                    if (fs.existsSync(pSnapPath)) {
+                        rawProducts = JSON.parse(fs.readFileSync(pSnapPath, 'utf8'));
+                    }
+                } catch (snapErr) {}
+            }
+
             const allProducts = (rawProducts || []).filter(p => !p.deleted).map(p => {
                 const clean = { ...p };
                 delete clean.cost_price;

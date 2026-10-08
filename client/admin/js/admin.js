@@ -5711,7 +5711,12 @@ async function handleAdminLogin(e) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })
         });
-        const data = await res.json();
+        let data;
+        try {
+            data = await res.json();
+        } catch (jsonErr) {
+            data = { success: false, error: 'Server error (' + res.status + '). Please try again.' };
+        }
         
         if (data.success && data.token) {
             adminToken = data.token;

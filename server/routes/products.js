@@ -237,19 +237,33 @@ router.get('/', async (req, res) => {
         }
 
         const payload = await cache.wrap(cacheKey, async () => {
-            const queryPromise = supabaseDb.products.getAll({ hostel_id: hostelId, includeInactive, category, subcategory, sort, force: forceFresh });
-            const products = await Promise.race([
-                queryPromise,
-                new Promise(resolve => setTimeout(() => resolve(null), 10000))
-            ]);
+            let products = null;
+            try {
+                const queryPromise = supabaseDb.products.getAll({ hostel_id: hostelId, includeInactive, category, subcategory, sort, force: forceFresh });
+                products = await Promise.race([
+                    queryPromise,
+                    new Promise(resolve => setTimeout(() => resolve(null), 10000))
+                ]);
+            } catch (queryErr) {
+                console.warn('[Products Query Notice]:', queryErr.message);
+            }
 
-            if (products && Array.isArray(products)) {
+            if (products && Array.isArray(products) && products.length > 0) {
                 fallbackProductsCache = products;
                 return { products };
             }
 
-            // Return snapshot fallback if Supabase is sleeping or timing out
-            let list = Array.isArray(fallbackProductsCache) ? [...fallbackProductsCache] : [];
+            // Return snapshot fallback if Supabase is sleeping, timing out, or offline
+            let list = Array.isArray(fallbackProductsCache) && fallbackProductsCache.length > 0 ? [...fallbackProductsCache] : [];
+            if (list.length === 0) {
+                try {
+                    const pSnapPath = path.join(__dirname, '..', 'data', 'products_snapshot.json');
+                    if (fs.existsSync(pSnapPath)) {
+                        list = JSON.parse(fs.readFileSync(pSnapPath, 'utf8'));
+                        fallbackProductsCache = list;
+                    }
+                } catch (snapErr) {}
+            }
             if (hostelId && hostelId !== 'all') {
                 list = list.map(p => ({ ...p, hostel_id: hostelId }));
             }
