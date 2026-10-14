@@ -2353,46 +2353,25 @@ router.post('/:orderId/cancel', async (req, res) => {
     const { reason } = req.body;
 
     try {
-        const order = await supabaseDb.orders.getOrderById(orderId);
-        if (!order) {
-            return res.status(404).json({ success: false, error: 'Order not found' });
-        }
-
-        const currentStatus = (order.status || '').toLowerCase().trim();
-
-        // Cancellation is strictly disallowed once the order is Out for Delivery or later
-        if (currentStatus.includes('out') || currentStatus.includes('route') || currentStatus.includes('dispatch') || currentStatus.includes('transit')) {
-            return res.status(400).json({
-                success: false,
-                error: 'Cannot cancel order: Your order is already out for delivery.'
-            });
-        }
-
-        if (currentStatus.includes('deliver')) {
-            return res.status(400).json({
-                success: false,
-                error: 'Cannot cancel order: Your order has already been delivered.'
-            });
-        }
-
-        if (currentStatus.includes('cancel')) {
-            return res.status(400).json({
-                success: false,
-                error: 'This order is already cancelled.'
-            });
-        }
-
-        const updated = await supabaseDb.orders.updateStatus(orderId, 'Cancelled');
+        const result = await supabaseDb.orders.cancelOrder(orderId, reason || 'User requested cancellation', 'customer');
         if (Array.isArray(fallbackOrdersCache)) {
             const o = fallbackOrdersCache.find(x => x.id === orderId);
             if (o) o.status = 'Cancelled';
         }
-        cache.invalidateOrders();
-        broadcastStatusUpdate(orderId, 'Cancelled');
-        res.json({ success: true, message: 'Order cancelled successfully', reason: reason || 'User requested cancellation' });
+        res.json({
+            success: true,
+            message: result.message || 'Order cancelled successfully',
+            alreadyCancelled: result.alreadyCancelled || false,
+            order: result.order,
+            reason: reason || 'User requested cancellation'
+        });
     } catch (err) {
         console.error('[Cancel Order Error]:', err.message);
-        res.status(500).json({ success: false, error: 'Failed to cancel order.' });
+        const isClientError = /cannot cancel|already out|delivered|already cancelled|not found/i.test(err.message);
+        res.status(isClientError ? 400 : 500).json({
+            success: false,
+            error: err.message || 'Failed to cancel order.'
+        });
     }
 });
 

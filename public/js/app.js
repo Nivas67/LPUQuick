@@ -2496,16 +2496,39 @@ function handleLiveInventoryChange(data) {
     const { productId, stock_left, in_stock } = data;
     console.log(`[Realtime Stock Sync] Product ${productId}: Stock=${stock_left}, InStock=${in_stock}`);
 
-    // 1. Update all product action slots and cards on screen
     const isOut = !in_stock || stock_left <= 0;
+
+    // 0. Update authoritative in-memory product cache immediately
+    if (window.__cachedProducts) {
+        let cached = window.__cachedProducts.get(productId);
+        if (cached) {
+            cached.stock_left = stock_left;
+            cached.in_stock = Boolean(in_stock && stock_left > 0);
+        } else {
+            window.__cachedProducts.set(productId, {
+                id: productId,
+                stock_left: stock_left,
+                in_stock: Boolean(in_stock && stock_left > 0)
+            });
+        }
+    }
+
+    // 1. Update all product action slots and cards on screen
     const slots = document.querySelectorAll(`.product-action-slot[data-id="${productId}"]`);
     slots.forEach(slot => {
         slot.dataset.outOfStock = isOut ? 'true' : 'false';
-        const card = slot.closest('.product-detail-trigger, .product-card-container');
+        slot.dataset.stockLeft = String(stock_left);
+        const card = slot.closest('.product-detail-trigger, .product-card-container, .product-card-item');
         if (card) {
-            if (isOut) card.classList.add('opacity-85');
-            else card.classList.remove('opacity-85');
+            if (isOut) {
+                card.classList.add('opacity-75');
+                card.dataset.outOfStock = 'true';
+            } else {
+                card.classList.remove('opacity-75');
+                card.dataset.outOfStock = 'false';
+            }
         }
+        renderSlotContent(productId, slot);
     });
 
     window.syncCardSteppers();
@@ -2524,21 +2547,44 @@ function handleLiveInventoryChange(data) {
         }
     }
 
+    const modalEl = document.getElementById('product-modal');
+    if (modalEl && modalEl.dataset.productId === productId && typeof renderModalActionContainer === 'function') {
+        const cached = window.__cachedProducts?.get(productId);
+        const pPrice = Number(cached?.price) || 0;
+        renderModalActionContainer(productId, pPrice, stock_left, isOut);
+    }
+
     // 3. Dynamically update stock badges across all card images and headers
     const badges = document.querySelectorAll(`.stock-badge[data-id="${productId}"]`);
     badges.forEach(b => {
-        if (!in_stock || stock_left <= 0) {
-            b.className = 'absolute top-2 left-2 z-10 stock-badge bg-rose-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm';
+        if (isOut) {
+            b.className = 'stock-badge absolute top-2 left-2 z-10 bg-rose-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm block';
             b.textContent = 'Out of Stock';
             b.style.display = 'block';
         } else if (stock_left > 0 && stock_left <= 4) {
-            b.className = 'absolute top-2 left-2 z-10 stock-badge bg-amber-500 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-0.5';
-            b.innerHTML = `<span class="material-symbols-outlined text-[11px]" style="font-variation-settings: 'FILL' 1;">bolt</span> Only ${stock_left} left!`;
+            b.className = 'stock-badge absolute top-2 left-2 z-10 bg-amber-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-0.5';
+            b.textContent = `Only ${stock_left} left`;
             b.style.display = 'flex';
         } else {
+            b.className = 'stock-badge absolute top-2 left-2 z-10 text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm hidden';
             b.style.display = 'none';
         }
     });
+
+    // In case card pedestals did not render the badge markup initially, dynamically inject it
+    if (badges.length === 0) {
+        document.querySelectorAll(`.product-card-item[data-product-id="${productId}"] .card-pedestal`).forEach(ped => {
+            let b = ped.querySelector(`.stock-badge[data-id="${productId}"]`);
+            if (!b) {
+                b = document.createElement('div');
+                b.className = `stock-badge absolute top-2 left-2 z-10 text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm ${isOut ? 'bg-rose-600 text-white block' : (stock_left > 0 && stock_left <= 4 ? 'bg-amber-500 text-white flex items-center gap-0.5' : 'hidden')}`;
+                b.dataset.id = productId;
+                b.style.display = isOut ? 'block' : (stock_left > 0 && stock_left <= 4 ? 'flex' : 'none');
+                b.textContent = isOut ? 'Out of Stock' : (stock_left > 0 && stock_left <= 4 ? `Only ${stock_left} left` : '');
+                ped.insertBefore(b, ped.firstChild);
+            }
+        });
+    }
 
     const badgeTexts = document.querySelectorAll(`.stock-badge-text[data-id="${productId}"]`);
     badgeTexts.forEach(bt => {

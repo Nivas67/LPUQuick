@@ -531,15 +531,9 @@ window.pageInits.categories = async function() {
                                 ${discountPercent}% OFF
                             </span>
                             ` : ''}
-                            ${isLowStock ? `
-                            <span class="bg-amber-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full shadow-xs">
-                                Only ${stockLeft} left
+                            <span class="stock-badge text-[8px] font-bold px-1.5 py-0.5 rounded-full shadow-xs ${isOutOfStock ? 'bg-rose-600 text-white block' : (isLowStock ? 'bg-amber-500 text-white block' : 'hidden')}" data-id="${p.id}" style="${(!isOutOfStock && !isLowStock) ? 'display: none;' : ''}">
+                                ${isOutOfStock ? 'Out of Stock' : (isLowStock ? `Only ${stockLeft} left` : '')}
                             </span>
-                            ` : (isOutOfStock ? `
-                            <span class="bg-rose-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full shadow-xs">
-                                Out of Stock
-                            </span>
-                            ` : '')}
                         </div>
 
                         <!-- Wishlist Heart Button -->

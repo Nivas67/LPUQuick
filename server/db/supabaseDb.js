@@ -1342,11 +1342,46 @@ const supabaseDb = {
             return 'BH-13';
         },
 
-        _matchHostel(h1, h2) {
-            if (!h1 || !h2) return false;
-            const n1 = String(h1).toUpperCase().replace(/[^A-Z0-9]/g, '');
-            const n2 = String(h2).toUpperCase().replace(/[^A-Z0-9]/g, '');
-            return n1 === n2;
+        _hostelInventoryLocks: new Map(),
+        _orderCancelLocks: new Map(),
+
+        async withHostelInventoryMutex(hostelId, fn) {
+            const norm = String(hostelId || 'BH-13').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const lockKey = `inv_lock:${norm}`;
+            const prevLock = this._hostelInventoryLocks.get(lockKey) || Promise.resolve();
+            let release;
+            const currentLock = new Promise(resolve => { release = resolve; });
+            this._hostelInventoryLocks.set(lockKey, currentLock);
+
+            await prevLock.catch(() => {});
+
+            try {
+                return await fn();
+            } finally {
+                release();
+                if (this._hostelInventoryLocks.get(lockKey) === currentLock) {
+                    this._hostelInventoryLocks.delete(lockKey);
+                }
+            }
+        },
+
+        async withOrderCancelLock(orderId, fn) {
+            const lockKey = `cancel:${orderId}`;
+            const prevLock = this._orderCancelLocks.get(lockKey) || Promise.resolve();
+            let release;
+            const currentLock = new Promise(resolve => { release = resolve; });
+            this._orderCancelLocks.set(lockKey, currentLock);
+
+            await prevLock.catch(() => {});
+
+            try {
+                return await fn();
+            } finally {
+                release();
+                if (this._orderCancelLocks.get(lockKey) === currentLock) {
+                    this._orderCancelLocks.delete(lockKey);
+                }
+            }
         },
 
         async createOrder(orderPayload, items) {
@@ -1357,220 +1392,217 @@ const supabaseDb = {
                 throw new Error('Cart is empty. Please add items before checking out.');
             }
 
-            // 1. Authoritatively verify products & stock from PostgreSQL
-            const productIds = items.map(i => i.product_id).filter(Boolean);
-            const { data: dbProducts, error: prodFetchErr } = await supabase
-                .from('products')
-                .select('id, name, price, cost_price, mrp, tags, in_stock')
-                .in('id', productIds);
-
-            if (prodFetchErr) throw new Error(`Failed to verify products: ${prodFetchErr.message}`);
-            const prodMap = new Map((dbProducts || []).map(p => [p.id, p]));
-
             const rawHostel = orderPayload.hostel_id || orderPayload.delivery_address || 'BH-13';
             const cleanHostel = this._normalizeHostelId(rawHostel) || 'BH-13';
 
-            let hostelInv = {};
-            if (cleanHostel && supabaseDb.inventory) {
+            // ATOMIC STOCK RESERVATION UNDER HOSTEL INVENTORY MUTEX
+            return await this.withHostelInventoryMutex(cleanHostel, async () => {
+                // 1. Authoritatively verify products & stock from PostgreSQL
+                const productIds = items.map(i => i.product_id).filter(Boolean);
+                const { data: dbProducts, error: prodFetchErr } = await supabase
+                    .from('products')
+                    .select('id, name, price, cost_price, mrp, tags, in_stock')
+                    .in('id', productIds);
+
+                if (prodFetchErr) throw new Error(`Failed to verify products: ${prodFetchErr.message}`);
+                const prodMap = new Map((dbProducts || []).map(p => [p.id, p]));
+
+                // Force fresh fetch of hostel inventory under lock
+                const hostelInv = await supabaseDb.inventory.getHostelInventory(cleanHostel, true);
+
+                const stockUpdates = [];
+                for (const item of items) {
+                    const p = prodMap.get(item.product_id);
+                    if (!p) {
+                        throw new Error(`Product "${item.name || item.product_id}" is no longer available in the campus store.`);
+                    }
+
+                    // Check hostel-isolated stock: ALL STOCK DEFAULTS TO 0 UNLESS OVERRIDDEN BY STORE MANAGER
+                    let currentStock = 0;
+                    let currentInStock = false;
+                    const override = hostelInv[p.id];
+                    if (override !== undefined && !override.deleted) {
+                        currentStock = Math.max(0, Number(override.stock_left) || 0);
+                        currentInStock = Boolean(override.in_stock && currentStock > 0);
+                    }
+
+                    const reqQty = Math.max(1, Number(item.quantity) || 1);
+
+                    if (!currentInStock || currentStock <= 0) {
+                        throw new Error(`"${p.name}" is currently out of stock in ${cleanHostel}.`);
+                    }
+                    if (reqQty > currentStock) {
+                        throw new Error(`Only ${currentStock} unit(s) of "${p.name}" available in ${cleanHostel}. Please adjust quantity.`);
+                    }
+
+                    const newStock = Math.max(0, currentStock - reqQty);
+                    const newInStock = newStock > 0;
+                    const currentTags = (p.tags || '')
+                        .split(',')
+                        .map(t => t.trim())
+                        .filter(t => t && !t.startsWith('stock:'));
+                    currentTags.push(`stock:${newStock}`);
+                    const updatedTags = currentTags.join(', ');
+
+                    stockUpdates.push({
+                        productId: p.id,
+                        name: p.name,
+                        previousStock: currentStock,
+                        originalTags: p.tags || '',
+                        newStock,
+                        newInStock,
+                        updatedTags,
+                        costPrice: Number(p.cost_price) || 0,
+                        sellingPrice: Number(p.price) || 0,
+                        mrp: Number(p.mrp || p.price) || 0,
+                        quantity: reqQty,
+                        hostel_id: cleanHostel
+                    });
+                }
+
+                // ATOMIC PRE-RESERVATION: Decrement and persist stock before order entity creation
+                await supabaseDb.inventory.batchUpdateStock(cleanHostel, stockUpdates);
+
+                const orderId = orderPayload.id || `order_${uuidv4().slice(0, 8)}`;
+                let orderAddr = (orderPayload.delivery_address || `${cleanHostel} (Block A), Room 304`).trim();
+                if (!orderAddr.toUpperCase().startsWith(`[${cleanHostel}]`)) {
+                    orderAddr = `[${cleanHostel}] ${orderAddr.replace(/^\[(BH|GH)[-\s]?\d+\]\s*/i, '')}`;
+                }
+
+                const coreOrderPayload = {
+                    id: orderId,
+                    hostel_id: cleanHostel,
+                    user_id: orderPayload.user_id,
+                    customer_name: orderPayload.customer_name || 'Student',
+                    customer_phone: orderPayload.customer_phone || '',
+                    customer_email: orderPayload.customer_email || '',
+                    status: orderPayload.status || 'Order Placed',
+                    subtotal: Number(orderPayload.subtotal) || 0,
+                    delivery_fee: Number(orderPayload.delivery_fee) || 0,
+                    platform_fee: Number(orderPayload.platform_fee) || 0,
+                    tax: Number(orderPayload.tax) || 0,
+                    total: Number(orderPayload.total) || 0,
+                    payment_method: orderPayload.payment_method || 'Cash on Delivery',
+                    payment_status: orderPayload.payment_status || 'pending',
+                    rider_name: orderPayload.rider_name || 'Alex',
+                    rider_lat: orderPayload.rider_lat || 31.2560,
+                    rider_lng: orderPayload.rider_lng || 75.7030,
+                    delivery_address: orderAddr
+                };
+
+                let orderData = null;
+                let formattedItems = [];
+
                 try {
-                    hostelInv = await supabaseDb.inventory.getHostelInventory(cleanHostel);
-                } catch (e) {}
-            }
+                    // 2. Insert core order record with automatic fallback if hostel_id column not yet present
+                    let orderErr = null;
+                    try {
+                        const res = await supabase
+                            .from('orders')
+                            .insert([coreOrderPayload])
+                            .select()
+                            .single();
+                        orderData = res.data;
+                        orderErr = res.error;
+                    } catch (e) {
+                        orderErr = e;
+                    }
 
-            const stockUpdates = [];
-            for (const item of items) {
-                const p = prodMap.get(item.product_id);
-                if (!p) {
-                    throw new Error(`Product "${item.name || item.product_id}" is no longer available in the campus store.`);
+                    if (orderErr && orderErr.message && (orderErr.message.includes('hostel_id') || orderErr.code === '42703')) {
+                        const fallbackPayload = { ...coreOrderPayload };
+                        delete fallbackPayload.hostel_id;
+                        const res2 = await supabase
+                            .from('orders')
+                            .insert([fallbackPayload])
+                            .select()
+                            .single();
+                        if (res2.error) {
+                            if (res2.error.code === '23505') {
+                                const existing = await this.getOrderById(orderId);
+                                if (existing) return existing;
+                            }
+                            throw new Error(`PostgreSQL order creation failed: ${res2.error.message}`);
+                        }
+                        orderData = res2.data;
+                        orderErr = null;
+                    } else if (orderErr) {
+                        if (orderErr.code === '23505') {
+                            const existing = await this.getOrderById(orderId);
+                            if (existing) return existing;
+                        }
+                        throw new Error(`PostgreSQL order creation failed: ${orderErr.message}`);
+                    }
+
+                    // 3. Insert line items
+                    formattedItems = items.map(item => {
+                        const matched = stockUpdates.find(s => s.productId === item.product_id);
+                        return {
+                            id: `oi_${uuidv4().replace(/-/g, '').slice(0, 16)}`,
+                            order_id: orderId,
+                            product_id: item.product_id || null,
+                            quantity: matched ? matched.quantity : (Number(item.quantity) || 1),
+                            unit_price: matched ? matched.sellingPrice : (Number(item.price || item.unit_price) || 0)
+                        };
+                    });
+
+                    if (formattedItems.length > 0) {
+                        const { error: itemsErr } = await supabase
+                            .from('order_items')
+                            .insert(formattedItems);
+
+                        if (itemsErr) {
+                            throw new Error(`PostgreSQL order items creation failed: ${itemsErr.message}`);
+                        }
+                    }
+                } catch (orderInsertErr) {
+                    // ROLLBACK: Revert reserved stock if order or order_items creation failed
+                    console.error('[Order Placement Transaction Failed, rolling back reserved stock]:', orderInsertErr.message);
+                    try {
+                        await supabase.from('order_items').delete().eq('order_id', orderId);
+                        await supabase.from('orders').delete().eq('id', orderId);
+                    } catch (cleanupErr) {}
+
+                    for (const su of stockUpdates) {
+                        try {
+                            await supabaseDb.inventory.setProductStock(cleanHostel, su.productId, {
+                                stock_left: su.previousStock,
+                                in_stock: su.previousStock > 0
+                            });
+                        } catch (revertErr) {}
+                    }
+                    throw orderInsertErr;
                 }
 
-                // Check hostel-isolated stock: ALL STOCK DEFAULTS TO 0 UNLESS OVERRIDDEN BY STORE MANAGER
-                let currentStock = 0;
-                let currentInStock = false;
-                const override = hostelInv[p.id];
-                if (override !== undefined && !override.deleted) {
-                    currentStock = Math.max(0, Number(override.stock_left) || 0);
-                    currentInStock = Boolean(override.in_stock && currentStock > 0);
-                }
-
-                const reqQty = Math.max(1, Number(item.quantity) || 1);
-
-                if (!currentInStock || currentStock <= 0) {
-                    throw new Error(`"${p.name}" is currently out of stock in ${cleanHostel}.`);
-                }
-                if (reqQty > currentStock) {
-                    throw new Error(`Only ${currentStock} unit(s) of "${p.name}" available in ${cleanHostel}. Please adjust quantity.`);
-                }
-
-                const newStock = Math.max(0, currentStock - reqQty);
-                const newInStock = newStock > 0;
-                const currentTags = (p.tags || '')
-                    .split(',')
-                    .map(t => t.trim())
-                    .filter(t => t && !t.startsWith('stock:'));
-                currentTags.push(`stock:${newStock}`);
-                const updatedTags = currentTags.join(', ');
-
-                stockUpdates.push({
-                    productId: p.id,
-                    name: p.name,
-                    previousStock: currentStock,
-                    originalTags: p.tags || '',
-                    newStock,
-                    newInStock,
-                    updatedTags,
-                    costPrice: Number(p.cost_price) || 0,
-                    sellingPrice: Number(p.price) || 0,
-                    mrp: Number(p.mrp || p.price) || 0,
-                    quantity: reqQty,
-                    hostel_id: cleanHostel
+                // 3b. Record immutable financial pricing snapshot for future orders
+                const itemSnapshots = items.map(item => {
+                    const matched = stockUpdates.find(s => s.productId === item.product_id);
+                    return {
+                        product_id: item.product_id,
+                        product_name: matched ? matched.name : (item.name || 'Campus Item'),
+                        quantity: matched ? matched.quantity : (Number(item.quantity) || 1),
+                        admin_cost: matched ? matched.costPrice : (Number(item.cost_price) || 0),
+                        mrp: matched ? matched.mrp : (Number(item.mrp) || 0),
+                        selling_price: matched ? matched.sellingPrice : (Number(item.price || item.unit_price) || 0)
+                    };
                 });
-            }
-            const orderId = orderPayload.id || `order_${uuidv4().slice(0, 8)}`;
-            let orderAddr = (orderPayload.delivery_address || `${cleanHostel} (Block A), Room 304`).trim();
-            if (!orderAddr.toUpperCase().startsWith(`[${cleanHostel}]`)) {
-                orderAddr = `[${cleanHostel}] ${orderAddr.replace(/^\[(BH|GH)[-\s]?\d+\]\s*/i, '')}`;
-            }
 
-            const coreOrderPayload = {
-                id: orderId,
-                hostel_id: cleanHostel,
-                user_id: orderPayload.user_id,
-                customer_name: orderPayload.customer_name || 'Student',
-                customer_phone: orderPayload.customer_phone || '',
-                customer_email: orderPayload.customer_email || '',
-                status: orderPayload.status || 'Order Placed',
-                subtotal: Number(orderPayload.subtotal) || 0,
-                delivery_fee: Number(orderPayload.delivery_fee) || 0,
-                platform_fee: Number(orderPayload.platform_fee) || 0,
-                tax: Number(orderPayload.tax) || 0,
-                total: Number(orderPayload.total) || 0,
-                payment_method: orderPayload.payment_method || 'Cash on Delivery',
-                payment_status: orderPayload.payment_status || 'pending',
-                rider_name: orderPayload.rider_name || 'Alex',
-                rider_lat: orderPayload.rider_lat || 31.2560,
-                rider_lng: orderPayload.rider_lng || 75.7030,
-                delivery_address: orderAddr
-            };
-
-            // 2. Insert core order record with automatic fallback if hostel_id column not yet present
-            let orderData = null;
-            let orderErr = null;
-            try {
-                const res = await supabase
-                    .from('orders')
-                    .insert([coreOrderPayload])
-                    .select()
-                    .single();
-                orderData = res.data;
-                orderErr = res.error;
-            } catch (e) {
-                orderErr = e;
-            }
-
-            if (orderErr && orderErr.message && (orderErr.message.includes('hostel_id') || orderErr.code === '42703')) {
-                const fallbackPayload = { ...coreOrderPayload };
-                delete fallbackPayload.hostel_id;
-                const res2 = await supabase
-                    .from('orders')
-                    .insert([fallbackPayload])
-                    .select()
-                    .single();
-                if (res2.error) {
-                    if (res2.error.code === '23505') {
-                        const existing = await this.getOrderById(orderId);
-                        if (existing) return existing;
-                    }
-                    throw new Error(`PostgreSQL order creation failed: ${res2.error.message}`);
+                try {
+                    this.saveOrderSnapshot(orderId, itemSnapshots, cleanHostel);
+                } catch (snapErr) {
+                    console.warn('[Order Snapshot Save Warning]:', snapErr.message);
                 }
-                orderData = res2.data;
-                orderErr = null;
-            } else if (orderErr) {
-                if (orderErr.code === '23505') {
-                    const existing = await this.getOrderById(orderId);
-                    if (existing) return existing;
-                }
-                throw new Error(`PostgreSQL order creation failed: ${orderErr.message}`);
-            }
 
-            // 3. Insert line items
-            const formattedItems = items.map(item => {
-                const matched = stockUpdates.find(s => s.productId === item.product_id);
+                cache.invalidateOrders();
+                cache.invalidateProducts();
+
                 return {
-                    id: `oi_${uuidv4().replace(/-/g, '').slice(0, 16)}`,
-                    order_id: orderId,
-                    product_id: item.product_id || null,
-                    quantity: matched ? matched.quantity : (Number(item.quantity) || 1),
-                    unit_price: matched ? matched.sellingPrice : (Number(item.price || item.unit_price) || 0)
+                    ...orderData,
+                    hostel_id: cleanHostel,
+                    delivery_address: orderAddr,
+                    items: formattedItems.map(it => ({ ...it, price: it.unit_price })),
+                    stockUpdates
                 };
             });
-
-            if (formattedItems.length > 0) {
-                const { error: itemsErr } = await supabase
-                    .from('order_items')
-                    .insert(formattedItems);
-
-                if (itemsErr) {
-                    // Rollback order
-                    await supabase.from('orders').delete().eq('id', orderId);
-                    throw new Error(`PostgreSQL order items creation failed: ${itemsErr.message}`);
-                }
-            }
-
-            // 4. Atomically decrement stock according to hostel dark-store inventory
-            const appliedStockUpdates = [];
-            try {
-                if (supabaseDb.inventory) {
-                    await supabaseDb.inventory.batchUpdateStock(cleanHostel, stockUpdates);
-                    appliedStockUpdates.push(...stockUpdates);
-                }
-            } catch (stockUpdateErr) {
-                // Rollback order items & order
-                await supabase.from('order_items').delete().eq('order_id', orderId);
-                await supabase.from('orders').delete().eq('id', orderId);
-
-                // Rollback any partially applied stock decrements
-                for (const revert of appliedStockUpdates) {
-                    if (supabaseDb.inventory) {
-                        await supabaseDb.inventory.setProductStock(cleanHostel, revert.productId, {
-                            stock_left: revert.previousStock,
-                            in_stock: revert.previousStock > 0
-                        }).catch(() => {});
-                    }
-                }
-
-                throw new Error(stockUpdateErr.message);
-            }
-
-            // 3b. Record immutable financial pricing snapshot for future orders
-            const itemSnapshots = items.map(item => {
-                const matched = stockUpdates.find(s => s.productId === item.product_id);
-                return {
-                    product_id: item.product_id,
-                    product_name: matched ? matched.name : (item.name || 'Campus Item'),
-                    quantity: matched ? matched.quantity : (Number(item.quantity) || 1),
-                    admin_cost: matched ? matched.costPrice : (Number(item.cost_price) || 0),
-                    mrp: matched ? matched.mrp : (Number(item.mrp) || 0),
-                    selling_price: matched ? matched.sellingPrice : (Number(item.price || item.unit_price) || 0)
-                };
-            });
-
-            try {
-                this.saveOrderSnapshot(orderId, itemSnapshots, cleanHostel);
-            } catch (snapErr) {
-                console.warn('[Order Snapshot Save Warning]:', snapErr.message);
-            }
-
-            cache.invalidateOrders();
-            cache.invalidateProducts();
-
-            return {
-                ...orderData,
-                hostel_id: cleanHostel,
-                delivery_address: orderAddr,
-                items: formattedItems.map(it => ({ ...it, price: it.unit_price })),
-                stockUpdates
-            };
         },
 
         saveOrderSnapshot(orderId, itemSnapshots, hostelId = null) {
@@ -1882,20 +1914,150 @@ const supabaseDb = {
             return formatted;
         },
 
+        async cancelOrder(orderId, reason = 'User requested cancellation', actor = 'system') {
+            if (!orderId) throw new Error('Order ID is required');
+
+            return await this.withOrderCancelLock(orderId, async () => {
+                const supabase = getSupabaseClient();
+                if (!supabase) throw new Error('PostgreSQL client unavailable');
+
+                // 1. Authoritatively fetch current order
+                let order = null;
+                try {
+                    order = await this.getOrderById(orderId);
+                } catch (e) {}
+
+                if (!order) {
+                    const snap = this.getOrderSnapshot(orderId);
+                    if (snap) {
+                        order = {
+                            id: orderId,
+                            hostel_id: snap.hostel_id || 'BH-13',
+                            delivery_address: snap.delivery_address || `[${snap.hostel_id || 'BH-13'}]`,
+                            status: snap.status || 'Order Placed',
+                            items: Array.isArray(snap.items) ? snap.items : (Array.isArray(snap) ? snap : [])
+                        };
+                    }
+                }
+
+                if (!order) {
+                    throw new Error('Order not found');
+                }
+
+                const currentStatus = String(order.status || '').toLowerCase().trim();
+
+                // Idempotent Fast Return: If already cancelled, do not double-cancel or double-restock
+                if (['cancelled', 'canceled', 'rejected'].includes(currentStatus)) {
+                    return {
+                        success: true,
+                        alreadyCancelled: true,
+                        message: 'Order is already cancelled',
+                        order
+                    };
+                }
+
+                // Strict Disallowance: If order is Out for Delivery or Delivered, reject cancellation
+                if (currentStatus.includes('out') || currentStatus.includes('route') || currentStatus.includes('dispatch') || currentStatus.includes('transit')) {
+                    throw new Error('Cannot cancel order: Your order is already out for delivery.');
+                }
+                if (currentStatus.includes('deliver')) {
+                    throw new Error('Cannot cancel order: Your order has already been delivered.');
+                }
+
+                // 2. Conditional Atomic DB Update to prevent race conditions
+                const { data: updatedOrder, error: updateErr } = await supabase
+                    .from('orders')
+                    .update({ status: 'Cancelled' })
+                    .eq('id', orderId)
+                    .select()
+                    .maybeSingle();
+
+                if (updateErr) {
+                    throw new Error(`PostgreSQL order cancellation failed: ${updateErr.message}`);
+                }
+
+                const finalOrder = updatedOrder || { ...order, status: 'Cancelled' };
+
+                // 3. Idempotent & Isolated Stock Restoration
+                if (!this.isOrderRestocked(orderId)) {
+                    // Mark restocked synchronously immediately to block concurrent restorations
+                    this.markOrderRestocked(orderId);
+
+                    const targetHostel = this._extractHostelId(order) || order.hostel_id || 'BH-13';
+                    let items = order.items || [];
+                    if (!items.length) {
+                        const snap = this.getOrderSnapshot(orderId);
+                        if (snap && Array.isArray(snap.items)) items = snap.items;
+                        else if (Array.isArray(snap)) items = snap;
+                    }
+
+                    if (!items || items.length === 0) {
+                        try {
+                            const { data: dbItems } = await supabase
+                                .from('order_items')
+                                .select('product_id, quantity')
+                                .eq('order_id', orderId);
+                            if (dbItems && dbItems.length > 0) items = dbItems;
+                        } catch (e) {}
+                    }
+
+                    if (items && items.length > 0) {
+                        await this.withHostelInventoryMutex(targetHostel, async () => {
+                            let broadcastInventoryUpdate;
+                            try {
+                                const rt = require('../realtime');
+                                broadcastInventoryUpdate = rt.broadcastInventoryUpdate;
+                            } catch (e) {}
+
+                            for (const item of items) {
+                                const pId = item.product_id || item.productId || item.id;
+                                const qty = Math.max(0, Number(item.quantity) || 0);
+                                if (pId && qty > 0) {
+                                    try {
+                                        const updated = await supabaseDb.products.adjustStock(pId, qty, targetHostel);
+                                        if (typeof broadcastInventoryUpdate === 'function') {
+                                            broadcastInventoryUpdate(pId, updated.stock_left, updated.in_stock, targetHostel);
+                                        }
+                                        console.log(`[Order Restock] Restocked +${qty} units for product ${pId} in ${targetHostel} (New stock: ${updated.stock_left})`);
+                                    } catch (pErr) {
+                                        console.warn(`[Order Restock Error] Product ${pId}:`, pErr.message);
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+
+                cache.invalidateOrders();
+                cache.invalidateProducts();
+
+                try {
+                    const rt = require('../realtime');
+                    if (typeof rt.broadcastStatusUpdate === 'function') {
+                        rt.broadcastStatusUpdate(orderId, 'Cancelled');
+                    }
+                } catch (e) {}
+
+                return {
+                    success: true,
+                    alreadyCancelled: false,
+                    message: 'Order cancelled successfully',
+                    order: finalOrder
+                };
+            });
+        },
+
         async updateStatus(orderId, status, options = {}) {
-            const supabase = getSupabaseClient();
-            if (!supabase) throw new Error('PostgreSQL client unavailable');
-
-            // 1. Check previous status to prevent duplicate restocking
-            const { data: prevOrder } = await supabase
-                .from('orders')
-                .select('status')
-                .eq('id', orderId)
-                .maybeSingle();
-
             const normStatus = String(status || '').trim();
             const isCancelling = ['cancelled', 'canceled', 'rejected'].includes(normStatus.toLowerCase());
-            const wasAlreadyCancelled = prevOrder && ['cancelled', 'canceled', 'rejected'].includes(String(prevOrder.status || '').toLowerCase().trim());
+
+            if (isCancelling) {
+                const cancelRes = await this.cancelOrder(orderId, options.reason || 'Status updated to Cancelled', 'admin');
+                return cancelRes.order;
+            }
+
+            const supabase = getSupabaseClient();
+            if (!supabase) throw new Error('PostgreSQL client unavailable');
 
             const updatePayload = { status: normStatus };
             if (options.payment_method) updatePayload.payment_method = options.payment_method;
@@ -1911,98 +2073,18 @@ const supabaseDb = {
             if (error) throw new Error(`PostgreSQL order status update failed: ${error.message}`);
             cache.invalidateOrders();
 
-            // 2. Automatically restock inventory if order is transitioned to Cancelled and was not already cancelled/restocked
-            if (isCancelling && !wasAlreadyCancelled) {
-                try {
-                    await this.restockOrderItems(orderId);
-                } catch (restockErr) {
-                    console.warn(`[Order Restock Warning] Failed to restock items for order #${orderId}:`, restockErr.message);
-                }
-            }
-
             return data;
         },
 
         async restockOrderItems(orderId) {
             if (!orderId) return;
-
-            // Prevent double restocking
             if (this.isOrderRestocked(orderId)) {
                 console.log(`[Order Restock] Order #${orderId} was already restocked. Skipping.`);
                 return;
             }
-
-            let order = null;
-            try {
-                order = await this.getOrderById(orderId);
-            } catch (e) {}
-
-            if (!order) {
-                const snap = this.getOrderSnapshot(orderId);
-                if (snap) {
-                    order = {
-                        id: orderId,
-                        hostel_id: snap.hostel_id || 'BH-13',
-                        delivery_address: snap.delivery_address || `[${snap.hostel_id || 'BH-13'}]`,
-                        items: Array.isArray(snap.items) ? snap.items : (Array.isArray(snap) ? snap : [])
-                    };
-                }
-            }
-            if (!order) {
-                try {
-                    const snapPath = path.join(__dirname, '..', 'data', 'orders_snapshot.json');
-                    if (fs.existsSync(snapPath)) {
-                        const snaps = JSON.parse(fs.readFileSync(snapPath, 'utf8'));
-                        const found = snaps.find(x => x.id === orderId);
-                        if (found) order = found;
-                    }
-                } catch (e) {}
-            }
-
-            if (!order) {
-                console.warn(`[Order Restock Warning] Order #${orderId} not found to restock.`);
-                return;
-            }
-
-            const targetHostel = this._extractHostelId(order) || 'BH-13';
-            let items = order.items || [];
-            if (!items.length) {
-                const snap = this.getOrderSnapshot(orderId);
-                if (snap && Array.isArray(snap.items)) items = snap.items;
-                else if (Array.isArray(snap)) items = snap;
-            }
-
-            if (!items || items.length === 0) {
-                console.warn(`[Order Restock Note] Order #${orderId} has no items to restock.`);
-                return;
-            }
-
-            // Immediately mark as restocked to prevent duplicate concurrent executions
-            this.markOrderRestocked(orderId);
-
-            let broadcastInventoryUpdate;
-            try {
-                const rt = require('../realtime');
-                broadcastInventoryUpdate = rt.broadcastInventoryUpdate;
-            } catch (e) {}
-
-            for (const item of items) {
-                const pId = item.product_id || item.productId || item.id;
-                const qty = Math.max(0, Number(item.quantity) || 0);
-                if (pId && qty > 0) {
-                    try {
-                        const updated = await supabaseDb.products.adjustStock(pId, qty, targetHostel);
-                        if (typeof broadcastInventoryUpdate === 'function') {
-                            broadcastInventoryUpdate(pId, updated.stock_left, updated.in_stock, targetHostel);
-                        }
-                        console.log(`[Order Restock] Restocked +${qty} units for product ${pId} in ${targetHostel} (New stock: ${updated.stock_left})`);
-                    } catch (pErr) {
-                        console.warn(`[Order Restock Error] Product ${pId}:`, pErr.message);
-                    }
-                }
-            }
-            cache.invalidateProducts();
-            cache.invalidateOrders();
+            await this.cancelOrder(orderId, 'Automatic order restock', 'system').catch(err => {
+                console.warn(`[Order Restock Warning] Error during restock:`, err.message);
+            });
         },
 
         formatRiderDisplayName(riderName, fallback = 'Alex') {

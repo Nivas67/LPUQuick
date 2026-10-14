@@ -289,15 +289,9 @@ function buildProductCardsHTML(items, isAboveFold = false, startIndex = 0) {
                     </div>
 
                     <!-- Stock Status Badge -->
-                    ${isLowStock ? `
-                    <div class="absolute top-2 left-2 z-10 bg-amber-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm">
-                        Only ${stockLeft} left
+                    <div class="stock-badge absolute top-2 left-2 z-10 text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm ${isOutOfStock ? 'bg-rose-600 text-white block' : (isLowStock ? 'bg-amber-500 text-white flex items-center gap-0.5' : 'hidden')}" data-id="${p.id}" style="${(!isOutOfStock && !isLowStock) ? 'display: none;' : ''}">
+                        ${isOutOfStock ? 'Out of Stock' : (isLowStock ? `Only ${stockLeft} left` : '')}
                     </div>
-                    ` : (isOutOfStock ? `
-                    <div class="absolute top-2 left-2 z-10 bg-rose-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm">
-                        Out of Stock
-                    </div>
-                    ` : '')}
 
                     <img class="object-contain w-full h-full group-hover:scale-105 transition-transform duration-300" 
                          src="${p.image_url}" 
@@ -769,16 +763,15 @@ window.pages.home = async function () {
     `).join('');
 
     const buyAgainCards = buyAgain.map(p => {
-        const isOutOfStock = !p.in_stock || (p.stock_left !== undefined && p.stock_left <= 0);
+        const stockLeft = p.stock_left !== undefined && p.stock_left !== null ? Number(p.stock_left) : 0;
+        const isOutOfStock = !p.in_stock || stockLeft <= 0;
         return `
-        <div class="flex-none w-40 sm:w-48 snap-start product-card-item p-3.5 product-detail-trigger cursor-pointer flex flex-col justify-between" data-product-id="${p.id}">
+        <div class="flex-none w-40 sm:w-48 snap-start product-card-item p-3.5 product-detail-trigger cursor-pointer flex flex-col justify-between ${isOutOfStock ? 'opacity-75' : ''}" data-product-id="${p.id}" data-out-of-stock="${isOutOfStock}">
             <div>
                 <div class="card-pedestal h-28 sm:h-32 rounded-xl mb-2.5 relative overflow-hidden flex items-center justify-center p-2.5">
-                    ${isOutOfStock ? `
-                    <div class="absolute top-2 left-2 z-10 bg-rose-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm">
-                        Out
+                    <div class="stock-badge absolute top-2 left-2 z-10 text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm ${isOutOfStock ? 'bg-rose-600 text-white block' : 'hidden'}" data-id="${p.id}" style="${!isOutOfStock ? 'display: none;' : ''}">
+                        ${isOutOfStock ? 'Out of Stock' : ''}
                     </div>
-                    ` : ''}
                     <img class="object-contain w-full h-full" 
                          src="${p.image_url}" 
                          alt="${p.name}" 
@@ -793,13 +786,13 @@ window.pages.home = async function () {
             </div>
             <div class="flex justify-between items-center mt-2.5 pt-2 border-t border-[var(--glass-border)]">
                 <p class="text-xs font-black text-slate-900 dark:text-white">₹${p.price}</p>
-                <div class="product-action-slot" data-id="${p.id}">
+                <div class="product-action-slot" data-id="${p.id}" data-out-of-stock="${isOutOfStock}" data-stock-left="${stockLeft}">
                     ${isOutOfStock ? `
-                    <span class="clay-pill text-[9px] font-bold text-slate-400 px-2.5 py-0.5 rounded-full">
+                    <span class="clay-pill text-[9px] font-bold text-slate-400 px-2.5 py-0.5 rounded-full cursor-not-allowed select-none">
                         Out
                     </span>
                     ` : `
-                    <button type="button" class="add-to-cart-btn uppercase text-[10px] px-3 py-1" data-id="${p.id}">ADD</button>
+                    <button type="button" class="add-to-cart-btn uppercase text-[10px] px-3 py-1" data-id="${p.id}" data-stock-left="${stockLeft}">ADD</button>
                     `}
                 </div>
             </div>

@@ -360,7 +360,6 @@ const api = {
         
         // Index all loaded products for instant modal & search lookups
         if (data) {
-            await enrichPersonalizedBuyAgain(data);
             indexProducts(data.deals);
             indexProducts(data.bestSellers);
             indexProducts(data.recommended);
@@ -377,6 +376,14 @@ const api = {
             homeFeedCache = data;
             homeFeedCacheTime = Date.now();
             homeFeedCacheUserId = homeCacheKey;
+
+            // Non-blocking enrichment for user-specific past purchases
+            enrichPersonalizedBuyAgain(data).then(enriched => {
+                if (enriched && enriched.is_personalized_buy_again) {
+                    indexProducts(enriched.buy_again);
+                    homeFeedCache = enriched;
+                }
+            }).catch(() => {});
         }
         return data;
     },

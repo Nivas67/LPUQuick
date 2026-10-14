@@ -116,7 +116,11 @@ router.get('/', async (req, res) => {
             const section = getTimeSection(hour);
             let rawProducts = [];
             try {
-                rawProducts = await supabaseDb.products.getAll({ hostel_id: hostelId, includeInactive: false });
+                const fetchWithTimeout = Promise.race([
+                    supabaseDb.products.getAll({ hostel_id: hostelId, includeInactive: false }),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('DATABASE_FETCH_TIMEOUT')), 3500))
+                ]);
+                rawProducts = await fetchWithTimeout;
             } catch (prodErr) {
                 console.warn('[Home Feed Products Notice]:', prodErr.message);
             }

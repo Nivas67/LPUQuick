@@ -92,7 +92,7 @@ self.addEventListener('fetch', (event) => {
 
     if (isPublicCatalogApi) {
         event.respondWith(
-            fetchWithTimeout(event.request, 2200)
+            fetchWithTimeout(event.request, 6000)
                 .then((networkResponse) => {
                     if (networkResponse && networkResponse.status === 200) {
                         const clone = networkResponse.clone();
@@ -122,10 +122,10 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 2. Application Core Shell (HTML, JS, CSS): Network-First with 1.8s Timeout Fallback to Cache
+    // 2. Application Core Shell (HTML, JS, CSS): Network-First with 5s Timeout Fallback to Cache
     if (url.pathname.endsWith('.js') || url.pathname === '/' || url.pathname.endsWith('.html') || url.pathname.endsWith('.css')) {
         event.respondWith(
-            fetchWithTimeout(event.request, 1800)
+            fetchWithTimeout(event.request, 5000)
                 .then((networkResponse) => {
                     if (networkResponse && networkResponse.status === 200) {
                         const responseClone = networkResponse.clone();
