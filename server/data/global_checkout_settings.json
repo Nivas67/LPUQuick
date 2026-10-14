@@ -1,7 +1,7 @@
 {
   "offers_enabled": true,
   "offer_type": "percentage",
-  "offer_value": 5,
+  "offer_value": 3,
   "minimum_order_value": 350,
   "maximum_discount": 50,
   "free_delivery_enabled": true,
@@ -12,6 +12,6 @@
   "min_cart_value": 35,
   "start_date": null,
   "end_date": null,
-  "updated_at": "2026-10-04T12:05:34.097Z",
-  "updated_by": "Nivas Naidu"
+  "updated_at": "2026-10-08T19:01:24.141+00:00",
+  "updated_by": "user_admin_bh13"
 }

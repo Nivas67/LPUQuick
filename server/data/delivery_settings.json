@@ -1,10 +1,10 @@
 {
   "rate_per_order": 3,
   "currency": "INR",
-  "daily_bonus_threshold": 20,
-  "daily_bonus_amount": 10,
+  "daily_bonus_threshold": 25,
+  "daily_bonus_amount": 15,
   "base_payout_rule": "per_delivered_order",
   "stats_start_timestamp": null,
-  "updated_at": "2026-10-03T18:29:50.932Z",
+  "updated_at": "2026-10-14T16:22:04.758Z",
   "updated_by": "Nivas Naidu"
 }

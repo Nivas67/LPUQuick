@@ -2328,19 +2328,17 @@ function initGlobalClientWebSocket() {
                     const isForMe = targetHostel === 'ALL' || normClient === normTarget;
 
                     if (isForMe) {
-                        if (typeof window.syncStoreAvailability === 'function') {
-                            window.syncStoreAvailability(clientHostel).then(avail => {
-                                if (avail && avail.is_locked) {
-                                    showClientToast('🏪 Storefront is currently closed for restock.', 'warning', 'lock');
-                                } else {
-                                    showClientToast('🚀 Storefront is now OPEN for orders!', 'success', 'bolt');
-                                }
-                            });
+                        window.__storeAvailability = data.availability;
+                        if (typeof window.renderStoreClosedBannerOrOverlay === 'function') {
+                            window.renderStoreClosedBannerOrOverlay();
+                        }
+                        if (data.availability.is_locked) {
+                            showClientToast('🏪 Storefront is currently closed for restock.', 'warning', 'lock');
                         } else {
-                            window.__storeAvailability = data.availability;
-                            if (typeof window.renderStoreClosedBannerOrOverlay === 'function') {
-                                window.renderStoreClosedBannerOrOverlay();
-                            }
+                            showClientToast('🚀 Storefront is now OPEN for orders!', 'success', 'bolt');
+                        }
+                        if (typeof window.syncStoreAvailability === 'function') {
+                            window.syncStoreAvailability(clientHostel);
                         }
                     }
                 }

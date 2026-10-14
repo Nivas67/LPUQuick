@@ -260,10 +260,20 @@ const supabaseDb = {
     // PRODUCTS
     // ==========================================
     products: {
+        _extractProductHostel(p) {
+            if (!p) return 'BH-13';
+            if (p.hostel_id && p.hostel_id !== 'all' && p.hostel_id !== 'ALL') return p.hostel_id;
+            const hostelMatch = (p.tags || '').match(/hostel:([A-Za-z0-9_-]+)/);
+            if (hostelMatch && hostelMatch[1]) return hostelMatch[1];
+            return 'BH-13';
+        },
+
         _formatProduct(p) {
             if (!p) return null;
-            const match = (p.tags || '').match(/stock:(\d+)/);
-            const stock_left = match ? parseInt(match[1], 10) : (p.stock_left !== undefined ? parseInt(p.stock_left, 10) : 0);
+            // Stock strictly defaults to 0 for unstocked products.
+            // Do not use legacy tags (e.g. stock:3 or stock:20) as stock fallback.
+            const rawStock = (p.stock_left !== undefined && p.stock_left !== null) ? parseInt(p.stock_left, 10) : 0;
+            const stock_left = isNaN(rawStock) || rawStock < 0 ? 0 : rawStock;
             const in_stock = Boolean(stock_left > 0 && p.in_stock !== false);
             
             // Extract hostel_id from direct column or tag fallback (Defaulting cleanly to BH-13)
@@ -397,26 +407,49 @@ const supabaseDb = {
                     throw new Error(`PostgreSQL query error: ${fetchError.message}`);
                 }
 
-                // If specific hostel requested, overlay that hostel's dark-store inventory
-                let hostelInventory = {};
-                if (cleanHostel && supabaseDb.inventory) {
-                    try {
-                        hostelInventory = await supabaseDb.inventory.getHostelInventory(cleanHostel, isFreshRequired);
-                    } catch (invErr) {
-                        console.warn('[Hostel Inventory Load Note]:', invErr.message);
+                if (cleanHostel) {
+                    let hostelInventory = {};
+                    if (supabaseDb.inventory) {
+                        try {
+                            hostelInventory = await supabaseDb.inventory.getHostelInventory(cleanHostel, isFreshRequired);
+                        } catch (invErr) {
+                            console.warn('[Hostel Inventory Load Note]:', invErr.message);
+                        }
                     }
-                }
-
-                // Format every product and overlay hostel stock:
-                const formatted = (data || []).map(p => {
-                    const prod = this._formatProduct(p);
-                    if (cleanHostel) {
+                    return (data || []).map(p => {
+                        const prod = this._formatProduct(p);
                         return this._applyHostelStockOverlay(prod, cleanHostel, hostelInventory);
+                    });
+                } else {
+                    let allInventories = {};
+                    if (supabaseDb.inventory) {
+                        try {
+                            allInventories = await supabaseDb.inventory.getAllHostelInventories();
+                        } catch (allErr) {
+                            console.warn('[All Hostel Inventories Load Note]:', allErr.message);
+                        }
                     }
-                    return prod;
-                });
-
-                return formatted;
+                    return (data || []).map(p => {
+                        const prod = this._formatProduct(p);
+                        const targetHostel = this._extractProductHostel(p);
+                        const normTarget = supabaseDb.inventory._normalizeHostelId(targetHostel);
+                        const hInv = allInventories[normTarget] || allInventories[targetHostel] || {};
+                        const override = hInv[prod.id];
+                        if (override !== undefined) {
+                            prod.deleted = Boolean(override.deleted);
+                            prod.stock_left = prod.deleted ? 0 : Math.max(0, Number(override.stock_left) || 0);
+                            prod.in_stock = Boolean(override.in_stock && prod.stock_left > 0);
+                        } else {
+                            // Unstocked products strictly default to 0 stock
+                            prod.deleted = false;
+                            prod.stock_left = 0;
+                            prod.in_stock = false;
+                        }
+                        prod.hostel_id = targetHostel;
+                        prod.origin_hostel = targetHostel;
+                        return prod;
+                    });
+                }
             }, isFreshRequired ? 0 : 300000);
         },
 
@@ -434,11 +467,14 @@ const supabaseDb = {
             if (!data) return null;
 
             const prod = this._formatProduct(data);
-            const cleanHostel = (hostel_id && hostel_id !== 'all' && hostel_id !== 'ALL') ? String(hostel_id).trim().toUpperCase() : null;
-            if (cleanHostel && supabaseDb.inventory) {
+            const targetHostel = (hostel_id && hostel_id !== 'all' && hostel_id !== 'ALL')
+                ? String(hostel_id).trim().toUpperCase()
+                : this._extractProductHostel(data);
+
+            if (targetHostel && supabaseDb.inventory) {
                 try {
-                    const inv = await supabaseDb.inventory.getHostelInventory(cleanHostel);
-                    return this._applyHostelStockOverlay(prod, cleanHostel, inv);
+                    const inv = await supabaseDb.inventory.getHostelInventory(targetHostel);
+                    return this._applyHostelStockOverlay(prod, targetHostel, inv);
                 } catch (e) {}
             }
             return prod;
@@ -454,22 +490,44 @@ const supabaseDb = {
                 .select('*')
                 .in('id', ids);
 
-            if (error) return [];
+            if (error || !data) return [];
             const cleanHostel = (hostel_id && hostel_id !== 'all' && hostel_id !== 'ALL') ? String(hostel_id).trim().toUpperCase() : null;
-            let inv = {};
             if (cleanHostel && supabaseDb.inventory) {
+                let inv = {};
                 try {
                     inv = await supabaseDb.inventory.getHostelInventory(cleanHostel);
                 } catch (e) {}
-            }
-
-            return (data || []).map(p => {
-                const prod = this._formatProduct(p);
-                if (cleanHostel) {
+                return data.map(p => {
+                    const prod = this._formatProduct(p);
                     return this._applyHostelStockOverlay(prod, cleanHostel, inv);
+                });
+            } else {
+                let allInventories = {};
+                if (supabaseDb.inventory) {
+                    try {
+                        allInventories = await supabaseDb.inventory.getAllHostelInventories();
+                    } catch (e) {}
                 }
-                return prod;
-            });
+                return data.map(p => {
+                    const prod = this._formatProduct(p);
+                    const targetHostel = this._extractProductHostel(p);
+                    const normTarget = supabaseDb.inventory._normalizeHostelId(targetHostel);
+                    const hInv = allInventories[normTarget] || allInventories[targetHostel] || {};
+                    const override = hInv[prod.id];
+                    if (override !== undefined) {
+                        prod.deleted = Boolean(override.deleted);
+                        prod.stock_left = prod.deleted ? 0 : Math.max(0, Number(override.stock_left) || 0);
+                        prod.in_stock = Boolean(override.in_stock && prod.stock_left > 0);
+                    } else {
+                        prod.deleted = false;
+                        prod.stock_left = 0;
+                        prod.in_stock = false;
+                    }
+                    prod.hostel_id = targetHostel;
+                    prod.origin_hostel = targetHostel;
+                    return prod;
+                });
+            }
         },
 
         async getCategories() {
@@ -500,20 +558,42 @@ const supabaseDb = {
             if (error || !data) return [];
 
             const cleanHostel = (hostel_id && hostel_id !== 'all' && hostel_id !== 'ALL') ? String(hostel_id).trim().toUpperCase() : null;
-            let inv = {};
             if (cleanHostel && supabaseDb.inventory) {
+                let inv = {};
                 try {
                     inv = await supabaseDb.inventory.getHostelInventory(cleanHostel);
                 } catch (e) {}
-            }
-
-            return (data || []).map(p => {
-                const prod = this._formatProduct(p);
-                if (cleanHostel) {
+                return data.map(p => {
+                    const prod = this._formatProduct(p);
                     return this._applyHostelStockOverlay(prod, cleanHostel, inv);
+                });
+            } else {
+                let allInventories = {};
+                if (supabaseDb.inventory) {
+                    try {
+                        allInventories = await supabaseDb.inventory.getAllHostelInventories();
+                    } catch (e) {}
                 }
-                return prod;
-            });
+                return data.map(p => {
+                    const prod = this._formatProduct(p);
+                    const targetHostel = this._extractProductHostel(p);
+                    const normTarget = supabaseDb.inventory._normalizeHostelId(targetHostel);
+                    const hInv = allInventories[normTarget] || allInventories[targetHostel] || {};
+                    const override = hInv[prod.id];
+                    if (override !== undefined) {
+                        prod.deleted = Boolean(override.deleted);
+                        prod.stock_left = prod.deleted ? 0 : Math.max(0, Number(override.stock_left) || 0);
+                        prod.in_stock = Boolean(override.in_stock && prod.stock_left > 0);
+                    } else {
+                        prod.deleted = false;
+                        prod.stock_left = 0;
+                        prod.in_stock = false;
+                    }
+                    prod.hostel_id = targetHostel;
+                    prod.origin_hostel = targetHostel;
+                    return prod;
+                });
+            }
         },
 
         async getRandom(limit = 10, hostel_id = null) {
@@ -529,20 +609,43 @@ const supabaseDb = {
             if (error || !data) return [];
 
             const cleanHostel = (hostel_id && hostel_id !== 'all' && hostel_id !== 'ALL') ? String(hostel_id).trim().toUpperCase() : null;
-            let inv = {};
+            let formatted = [];
             if (cleanHostel && supabaseDb.inventory) {
+                let inv = {};
                 try {
                     inv = await supabaseDb.inventory.getHostelInventory(cleanHostel);
                 } catch (e) {}
-            }
-
-            let formatted = (data || []).map(p => {
-                const prod = this._formatProduct(p);
-                if (cleanHostel) {
+                formatted = data.map(p => {
+                    const prod = this._formatProduct(p);
                     return this._applyHostelStockOverlay(prod, cleanHostel, inv);
+                }).filter(p => p.in_stock && !p.deleted);
+            } else {
+                let allInventories = {};
+                if (supabaseDb.inventory) {
+                    try {
+                        allInventories = await supabaseDb.inventory.getAllHostelInventories();
+                    } catch (e) {}
                 }
-                return prod;
-            }).filter(p => p.in_stock && !p.deleted);
+                formatted = data.map(p => {
+                    const prod = this._formatProduct(p);
+                    const targetHostel = this._extractProductHostel(p);
+                    const normTarget = supabaseDb.inventory._normalizeHostelId(targetHostel);
+                    const hInv = allInventories[normTarget] || allInventories[targetHostel] || {};
+                    const override = hInv[prod.id];
+                    if (override !== undefined) {
+                        prod.deleted = Boolean(override.deleted);
+                        prod.stock_left = prod.deleted ? 0 : Math.max(0, Number(override.stock_left) || 0);
+                        prod.in_stock = Boolean(override.in_stock && prod.stock_left > 0);
+                    } else {
+                        prod.deleted = false;
+                        prod.stock_left = 0;
+                        prod.in_stock = false;
+                    }
+                    prod.hostel_id = targetHostel;
+                    prod.origin_hostel = targetHostel;
+                    return prod;
+                }).filter(p => p.in_stock && !p.deleted);
+            }
 
             const shuffled = [...formatted].sort(() => 0.5 - Math.random());
             return shuffled.slice(0, limit);
@@ -628,22 +731,6 @@ const supabaseDb = {
             if (updates.is_new !== undefined) updateFields.is_new = Boolean(updates.is_new);
             if (updates.tags !== undefined) updateFields.tags = updates.tags;
 
-            if (updates.stock_left !== undefined || updates.hostel_id !== undefined) {
-                const existing = await this.getById(id);
-                const stockNum = updates.stock_left !== undefined ? (parseInt(updates.stock_left, 10) || 0) : (existing?.stock_left || 0);
-                const hId = updates.hostel_id || existing?.origin_hostel || existing?.hostel_id || 'BH-13';
-
-                const currentTags = ((updates.tags !== undefined ? updates.tags : existing?.tags) || '')
-                    .split(',')
-                    .map(t => t.trim())
-                    .filter(t => t && !t.startsWith('stock:') && !t.startsWith('hostel:'));
-                currentTags.push(`stock:${stockNum}`);
-                currentTags.push(`hostel:${hId}`);
-                updateFields.tags = currentTags.join(', ');
-                if (updates.stock_left !== undefined) {
-                    updateFields.in_stock = stockNum > 0;
-                }
-            }
 
             if (Object.keys(updateFields).length === 0) {
                 return await this.getById(id);
@@ -732,14 +819,36 @@ const supabaseDb = {
             const supabase = getSupabaseClient();
             if (!supabase) throw new Error('PostgreSQL client unavailable');
 
-            const { error } = await supabase
+            // 1. Clean up cart_items referencing this product so foreign key constraint is never violated
+            try {
+                await supabase.from('cart_items').delete().eq('product_id', id);
+            } catch (cartErr) {
+                console.warn('[Cart Items Cleanup Note]:', cartErr.message);
+            }
+
+            // 2. Perform the actual delete in Supabase products table
+            const { data, error } = await supabase
                 .from('products')
                 .delete()
-                .eq('id', id);
+                .eq('id', id)
+                .select();
 
-            if (error) throw new Error(`PostgreSQL product delete error: ${error.message}`);
+            if (error) {
+                throw new Error(`PostgreSQL product delete error: ${error.message}`);
+            }
+
+            // 3. Remove product from all hostel inventories (memory, local file, app_availability)
+            if (supabaseDb.inventory) {
+                try {
+                    await supabaseDb.inventory.removeProductFromAllInventories(id);
+                } catch (invErr) {
+                    console.warn('[Inventory Cleanup Warning]:', invErr.message);
+                }
+            }
+
             cache.invalidateProducts();
-            return { success: true };
+            cache.clearByPrefix('home:base:');
+            return { success: true, deletedData: data };
         }
     },
 
@@ -749,6 +858,61 @@ const supabaseDb = {
     inventory: {
         _memoryHostelInventory: new Map(),
         _localFilePath: path.join(__dirname, '..', 'data', 'hostel_inventory.json'),
+
+        async removeProductFromAllInventories(productId) {
+            if (!productId) return;
+            // 1. Clear from in-memory hostel inventories
+            for (const [hostel, inv] of this._memoryHostelInventory.entries()) {
+                if (inv && inv[productId]) {
+                    delete inv[productId];
+                    this._memoryHostelInventory.set(hostel, inv);
+                }
+            }
+
+            // 2. Clear from local hostel_inventory.json file
+            const fileData = this._loadLocalFile();
+            let fileChanged = false;
+            for (const hostel of Object.keys(fileData)) {
+                if (fileData[hostel] && fileData[hostel][productId]) {
+                    delete fileData[hostel][productId];
+                    fileChanged = true;
+                }
+            }
+            if (fileChanged) {
+                this._saveLocalFile(fileData);
+            }
+
+            // 3. Clear from app_availability in Supabase
+            const supabase = getSupabaseClient();
+            if (supabase) {
+                try {
+                    const { data: rows } = await supabase
+                        .from('app_availability')
+                        .select('id, message')
+                        .like('id', 'inventory_%');
+
+                    if (rows && rows.length > 0) {
+                        for (const row of rows) {
+                            try {
+                                const inv = JSON.parse(row.message || '{}');
+                                if (inv && inv[productId]) {
+                                    delete inv[productId];
+                                    await supabase
+                                        .from('app_availability')
+                                        .update({
+                                            message: JSON.stringify(inv),
+                                            updated_at: new Date().toISOString()
+                                        })
+                                        .eq('id', row.id);
+                                }
+                            } catch (pErr) {}
+                        }
+                    }
+                } catch (dbErr) {
+                    console.warn('[app_availability cleanup note]:', dbErr.message);
+                }
+            }
+        },
 
         _normalizeHostelId(hostelId) {
             if (!hostelId || hostelId === 'all' || hostelId === 'ALL') return 'BH-13';
@@ -834,6 +998,49 @@ const supabaseDb = {
             }, forceFresh ? 0 : 30000); // 30s TTL for public storefront, 0 for forceFresh/admin
         },
 
+        async getAllHostelInventories() {
+            const result = {};
+
+            // 1. Populate from memory cache
+            for (const [hostel, inv] of this._memoryHostelInventory.entries()) {
+                result[hostel] = inv;
+            }
+
+            // 2. Fallback to local file
+            const fileData = this._loadLocalFile();
+            for (const [hostel, inv] of Object.entries(fileData)) {
+                if (!result[hostel]) result[hostel] = inv;
+            }
+
+            // 3. Supabase app_availability table (authoritative single source of truth)
+            const supabase = getSupabaseClient();
+            if (supabase) {
+                try {
+                    const { data, error } = await supabase
+                        .from('app_availability')
+                        .select('id, message')
+                        .like('id', 'inventory_%');
+
+                    if (!error && Array.isArray(data)) {
+                        for (const row of data) {
+                            const rawHostel = row.id.replace(/^inventory_/, '').replace(/_/g, '-');
+                            const normHostel = this._normalizeHostelId(rawHostel);
+                            try {
+                                const parsed = JSON.parse(row.message);
+                                if (parsed && typeof parsed === 'object') {
+                                    result[normHostel] = parsed;
+                                    this._memoryHostelInventory.set(normHostel, parsed);
+                                }
+                            } catch (e) {}
+                        }
+                    }
+                } catch (dbErr) {
+                    console.warn('[All Hostel Inventory Fetch Note]:', dbErr.message);
+                }
+            }
+            return result;
+        },
+
         async setProductStock(hostelId, productId, { stock_left, in_stock, deleted }) {
             const normHostel = this._normalizeHostelId(hostelId);
             const key = this._getStorageKey(normHostel);
@@ -860,24 +1067,23 @@ const supabaseDb = {
             // Persist to Supabase app_availability
             const supabase = getSupabaseClient();
             if (supabase) {
-                try {
-                    await supabase
-                        .from('app_availability')
-                        .upsert([{
-                            id: key,
-                            is_locked: false,
-                            lock_type: 'NONE',
-                            message: JSON.stringify(inv),
-                            updated_at: new Date().toISOString()
-                        }]);
-                } catch (dbErr) {
-                    console.warn('[Hostel Inventory DB Save Warning]:', dbErr.message);
+                const { error: upsertErr } = await supabase
+                    .from('app_availability')
+                    .upsert([{
+                        id: key,
+                        is_locked: false,
+                        lock_type: 'NONE',
+                        message: JSON.stringify(inv),
+                        updated_at: new Date().toISOString()
+                    }]);
+                if (upsertErr) {
+                    throw new Error(`Failed to persist inventory to database: ${upsertErr.message}`);
                 }
             }
 
-            // Invalidate caches
-            this._memoryHostelInventory.delete(normHostel);
-            cache.delete(`inventory:hostel:${normHostel}`);
+            // Keep authoritative cache alive (DO NOT delete from memory!)
+            this._memoryHostelInventory.set(normHostel, inv);
+            cache.set(`inventory:hostel:${normHostel}`, inv, 30000);
             cache.invalidateProducts();
             cache.clearByPrefix('home:base:');
 
@@ -917,22 +1123,22 @@ const supabaseDb = {
             // Persist to Supabase app_availability
             const supabase = getSupabaseClient();
             if (supabase) {
-                try {
-                    await supabase
-                        .from('app_availability')
-                        .upsert([{
-                            id: key,
-                            is_locked: false,
-                            lock_type: 'NONE',
-                            message: JSON.stringify(inv),
-                            updated_at: new Date().toISOString()
-                        }]);
-                } catch (dbErr) {
-                    console.warn('[Hostel Inventory Batch Save Warning]:', dbErr.message);
+                const { error: upsertErr } = await supabase
+                    .from('app_availability')
+                    .upsert([{
+                        id: key,
+                        is_locked: false,
+                        lock_type: 'NONE',
+                        message: JSON.stringify(inv),
+                        updated_at: new Date().toISOString()
+                    }]);
+                if (upsertErr) {
+                    throw new Error(`Failed to batch persist inventory to database: ${upsertErr.message}`);
                 }
             }
 
-            cache.delete(`inventory:hostel:${normHostel}`);
+            this._memoryHostelInventory.set(normHostel, inv);
+            cache.set(`inventory:hostel:${normHostel}`, inv, 30000);
             cache.invalidateProducts();
             cache.clearByPrefix('home:base:');
         }
@@ -997,8 +1203,8 @@ const supabaseDb = {
 
             const items = rawItems.map(item => {
                 const prod = item.products || {};
-                let stock_left = 50;
-                let in_stock = prod.in_stock !== false;
+                let stock_left = 0;
+                let in_stock = false;
 
                 if (cleanHostel && hostelInventory) {
                     const override = hostelInventory[item.product_id];
@@ -1011,22 +1217,16 @@ const supabaseDb = {
                             in_stock = Boolean(override.in_stock && stock_left > 0);
                         }
                     } else {
-                        const match = (prod.tags || '').match(/stock:(\d+)/);
-                        stock_left = match ? parseInt(match[1], 10) : (prod.in_stock !== false ? 50 : 0);
-                        in_stock = prod.in_stock !== false && stock_left > 0;
+                        stock_left = 0;
+                        in_stock = false;
                     }
                 } else {
-                    const match = (prod.tags || '').match(/stock:(\d+)/);
-                    stock_left = match ? parseInt(match[1], 10) : (prod.in_stock !== false ? 50 : 0);
-                    in_stock = prod.in_stock !== false && stock_left > 0;
-                }
-
-                if (in_stock && stock_left <= 0) {
-                    stock_left = 50;
+                    stock_left = 0;
+                    in_stock = false;
                 }
 
                 const currentQty = Number(item.quantity) || 1;
-                const maxStock = (in_stock && stock_left > 0) ? stock_left : (in_stock ? 50 : 0);
+                const maxStock = (in_stock && stock_left > 0) ? stock_left : 0;
                 const clampedQty = maxStock > 0 ? Math.max(1, Math.min(currentQty, maxStock)) : currentQty;
 
                 return {
@@ -2679,7 +2879,7 @@ const supabaseDb = {
                         name: 'Caption America',
                         email: 'harsha@lpu.in',
                         phone: '8498895666',
-                        dob: JSON.stringify({ roles: ['store_manager', 'delivery_person'] }),
+                        dob: JSON.stringify({ roles: ['store_manager', 'delivery_person'], assigned_hostel_id: 'BH-5' }),
                         role: 'admin',
                         account_status: 'ACTIVE'
                     },
@@ -2967,6 +3167,26 @@ const supabaseDb = {
         },
 
         _memoryHostelAvailability: new Map(),
+        _lockMetaFilePath: path.join(__dirname, '..', 'data', 'hostel_lock_meta.json'),
+
+        _loadLockMeta() {
+            try {
+                if (fs.existsSync(this._lockMetaFilePath)) {
+                    return JSON.parse(fs.readFileSync(this._lockMetaFilePath, 'utf8'));
+                }
+            } catch (e) {}
+            return {};
+        },
+
+        _saveLockMeta(key, data) {
+            try {
+                const current = this._loadLockMeta();
+                current[key] = { ...(current[key] || {}), ...data, updated_at: new Date().toISOString() };
+                const dir = path.dirname(this._lockMetaFilePath);
+                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                fs.writeFileSync(this._lockMetaFilePath, JSON.stringify(current, null, 2), 'utf8');
+            } catch (e) {}
+        },
 
         _normalizeHostelId(hostelId) {
             if (!hostelId || hostelId === 'ALL' || hostelId === 'store_main') return 'ALL';
@@ -3071,6 +3291,19 @@ const supabaseDb = {
                         updated_at: new Date().toISOString()
                     };
                 }
+
+                // Attach persistent attribution meta
+                try {
+                    const lockMeta = this._loadLockMeta()[key];
+                    if (lockMeta) {
+                        if (lockMeta.created_by_name && !fetchedRecord.created_by_name) {
+                            fetchedRecord.created_by_name = lockMeta.created_by_name;
+                        }
+                        if (lockMeta.opened_by_name && !fetchedRecord.opened_by_name) {
+                            fetchedRecord.opened_by_name = lockMeta.opened_by_name;
+                        }
+                    }
+                } catch (metaErr) {}
 
                 this._memoryHostelAvailability.set(key, fetchedRecord);
                 if (key === 'store_main') this._memoryAvailability = { ...this._memoryAvailability, ...fetchedRecord };
@@ -3197,19 +3430,92 @@ const supabaseDb = {
                 ];
             }
 
+            // Build real-world staff & store manager dictionary
+            let staffList = [];
+            try {
+                staffList = await supabaseDb.staff.getAllStaff();
+            } catch (e) {}
+            const staffMap = new Map();
+            (staffList || []).forEach(s => {
+                if (s && s.id) staffMap.set(s.id, s);
+            });
+            // Authoritative owner & root fallbacks
+            staffMap.set('user_admin_bh13', { id: 'user_admin_bh13', name: 'Nivas Naidu', role: 'owner', is_owner: true });
+            staffMap.set('admin_001', { id: 'admin_001', name: 'Main Admin', role: 'owner', is_owner: true });
+            staffMap.set('admin', { id: 'admin', name: 'Main Admin', role: 'owner', is_owner: true });
+
+            const resolveAdmin = (id, fallbackManager = null) => {
+                if (!id) return fallbackManager ? `${fallbackManager} (Store Manager)` : 'Main Admin (Owner)';
+                if (id === 'SYSTEM_EXPIRY' || id === 'system') return 'System (Auto-reopen)';
+                const s = staffMap.get(id);
+                if (s) {
+                    if (s.is_owner || s.role === 'owner') return `${s.name} (Main Admin)`;
+                    const roleLabel = (s.roles && s.roles.includes('store_manager')) ? 'Store Manager' : (s.role || 'Staff');
+                    return `${s.name} (${roleLabel})`;
+                }
+                return fallbackManager ? `${fallbackManager} (Store Manager)` : 'Store Manager';
+            };
+
+            const lockMetaMap = this._loadLockMeta();
             const masterLock = await this.getHostelStatusDirect('ALL');
+            const masterMeta = lockMetaMap['store_main'] || {};
+            if (masterMeta.created_by_name && !masterLock.created_by_name) masterLock.created_by_name = masterMeta.created_by_name;
+            if (masterMeta.opened_by_name && !masterLock.opened_by_name) masterLock.opened_by_name = masterMeta.opened_by_name;
+
+            const isMasterLocked = Boolean(masterLock.is_locked);
+            const masterClosedBy = masterLock.created_by_name || resolveAdmin(masterLock.created_by);
+            const masterOpenedBy = masterLock.opened_by_name || resolveAdmin(masterLock.created_by) || 'Nivas Naidu (Main Admin)';
+
+            masterLock.closed_by_name = isMasterLocked ? masterClosedBy : null;
+            masterLock.opened_by_name = !isMasterLocked ? masterOpenedBy : null;
+            masterLock.action_timestamp = masterLock.updated_at || masterLock.start_at || new Date().toISOString();
+
             const hostelLockList = await Promise.all(hostels.map(async h => {
+                const status = await this.getStatus(h.id);
                 const direct = await this.getHostelStatusDirect(h.id);
+                const hKey = this._normalizeKey(h.id);
+                const hMeta = lockMetaMap[hKey] || {};
+                if (hMeta.created_by_name && !direct.created_by_name) direct.created_by_name = hMeta.created_by_name;
+                if (hMeta.opened_by_name && !direct.opened_by_name) direct.opened_by_name = hMeta.opened_by_name;
                 const isDirectLocked = Boolean(direct.is_locked);
-                const effectiveLocked = Boolean(masterLock.is_locked || isDirectLocked);
+                const effectiveLocked = Boolean(status.is_locked);
+                const lockedByMaster = Boolean(status.locked_by_master);
+                const isOpen = !effectiveLocked;
+
+                const assignedMgr = h.manager_user_id ? staffMap.get(h.manager_user_id) : null;
+                const managerName = assignedMgr ? assignedMgr.name : (h.status === 'OFF' ? 'Unassigned (Inactive)' : 'Unassigned (Main Admin)');
+                const managerDisplay = assignedMgr ? `${assignedMgr.name} (Store Manager)` : (h.status === 'OFF' ? 'None (Inactive)' : 'Main Admin');
+
+                let closedByName = null;
+                let openedByName = null;
+
+                if (effectiveLocked) {
+                    if (isDirectLocked) {
+                        closedByName = direct.created_by_name || resolveAdmin(direct.created_by, assignedMgr?.name);
+                    } else if (lockedByMaster) {
+                        closedByName = `${masterClosedBy} (via Global Switch)`;
+                    } else {
+                        closedByName = status.created_by_name || resolveAdmin(status.created_by, assignedMgr?.name);
+                    }
+                } else {
+                    openedByName = direct.opened_by_name || (direct.created_by && direct.created_by !== 'SYSTEM_EXPIRY' ? resolveAdmin(direct.created_by, assignedMgr?.name) : (assignedMgr ? `${assignedMgr.name} (Store Manager)` : 'Main Admin'));
+                }
+
                 return {
                     hostel_id: h.id,
                     hostel_name: h.name || h.id,
                     status: h.status || 'ACTIVE',
-                    manager_name: h.manager_name || null,
+                    manager_name: managerName,
+                    manager_display: managerDisplay,
+                    manager_user_id: h.manager_user_id || null,
                     direct_lock: direct,
                     effective_locked: effectiveLocked,
-                    locked_by_master: Boolean(masterLock.is_locked && !isDirectLocked)
+                    locked_by_master: lockedByMaster,
+                    is_open: isOpen,
+                    closed_by_name: closedByName,
+                    opened_by_name: openedByName,
+                    operating_hours: '9:00 AM – 2:00 AM',
+                    action_timestamp: direct.updated_at || masterLock.updated_at || new Date().toISOString()
                 };
             }));
 
@@ -3228,7 +3534,7 @@ const supabaseDb = {
             const isMaster = key === 'store_main';
             const defaultMsg = isMaster ? 'Store is temporarily unavailable.' : `${canonicalHostel} store is temporarily closed.`;
 
-            const record = {
+            const fullRecord = {
                 id: key,
                 is_locked: true,
                 lock_type: lockData.lock_type || 'IMMEDIATE',
@@ -3236,28 +3542,52 @@ const supabaseDb = {
                 start_at: lockData.start_at || new Date().toISOString(),
                 end_at: lockData.end_at || null,
                 created_by: lockData.created_by || 'admin',
+                created_by_name: lockData.created_by_name || null,
                 updated_at: new Date().toISOString()
             };
 
-            this._memoryHostelAvailability.set(key, record);
+            // Save persistent attribution metadata
+            this._saveLockMeta(key, {
+                created_by: fullRecord.created_by,
+                created_by_name: fullRecord.created_by_name,
+                closed_at: fullRecord.updated_at
+            });
+
+            this._memoryHostelAvailability.set(key, fullRecord);
             if (isMaster) {
-                this._memoryAvailability = { ...this._memoryAvailability, ...record };
+                this._memoryAvailability = { ...this._memoryAvailability, ...fullRecord };
             }
+
+            // Only valid PostgreSQL columns for Supabase app_availability table
+            const dbRecord = {
+                id: key,
+                is_locked: fullRecord.is_locked,
+                lock_type: fullRecord.lock_type,
+                message: fullRecord.message,
+                start_at: fullRecord.start_at,
+                end_at: fullRecord.end_at,
+                created_by: fullRecord.created_by,
+                updated_at: fullRecord.updated_at
+            };
 
             let saved = false;
             try {
                 const { data, error } = await supabase
                     .from('app_availability')
-                    .upsert([record])
+                    .upsert([dbRecord])
                     .select()
                     .single();
 
                 if (!error && data) {
                     saved = true;
-                    this._memoryHostelAvailability.set(key, data);
-                    if (isMaster) this._memoryAvailability = { ...this._memoryAvailability, ...data };
+                    this._memoryHostelAvailability.set(key, { ...data, created_by_name: fullRecord.created_by_name });
+                    if (isMaster) this._memoryAvailability = { ...this._memoryAvailability, ...data, created_by_name: fullRecord.created_by_name };
+                } else if (error) {
+                    console.warn(`[app_availability upsert error for ${key}]:`, error.message);
                 }
-            } catch (err) {}
+            } catch (err) {
+                console.warn(`[app_availability upsert exception for ${key}]:`, err.message);
+            }
 
             if (!saved && isMaster) {
                 // Resilient fallback: save state to system record in users table
@@ -3266,7 +3596,7 @@ const supabaseDb = {
                         id: '__system_store_availability__',
                         name: 'System Store State',
                         email: 'system_availability@lpuquick.internal',
-                        password_hash: JSON.stringify(record),
+                        password_hash: JSON.stringify(dbRecord),
                         dob: 'System Config',
                         role: 'student'
                     }]);
@@ -3285,18 +3615,18 @@ const supabaseDb = {
             }
 
             return {
-                ...this._enrichAvailability(record),
+                ...this._enrichAvailability(fullRecord),
                 target_hostel: canonicalHostel
             };
         },
 
-        async unlock(adminId = 'admin', hostelId = 'ALL') {
+        async unlock(adminId = 'admin', hostelId = 'ALL', adminName = null) {
             const supabase = getSupabaseClient();
             const canonicalHostel = this._normalizeHostelId(hostelId);
             const key = this._normalizeKey(canonicalHostel);
             const isMaster = key === 'store_main';
 
-            const record = {
+            const fullRecord = {
                 id: key,
                 is_locked: false,
                 lock_type: 'NONE',
@@ -3304,20 +3634,42 @@ const supabaseDb = {
                 start_at: null,
                 end_at: null,
                 created_by: adminId,
+                opened_by_name: adminName || null,
                 updated_at: new Date().toISOString()
             };
 
-            this._memoryHostelAvailability.set(key, record);
+            // Save persistent attribution metadata
+            this._saveLockMeta(key, {
+                opened_by: adminId,
+                opened_by_name: fullRecord.opened_by_name,
+                opened_at: fullRecord.updated_at
+            });
+
+            this._memoryHostelAvailability.set(key, fullRecord);
             if (isMaster) {
-                this._memoryAvailability = { ...this._memoryAvailability, ...record };
+                this._memoryAvailability = { ...this._memoryAvailability, ...fullRecord };
             }
+
+            // Only valid PostgreSQL columns for Supabase app_availability table
+            const dbRecord = {
+                id: key,
+                is_locked: false,
+                lock_type: 'NONE',
+                message: null,
+                start_at: null,
+                end_at: null,
+                created_by: adminId,
+                updated_at: fullRecord.updated_at
+            };
 
             if (supabase) {
                 try {
                     await supabase
                         .from('app_availability')
-                        .upsert([record]);
-                } catch (err) {}
+                        .upsert([dbRecord]);
+                } catch (err) {
+                    console.warn(`[app_availability unlock upsert error for ${key}]:`, err.message);
+                }
 
                 if (key.startsWith('store_')) {
                     const sub = key.slice(6);
@@ -3326,7 +3678,7 @@ const supabaseDb = {
                         try {
                             await supabase
                                 .from('app_availability')
-                                .upsert([{ ...record, id: `store_${altSub}` }]);
+                                .upsert([{ ...dbRecord, id: `store_${altSub}` }]);
                         } catch (err) {}
                     }
                 }
@@ -3337,7 +3689,7 @@ const supabaseDb = {
                             id: '__system_store_availability__',
                             name: 'System Store State',
                             email: 'system_availability@lpuquick.internal',
-                            password_hash: JSON.stringify(record),
+                            password_hash: JSON.stringify(dbRecord),
                             dob: 'System Config',
                             role: 'student'
                         }]);
@@ -3354,7 +3706,7 @@ const supabaseDb = {
             }
 
             return {
-                ...this._enrichAvailability(record),
+                ...this._enrichAvailability(fullRecord),
                 target_hostel: canonicalHostel
             };
         }

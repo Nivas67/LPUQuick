@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LPUQuick - Critical Bug Fixes Diff Review</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0b0f19;
+            --bg-secondary: #131c2e;
+            --bg-tertiary: #1e293b;
+            --border: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #38bdf8;
+            --green-bg: rgba(16, 185, 129, 0.15);
+            --green-text: #34d399;
+            --green-border: rgba(16, 185, 129, 0.4);
+            --red-bg: rgba(239, 68, 68, 0.15);
+            --red-text: #f87171;
+            --red-border: rgba(239, 68, 68, 0.4);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            padding: 2.5rem 1.5rem;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1050px;
+            margin: 0 auto;
+        }
+        header {
+            margin-bottom: 2.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .badge {
+            display: inline-block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .badge-warning {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fbbf24;
+            border: 1px solid rgba(245, 158, 11, 0.4);
+        }
+        .badge-success {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+        }
+        h1 { font-size: 2rem; font-weight: 800; margin-top: 0.75rem; }
+        p.subtitle { color: var(--text-muted); font-size: 1rem; margin-top: 0.25rem; }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 2.5rem;
+        }
+        .summary-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+        }
+        .summary-card h3 {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--accent);
+        }
+        .summary-card p {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+        .diff-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+        .diff-header {
+            background: var(--bg-tertiary);
+            padding: 0.85rem 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+        }
+        .diff-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text-main);
+        }
+        .diff-body {
+            padding: 1.25rem;
+            overflow-x: auto;
+        }
+        pre {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.825rem;
+            line-height: 1.55;
+        }
+        .diff-add {
+            background: var(--green-bg);
+            color: var(--green-text);
+            display: block;
+            padding: 0.1rem 0.5rem;
+            border-left: 3px solid var(--green-text);
+            margin: 1px 0;
+        }
+        .diff-del {
+            background: var(--red-bg);
+            color: var(--red-text);
+            display: block;
+            padding: 0.1rem 0.5rem;
+            border-left: 3px solid var(--red-text);
+            margin: 1px 0;
+            text-decoration: line-through;
+        }
+        .diff-ctx {
+            color: var(--text-muted);
+            display: block;
+            padding: 0.1rem 0.5rem;
+        }
+        .diff-hunk {
+            color: #818cf8;
+            font-weight: 700;
+            display: block;
+            padding: 0.25rem 0.5rem;
+            background: rgba(129, 140, 248, 0.1);
+            margin: 0.5rem 0 0.25rem 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div style="display: flex; gap: 0.75rem; align-items: center;">
+                <span class="badge badge-warning">Local Commit: 2d77882</span>
+                <span class="badge badge-success">0 Pushed to Remote</span>
+            </div>
+            <h1>LPUQuick Code Changes Review</h1>
+            <p class="subtitle">Complete line-by-line inspection of fixes for all 6 critical issues without touching any existing UI/UX or pricing logic.</p>
+        </header>
+
+        <div class="summary-grid">
+            <div class="summary-card">
+                <h3>1. Real-Time Product Card Sync</h3>
+                <p>Card stock status now updates authoritatively via WebSockets without opening the product detail modal. Added persistent <code>.stock-badge</code> classes and dynamic slot button switching.</p>
+            </div>
+            <div class="summary-card">
+                <h3>2. Overselling & Concurrency</h3>
+                <p>Added in-process mutexes (<code>withHostelInventoryMutex</code>) to serialize checkouts per hostel and pre-reserve inventory atomically before order insertion with auto-rollback.</p>
+            </div>
+            <div class="summary-card">
+                <h3>3. Cancellation Restoration</h3>
+                <p>Unified cancellation under <code>supabaseDb.orders.cancelOrder</code> ensuring original items are accurately restored to the specific hostel dark store.</p>
+            </div>
+            <div class="summary-card">
+                <h3>4. Double-Restock Prevention</h3>
+                <p>Enforced strict idempotency with <code>withOrderCancelLock</code> and synchronous <code>markOrderRestocked</code> checks, preventing duplicate cancellations from incrementing stock twice.</p>
+            </div>
+            <div class="summary-card">
+                <h3>5. Atomic Transactions</h3>
+                <p>Grouped order status update, stock increments, and real-time event broadcasting into unified, locked execution blocks with safe rollback guarantees.</p>
+            </div>
+            <div class="summary-card">
+                <h3>6. Performance & Hangs</h3>
+                <p>Added a 3500ms fallback timeout for home products, made buy-again enrichment non-blocking, and tuned ServiceWorker timeouts to 6000ms.</p>
+            </div>
+        </div>
+
+        <!-- 1. server/db/supabaseDb.js -->
+        <div class="diff-section">
+            <div class="diff-header">
+                <span class="diff-title">server/db/supabaseDb.js — Mutexes & Atomic Reservation</span>
+                <span class="badge badge-success">Backend</span>
+            </div>
+            <div class="diff-body">
+                <pre>
+<span class="diff-hunk">@@ Mutexes for Hostel Dark-Store & Order Locks @@</span>
+<span class="diff-add">+    _hostelInventoryMutexes: new Map(),</span>
+<span class="diff-add">+    async withHostelInventoryMutex(hostelId, fn) {</span>
+<span class="diff-add">+        const key = hostelId || 'BH-13';</span>
+<span class="diff-add">+        const prev = this._hostelInventoryMutexes.get(key) || Promise.resolve();</span>
+<span class="diff-add">+        let resolveNext;</span>
+<span class="diff-add">+        const nextPromise = new Promise(res => { resolveNext = res; });</span>
+<span class="diff-add">+        this._hostelInventoryMutexes.set(key, nextPromise);</span>
+<span class="diff-add">+        try {</span>
+<span class="diff-add">+            await prev;</span>
+<span class="diff-add">+            return await fn();</span>
+<span class="diff-add">+        } finally {</span>
+<span class="diff-add">+            resolveNext();</span>
+<span class="diff-add">+            if (this._hostelInventoryMutexes.get(key) === nextPromise) {</span>
+<span class="diff-add">+                this._hostelInventoryMutexes.delete(key);</span>
+<span class="diff-add">+            }</span>
+<span class="diff-add">+        }</span>
+<span class="diff-add">+    },</span>
+<span class="diff-hunk">@@ createOrder: Atomic Pre-Reservation @@</span>
+<span class="diff-add">+            return await supabaseDb.orders.withHostelInventoryMutex(targetHostel, async () => {</span>
+<span class="diff-add">+                for (const item of itemsToReserve) {</span>
+<span class="diff-add">+                    const product = await supabaseDb.products.getById(pId, targetHostel);</span>
+<span class="diff-add">+                    if (!product || !product.in_stock || product.stock_left < qty) {</span>
+<span class="diff-add">+                        throw new Error(`"${pName}" is currently out of stock in ${targetHostel}.`);</span>
+<span class="diff-add">+                    }</span>
+<span class="diff-add">+                    const updated = await supabaseDb.products.adjustStock(pId, -qty, targetHostel);</span>
+<span class="diff-add">+                    reservedProducts.push({ pId, qty, updated });</span>
+<span class="diff-add">+                }</span>
+<span class="diff-add">+                // Inserts order. Automatically rolls back reservedProducts if error occurs.</span>
+<span class="diff-add">+            });</span>
+                </pre>
+            </div>
+        </div>
+
+        <!-- 2. client/js/app.js -->
+        <div class="diff-section">
+            <div class="diff-header">
+                <span class="diff-title">client/js/app.js & public/js/app.js — Real-Time Badge & Slot Sync</span>
+                <span class="badge badge-success">Frontend</span>
+            </div>
+            <div class="diff-body">
+                <pre>
+<span class="diff-hunk">@@ handleLiveInventoryChange @@</span>
+<span class="diff-ctx"> function handleLiveInventoryChange(data) {</span>
+<span class="diff-ctx">     const { productId, in_stock, stock_left } = data;</span>
+<span class="diff-add">+    // Authoritative in-memory cache update</span>
+<span class="diff-add">+    if (Array.isArray(window.__cachedProducts)) {</span>
+<span class="diff-add">+        const cachedP = window.__cachedProducts.find(p => String(p.id) === String(productId));</span>
+<span class="diff-add">+        if (cachedP) {</span>
+<span class="diff-add">+            cachedP.in_stock = Boolean(in_stock);</span>
+<span class="diff-add">+            if (stock_left !== undefined) cachedP.stock_left = Number(stock_left);</span>
+<span class="diff-add">+        }</span>
+<span class="diff-add">+    }</span>
+<span class="diff-add">+    // Update all .stock-badge elements on cards</span>
+<span class="diff-add">+    const badges = document.querySelectorAll(`.stock-badge[data-id="${productId}"]`);</span>
+<span class="diff-add">+    badges.forEach(b => {</span>
+<span class="diff-add">+        if (isOut) {</span>
+<span class="diff-add">+            b.className = 'stock-badge absolute top-2 left-2 z-10 bg-rose-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm block';</span>
+<span class="diff-add">+            b.style.display = 'block';</span>
+<span class="diff-add">+            b.textContent = 'Out of Stock';</span>
+<span class="diff-add">+        } else if (stock_left > 0 && stock_left <= 4) {</span>
+<span class="diff-add">+            b.className = 'stock-badge absolute top-2 left-2 z-10 bg-amber-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-0.5';</span>
+<span class="diff-add">+            b.style.display = 'flex';</span>
+<span class="diff-add">+            b.textContent = `Only ${stock_left} left`;</span>
+<span class="diff-add">+        } else {</span>
+<span class="diff-add">+            b.className = 'stock-badge hidden';</span>
+<span class="diff-add">+            b.style.display = 'none';</span>
+<span class="diff-add">+        }</span>
+<span class="diff-add">+    });</span>
+                </pre>
+            </div>
+        </div>
+
+        <!-- 3. server/routes/orders.js -->
+        <div class="diff-section">
+            <div class="diff-header">
+                <span class="diff-title">server/routes/orders.js — Idempotent Cancellation Route</span>
+                <span class="badge badge-success">Backend</span>
+            </div>
+            <div class="diff-body">
+                <pre>
+<span class="diff-hunk">@@ POST /api/orders/:orderId/cancel @@</span>
+<span class="diff-del">-        const order = await supabaseDb.orders.getOrderById(orderId);</span>
+<span class="diff-del">-        const updated = await supabaseDb.orders.updateStatus(orderId, 'Cancelled');</span>
+<span class="diff-add">+        const result = await supabaseDb.orders.cancelOrder(orderId, reason || 'User requested cancellation', 'customer');</span>
+<span class="diff-add">+        res.json({</span>
+<span class="diff-add">+            success: true,</span>
+<span class="diff-add">+            message: result.message || 'Order cancelled successfully',</span>
+<span class="diff-add">+            alreadyCancelled: result.alreadyCancelled || false,</span>
+<span class="diff-add">+            order: result.order</span>
+<span class="diff-add">+        });</span>
+                </pre>
+            </div>
+        </div>
+
+        <!-- 4. Performance: server/routes/home.js & client/js/api.js -->
+        <div class="diff-section">
+            <div class="diff-header">
+                <span class="diff-title">Performance Tuning — Timeout Fallback & Non-Blocking Fetch</span>
+                <span class="badge badge-success">Performance</span>
+            </div>
+            <div class="diff-body">
+                <pre>
+<span class="diff-hunk">@@ server/routes/home.js @@</span>
+<span class="diff-add">+        const fetchWithTimeout = Promise.race([</span>
+<span class="diff-add">+            supabaseDb.products.getAll({ hostel_id: hostelId, includeInactive: false }),</span>
+<span class="diff-add">+            new Promise((_, reject) => setTimeout(() => reject(new Error('DATABASE_FETCH_TIMEOUT')), 3500))</span>
+<span class="diff-add">+        ]);</span>
+<span class="diff-add">+        rawProducts = await fetchWithTimeout;</span>
+
+<span class="diff-hunk">@@ client/js/api.js @@</span>
+<span class="diff-del">-        return await enrichPersonalizedBuyAgain(data);</span>
+<span class="diff-add">+        // Non-blocking enrichment prevents catalog delay</span>
+<span class="diff-add">+        enrichPersonalizedBuyAgain(data).catch(() => {});</span>
+<span class="diff-add">+        return data;</span>
+                </pre>
+        <!-- 5. Critical Fix: Stock Reversion Prevention & 0 Default -->
+        <div class="diff-section">
+            <div class="diff-header">
+                <span class="diff-title">server/db/supabaseDb.js & admin/js/admin.js — Stock Reversion Prevention & 0 Default</span>
+                <span class="badge badge-success">Critical Fix</span>
+            </div>
+            <div class="diff-body">
+                <pre>
+<span class="diff-hunk">@@ server/db/supabaseDb.js: _formatProduct & getAllHostelInventories @@</span>
+<span class="diff-del">-    const match = (p.tags || '').match(/stock:(\d+)/);</span>
+<span class="diff-del">-    const stock_left = match ? parseInt(match[1], 10) : (p.stock_left !== undefined ? parseInt(p.stock_left, 10) : 0);</span>
+<span class="diff-add">+    // Stock strictly defaults to 0 for unstocked products (no legacy tag fallback)</span>
+<span class="diff-add">+    const rawStock = (p.stock_left !== undefined && p.stock_left !== null) ? parseInt(p.stock_left, 10) : 0;</span>
+<span class="diff-add">+    const stock_left = isNaN(rawStock) || rawStock < 0 ? 0 : rawStock;</span>
+<span class="diff-add">+    const in_stock = Boolean(stock_left > 0 && p.in_stock !== false);</span>
+<span class="diff-add">+</span>
+<span class="diff-add">+    // Synchronize tags and in_stock in Supabase products table on stock change</span>
+<span class="diff-add">+    // Retain _memoryHostelInventory without premature deletion</span>
+<span class="diff-add">+    // Overlay authoritative dark-store inventory on all queries (both hostel & global)</span>
+
+<span class="diff-hunk">@@ admin/js/admin.js: Stale Query Guard & Rollback @@</span>
+<span class="diff-add">+    const recentStockUpdates = new Map(); // productId -> { stock_left, in_stock, timestamp }</span>
+<span class="diff-add">+    function reconcileWithRecentStockUpdates(products) {</span>
+<span class="diff-add">+        // Guards recent stock updates from being overwritten by delayed in-flight queries within 30s</span>
+<span class="diff-add">+        ...</span>
+<span class="diff-add">+    }</span>
+<span class="diff-add">+    // Optimistic UI updates roll back to confirmed DB value if request fails (Test D)</span>
+<span class="diff-add">+    // Removed duplicate racing loadProducts(true) & loadInventory() calls immediately after updating</span>
+                </pre>
+            </div>
+        </div>
+
+        <!-- 6. Real-World Live Per-Hostel Store Lock & Open Attribution System -->
+        <div class="diff-section">
+            <div class="diff-header">
+                <span class="diff-title">Per-Hostel Live Store Status & Admin Attribution (Real-World)</span>
+                <span class="badge badge-success">Feature Complete</span>
+            </div>
+            <div class="diff-body">
+                <pre>
+<span class="diff-hunk">@@ server/db/supabaseDb.js: getAllHostelLocks() & resolveAdmin() @@</span>
+<span class="diff-add">+    // Resolves assigned Store Manager for each hostel store (Balu, Nivx, chinnu, Sathwika Reddy, Arvind, Tejas)</span>
+<span class="diff-add">+    // Resolves real admin & store manager identities for both Master Lock and individual stores</span>
+<span class="diff-add">+    // Evaluates bidirectional override (hostel explicitly opened after global lock stays OPEN)</span>
+<span class="diff-add">+    // Output attaches: is_open, manager_name, manager_display, closed_by_name, opened_by_name, operating_hours</span>
+
+<span class="diff-hunk">@@ admin/js/admin.js: renderLockHostelOverview() @@</span>
+<span class="diff-add">+    // 🔴 CLOSED Stores: Vibrant red scheme, red border (#fca5a5), pulsing red indicator dot, red badge (🔴 CLOSED / 🔒 VIA GLOBAL)</span>
+<span class="diff-add">+    // 🔴 Closed Attribution: "🔴 Closed by: [Admin/Manager Name]" (e.g., Nivas Naidu (Main Admin) (via Global Switch) or Store Manager)</span>
+<span class="diff-add">+    // 🟢 OPEN Stores: Vibrant green scheme, green border (#86efac), green indicator dot, green badge (🟢 OPEN)</span>
+<span class="diff-add">+    // 🟢 Opened Attribution: "🟢 Opened by: [Admin/Manager Name]" (e.g., Sathwika Reddy (Store Manager) or Main Admin)</span>
+<span class="diff-add">+    // 👤 Store Manager: Displayed prominently on each card ("👤 Mgr: Balu", "👤 Mgr: Sathwika Reddy", etc.)</span>
+<span class="diff-add">+    // Strict layout preservation: Exact card grid, selection state, and quick toggle buttons match user reference</span>
+                </pre>
+            </div>
+        </div>
+
+        <!-- Verification Summary Card -->
+        <div style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.07); margin-top: 24px;">
+            <h3 style="margin-top: 0; color: #1e293b;">Verified Test Results</h3>
+            <ul style="line-height: 1.8; color: #334155;">
+                <li><span style="color: #16a34a; font-weight: bold;">✔ Test A (Delayed Reversion)</span>: Changed stock to 20, then to 15, waited 10s -> page reload & query confirmed stock remained 15.</li>
+                <li><span style="color: #16a34a; font-weight: bold;">✔ Test B (Multi-Admin Sync)</span>: Background fetch with stale data (3) reconciled -> preserved admin's 15.</li>
+                <li><span style="color: #16a34a; font-weight: bold;">✔ Test C (Client Sync & 0 Default)</span>: Client queries return 15 after 10+ seconds; unstocked products strictly default to 0 stock.</li>
+                <li><span style="color: #16a34a; font-weight: bold;">✔ Test D (Database Failure & Rollback)</span>: Errors properly reported and optimistic UI rolls back to previous confirmed value.</li>
+                <li><span style="color: #16a34a; font-weight: bold;">✔ Test E (Real-World Live Store Overview)</span>: Verified all 9 hostels + Master Lock return live store manager names, red color for closed stores with "Closed by: [Admin/Manager]", green color for open stores with "Opened by: [Admin/Manager]".</li>
+            </ul>
+        </div>
+
+    </div>
+</body>
+</html>

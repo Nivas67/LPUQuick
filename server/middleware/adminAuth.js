@@ -119,7 +119,7 @@ const KNOWN_STAFF_FALLBACKS = {
         name: 'Caption America',
         email: 'harsha@lpu.in',
         phone: '8498895666',
-        dob: JSON.stringify({ roles: ['store_manager', 'delivery_person'] }),
+        dob: JSON.stringify({ roles: ['store_manager', 'delivery_person'], assigned_hostel_id: 'BH-5' }),
         role: 'admin',
         account_status: 'ACTIVE'
     },

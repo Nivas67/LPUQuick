@@ -407,10 +407,11 @@ function getStatusMessage(status, riderName, hostelId = 'BH-13') {
 }
 
 // Broadcast client lock status update to all connected storefront clients & admin sockets
-function broadcastClientLockUpdate(lockState) {
+function broadcastClientLockUpdate(lockState, allHostelLocks = null) {
     const payload = JSON.stringify({
         type: 'CLIENT_LOCK_UPDATE',
         availability: lockState,
+        all_hostel_locks: allHostelLocks,
         timestamp: new Date().toISOString()
     });
 

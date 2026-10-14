@@ -4,13 +4,13 @@
       "stock_left": 0,
       "in_stock": false,
       "deleted": false,
-      "updated_at": "2026-10-08T03:43:41.486Z"
+      "updated_at": "2026-10-14T08:42:38.406Z"
     },
     "prod_78de005c": {
       "stock_left": 0,
       "in_stock": false,
       "deleted": false,
-      "updated_at": "2026-10-08T04:16:10.567Z"
+      "updated_at": "2026-10-14T11:39:39.818Z"
     }
   },
   "BH-13": {
@@ -18,7 +18,25 @@
       "stock_left": 0,
       "in_stock": false,
       "deleted": false,
-      "updated_at": "2026-10-08T04:16:11.885Z"
+      "updated_at": "2026-10-14T08:47:19.653Z"
+    },
+    "prod_14ece3af": {
+      "stock_left": 0,
+      "in_stock": false,
+      "deleted": false,
+      "updated_at": "2026-10-14T08:15:40.102Z"
+    },
+    "prod_db41fad9": {
+      "stock_left": 0,
+      "in_stock": false,
+      "deleted": false,
+      "updated_at": "2026-10-14T08:15:35.096Z"
+    },
+    "prod_a51d3f4b": {
+      "stock_left": 0,
+      "in_stock": false,
+      "deleted": false,
+      "updated_at": "2026-10-14T16:19:32.901Z"
     }
   },
   "BH-11": {
@@ -27,6 +45,31 @@
       "in_stock": false,
       "deleted": false,
       "updated_at": "2026-10-08T04:14:42.900Z"
+    }
+  },
+  "BH-6": {},
+  "GH-6": {
+    "prod_78de005c": {
+      "stock_left": 0,
+      "in_stock": false,
+      "deleted": false,
+      "updated_at": "2026-10-14T14:37:29.873Z"
+    }
+  },
+  "BH-5": {
+    "prod_a51d3f4b": {
+      "stock_left": 20,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-10-14T16:14:25.256Z"
+    }
+  },
+  "BH-12": {
+    "prod_db41fad9": {
+      "stock_left": 0,
+      "in_stock": false,
+      "deleted": false,
+      "updated_at": "2026-10-14T16:15:29.370Z"
     }
   }
 }
