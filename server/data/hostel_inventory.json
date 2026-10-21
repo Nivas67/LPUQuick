@@ -15,9 +15,10 @@
   },
   "BH-13": {
     "prod_78de005c": {
-      "stock_left": 0,
-      "in_stock": false,
-      "updated_at": "2026-10-18T13:54:21.748Z"
+      "stock_left": 2,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-10-21T14:30:40.661Z"
     },
     "prod_14ece3af": {
       "stock_left": 0,
@@ -41,7 +42,7 @@
       "stock_left": 0,
       "in_stock": false,
       "deleted": false,
-      "updated_at": "2026-10-21T13:47:17.361Z"
+      "updated_at": "2026-10-21T13:53:51.937Z"
     }
   },
   "BH-11": {

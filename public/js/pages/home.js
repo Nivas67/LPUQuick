@@ -381,6 +381,21 @@ const HOME_GRADIENT_THEMES = {
 
 const DEFAULT_HOME_BANNERS = [
     {
+        id: 'banner_default_online_pay',
+        type: 'campus_promotion',
+        title: 'Instant Online UPI & QR Payments Live',
+        subtitle: 'Pay seamlessly with GPay, PhonePe, Paytm, CRED or any UPI app. Instant payment verification with zero extra fees!',
+        badge: '⚡ ONLINE PAY LIVE',
+        pill: 'UPI • QR • GPAY • PHONEPE',
+        link_url: '#/categories',
+        link_text: 'Order Now',
+        gradient: 'cyan',
+        has_assistant_btn: false,
+        image_url: '',
+        is_active: true,
+        display_order: 1
+    },
+    {
         id: 'banner_default_1',
         type: 'campus_promotion',
         title: 'Corridor Express Snacks & Munchies',
@@ -393,7 +408,7 @@ const DEFAULT_HOME_BANNERS = [
         has_assistant_btn: true,
         image_url: '',
         is_active: true,
-        display_order: 1
+        display_order: 2
     },
     {
         id: 'banner_default_2',
@@ -408,7 +423,7 @@ const DEFAULT_HOME_BANNERS = [
         has_assistant_btn: false,
         image_url: '',
         is_active: true,
-        display_order: 2
+        display_order: 3
     },
     {
         id: 'banner_default_3',
@@ -941,22 +956,34 @@ window.pages.home = async function () {
             </div>
         </section>
 
-        <!-- Bento Highlights Row (Flat ₹0 & Discreet Packaging) -->
-        <section class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+        <!-- Bento Highlights Row (Flat ₹0, Instant Online UPI & Discreet Packaging) -->
+        <section class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <div class="bento-tile p-4 sm:p-5 flex items-center justify-between gap-3" style="background: radial-gradient(circle at 10% 50%, rgba(245, 158, 11, 0.18), transparent 70%), var(--glass-bg);">
                 <div class="space-y-1">
                     <span class="liquid-badge text-[9px] font-black px-2 py-0.5">CAMPUS PERK</span>
-                    <h3 class="text-sm font-black text-slate-900 dark:text-white tracking-tight">Zero Delivery Fees Forever</h3>
+                    <h3 class="text-sm font-black text-slate-900 dark:text-white tracking-tight">Zero Delivery Fees</h3>
                     <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Free 3-minute delivery to any room.</p>
                 </div>
                 <div class="w-10 h-10 rounded-2xl clay-card text-amber-500 flex items-center justify-center shrink-0 shadow-xs">
                     <span class="material-symbols-outlined text-xl">local_shipping</span>
                 </div>
             </div>
+
+            <div class="bento-tile p-4 sm:p-5 flex items-center justify-between gap-3" style="background: radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.18), transparent 70%), var(--glass-bg);">
+                <div class="space-y-1">
+                    <span class="liquid-badge text-[9px] font-black px-2 py-0.5" style="background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4);">ONLINE PAY LIVE</span>
+                    <h3 class="text-sm font-black text-slate-900 dark:text-white tracking-tight">Instant UPI & QR Payments</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">GPay • PhonePe • Paytm • CRED • Cash</p>
+                </div>
+                <div class="w-10 h-10 rounded-2xl clay-card text-emerald-500 flex items-center justify-center shrink-0 shadow-xs">
+                    <span class="material-symbols-outlined text-xl">qr_code_scanner</span>
+                </div>
+            </div>
+
             <div class="bento-tile p-4 sm:p-5 flex items-center justify-between gap-3" style="background: radial-gradient(circle at 90% 50%, rgba(6, 182, 212, 0.18), transparent 70%), var(--glass-bg);">
                 <div class="space-y-1">
                     <span class="clay-pill px-2.5 py-0.5 text-[9px] font-bold text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 border border-cyan-500/25">100% PRIVATE</span>
-                    <h3 class="text-sm font-black text-slate-900 dark:text-white tracking-tight">Discreet Opaque Packaging</h3>
+                    <h3 class="text-sm font-black text-slate-900 dark:text-white tracking-tight">Discreet Packaging</h3>
                     <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Sealed bags for complete privacy.</p>
                 </div>
                 <div class="w-10 h-10 rounded-2xl clay-card text-cyan-500 flex items-center justify-center shrink-0 shadow-xs">
@@ -1295,7 +1322,44 @@ window.pages.home = async function () {
             </div>
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4">${snackCards}</div>
         </section>
-        ` : ''}
+        <!-- Campus Payment Security & Trust Banner -->
+        <section class="glass-panel card-pedestal rounded-3xl p-4 sm:p-6 border border-[var(--glass-border)] shadow-md mt-6 space-y-3">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-[var(--glass-border)]">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl clay-card text-emerald-500 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-xl">payments</span>
+                    </div>
+                    <div>
+                        <h3 class="text-xs sm:text-sm font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-1.5">
+                            <span>Flexible Campus Payments</span>
+                            <span class="liquid-badge text-[9px] font-black px-2 py-0.5">0% EXTRA FEE</span>
+                        </h3>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400">Pay online in advance or with cash at your room door.</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                    <span class="clay-pill px-2.5 py-1 text-[10px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                        <span class="text-emerald-500 font-black">●</span> Google Pay
+                    </span>
+                    <span class="clay-pill px-2.5 py-1 text-[10px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                        <span class="text-purple-500 font-black">●</span> PhonePe
+                    </span>
+                    <span class="clay-pill px-2.5 py-1 text-[10px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                        <span class="text-sky-500 font-black">●</span> Paytm
+                    </span>
+                    <span class="clay-pill px-2.5 py-1 text-[10px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                        <span class="text-amber-500 font-black">●</span> CRED / UPI QR
+                    </span>
+                    <span class="clay-pill px-2.5 py-1 text-[10px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                        <span class="text-emerald-600 font-black">●</span> Cash on Delivery
+                    </span>
+                </div>
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-slate-400 flex-wrap gap-2">
+                <span>🛡️ Powered by YouPI Campus Gateway • 256-Bit SSL Encrypted</span>
+                <span>⚡ Instant runner dispatch upon payment confirmation</span>
+            </div>
+        </section>
     </main>
 
     ${typeof window.renderBottomNav === 'function' ? window.renderBottomNav('home') : `

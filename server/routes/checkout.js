@@ -519,9 +519,19 @@ router.post('/youpi-init', async (req, res) => {
         });
 
         if (!paymentResult.success) {
-            return res.status(paymentResult.offline ? 503 : 400).json({
+            if (paymentResult.offline) {
+                return res.json({
+                    success: false,
+                    offline: true,
+                    orderId,
+                    total,
+                    pricing,
+                    upiId: process.env.DEFAULT_UPI_ID || 'lpuquick@upi',
+                    error: paymentResult.error
+                });
+            }
+            return res.status(400).json({
                 success: false,
-                offline: Boolean(paymentResult.offline),
                 error: paymentResult.error,
                 orderId,
                 total,
