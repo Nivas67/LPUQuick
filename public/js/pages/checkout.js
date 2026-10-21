@@ -360,12 +360,12 @@ window.pages.checkout = async function() {
             <div class="glass-panel card-pedestal rounded-3xl p-5 sm:p-6 shadow-xl border border-[var(--glass-border)] space-y-3.5">
                 <div class="flex items-center justify-between">
                     <h3 class="font-black text-xs sm:text-sm text-slate-900 dark:text-white tracking-tight">Payment Method</h3>
-                    <span class="liquid-badge text-[10px] text-emerald-800 dark:text-emerald-300 font-black px-2.5 py-0.5">Cash on Delivery Active</span>
+                    <span class="liquid-badge text-[10px] text-emerald-800 dark:text-emerald-300 font-black px-2.5 py-0.5" id="active-payment-badge">Cash on Delivery Active</span>
                 </div>
                 
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" id="payment-options">
                     <!-- 1. Cash on Delivery (ACTIVE) -->
-                    <label class="flex items-center gap-3 p-4 rounded-2xl border-2 border-emerald-500 bg-emerald-500/10 cursor-pointer payment-option-label relative shadow-md" data-method="cod">
+                    <label class="flex items-center gap-3 p-4 rounded-2xl border-2 border-emerald-500 bg-emerald-500/10 cursor-pointer payment-option-label relative shadow-md transition-all select-none" data-method="cod" id="option-cod">
                         <input type="radio" name="paymentMethod" value="cod" checked class="text-emerald focus:ring-emerald">
                         <div>
                             <p class="font-black text-xs text-slate-900 dark:text-white">Cash on Delivery</p>
@@ -373,20 +373,20 @@ window.pages.checkout = async function() {
                         </div>
                     </label>
 
-                    <!-- 2. UPI / GPay / QR (Soon) -->
-                    <div class="flex items-center gap-3 p-4 rounded-2xl border border-[var(--glass-border)] bg-white/40 dark:bg-slate-800/40 opacity-60 cursor-pointer payment-blocked-trigger relative" data-title="Online UPI Payments">
-                        <input type="radio" name="paymentMethod" value="upi" disabled class="text-slate-400">
+                    <!-- 2. UPI / GPay / QR (Powered by YouPI-PG) -->
+                    <label class="flex items-center gap-3 p-4 rounded-2xl border border-[var(--glass-border)] bg-white/40 dark:bg-slate-800/40 cursor-pointer payment-option-label relative shadow-md transition-all select-none hover:border-emerald-500/50" data-method="upi" id="option-upi">
+                        <input type="radio" name="paymentMethod" value="upi" class="text-emerald focus:ring-emerald">
                         <div class="min-w-0">
                             <div class="flex items-center gap-1.5">
-                                <p class="font-bold text-xs text-slate-600 dark:text-slate-400 truncate">UPI / QR</p>
-                                <span class="text-[8px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-black px-1.5 py-0.5 rounded-full">Soon</span>
+                                <p class="font-black text-xs text-slate-900 dark:text-white truncate">UPI / QR</p>
+                                <span class="text-[9px] bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-black px-2 py-0.5 rounded-full border border-emerald-500/30">YouPI</span>
                             </div>
-                            <p class="text-[10px] text-slate-400">Instant UPI</p>
+                            <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">GPay • PhonePe • Paytm • CRED</p>
                         </div>
-                    </div>
+                    </label>
 
                     <!-- 3. Cards / NetBanking (Soon) -->
-                    <div class="flex items-center gap-3 p-4 rounded-2xl border border-[var(--glass-border)] bg-white/40 dark:bg-slate-800/40 opacity-60 cursor-pointer payment-blocked-trigger relative" data-title="Card & NetBanking">
+                    <div class="flex items-center gap-3 p-4 rounded-2xl border border-[var(--glass-border)] bg-white/40 dark:bg-slate-800/40 opacity-60 cursor-pointer payment-blocked-trigger relative select-none" data-title="Card & NetBanking">
                         <input type="radio" name="paymentMethod" value="card" disabled class="text-slate-400">
                         <div class="min-w-0">
                             <div class="flex items-center gap-1.5">
@@ -582,12 +582,144 @@ window.pageInits.checkout = function() {
         trigger.onclick = () => {
             const title = trigger.dataset.title || 'Online Payment';
             if (typeof window.showClientToast === 'function') {
-                window.showClientToast(`⏳ ${title} is onboarding. Please use Cash on Delivery.`, 'info', 'account_balance_wallet');
+                window.showClientToast(`⏳ ${title} is onboarding. Please use Cash on Delivery or UPI.`, 'info', 'account_balance_wallet');
             }
         };
     });
 
+    // Payment method toggle handlers (COD vs UPI YouPI-PG)
+    const optionCod = document.getElementById('option-cod');
+    const optionUpi = document.getElementById('option-upi');
+    const badgeEl = document.getElementById('active-payment-badge');
+    const paySliderText = document.getElementById('pay-slider-text');
+    const tapToPayBtn = document.getElementById('tap-to-pay-btn');
+
+    function updatePaymentMethodUI(method) {
+        const total = window.cartTotalCache || 0;
+        if (method === 'upi') {
+            if (optionCod) {
+                optionCod.classList.remove('border-2', 'border-emerald-500', 'bg-emerald-500/10');
+                optionCod.classList.add('border', 'border-[var(--glass-border)]', 'bg-white/40', 'dark:bg-slate-800/40');
+            }
+            if (optionUpi) {
+                optionUpi.classList.remove('border', 'border-[var(--glass-border)]', 'bg-white/40', 'dark:bg-slate-800/40');
+                optionUpi.classList.add('border-2', 'border-emerald-500', 'bg-emerald-500/10');
+            }
+            if (badgeEl) badgeEl.textContent = 'UPI / QR (YouPI) Selected';
+            if (paySliderText) paySliderText.textContent = `Slide to Pay ₹${total} via UPI`;
+            if (tapToPayBtn) {
+                tapToPayBtn.innerHTML = `<span class="material-symbols-outlined text-base">qr_code_2</span> <span>⚡ Pay ₹${total} via UPI (YouPI)</span>`;
+            }
+        } else {
+            if (optionUpi) {
+                optionUpi.classList.remove('border-2', 'border-emerald-500', 'bg-emerald-500/10');
+                optionUpi.classList.add('border', 'border-[var(--glass-border)]', 'bg-white/40', 'dark:bg-slate-800/40');
+            }
+            if (optionCod) {
+                optionCod.classList.remove('border', 'border-[var(--glass-border)]', 'bg-white/40', 'dark:bg-slate-800/40');
+                optionCod.classList.add('border-2', 'border-emerald-500', 'bg-emerald-500/10');
+            }
+            if (badgeEl) badgeEl.textContent = 'Cash on Delivery Active';
+            if (paySliderText) paySliderText.textContent = `Slide to Confirm Order ₹${total}`;
+            if (tapToPayBtn) {
+                tapToPayBtn.innerHTML = `<span class="material-symbols-outlined text-base">bolt</span> <span>⚡ 1-Tap Quick Place (₹${total})</span>`;
+            }
+        }
+    }
+
+    if (optionCod) {
+        optionCod.onclick = (e) => {
+            const radio = optionCod.querySelector('input[type="radio"]');
+            if (radio) radio.checked = true;
+            updatePaymentMethodUI('cod');
+        };
+    }
+
+    if (optionUpi) {
+        optionUpi.onclick = (e) => {
+            const radio = optionUpi.querySelector('input[type="radio"]');
+            if (radio) radio.checked = true;
+            updatePaymentMethodUI('upi');
+        };
+    }
+
     let isSubmitting = false;
+
+    function resetTapBtn() {
+        const tapBtn = document.getElementById('tap-to-pay-btn');
+        if (tapBtn) {
+            tapBtn.disabled = false;
+            const total = window.cartTotalCache || 0;
+            const isUpi = document.querySelector('input[name="paymentMethod"]:checked')?.value === 'upi';
+            if (isUpi) {
+                tapBtn.innerHTML = `<span class="material-symbols-outlined text-base">qr_code_2</span> <span>⚡ Pay ₹${total} via UPI (YouPI)</span>`;
+            } else {
+                tapBtn.innerHTML = `<span class="material-symbols-outlined text-base">bolt</span> <span>⚡ 1-Tap Quick Place (₹${total})</span>`;
+            }
+        }
+    }
+
+    async function finalizeOrderPlacement(orderId, paymentMethod, paymentStatus = 'pending', utr = '', paymentId = '', savedPhone = '', savedHostel = '', fullAddress = '') {
+        const userId = window.getEffectiveUserId();
+        try {
+            const orderRes = await window.api.checkout(userId, paymentMethod, fullAddress, {
+                orderId,
+                phone: savedPhone,
+                name: window.CURRENT_USER_NAME || 'LPU Student',
+                email: window.CURRENT_USER_EMAIL || '',
+                hostel_id: savedHostel,
+                paymentStatus,
+                utr,
+                paymentId
+            });
+
+            if (orderRes && orderRes.success && orderRes.order) {
+                const order = orderRes.order;
+                if (typeof window.triggerActiveOrderPoll === 'function') {
+                    window.triggerActiveOrderPoll();
+                }
+                // Reveal order success view
+                const formSec = document.getElementById('checkout-form-section');
+                const successSec = document.getElementById('order-success-section');
+                if (formSec) formSec.classList.add('hidden');
+                if (successSec) {
+                    successSec.classList.remove('hidden');
+                    const idEl = document.getElementById('success-order-id');
+                    if (idEl) idEl.textContent = `#${order.id.replace('order_', '').toUpperCase()}`;
+                    const totalEl = document.getElementById('success-order-total');
+                    if (totalEl) totalEl.textContent = `₹${order.total}`;
+                    const payEl = document.getElementById('success-order-payment');
+                    if (payEl) {
+                        payEl.innerHTML = paymentStatus === 'PAID'
+                            ? `<span class="text-emerald-600 dark:text-emerald-400 font-black">Paid via UPI (YouPI) ${utr ? `• UTR: ${utr}` : ''}</span>`
+                            : paymentMethod;
+                    }
+                }
+                if (typeof window.showClientToast === 'function') {
+                    window.showClientToast(
+                        paymentStatus === 'PAID' ? '🎉 Payment verified! Order confirmed & dispatched.' : '🎉 Order placed successfully! Runner dispatched.',
+                        'success',
+                        'check_circle'
+                    );
+                }
+            } else {
+                throw new Error(orderRes?.error || 'Order placement failed');
+            }
+        } catch (err) {
+            console.error('[Checkout Error]:', err);
+            const errBanner = document.getElementById('checkout-error-banner');
+            const errMsg = document.getElementById('checkout-error-msg');
+            if (errBanner) {
+                errBanner.classList.remove('hidden');
+                if (errMsg) errMsg.textContent = err.message || 'Please check your connection and try again.';
+            }
+            resetTapBtn();
+            if (typeof window.__resetCheckoutSlider === 'function') {
+                window.__resetCheckoutSlider();
+            }
+            isSubmitting = false;
+        }
+    }
 
     async function executeOrderPlacement() {
         if (isSubmitting) return;
@@ -662,61 +794,112 @@ window.pageInits.checkout = function() {
         } catch (e) {}
 
         const fullAddress = `[${savedHostel}] ${savedHostel} (${savedBlock}), Room ${savedRoom}`;
-        const selectedMethod = 'Cash on Delivery';
+        const paymentRadio = document.querySelector('input[name="paymentMethod"]:checked');
+        const selectedMethodType = paymentRadio ? paymentRadio.value : 'cod';
+        const isUpiPayment = selectedMethodType === 'upi';
 
         const tapBtn = document.getElementById('tap-to-pay-btn');
         if (tapBtn) {
             tapBtn.disabled = true;
-            tapBtn.innerHTML = `<span class="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin mr-2"></span> Placing Order...`;
+            tapBtn.innerHTML = `<span class="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin mr-2"></span> ${isUpiPayment ? 'Opening YouPI Gateway...' : 'Placing Order...'}`;
         }
 
-        try {
-            const orderRes = await window.api.checkout(userId, selectedMethod, fullAddress, {
-                phone: savedPhone,
-                name: window.CURRENT_USER_NAME || 'LPU Student',
-                email: window.CURRENT_USER_EMAIL || '',
-                hostel_id: savedHostel
-            });
+        // UPI via YouPI-PG Gateway Pathway
+        if (isUpiPayment) {
+            const orderId = window.__currentCheckoutOrderId || `order_${Math.random().toString(36).slice(2, 10)}`;
+            window.__currentCheckoutOrderId = orderId;
 
-            if (orderRes && orderRes.success && orderRes.order) {
-                const order = orderRes.order;
-                if (typeof window.triggerActiveOrderPoll === 'function') {
-                    window.triggerActiveOrderPoll();
+            try {
+                const youpiRes = await window.api.initYoupiPayment({
+                    orderId,
+                    userId,
+                    hostel_id: savedHostel,
+                    deliveryAddress: fullAddress,
+                    phone: savedPhone,
+                    name: window.CURRENT_USER_NAME || 'LPU Student',
+                    email: window.CURRENT_USER_EMAIL || ''
+                });
+
+                if (!youpiRes || !youpiRes.success) {
+                    throw new Error(youpiRes?.error || 'Failed to initiate UPI payment session');
                 }
-                // Reveal order success view
-                const formSec = document.getElementById('checkout-form-section');
-                const successSec = document.getElementById('order-success-section');
-                if (formSec) formSec.classList.add('hidden');
-                if (successSec) {
-                    successSec.classList.remove('hidden');
-                    const idEl = document.getElementById('success-order-id');
-                    if (idEl) idEl.textContent = `#${order.id.replace('order_', '').toUpperCase()}`;
-                    const totalEl = document.getElementById('success-order-total');
-                    if (totalEl) totalEl.textContent = `₹${order.total}`;
+
+                const { paymentId, checkoutUrl, amount } = youpiRes;
+
+                // Launch YouPI Modal
+                if (window.Youpi && typeof window.Youpi.pay === 'function') {
+                    window.Youpi.pay({
+                        paymentId,
+                        checkoutUrl,
+                        order_id: orderId,
+                        amount: amount || window.cartTotalCache || 0,
+                        currency: 'INR',
+                        name: 'LPUQuick',
+                        description: `Campus Delivery - ${savedHostel}`,
+                        customer: {
+                            name: window.CURRENT_USER_NAME || 'LPU Student',
+                            phone: savedPhone,
+                            email: window.CURRENT_USER_EMAIL || ''
+                        },
+                        handler: async function(response) {
+                            console.log('[YouPI Payment Handler Received]:', response);
+                            const utr = response?.utr || response?.bankRef || '';
+                            await finalizeOrderPlacement(orderId, 'UPI (YouPI)', 'PAID', utr, paymentId, savedPhone, savedHostel, fullAddress);
+                        },
+                        onSuccess: async function(response) {
+                            console.log('[YouPI Payment onSuccess]:', response);
+                            const utr = response?.utr || response?.bankRef || '';
+                            await finalizeOrderPlacement(orderId, 'UPI (YouPI)', 'PAID', utr, paymentId, savedPhone, savedHostel, fullAddress);
+                        },
+                        onFailed: function(response) {
+                            console.warn('[YouPI Payment Failed]:', response);
+                            isSubmitting = false;
+                            resetTapBtn();
+                            if (typeof window.__resetCheckoutSlider === 'function') {
+                                window.__resetCheckoutSlider();
+                            }
+                            if (typeof window.showClientToast === 'function') {
+                                window.showClientToast(`❌ Payment failed: ${response?.reason || 'Could not complete UPI transaction'}`, 'error', 'error');
+                            }
+                        },
+                        onClose: function() {
+                            console.log('[YouPI Checkout Modal Dismissed]');
+                            isSubmitting = false;
+                            resetTapBtn();
+                            if (typeof window.__resetCheckoutSlider === 'function') {
+                                window.__resetCheckoutSlider();
+                            }
+                        }
+                    });
+                } else if (checkoutUrl) {
+                    // Fallback to direct checkout portal if iframe SDK unavailable
+                    window.location.href = checkoutUrl;
+                } else {
+                    throw new Error('YouPI PG SDK is initializing. Please try again in a moment.');
                 }
-                if (typeof window.showClientToast === 'function') {
-                    window.showClientToast('🎉 Order placed successfully! Runner dispatched.', 'success', 'check_circle');
+            } catch (err) {
+                console.error('[YouPI Checkout Error]:', err);
+                const errBanner = document.getElementById('checkout-error-banner');
+                const errMsg = document.getElementById('checkout-error-msg');
+                if (errBanner) {
+                    errBanner.classList.remove('hidden');
+                    if (errMsg) errMsg.textContent = err.message || 'Unable to open UPI payment. Please try Cash on Delivery.';
                 }
-            } else {
-                throw new Error(orderRes?.error || 'Order placement failed');
+                resetTapBtn();
+                if (typeof window.__resetCheckoutSlider === 'function') {
+                    window.__resetCheckoutSlider();
+                }
+                isSubmitting = false;
             }
-        } catch (err) {
-            console.error('[Checkout Error]:', err);
-            const errBanner = document.getElementById('checkout-error-banner');
-            const errMsg = document.getElementById('checkout-error-msg');
-            if (errBanner) {
-                errBanner.classList.remove('hidden');
-                if (errMsg) errMsg.textContent = err.message || 'Please check your connection and try again.';
-            }
-            if (tapBtn) {
-                tapBtn.disabled = false;
-                tapBtn.innerHTML = `<span class="material-symbols-outlined text-base">bolt</span> <span>⚡ 1-Tap Quick Place (₹${window.cartTotalCache || 0})</span>`;
-            }
-            isSubmitting = false;
+            return;
         }
+
+        // Standard Cash on Delivery Pathway
+        const orderId = window.__currentCheckoutOrderId || `order_${Math.random().toString(36).slice(2, 10)}`;
+        window.__currentCheckoutOrderId = orderId;
+        await finalizeOrderPlacement(orderId, 'Cash on Delivery', 'pending', '', '', savedPhone, savedHostel, fullAddress);
     }
 
-    const tapToPayBtn = document.getElementById('tap-to-pay-btn');
     if (tapToPayBtn) {
         tapToPayBtn.onclick = () => {
             executeOrderPlacement();
@@ -756,6 +939,20 @@ window.pageInits.checkout = function() {
                 sliderProgress.style.width = `${currentOffset + 25}px`;
             }
         }
+
+        window.__resetCheckoutSlider = function() {
+            confirmed = false;
+            setSliderPosition(0, true);
+            sliderThumb.style.cursor = 'grab';
+            const icon = sliderThumb.querySelector('.material-symbols-outlined');
+            if (icon) icon.textContent = 'arrow_forward';
+            if (sliderText) {
+                const total = window.cartTotalCache || 0;
+                const isUpi = document.querySelector('input[name="paymentMethod"]:checked')?.value === 'upi';
+                sliderText.textContent = isUpi ? `Slide to Pay ₹${total} via UPI` : `Slide to Confirm Order ₹${total}`;
+                sliderText.style.color = '';
+            }
+        };
 
         function triggerConfirmation() {
             if (confirmed || isSubmitting) return;

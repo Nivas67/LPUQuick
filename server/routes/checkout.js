@@ -5,6 +5,10 @@ const supabaseDb = require('../db/supabaseDb');
 const { broadcastOrderPlaced, broadcastInventoryUpdate } = require('../realtime');
 const cache = require('../cache');
 const checkoutSettingsService = require('../services/checkoutSettingsService');
+const youpiService = require('../services/youpiService');
+
+// In-Memory YouPI Payment Confirmations Cache for Reconciling Pre-Order Webhook Events
+const youpiPaymentConfirmations = new Map();
 
 // In-Process Concurrency Mutex for Checkout Idempotency & Duplicate Order Prevention
 const checkoutLocks = new Map();
@@ -332,6 +336,14 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
             normalizedDeliveryAddress = `[${targetHostelId}] ${normalizedDeliveryAddress}`;
         }
 
+        const isYoupiPaid = req.body.paymentStatus === 'PAID' || 
+                            req.body.payment_status === 'PAID' || 
+                            youpiPaymentConfirmations.has(orderId);
+        const confirmation = youpiPaymentConfirmations.get(orderId);
+        const resolvedPaymentStatus = isYoupiPaid ? 'PAID' : (req.body.paymentStatus || 'pending');
+        const resolvedPaymentMethod = (method.toLowerCase().includes('upi') || isYoupiPaid) ? 'UPI (YouPI)' : method;
+        const utrRef = req.body.utr || confirmation?.utr || '';
+
         const orderPayload = {
             id: orderId,
             hostel_id: targetHostelId,
@@ -345,8 +357,8 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
             platform_fee: handlingFee,
             tax: 0,
             total,
-            payment_method: method,
-            payment_status: 'pending',
+            payment_method: resolvedPaymentMethod,
+            payment_status: resolvedPaymentStatus,
             rider_name: rider,
             delivery_address: normalizedDeliveryAddress
         };
@@ -407,6 +419,9 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
             success: true,
             orderId,
             order: createdOrder,
+            paymentStatus: resolvedPaymentStatus,
+            paymentMethod: resolvedPaymentMethod,
+            utr: utrRef,
             pricing: {
                 subtotal,
                 global_discount: discountVal,
@@ -440,6 +455,175 @@ router.get('/settings', async (req, res) => {
     } catch (err) {
         console.error('[Checkout Settings Error]:', err.message);
         res.status(500).json({ success: false, error: 'Failed to load checkout settings.' });
+    }
+});
+
+// GET /api/checkout/youpi-config — Returns public YouPI gateway configuration
+router.get('/youpi-config', (req, res) => {
+    res.json({
+        success: true,
+        config: youpiService.getConfig()
+    });
+});
+
+// POST /api/checkout/youpi-init — Initiates a YouPI payment session for UPI transactions
+router.post('/youpi-init', async (req, res) => {
+    try {
+        let userId = req.body.userId || req.body.user_id;
+        const candidateHostel = req.body.hostel_id || req.body.hostel || 'BH-13';
+        const clientItems = Array.isArray(req.body.items) && req.body.items.length > 0 ? req.body.items : null;
+        const deliveryAddress = req.body.deliveryAddress || req.body.delivery_address || '';
+        const customerPhone = (req.body.customerPhone || req.body.phone || '').replace(/\D/g, '');
+        const customerName = req.body.customerName || req.body.name || 'Campus Student';
+
+        // 1. Resolve items
+        let orderItems = clientItems;
+        if (!orderItems) {
+            const cartData = await supabaseDb.cart.getCart(userId, candidateHostel);
+            orderItems = cartData.items || [];
+        }
+
+        if (!orderItems || orderItems.length === 0) {
+            return res.status(400).json({ success: false, error: 'Your cart is empty. Please add items to checkout.' });
+        }
+
+        // 2. Pricing calculation via checkoutSettingsService
+        const checkoutSettings = await checkoutSettingsService.getSettings();
+        const subtotal = orderItems.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 1)), 0);
+        const MIN_ORDER_VALUE = Number(checkoutSettings.min_cart_value) || 35;
+        if (subtotal < MIN_ORDER_VALUE) {
+            return res.status(400).json({
+                success: false,
+                error: `Minimum order value is ₹${MIN_ORDER_VALUE}. Please add ₹${MIN_ORDER_VALUE - subtotal} more to place this order.`
+            });
+        }
+
+        const pricing = checkoutSettingsService.calculateCharges(orderItems, checkoutSettings);
+        const total = pricing.total;
+        const orderId = req.body.orderId || req.body.order_id || `order_${uuidv4().slice(0, 8)}`;
+
+        // 3. Initiate payment with YouPI Gateway Service
+        const returnUrl = req.body.returnUrl || `${req.protocol}://${req.get('host')}/#/orders`;
+        const paymentResult = await youpiService.createPayment({
+            orderId,
+            amount: total,
+            customerPhone,
+            customerName,
+            customerEmail: req.body.customerEmail || req.body.email,
+            returnUrl,
+            metadata: {
+                hostel: candidateHostel,
+                deliveryAddress,
+                itemsCount: orderItems.length
+            }
+        });
+
+        if (!paymentResult.success) {
+            return res.status(paymentResult.offline ? 503 : 400).json({
+                success: false,
+                offline: Boolean(paymentResult.offline),
+                error: paymentResult.error,
+                orderId,
+                total,
+                pricing
+            });
+        }
+
+        res.json({
+            success: true,
+            orderId,
+            paymentId: paymentResult.paymentId,
+            checkoutUrl: paymentResult.checkoutUrl,
+            amount: paymentResult.amount,
+            status: paymentResult.status,
+            total,
+            pricing
+        });
+    } catch (err) {
+        console.error('[YouPI Init Error]:', err.message);
+        res.status(500).json({ success: false, error: err.message || 'Failed to initiate YouPI payment session' });
+    }
+});
+
+// POST /api/checkout/youpi-webhook — Authoritative server-to-server webhook from YouPI-PG
+router.post('/youpi-webhook', async (req, res) => {
+    try {
+        const signature = req.headers['x-gateway-signature'] || '';
+        const rawBody = req.rawBody || JSON.stringify(req.body);
+
+        // Verify cryptographic HMAC-SHA256 signature
+        const isValid = youpiService.verifyWebhookSignature(rawBody, signature);
+        if (!isValid) {
+            console.warn('[YouPI Webhook Reject]: Invalid signature received:', signature);
+            return res.status(401).json({ error: 'Invalid webhook signature', code: 'INVALID_SIGNATURE' });
+        }
+
+        const payload = typeof req.body === 'object' && req.body !== null ? req.body : JSON.parse(rawBody.toString('utf8'));
+        const event = payload.event || req.headers['x-gateway-event'] || 'SUCCESS';
+        const orderId = payload.orderId;
+        const utr = payload.utr || payload.bankRef || payload.reference || '';
+        const amount = payload.amount || (payload.amountPaise ? (payload.amountPaise / 100).toFixed(2) : '');
+        const paymentId = payload.paymentId || '';
+
+        console.log(`[YouPI Webhook]: Event ${event} received for order ${orderId}, UTR: ${utr}, Amount: ₹${amount}`);
+
+        if (event === 'SUCCESS' && orderId) {
+            // Cache payment confirmation
+            youpiPaymentConfirmations.set(orderId, {
+                status: 'PAID',
+                utr,
+                paymentId,
+                amount,
+                timestamp: Date.now()
+            });
+
+            // If order already created in DB, update status to PAID
+            try {
+                const existingOrder = await supabaseDb.orders.getOrderById(orderId);
+                if (existingOrder) {
+                    await supabaseDb.orders.updateStatus(orderId, existingOrder.status, {
+                        payment_status: 'PAID',
+                        payment_method: 'UPI (YouPI)'
+                    });
+                    cache.invalidateOrders();
+
+                    // Real-time notification to client & admin dashboards
+                    try {
+                        const { broadcastOrderPlaced } = require('../realtime');
+                        broadcastOrderPlaced({
+                            ...existingOrder,
+                            payment_status: 'PAID',
+                            payment_method: 'UPI (YouPI)',
+                            utr
+                        });
+                    } catch (e) {}
+                }
+            } catch (dbErr) {
+                console.warn('[YouPI Webhook DB Update Note]:', dbErr.message);
+            }
+        }
+
+        res.status(200).json({ received: true, event, orderId, utr });
+    } catch (err) {
+        console.error('[YouPI Webhook Error]:', err.message);
+        res.status(500).json({ error: 'Internal webhook error' });
+    }
+});
+
+// GET /api/checkout/youpi-verify/:paymentId — Query payment status directly from YouPI gateway
+router.get('/youpi-verify/:paymentId', async (req, res) => {
+    try {
+        const paymentId = req.params.paymentId;
+        const result = await youpiService.getPayment(paymentId);
+        if (!result.success) {
+            return res.status(result.offline ? 503 : 400).json(result);
+        }
+        res.json({
+            success: true,
+            payment: result.payment
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 
