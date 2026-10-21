@@ -130,7 +130,7 @@ router.get('/:id', async (req, res) => {
         const authHeader = req.headers['x-admin-token'] || req.headers.authorization || '';
         const isOwner = isPlatformOwnerToken(authHeader);
         const isAdmin = isAdminToken(authHeader);
-        const forceFresh = req.query.force === 'true' || isAdmin;
+        const forceFresh = req.query.force === 'true' || Boolean(req.query._t) || isAdmin;
 
         const cacheKey = `products:detail:${id}:${cleanHostel || 'all'}`;
         if (forceFresh) {
@@ -155,7 +155,7 @@ router.get('/:id', async (req, res) => {
                 storage: 'Store in a cool, dry place away from direct sunlight.',
                 delivery_eta: `3 mins to ${cleanHostel || 'Campus'} (LPU Hostels)`
             };
-        }, forceFresh ? 0 : 300000);
+        }, forceFresh ? 0 : 2000);
 
         if (!details) {
             return res.status(404).json({ error: 'Product not found' });
@@ -163,15 +163,17 @@ router.get('/:id', async (req, res) => {
 
         // Security: Only Platform Owner can view cost to estimate profits.
         // Store Managers, delivery partners, and public storefront customers MUST NOT see admin cost
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+
         if (!isOwner) {
-            res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=120, stale-while-revalidate=300');
             const sanitized = { ...details };
             delete sanitized.cost_price;
             delete sanitized.cost;
             return res.json(sanitized);
         }
 
-        res.setHeader('Cache-Control', 'private, no-cache, no-store');
         res.json(details);
     } catch (err) {
         console.error('[Product Fetch Error]:', err.message);

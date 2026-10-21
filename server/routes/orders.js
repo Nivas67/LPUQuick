@@ -367,7 +367,7 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
             hostelId = req.admin.assigned_hostel_id;
         }
 
-        const forceFresh = req.query.force === 'true';
+        const forceFresh = req.query.force === 'true' || Boolean(req.query._t);
         const cacheKey = `orders:admin:all:${hostelId || 'all'}`;
         if (forceFresh) {
             cache.delete(cacheKey);
@@ -465,7 +465,7 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
             }
 
             return { orders: enriched };
-        }, forceFresh ? 0 : 30000); // 30-second coalesced micro-cache (atomically invalidated on order updates, claims, transfers, and checkouts)
+        }, forceFresh ? 0 : 2000); // 2-second coalesced micro-cache (prevents duplicate bursts without serving stale data)
 
         let resultOrders = payload?.orders || [];
         if (hostelId && hostelId !== 'all' && (!resultOrders || resultOrders.length === 0) && Array.isArray(fallbackOrdersCache)) {
@@ -754,14 +754,21 @@ router.post('/admin/status', requireAdmin, async (req, res) => {
         if (paymentMethod) updateOptions.payment_method = paymentMethod;
         if (paymentStatus) updateOptions.payment_status = paymentStatus;
 
-        const updated = await withTimeout(
-            supabaseDb.orders.updateStatus(orderId, status, updateOptions),
-            8000,
-            { id: orderId, status, ...updateOptions }
-        );
+        const updated = await supabaseDb.orders.updateStatus(orderId, status, updateOptions);
         if (updated && updated.rider_name) {
             riderName = typeof updated.rider_name === 'string' && updated.rider_name.startsWith('{') ? (JSON.parse(updated.rider_name).name || riderName) : updated.rider_name;
         }
+
+        // Keep local in-memory fallback cache in sync with confirmed database write
+        if (Array.isArray(fallbackOrdersCache)) {
+            const o = fallbackOrdersCache.find(x => x.id === orderId || x.id === orderId.replace('order_', '') || x.id === `order_${orderId}`);
+            if (o) {
+                o.status = status;
+                if (paymentMethod) o.payment_method = paymentMethod;
+                if (paymentStatus) o.payment_status = paymentStatus;
+            }
+        }
+
         cache.invalidateOrders();
         broadcastStatusUpdate(orderId, status, riderName, {
             payment_method: paymentMethod || updated?.payment_method,
@@ -775,11 +782,7 @@ router.post('/admin/status', requireAdmin, async (req, res) => {
                 await supabaseDb.orders.restockOrderItems(orderId);
             } catch (e) {}
         }
-        broadcastStatusUpdate(orderId, status, riderName, {
-            payment_method: paymentMethod,
-            payment_status: paymentStatus
-        });
-        res.json({ success: true, order: { id: orderId, status, payment_method: paymentMethod, payment_status: paymentStatus }, note: 'Updated in active cache.' });
+        res.status(500).json({ success: false, error: err.message || 'Failed to update order status in database.' });
     }
 });
 

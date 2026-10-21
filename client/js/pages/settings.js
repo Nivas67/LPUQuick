@@ -244,6 +244,7 @@ window.pages.settings = async function () {
         // </a>
     </main>
 
+    ${typeof window.renderBottomNav === 'function' ? window.renderBottomNav('profile') : `
     <!-- Floating Liquid Glass Bottom Navigation Dock -->
     <div class="fixed bottom-3 inset-x-0 z-40 px-4 sm:hidden pointer-events-none flex justify-center">
         <nav class="pointer-events-auto liquid-dock-pill h-14 max-w-md w-full px-3 flex justify-around items-center rounded-full shadow-2xl">
@@ -266,8 +267,12 @@ window.pages.settings = async function () {
                 <span class="material-symbols-outlined text-xl">receipt_long</span>
                 <span class="text-[10px] font-semibold mt-0.5">Orders</span>
             </a>
+            <a class="clay-pill flex flex-col items-center justify-center text-emerald dark:text-emerald-400 px-3.5 py-1 cursor-pointer font-bold" href="#/settings" title="Profile">
+                <span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">account_circle</span>
+                <span class="text-[10px] mt-0.5 font-bold">Profile</span>
+            </a>
         </nav>
-    </div>
+    </div>`}
 </div>`;
 };
 

@@ -313,12 +313,6 @@ window.applyOrderStatusUI = function(newStatus, riderName, targetOrderId, riderP
                                         <span class="material-symbols-outlined text-sm">repeat</span>
                                         <span>Reorder</span>
                                     </button>
-                                    ${isClientOwner ? `
-                                    <button type="button" onclick="window.promptDeleteOrder('${o.id}')" class="clay-pill px-2.5 py-2 text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-all flex items-center gap-1 cursor-pointer active:scale-95" title="Delete Order (Owner Only)">
-                                        <span class="material-symbols-outlined text-xs">delete</span>
-                                        <span>Delete</span>
-                                    </button>
-                                    ` : ''}
                                 </div>
                             </div>`;
                         }).join('');
@@ -368,6 +362,7 @@ window.pages.orders = async function() {
         </div>
     </main>
 
+    ${typeof window.renderBottomNav === 'function' ? window.renderBottomNav('orders') : `
     <!-- Floating Liquid Glass Bottom Navigation Dock -->
     <div class="fixed bottom-3 inset-x-0 z-40 px-4 sm:hidden pointer-events-none flex justify-center">
         <nav class="pointer-events-auto liquid-dock-pill h-14 max-w-md w-full px-3 flex justify-around items-center rounded-full shadow-2xl">
@@ -390,8 +385,12 @@ window.pages.orders = async function() {
                 <span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">receipt_long</span>
                 <span class="text-[10px] mt-0.5 font-bold">Orders</span>
             </a>
+            <a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer" href="#/settings" title="Profile">
+                <span class="material-symbols-outlined text-xl">account_circle</span>
+                <span class="text-[10px] font-semibold mt-0.5">Profile</span>
+            </a>
         </nav>
-    </div>
+    </div>`}
 </div>`;
     }
 
@@ -468,12 +467,6 @@ window.pages.orders = async function() {
                         <span class="material-symbols-outlined text-xs">replay</span>
                         <span>Reorder</span>
                     </button>
-                    ${isClientOwner ? `
-                    <button type="button" onclick="window.promptDeleteOrder('${o.id}')" class="clay-pill px-2.5 py-2 text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-all flex items-center gap-1 cursor-pointer active:scale-95" title="Delete Order (Owner Only)">
-                        <span class="material-symbols-outlined text-xs">delete</span>
-                        <span>Delete</span>
-                    </button>
-                    ` : ''}
                 </div>
             </div>
         </div>
@@ -535,12 +528,6 @@ window.pages.orders = async function() {
                         </button>
                         `}
                     </div>
-                    ${isClientOwner ? `
-                    <button type="button" id="btn-delete-active-order" onclick="window.promptDeleteOrder('${activeOrder.id}')" class="clay-pill px-2.5 sm:px-3 py-1 flex items-center gap-1 text-xs font-black text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-all cursor-pointer active:scale-95 shadow-xs" title="Delete Order Permanently (Owner Only)">
-                        <span class="material-symbols-outlined text-xs text-rose-500">delete</span>
-                        <span>Delete</span>
-                    </button>
-                    ` : ''}
                     <button type="button" id="btn-order-help" onclick="window.openOrderHelpModal()" class="clay-pill text-xs text-slate-700 dark:text-slate-200 font-bold px-3 py-1 flex items-center gap-1.5 active:scale-95 transition-transform cursor-pointer" title="Order Help">
                         <span class="material-symbols-outlined text-sm text-emerald">support_agent</span>
                         <span>Help</span>
@@ -690,6 +677,7 @@ window.pages.orders = async function() {
         </section>
     </main>
 
+    ${typeof window.renderBottomNav === 'function' ? window.renderBottomNav('orders') : `
     <!-- Floating Liquid Glass Bottom Navigation Dock -->
     <div class="fixed bottom-3 inset-x-0 z-40 px-4 sm:hidden pointer-events-none flex justify-center">
         <nav class="pointer-events-auto liquid-dock-pill h-14 max-w-md w-full px-3 flex justify-around items-center rounded-full shadow-2xl">
@@ -712,8 +700,12 @@ window.pages.orders = async function() {
                 <span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">receipt_long</span>
                 <span class="text-[10px] mt-0.5 font-bold">Orders</span>
             </a>
+            <a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer" href="#/settings" title="Profile">
+                <span class="material-symbols-outlined text-xl">account_circle</span>
+                <span class="text-[10px] font-semibold mt-0.5">Profile</span>
+            </a>
         </nav>
-    </div>
+    </div>`}
 </div>`;
 };
 
@@ -937,47 +929,8 @@ window.executeCancelActiveOrder = async function(orderId) {
     }
 };
 
-// Owner-Only Permanent Order Deletion
-window.promptDeleteOrder = async function(orderId) {
-    if (!orderId) orderId = window.CURRENT_ACTIVE_ORDER_ID;
-    if (!orderId) return;
-
-    if (!isClientPlatformOwner()) {
-        alert('Permission denied. Only the platform owner can delete orders.');
-        return;
-    }
-
-    const shortId = String(orderId).replace('order_', '').slice(0, 8).toUpperCase();
-    if (!confirm(`⚠️ PERMANENT DELETE:\n\nAre you sure you want to permanently delete Order #${shortId} from the database?\n\nThis will completely remove the order and its items and cannot be undone.`)) {
-        return;
-    }
-
-    try {
-        if (typeof window.api?.deleteOrder === 'function') {
-            const res = await window.api.deleteOrder(orderId);
-            if (res && res.success) {
-                if (typeof window.showClientToast === 'function') {
-                    window.showClientToast(`Order #${shortId} was permanently deleted`, 'info', 'delete');
-                } else {
-                    alert(`Order #${shortId} was permanently deleted`);
-                }
-                if (typeof window.api?.clearOrdersCache === 'function') {
-                    window.api.clearOrdersCache();
-                }
-                if (window.CURRENT_ACTIVE_ORDER_ID === orderId) {
-                    window.CURRENT_ACTIVE_ORDER_ID = null;
-                }
-                setTimeout(() => {
-                    if (typeof window.renderPage === 'function' && window.location.hash.includes('orders')) {
-                        window.renderPage();
-                    }
-                }, 300);
-            } else {
-                alert('Failed to delete order: ' + (res?.error || 'Unknown error'));
-            }
-        }
-    } catch (err) {
-        alert('Delete failed: ' + err.message);
-    }
+// Order deletion is strictly restricted to the Admin Console only
+window.promptDeleteOrder = function() {
+    console.warn('[Security] Order deletion is strictly restricted to the Admin Console.');
 };
 

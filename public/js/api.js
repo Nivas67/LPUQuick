@@ -997,3 +997,48 @@ const api = {
 
 window.cartState = window.cartState || {};
 window.api = api;
+
+/**
+ * Shared Mobile Bottom Navigation Dock Component
+ * Consistent 5-item navigation dock across Home, Categories, Cart, Orders, and Profile (Settings).
+ * @param {string} activeTab - 'home' | 'categories' | 'cart' | 'orders' | 'profile' | 'settings'
+ * @returns {string} HTML markup for the floating liquid glass navigation dock
+ */
+window.renderBottomNav = function (activeTab = 'home') {
+    const norm = String(activeTab || '').toLowerCase().trim();
+    const isHome = norm === 'home' || norm === '/' || norm === '';
+    const isCategories = norm === 'categories' || norm === 'category';
+    const isCart = norm === 'cart';
+    const isOrders = norm === 'orders' || norm === 'order';
+    const isProfile = norm === 'profile' || norm === 'settings';
+
+    return `
+    <!-- Floating Liquid Glass Bottom Navigation Dock -->
+    <div class="fixed bottom-3 inset-x-0 z-40 px-4 sm:hidden pointer-events-none flex justify-center">
+        <nav class="pointer-events-auto liquid-dock-pill h-14 max-w-md w-full px-3 flex justify-around items-center rounded-full shadow-2xl">
+            <a class="${isHome ? 'clay-pill flex flex-col items-center justify-center text-emerald dark:text-emerald-400 px-3.5 py-1 cursor-pointer font-bold' : 'flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer'}" href="#/" title="Home">
+                <span class="material-symbols-outlined text-xl"${isHome ? ' style="font-variation-settings: \'FILL\' 1;"' : ''}>home</span>
+                <span class="text-[10px] ${isHome ? 'mt-0.5 font-bold' : 'font-semibold mt-0.5'}">Home</span>
+            </a>
+            <a class="${isCategories ? 'clay-pill flex flex-col items-center justify-center text-emerald dark:text-emerald-400 px-3.5 py-1 cursor-pointer font-bold' : 'flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer'}" href="#/categories" title="Categories">
+                <span class="material-symbols-outlined text-xl"${isCategories ? ' style="font-variation-settings: \'FILL\' 1;"' : ''}>category</span>
+                <span class="text-[10px] ${isCategories ? 'mt-0.5 font-bold' : 'font-semibold mt-0.5'}">Categories</span>
+            </a>
+            <a class="${isCart ? 'clay-pill flex flex-col items-center justify-center text-emerald dark:text-emerald-400 px-3.5 py-1 cursor-pointer font-bold relative' : 'flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer relative'}" href="#/cart" title="Cart" id="bottom-nav-cart-btn">
+                <div class="relative flex items-center justify-center">
+                    <span class="material-symbols-outlined text-xl"${isCart ? ' style="font-variation-settings: \'FILL\' 1;"' : ''}>shopping_cart</span>
+                    <span id="bottom-nav-cart-count" class="global-cart-count-badge absolute -top-1.5 -right-2.5 bg-emerald text-white text-[9px] font-black min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center shadow-xs ring-2 ring-white dark:ring-slate-900 hidden">0</span>
+                </div>
+                <span class="text-[10px] ${isCart ? 'mt-0.5 font-bold' : 'font-semibold mt-0.5'}">Cart</span>
+            </a>
+            <a class="${isOrders ? 'clay-pill flex flex-col items-center justify-center text-emerald dark:text-emerald-400 px-3.5 py-1 cursor-pointer font-bold' : 'flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer'}" href="#/orders" title="Orders">
+                <span class="material-symbols-outlined text-xl"${isOrders ? ' style="font-variation-settings: \'FILL\' 1;"' : ''}>receipt_long</span>
+                <span class="text-[10px] ${isOrders ? 'mt-0.5 font-bold' : 'font-semibold mt-0.5'}">Orders</span>
+            </a>
+            <a class="${isProfile ? 'clay-pill flex flex-col items-center justify-center text-emerald dark:text-emerald-400 px-3.5 py-1 cursor-pointer font-bold' : 'flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer'}" href="#/settings" title="Profile">
+                <span class="material-symbols-outlined text-xl"${isProfile ? ' style="font-variation-settings: \'FILL\' 1;"' : ''}>account_circle</span>
+                <span class="text-[10px] ${isProfile ? 'mt-0.5 font-bold' : 'font-semibold mt-0.5'}">Profile</span>
+            </a>
+        </nav>
+    </div>`;
+};

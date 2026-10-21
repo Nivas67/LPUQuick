@@ -2,115 +2,135 @@
 window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
+function resolveProductRailCategory(p) {
+    const sub = (p.subcategory || '').trim().toLowerCase();
+    const name = (p.name || '').toLowerCase();
+    const cat = (p.category || '').toLowerCase();
+
+    // 1. Primary Priority: Ground Truth Subcategory assigned by Admin or Catalog
+    if (sub) {
+        if (sub.includes('biscuit') || sub.includes('cookie') || sub.includes('cake') || sub.includes('choco pie') || sub.includes('bakery') || sub.includes('rusk')) {
+            return 'biscuits';
+        }
+        if (sub.includes('chip') || sub.includes('wafer') || sub.includes('crisp') || sub.includes('nacho')) {
+            return 'chips';
+        }
+        if (sub.includes('chocolate') || sub.includes('cand') || sub.includes('toffee')) {
+            return 'chocolates';
+        }
+        if (sub.includes('noodle') || sub.includes('instant') || sub.includes('pasta') || sub.includes('maggi') || sub.includes('soup')) {
+            return 'noodles';
+        }
+        if (sub.includes('namkeen') || sub.includes('bhujia') || sub.includes('bhelpuri') || sub.includes('sev') || sub.includes('mixture')) {
+            return 'namkeen';
+        }
+        if (sub.includes('popcorn') || sub.includes('snack') || sub.includes('munch')) {
+            return 'snacks';
+        }
+        if (sub.includes('sweet') || sub.includes('dessert') || sub.includes('mithai') || sub.includes('jamun') || sub.includes('halwa')) {
+            return 'sweets';
+        }
+        if (sub.includes('drink') || sub.includes('juice') || sub.includes('beverage') || sub.includes('soda') || sub.includes('cola')) {
+            return 'drinks';
+        }
+        if (sub.includes('spread') || sub.includes('sauce') || sub.includes('ketchup') || sub.includes('dip')) {
+            return 'spreads';
+        }
+        if (sub.includes('beauty') || sub.includes('care') || sub.includes('soap') || sub.includes('shampoo')) {
+            return 'beauty';
+        }
+    }
+
+    // 2. Secondary: If DB category field explicitly matches a rail category
+    if (cat === 'biscuits' || cat === 'cookies' || cat === 'bakery') return 'biscuits';
+    if (cat === 'chips' || cat === 'crisps') return 'chips';
+    if (cat === 'chocolates' || cat === 'chocolate' || cat === 'candies') return 'chocolates';
+    if (cat === 'noodles' || cat === 'instant food' || cat === 'instant') return 'noodles';
+    if (cat === 'namkeen') return 'namkeen';
+    if (cat === 'snacks' || cat === 'munchies' || cat === 'popcorn') return 'snacks';
+    if (cat === 'sweets') return 'sweets';
+    if (cat === 'drinks' || cat === 'beverages' || cat === 'juices') return 'drinks';
+
+    // 3. Fallback: Keyword analysis for legacy items without a subcategory
+    if (/popcorn/i.test(name)) return 'snacks';
+    if (/bhelpuri|namkeen|bhujia|sev|snac lite/i.test(name)) return 'namkeen';
+    if (/gobbles|cake|choco pie|bread/i.test(name)) return 'biscuits';
+    if (/noodle|pasta|passta|pazzta|maggi|cup noodles|soup|macroni|penne|chowmein/i.test(name)) return 'noodles';
+    if (/biscuit|cookie|cookies|wafer|bourbon|bikis|mom's magic|jimjam|hide & seek|hide and seek|milk shakti|treat rich creme|oreo|milano|fab bourbon|dark fantasy/i.test(name)) return 'biscuits';
+    if (/chips|mad angles|doritos|lay's|lays|uncle chips|bingo/i.test(name)) return 'chips';
+    if (/crax|tedhe medhe|kurkure|curls|cheese balls/i.test(name)) return 'chips';
+    if (/cadbury|dairy milk|silk|snickers|yoga bar|chocolate|kitkat|perk|dairymilk/i.test(name)) return 'chocolates';
+    if (/\b(nestle\s+munch|munch\s+chocolate)\b/i.test(name)) return 'chocolates';
+    if (/sweet|dessert|mithai|gulab|rasgulla/i.test(name)) return 'sweets';
+    if (/\b(drink|drinks|coke|pepsi|sprite|thums up|fanta|sting|red bull|monster|water|soda|redbull|beverage|cola|dew)\b/i.test(name)) return 'drinks';
+    if (/\b(juice|juices|frooti|maaza|real|tropicana|appy|fizz)\b/i.test(name)) return 'drinks';
+
+    return 'snacks';
+}
+
 const RAIL_CATEGORIES = [
     {
         id: 'biscuits',
         name: 'Cookies',
         headerTitle: 'Bakery & Biscuits',
         status: 'live',
-        image: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=120',
-        match: (p) => {
-            const name = (p.name || '').toLowerCase();
-            const sub = (p.subcategory || '').toLowerCase();
-            return sub.includes('biscuit') || sub.includes('cake') || sub.includes('choco pie') || 
-                   name.includes('biscuit') || name.includes('cookie') || name.includes('oreo') || 
-                   name.includes('bourbon') || name.includes('treat') || name.includes('good day') || 
-                   name.includes('hide & seek') || name.includes('parle') || name.includes('unibic') ||
-                   name.includes('marie') || name.includes('rusk') || name.includes('creme');
-        }
+        image: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/PARLE_Hide___Seek_100g_1788533824184.jpg',
+        match: (p) => resolveProductRailCategory(p) === 'biscuits'
     },
     {
         id: 'chips',
         name: 'Chips & Crisps',
         headerTitle: 'Chips & Crisps',
         status: 'live',
-        image: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=120',
-        match: (p) => {
-            const name = (p.name || '').toLowerCase();
-            const sub = (p.subcategory || '').toLowerCase();
-            return sub.includes('chips') || name.includes('chip') || name.includes('lays') || 
-                   name.includes("lay's") || name.includes('doritos') || name.includes('crax') || 
-                   name.includes('bingo') || name.includes('kurkure') || name.includes('nachos') || 
-                   name.includes('tedhe medhe') || name.includes('crisp');
-        }
+        image: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/LAY_S_India_s_magic_masala_1788531425513.jpg',
+        match: (p) => resolveProductRailCategory(p) === 'chips'
     },
     {
         id: 'chocolates',
         name: 'Chocolates',
         headerTitle: 'Chocolates & Candies',
         status: 'live',
-        image: 'https://images.unsplash.com/photo-1549007994-cb92caebd54b?w=120',
-        match: (p) => {
-            const name = (p.name || '').toLowerCase();
-            const sub = (p.subcategory || '').toLowerCase();
-            return sub.includes('chocolate') || name.includes('chocolate') || name.includes('cadbury') || 
-                   name.includes('silk') || name.includes('kitkat') || name.includes('perk') || 
-                   name.includes('munch') || name.includes('dark fantasy') || name.includes('snickers') ||
-                   name.includes('dairymilk') || name.includes('dairy milk');
-        }
+        image: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_e581ce64_1788463600537.jpg',
+        match: (p) => resolveProductRailCategory(p) === 'chocolates'
     },
     {
         id: 'noodles',
         name: 'Instant Food',
         headerTitle: 'Instant Food & Noodles',
         status: 'live',
-        image: 'https://images.unsplash.com/photo-1612927601601-6638404737ce?w=120',
-        match: (p) => {
-            const name = (p.name || '').toLowerCase();
-            const sub = (p.subcategory || '').toLowerCase();
-            return sub.includes('noodle') || name.includes('noodle') || name.includes('maggi') || 
-                   name.includes('cup') || name.includes('pasta') || name.includes('yippee') || 
-                   name.includes('manchow') || name.includes('soup') || name.includes('chowmein');
-        }
+        image: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/Maggie_Double_Masala_2-Minute_noodles_95g_1788872878836.jpg',
+        match: (p) => resolveProductRailCategory(p) === 'noodles'
     },
     {
         id: 'namkeen',
         name: 'Namkeen',
         headerTitle: 'Namkeen & Bhujia',
         status: 'live',
-        image: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=120',
-        match: (p) => {
-            const name = (p.name || '').toLowerCase();
-            const sub = (p.subcategory || '').toLowerCase();
-            return sub.includes('namkeen') || name.includes('namkeen') || name.includes('bhujia') || 
-                   name.includes('bhelpuri') || name.includes('sev') || name.includes('haldiram') || 
-                   name.includes('bikaji') || name.includes('peanut') || name.includes('mixture') ||
-                   name.includes('all in one') || name.includes('snac lite');
-        }
+        image: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/Bikaji_Chowpati_Bhelpuri_1788533073973.jpg',
+        match: (p) => resolveProductRailCategory(p) === 'namkeen'
     },
     {
         id: 'snacks',
         name: 'Munchies',
         headerTitle: 'Snacks & Munchies',
         status: 'live',
-        image: 'https://images.unsplash.com/photo-1578849278619-e73505e9610f?w=120',
-        match: (p) => {
-            const name = (p.name || '').toLowerCase();
-            const sub = (p.subcategory || '').toLowerCase();
-            return sub.includes('snack') || sub.includes('popcorn') || name.includes('popcorn') || 
-                   name.includes('act ii') || name.includes('snac') || name.includes('munchies');
-        }
+        image: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_78de005c_1788463606110.jpg',
+        match: (p) => resolveProductRailCategory(p) === 'snacks'
     },
     {
         id: 'sweets',
         name: 'Sweets',
         headerTitle: 'Indian Sweets',
         status: 'live',
-        image: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=120',
-        match: (p) => {
-            const name = (p.name || '').toLowerCase();
-            const sub = (p.subcategory || '').toLowerCase();
-            return sub.includes('sweet') || name.includes('sweet') || name.includes('gulab jamun') || 
-                   name.includes('rasgulla') || name.includes('soan papdi') || name.includes('barfi') || 
-                   name.includes('ladoo') || name.includes('haldiram');
-        }
+        image: 'https://images.unsplash.com/photo-1666190092159-3171cf0fbb12?w=160&auto=format&fit=crop&q=80',
+        match: (p) => resolveProductRailCategory(p) === 'sweets'
     },
     {
         id: 'all',
         name: 'All Snacks',
         headerTitle: 'All Snacks & Munchies',
         status: 'live',
-        image: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=120',
+        image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=160&auto=format&fit=crop&q=80',
         match: () => true
     },
     // Upper Categories placed in Left Rail & blocked as Coming Soon
@@ -329,6 +349,7 @@ window.pages.categories = async function() {
         <span id="coming-soon-toast-text">Category opening soon! Delivering Snacks & Biscuits right now.</span>
     </div>
 
+    ${typeof window.renderBottomNav === 'function' ? window.renderBottomNav('categories') : `
     <!-- Floating Liquid Glass Bottom Navigation Dock -->
     <div class="fixed bottom-3 inset-x-0 z-40 px-4 sm:hidden pointer-events-none flex justify-center">
         <nav class="pointer-events-auto liquid-dock-pill h-14 max-w-md w-full px-3 flex justify-around items-center rounded-full shadow-2xl">
@@ -356,7 +377,7 @@ window.pages.categories = async function() {
                 <span class="text-[10px] font-semibold mt-0.5">Profile</span>
             </a>
         </nav>
-    </div>
+    </div>`}
 </div>`;
 };
 

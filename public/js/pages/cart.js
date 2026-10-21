@@ -158,11 +158,13 @@ window.pages.cart = async function() {
         const cachedProd = window.__cachedProducts?.get(item.product_id);
         
         // Authoritative Store Stock Determination
-        let stockLeft = 50;
+        let stockLeft = 0;
         if (item.stock_left !== undefined && item.stock_left !== null) {
             stockLeft = Number(item.stock_left);
-        } else if (cachedProd && cachedProd.stock_left !== undefined) {
+        } else if (cachedProd && cachedProd.stock_left !== undefined && cachedProd.stock_left !== null) {
             stockLeft = Number(cachedProd.stock_left);
+        } else if (item.in_stock !== false) {
+            stockLeft = 10;
         }
         
         const isOutOfStock = (item.in_stock === false) || stockLeft <= 0;
@@ -458,6 +460,7 @@ window.pages.cart = async function() {
     ) : ''}
     </div>
 
+    ${typeof window.renderBottomNav === 'function' ? window.renderBottomNav('cart') : `
     <!-- Floating Liquid Glass Bottom Navigation Dock -->
     <div class="fixed bottom-3 inset-x-0 z-40 px-4 sm:hidden pointer-events-none flex justify-center">
         <nav class="pointer-events-auto liquid-dock-pill h-14 max-w-md w-full px-3 flex justify-around items-center rounded-full shadow-2xl">
@@ -480,8 +483,12 @@ window.pages.cart = async function() {
                 <span class="material-symbols-outlined text-xl">receipt_long</span>
                 <span class="text-[10px] font-semibold mt-0.5">Orders</span>
             </a>
+            <a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer" href="#/settings" title="Profile">
+                <span class="material-symbols-outlined text-xl">account_circle</span>
+                <span class="text-[10px] font-semibold mt-0.5">Profile</span>
+            </a>
         </nav>
-    </div>
+    </div>`}
 </div>`;
 };
 
@@ -779,11 +786,13 @@ window.pageInits.cart = function() {
             const stockLeftAttr = btn.dataset.stockLeft || row?.dataset?.stockLeft;
             
             // Accurate Dark Store Stock Determination
-            let stockLeft = 50;
+            let stockLeft = 0;
             if (stockLeftAttr !== undefined && stockLeftAttr !== '' && stockLeftAttr !== null) {
                 stockLeft = Number(stockLeftAttr);
-            } else if (cachedProd && cachedProd.stock_left !== undefined) {
+            } else if (cachedProd && cachedProd.stock_left !== undefined && cachedProd.stock_left !== null) {
                 stockLeft = Number(cachedProd.stock_left);
+            } else if (cachedProd?.in_stock !== false) {
+                stockLeft = 10;
             }
 
             const qtyNum = row?.querySelector('.qty-num');
@@ -830,11 +839,13 @@ window.pageInits.cart = function() {
             const activeHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
             const cachedProd = window.__cachedProducts?.get(productId);
             const stockLeftAttr = btn.dataset.stockLeft || row?.dataset?.stockLeft;
-            let stockLeft = 50;
+            let stockLeft = 0;
             if (stockLeftAttr !== undefined && stockLeftAttr !== '' && stockLeftAttr !== null) {
                 stockLeft = Number(stockLeftAttr);
-            } else if (cachedProd && cachedProd.stock_left !== undefined) {
+            } else if (cachedProd && cachedProd.stock_left !== undefined && cachedProd.stock_left !== null) {
                 stockLeft = Number(cachedProd.stock_left);
+            } else if (cachedProd?.in_stock !== false) {
+                stockLeft = 10;
             }
 
             const qtyNum = row?.querySelector('.qty-num');

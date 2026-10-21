@@ -15,11 +15,25 @@ async function testCancelFreezeAndAdminSync() {
     const loginRes = await fetch('http://127.0.0.1:3000/api/auth/admin-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'admin@lpu.in', password: 'admin123' })
+        body: JSON.stringify({ email: 'admin@lpu.in', password: 'Nivas@2006$%' })
     });
     const { token } = await loginRes.json();
 
-    const adminWs = new WebSocket('ws://127.0.0.1:3000/ws/admin');
+    // Ensure test product has ample stock
+    await fetch('http://127.0.0.1:3000/api/products/admin/adjust-stock', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+            productId: 'prod_66755a4a',
+            stock: 30,
+            hostel_id: 'BH-13'
+        })
+    });
+
+    const adminWs = new WebSocket(`ws://127.0.0.1:3000/ws/admin?token=${encodeURIComponent(token)}`);
     const adminEvents = [];
     await new Promise(resolve => {
         adminWs.on('open', () => {
@@ -37,14 +51,23 @@ async function testCancelFreezeAndAdminSync() {
     await fetch('http://127.0.0.1:3000/api/cart', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: 'user_001', productId: 'prod_bisc_01', quantity: 1 })
+        body: JSON.stringify({ userId: 'user_001', productId: 'prod_66755a4a', quantity: 2, hostelId: 'BH-13' })
     });
     const checkoutRes1 = await fetch('http://127.0.0.1:3000/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: 'user_001', deliveryAddress: 'BH13 (Block A), Room 304' })
+        body: JSON.stringify({
+            userId: 'user_001',
+            deliveryAddress: 'BH13 (Block A), Room 304',
+            paymentMethod: 'Cash on Delivery',
+            phone: '9876543210',
+            hostel_id: 'BH-13',
+            items: [{ id: 'prod_66755a4a', product_id: 'prod_66755a4a', name: 'Dark Fantasy', price: 29, quantity: 2 }]
+        })
     });
-    const { order: order1 } = await checkoutRes1.json();
+    const checkoutData1 = await checkoutRes1.json();
+    console.log('Checkout 1 response:', checkoutData1);
+    const order1 = checkoutData1.order || { id: checkoutData1.orderId };
     console.log(`\n✓ 2. Placed Order 1: #${order1.id}`);
 
     // Wait for WS propagation
@@ -60,10 +83,10 @@ async function testCancelFreezeAndAdminSync() {
     const cancelData = await cancelRes.json();
     console.log('✓ 3. Cancel API response:', cancelData);
 
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 600));
 
     // 4. Verify Admin received status update
-    const adminCancelEvent = adminEvents.find(e => e.type === 'ORDER_STATUS_UPDATE' && e.orderId === order1.id && e.status === 'Cancelled');
+    const adminCancelEvent = adminEvents.find(e => e.type === 'ORDER_STATUS_UPDATE' && (e.orderId === order1.id || e.order_id === order1.id) && e.status === 'Cancelled');
     if (!adminCancelEvent) {
         throw new Error('Admin WS did not receive Cancelled status update for order 1!');
     }
@@ -73,14 +96,23 @@ async function testCancelFreezeAndAdminSync() {
     await fetch('http://127.0.0.1:3000/api/cart', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: 'user_001', productId: 'prod_bisc_02', quantity: 1 })
+        body: JSON.stringify({ userId: 'user_001', productId: 'prod_66755a4a', quantity: 2, hostelId: 'BH-13' })
     });
     const checkoutRes2 = await fetch('http://127.0.0.1:3000/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: 'user_001', deliveryAddress: 'BH13 (Block A), Room 304' })
+        body: JSON.stringify({
+            userId: 'user_001',
+            deliveryAddress: 'BH13 (Block A), Room 304',
+            paymentMethod: 'Cash on Delivery',
+            phone: '9876543210',
+            hostel_id: 'BH-13',
+            items: [{ id: 'prod_66755a4a', product_id: 'prod_66755a4a', name: 'Dark Fantasy', price: 29, quantity: 2 }]
+        })
     });
-    const { order: order2 } = await checkoutRes2.json();
+    const checkoutData2 = await checkoutRes2.json();
+    console.log('Checkout 2 response:', checkoutData2);
+    const order2 = checkoutData2.order || { id: checkoutData2.orderId };
     console.log(`\n✓ 5. Placed Order 2: #${order2.id}`);
 
     // Admin updates Order 2 to Out for Delivery
@@ -104,13 +136,6 @@ async function testCancelFreezeAndAdminSync() {
     if (frozenCancelRes.status !== 400) {
         throw new Error(`Expected HTTP 400 for frozen cancel, but got ${frozenCancelRes.status}`);
     }
-
-    // Clean up test orders from DB so admin dashboard stays pristine
-    const { DatabaseSync } = require('node:sqlite');
-    const db = new DatabaseSync('server/db/lpuquick.db');
-    db.prepare('DELETE FROM order_items WHERE order_id IN (?, ?)').run(order1.id, order2.id);
-    db.prepare('DELETE FROM orders WHERE id IN (?, ?)').run(order1.id, order2.id);
-    console.log('✓ 8. Cleaned up test orders from database.');
 
     adminWs.close();
     console.log('\n========================================================');

@@ -154,12 +154,12 @@ const STORE_CATEGORIES = [
         id: 'sweets',
         name: 'Sweets',
         emoji: '🍭',
-        img: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=160&auto=format&fit=crop&q=80',
+        img: 'https://images.unsplash.com/photo-1666190092159-3171cf0fbb12?w=160&auto=format&fit=crop&q=80',
         banner: {
             title: 'Indian Sweets & Desserts',
             subtitle: 'Melt-in-mouth Delicious Treats.',
             tag: 'SWEET BITES',
-            img: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=320&auto=format&fit=crop&q=80',
+            img: 'https://images.unsplash.com/photo-1666190092159-3171cf0fbb12?w=320&auto=format&fit=crop&q=80',
             bg: 'linear-gradient(135deg, #831843 0%, #9d174d 50%, #f43f5e 100%)'
         }
     },
@@ -197,18 +197,18 @@ function classifyProductCategory(p) {
     const text = (p.name || '').toLowerCase();
 
     // 1. Ground Truth Priority: Check existing database subcategory first
-    if (subcat === 'popcorn') return 'popcorn';
-    if (subcat === 'cake' || subcat === 'choco pie') return 'bakery';
-    if (subcat === 'namkeen') return 'namkeen';
-    if (subcat === 'biscuits' || subcat === 'biscuit') return 'biscuits';
-    if (subcat === 'chips' || subcat === 'wafers') return 'chips';
-    if (subcat === 'chocolates' || subcat === 'chocolate') return 'chocolates';
-    if (subcat === 'noodles' || subcat === 'instant food' || subcat === 'instant') return 'instant';
-    if (subcat === 'snacks') return 'snacks';
-    if (subcat === 'candies' || subcat === 'candy') return 'candies';
-    if (subcat === 'drinks' || subcat === 'beverages' || subcat === 'cold drinks') return 'drinks';
-    if (subcat === 'juices' || subcat === 'juice') return 'juices';
-    if (subcat === 'sweets' || subcat === 'dessert') return 'sweets';
+    if (subcat.includes('popcorn')) return 'popcorn';
+    if (subcat.includes('cake') || subcat.includes('choco pie') || subcat.includes('bakery')) return 'bakery';
+    if (subcat.includes('namkeen') || subcat.includes('bhujia') || subcat.includes('bhelpuri') || subcat.includes('sev')) return 'namkeen';
+    if (subcat.includes('biscuit') || subcat.includes('cookie') || subcat.includes('rusk')) return 'biscuits';
+    if (subcat.includes('chip') || subcat.includes('wafer') || subcat.includes('crisp') || subcat.includes('nacho')) return 'chips';
+    if (subcat.includes('chocolate') || subcat.includes('choco')) return 'chocolates';
+    if (subcat.includes('noodle') || subcat.includes('instant') || subcat.includes('pasta') || subcat.includes('maggi')) return 'instant';
+    if (subcat.includes('snack') || subcat.includes('munch')) return 'snacks';
+    if (subcat.includes('cand') || subcat.includes('toffee')) return 'candies';
+    if (subcat.includes('drink') || subcat.includes('beverage') || subcat.includes('cold drink') || subcat.includes('soda')) return 'drinks';
+    if (subcat.includes('juice')) return 'juices';
+    if (subcat.includes('sweet') || subcat.includes('dessert') || subcat.includes('mithai')) return 'sweets';
 
     // 2. Existing Database category field fallback
     if (cat === 'biscuits') return 'biscuits';
@@ -1298,6 +1298,7 @@ window.pages.home = async function () {
         ` : ''}
     </main>
 
+    ${typeof window.renderBottomNav === 'function' ? window.renderBottomNav('home') : `
     <!-- Floating Liquid Glass Bottom Navigation Dock -->
     <div class="fixed bottom-3 inset-x-0 z-40 px-4 sm:hidden pointer-events-none flex justify-center">
         <nav class="pointer-events-auto liquid-dock-pill h-14 max-w-md w-full px-3 flex justify-around items-center rounded-full shadow-2xl">
@@ -1325,7 +1326,7 @@ window.pages.home = async function () {
                 <span class="text-[10px] font-semibold mt-0.5">Profile</span>
             </a>
         </nav>
-    </div>
+    </div>`}
 </div>`;
 };
 

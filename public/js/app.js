@@ -2,6 +2,47 @@
 window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
+if (typeof window.renderBottomNav !== 'function') {
+    window.renderBottomNav = function (activeTab = 'home') {
+        const norm = String(activeTab || '').toLowerCase().trim();
+        const isHome = norm === 'home' || norm === '/' || norm === '';
+        const isCategories = norm === 'categories' || norm === 'category';
+        const isCart = norm === 'cart';
+        const isOrders = norm === 'orders' || norm === 'order';
+        const isProfile = norm === 'profile' || norm === 'settings';
+
+        return `
+    <!-- Floating Liquid Glass Bottom Navigation Dock -->
+    <div class="fixed bottom-3 inset-x-0 z-40 px-4 sm:hidden pointer-events-none flex justify-center">
+        <nav class="pointer-events-auto liquid-dock-pill h-14 max-w-md w-full px-3 flex justify-around items-center rounded-full shadow-2xl">
+            <a class="${isHome ? 'clay-pill flex flex-col items-center justify-center text-emerald dark:text-emerald-400 px-3.5 py-1 cursor-pointer font-bold' : 'flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer'}" href="#/" title="Home">
+                <span class="material-symbols-outlined text-xl"${isHome ? ' style="font-variation-settings: \'FILL\' 1;"' : ''}>home</span>
+                <span class="text-[10px] ${isHome ? 'mt-0.5 font-bold' : 'font-semibold mt-0.5'}">Home</span>
+            </a>
+            <a class="${isCategories ? 'clay-pill flex flex-col items-center justify-center text-emerald dark:text-emerald-400 px-3.5 py-1 cursor-pointer font-bold' : 'flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer'}" href="#/categories" title="Categories">
+                <span class="material-symbols-outlined text-xl"${isCategories ? ' style="font-variation-settings: \'FILL\' 1;"' : ''}>category</span>
+                <span class="text-[10px] ${isCategories ? 'mt-0.5 font-bold' : 'font-semibold mt-0.5'}">Categories</span>
+            </a>
+            <a class="${isCart ? 'clay-pill flex flex-col items-center justify-center text-emerald dark:text-emerald-400 px-3.5 py-1 cursor-pointer font-bold relative' : 'flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer relative'}" href="#/cart" title="Cart" id="bottom-nav-cart-btn">
+                <div class="relative flex items-center justify-center">
+                    <span class="material-symbols-outlined text-xl"${isCart ? ' style="font-variation-settings: \'FILL\' 1;"' : ''}>shopping_cart</span>
+                    <span id="bottom-nav-cart-count" class="global-cart-count-badge absolute -top-1.5 -right-2.5 bg-emerald text-white text-[9px] font-black min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center shadow-xs ring-2 ring-white dark:ring-slate-900 hidden">0</span>
+                </div>
+                <span class="text-[10px] ${isCart ? 'mt-0.5 font-bold' : 'font-semibold mt-0.5'}">Cart</span>
+            </a>
+            <a class="${isOrders ? 'clay-pill flex flex-col items-center justify-center text-emerald dark:text-emerald-400 px-3.5 py-1 cursor-pointer font-bold' : 'flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer'}" href="#/orders" title="Orders">
+                <span class="material-symbols-outlined text-xl"${isOrders ? ' style="font-variation-settings: \'FILL\' 1;"' : ''}>receipt_long</span>
+                <span class="text-[10px] ${isOrders ? 'mt-0.5 font-bold' : 'font-semibold mt-0.5'}">Orders</span>
+            </a>
+            <a class="${isProfile ? 'clay-pill flex flex-col items-center justify-center text-emerald dark:text-emerald-400 px-3.5 py-1 cursor-pointer font-bold' : 'flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer'}" href="#/settings" title="Profile">
+                <span class="material-symbols-outlined text-xl"${isProfile ? ' style="font-variation-settings: \'FILL\' 1;"' : ''}>account_circle</span>
+                <span class="text-[10px] ${isProfile ? 'mt-0.5 font-bold' : 'font-semibold mt-0.5'}">Profile</span>
+            </a>
+        </nav>
+    </div>`;
+    };
+}
+
 // Persistent Student Session Management (Permanent Login — Never auto-logout once logged in)
 // The student will remain securely logged in until they explicitly click "Log Out"
 
@@ -995,6 +1036,7 @@ window.openProductModal = async function (productId) {
 
     const modal = document.createElement('div');
     modal.id = 'product-modal';
+    modal.dataset.productId = productId;
     modal.className = 'modal-overlay';
     modal.innerHTML = `
         <div class="modal-content p-6 flex items-center justify-center min-h-[300px]" onclick="event.stopPropagation()">
@@ -1005,7 +1047,8 @@ window.openProductModal = async function (productId) {
     document.body.appendChild(modal);
 
     try {
-        const res = await window.api.getProduct(productId, null, true);
+        const activeHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
+        const res = await window.api.getProduct(productId, activeHostel, true);
         const p = (res && res.product) ? res.product : (res && res.id ? res : (window.__cachedProducts && window.__cachedProducts.get(productId)) || {});
 
         const pid = p.id || productId;
@@ -2239,8 +2282,246 @@ function dismissClientToast(id) {
     setTimeout(() => { el.remove(); }, 350);
 }
 
+// Global Client Realtime Dispatch & Supabase Integration
+let clientSupabaseClient = null;
+let clientSupabaseChannel = null;
+const recentClientProcessedPackets = new Map();
+
+function dispatchClientRealtimeEvent(data) {
+    if (!data || !data.type) return;
+
+    // Deduplication check across dual transports (WebSocket + Supabase broadcast)
+    const sig = `${data.type}:${data.orderId || data.order?.id || data.productId || ''}:${data.status || data.stock_left || ''}`;
+    const now = Date.now();
+    const lastSeen = recentClientProcessedPackets.get(sig);
+    if (lastSeen && (now - lastSeen < 1200)) {
+        return;
+    }
+    recentClientProcessedPackets.set(sig, now);
+    if (recentClientProcessedPackets.size > 200) {
+        for (const [k, ts] of recentClientProcessedPackets.entries()) {
+            if (now - ts > 10000) recentClientProcessedPackets.delete(k);
+        }
+    }
+
+    // 1. Live Inventory & Stock Updates from Admin
+    if (data.type === 'INVENTORY_UPDATE') {
+        handleLiveInventoryChange(data);
+    }
+    // 2. Live Order Status Updates from Admin
+    else if (data.type === 'STATUS_UPDATE' || data.type === 'ORDER_STATUS_UPDATE') {
+        handleLiveOrderStatusChange(data);
+    }
+    // 3. New Order Confirmation
+    else if (data.type === 'NEW_ORDER' && data.order) {
+        if (window.CURRENT_USER_ID && data.order.user_id === window.CURRENT_USER_ID) {
+            checkAndConnectGlobalOrderTracking();
+            if (window.location.hash.includes('orders') && typeof window.renderPage === 'function') {
+                window.renderPage();
+            }
+        }
+    }
+    // Live Order Deletion Handler
+    else if (data.type === 'ORDER_DELETED') {
+        if (window.CURRENT_ACTIVE_ORDER_ID === data.orderId) {
+            window.CURRENT_ACTIVE_ORDER_ID = null;
+            if (typeof window.api?.clearOrdersCache === 'function') {
+                window.api.clearOrdersCache();
+            }
+            if (window.location.hash.includes('orders') && typeof window.renderPage === 'function') {
+                window.renderPage();
+            }
+        }
+    }
+    // 4. Live Store Lock / Availability Updates from Admin
+    else if (data.type === 'CLIENT_LOCK_UPDATE' && data.availability) {
+        const clientHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
+        const targetHostel = data.availability.target_hostel || 'ALL';
+
+        // Check if this update applies to this client (ALL or exact hostel match)
+        const normClient = String(clientHostel).replace(/[\s\-_]/g, '').toLowerCase();
+        const normTarget = String(targetHostel).replace(/[\s\-_]/g, '').toLowerCase();
+        const isForMe = targetHostel === 'ALL' || normClient === normTarget;
+
+        if (isForMe) {
+            window.__storeAvailability = data.availability;
+            if (typeof window.renderStoreClosedBannerOrOverlay === 'function') {
+                window.renderStoreClosedBannerOrOverlay();
+            }
+            if (data.availability.is_locked) {
+                showClientToast('🏪 Storefront is currently closed for restock.', 'warning', 'lock');
+            } else {
+                showClientToast('🚀 Storefront is now OPEN for orders!', 'success', 'bolt');
+            }
+            if (typeof window.syncStoreAvailability === 'function') {
+                window.syncStoreAvailability(clientHostel);
+            }
+        }
+    }
+    // 5. Account Blocked Real-Time Notification
+    else if (data.type === 'USER_BLOCKED') {
+        const myUid = window.CURRENT_USER_ID || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : null);
+        if (data.userId && (data.userId === myUid || data.userId === window.CURRENT_USER_ID)) {
+            window.__isUserBlocked = true;
+            window.__userBlockReason = data.reason || 'Fake Orders';
+            if (typeof updateBlockedUI === 'function') updateBlockedUI(true, window.__userBlockReason);
+            window.location.hash = '#/blocked';
+            alert(`⚠️ Account Suspended:\n\nYou are blocked due to ${(data.reason || 'fake orders').toLowerCase()}.\n\nPlease contact Central Campus Operations Hub.`);
+        }
+    }
+    // 6. Account Unblocked Real-Time Notification
+    else if (data.type === 'USER_UNBLOCKED') {
+        const myUid = window.CURRENT_USER_ID || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : null);
+        if (data.userId && (data.userId === myUid || data.userId === window.CURRENT_USER_ID)) {
+            window.__isUserBlocked = false;
+            window.__userBlockReason = null;
+            if (typeof updateBlockedUI === 'function') updateBlockedUI(false);
+            window.location.hash = '#/';
+            showClientToast('🎉 Your account access has been restored!', 'success', 'bolt');
+        }
+    }
+    // 7. Live Promotional Banner Carousel Updates from Admin
+    else if (data.type === 'ADVERTISEMENTS_UPDATED') {
+        if (window.api?.clearHomeCache) window.api.clearHomeCache();
+        const banners = data.posters || data.banners;
+        try {
+            if (Array.isArray(banners)) {
+                localStorage.setItem('lpuquick_active_banners', JSON.stringify(banners));
+            }
+            if (data.settings) {
+                localStorage.setItem('lpuquick_carousel_settings', JSON.stringify(data.settings));
+            }
+        } catch (e) { }
+        window.dispatchEvent(new CustomEvent('advertisementsUpdated', { detail: data }));
+        if (typeof window.refreshHomeCarousel === 'function') {
+            window.refreshHomeCarousel(data);
+        }
+    }
+    // 8. Live Delivery Person Assignment (Order Claimed by Delivery Boy)
+    else if (data.type === 'ORDER_CLAIMED') {
+        const riderName = data.adminName || data.rider_name || data.riderName || 'Delivery Rider';
+        const riderPhone = data.adminPhone || data.riderPhone || '7671836211';
+        const claimedOrderId = data.orderId || data.order_id;
+        console.log(`[Realtime Delivery Sync] Order ${claimedOrderId} claimed by ${riderName} (${riderPhone})`);
+
+        // Update rider name display on active tracking card
+        const riderNameDisplay = document.getElementById('rider-name-display');
+        if (riderNameDisplay) riderNameDisplay.textContent = riderName;
+        const riderAvatar = document.getElementById('rider-avatar');
+        if (riderAvatar) riderAvatar.textContent = riderName[0].toUpperCase();
+        const riderCallBtn = document.getElementById('rider-call-btn');
+        if (riderCallBtn && riderPhone) riderCallBtn.href = `tel:${riderPhone}`;
+
+        // Update the global delivery bar rider name
+        const barRiderName = document.getElementById('global-delivery-rider-name');
+        if (barRiderName) barRiderName.textContent = riderName;
+
+        // If user is on orders/tracking page, apply full UI update
+        if (typeof window.applyOrderStatusUI === 'function') {
+            const currentStatus = window.CURRENT_ACTIVE_ORDER_STATUS || 'Order Confirmed';
+            window.applyOrderStatusUI(currentStatus, riderName, claimedOrderId, riderPhone);
+        }
+
+        // Show toast to student
+        showClientToast(`🏃 ${riderName} accepted your delivery!`, 'success', 'directions_run');
+    }
+    // 9. Live Hostel Availability Updates from Admin Console
+    else if (data.type === 'HOSTEL_STATUS_CHANGED') {
+        window.__activeHostelsCache = null;
+        if (window.api?.getActiveHostels) {
+            window.api.getActiveHostels(true).catch(() => { });
+        }
+        const activeModal = document.getElementById('address-modal');
+        if (activeModal && typeof window.openLocationModal === 'function') {
+            window.openLocationModal(false);
+        }
+    }
+}
+
+async function initClientSupabaseRealtime() {
+    try {
+        if (typeof window === 'undefined') return;
+        const createClientFn = window.supabase?.createClient || (typeof supabase !== 'undefined' ? supabase.createClient : null);
+        if (!createClientFn) return;
+
+        let cfg = window.__REALTIME_CONFIG__;
+        if (!cfg) {
+            const res = await fetch('/api/realtime/config');
+            if (res.ok) {
+                cfg = await res.json();
+                window.__REALTIME_CONFIG__ = cfg;
+            }
+        }
+        if (!cfg?.supabaseUrl || !cfg?.supabaseAnonKey) return;
+
+        if (clientSupabaseChannel) {
+            try { clientSupabaseChannel.unsubscribe(); } catch(e) {}
+            clientSupabaseChannel = null;
+        }
+
+        if (!clientSupabaseClient) {
+            clientSupabaseClient = createClientFn(cfg.supabaseUrl, cfg.supabaseAnonKey, {
+                realtime: {
+                    params: {
+                        eventsPerSecond: 20
+                    }
+                }
+            });
+        }
+
+        clientSupabaseChannel = clientSupabaseClient.channel('lpuquick_global_realtime');
+
+        const events = [
+            'INVENTORY_UPDATE', 'STATUS_UPDATE', 'ORDER_STATUS_UPDATE', 'NEW_ORDER',
+            'ORDER_DELETED', 'CLIENT_LOCK_UPDATE', 'USER_BLOCKED', 'USER_UNBLOCKED',
+            'ADVERTISEMENTS_UPDATED', 'ORDER_CLAIMED', 'HOSTEL_STATUS_CHANGED'
+        ];
+
+        events.forEach(ev => {
+            clientSupabaseChannel.on('broadcast', { event: ev }, (payload) => {
+                const data = payload?.payload;
+                if (data) {
+                    dispatchClientRealtimeEvent(data);
+                }
+            });
+        });
+
+        // Postgres changes on orders table for real-time order status updates
+        clientSupabaseChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+            try {
+                const row = payload.new;
+                if (!row) return;
+                const myUid = window.CURRENT_USER_ID || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : null);
+                if (myUid && row.user_id && row.user_id !== myUid) {
+                    return; // Strict Isolation: Only process for the logged-in customer's own order
+                }
+                if (payload.eventType === 'UPDATE') {
+                    dispatchClientRealtimeEvent({
+                        type: 'ORDER_STATUS_UPDATE',
+                        orderId: row.id,
+                        order_id: row.id,
+                        status: row.status,
+                        rider_name: row.rider_name || 'Alex'
+                    });
+                }
+            } catch(e) {
+                console.warn('[Client Supabase PG Changes Error]:', e);
+            }
+        });
+
+        clientSupabaseChannel.subscribe((status) => {
+            console.log(`[LPUQuick Client Supabase Realtime] Channel status: ${status}`);
+        });
+    } catch(err) {
+        console.warn('[LPUQuick Client Supabase Realtime Error]:', err.message);
+    }
+}
+
 // Global Client WebSocket Connection
 function initGlobalClientWebSocket() {
+    // Also proactively initialize Supabase Cloud Channel
+    initClientSupabaseRealtime();
+
     if (globalClientWs && (globalClientWs.readyState === WebSocket.OPEN || globalClientWs.readyState === WebSocket.CONNECTING)) {
         return;
     }
@@ -2287,139 +2568,7 @@ function initGlobalClientWebSocket() {
         globalClientWs.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
-
-                // 1. Live Inventory & Stock Updates from Admin
-                if (data.type === 'INVENTORY_UPDATE') {
-                    handleLiveInventoryChange(data);
-                }
-                // 2. Live Order Status Updates from Admin
-                else if (data.type === 'STATUS_UPDATE' || data.type === 'ORDER_STATUS_UPDATE') {
-                    handleLiveOrderStatusChange(data);
-                }
-                // 3. New Order Confirmation
-                else if (data.type === 'NEW_ORDER' && data.order) {
-                    if (window.CURRENT_USER_ID && data.order.user_id === window.CURRENT_USER_ID) {
-                        checkAndConnectGlobalOrderTracking();
-                        if (window.location.hash.includes('orders') && typeof window.renderPage === 'function') {
-                            window.renderPage();
-                        }
-                    }
-                }
-                // Live Order Deletion Handler
-                else if (data.type === 'ORDER_DELETED') {
-                    if (window.CURRENT_ACTIVE_ORDER_ID === data.orderId) {
-                        window.CURRENT_ACTIVE_ORDER_ID = null;
-                        if (typeof window.api?.clearOrdersCache === 'function') {
-                            window.api.clearOrdersCache();
-                        }
-                        if (window.location.hash.includes('orders') && typeof window.renderPage === 'function') {
-                            window.renderPage();
-                        }
-                    }
-                }
-                // 4. Live Store Lock / Availability Updates from Admin
-                else if (data.type === 'CLIENT_LOCK_UPDATE' && data.availability) {
-                    const clientHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
-                    const targetHostel = data.availability.target_hostel || 'ALL';
-
-                    // Check if this update applies to this client (ALL or exact hostel match)
-                    const normClient = String(clientHostel).replace(/[\s\-_]/g, '').toLowerCase();
-                    const normTarget = String(targetHostel).replace(/[\s\-_]/g, '').toLowerCase();
-                    const isForMe = targetHostel === 'ALL' || normClient === normTarget;
-
-                    if (isForMe) {
-                        window.__storeAvailability = data.availability;
-                        if (typeof window.renderStoreClosedBannerOrOverlay === 'function') {
-                            window.renderStoreClosedBannerOrOverlay();
-                        }
-                        if (data.availability.is_locked) {
-                            showClientToast('🏪 Storefront is currently closed for restock.', 'warning', 'lock');
-                        } else {
-                            showClientToast('🚀 Storefront is now OPEN for orders!', 'success', 'bolt');
-                        }
-                        if (typeof window.syncStoreAvailability === 'function') {
-                            window.syncStoreAvailability(clientHostel);
-                        }
-                    }
-                }
-                // 5. Account Blocked Real-Time Notification
-                else if (data.type === 'USER_BLOCKED') {
-                    const myUid = window.CURRENT_USER_ID || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : null);
-                    if (data.userId && (data.userId === myUid || data.userId === window.CURRENT_USER_ID)) {
-                        window.__isUserBlocked = true;
-                        window.__userBlockReason = data.reason || 'Fake Orders';
-                        if (typeof updateBlockedUI === 'function') updateBlockedUI(true, window.__userBlockReason);
-                        window.location.hash = '#/blocked';
-                        alert(`⚠️ Account Suspended:\n\nYou are blocked due to ${(data.reason || 'fake orders').toLowerCase()}.\n\nPlease contact Central Campus Operations Hub.`);
-                    }
-                }
-                // 6. Account Unblocked Real-Time Notification
-                else if (data.type === 'USER_UNBLOCKED') {
-                    const myUid = window.CURRENT_USER_ID || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : null);
-                    if (data.userId && (data.userId === myUid || data.userId === window.CURRENT_USER_ID)) {
-                        window.__isUserBlocked = false;
-                        window.__userBlockReason = null;
-                        if (typeof updateBlockedUI === 'function') updateBlockedUI(false);
-                        window.location.hash = '#/';
-                        showClientToast('🎉 Your account access has been restored!', 'success', 'bolt');
-                    }
-                }
-                // 7. Live Promotional Banner Carousel Updates from Admin
-                else if (data.type === 'ADVERTISEMENTS_UPDATED') {
-                    if (window.api?.clearHomeCache) window.api.clearHomeCache();
-                    const banners = data.posters || data.banners;
-                    try {
-                        if (Array.isArray(banners)) {
-                            localStorage.setItem('lpuquick_active_banners', JSON.stringify(banners));
-                        }
-                        if (data.settings) {
-                            localStorage.setItem('lpuquick_carousel_settings', JSON.stringify(data.settings));
-                        }
-                    } catch (e) { }
-                    window.dispatchEvent(new CustomEvent('advertisementsUpdated', { detail: data }));
-                    if (typeof window.refreshHomeCarousel === 'function') {
-                        window.refreshHomeCarousel(data);
-                    }
-                }
-                // 8. Live Delivery Person Assignment (Order Claimed by Delivery Boy)
-                else if (data.type === 'ORDER_CLAIMED') {
-                    const riderName = data.adminName || data.rider_name || data.riderName || 'Delivery Rider';
-                    const riderPhone = data.adminPhone || data.riderPhone || '7671836211';
-                    const claimedOrderId = data.orderId || data.order_id;
-                    console.log(`[Realtime Delivery Sync] Order ${claimedOrderId} claimed by ${riderName} (${riderPhone})`);
-
-                    // Update rider name display on active tracking card
-                    const riderNameDisplay = document.getElementById('rider-name-display');
-                    if (riderNameDisplay) riderNameDisplay.textContent = riderName;
-                    const riderAvatar = document.getElementById('rider-avatar');
-                    if (riderAvatar) riderAvatar.textContent = riderName[0].toUpperCase();
-                    const riderCallBtn = document.getElementById('rider-call-btn');
-                    if (riderCallBtn && riderPhone) riderCallBtn.href = `tel:${riderPhone}`;
-
-                    // Update the global delivery bar rider name
-                    const barRiderName = document.getElementById('global-delivery-rider-name');
-                    if (barRiderName) barRiderName.textContent = riderName;
-
-                    // If user is on orders/tracking page, apply full UI update
-                    if (typeof window.applyOrderStatusUI === 'function') {
-                        const currentStatus = window.CURRENT_ACTIVE_ORDER_STATUS || 'Order Confirmed';
-                        window.applyOrderStatusUI(currentStatus, riderName, claimedOrderId, riderPhone);
-                    }
-
-                    // Show toast to student
-                    showClientToast(`🏃 ${riderName} accepted your delivery!`, 'success', 'directions_run');
-                }
-                // 9. Live Hostel Availability Updates from Admin Console
-                else if (data.type === 'HOSTEL_STATUS_CHANGED') {
-                    window.__activeHostelsCache = null;
-                    if (window.api?.getActiveHostels) {
-                        window.api.getActiveHostels(true).catch(() => { });
-                    }
-                    const activeModal = document.getElementById('address-modal');
-                    if (activeModal && typeof window.openLocationModal === 'function') {
-                        window.openLocationModal(false);
-                    }
-                }
+                dispatchClientRealtimeEvent(data);
             } catch (err) {
                 console.error('[LPUQuick WS Parse Error]:', err);
             }
@@ -2450,6 +2599,29 @@ function initGlobalClientWebSocket() {
             clientWsReconnectTimer = setTimeout(initGlobalClientWebSocket, 3000);
         }
     }
+}
+
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('online', () => {
+        console.log('[Client Network] 🌐 Reconnected to internet. Re-syncing live state...');
+        initGlobalClientWebSocket();
+        initClientSupabaseRealtime();
+        checkAndConnectGlobalOrderTracking();
+        const activeHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
+        if (typeof window.syncStoreAvailability === 'function') {
+            window.syncStoreAvailability(activeHostel);
+        }
+        if (typeof window.api?.clearOrdersCache === 'function') {
+            window.api.clearOrdersCache();
+        }
+        if (window.location.hash.includes('orders') && typeof window.renderPage === 'function') {
+            window.renderPage();
+        }
+    });
+
+    window.addEventListener('offline', () => {
+        console.warn('[Client Network] ⚠️ Connection dropped.');
+    });
 }
 
 // Multi-Tab Instant Ads Synchronization

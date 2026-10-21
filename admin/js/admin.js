@@ -1586,6 +1586,42 @@ async function quickLockSingleHostel(hostelId) {
 }
 
 
+// ================= ORDER STATUS RECONCILIATION GUARD =================
+const recentOrderStatusUpdates = new Map(); // orderId -> { status, payment_method, payment_status, timestamp }
+
+function registerRecentOrderStatusUpdate(orderId, status, paymentMethod = null, paymentStatus = null) {
+    if (!orderId || !status) return;
+    recentOrderStatusUpdates.set(orderId, {
+        status,
+        payment_method: paymentMethod,
+        payment_status: paymentStatus,
+        timestamp: Date.now()
+    });
+}
+
+function reconcileWithRecentOrderUpdates(orders) {
+    if (!Array.isArray(orders)) return orders;
+    const now = Date.now();
+    for (const [id, info] of recentOrderStatusUpdates.entries()) {
+        if (now - info.timestamp > 30000) {
+            recentOrderStatusUpdates.delete(id);
+        }
+    }
+    return orders.map(o => {
+        if (!o || !o.id) return o;
+        const recent = recentOrderStatusUpdates.get(o.id);
+        if (recent && (now - recent.timestamp <= 30000)) {
+            return {
+                ...o,
+                status: recent.status,
+                payment_method: recent.payment_method || o.payment_method,
+                payment_status: recent.payment_status || o.payment_status
+            };
+        }
+        return o;
+    });
+}
+
 // ================= 2. PRODUCTS LOAD =================
 const recentStockUpdates = new Map(); // `${hostelId}:${productId}` -> { stock_left, in_stock, timestamp }
 
@@ -3927,6 +3963,8 @@ async function applyDrawerStatusUpdate() {
 
     closeOrderDrawer();
 
+    registerRecentOrderStatusUpdate(targetOrderId, newStatus, newStatus === 'Delivered' ? finalPaymentMethod : undefined, newStatus === 'Delivered' ? 'PAID' : undefined);
+
     try {
         const res = await fetchWithTimeout('/api/orders/admin/status', {
             method: 'POST',
@@ -3941,6 +3979,7 @@ async function applyDrawerStatusUpdate() {
         }, 15000);
 
         if (!res.ok) {
+            recentOrderStatusUpdates.delete(targetOrderId);
             const errData = await res.json().catch(() => ({}));
             console.error('[Admin Status Update Error]:', res.status, errData);
             if (o && previousStatus) {
@@ -3965,6 +4004,7 @@ async function applyDrawerStatusUpdate() {
             if (activeView === 'orders') filterOrders();
         }
     } catch (err) {
+        recentOrderStatusUpdates.delete(targetOrderId);
         console.warn('Status synced in local cache, server ping returned:', err.message);
     }
 }
@@ -3999,6 +4039,8 @@ async function quickSetOrderStatus(orderId, newStatus, e) {
     if (activeView === 'orders') filterOrders();
     else if (activeView === 'dashboard') loadDashboard();
 
+    registerRecentOrderStatusUpdate(orderId, newStatus, newStatus === 'Delivered' ? paymentMethod : undefined, newStatus === 'Delivered' ? 'PAID' : undefined);
+
     try {
         const payload = { orderId, status: newStatus };
         if (newStatus === 'Delivered') {
@@ -4011,6 +4053,7 @@ async function quickSetOrderStatus(orderId, newStatus, e) {
             body: JSON.stringify(payload)
         }, 15000);
         if (!res.ok) {
+            recentOrderStatusUpdates.delete(orderId);
             const errData = await res.json().catch(() => ({}));
             console.error('[Quick Status Error]:', res.status, errData);
             if (o && prevStatus) {
@@ -4023,6 +4066,7 @@ async function quickSetOrderStatus(orderId, newStatus, e) {
             showToast(`⚠️ Status update failed: ${errData.error || res.statusText}`, 'error');
         }
     } catch (err) {
+        recentOrderStatusUpdates.delete(orderId);
         console.warn('Quick status update synced in session, server ping returned:', err.message);
     }
 }
@@ -4177,6 +4221,126 @@ function updateModalProfitPreview() {
 }
 window.updateModalProfitPreview = updateModalProfitPreview;
 
+const DEFAULT_CATEGORY_SUBCATEGORIES = {
+    'Snacks & Beverages': [
+        'Biscuits',
+        'Chips',
+        'Chocolates',
+        'Instant Food',
+        'Namkeen',
+        'Popcorn',
+        'Snacks',
+        'Sweets',
+        'Bakery',
+        'Drinks',
+        'Juices',
+        'Candies'
+    ],
+    'Grocery': [
+        'Atta, Rice & Dal',
+        'Cooking Oil & Ghee',
+        'Dairy, Bread & Eggs',
+        'Spices & Masalas',
+        'Tea, Coffee & Beverages',
+        'Sauces & Spreads'
+    ],
+    'Pharmacy': [
+        'First Aid & Bandages',
+        'Pain Relief & Balms',
+        'Cold, Cough & Fever',
+        'Digestive Care & Antacids',
+        'Healthcare Essentials'
+    ],
+    'Personal Care': [
+        'Soaps & Body Wash',
+        'Hair Care & Shampoo',
+        'Oral Care & Toothpaste',
+        'Skin Care & Face Wash',
+        'Hostel Grooming Essentials'
+    ],
+    'Stationery': [
+        'Notebooks & Registers',
+        'Pens, Pencils & Markers',
+        'Files & Folders',
+        'Adhesives, Scissors & Tape',
+        'Exam & Study Supplies'
+    ]
+};
+
+function getAvailableSubcategoriesForCategory(categoryName) {
+    const list = [];
+    const seen = new Set();
+    const defaults = DEFAULT_CATEGORY_SUBCATEGORIES[categoryName] || [];
+    defaults.forEach(s => {
+        const trimmed = (s || '').trim();
+        if (trimmed && !seen.has(trimmed.toLowerCase())) {
+            seen.add(trimmed.toLowerCase());
+            list.push(trimmed);
+        }
+    });
+
+    if (Array.isArray(window.productsCache)) {
+        window.productsCache.forEach(p => {
+            if (p && p.category && (p.category.toLowerCase() === (categoryName || '').toLowerCase()) && p.subcategory) {
+                const trimmed = p.subcategory.trim();
+                if (trimmed && !seen.has(trimmed.toLowerCase())) {
+                    seen.add(trimmed.toLowerCase());
+                    list.push(trimmed);
+                }
+            }
+        });
+    }
+    return list;
+}
+
+function populateSubcategoriesForCategory(categoryName, selectedSubcategory = '') {
+    const subSelect = document.getElementById('form-product-subcategory');
+    const customInput = document.getElementById('form-product-subcategory-custom');
+    if (!subSelect) return;
+
+    const available = getAvailableSubcategoriesForCategory(categoryName);
+    let html = '<option value="">Select Subcategory</option>';
+    let matched = false;
+
+    available.forEach(s => {
+        const isSel = selectedSubcategory && s.toLowerCase() === selectedSubcategory.toLowerCase();
+        if (isSel) matched = true;
+        html += `<option value="${s.replace(/"/g, '&quot;')}"${isSel ? ' selected' : ''}>${s}</option>`;
+    });
+
+    if (selectedSubcategory && !matched) {
+        html += `<option value="${selectedSubcategory.replace(/"/g, '&quot;')}" selected>${selectedSubcategory}</option>`;
+    }
+
+    html += '<option value="__custom__">+ Add Custom Subcategory...</option>';
+    subSelect.innerHTML = html;
+
+    if (customInput) {
+        customInput.classList.add('hidden');
+        customInput.value = '';
+    }
+}
+
+function onModalCategoryChange() {
+    const cat = document.getElementById('form-product-category')?.value;
+    populateSubcategoriesForCategory(cat, '');
+}
+window.onModalCategoryChange = onModalCategoryChange;
+
+function onModalSubcategoryChange() {
+    const subSelect = document.getElementById('form-product-subcategory');
+    const customInput = document.getElementById('form-product-subcategory-custom');
+    if (!subSelect || !customInput) return;
+
+    if (subSelect.value === '__custom__') {
+        customInput.classList.remove('hidden');
+        customInput.focus();
+    } else {
+        customInput.classList.add('hidden');
+    }
+}
+window.onModalSubcategoryChange = onModalSubcategoryChange;
+
 function openProductModal(product = null) {
     document.getElementById('product-modal').classList.remove('hidden');
     const deleteBtn = document.getElementById('btn-modal-delete-product');
@@ -4216,7 +4380,7 @@ function openProductModal(product = null) {
         document.getElementById('form-product-id').value = product.id;
         document.getElementById('form-product-name').value = product.name;
         document.getElementById('form-product-category').value = product.category;
-        document.getElementById('form-product-subcategory').value = product.subcategory || '';
+        populateSubcategoriesForCategory(product.category || 'Snacks & Beverages', product.subcategory || '');
         const costInput = document.getElementById('form-product-cost');
         if (costInput) {
             costInput.value = product.cost_price !== undefined ? product.cost_price : (product.cost || 0);
@@ -4248,6 +4412,8 @@ function openProductModal(product = null) {
         document.getElementById('modal-product-title').textContent = 'Add New Product';
         document.getElementById('product-form').reset();
         document.getElementById('form-product-id').value = '';
+        const defaultCat = document.getElementById('form-product-category')?.value || 'Snacks & Beverages';
+        populateSubcategoriesForCategory(defaultCat, '');
         const costInput = document.getElementById('form-product-cost');
         if (costInput) costInput.value = '';
         document.getElementById('form-product-stock').value = '0';
@@ -4394,7 +4560,12 @@ async function handleProductSubmit(e) {
 
         const currentName = document.getElementById('form-product-name').value.trim();
         const currentCategory = document.getElementById('form-product-category').value;
-        const currentSubcategory = document.getElementById('form-product-subcategory').value.trim();
+        const subSelect = document.getElementById('form-product-subcategory');
+        const customInput = document.getElementById('form-product-subcategory-custom');
+        let currentSubcategory = subSelect ? subSelect.value.trim() : '';
+        if (currentSubcategory === '__custom__' && customInput) {
+            currentSubcategory = customInput.value.trim();
+        }
         const currentPrice = Number(document.getElementById('form-product-price').value);
         const currentMrp = Number(document.getElementById('form-product-mrp').value) || currentPrice;
         const currentDesc = document.getElementById('form-product-desc').value.trim();
@@ -5319,7 +5490,8 @@ async function syncOrdersLive() {
         }
         if (!res.ok) return;
         const data = await res.json();
-        const orders = data.orders || [];
+        const rawOrders = data.orders || [];
+        const orders = reconcileWithRecentOrderUpdates(rawOrders);
 
         // Keep local cache fresh at all times
         ordersCache = orders;
@@ -5357,8 +5529,13 @@ async function syncOrdersLive() {
                 knownOrderMap.set(order.id, currentSig);
                 handleRealtimeNewOrder(order);
             } else if (knownOrderMap.get(order.id) !== currentSig) {
-                hasOrderChanges = true;
                 const prevSig = knownOrderMap.get(order.id);
+                // Check if this change is an incoming stale revert of a recent local status update
+                const recent = recentOrderStatusUpdates.get(order.id);
+                if (recent && order.status !== recent.status && (Date.now() - recent.timestamp < 30000)) {
+                    continue;
+                }
+                hasOrderChanges = true;
                 knownOrderMap.set(order.id, currentSig);
                 
                 // If status itself changed, trigger status update notification & KPI refresh
@@ -5420,9 +5597,311 @@ if (typeof document !== 'undefined' && typeof document.addEventListener === 'fun
     });
 }
 
+let adminSupabaseClient = null;
+let adminSupabaseChannel = null;
+
+async function initSupabaseRealtime() {
+    try {
+        if (typeof window === 'undefined') return;
+        const createClientFn = window.supabase?.createClient || (typeof supabase !== 'undefined' ? supabase.createClient : null);
+        if (!createClientFn) return;
+
+        let cfg = window.__REALTIME_CONFIG__;
+        if (!cfg) {
+            const res = await fetch('/api/realtime/config');
+            if (res.ok) {
+                cfg = await res.json();
+                window.__REALTIME_CONFIG__ = cfg;
+            }
+        }
+        if (!cfg?.supabaseUrl || !cfg?.supabaseAnonKey) return;
+
+        if (adminSupabaseChannel) {
+            try { adminSupabaseChannel.unsubscribe(); } catch(e) {}
+            adminSupabaseChannel = null;
+        }
+
+        if (!adminSupabaseClient) {
+            adminSupabaseClient = createClientFn(cfg.supabaseUrl, cfg.supabaseAnonKey, {
+                realtime: {
+                    params: {
+                        eventsPerSecond: 20
+                    }
+                }
+            });
+        }
+
+        adminSupabaseChannel = adminSupabaseClient.channel('lpuquick_global_realtime');
+
+        const events = [
+            'NEW_ORDER', 'ORDER_STATUS_UPDATE', 'INVENTORY_UPDATE', 'CATALOG_UPDATE',
+            'CLIENT_LOCK_UPDATE', 'USER_BLOCKED', 'USER_UNBLOCKED', 'ORDER_CLAIMED',
+            'TRANSFER_REQUESTED', 'TRANSFER_RESOLVED', 'ORDER_EDITED',
+            'ADVERTISEMENTS_UPDATED', 'DUTY_STATUS_CHANGED', 'HOSTEL_STATUS_CHANGED',
+            'ORDER_DELETED'
+        ];
+
+        events.forEach(ev => {
+            adminSupabaseChannel.on('broadcast', { event: ev }, (payload) => {
+                const data = payload?.payload;
+                if (data) {
+                    handleAdminRealtimePacket(data);
+                }
+            });
+        });
+
+        // Postgres changes for direct database updates
+        adminSupabaseChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+            try {
+                if (payload.eventType === 'UPDATE' && payload.new) {
+                    const row = payload.new;
+                    handleAdminRealtimePacket({
+                        type: 'ORDER_STATUS_UPDATE',
+                        orderId: row.id,
+                        status: row.status,
+                        rider_name: row.rider_name || 'Alex'
+                    });
+                } else if (payload.eventType === 'INSERT' && payload.new) {
+                    handleAdminRealtimePacket({
+                        type: 'NEW_ORDER',
+                        order: payload.new
+                    });
+                }
+            } catch(e) {
+                console.warn('[Admin Supabase PG Changes Note]:', e);
+            }
+        });
+
+        adminSupabaseChannel.subscribe((status) => {
+            console.log(`[Admin Supabase Realtime] Status: ${status}`);
+            if (status === 'SUBSCRIBED') {
+                updateConnectionStatus(true, 'Live (Cloud + WS)');
+            }
+        });
+    } catch(err) {
+        console.warn('[Admin Supabase Init Note]:', err.message);
+    }
+}
+
+function handleRealtimeOrderClaimed(data) {
+    let o = ordersCache.find(x => x.id === data.orderId);
+    if (o) {
+        o.rider_name = data.adminName;
+        o.delivery_assignment = {
+            assigned_to: data.adminId,
+            assigned_to_name: data.adminName,
+            name: data.adminName,
+            claimed_at: data.claimedAt,
+            is_claimed: true,
+            transfer: null
+        };
+        if (typeof getOrderSignature === 'function') {
+            knownOrderMap.set(data.orderId, getOrderSignature(o));
+        }
+    } else {
+        o = {
+            id: data.orderId,
+            rider_name: data.adminName,
+            delivery_assignment: {
+                assigned_to: data.adminId,
+                assigned_to_name: data.adminName,
+                name: data.adminName,
+                claimed_at: data.claimedAt,
+                is_claimed: true,
+                transfer: null
+            }
+        };
+        ordersCache.unshift(o);
+        if (typeof getOrderSignature === 'function') {
+            knownOrderMap.set(data.orderId, getOrderSignature(o));
+        }
+    }
+    if (data.adminId !== currentAdminProfile?.id) {
+        showToast(`🛵 ${data.adminName} accepted Order #${(data.orderId || '').replace('order_', '').slice(0, 8)}`, 'info');
+    }
+    filterOrders();
+    if (currentDrawerOrderId === data.orderId) {
+        updateDrawerDispatchCard(o);
+    }
+    // Trigger immediate server sync to ensure all admins see fresh delivery data
+    setTimeout(() => { syncOrdersLive(); }, 500);
+    if (activeView === 'delivery' || activeView === 'earnings') {
+        loadDeliveryEarnings();
+    }
+}
+
+function handleRealtimeTransferRequested(data) {
+    const o = ordersCache.find(x => x.id === data.orderId);
+    if (o) {
+        if (!o.delivery_assignment) o.delivery_assignment = {};
+        o.delivery_assignment.transfer = {
+            from_id: data.fromId,
+            from_name: data.fromName,
+            to_id: data.toId,
+            to_name: data.toName,
+            reason: data.reason,
+            status: 'PENDING'
+        };
+    }
+    if (data.toId === currentAdminProfile?.id) {
+        showIncomingTransferAlert(data);
+    }
+    filterOrders();
+    if (currentDrawerOrderId === data.orderId) openOrderDrawer(data.orderId);
+}
+
+function handleRealtimeTransferResolved(data) {
+    const o = ordersCache.find(x => x.id === data.orderId);
+    if (o) {
+        if (data.accepted) {
+            o.rider_name = data.toName;
+            o.delivery_assignment = {
+                assigned_to: data.toId,
+                assigned_to_name: data.toName,
+                is_claimed: true,
+                transfer: null
+            };
+        } else if (o.delivery_assignment) {
+            o.delivery_assignment.transfer = null;
+        }
+        if (typeof getOrderSignature === 'function') {
+            knownOrderMap.set(data.orderId, getOrderSignature(o));
+        }
+    }
+    const shortId = (data.orderId || '').replace('order_', '').slice(0, 8).toUpperCase();
+    showToast(`Order #${shortId} transfer ${data.accepted ? 'accepted by ' + data.toName : 'declined'}`, data.accepted ? 'success' : 'warning');
+    filterOrders();
+    if (currentDrawerOrderId === data.orderId) openOrderDrawer(data.orderId);
+    if (data.accepted) {
+        setTimeout(() => { syncOrdersLive(); }, 500);
+    }
+    if (activeView === 'delivery' || activeView === 'earnings') {
+        loadDeliveryEarnings();
+    }
+}
+
+function handleRealtimeOrderEdited(data) {
+    if (!data || !data.orderId) return;
+    const idx = ordersCache.findIndex(o => o.id === data.orderId);
+    if (idx >= 0 && data.order) {
+        ordersCache[idx] = { ...ordersCache[idx], ...data.order };
+    }
+    if (currentDrawerOrderId === data.orderId) {
+        viewOrderDetails(currentDrawerOrderId);
+    }
+    filterOrders();
+    loadInventory();
+    showToast(data.message || `Order #${data.orderId.replace('order_', '').toUpperCase()} was updated by dark store.`, 'info');
+}
+
+const recentAdminProcessedPackets = new Map(); // sig -> timestamp
+
+function handleAdminRealtimePacket(data) {
+    if (!data || !data.type) return;
+
+    // Fast deduplication guard across dual transports (WebSocket + Supabase Broadcast)
+    const sig = `${data.type}:${data.orderId || data.order?.id || data.productId || ''}:${data.status || data.stock_left || ''}`;
+    const now = Date.now();
+    const lastSeen = recentAdminProcessedPackets.get(sig);
+    if (lastSeen && (now - lastSeen < 1200)) {
+        return; // Skip duplicate packet already processed
+    }
+    recentAdminProcessedPackets.set(sig, now);
+    if (recentAdminProcessedPackets.size > 200) {
+        for (const [k, ts] of recentAdminProcessedPackets.entries()) {
+            if (now - ts > 10000) recentAdminProcessedPackets.delete(k);
+        }
+    }
+
+    if (data.type === 'NEW_ORDER' && data.order) {
+        if (typeof getOrderSignature === 'function') {
+            knownOrderMap.set(data.order.id, getOrderSignature(data.order));
+        } else {
+            knownOrderMap.set(data.order.id, data.order.status);
+        }
+        handleRealtimeNewOrder(data.order);
+    } else if (data.type === 'ORDER_STATUS_UPDATE') {
+        if (data.orderId && data.status) {
+            // Guard: If this is an incoming stale revert for an order we recently updated locally, ignore
+            const recent = recentOrderStatusUpdates.get(data.orderId);
+            if (recent && data.status !== recent.status && (now - recent.timestamp < 30000)) {
+                return;
+            }
+            const cachedOrder = ordersCache.find(x => x.id === data.orderId);
+            if (cachedOrder) {
+                cachedOrder.status = data.status;
+                if (typeof getOrderSignature === 'function') {
+                    knownOrderMap.set(data.orderId, getOrderSignature(cachedOrder));
+                }
+            } else {
+                knownOrderMap.set(data.orderId, data.status);
+            }
+        }
+        handleRealtimeStatusUpdate(data);
+    } else if (data.type === 'INVENTORY_UPDATE') {
+        handleRealtimeInventoryUpdate(data);
+    } else if (data.type === 'CATALOG_UPDATE') {
+        if (typeof loadProducts === 'function') loadProducts(true);
+        if (typeof loadInventory === 'function') loadInventory(true);
+    } else if (data.type === 'ORDER_CLAIMED') {
+        handleRealtimeOrderClaimed(data);
+    } else if (data.type === 'TRANSFER_REQUESTED') {
+        handleRealtimeTransferRequested(data);
+    } else if (data.type === 'TRANSFER_RESOLVED') {
+        handleRealtimeTransferResolved(data);
+    } else if (data.type === 'ORDER_EDITED') {
+        handleRealtimeOrderEdited(data);
+    } else if (data.type === 'CLIENT_LOCK_UPDATE' && data.availability) {
+        const updatedHostel = data.availability.target_hostel || 'ALL';
+        const isOwner = typeof isPlatformOwner === 'function' ? isPlatformOwner(currentAdminProfile) : Boolean(currentAdminProfile?.is_owner);
+        if (isOwner && data.all_hostel_locks && typeof renderLockHostelOverview === 'function') {
+            renderLockHostelOverview(data.all_hostel_locks);
+        }
+        if (typeof updateClientLockUI === 'function') {
+            const currentActive = typeof getActiveLockHostel === 'function' ? getActiveLockHostel() : 'ALL';
+            if (updatedHostel === 'ALL' || updatedHostel === currentActive) {
+                updateClientLockUI(data.availability, updatedHostel);
+            }
+        }
+        if (typeof loadClientLockState === 'function') {
+            loadClientLockState();
+        }
+        const myHostel = currentAdminProfile?.assigned_hostel_id;
+        if (isOwner || !myHostel || updatedHostel === 'ALL' || updatedHostel === myHostel) {
+            showToast(`Store availability updated for ${updatedHostel}: ${data.availability.lock_status || (data.availability.is_locked ? 'LOCKED' : 'AVAILABLE')}`, 'info');
+        }
+    } else if (data.type === 'USER_BLOCKED') {
+        showToast(`User ${data.userId} blocked (${data.reason})`, 'warning');
+        if (activeView === 'customers') loadCustomers();
+        if (activeView === 'blacklist') loadBlacklistData();
+    } else if (data.type === 'ADVERTISEMENTS_UPDATED') {
+        handleRealtimeAdvertisementsUpdated(data);
+    } else if (data.type === 'HOSTEL_STATUS_CHANGED') {
+        if (typeof loadHostels === 'function') {
+            loadHostels();
+        }
+    } else if (data.type === 'ORDER_DELETED') {
+        if (data.orderId) {
+            ordersCache = ordersCache.filter(x => x.id !== data.orderId);
+            const row = document.getElementById(`order-row-${data.orderId}`);
+            if (row) row.remove();
+            if (currentDrawerOrderId === data.orderId && typeof closeOrderDrawer === 'function') {
+                closeOrderDrawer();
+            }
+            if (typeof filterOrders === 'function') filterOrders();
+            if (typeof updateKpiCountersFromCache === 'function') updateKpiCountersFromCache();
+        }
+    } else if (data.type === 'CONNECTED') {
+        console.log('[Admin WS] Server confirmed connection:', data.message);
+    }
+}
+
 function initRealtimeWebSocket() {
     // Start continuous smart live poller immediately as bulletproof fallback
     startLiveOrderPolling();
+
+    // Start Supabase Cloud Realtime Channel for multi-dashboard cross-device live updates
+    initSupabaseRealtime();
 
     // If a connection is already open or in progress, do not open a duplicate!
     if (realtimeWs && (realtimeWs.readyState === WebSocket.OPEN || realtimeWs.readyState === WebSocket.CONNECTING)) {
@@ -5466,202 +5945,11 @@ function initRealtimeWebSocket() {
         realtimeWs.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
-
-                if (data.type === 'NEW_ORDER' && data.order) {
-                    // Store proper signature (not just status) to avoid phantom re-renders
-                    if (typeof getOrderSignature === 'function') {
-                        knownOrderMap.set(data.order.id, getOrderSignature(data.order));
-                    } else {
-                        knownOrderMap.set(data.order.id, data.order.status);
-                    }
-                    handleRealtimeNewOrder(data.order);
-                } else if (data.type === 'ORDER_STATUS_UPDATE') {
-                    if (data.orderId && data.status) {
-                        // Update the status in the local cached order and store full signature
-                        const cachedOrder = ordersCache.find(x => x.id === data.orderId);
-                        if (cachedOrder) {
-                            cachedOrder.status = data.status;
-                            if (typeof getOrderSignature === 'function') {
-                                knownOrderMap.set(data.orderId, getOrderSignature(cachedOrder));
-                            }
-                        } else {
-                            knownOrderMap.set(data.orderId, data.status);
-                        }
-                    }
-                    handleRealtimeStatusUpdate(data);
-                } else if (data.type === 'INVENTORY_UPDATE') {
-                    handleRealtimeInventoryUpdate(data);
-                } else if (data.type === 'CATALOG_UPDATE') {
-                    if (typeof loadProducts === 'function') loadProducts(true);
-                    if (typeof loadInventory === 'function') loadInventory(true);
-                } else if (data.type === 'ORDER_CLAIMED') {
-                    handleRealtimeOrderClaimed(data);
-                } else if (data.type === 'TRANSFER_REQUESTED') {
-                    handleRealtimeTransferRequested(data);
-                } else if (data.type === 'TRANSFER_RESOLVED') {
-                    handleRealtimeTransferResolved(data);
-                } else if (data.type === 'ORDER_EDITED') {
-                    handleRealtimeOrderEdited(data);
-                } else if (data.type === 'CLIENT_LOCK_UPDATE' && data.availability) {
-                    const updatedHostel = data.availability.target_hostel || 'ALL';
-                    const isOwner = typeof isPlatformOwner === 'function' ? isPlatformOwner(currentAdminProfile) : Boolean(currentAdminProfile?.is_owner);
-                    if (isOwner && data.all_hostel_locks && typeof renderLockHostelOverview === 'function') {
-                        renderLockHostelOverview(data.all_hostel_locks);
-                    }
-                    if (typeof updateClientLockUI === 'function') {
-                        const currentActive = typeof getActiveLockHostel === 'function' ? getActiveLockHostel() : 'ALL';
-                        if (updatedHostel === 'ALL' || updatedHostel === currentActive) {
-                            updateClientLockUI(data.availability, updatedHostel);
-                        }
-                    }
-                    if (typeof loadClientLockState === 'function') {
-                        loadClientLockState();
-                    }
-                    const myHostel = currentAdminProfile?.assigned_hostel_id;
-                    if (isOwner || !myHostel || updatedHostel === 'ALL' || updatedHostel === myHostel) {
-                        showToast(`Store availability updated for ${updatedHostel}: ${data.availability.lock_status || (data.availability.is_locked ? 'LOCKED' : 'AVAILABLE')}`, 'info');
-                    }
-                } else if (data.type === 'USER_BLOCKED') {
-                    showToast(`User ${data.userId} blocked (${data.reason})`, 'warning');
-                    if (activeView === 'customers') loadCustomers();
-                    if (activeView === 'blacklist') loadBlacklistData();
-                } else if (data.type === 'ADVERTISEMENTS_UPDATED') {
-                    handleRealtimeAdvertisementsUpdated(data);
-                } else if (data.type === 'HOSTEL_STATUS_CHANGED') {
-                    if (typeof loadHostels === 'function') {
-                        loadHostels();
-                    }
-                } else if (data.type === 'ORDER_DELETED') {
-                    if (data.orderId) {
-                        ordersCache = ordersCache.filter(x => x.id !== data.orderId);
-                        const row = document.getElementById(`order-row-${data.orderId}`);
-                        if (row) row.remove();
-                        if (currentDrawerOrderId === data.orderId && typeof closeOrderDrawer === 'function') {
-                            closeOrderDrawer();
-                        }
-                        if (typeof filterOrders === 'function') filterOrders();
-                        if (typeof updateKpiCountersFromCache === 'function') updateKpiCountersFromCache();
-                    }
-                } else if (data.type === 'CONNECTED') {
-                    console.log('[Admin WS] Server confirmed connection:', data.message);
-                }
+                handleAdminRealtimePacket(data);
             } catch (err) {
                 console.error('[Admin WS Parse Error]:', err);
             }
         };
-
-        function handleRealtimeOrderClaimed(data) {
-            let o = ordersCache.find(x => x.id === data.orderId);
-            if (o) {
-                o.rider_name = data.adminName;
-                o.delivery_assignment = {
-                    assigned_to: data.adminId,
-                    assigned_to_name: data.adminName,
-                    name: data.adminName,
-                    claimed_at: data.claimedAt,
-                    is_claimed: true,
-                    transfer: null
-                };
-                if (typeof getOrderSignature === 'function') {
-                    knownOrderMap.set(data.orderId, getOrderSignature(o));
-                }
-            } else {
-                o = {
-                    id: data.orderId,
-                    rider_name: data.adminName,
-                    delivery_assignment: {
-                        assigned_to: data.adminId,
-                        assigned_to_name: data.adminName,
-                        name: data.adminName,
-                        claimed_at: data.claimedAt,
-                        is_claimed: true,
-                        transfer: null
-                    }
-                };
-                ordersCache.unshift(o);
-                if (typeof getOrderSignature === 'function') {
-                    knownOrderMap.set(data.orderId, getOrderSignature(o));
-                }
-            }
-            if (data.adminId !== currentAdminProfile?.id) {
-                showToast(`🛵 ${data.adminName} accepted Order #${(data.orderId || '').replace('order_', '').slice(0, 8)}`, 'info');
-            }
-            filterOrders();
-            if (currentDrawerOrderId === data.orderId) {
-                updateDrawerDispatchCard(o);
-            }
-            // Trigger immediate server sync to ensure all admins see fresh delivery data
-            setTimeout(() => { syncOrdersLive(); }, 500);
-            if (activeView === 'delivery' || activeView === 'earnings') {
-                loadDeliveryEarnings();
-            }
-        }
-
-        function handleRealtimeTransferRequested(data) {
-            const o = ordersCache.find(x => x.id === data.orderId);
-            if (o) {
-                if (!o.delivery_assignment) o.delivery_assignment = {};
-                o.delivery_assignment.transfer = {
-                    from_id: data.fromId,
-                    from_name: data.fromName,
-                    to_id: data.toId,
-                    to_name: data.toName,
-                    reason: data.reason,
-                    status: 'PENDING'
-                };
-            }
-            if (data.toId === currentAdminProfile?.id) {
-                showIncomingTransferAlert(data);
-            }
-            filterOrders();
-            if (currentDrawerOrderId === data.orderId) openOrderDrawer(data.orderId);
-        }
-
-        function handleRealtimeTransferResolved(data) {
-            const o = ordersCache.find(x => x.id === data.orderId);
-            if (o) {
-                if (data.accepted) {
-                    o.rider_name = data.toName;
-                    o.delivery_assignment = {
-                        assigned_to: data.toId,
-                        assigned_to_name: data.toName,
-                        is_claimed: true,
-                        transfer: null
-                    };
-                } else if (o.delivery_assignment) {
-                    o.delivery_assignment.transfer = null;
-                }
-                if (typeof getOrderSignature === 'function') {
-                    knownOrderMap.set(data.orderId, getOrderSignature(o));
-                }
-            }
-            const shortId = (data.orderId || '').replace('order_', '').slice(0, 8).toUpperCase();
-            showToast(`Order #${shortId} transfer ${data.accepted ? 'accepted by ' + data.toName : 'declined'}`, data.accepted ? 'success' : 'warning');
-            filterOrders();
-            if (currentDrawerOrderId === data.orderId) openOrderDrawer(data.orderId);
-            // Sync fresh data to confirm the transfer update
-            if (data.accepted) {
-                setTimeout(() => { syncOrdersLive(); }, 500);
-            }
-            if (activeView === 'delivery' || activeView === 'earnings') {
-                loadDeliveryEarnings();
-            }
-        }
-
-        function handleRealtimeOrderEdited(data) {
-            if (!data || !data.orderId) return;
-            const idx = ordersCache.findIndex(o => o.id === data.orderId);
-            if (idx >= 0 && data.order) {
-                ordersCache[idx] = { ...ordersCache[idx], ...data.order };
-            }
-            if (currentDrawerOrderId === data.orderId) {
-                viewOrderDetails(currentDrawerOrderId);
-            }
-            filterOrders();
-            loadInventory();
-            showToast(data.message || `Order #${data.orderId.replace('order_', '').toUpperCase()} was updated by dark store.`, 'info');
-        }
-
 
         realtimeWs.onclose = () => {
             realtimeWs = null;
@@ -5687,6 +5975,24 @@ function initRealtimeWebSocket() {
             wsReconnectTimer = setTimeout(initRealtimeWebSocket, 5000);
         }
     }
+}
+
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('online', () => {
+        console.log('[Admin Network] 🌐 Reconnected to internet. Re-syncing live state...');
+        showToast('🌐 Network reconnected! Syncing live data...', 'info');
+        initRealtimeWebSocket();
+        initSupabaseRealtime();
+        syncOrdersLive();
+        if (typeof loadInventory === 'function') loadInventory(true);
+        if (typeof loadProducts === 'function') loadProducts(true);
+    });
+
+    window.addEventListener('offline', () => {
+        console.warn('[Admin Network] ⚠️ Connection dropped.');
+        updateConnectionStatus(false, 'Offline (Reconnecting...)');
+        showToast('⚠️ Network connection lost. Reconnecting...', 'warning');
+    });
 }
 
 // Handle real-time inventory update

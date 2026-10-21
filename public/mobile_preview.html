@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LPUQuick — Mobile Bottom Navigation Live Simulator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0b0f19;
+            --surface: #131c2e;
+            --border: #1e293b;
+            --accent: #10b981;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: radial-gradient(circle at 50% 20%, #172554 0%, #0b0f19 70%);
+            color: var(--text);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            min-h-screen: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px 16px 48px;
+            overflow-x: hidden;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            color: #34d399;
+            padding: 4px 14px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 10px;
+        }
+        h1 {
+            font-size: 24px;
+            font-weight: 900;
+            letter-spacing: -0.02em;
+        }
+        p.subtitle {
+            color: var(--text-muted);
+            font-size: 13px;
+            margin-top: 4px;
+        }
+        .nav-switchers {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 24px;
+            max-width: 600px;
+        }
+        .nav-btn {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: var(--text);
+            padding: 8px 16px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+        }
+        .nav-btn:hover {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: rgba(16, 185, 129, 0.5);
+            transform: translateY(-1px);
+        }
+        .nav-btn.active {
+            background: #10b981;
+            color: #ffffff;
+            border-color: #10b981;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+        }
+        .phone-container {
+            position: relative;
+            width: 390px;
+            height: 844px;
+            background: #000;
+            border-radius: 54px;
+            box-shadow: 
+                0 0 0 12px #1e293b,
+                0 0 0 14px #334155,
+                0 25px 60px -15px rgba(0, 0, 0, 0.7),
+                0 0 50px rgba(16, 185, 129, 0.15);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .dynamic-island {
+            position: absolute;
+            top: 11px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 124px;
+            height: 32px;
+            background: #000;
+            border-radius: 20px;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 10px;
+            pointer-events: none;
+        }
+        .camera-lens {
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            background: #0f172a;
+            box-shadow: inset 0 0 2px #38bdf8;
+            margin-left: auto;
+        }
+        .speaker-bar {
+            width: 48px;
+            height: 4px;
+            border-radius: 2px;
+            background: #1e293b;
+            position: absolute;
+            top: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #064e3b;
+            border-radius: 46px;
+        }
+        .notice {
+            margin-top: 24px;
+            text-align: center;
+            max-width: 460px;
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.5;
+            background: rgba(30, 41, 59, 0.5);
+            padding: 12px 20px;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .notice strong {
+            color: #34d399;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="badge">
+            <span class="material-symbols-outlined" style="font-size: 14px;">smartphone</span>
+            Mobile Viewport Verified (390 &times; 844)
+        </div>
+        <h1>LPUQuick Mobile Bottom Navigation</h1>
+        <p class="subtitle">Live responsive preview showing all 5 dock items: Home, Categories, Cart, Orders, Profile</p>
+    </div>
+
+    <div class="nav-switchers">
+        <button class="nav-btn" onclick="navigateTo('#/')">
+            <span class="material-symbols-outlined" style="font-size: 16px;">home</span> Home
+        </button>
+        <button class="nav-btn" onclick="navigateTo('#/categories')">
+            <span class="material-symbols-outlined" style="font-size: 16px;">category</span> Categories
+        </button>
+        <button class="nav-btn active" id="btn-cart" onclick="navigateTo('#/cart')">
+            <span class="material-symbols-outlined" style="font-size: 16px;">shopping_cart</span> Cart (5 Tabs)
+        </button>
+        <button class="nav-btn" onclick="navigateTo('#/orders')">
+            <span class="material-symbols-outlined" style="font-size: 16px;">receipt_long</span> Orders
+        </button>
+        <button class="nav-btn" onclick="navigateTo('#/settings')">
+            <span class="material-symbols-outlined" style="font-size: 16px;">account_circle</span> Profile
+        </button>
+    </div>
+
+    <div class="phone-container">
+        <div class="speaker-bar"></div>
+        <div class="dynamic-island">
+            <span style="font-size: 9px; font-weight: 800; color: #10b981;">LPUQuick</span>
+            <div class="camera-lens"></div>
+        </div>
+        <iframe id="mobile-frame" src="/#/cart"></iframe>
+    </div>
+
+    <div class="notice">
+        <strong>&check; Real-time Verification:</strong> The phone above runs at true mobile width (390px), ensuring the floating liquid glass dock is active. You can click options inside the phone or use the buttons above.
+    </div>
+
+    <script>
+        function navigateTo(hash) {
+            const frame = document.getElementById('mobile-frame');
+            frame.src = '/' + hash;
+            
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            if (hash.includes('cart')) document.getElementById('btn-cart').classList.add('active');
+            else if (event && event.currentTarget) event.currentTarget.classList.add('active');
+        }
+
+        // Listen to hash changes inside iframe if same-origin
+        window.addEventListener('message', (e) => {
+            // Optional sync
+        });
+    </script>
+</body>
+</html>

@@ -156,9 +156,9 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
         // Prioritize explicit client items (e.g. Fast-Track Buy Now / Instant Checkout) to avoid unnecessary DB roundtrips
         let orderItems = clientItems;
         if (!orderItems || orderItems.length === 0) {
-            let cart = await supabaseDb.cart.getCart(userId);
+            let cart = await supabaseDb.cart.getCart(userId, candidateHostel);
             if ((!cart.items || cart.items.length === 0) && guestUserId) {
-                cart = await supabaseDb.cart.getCart(guestUserId);
+                cart = await supabaseDb.cart.getCart(guestUserId, candidateHostel);
             }
             orderItems = cart.items;
         }

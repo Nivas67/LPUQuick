@@ -7,6 +7,44 @@ const adminSockets = new Set();
 const clientSockets = new Set();
 const orderTrackingSockets = new Map(); // orderId -> Set of ws
 
+let globalSupabaseChannel = null;
+
+function getSupabaseRealtimeChannel() {
+    if (globalSupabaseChannel) return globalSupabaseChannel;
+    try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            globalSupabaseChannel = supabase.channel('lpuquick_global_realtime');
+            globalSupabaseChannel.subscribe((status) => {
+                console.log(`[Realtime Hub] Supabase Cloud Global Channel status: ${status}`);
+            });
+        }
+    } catch (e) {
+        console.warn('[Realtime Hub] Supabase Cloud Global Channel setup note:', e.message);
+    }
+    return globalSupabaseChannel;
+}
+
+// Proactively initialize Supabase Cloud channel
+getSupabaseRealtimeChannel();
+
+function broadcastToSupabase(event, payload) {
+    try {
+        const ch = getSupabaseRealtimeChannel();
+        if (ch) {
+            ch.send({
+                type: 'broadcast',
+                event,
+                payload
+            }).catch(err => {
+                console.warn(`[Supabase Realtime Broadcast Warning] ${event}:`, err.message);
+            });
+        }
+    } catch (e) {
+        console.warn(`[Supabase Realtime Hub Error] ${event}:`, e.message);
+    }
+}
+
 function setupRealtime(server) {
     const wss = new WebSocket.Server({ noServer: true });
 
@@ -16,17 +54,23 @@ function setupRealtime(server) {
 
         if (pathname.startsWith('/ws/admin')) {
             const token = parsedUrl.searchParams.get('token') || request.headers['x-admin-token'] || '';
-            const { verifyAdminToken } = require('./middleware/adminAuth');
+            const { verifyAdminToken, KNOWN_STAFF_FALLBACKS } = require('./middleware/adminAuth');
             const verified = verifyAdminToken(token);
             let authorizedAdmin = null;
 
             if (verified && verified.sub) {
                 try {
                     const user = await supabaseDb.users.getUserById(verified.sub);
-                    if (user && user.role === 'admin') {
+                    if (user && (user.role === 'admin' || user.role === 'owner')) {
                         authorizedAdmin = user;
+                    } else if (KNOWN_STAFF_FALLBACKS[verified.sub]) {
+                        authorizedAdmin = KNOWN_STAFF_FALLBACKS[verified.sub];
                     }
-                } catch (e) {}
+                } catch (e) {
+                    if (KNOWN_STAFF_FALLBACKS[verified.sub]) {
+                        authorizedAdmin = KNOWN_STAFF_FALLBACKS[verified.sub];
+                    }
+                }
             }
 
             if (!authorizedAdmin) {
@@ -70,11 +114,19 @@ function setupRealtime(server) {
 
                 if (verified && verified.sub) {
                     try {
+                        const { KNOWN_STAFF_FALLBACKS } = require('./middleware/adminAuth');
                         const user = await supabaseDb.users.getUserById(verified.sub);
-                        if (user && user.role === 'admin') {
+                        if (user && (user.role === 'admin' || user.role === 'owner')) {
                             authorizedAdmin = user;
+                        } else if (KNOWN_STAFF_FALLBACKS[verified.sub]) {
+                            authorizedAdmin = KNOWN_STAFF_FALLBACKS[verified.sub];
                         }
-                    } catch (dbErr) {}
+                    } catch (dbErr) {
+                        const { KNOWN_STAFF_FALLBACKS } = require('./middleware/adminAuth');
+                        if (KNOWN_STAFF_FALLBACKS[verified.sub]) {
+                            authorizedAdmin = KNOWN_STAFF_FALLBACKS[verified.sub];
+                        }
+                    }
                 }
             }
 
@@ -264,29 +316,36 @@ async function notifyAdminNewOrder(orderData) {
     let customerPhone = orderData.customer_phone || '';
     let customerEmail = orderData.customer_email || '';
 
-    if (orderData.user_id && (!customerName || customerName.toLowerCase().startsWith('user_') || customerName === 'Customer' || customerName === 'Campus Resident' || customerName === 'Campus Student')) {
+    const isGeneric = !customerName || customerName.toLowerCase().startsWith('user_') || customerName === 'Customer' || customerName === 'Campus Resident';
+    if (orderData.user_id && isGeneric && !orderData.user_id.startsWith('guest_')) {
         try {
             const supabase = getSupabaseClient();
-            const { data: user } = await supabase
-                .from('users')
-                .select('name, phone, email')
-                .eq('id', orderData.user_id)
-                .single();
-            if (user) {
-                customerName = user.name || customerName;
-                customerPhone = user.phone || customerPhone;
-                customerEmail = user.email || customerEmail;
+            if (supabase) {
+                const userPromise = supabase
+                    .from('users')
+                    .select('name, phone, email')
+                    .eq('id', orderData.user_id)
+                    .single();
+                const { data: user } = await Promise.race([
+                    userPromise,
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 300))
+                ]);
+                if (user) {
+                    customerName = user.name || customerName;
+                    customerPhone = user.phone || customerPhone;
+                    customerEmail = user.email || customerEmail;
+                }
             }
         } catch (e) {}
     }
 
     // If still missing or generic, derive from email or phone
-    if (!customerName || customerName.toLowerCase().startsWith('user_') || customerName === 'Customer' || customerName === 'Campus Resident' || customerName === 'Campus Student') {
-        if (customerEmail && customerEmail.includes('@') && !customerEmail.endsWith('@lpu.in')) {
+    if (!customerName || customerName.toLowerCase().startsWith('user_') || customerName === 'Customer' || customerName === 'Campus Resident') {
+        if (customerPhone && customerPhone.length >= 10) {
+            customerName = `Student (+91 ${customerPhone.slice(-10)})`;
+        } else if (customerEmail && customerEmail.includes('@') && !customerEmail.endsWith('@lpu.in')) {
             const emailPrefix = customerEmail.split('@')[0].trim();
             customerName = emailPrefix.replace(/[._-]/g, ' ').split(' ').filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-        } else if (customerPhone && customerPhone.length >= 10) {
-            customerName = `Student (+91 ${customerPhone.slice(-10)})`;
         } else if (customerEmail && customerEmail.includes('@')) {
             customerName = customerEmail.split('@')[0];
         } else {
@@ -308,6 +367,7 @@ async function notifyAdminNewOrder(orderData) {
 
     chunkedBroadcast(adminSockets, payload);
     chunkedBroadcast(clientSockets, payload);
+    try { broadcastToSupabase('NEW_ORDER', JSON.parse(payload)); } catch(e) {}
 }
 
 // Broadcast status update to tracking clients, admin sockets, AND client sockets
@@ -350,6 +410,7 @@ function broadcastStatusUpdate(orderId, newStatus, riderName = 'Alex', extraMeta
 
     chunkedBroadcast(adminSockets, adminPayload);
     chunkedBroadcast(clientSockets, trackingPayload);
+    try { broadcastToSupabase('ORDER_STATUS_UPDATE', JSON.parse(adminPayload)); } catch(e) {}
 }
 
 // Broadcast product/inventory update to all admin sockets AND client sockets
@@ -366,6 +427,7 @@ function broadcastInventoryUpdate(productId, stockLeft, inStock, hostelId = null
 
     chunkedBroadcast(adminSockets, payload);
     chunkedBroadcast(clientSockets, payload);
+    try { broadcastToSupabase('INVENTORY_UPDATE', JSON.parse(payload)); } catch(e) {}
 }
 
 // Broadcast general catalog modification (name, price, mrp, addition, deletion)
@@ -380,6 +442,7 @@ function broadcastCatalogUpdate(productId, hostelId = null, action = 'update') {
 
     chunkedBroadcast(adminSockets, payload);
     chunkedBroadcast(clientSockets, payload);
+    try { broadcastToSupabase('CATALOG_UPDATE', JSON.parse(payload)); } catch(e) {}
 }
 
 function getStepNumber(status) {
@@ -417,6 +480,7 @@ function broadcastClientLockUpdate(lockState, allHostelLocks = null) {
 
     chunkedBroadcast(clientSockets, payload);
     chunkedBroadcast(adminSockets, payload);
+    try { broadcastToSupabase('CLIENT_LOCK_UPDATE', JSON.parse(payload)); } catch(e) {}
 }
 
 // Broadcast user block signal
@@ -430,6 +494,7 @@ function broadcastUserBlocked(userId, reason = 'Fake Orders') {
 
     chunkedBroadcast(clientSockets, payload);
     chunkedBroadcast(adminSockets, payload);
+    try { broadcastToSupabase('USER_BLOCKED', JSON.parse(payload)); } catch(e) {}
 }
 
 function broadcastUserUnblocked(userId) {
@@ -441,6 +506,7 @@ function broadcastUserUnblocked(userId) {
 
     chunkedBroadcast(clientSockets, payload);
     chunkedBroadcast(adminSockets, payload);
+    try { broadcastToSupabase('USER_UNBLOCKED', JSON.parse(payload)); } catch(e) {}
 }
 
 // Broadcast when an admin claims/accepts delivery of an order
@@ -470,6 +536,7 @@ function broadcastOrderClaimed(data) {
     if (trackingClients) {
         chunkedBroadcast(trackingClients, payload);
     }
+    try { broadcastToSupabase('ORDER_CLAIMED', JSON.parse(payload)); } catch(e) {}
 }
 
 // Broadcast when a delivery runner initiates an order transfer request
@@ -485,6 +552,7 @@ function broadcastTransferRequested(data) {
         timestamp: new Date().toISOString()
     });
     chunkedBroadcast(adminSockets, payload);
+    try { broadcastToSupabase('TRANSFER_REQUESTED', JSON.parse(payload)); } catch(e) {}
 }
 
 // Broadcast when a transfer is accepted or declined
@@ -498,6 +566,7 @@ function broadcastTransferResolved(data) {
         timestamp: new Date().toISOString()
     });
     chunkedBroadcast(adminSockets, payload);
+    try { broadcastToSupabase('TRANSFER_RESOLVED', JSON.parse(payload)); } catch(e) {}
 }
 
 // Broadcast when an order is modified (e.g. unavailable item removed or quantity reduced)
@@ -522,6 +591,7 @@ function broadcastOrderEdited(orderId, updatedOrder, editData) {
         chunkedBroadcast(trackingClients, payload);
     }
     chunkedBroadcast(clientSockets, payload);
+    try { broadcastToSupabase('ORDER_EDITED', JSON.parse(payload)); } catch(e) {}
 }
 
 // Broadcast promotional advertisements & carousel updates to all admins & clients
@@ -537,6 +607,7 @@ function broadcastAdvertisementsUpdate(posters, settings) {
     chunkedBroadcast(adminSockets, payload);
     // Broadcast to connected client storefronts
     chunkedBroadcast(clientSockets, payload);
+    try { broadcastToSupabase('ADVERTISEMENTS_UPDATED', JSON.parse(payload)); } catch(e) {}
 }
 
 // Broadcast when a delivery runner updates their duty availability (Active / Offline)
@@ -551,6 +622,7 @@ function broadcastDutyStatusChanged(data) {
     });
     chunkedBroadcast(adminSockets, payload);
     chunkedBroadcast(clientSockets, payload);
+    try { broadcastToSupabase('DUTY_STATUS_CHANGED', JSON.parse(payload)); } catch(e) {}
 }
 
 // Broadcast when an admin toggles a hostel storefront active or off
@@ -562,6 +634,7 @@ function broadcastHostelStatusChanged(hostel) {
     });
     chunkedBroadcast(adminSockets, payload);
     chunkedBroadcast(clientSockets, payload);
+    try { broadcastToSupabase('HOSTEL_STATUS_CHANGED', JSON.parse(payload)); } catch(e) {}
 }
 
 // Broadcast when an order is permanently deleted by owner
@@ -582,6 +655,7 @@ function broadcastOrderDeleted(orderId) {
         chunkedBroadcast(trackingSet, payload);
         orderTrackingSockets.delete(orderId);
     }
+    try { broadcastToSupabase('ORDER_DELETED', JSON.parse(payload)); } catch(e) {}
 }
 
 module.exports = {

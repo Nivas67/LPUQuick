@@ -11,6 +11,7 @@
     <link rel="icon" type="image/png" href="/admin/favicon.png">
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com" rel="preconnect" />
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
@@ -3217,7 +3218,7 @@
                     </div>
                     <div>
                         <label class="font-semibold text-[#262a2d] block mb-1">Category *</label>
-                        <select id="form-product-category" required
+                        <select id="form-product-category" required onchange="onModalCategoryChange()"
                             class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
                             <option value="Snacks & Beverages">Snacks & Beverages</option>
                             <option value="Grocery">Grocery</option>
@@ -3228,8 +3229,12 @@
                     </div>
                     <div>
                         <label class="font-semibold text-[#262a2d] block mb-1">Subcategory</label>
-                        <input id="form-product-subcategory" placeholder="e.g. Snacks / Bakery"
-                            class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
+                        <select id="form-product-subcategory" onchange="onModalSubcategoryChange()"
+                            class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none bg-white font-medium">
+                            <option value="">Select Subcategory</option>
+                        </select>
+                        <input id="form-product-subcategory-custom" placeholder="Type custom subcategory..."
+                            class="w-full mt-1.5 border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none hidden">
                     </div>
                 </div>
 

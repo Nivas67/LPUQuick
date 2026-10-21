@@ -118,6 +118,15 @@ app.get('/api/health', async (req, res) => {
     }
 });
 
+// Public Realtime Configuration for Supabase Channel Subscriptions
+app.get('/api/realtime/config', (req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.json({
+        supabaseUrl: process.env.SUPABASE_URL || '',
+        supabaseAnonKey: process.env.SUPABASE_ANON_KEY || ''
+    });
+});
+
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/admin/backup', require('./routes/backup'));

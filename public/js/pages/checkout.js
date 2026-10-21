@@ -146,7 +146,12 @@ window.pages.checkout = async function() {
         const hasItemDiscount = itemMrp > itemPrice;
         const discPercent = hasItemDiscount ? Math.round(((itemMrp - itemPrice) / itemMrp) * 100) : 0;
 
-        const stockLeft = (item.stock_left !== undefined && item.stock_left !== null) ? Number(item.stock_left) : 50;
+        const cachedProd = window.__cachedProducts?.get(item.product_id);
+        const stockLeft = (item.stock_left !== undefined && item.stock_left !== null)
+            ? Number(item.stock_left)
+            : ((cachedProd && cachedProd.stock_left !== undefined && cachedProd.stock_left !== null)
+                ? Number(cachedProd.stock_left)
+                : (item.in_stock === false ? 0 : 10));
         const isMaxStockReached = (Number(item.quantity) || 1) >= stockLeft && stockLeft > 0;
 
         return `
@@ -515,8 +520,8 @@ window.pageInits.checkout = function() {
             e.stopPropagation();
             const row = btn.closest('.cart-checkout-row');
             const cartId = btn.dataset.id || row?.dataset?.cartId;
-            const productId = btn.dataset.productId || row?.dataset?.productId;
-            const stockLeft = Number(btn.dataset.stockLeft || row?.dataset?.stockLeft) || 50;
+            const rawStock = btn.dataset.stockLeft ?? row?.dataset?.stockLeft;
+            const stockLeft = (rawStock !== undefined && rawStock !== '' && rawStock !== null) ? Number(rawStock) : 0;
             const curQty = parseInt(btn.dataset.qty) || 1;
 
             if (curQty >= stockLeft) {
@@ -545,8 +550,8 @@ window.pageInits.checkout = function() {
             e.stopPropagation();
             const row = btn.closest('.cart-checkout-row');
             const cartId = btn.dataset.id || row?.dataset?.cartId;
-            const productId = btn.dataset.productId || row?.dataset?.productId;
-            const stockLeft = Number(btn.dataset.stockLeft || row?.dataset?.stockLeft) || 50;
+            const rawStock = btn.dataset.stockLeft ?? row?.dataset?.stockLeft;
+            const stockLeft = (rawStock !== undefined && rawStock !== '' && rawStock !== null) ? Number(rawStock) : 0;
             const curQty = parseInt(btn.dataset.qty) || 1;
 
             if (curQty <= 1) {

@@ -2157,11 +2157,15 @@ const supabaseDb = {
                 }
 
                 // Strict Disallowance: If order is Out for Delivery or Delivered, reject cancellation
-                if (currentStatus.includes('out') || currentStatus.includes('route') || currentStatus.includes('dispatch') || currentStatus.includes('transit')) {
-                    throw new Error('Cannot cancel order: Your order is already out for delivery.');
-                }
-                if (currentStatus.includes('deliver')) {
-                    throw new Error('Cannot cancel order: Your order has already been delivered.');
+                // for regular students/customers. Platform admins have full operational authority to cancel or update any order.
+                const isAdmin = actor === 'admin' || actor === 'owner';
+                if (!isAdmin) {
+                    if (currentStatus.includes('out') || currentStatus.includes('route') || currentStatus.includes('dispatch') || currentStatus.includes('transit')) {
+                        throw new Error('Cannot cancel order: Your order is already out for delivery.');
+                    }
+                    if (currentStatus.includes('deliver')) {
+                        throw new Error('Cannot cancel order: Your order has already been delivered.');
+                    }
                 }
 
                 // 2. Conditional Atomic DB Update to prevent race conditions
@@ -2263,14 +2267,29 @@ const supabaseDb = {
             if (options.payment_method) updatePayload.payment_method = options.payment_method;
             if (options.payment_status) updatePayload.payment_status = options.payment_status;
 
-            const { data, error } = await supabase
+            let { data, error } = await supabase
                 .from('orders')
                 .update(updatePayload)
                 .eq('id', orderId)
                 .select()
                 .maybeSingle();
 
+            if (!data && !error) {
+                // Try alternate prefix normalization in case orderId was stripped or added
+                const altId = orderId.startsWith('order_') ? orderId.replace('order_', '') : `order_${orderId}`;
+                const retry = await supabase
+                    .from('orders')
+                    .update(updatePayload)
+                    .eq('id', altId)
+                    .select()
+                    .maybeSingle();
+                if (retry.data) {
+                    data = retry.data;
+                }
+            }
+
             if (error) throw new Error(`PostgreSQL order status update failed: ${error.message}`);
+            if (!data) throw new Error(`Order #${orderId} was not found in the database to update.`);
             cache.invalidateOrders();
 
             return data;
