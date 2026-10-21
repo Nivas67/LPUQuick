@@ -418,14 +418,57 @@ router.post('/admin-login', async (req, res) => {
     }
 });
 
-// In-memory OTP Store with 5-minute auto-expiry
-const otpStore = new Map();
+const whatsappService = require('../services/whatsappService');
 
-// Real SMS Dispatcher (Multi-Provider: Fast2SMS, 2Factor, Twilio, Supabase Phone SMS)
+// In-memory OTP Store with 5-minute auto-expiry and rate limit tracking
+const otpStore = new Map();
+const otpRateLimits = new Map();
+
+// Helper to check rate limits (cooldown: 30s, limit: 5 requests per 10 min)
+function checkOtpRateLimit(phone) {
+    const now = Date.now();
+    const entry = otpRateLimits.get(phone);
+
+    if (!entry) {
+        otpRateLimits.set(phone, { lastSentAt: now, count: 1, resetAt: now + 10 * 60 * 1000 });
+        return { allowed: true };
+    }
+
+    if (now > entry.resetAt) {
+        entry.count = 1;
+        entry.resetAt = now + 10 * 60 * 1000;
+        entry.lastSentAt = now;
+        return { allowed: true };
+    }
+
+    // Enforce 30-second cooldown between consecutive requests
+    const cooldownRemaining = Math.ceil((entry.lastSentAt + 30 * 1000 - now) / 1000);
+    if (cooldownRemaining > 0) {
+        return {
+            allowed: false,
+            error: `Please wait ${cooldownRemaining} seconds before requesting a new OTP.`,
+            retryAfter: cooldownRemaining
+        };
+    }
+
+    if (entry.count >= 5) {
+        const minutesLeft = Math.ceil((entry.resetAt - now) / (60 * 1000));
+        return {
+            allowed: false,
+            error: `Too many OTP requests for this phone number. Please try again in ${minutesLeft} minutes.`,
+            retryAfter: Math.ceil((entry.resetAt - now) / 1000)
+        };
+    }
+
+    entry.count += 1;
+    entry.lastSentAt = now;
+    return { allowed: true };
+}
+
+// Fallback Real SMS Dispatcher (Fast2SMS, 2Factor, Twilio, Supabase)
 async function sendRealSms(phone, otp) {
     const message = `Your LPUQuick verification OTP is ${otp}. Valid for 5 minutes. Do not share this code.`;
 
-    // 1. Fast2SMS Provider
     if (process.env.FAST2SMS_API_KEY) {
         try {
             const url = `https://www.fast2sms.com/dev/bulkV2?authorization=${process.env.FAST2SMS_API_KEY}&route=otp&variables_values=${otp}&numbers=${phone}`;
@@ -437,7 +480,6 @@ async function sendRealSms(phone, otp) {
         }
     }
 
-    // 2. 2Factor.in Provider
     if (process.env.TWOFACTOR_API_KEY) {
         try {
             const url = `https://2factor.in/API/V1/${process.env.TWOFACTOR_API_KEY}/SMS/+91${phone}/${otp}/AUTOGEN`;
@@ -449,7 +491,6 @@ async function sendRealSms(phone, otp) {
         }
     }
 
-    // 3. Twilio Provider
     if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER) {
         try {
             const auth = Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64');
@@ -466,49 +507,53 @@ async function sendRealSms(phone, otp) {
                 },
                 body: params.toString()
             });
-            const data = await res.json();
             return { success: true, provider: 'twilio' };
         } catch (e) {
             console.error('[Twilio Error]:', e.message);
         }
     }
 
-    // 4. Supabase Phone Auth Provider
     try {
         const supabase = getSupabaseClient();
         if (supabase && supabase.auth && typeof supabase.auth.signInWithOtp === 'function') {
-            const { error } = await supabase.auth.signInWithOtp({
-                phone: `+91${phone}`
-            });
-            if (!error) {
-                return { success: true, provider: 'supabase' };
-            }
+            const { error } = await supabase.auth.signInWithOtp({ phone: `+91${phone}` });
+            if (!error) return { success: true, provider: 'supabase' };
         }
-    } catch(supaErr) {
-        // Fallback to server SMS logger
-    }
+    } catch(supaErr) {}
 
-    return { success: true, provider: 'console' };
+    return { success: false, provider: null };
 }
 
-// POST /api/auth/send-otp (Generates and dispatches real SMS / WhatsApp OTP for mobile number verification)
+// POST /api/auth/send-otp (Secure WhatsApp OTP generation & delivery)
 router.post('/send-otp', async (req, res) => {
     const rawPhone = req.body.phone || req.body.mobile;
     const userId = req.body.userId || req.body.user_id;
 
     if (!rawPhone) {
-        return res.status(400).json({ error: 'Please enter a 10-digit mobile number' });
+        return res.status(400).json({ success: false, error: 'Please enter a 10-digit mobile number' });
     }
 
     const cleanPhone = String(rawPhone).replace(/\D/g, '').slice(-10);
     if (cleanPhone.length !== 10) {
-        return res.status(400).json({ error: 'Please enter a valid 10-digit Indian mobile number' });
+        return res.status(400).json({ success: false, error: 'Please enter a valid 10-digit Indian mobile number' });
     }
 
-    // Generate 6-digit cryptographic OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes validity
+    // 1. Rate Limiting Check
+    const rateCheck = checkOtpRateLimit(cleanPhone);
+    if (!rateCheck.allowed) {
+        return res.status(429).json({
+            success: false,
+            error: rateCheck.error,
+            retry_after: rateCheck.retryAfter
+        });
+    }
 
+    // 2. Generate Cryptographically Strong 6-digit OTP
+    const crypto = require('crypto');
+    const otp = crypto.randomInt(100000, 1000000).toString();
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
+
+    // 3. Store OTP securely with attempt tracking
     otpStore.set(cleanPhone, {
         otp,
         userId: userId || null,
@@ -516,19 +561,52 @@ router.post('/send-otp', async (req, res) => {
         attempts: 0
     });
 
-    // Send real carrier SMS
-    await sendRealSms(cleanPhone, otp);
+    // 4. Primary: Dispatch via WhatsApp Messaging Provider
+    const waResult = await whatsappService.sendOtp(cleanPhone, otp);
 
-    // Direct WhatsApp Delivery Deep Link (OTP is sent via SMS, not exposed in URL)
-    const waText = encodeURIComponent(`⚡ *LPUQuick Campus Express*\n\nPlease check your SMS for the verification OTP code.\n\n(Enter the 6-digit code in LPUQuick to verify your hostel delivery room. Valid for 5 minutes.)`);
-    const whatsappUrl = `https://api.whatsapp.com/send?phone=91${cleanPhone}&text=${waText}`;
+    if (waResult.success) {
+        return res.json({
+            success: true,
+            provider: waResult.provider,
+            channel: 'whatsapp',
+            message: `Verification code sent to WhatsApp on +91 ${cleanPhone}`,
+            expires_in: 300
+        });
+    }
 
-    res.json({
-        success: true,
-        phone: cleanPhone,
-        whatsapp_url: whatsappUrl,
-        message: `OTP sent successfully to +91 ${cleanPhone}`,
-        expires_in: 300
+    // 5. Secondary Fallback: Dispatch via SMS if configured
+    const smsResult = await sendRealSms(cleanPhone, otp);
+    if (smsResult.success) {
+        return res.json({
+            success: true,
+            provider: smsResult.provider,
+            channel: 'sms',
+            message: `Verification code sent via SMS to +91 ${cleanPhone}`,
+            expires_in: 300
+        });
+    }
+
+    // 6. Development & Test Simulation Fallback
+    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' || process.env.ALLOW_DEV_OTP === 'true') {
+        console.log(`\n======================================================`);
+        console.log(`🔑 [LPUQUICK WHATSAPP OTP] Phone: +91 ${cleanPhone} -> OTP: ${otp}`);
+        console.log(`⏱ Valid for 5 minutes.`);
+        console.log(`======================================================\n`);
+        return res.json({
+            success: true,
+            provider: 'dev_simulator',
+            channel: 'whatsapp',
+            devOtp: otp,
+            message: `Verification code generated for +91 ${cleanPhone}.`,
+            expires_in: 300
+        });
+    }
+
+    return res.status(503).json({
+        success: false,
+        error: waResult.error || 'WhatsApp messaging provider is not configured. Please set WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID in .env.',
+        code: 'WHATSAPP_PROVIDER_UNAVAILABLE',
+        provider_details: waResult.provider || 'none'
     });
 });
 
@@ -539,29 +617,62 @@ router.post('/verify-otp', async (req, res) => {
     const userId = req.body.userId || req.body.user_id;
 
     if (!rawPhone || !submittedOtp) {
-        return res.status(400).json({ error: 'Phone number and OTP code are required' });
+        return res.status(400).json({ success: false, error: 'Phone number and OTP code are required' });
     }
 
     const cleanPhone = String(rawPhone).replace(/\D/g, '').slice(-10);
     const cleanOtp = String(submittedOtp).trim();
 
-    const record = otpStore.get(cleanPhone);
-
-    // Validate OTP against stored record
-    const isValidOtp = (record && record.otp === cleanOtp && Date.now() <= record.expiresAt);
-
-    if (!isValidOtp) {
-        if (record) {
-            record.attempts = (record.attempts || 0) + 1;
-            if (record.attempts >= 5) {
-                otpStore.delete(cleanPhone);
-                return res.status(400).json({ error: 'Too many failed attempts. Please request a new OTP.' });
-            }
-        }
-        return res.status(400).json({ error: 'Invalid or expired OTP code. Please check and try again.' });
+    if (cleanPhone.length !== 10) {
+        return res.status(400).json({ success: false, error: 'Valid 10-digit mobile number required' });
     }
 
-    // OTP Verified! Clear from store
+    const record = otpStore.get(cleanPhone);
+
+    if (!record) {
+        return res.status(400).json({
+            success: false,
+            error: 'No active OTP request found for this phone number. Please request a new code.'
+        });
+    }
+
+    // Check Expiration
+    if (Date.now() > record.expiresAt) {
+        otpStore.delete(cleanPhone);
+        return res.status(400).json({
+            success: false,
+            error: 'OTP code has expired. Please request a new code.',
+            code: 'OTP_EXPIRED'
+        });
+    }
+
+    // Check Failed Attempts
+    record.attempts = (record.attempts || 0) + 1;
+    if (record.attempts > 5) {
+        otpStore.delete(cleanPhone);
+        return res.status(429).json({
+            success: false,
+            error: 'Too many incorrect attempts. For security, please request a new OTP code.',
+            code: 'MAX_ATTEMPTS_EXCEEDED'
+        });
+    }
+
+    // Constant-time comparison to prevent timing attacks
+    const crypto = require('crypto');
+    const isMatch = record.otp.length === cleanOtp.length &&
+        crypto.timingSafeEqual(Buffer.from(record.otp), Buffer.from(cleanOtp));
+
+    if (!isMatch) {
+        const remainingAttempts = 5 - record.attempts;
+        return res.status(400).json({
+            success: false,
+            error: `Invalid verification code. ${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining.`,
+            code: 'INVALID_OTP',
+            remaining_attempts: remainingAttempts
+        });
+    }
+
+    // OTP Verified! Immediately purge from store to prevent replay
     otpStore.delete(cleanPhone);
 
     // Update database if userId provided
@@ -572,8 +683,6 @@ router.post('/verify-otp', async (req, res) => {
             console.warn('[Verify OTP DB Update Warning]:', dbErr.message);
         }
     }
-
-
 
     res.json({
         success: true,

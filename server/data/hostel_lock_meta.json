@@ -12,7 +12,10 @@
     "created_by": "user_admin_bh13",
     "created_by_name": "Nivas Naidu (Main Admin)",
     "closed_at": "2026-10-14T11:40:14.256Z",
-    "updated_at": "2026-10-14T11:40:14.257Z"
+    "updated_at": "2026-10-21T17:01:45.401Z",
+    "opened_by": "SYSTEM_EXPIRY",
+    "opened_by_name": null,
+    "opened_at": "2026-10-21T17:01:45.371Z"
   },
   "store_main": {
     "opened_by": "user_admin_bh13",

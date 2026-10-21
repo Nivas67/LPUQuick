@@ -6,6 +6,7 @@ const { broadcastOrderPlaced, broadcastInventoryUpdate } = require('../realtime'
 const cache = require('../cache');
 const checkoutSettingsService = require('../services/checkoutSettingsService');
 const youpiService = require('../services/youpiService');
+const upiConfigService = require('../services/upiConfigService');
 
 // In-Memory YouPI Payment Confirmations Cache for Reconciling Pre-Order Webhook Events
 const youpiPaymentConfirmations = new Map();
@@ -539,11 +540,39 @@ router.post('/youpi-init', async (req, res) => {
             });
         }
 
+        // Record initial Pending transaction in payment ledger
+        try {
+            await supabaseDb.payments.createTransaction({
+                order_id: orderId,
+                provider: 'youpi',
+                provider_payment_id: paymentResult.paymentId,
+                amount: total,
+                payment_method: 'UPI',
+                customer_id: userId,
+                customer_name: customerName,
+                customer_phone: customerPhone,
+                status: 'Pending',
+                metadata: {
+                    hostel: candidateHostel,
+                    deliveryAddress,
+                    itemsCount: orderItems.length
+                }
+            });
+        } catch (txnErr) {
+            console.warn('[Checkout YouPI Record Warning]:', txnErr.message);
+        }
+
+        const upiConfig = upiConfigService.getConfig(true);
+        const merchantVpa = upiConfig.merchantVpa || 'lpuquick@upi';
+        const merchantPayee = upiConfig.merchantPayeeName || 'LPUQuick Campus Services';
+        const dynamicUpiUri = `upi://pay?pa=${encodeURIComponent(merchantVpa)}&pn=${encodeURIComponent(merchantPayee)}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent(orderId)}`;
+
         res.json({
             success: true,
             orderId,
             paymentId: paymentResult.paymentId,
             checkoutUrl: paymentResult.checkoutUrl,
+            upiUri: dynamicUpiUri,
             amount: paymentResult.amount,
             status: paymentResult.status,
             total,
@@ -587,6 +616,22 @@ router.post('/youpi-webhook', async (req, res) => {
                 timestamp: Date.now()
             });
 
+            // Update payment transaction ledger
+            try {
+                await supabaseDb.payments.updateTransactionStatus(orderId, {
+                    status: 'Successful',
+                    upi_ref_utr: utr,
+                    payment_method: 'UPI',
+                    metadata: {
+                        paymentId,
+                        utr,
+                        confirmed_at: new Date().toISOString()
+                    }
+                });
+            } catch (payDbErr) {
+                console.warn('[YouPI Webhook Ledger Update Note]:', payDbErr.message);
+            }
+
             // If order already created in DB, update status to PAID
             try {
                 const existingOrder = await supabaseDb.orders.getOrderById(orderId);
@@ -611,6 +656,17 @@ router.post('/youpi-webhook', async (req, res) => {
             } catch (dbErr) {
                 console.warn('[YouPI Webhook DB Update Note]:', dbErr.message);
             }
+        } else if ((event === 'FAILED' || event === 'EXPIRED') && orderId) {
+            try {
+                await supabaseDb.payments.updateTransactionStatus(orderId, {
+                    status: event === 'EXPIRED' ? 'Cancelled' : 'Failed',
+                    failure_reason: payload.reason || payload.error || `Payment ${event.toLowerCase()}`,
+                    metadata: {
+                        paymentId,
+                        failed_at: new Date().toISOString()
+                    }
+                });
+            } catch (fErr) {}
         }
 
         res.status(200).json({ received: true, event, orderId, utr });

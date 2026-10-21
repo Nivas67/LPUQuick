@@ -1,0 +1,28 @@
+[
+  {
+    "id": "log_e22eb9e96c8b4328",
+    "action": "REFUND_ISSUED",
+    "entity_id": "ref_d02c1b785219429e",
+    "actor_id": "Nivas Naidu",
+    "details": {
+      "amount": "74.00",
+      "orderId": "order_test_audit_1792606909808",
+      "transactionId": "pay_txn_089930f0d6a243fc",
+      "reason": "Full balance settlement"
+    },
+    "created_at": "2026-10-21T18:21:56.562Z"
+  },
+  {
+    "id": "log_76c5019f32184227",
+    "action": "REFUND_ISSUED",
+    "entity_id": "ref_376d4065ccfc496e",
+    "actor_id": "Nivas Naidu",
+    "details": {
+      "amount": "49.00",
+      "orderId": "order_test_audit_1792606909808",
+      "transactionId": "pay_txn_089930f0d6a243fc",
+      "reason": "Customer cancelled 1 item from bundle"
+    },
+    "created_at": "2026-10-21T18:21:53.768Z"
+  }
+]

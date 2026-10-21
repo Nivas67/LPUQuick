@@ -482,107 +482,164 @@ window.openAddressModal = async function (isMandatorySetup = false, onComplete =
     modal.className = 'modal-overlay';
     modal.innerHTML = `
         <div class="glass-panel p-6 space-y-4 max-w-sm w-full rounded-3xl max-h-[88vh] overflow-y-auto border border-[var(--glass-border)] shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200" onclick="event.stopPropagation()">
-            <!-- Header -->
-            <div class="flex justify-between items-center pb-3 border-b border-[var(--glass-border)]">
-                <div class="flex items-center gap-2.5">
-                    <div class="clay-pill w-9 h-9 rounded-xl text-emerald-500 flex items-center justify-center">
-                        <span class="material-symbols-outlined text-base">location_on</span>
+            <!-- Screen 1: Address Details Form -->
+            <div id="address-form-screen" class="space-y-4">
+                <!-- Header -->
+                <div class="flex justify-between items-center pb-3 border-b border-[var(--glass-border)]">
+                    <div class="flex items-center gap-2.5">
+                        <div class="clay-pill w-9 h-9 rounded-xl text-emerald-500 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-base">location_on</span>
+                        </div>
+                        <div>
+                            <h3 class="font-black text-xs sm:text-sm text-slate-900 dark:text-white tracking-tight">${isMandatorySetup ? 'Delivery Address Required' : 'Select Delivery Location'}</h3>
+                            <p class="text-[10px] text-slate-400 font-medium">LPU Campus 3-Min Delivery</p>
+                        </div>
                     </div>
-                    <div>
-                        <h3 class="font-black text-xs sm:text-sm text-slate-900 dark:text-white tracking-tight">${isMandatorySetup ? 'Delivery Address Required' : 'Select Delivery Location'}</h3>
-                        <p class="text-[10px] text-slate-400 font-medium">LPU Campus 3-Min Delivery</p>
+                    ${isMandatorySetup ? `
+                    <span class="liquid-badge text-[10px] font-bold px-2.5 py-0.5">Step 2</span>
+                    ` : `
+                    <button type="button" id="close-address-modal-btn" class="clay-pill w-8 h-8 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center justify-center transition-transform active:scale-95 cursor-pointer">
+                        <span class="material-symbols-outlined text-base">close</span>
+                    </button>
+                    `}
+                </div>
+
+                <!-- Notice Banner -->
+                <div class="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-300 font-medium">
+                    <span class="material-symbols-outlined text-base text-emerald">bolt</span>
+                    <span>Express 3-min delivery live at <b>${liveDisplayNames}</b>! Direct room drop.</span>
+                </div>
+
+                <!-- Hostel Selector Grid -->
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center text-xs">
+                        <label class="font-bold text-slate-700 dark:text-slate-300">Hostel</label>
+                        <span class="text-[10px] text-emerald-500 font-bold" id="selected-hostel-active-label">${selectedHostel} Selected</span>
+                    </div>
+                    <div class="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-36 overflow-y-auto p-0.5 no-scrollbar" id="hostels-container">
+                        ${allLocations.map(h => {
+            const isSelected = h.active && (normalizeHostelKey(h.id) === normalizeHostelKey(selectedHostel) || normalizeHostelKey(h.name) === normalizeHostelKey(selectedHostel));
+            const activeClass = h.active
+                ? (isSelected ? 'clay-pill text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 bg-emerald-500/15' : 'clay-card text-slate-700 dark:text-slate-300 hover:border-emerald')
+                : 'clay-card text-slate-400 dark:text-slate-500 opacity-60 hover:border-amber-400/50';
+            return `
+                            <button type="button" class="p-2 rounded-xl text-xs font-bold transition-all relative flex flex-col items-center justify-center gap-1 hostel-pick-btn cursor-pointer ${activeClass}" data-hostel="${h.name}" data-hostel-id="${h.id}" data-active="${h.active ? 'true' : 'false'}">
+                                <span>${h.name}</span>
+                                <span class="${h.active ? 'bg-emerald text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'} text-[8px] px-1.5 py-0.2 rounded-full font-black">${h.active ? 'Live' : 'Soon'}</span>
+                            </button>
+                            `;
+        }).join('')}
                     </div>
                 </div>
-                ${isMandatorySetup ? `
-                <span class="liquid-badge text-[10px] font-bold px-2.5 py-0.5">Step 2</span>
-                ` : `
-                <button type="button" id="close-address-modal-btn" class="clay-pill w-8 h-8 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center justify-center transition-transform active:scale-95 cursor-pointer">
-                    <span class="material-symbols-outlined text-base">close</span>
-                </button>
-                `}
-            </div>
 
-            <!-- Notice Banner -->
-            <div class="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-300 font-medium">
-                <span class="material-symbols-outlined text-base text-emerald">bolt</span>
-                <span>Express 3-min delivery live at <b>${liveDisplayNames}</b>! Direct room drop.</span>
-            </div>
-
-            <!-- Hostel Selector Grid -->
-            <div class="space-y-2">
-                <div class="flex justify-between items-center text-xs">
-                    <label class="font-bold text-slate-700 dark:text-slate-300">Hostel</label>
-                    <span class="text-[10px] text-emerald-500 font-bold" id="selected-hostel-active-label">${selectedHostel} Selected</span>
-                </div>
-                <div class="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-36 overflow-y-auto p-0.5 no-scrollbar" id="hostels-container">
-                    ${allLocations.map(h => {
-        const isSelected = h.active && (normalizeHostelKey(h.id) === normalizeHostelKey(selectedHostel) || normalizeHostelKey(h.name) === normalizeHostelKey(selectedHostel));
-        const activeClass = h.active
-            ? (isSelected ? 'clay-pill text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 bg-emerald-500/15' : 'clay-card text-slate-700 dark:text-slate-300 hover:border-emerald')
-            : 'clay-card text-slate-400 dark:text-slate-500 opacity-60 hover:border-amber-400/50';
-        return `
-                        <button type="button" class="p-2 rounded-xl text-xs font-bold transition-all relative flex flex-col items-center justify-center gap-1 hostel-pick-btn cursor-pointer ${activeClass}" data-hostel="${h.name}" data-hostel-id="${h.id}" data-active="${h.active ? 'true' : 'false'}">
-                            <span>${h.name}</span>
-                            <span class="${h.active ? 'bg-emerald text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'} text-[8px] px-1.5 py-0.2 rounded-full font-black">${h.active ? 'Live' : 'Soon'}</span>
+                <!-- Block Selector -->
+                <div class="space-y-2">
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">Block</label>
+                    <div class="grid grid-cols-2 gap-2.5" id="block-selector">
+                        <button type="button" class="py-2 px-3 rounded-xl text-xs font-bold transition-transform active:scale-95 block-btn flex items-center justify-center gap-1.5 cursor-pointer ${selectedBlock === 'Block A' ? 'clay-btn-primary text-white shadow-sm' : 'clay-card text-slate-700 dark:text-slate-300'}" data-block="Block A">
+                            <span class="material-symbols-outlined text-sm">apartment</span>
+                            Block A
                         </button>
-                        `;
-    }).join('')}
+                        <button type="button" class="py-2 px-3 rounded-xl text-xs font-bold transition-transform active:scale-95 block-btn flex items-center justify-center gap-1.5 cursor-pointer ${selectedBlock === 'Block B' ? 'clay-btn-primary text-white shadow-sm' : 'clay-card text-slate-700 dark:text-slate-300'}" data-block="Block B">
+                            <span class="material-symbols-outlined text-sm">apartment</span>
+                            Block B
+                        </button>
+                    </div>
                 </div>
+
+                <!-- Room Number Input -->
+                <div class="space-y-1.5">
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300" for="room-input">Room Number (Digits only) *</label>
+                    <input type="tel" inputmode="numeric" pattern="[0-9]*" id="room-input" required class="w-full px-3.5 py-2.5 rounded-xl border border-[var(--glass-border)] bg-slate-100/70 dark:bg-slate-800/70 text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all" placeholder="e.g. 304" value="${savedRoom.replace(/\D/g, '')}">
+                </div>
+
+                <!-- Contact Phone Number -->
+                <div class="space-y-1.5">
+                    <div class="flex justify-between items-center">
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300" for="phone-input">Mobile Phone Number <span class="text-rose-500">*</span></label>
+                        <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-0.5">
+                            <span class="material-symbols-outlined text-xs">chat</span> WhatsApp OTP
+                        </span>
+                    </div>
+                    <div class="relative">
+                        <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">+91</span>
+                        <input type="tel" inputmode="numeric" pattern="[0-9]*" id="phone-input" maxlength="10" required class="w-full pl-12 pr-3.5 py-2.5 rounded-xl border border-[var(--glass-border)] bg-slate-100/70 dark:bg-slate-800/70 text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all" placeholder="10-digit mobile" value="${savedPhone.replace(/\D/g, '')}">
+                    </div>
+                </div>
+
+                <!-- Inline Validation Alert -->
+                <div id="address-validation-alert" class="hidden p-2.5 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-600 dark:text-rose-400 text-xs font-medium flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-sm">error</span>
+                    <span id="address-validation-msg">Please enter your room number.</span>
+                </div>
+
+                <!-- Inline Alert for Blocked Hostels -->
+                <div id="blocked-hostel-alert" class="hidden p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-600 dark:text-amber-400 text-xs font-medium flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-sm">info</span>
+                    <span id="blocked-hostel-msg">This hostel is opening soon. Delivering to ${liveDisplayNames} right now.</span>
+                </div>
+
+                <!-- Save / Verify Button -->
+                <button type="button" id="save-address-btn" class="clay-btn clay-btn-primary w-full py-3 rounded-2xl text-xs font-black shadow-md active:scale-95 transition-transform cursor-pointer">
+                    Confirm Address & Deliver to ${selectedHostel} (<span id="btn-block-label">${selectedBlock}</span>)
+                </button>
             </div>
 
-            <!-- Block Selector -->
-            <div class="space-y-2">
-                <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">Block</label>
-                <div class="grid grid-cols-2 gap-2.5" id="block-selector">
-                    <button type="button" class="py-2 px-3 rounded-xl text-xs font-bold transition-transform active:scale-95 block-btn flex items-center justify-center gap-1.5 cursor-pointer ${selectedBlock === 'Block A' ? 'clay-btn-primary text-white shadow-sm' : 'clay-card text-slate-700 dark:text-slate-300'}" data-block="Block A">
-                        <span class="material-symbols-outlined text-sm">apartment</span>
-                        Block A
+            <!-- Screen 2: WhatsApp OTP Verification Screen -->
+            <div id="address-otp-screen" class="hidden space-y-4">
+                <!-- Header with Back Button -->
+                <div class="flex items-center gap-3 pb-3 border-b border-[var(--glass-border)]">
+                    <button type="button" id="back-to-form-btn" class="clay-pill w-8 h-8 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center justify-center transition-transform active:scale-95 cursor-pointer">
+                        <span class="material-symbols-outlined text-base">arrow_back</span>
                     </button>
-                    <button type="button" class="py-2 px-3 rounded-xl text-xs font-bold transition-transform active:scale-95 block-btn flex items-center justify-center gap-1.5 cursor-pointer ${selectedBlock === 'Block B' ? 'clay-btn-primary text-white shadow-sm' : 'clay-card text-slate-700 dark:text-slate-300'}" data-block="Block B">
-                        <span class="material-symbols-outlined text-sm">apartment</span>
-                        Block B
-                    </button>
+                    <div>
+                        <h3 class="font-black text-xs sm:text-sm text-slate-900 dark:text-white tracking-tight">WhatsApp Verification</h3>
+                        <p class="text-[10px] text-slate-400 font-medium">OTP sent to +91 <span id="otp-phone-display" class="font-bold text-emerald-500"></span></p>
+                    </div>
+                </div>
+
+                <!-- WhatsApp Delivery Notice -->
+                <div class="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center gap-2.5 text-xs text-emerald-700 dark:text-emerald-300 font-medium">
+                    <span class="material-symbols-outlined text-base text-emerald-500 shrink-0">mark_chat_read</span>
+                    <span>Please enter the 6-digit verification code sent to your WhatsApp:</span>
+                </div>
+
+                <!-- OTP Error Box -->
+                <div id="otp-error-box" class="hidden p-2.5 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-600 dark:text-rose-400 text-xs font-medium flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-sm">error</span>
+                    <span id="otp-error-text">Invalid verification code.</span>
+                </div>
+
+                <!-- 6-Digit Auto-Advancing Input Matrix -->
+                <div class="space-y-2 text-center pt-1">
+                    <div class="flex justify-center gap-1.5 sm:gap-2" id="otp-boxes-wrapper">
+                        <input type="tel" inputmode="numeric" maxlength="1" class="otp-box w-10 sm:w-11 h-12 text-center text-lg font-black rounded-xl border border-[var(--glass-border)] bg-slate-100/70 dark:bg-slate-800/70 text-slate-900 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 focus:outline-none transition-all" data-idx="0">
+                        <input type="tel" inputmode="numeric" maxlength="1" class="otp-box w-10 sm:w-11 h-12 text-center text-lg font-black rounded-xl border border-[var(--glass-border)] bg-slate-100/70 dark:bg-slate-800/70 text-slate-900 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 focus:outline-none transition-all" data-idx="1">
+                        <input type="tel" inputmode="numeric" maxlength="1" class="otp-box w-10 sm:w-11 h-12 text-center text-lg font-black rounded-xl border border-[var(--glass-border)] bg-slate-100/70 dark:bg-slate-800/70 text-slate-900 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 focus:outline-none transition-all" data-idx="2">
+                        <input type="tel" inputmode="numeric" maxlength="1" class="otp-box w-10 sm:w-11 h-12 text-center text-lg font-black rounded-xl border border-[var(--glass-border)] bg-slate-100/70 dark:bg-slate-800/70 text-slate-900 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 focus:outline-none transition-all" data-idx="3">
+                        <input type="tel" inputmode="numeric" maxlength="1" class="otp-box w-10 sm:w-11 h-12 text-center text-lg font-black rounded-xl border border-[var(--glass-border)] bg-slate-100/70 dark:bg-slate-800/70 text-slate-900 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 focus:outline-none transition-all" data-idx="4">
+                        <input type="tel" inputmode="numeric" maxlength="1" class="otp-box w-10 sm:w-11 h-12 text-center text-lg font-black rounded-xl border border-[var(--glass-border)] bg-slate-100/70 dark:bg-slate-800/70 text-slate-900 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 focus:outline-none transition-all" data-idx="5">
+                    </div>
+                </div>
+
+                <!-- Verify Button -->
+                <button type="button" id="submit-otp-verify-btn" class="clay-btn clay-btn-primary w-full py-3 rounded-2xl text-xs font-black shadow-md active:scale-95 transition-transform flex items-center justify-center gap-2 cursor-pointer">
+                    <span class="material-symbols-outlined text-sm">verified</span>
+                    <span>Verify Code & Confirm Address</span>
+                </button>
+
+                <!-- Resend Timer -->
+                <div class="text-center pt-1">
+                    <p class="text-xs text-slate-400 font-medium">
+                        Didn't receive WhatsApp message? <button type="button" id="resend-otp-link" class="text-emerald-500 font-bold underline cursor-pointer disabled:opacity-50" disabled>Resend Code (<span id="resend-timer-sec">30</span>s)</button>
+                    </p>
                 </div>
             </div>
-
-            <!-- Room Number Input -->
-            <div class="space-y-1.5">
-                <label class="block text-xs font-bold text-slate-700 dark:text-slate-300" for="room-input">Room Number (Digits only) *</label>
-                <input type="tel" inputmode="numeric" pattern="[0-9]*" id="room-input" required class="w-full px-3.5 py-2.5 rounded-xl border border-[var(--glass-border)] bg-slate-100/70 dark:bg-slate-800/70 text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all" placeholder="e.g. 304" value="${savedRoom.replace(/\D/g, '')}">
-            </div>
-
-            <!-- Contact Phone Number -->
-            <div class="space-y-1.5">
-                <div class="flex justify-between items-center">
-                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300" for="phone-input">Mobile Phone Number <span class="text-rose-500">*</span></label>
-                    <span class="text-[10px] text-rose-500 font-bold">Required for Runner</span>
-                </div>
-                <div class="relative">
-                    <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">+91</span>
-                    <input type="tel" inputmode="numeric" pattern="[0-9]*" id="phone-input" maxlength="10" required class="w-full pl-12 pr-3.5 py-2.5 rounded-xl border border-[var(--glass-border)] bg-slate-100/70 dark:bg-slate-800/70 text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all" placeholder="10-digit mobile" value="${savedPhone.replace(/\D/g, '')}">
-                </div>
-            </div>
-
-            <!-- Inline Validation Alert -->
-            <div id="address-validation-alert" class="hidden p-2.5 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-600 dark:text-rose-400 text-xs font-medium flex items-center gap-1.5">
-                <span class="material-symbols-outlined text-sm">error</span>
-                <span id="address-validation-msg">Please enter your room number.</span>
-            </div>
-
-            <!-- Inline Alert for Blocked Hostels -->
-            <div id="blocked-hostel-alert" class="hidden p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-600 dark:text-amber-400 text-xs font-medium flex items-center gap-1.5">
-                <span class="material-symbols-outlined text-sm">info</span>
-                <span id="blocked-hostel-msg">This hostel is opening soon. Delivering to ${liveDisplayNames} right now.</span>
-            </div>
-
-            <!-- Save Button -->
-            <button type="button" id="save-address-btn" class="clay-btn clay-btn-primary w-full py-3 rounded-2xl text-xs font-black shadow-md active:scale-95 transition-transform cursor-pointer">
-                Confirm Address & Deliver to ${selectedHostel} (<span id="btn-block-label">${selectedBlock}</span>)
-            </button>
         </div>
     `;
 
     const closeModal = () => {
+        if (resendInterval) clearInterval(resendInterval);
         modal.remove();
         if (typeof onComplete === 'function') {
             onComplete();
@@ -720,6 +777,7 @@ window.openAddressModal = async function (isMandatorySetup = false, onComplete =
         localStorage.setItem('lpuquick_room', window.currentRoom);
         if (phone) {
             localStorage.setItem('lpuquick_phone', phone);
+            localStorage.setItem('lpuquick_phone_verified_' + phone, 'true');
         }
         localStorage.setItem('lpuquick_address_configured', 'true');
         localStorage.setItem('lpuquick_address_detail', window.currentAddressDetail);
@@ -737,10 +795,11 @@ window.openAddressModal = async function (isMandatorySetup = false, onComplete =
             window.api.clearProductsCache();
         }
 
+        if (resendInterval) clearInterval(resendInterval);
         modal.remove();
 
         if (typeof window.showClientToast === 'function') {
-            window.showClientToast(`✓ Delivery address set to ${selectedHostel}!`, 'success', 'check_circle');
+            window.showClientToast(`✓ Delivery address verified & set to ${selectedHostel}!`, 'success', 'check_circle');
         }
 
         if (typeof onComplete === 'function') {
@@ -748,6 +807,181 @@ window.openAddressModal = async function (isMandatorySetup = false, onComplete =
         } else {
             router();
         }
+    }
+
+    // OTP Timer & Screen Flow
+    let resendInterval = null;
+    function startResendTimer() {
+        if (resendInterval) clearInterval(resendInterval);
+        let left = 30;
+        const timerSec = modal.querySelector('#resend-timer-sec');
+        const resendBtn = modal.querySelector('#resend-otp-link');
+        if (resendBtn) resendBtn.disabled = true;
+        if (timerSec) timerSec.textContent = left;
+
+        resendInterval = setInterval(() => {
+            left -= 1;
+            if (timerSec) timerSec.textContent = left;
+            if (left <= 0) {
+                clearInterval(resendInterval);
+                if (resendBtn) {
+                    resendBtn.disabled = false;
+                    resendBtn.textContent = 'Resend WhatsApp Code';
+                }
+            }
+        }, 1000);
+    }
+
+    async function launchOtpFlow(phoneToVerify) {
+        const userId = window.getEffectiveUserId();
+        const addressFormScreen = modal.querySelector('#address-form-screen');
+        const otpScreen = modal.querySelector('#address-otp-screen');
+        const errBox = modal.querySelector('#otp-error-box');
+        const alertBox = modal.querySelector('#address-validation-alert');
+        const alertMsg = modal.querySelector('#address-validation-msg');
+
+        if (alertBox) alertBox.classList.add('hidden');
+        if (errBox) errBox.classList.add('hidden');
+
+        const btnSave = modal.querySelector('#save-address-btn');
+        if (btnSave) {
+            btnSave.disabled = true;
+            btnSave.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin mr-1">sync</span> Sending WhatsApp Code...`;
+        }
+
+        try {
+            const sendRes = await window.api.sendOtp(phoneToVerify, userId);
+            if (btnSave) {
+                btnSave.disabled = false;
+                btnSave.innerHTML = `Confirm Address & Deliver to ${selectedHostel} (<span id="btn-block-label">${selectedBlock}</span>)`;
+            }
+
+            if (!sendRes || !sendRes.success) {
+                throw new Error(sendRes?.error || 'Unable to send WhatsApp OTP. Please try again.');
+            }
+
+            // Switch screen to OTP
+            if (addressFormScreen) addressFormScreen.classList.add('hidden');
+            if (otpScreen) otpScreen.classList.remove('hidden');
+
+            const phoneDisp = modal.querySelector('#otp-phone-display');
+            if (phoneDisp) phoneDisp.textContent = phoneToVerify;
+
+            // Clear inputs and focus first box
+            const boxes = modal.querySelectorAll('.otp-box');
+            boxes.forEach(b => b.value = '');
+            if (boxes[0]) boxes[0].focus();
+
+            startResendTimer();
+            if (typeof window.showClientToast === 'function') {
+                window.showClientToast(`💬 Verification code sent to WhatsApp on +91 ${phoneToVerify}`, 'success', 'chat');
+            }
+        } catch (err) {
+            if (btnSave) {
+                btnSave.disabled = false;
+                btnSave.innerHTML = `Confirm Address & Deliver to ${selectedHostel} (<span id="btn-block-label">${selectedBlock}</span>)`;
+            }
+            if (alertBox && alertMsg) {
+                alertBox.classList.remove('hidden');
+                alertMsg.textContent = err.message || 'Could not send WhatsApp verification code.';
+            } else if (typeof window.showClientToast === 'function') {
+                window.showClientToast(err.message || 'Could not send WhatsApp OTP', 'error', 'error');
+            }
+        }
+    }
+
+    // OTP Boxes Auto-Advancing & Keyboard Management
+    const otpBoxes = modal.querySelectorAll('.otp-box');
+    otpBoxes.forEach((box, idx) => {
+        box.oninput = () => {
+            const val = box.value.replace(/\D/g, '');
+            box.value = val ? val[0] : '';
+            if (val && idx < otpBoxes.length - 1) {
+                otpBoxes[idx + 1].focus();
+            }
+        };
+
+        box.onkeydown = (e) => {
+            if (e.key === 'Backspace' && !box.value && idx > 0) {
+                otpBoxes[idx - 1].focus();
+            }
+        };
+
+        box.onpaste = (e) => {
+            e.preventDefault();
+            const pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 6);
+            if (pasted) {
+                pasted.split('').forEach((char, i) => {
+                    if (otpBoxes[i]) otpBoxes[i].value = char;
+                });
+                const focusIdx = Math.min(pasted.length, 5);
+                if (otpBoxes[focusIdx]) otpBoxes[focusIdx].focus();
+            }
+        };
+    });
+
+    // Back button in OTP screen
+    const backBtn = modal.querySelector('#back-to-form-btn');
+    if (backBtn) {
+        backBtn.onclick = () => {
+            const addressFormScreen = modal.querySelector('#address-form-screen');
+            const otpScreen = modal.querySelector('#address-otp-screen');
+            if (otpScreen) otpScreen.classList.add('hidden');
+            if (addressFormScreen) addressFormScreen.classList.remove('hidden');
+            if (resendInterval) clearInterval(resendInterval);
+        };
+    }
+
+    // Resend OTP Link
+    const resendBtn = modal.querySelector('#resend-otp-link');
+    if (resendBtn) {
+        resendBtn.onclick = async () => {
+            const phone = modal.querySelector('#phone-input')?.value?.trim().replace(/\D/g, '');
+            if (phone) await launchOtpFlow(phone);
+        };
+    }
+
+    // Submit OTP Verification Button
+    const submitOtpBtn = modal.querySelector('#submit-otp-verify-btn');
+    if (submitOtpBtn) {
+        submitOtpBtn.onclick = async () => {
+            const boxes = modal.querySelectorAll('.otp-box');
+            const enteredOtp = Array.from(boxes).map(b => b.value).join('');
+            const phone = modal.querySelector('#phone-input')?.value?.trim().replace(/\D/g, '');
+            const room = modal.querySelector('#room-input')?.value?.trim().replace(/\D/g, '');
+            const errBox = modal.querySelector('#otp-error-box');
+            const errText = modal.querySelector('#otp-error-text');
+
+            if (enteredOtp.length < 6) {
+                if (errBox && errText) {
+                    errBox.classList.remove('hidden');
+                    errText.textContent = 'Please enter all 6 digits of the OTP code.';
+                }
+                return;
+            }
+
+            submitOtpBtn.disabled = true;
+            submitOtpBtn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">sync</span><span>Verifying...</span>';
+
+            try {
+                const uid = window.getEffectiveUserId();
+                const verifyRes = await window.api.verifyOtp(phone, enteredOtp, uid);
+                if (verifyRes && verifyRes.success) {
+                    localStorage.setItem('lpuquick_phone_verified_' + phone, 'true');
+                    if (resendInterval) clearInterval(resendInterval);
+                    finalizeAddressSave(room, phone);
+                } else {
+                    throw new Error(verifyRes?.error || 'Invalid OTP code.');
+                }
+            } catch (err) {
+                submitOtpBtn.disabled = false;
+                submitOtpBtn.innerHTML = '<span class="material-symbols-outlined text-sm">verified</span><span>Verify Code & Confirm Address</span>';
+                if (errBox && errText) {
+                    errBox.classList.remove('hidden');
+                    errText.textContent = err.message || 'Invalid or expired OTP code. Please try again.';
+                }
+            }
+        };
     }
 
     // Save Address button on Main Form
@@ -793,7 +1027,14 @@ window.openAddressModal = async function (isMandatorySetup = false, onComplete =
 
             if (alertBox) alertBox.classList.add('hidden');
 
-            // Finalize address and phone saving directly
+            // Check if phone number is already verified
+            const isVerified = localStorage.getItem('lpuquick_phone_verified_' + cleanPhone) === 'true';
+            if (!isVerified) {
+                await launchOtpFlow(cleanPhone);
+                return;
+            }
+
+            // Already verified! Finalize directly
             finalizeAddressSave(cleanRoom, cleanPhone);
         };
     }

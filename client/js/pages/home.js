@@ -1322,6 +1322,8 @@ window.pages.home = async function () {
             </div>
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4">${snackCards}</div>
         </section>
+        ` : ''}
+
         <!-- Campus Payment Security & Trust Banner -->
         <section class="glass-panel card-pedestal rounded-3xl p-4 sm:p-6 border border-[var(--glass-border)] shadow-md mt-6 space-y-3">
             <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-[var(--glass-border)]">

@@ -1,0 +1,34 @@
+[
+  {
+    "id": "ref_d02c1b785219429e",
+    "transaction_id": "pay_txn_089930f0d6a243fc",
+    "order_id": "order_test_audit_1792606909808",
+    "refund_ref_id": "rfnd_full_1792606915538",
+    "amount": "74.00",
+    "currency": "INR",
+    "status": "Refund Successful",
+    "reason": "Full balance settlement",
+    "failure_reason": null,
+    "initiated_by": "Nivas Naidu",
+    "provider_refund_id": "prov_ref_8b45bc76",
+    "metadata": {},
+    "created_at": "2026-10-21T18:21:55.818Z",
+    "updated_at": "2026-10-21T18:21:55.818Z"
+  },
+  {
+    "id": "ref_376d4065ccfc496e",
+    "transaction_id": "pay_txn_089930f0d6a243fc",
+    "order_id": "order_test_audit_1792606909808",
+    "refund_ref_id": "rfnd_part_1792606912688",
+    "amount": "49.00",
+    "currency": "INR",
+    "status": "Refund Successful",
+    "reason": "Customer cancelled 1 item from bundle",
+    "failure_reason": null,
+    "initiated_by": "Nivas Naidu",
+    "provider_refund_id": "prov_ref_8c308a9c",
+    "metadata": {},
+    "created_at": "2026-10-21T18:21:53.146Z",
+    "updated_at": "2026-10-21T18:21:53.146Z"
+  }
+]
