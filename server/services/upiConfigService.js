@@ -6,8 +6,8 @@ const CONFIG_FILE = path.join(__dirname, '..', 'data', 'upi_config.json');
 const DEFAULT_CONFIG = {
     provider: 'YOUPI_V2', // 'YOUPI_V2', 'PHONEPE_PG', 'DIRECT_UPI'
     environment: 'SANDBOX', // 'SANDBOX' or 'PRODUCTION'
-    merchantVpa: process.env.MERCHANT_UPI_VPA || 'lpuquick@upi',
-    merchantPayeeName: process.env.MERCHANT_PAYEE_NAME || 'LPUQuick Campus Services',
+    merchantVpa: process.env.DEFAULT_UPI_ID || process.env.MERCHANT_UPI_VPA || '7671836211-2@axl',
+    merchantPayeeName: process.env.MERCHANT_PAYEE_NAME || 'Digvijay',
     bankAccountMasked: 'HDFC Bank •••• 4821',
     bankIfscMasked: 'HDFC0000242',
     settlementCycle: 'INSTANT_SETTLEMENT', // Zero hold, direct to bank

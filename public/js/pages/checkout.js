@@ -677,6 +677,7 @@ window.pageInits.checkout = function() {
         const orderId = opts.orderId;
         const amount = Number(opts.amount || window.cartTotalCache || 0).toFixed(2);
         const upiId = opts.upiId || 'lpuquick@upi';
+        const paymentId = opts.paymentId || '';
         const payeeName = 'LPUQuick Campus Store';
         const note = `LPUQuick ${opts.savedHostel} Order ${orderId}`;
         const upiIntentUri = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
@@ -684,6 +685,11 @@ window.pageInits.checkout = function() {
 
         const existing = document.getElementById('campus-upi-modal-root');
         if (existing) existing.remove();
+
+        let pollInterval = null;
+        let isPolling = false;
+        let countdownTimer = null;
+        let secondsRemaining = 60;
 
         const modal = document.createElement('div');
         modal.id = 'campus-upi-modal-root';
@@ -710,57 +716,82 @@ window.pageInits.checkout = function() {
                     <p class="text-3xl font-black text-emerald-400 tracking-tight">₹${amount}</p>
                 </div>
 
-                <!-- Dynamic QR Code Card -->
-                <div class="p-3 bg-white rounded-2xl flex flex-col items-center justify-center shadow-inner mx-auto max-w-[210px]">
-                    <img src="${qrUrl}" alt="Scan to pay via UPI" class="w-44 h-44 object-contain rounded-lg" onerror="this.src='https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi'">
-                    <span class="text-[9px] font-black text-slate-700 mt-1 uppercase tracking-wider flex items-center gap-1">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Scan with any UPI App
-                    </span>
-                </div>
-
-                <!-- UPI VPA & Copy Button -->
-                <div class="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center justify-between text-xs">
-                    <div class="truncate mr-2">
-                        <span class="text-[9px] text-slate-400 uppercase font-bold block">Campus UPI ID</span>
-                        <span class="font-mono text-emerald-300 font-bold text-xs" id="campus-upi-vpa-val">${upiId}</span>
+                <!-- QR View Container -->
+                <div id="campus-upi-qr-view" class="space-y-4">
+                    <!-- Dynamic QR Code Card -->
+                    <div class="p-3 bg-white rounded-2xl flex flex-col items-center justify-center shadow-inner mx-auto max-w-[210px]">
+                        <img src="${qrUrl}" alt="Scan to pay via UPI" class="w-44 h-44 object-contain rounded-lg" onerror="this.src='https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi'">
+                        <span class="text-[9px] font-black text-slate-700 mt-1 uppercase tracking-wider flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Scan with any UPI App
+                        </span>
                     </div>
-                    <button type="button" id="copy-upi-vpa-btn" class="bg-slate-700 hover:bg-slate-600 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white shrink-0 transition-colors">
-                        Copy
-                    </button>
-                </div>
 
-                <!-- 1-Tap Mobile Intent Buttons -->
-                <div>
-                    <span class="text-[10px] text-slate-400 font-bold block mb-1.5 text-center">Tap to Open App on Mobile</span>
-                    <div class="grid grid-cols-4 gap-1.5">
-                        <a href="${upiIntentUri}" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-center flex flex-col items-center gap-1 text-[9px] font-bold text-white border border-slate-700/60 transition-transform active:scale-95">
-                            <span class="text-emerald-400 text-xs">🟢</span> GPay
-                        </a>
-                        <a href="${upiIntentUri}" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-center flex flex-col items-center gap-1 text-[9px] font-bold text-white border border-slate-700/60 transition-transform active:scale-95">
-                            <span class="text-purple-400 text-xs">🟣</span> PhonePe
-                        </a>
-                        <a href="${upiIntentUri}" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-center flex flex-col items-center gap-1 text-[9px] font-bold text-white border border-slate-700/60 transition-transform active:scale-95">
-                            <span class="text-sky-400 text-xs">🔷</span> Paytm
-                        </a>
-                        <a href="${upiIntentUri}" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-center flex flex-col items-center gap-1 text-[9px] font-bold text-white border border-slate-700/60 transition-transform active:scale-95">
-                            <span class="text-amber-400 text-xs">⚡</span> UPI
-                        </a>
+                    <!-- UPI VPA & Copy Button -->
+                    <div class="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center justify-between text-xs">
+                        <div class="truncate mr-2">
+                            <span class="text-[9px] text-slate-400 uppercase font-bold block">Campus UPI ID</span>
+                            <span class="font-mono text-emerald-300 font-bold text-xs" id="campus-upi-vpa-val">${upiId}</span>
+                        </div>
+                        <button type="button" id="copy-upi-vpa-btn" class="bg-slate-700 hover:bg-slate-600 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white shrink-0 transition-colors">
+                            Copy
+                        </button>
+                    </div>
+
+                    <!-- 1-Tap Mobile Intent Buttons -->
+                    <div>
+                        <span class="text-[10px] text-slate-400 font-bold block mb-1.5 text-center">Tap to Open App on Mobile</span>
+                        <div class="grid grid-cols-4 gap-1.5">
+                            <a href="${upiIntentUri}" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-center flex flex-col items-center gap-1 text-[9px] font-bold text-white border border-slate-700/60 transition-transform active:scale-95">
+                                <span class="text-emerald-400 text-xs">🟢</span> GPay
+                            </a>
+                            <a href="${upiIntentUri}" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-center flex flex-col items-center gap-1 text-[9px] font-bold text-white border border-slate-700/60 transition-transform active:scale-95">
+                                <span class="text-purple-400 text-xs">🟣</span> PhonePe
+                            </a>
+                            <a href="${upiIntentUri}" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-center flex flex-col items-center gap-1 text-[9px] font-bold text-white border border-slate-700/60 transition-transform active:scale-95">
+                                <span class="text-sky-400 text-xs">🔷</span> Paytm
+                            </a>
+                            <a href="${upiIntentUri}" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-center flex flex-col items-center gap-1 text-[9px] font-bold text-white border border-slate-700/60 transition-transform active:scale-95">
+                                <span class="text-amber-400 text-xs">⚡</span> UPI
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- UTR Input & Submit Confirmation -->
+                    <div class="space-y-2 pt-1 border-t border-slate-800">
+                        <input type="text" id="campus-upi-utr-input" placeholder="12-digit UTR / Ref No. (Optional)" maxlength="16" class="w-full px-3 py-2 rounded-xl bg-slate-800/90 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-mono text-center">
+                        <button type="button" id="confirm-campus-upi-btn" class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs uppercase tracking-wide shadow-lg shadow-emerald-500/25 transition-all flex items-center justify-center gap-1.5 cursor-pointer">
+                            <span class="material-symbols-outlined text-sm">verified_user</span>
+                            <span id="campus-upi-verify-btn-text">Verify Payment Status</span>
+                        </button>
                     </div>
                 </div>
 
-                <!-- UTR Input & Submit Confirmation -->
-                <div class="space-y-2 pt-1 border-t border-slate-800">
-                    <input type="text" id="campus-upi-utr-input" placeholder="12-digit UTR / Ref No. (Optional)" maxlength="16" class="w-full px-3 py-2 rounded-xl bg-slate-800/90 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-mono text-center">
-                    <button type="button" id="confirm-campus-upi-btn" class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs uppercase tracking-wide shadow-lg shadow-emerald-500/25 transition-all flex items-center justify-center gap-1.5 cursor-pointer">
-                        <span class="material-symbols-outlined text-sm">verified</span>
-                        <span>I Have Completed Payment</span>
-                    </button>
+                <!-- Processing / Verifying View Container (Initially Hidden) -->
+                <div id="campus-upi-verifying-view" class="hidden text-center py-6 space-y-4">
+                    <div class="w-16 h-16 mx-auto rounded-full bg-emerald-500/10 border-2 border-emerald-500/40 flex items-center justify-center">
+                        <span class="w-8 h-8 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin"></span>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-base text-white">Payment Verification in Progress</h4>
+                        <p class="text-xs text-slate-400 mt-1">Checking bank &amp; UPI credit confirmation...</p>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-800/70 border border-slate-700/70 text-xs space-y-1">
+                        <div class="text-[11px] text-slate-400">Verifying order <span class="font-mono text-emerald-400">#${orderId.replace('order_', '').toUpperCase()}</span></div>
+                        <div class="text-[11px] text-slate-400">Time remaining: <span id="campus-upi-poll-timer" class="font-bold text-white">60s</span></div>
+                    </div>
+                    <p class="text-[10px] text-slate-500">Please do not close this window. Your order will automatically confirm as soon as the bank confirms the credit.</p>
                 </div>
             </div>
         `;
         document.body.appendChild(modal);
 
+        function cleanup() {
+            if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+            if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+        }
+
         modal.querySelector('#close-campus-upi-modal').onclick = () => {
+            cleanup();
             modal.remove();
             if (typeof opts.onCancel === 'function') opts.onCancel();
         };
@@ -773,11 +804,97 @@ window.pageInits.checkout = function() {
             });
         };
 
+        async function checkVerificationStatus() {
+            try {
+                const res = await window.api.getOrderPaymentStatus(orderId, paymentId);
+                if (res && res.paid && res.status === 'PAID') {
+                    cleanup();
+                    const utr = res.utr || '';
+                    const verifyingView = modal.querySelector('#campus-upi-verifying-view');
+                    if (verifyingView) {
+                        verifyingView.innerHTML = `
+                            <div class="w-16 h-16 mx-auto rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 flex items-center justify-center animate-bounce">
+                                <span class="material-symbols-outlined text-3xl">check_circle</span>
+                            </div>
+                            <h4 class="font-bold text-base text-emerald-400">Payment Confirmed!</h4>
+                            <p class="text-xs text-slate-300">Redirecting to order confirmation...</p>
+                        `;
+                    }
+                    setTimeout(() => {
+                        modal.remove();
+                        if (typeof opts.onSuccess === 'function') opts.onSuccess(utr);
+                    }, 1200);
+                    return true;
+                }
+                return false;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function startVerificationFlow() {
+            if (isPolling) return;
+            isPolling = true;
+
+            const qrView = modal.querySelector('#campus-upi-qr-view');
+            const verifyingView = modal.querySelector('#campus-upi-verifying-view');
+            if (qrView) qrView.classList.add('hidden');
+            if (verifyingView) verifyingView.classList.remove('hidden');
+
+            secondsRemaining = 60;
+            const timerEl = modal.querySelector('#campus-upi-poll-timer');
+
+            countdownTimer = setInterval(() => {
+                secondsRemaining--;
+                if (timerEl) timerEl.textContent = `${secondsRemaining}s`;
+                if (secondsRemaining <= 0) {
+                    cleanup();
+                    if (verifyingView) {
+                        verifyingView.innerHTML = `
+                            <div class="w-14 h-14 mx-auto rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/40 flex items-center justify-center">
+                                <span class="material-symbols-outlined text-2xl">pending</span>
+                            </div>
+                            <h4 class="font-bold text-sm text-white">Verification Still in Progress</h4>
+                            <p class="text-xs text-slate-400">Bank is taking slightly longer than expected to confirm. Your order has been registered as pending.</p>
+                            <div class="flex gap-2 justify-center pt-2">
+                                <button type="button" id="campus-upi-retry-btn" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white transition-colors">Retry Check</button>
+                                <button type="button" id="campus-upi-done-btn" class="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-bold text-white transition-colors">View Orders</button>
+                            </div>
+                        `;
+                        const retryBtn = verifyingView.querySelector('#campus-upi-retry-btn');
+                        if (retryBtn) retryBtn.onclick = () => { isPolling = false; startVerificationFlow(); };
+                        const doneBtn = verifyingView.querySelector('#campus-upi-done-btn');
+                        if (doneBtn) doneBtn.onclick = () => {
+                            modal.remove();
+                            window.location.hash = '#/orders';
+                        };
+                    }
+                }
+            }, 1000);
+
+            // Immediate initial check
+            checkVerificationStatus();
+
+            // Continuous polling every 2.5s
+            pollInterval = setInterval(async () => {
+                const confirmed = await checkVerificationStatus();
+                if (confirmed) cleanup();
+            }, 2500);
+        }
+
         modal.querySelector('#confirm-campus-upi-btn').onclick = () => {
-            const utr = modal.querySelector('#campus-upi-utr-input').value.trim();
-            modal.remove();
-            if (typeof opts.onSuccess === 'function') opts.onSuccess(utr || `UPI_${Date.now().toString().slice(-6)}`);
+            startVerificationFlow();
         };
+
+        // Proactive background verification check while QR is visible
+        const backgroundCheck = setInterval(async () => {
+            if (isPolling) {
+                clearInterval(backgroundCheck);
+                return;
+            }
+            const confirmed = await checkVerificationStatus();
+            if (confirmed) clearInterval(backgroundCheck);
+        }, 3000);
     }
 
     async function finalizeOrderPlacement(orderId, paymentMethod, paymentStatus = 'pending', utr = '', paymentId = '', savedPhone = '', savedHostel = '', fullAddress = '') {
@@ -1004,8 +1121,9 @@ window.pageInits.checkout = function() {
                     savedPhone,
                     fullAddress,
                     upiId: youpiRes?.upiId || 'lpuquick@upi',
+                    paymentId: youpiRes?.paymentId || '',
                     onSuccess: async (utr) => {
-                        await finalizeOrderPlacement(orderId, 'UPI (Direct QR)', 'PAID', utr, `upi_${Date.now()}`, savedPhone, savedHostel, fullAddress);
+                        await finalizeOrderPlacement(orderId, 'UPI (Direct QR)', 'PAID', utr, youpiRes?.paymentId || '', savedPhone, savedHostel, fullAddress);
                     },
                     onCancel: () => {
                         isSubmitting = false;
@@ -1023,9 +1141,10 @@ window.pageInits.checkout = function() {
                     savedHostel,
                     savedPhone,
                     fullAddress,
+                    paymentId: '',
                     upiId: 'lpuquick@upi',
                     onSuccess: async (utr) => {
-                        await finalizeOrderPlacement(orderId, 'UPI (Direct QR)', 'PAID', utr, `upi_${Date.now()}`, savedPhone, savedHostel, fullAddress);
+                        await finalizeOrderPlacement(orderId, 'UPI (Direct QR)', 'PAID', utr, '', savedPhone, savedHostel, fullAddress);
                     },
                     onCancel: () => {
                         isSubmitting = false;

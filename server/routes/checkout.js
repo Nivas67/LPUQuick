@@ -337,13 +337,35 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
             normalizedDeliveryAddress = `[${targetHostelId}] ${normalizedDeliveryAddress}`;
         }
 
-        const isYoupiPaid = req.body.paymentStatus === 'PAID' || 
-                            req.body.payment_status === 'PAID' || 
-                            youpiPaymentConfirmations.has(orderId);
-        const confirmation = youpiPaymentConfirmations.get(orderId);
-        const resolvedPaymentStatus = isYoupiPaid ? 'PAID' : (req.body.paymentStatus || 'pending');
-        const resolvedPaymentMethod = (method.toLowerCase().includes('upi') || isYoupiPaid) ? 'UPI (YouPI)' : method;
-        const utrRef = req.body.utr || confirmation?.utr || '';
+        let isYoupiPaid = youpiPaymentConfirmations.has(orderId);
+        let confirmation = youpiPaymentConfirmations.get(orderId);
+
+        // Security Enforcement: The client claiming 'PAID' is NEVER trusted on its own.
+        // It must be verified either by an authentic server-to-server webhook OR by querying the gateway.
+        const reqPaymentId = req.body.paymentId || req.body.payment_id;
+        if (!isYoupiPaid && reqPaymentId) {
+            try {
+                const gatewayCheck = await youpiService.getPayment(reqPaymentId);
+                if (gatewayCheck && gatewayCheck.success && gatewayCheck.payment?.status === 'SUCCESS') {
+                    isYoupiPaid = true;
+                    confirmation = {
+                        status: 'PAID',
+                        utr: gatewayCheck.payment.utr || gatewayCheck.payment.bankReferenceNumber || '',
+                        paymentId: gatewayCheck.payment.paymentId || reqPaymentId,
+                        amount: gatewayCheck.payment.amount,
+                        timestamp: Date.now()
+                    };
+                    youpiPaymentConfirmations.set(orderId, confirmation);
+                }
+            } catch (vErr) {
+                console.warn('[Checkout Order Verify Gateway Warning]:', vErr.message);
+            }
+        }
+
+        const isUpi = method.toLowerCase().includes('upi') || Boolean(reqPaymentId);
+        const resolvedPaymentStatus = isYoupiPaid ? 'PAID' : 'pending';
+        const resolvedPaymentMethod = isUpi ? 'UPI (YouPI)' : method;
+        const utrRef = confirmation?.utr || (isYoupiPaid ? (req.body.utr || '') : '');
 
         const orderPayload = {
             id: orderId,
@@ -689,6 +711,130 @@ router.get('/youpi-verify/:paymentId', async (req, res) => {
             payment: result.payment
         });
     } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// GET /api/checkout/order-payment-status/:orderId — Authoritative polling endpoint for real-time payment status
+router.get('/order-payment-status/:orderId', async (req, res) => {
+    try {
+        const orderId = req.params.orderId;
+        const queryPaymentId = req.query.paymentId || req.query.payment_id;
+
+        // 1. Check in-memory webhook confirmation cache
+        if (youpiPaymentConfirmations.has(orderId)) {
+            const conf = youpiPaymentConfirmations.get(orderId);
+            return res.json({
+                success: true,
+                paid: true,
+                status: 'PAID',
+                utr: conf.utr || '',
+                paymentId: conf.paymentId || ''
+            });
+        }
+
+        // 2. Check database order payment status
+        let dbOrder = null;
+        try {
+            dbOrder = await supabaseDb.orders.getOrderById(orderId);
+            if (dbOrder && (dbOrder.payment_status === 'PAID' || dbOrder.payment_status === 'Successful')) {
+                return res.json({
+                    success: true,
+                    paid: true,
+                    status: 'PAID',
+                    utr: dbOrder.utr || '',
+                    paymentId: dbOrder.payment_id || ''
+                });
+            }
+        } catch (dbE) {}
+
+        // 3. Resolve paymentId (from query param or payment transactions ledger)
+        let resolvedPaymentId = queryPaymentId;
+        if (!resolvedPaymentId) {
+            try {
+                const txn = await supabaseDb.payments.getTransactionByOrderId(orderId);
+                if (txn && txn.provider_payment_id) {
+                    resolvedPaymentId = txn.provider_payment_id;
+                }
+            } catch (txnE) {}
+        }
+
+        // 4. If paymentId is available, query YouPI Gateway API for authoritative verification
+        if (resolvedPaymentId) {
+            const gatewayRes = await youpiService.getPayment(resolvedPaymentId);
+            if (gatewayRes && gatewayRes.success && gatewayRes.payment) {
+                const pStatus = gatewayRes.payment.status;
+                const utr = gatewayRes.payment.utr || gatewayRes.payment.bankReferenceNumber || '';
+
+                if (pStatus === 'SUCCESS') {
+                    // Cache confirmation
+                    youpiPaymentConfirmations.set(orderId, {
+                        status: 'PAID',
+                        utr,
+                        paymentId: resolvedPaymentId,
+                        timestamp: Date.now()
+                    });
+
+                    // Update order in DB if present
+                    if (dbOrder && dbOrder.payment_status !== 'PAID') {
+                        try {
+                            await supabaseDb.orders.updateStatus(orderId, dbOrder.status, {
+                                payment_status: 'PAID',
+                                payment_method: 'UPI (YouPI)'
+                            });
+                            cache.invalidateOrders();
+                            broadcastOrderPlaced({
+                                ...dbOrder,
+                                payment_status: 'PAID',
+                                payment_method: 'UPI (YouPI)',
+                                utr
+                            });
+                        } catch (updE) {}
+                    }
+
+                    // Update payment ledger
+                    try {
+                        await supabaseDb.payments.updateTransactionStatus(orderId, {
+                            status: 'Successful',
+                            upi_ref_utr: utr,
+                            payment_method: 'UPI'
+                        });
+                    } catch (pUpdE) {}
+
+                    return res.json({
+                        success: true,
+                        paid: true,
+                        status: 'PAID',
+                        utr,
+                        paymentId: resolvedPaymentId
+                    });
+                } else if (pStatus === 'FAILED' || pStatus === 'EXPIRED' || pStatus === 'CANCELLED') {
+                    return res.json({
+                        success: true,
+                        paid: false,
+                        status: pStatus,
+                        message: `Payment ${pStatus.toLowerCase()}`
+                    });
+                } else {
+                    return res.json({
+                        success: true,
+                        paid: false,
+                        status: 'PROCESSING',
+                        message: 'Payment Verification in Progress'
+                    });
+                }
+            }
+        }
+
+        // Default: still pending verification
+        return res.json({
+            success: true,
+            paid: false,
+            status: 'PROCESSING',
+            message: 'Payment Verification in Progress'
+        });
+    } catch (err) {
+        console.error('[Order Payment Status Error]:', err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 });

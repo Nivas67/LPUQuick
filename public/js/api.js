@@ -792,6 +792,16 @@ const api = {
         }
     },
 
+    async getOrderPaymentStatus(orderId, paymentId = null) {
+        try {
+            const query = paymentId ? `?paymentId=${encodeURIComponent(paymentId)}` : '';
+            const res = await fetch(`${API_BASE}/checkout/order-payment-status/${orderId}${query}`);
+            return await res.json();
+        } catch (e) {
+            return { success: false, error: e.message };
+        }
+    },
+
     async getYoupiConfig() {
         try {
             const res = await fetch(`${API_BASE}/checkout/youpi-config`);

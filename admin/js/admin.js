@@ -645,7 +645,7 @@ window.toggleMobileMenu = function() {
 // View Navigation
 function switchView(viewName) {
     // Role-based view protection
-    if (currentAdminProfile && !currentAdminProfile.is_owner) {
+    if (currentAdminProfile && !isPlatformOwner(currentAdminProfile)) {
         const roles = currentAdminProfile.roles || [];
         const viewRoles = {
             'client-lock': ['owner', 'store_manager'],
@@ -5820,6 +5820,12 @@ function handleAdminRealtimePacket(data) {
     if (recentAdminProcessedPackets.size > 200) {
         for (const [k, ts] of recentAdminProcessedPackets.entries()) {
             if (now - ts > 10000) recentAdminProcessedPackets.delete(k);
+        }
+    }
+
+    if (activeView === 'payment-management' && (data.type === 'NEW_ORDER' || data.type === 'ORDER_STATUS_UPDATE' || data.type === 'PAYMENT_UPDATE')) {
+        if (typeof loadPaymentManagementView === 'function') {
+            loadPaymentManagementView(currentPaymentsPage);
         }
     }
 
@@ -12286,7 +12292,9 @@ async function loadPaymentManagementView(page = 1) {
         if (statusFilter !== 'ALL') queryParams.append('status', statusFilter);
         if (searchVal) queryParams.append('search', searchVal);
 
-        const res = await fetchWithTimeout(`/api/admin/payments?${queryParams.toString()}`);
+        const res = await fetchWithTimeout(`/api/admin/payments?${queryParams.toString()}`, {
+            headers: getAuthHeaders()
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
 
@@ -12553,7 +12561,7 @@ async function submitRefundModal() {
     try {
         const res = await fetchWithTimeout(`/api/admin/payments/${txnId}/refund`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({
                 amount: amountVal,
                 reason: reasonVal,
@@ -12583,7 +12591,9 @@ async function submitRefundModal() {
 // 3. Super Admin UPI Configuration Controller
 async function loadUpiConfigView() {
     try {
-        const res = await fetchWithTimeout('/api/admin/payments/config');
+        const res = await fetchWithTimeout('/api/admin/payments/config', {
+            headers: getAuthHeaders()
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
 
@@ -12650,7 +12660,7 @@ async function saveUpiConfig() {
     try {
         const res = await fetchWithTimeout('/api/admin/payments/config', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(payload)
         });
 
