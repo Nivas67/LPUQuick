@@ -118,6 +118,25 @@ body {
         white-space: nowrap;
     }
 
+    /* Horizontal Chip Ribbon for Filters - Never wrap into multiple lines on mobile */
+    #orders-status-tabs,
+    #product-filter-pills {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: none !important;
+    }
+    #orders-status-tabs::-webkit-scrollbar,
+    #product-filter-pills::-webkit-scrollbar {
+        display: none !important;
+    }
+    .order-tab-btn,
+    .prod-filter-btn {
+        flex-shrink: 0 !important;
+        white-space: nowrap !important;
+    }
+
     /* Modal dialogs responsiveness on mobile */
     .modal-overlay > div,
     #product-modal > div,

@@ -284,9 +284,9 @@
                     <span id="push-status-text" class="hidden sm:inline">Push Alerts: OFF</span>
                 </button>
 
-                <!-- Force Direct Supabase Sync -->
+                <!-- Force Direct Supabase Sync (Hidden on mobile to save header space) -->
                 <button id="btn-force-sync" onclick="forceLiveDbSync()"
-                    class="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-xs"
+                    class="hidden sm:inline-flex bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-bold items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-xs"
                     title="Force Direct Supabase Cloud Sync">
                     <span class="material-symbols-outlined text-[18px]">cloud_sync</span>
                     <span class="hidden sm:inline">Sync Live Orders</span>
@@ -353,14 +353,14 @@
 
         <!-- Audio Permission Unlock Banner (Auto-dismisses on first click) -->
         <div id="audio-unlock-banner"
-            class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 flex items-center justify-between shadow-md cursor-pointer transition-colors shrink-0"
+            class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 sm:px-4 sm:py-2 flex items-center justify-between shadow-md cursor-pointer transition-colors shrink-0"
             onclick="unlockAudioEngine(); testCampusSound();">
-            <div class="flex items-center gap-2">
-                <span class="material-symbols-outlined text-sm animate-pulse">volume_up</span>
-                <span>🔊 Live Order Sound Alerts Active — Click here or anywhere to unlock browser sound alerts</span>
+            <div class="flex items-center gap-1.5 min-w-0">
+                <span class="material-symbols-outlined text-sm animate-pulse shrink-0">volume_up</span>
+                <span class="truncate text-[11px] sm:text-xs">🔊 Order Sound Alerts Active — Tap to unlock</span>
             </div>
             <span
-                class="bg-white/20 hover:bg-white/30 px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider">Tap
+                class="bg-white/20 hover:bg-white/30 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] uppercase tracking-wider shrink-0 ml-2">Tap
                 to Test ❯</span>
         </div>
 
@@ -1071,21 +1071,22 @@
                 </div>
 
                 <!-- Orders Filter Tabs -->
-                <div class="glass-panel p-4 space-y-3">
-                    <div class="flex flex-col lg:flex-row gap-3 items-center justify-between">
-                        <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto flex-1">
+                <!-- Orders Filter Tabs (Mobile Compact & Horizontal Swipeable) -->
+                <div class="glass-panel p-3 sm:p-4 space-y-2.5 sm:space-y-3">
+                    <div class="flex flex-col gap-2.5 items-stretch justify-between">
+                        <div class="flex items-center gap-2 w-full">
                             <input id="orders-search-input" oninput="filterOrders()"
-                                class="bg-[#F1F3F4] border-transparent focus:bg-white rounded-full px-4 py-2 text-xs w-full sm:w-72 outline-none"
+                                class="bg-[#F1F3F4] border-transparent focus:bg-white rounded-full px-3.5 py-1.5 sm:py-2 text-xs flex-1 outline-none min-w-0"
                                 placeholder="Search by Order ID, Customer, Address..." type="text" />
                             <div class="flex items-center gap-1.5 shrink-0" id="orders-hostel-filter-wrap">
                                 <span class="text-[11px] font-bold text-[#5c5f60] uppercase tracking-wider hidden sm:inline">Hostel:</span>
                                 <select id="orders-hostel-filter" onchange="onOrdersHostelFilterChange(this.value)"
-                                    class="text-xs border border-[#DADCE0] rounded-full px-3 py-2 text-[#181c1f] bg-white outline-none font-semibold cursor-pointer shadow-2xs hover:border-[#3c4043]">
+                                    class="text-xs border border-[#DADCE0] rounded-full px-2.5 py-1.5 sm:px-3 sm:py-2 text-[#181c1f] bg-white outline-none font-semibold cursor-pointer shadow-2xs hover:border-[#3c4043]">
                                     <option value="">All Hostels</option>
                                 </select>
                             </div>
-                            <div class="flex items-center gap-1.5 shrink-0" id="orders-quick-filter-wrap">
-                                <span class="text-[11px] font-bold text-[#5c5f60] uppercase tracking-wider hidden sm:inline">Filter:</span>
+                            <div class="hidden lg:flex items-center gap-1.5 shrink-0" id="orders-quick-filter-wrap">
+                                <span class="text-[11px] font-bold text-[#5c5f60] uppercase tracking-wider">Filter:</span>
                                 <select id="orders-quick-filter" onchange="setOrderStatusFilter(this.value)"
                                     class="text-xs border border-[#DADCE0] rounded-full px-3 py-2 text-[#181c1f] bg-white outline-none font-semibold cursor-pointer shadow-2xs hover:border-[#3c4043]">
                                     <option value="all">All Orders</option>
@@ -1101,66 +1102,67 @@
                             </div>
                         </div>
 
-                        <div class="flex flex-wrap overflow-x-auto w-full lg:w-auto no-scrollbar gap-2" id="orders-status-tabs">
+                        <!-- Swipeable Horizontal Status Tabs (Never wrap on mobile) -->
+                        <div class="flex flex-nowrap overflow-x-auto w-full no-scrollbar gap-1.5 sm:gap-2 py-0.5 scroll-smooth shrink-0" id="orders-status-tabs" style="-webkit-overflow-scrolling: touch;">
                             <button onclick="setOrderStatusFilter('all')" data-status="all"
-                                class="order-tab-btn px-4 py-1.5 rounded-full bg-[#3c4043] text-white text-xs font-semibold">All
+                                class="order-tab-btn shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full bg-[#3c4043] text-white text-xs font-semibold">All
                                 Orders</button>
                             <button onclick="setOrderStatusFilter('delivered')" data-status="delivered"
-                                class="order-tab-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium flex items-center gap-1.5">
+                                class="order-tab-btn shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium flex items-center gap-1.5">
                                 <span>Delivery Success</span>
                                 <span id="badge-delivered-count" class="px-1.5 py-0.2 rounded-full bg-emerald-700 text-white text-[10px]">0</span>
                             </button>
                             <button onclick="setOrderStatusFilter('cancelled')" data-status="cancelled"
-                                class="order-tab-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium flex items-center gap-1.5">
+                                class="order-tab-btn shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium flex items-center gap-1.5">
                                 <span>Cancel</span>
                                 <span id="badge-cancelled-count" class="px-1.5 py-0.2 rounded-full bg-rose-600 text-white text-[10px]">0</span>
                             </button>
                             <button onclick="setOrderStatusFilter('not_accepted')" data-status="not_accepted"
-                                class="order-tab-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium flex items-center gap-1.5">
+                                class="order-tab-btn shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium flex items-center gap-1.5">
                                 <span>Not Accepted</span>
                                 <span id="badge-not-accepted-count" class="px-1.5 py-0.2 rounded-full bg-amber-600 text-white text-[10px]">0</span>
                             </button>
                             <button onclick="setOrderStatusFilter('today')" data-status="today"
-                                class="order-tab-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium flex items-center gap-1.5">
+                                class="order-tab-btn shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium flex items-center gap-1.5">
                                 <span>Today Orders</span>
                                 <span id="badge-today-count" class="px-1.5 py-0.2 rounded-full bg-blue-600 text-white text-[10px]">0</span>
                             </button>
                             <button onclick="setOrderStatusFilter('upi')" data-status="upi"
-                                class="order-tab-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium flex items-center gap-1.5">
+                                class="order-tab-btn shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium flex items-center gap-1.5">
                                 <span>UPI</span>
                                 <span id="badge-upi-count" class="px-1.5 py-0.2 rounded-full bg-violet-600 text-white text-[10px]">0</span>
                             </button>
                             <button onclick="setOrderStatusFilter('cash')" data-status="cash"
-                                class="order-tab-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium flex items-center gap-1.5">
+                                class="order-tab-btn shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium flex items-center gap-1.5">
                                 <span>Cash</span>
                                 <span id="badge-cash-count" class="px-1.5 py-0.2 rounded-full bg-emerald-600 text-white text-[10px]">0</span>
                             </button>
                             <button onclick="setOrderStatusFilter('both')" data-status="both"
-                                class="order-tab-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium flex items-center gap-1.5">
+                                class="order-tab-btn shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium flex items-center gap-1.5">
                                 <span>Both</span>
                                 <span id="badge-both-count" class="px-1.5 py-0.2 rounded-full bg-amber-600 text-white text-[10px]">0</span>
                             </button>
                             <button onclick="setOrderStatusFilter('high_to_low')" data-status="high_to_low"
-                                class="order-tab-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium flex items-center gap-1.5">
+                                class="order-tab-btn shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium flex items-center gap-1.5">
                                 <span>Above: High to Low</span>
                             </button>
                             <button onclick="setOrderStatusFilter('unassigned')" data-status="unassigned"
-                                class="order-tab-btn px-4 py-1.5 rounded-full border border-emerald-300 bg-emerald-50 text-emerald-800 text-xs font-bold flex items-center gap-1.5">
+                                class="order-tab-btn shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full border border-emerald-300 bg-emerald-50 text-emerald-800 text-xs font-bold flex items-center gap-1.5">
                                 <span>⚡ Unassigned (Claim)</span>
                                 <span id="badge-unassigned-count" class="px-1.5 py-0.2 rounded-full bg-emerald-700 text-white text-[10px]">0</span>
                             </button>
                             <button onclick="setOrderStatusFilter('my_deliveries')" data-status="my_deliveries"
-                                class="order-tab-btn px-4 py-1.5 rounded-full border border-blue-300 text-[#1a73e8] hover:bg-blue-50 text-xs font-bold flex items-center gap-1.5">
+                                class="order-tab-btn shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full border border-blue-300 text-[#1a73e8] hover:bg-blue-50 text-xs font-bold flex items-center gap-1.5">
                                 <span>🛵 My Deliveries</span>
                                 <span id="badge-my-deliveries-count" class="px-1.5 py-0.2 rounded-full bg-[#1a73e8] text-white text-[10px]">0</span>
                             </button>
                             <button onclick="setOrderStatusFilter('transfers')" data-status="transfers"
-                                class="order-tab-btn px-4 py-1.5 rounded-full border border-amber-300 text-amber-800 hover:bg-amber-50 text-xs font-bold flex items-center gap-1.5">
+                                class="order-tab-btn shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full border border-amber-300 text-amber-800 hover:bg-amber-50 text-xs font-bold flex items-center gap-1.5">
                                 <span>🔄 Transfers</span>
                                 <span id="badge-transfers-count" class="hidden px-1.5 py-0.2 rounded-full bg-amber-600 text-white text-[10px]">0</span>
                             </button>
                             <button onclick="setOrderStatusFilter('active')" data-status="active"
-                                class="order-tab-btn px-4 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] text-xs font-medium">Pending
+                                class="order-tab-btn shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] text-xs font-medium">Pending
                                 / Active</button>
                         </div>
                     </div>

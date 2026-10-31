@@ -365,6 +365,52 @@
             border-radius: 9999px;
             opacity: 0.7;
         }
+
+        /* Mobile Device Responsive Overrides: If opened on real smartphone, strip phone mockup and fill screen natively */
+        @media (max-width: 767px) {
+            html, body {
+                padding: 0 !important;
+                margin: 0 !important;
+                overflow: hidden !important;
+                height: 100vh !important;
+                height: 100dvh !important;
+                background: #F1F3F4 !important;
+            }
+            .top-navbar, .quick-actions-bar {
+                display: none !important;
+            }
+            .simulator-viewport {
+                padding: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                max-width: 100% !important;
+                max-height: 100% !important;
+            }
+            .simulator-stage {
+                transform: none !important;
+                width: 100% !important;
+                height: 100% !important;
+            }
+            .phone-wrapper {
+                width: 100% !important;
+                height: 100% !important;
+                max-height: 100% !important;
+                border-radius: 0 !important;
+                box-shadow: none !important;
+                border: none !important;
+            }
+            .phone-wrapper::before, .phone-wrapper::after {
+                display: none !important;
+            }
+            .phone-status-bar, .phone-home-area {
+                display: none !important;
+            }
+            .phone-screen-body {
+                width: 100% !important;
+                height: 100% !important;
+                border-radius: 0 !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -513,15 +559,20 @@
             const wrapper = document.getElementById('phone-wrapper');
             if (!viewport || !stage || !wrapper) return;
 
-            const availableW = viewport.clientWidth - 24;
-            const availableH = viewport.clientHeight - 24;
+            // Give a generous 48px margin around the viewport so the phone is never clipped
+            const availableW = Math.max(280, viewport.clientWidth - 48);
+            const availableH = Math.max(280, viewport.clientHeight - 48);
 
-            const scaleW = availableW / currentDeviceW;
-            const scaleH = availableH / currentDeviceH;
+            // Total physical phone dimensions including status notch (42px) + home-bar (18px) + outer borders/shadows (28px)
+            const totalPhoneW = currentDeviceW + 28;
+            const totalPhoneH = currentDeviceH + 60 + 28;
 
-            // Pick scale that fits both dimensions
+            const scaleW = availableW / totalPhoneW;
+            const scaleH = availableH / totalPhoneH;
+
+            // Pick scale that fits both dimensions cleanly with padding
             let targetScale = Math.min(scaleW, scaleH);
-            targetScale = Math.max(0.45, Math.min(targetScale, 1.0));
+            targetScale = Math.max(0.35, Math.min(targetScale, 1.0));
 
             stage.style.transform = `scale(${targetScale})`;
         }
