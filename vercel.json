@@ -225,6 +225,22 @@
       "destination": "/admin/$1.$2"
     },
     {
+      "source": "/admin-preview",
+      "destination": "/public/admin-preview.html"
+    },
+    {
+      "source": "/admin/preview",
+      "destination": "/public/admin-preview.html"
+    },
+    {
+      "source": "/admin_preview",
+      "destination": "/public/admin-preview.html"
+    },
+    {
+      "source": "/preview-admin",
+      "destination": "/public/admin-preview.html"
+    },
+    {
       "source": "/admin/(.*)",
       "destination": "/admin/index.html"
     },
