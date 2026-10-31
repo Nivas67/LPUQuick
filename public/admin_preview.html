@@ -26,64 +26,70 @@
             padding: 0;
         }
 
-        body {
+        html, body {
+            height: 100%;
             background: radial-gradient(circle at 50% 10%, #1e1b4b 0%, #090d16 65%);
             color: var(--text);
             font-family: 'Plus Jakarta Sans', sans-serif;
-            min-height: 100vh;
+            overflow: hidden;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            padding: 24px 16px 60px;
-            overflow-x: hidden;
         }
 
-        /* Top Header */
-        .header {
-            text-align: center;
-            margin-bottom: 20px;
-            max-width: 780px;
-        }
-
-        .badge-row {
+        /* Top Bar */
+        .top-navbar {
+            background: rgba(17, 24, 39, 0.85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 8px 16px;
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 10px;
-            margin-bottom: 12px;
+            justify-content: space-between;
+            gap: 12px;
             flex-wrap: wrap;
+            z-index: 100;
+            flex-shrink: 0;
         }
 
-        .badge {
+        .brand-cluster {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .brand-badge {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            padding: 5px 14px;
+            padding: 4px 10px;
             border-radius: 9999px;
-            font-size: 11px;
-            font-weight: 800;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-        }
-
-        .badge-brand {
             background: rgba(37, 99, 235, 0.18);
             border: 1px solid rgba(59, 130, 246, 0.45);
             color: #60a5fa;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.03em;
         }
 
-        .badge-live {
-            background: rgba(16, 185, 129, 0.16);
-            border: 1px solid rgba(16, 185, 129, 0.45);
+        .live-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 8px;
+            border-radius: 9999px;
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.4);
             color: #34d399;
+            font-size: 10px;
+            font-weight: 800;
         }
 
         .live-dot {
-            width: 7px;
-            height: 7px;
+            width: 6px;
+            height: 6px;
             border-radius: 50%;
             background: #34d399;
-            box-shadow: 0 0 8px #34d399;
+            box-shadow: 0 0 6px #34d399;
             animation: pulse 1.5s infinite;
         }
 
@@ -92,208 +98,221 @@
             50% { opacity: 0.4; transform: scale(0.85); }
         }
 
-        h1 {
-            font-size: 26px;
-            font-weight: 900;
-            letter-spacing: -0.025em;
-            background: linear-gradient(135deg, #ffffff 40%, #93c5fd 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        p.subtitle {
-            color: var(--text-muted);
-            font-size: 13px;
-            margin-top: 6px;
-        }
-
-        /* Control Toolbar */
-        .toolbar {
+        .controls-cluster {
             display: flex;
+            align-items: center;
+            gap: 8px;
             flex-wrap: wrap;
-            gap: 10px;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 24px;
-            max-width: 860px;
-            background: rgba(17, 24, 39, 0.7);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            padding: 10px 18px;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
         }
 
-        .tool-group {
+        .control-group {
             display: flex;
             align-items: center;
-            gap: 6px;
-        }
-
-        .tool-label {
-            font-size: 11px;
-            font-weight: 700;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-right: 4px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 2px;
+            gap: 2px;
         }
 
         .btn {
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            color: var(--text);
-            padding: 6px 14px;
-            border-radius: 12px;
-            font-size: 12px;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 5px 10px;
+            border-radius: 8px;
+            font-size: 11px;
             font-weight: 700;
             display: inline-flex;
             align-items: center;
-            gap: 6px;
+            gap: 5px;
             cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.18s ease;
             user-select: none;
             text-decoration: none;
+            font-family: inherit;
         }
 
         .btn:hover {
-            background: rgba(37, 99, 235, 0.2);
-            border-color: rgba(59, 130, 246, 0.5);
             color: #ffffff;
-            transform: translateY(-1px);
+            background: rgba(255, 255, 255, 0.08);
         }
 
         .btn.active {
             background: var(--brand);
             color: #ffffff;
-            border-color: var(--brand);
-            box-shadow: 0 4px 16px var(--brand-glow);
+            box-shadow: 0 2px 10px var(--brand-glow);
         }
 
-        .divider {
-            width: 1px;
-            height: 22px;
-            background: rgba(255, 255, 255, 0.12);
-            margin: 0 4px;
+        .btn-action {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #f1f5f9;
         }
 
-        /* Remote Controls Bar */
-        .remote-deck {
+        .btn-action:hover {
+            background: rgba(37, 99, 235, 0.25);
+            border-color: rgba(59, 130, 246, 0.5);
+            color: #ffffff;
+        }
+
+        /* Quick Actions Bar */
+        .quick-actions-bar {
+            background: rgba(15, 23, 42, 0.6);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 6px 16px;
             display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
+            align-items: center;
             justify-content: center;
-            margin-bottom: 24px;
-            max-width: 780px;
+            gap: 6px;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+            z-index: 90;
         }
 
-        .remote-btn {
+        .quick-label {
+            font-size: 10px;
+            font-weight: 800;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-right: 4px;
+        }
+
+        .quick-pill {
             background: rgba(255, 255, 255, 0.04);
             border: 1px solid rgba(255, 255, 255, 0.08);
-            color: #e2e8f0;
-            padding: 6px 12px;
+            color: #cbd5e1;
+            padding: 4px 10px;
             border-radius: 9999px;
             font-size: 11px;
             font-weight: 700;
-            display: flex;
+            display: inline-flex;
             align-items: center;
-            gap: 5px;
+            gap: 4px;
             cursor: pointer;
             transition: all 0.15s ease;
         }
 
-        .remote-btn:hover {
+        .quick-pill:hover {
             background: rgba(255, 255, 255, 0.12);
-            border-color: rgba(255, 255, 255, 0.25);
             color: #ffffff;
-            transform: scale(1.03);
+            transform: translateY(-1px);
         }
 
-        .remote-btn.accent {
+        .quick-pill.accent {
+            background: rgba(37, 99, 235, 0.15);
             border-color: rgba(59, 130, 246, 0.4);
             color: #93c5fd;
         }
 
-        /* Phone Mockup Frame */
+        .quick-pill.accent:hover {
+            background: rgba(37, 99, 235, 0.3);
+            color: #ffffff;
+        }
+
+        /* Simulator Stage */
+        .simulator-viewport {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 12px;
+            position: relative;
+        }
+
         .simulator-stage {
             display: flex;
             justify-content: center;
             align-items: center;
-            perspective: 1200px;
-            transition: transform 0.3s ease;
+            transform-origin: center center;
+            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
+        /* Phone Mockup Frame */
         .phone-wrapper {
             position: relative;
             background: #000000;
             border-radius: 54px;
             box-shadow: 
-                0 0 0 3px #334155,
-                0 0 0 10px #0f172a,
-                0 0 0 13px #475569,
-                0 30px 80px -20px rgba(0, 0, 0, 0.8),
-                0 0 60px rgba(37, 99, 235, 0.2);
+                0 0 0 2px #475569,
+                0 0 0 8px #0f172a,
+                0 0 0 11px #334155,
+                0 25px 70px -15px rgba(0, 0, 0, 0.85),
+                0 0 50px rgba(37, 99, 235, 0.2);
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+            transition: width 0.3s ease, height 0.3s ease;
         }
 
-        /* Hardware Side Buttons Effect */
+        /* Hardware Buttons Simulation */
         .phone-wrapper::before {
             content: '';
             position: absolute;
-            left: -15px;
-            top: 115px;
+            left: -13px;
+            top: 110px;
             width: 3px;
-            height: 50px;
+            height: 48px;
             background: #64748b;
             border-radius: 2px 0 0 2px;
         }
-
-        /* Dynamic Island */
-        .dynamic-island {
+        .phone-wrapper::after {
+            content: '';
             position: absolute;
-            top: 12px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 120px;
-            height: 30px;
+            right: -13px;
+            top: 130px;
+            width: 3px;
+            height: 60px;
+            background: #64748b;
+            border-radius: 0 2px 2px 0;
+        }
+
+        /* Top Notch / Status Bar */
+        .phone-status-bar {
+            height: 42px;
             background: #000000;
-            border-radius: 20px;
-            z-index: 50;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 10px;
-            pointer-events: none;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+            padding: 0 24px;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 10;
         }
 
         .status-time {
-            position: absolute;
-            top: 15px;
-            left: 32px;
-            font-size: 12px;
-            font-weight: 700;
+            font-size: 13px;
+            font-weight: 800;
             color: #ffffff;
-            z-index: 50;
-            pointer-events: none;
             font-variant-numeric: tabular-nums;
+            letter-spacing: -0.01em;
         }
 
         .status-icons {
-            position: absolute;
-            top: 15px;
-            right: 32px;
             display: flex;
             align-items: center;
             gap: 5px;
             color: #ffffff;
-            z-index: 50;
-            pointer-events: none;
             font-size: 11px;
             font-weight: 700;
+        }
+
+        /* Dynamic Island */
+        .dynamic-island {
+            width: 110px;
+            height: 28px;
+            background: #111827;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 10px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+            transition: all 0.2s ease;
         }
 
         .island-label {
@@ -307,187 +326,173 @@
             width: 10px;
             height: 10px;
             border-radius: 50%;
-            background: #0f172a;
-            box-shadow: inset 0 0 2px #38bdf8;
+            background: #030712;
+            border: 1px solid #1e293b;
+            box-shadow: inset 0 0 3px #38bdf8;
         }
 
-        /* Embedded Frame */
+        /* Phone Screen Viewport */
+        .phone-screen-body {
+            flex: 1;
+            position: relative;
+            background: #ffffff;
+            overflow: hidden;
+            display: flex;
+        }
+
         iframe {
             width: 100%;
             height: 100%;
             border: none;
             background: #ffffff;
-            border-radius: 46px;
         }
 
-        /* Bottom Home Bar Indicator */
+        /* Phone Home Area */
+        .phone-home-area {
+            height: 18px;
+            background: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            position: relative;
+        }
+
         .home-bar {
-            position: absolute;
-            bottom: 8px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 135px;
-            height: 5px;
-            background: rgba(0, 0, 0, 0.4);
+            width: 130px;
+            height: 4px;
+            background: #0f172a;
             border-radius: 9999px;
-            z-index: 50;
-            pointer-events: none;
-        }
-
-        /* Info Card */
-        .info-card {
-            margin-top: 36px;
-            max-width: 680px;
-            background: rgba(17, 24, 39, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 18px;
-            padding: 20px 24px;
-            font-size: 13px;
-            color: var(--text-muted);
-            line-height: 1.6;
-        }
-
-        .info-card strong {
-            color: #f3f4f6;
-        }
-
-        .code-pill {
-            background: rgba(255, 255, 255, 0.1);
-            color: #93c5fd;
-            padding: 2px 8px;
-            border-radius: 6px;
-            font-family: monospace;
-            font-size: 12px;
+            opacity: 0.7;
         }
     </style>
 </head>
 <body>
 
-    <!-- Header Section -->
-    <div class="header">
-        <div class="badge-row">
-            <span class="badge badge-brand">
-                <span class="material-symbols-outlined" style="font-size: 14px;">admin_panel_settings</span>
-                Admin Dashboard Phone Preview
+    <!-- Top Navigation Toolbar -->
+    <header class="top-navbar">
+        <div class="brand-cluster">
+            <span class="brand-badge">
+                <span class="material-symbols-outlined" style="font-size: 15px;">smartphone</span>
+                Admin Mobile Simulator
             </span>
-            <span class="badge badge-live">
+            <span class="live-pill">
                 <span class="live-dot"></span>
-                Port 3000 Live
+                Live Sync
             </span>
         </div>
-        <h1>LPUQuick Admin Mobile Simulator</h1>
-        <p class="subtitle">Interact with the real-time responsive Admin Dashboard directly inside a simulated smartphone viewport.</p>
-    </div>
 
-    <!-- Control Toolbar -->
-    <div class="toolbar">
-        <div class="tool-group">
-            <span class="tool-label">Device</span>
-            <button class="btn active" id="btn-dev-1" onclick="setDevice(393, 852, 'btn-dev-1')">
-                <span class="material-symbols-outlined" style="font-size: 14px;">smartphone</span>
-                iPhone 15 Pro
-            </button>
-            <button class="btn" id="btn-dev-2" onclick="setDevice(412, 915, 'btn-dev-2')">
-                Pixel 8
-            </button>
-            <button class="btn" id="btn-dev-3" onclick="setDevice(375, 667, 'btn-dev-3')">
-                iPhone SE
-            </button>
-        </div>
+        <div class="controls-cluster">
+            <!-- Device Size Selector -->
+            <div class="control-group">
+                <button class="btn active" id="dev-iphone" onclick="setDevice(393, 852, 'dev-iphone')">
+                    <span class="material-symbols-outlined" style="font-size: 13px;">smartphone</span>
+                    iPhone 15 Pro
+                </button>
+                <button class="btn" id="dev-pixel" onclick="setDevice(412, 915, 'dev-pixel')">
+                    Pixel 8
+                </button>
+                <button class="btn" id="dev-se" onclick="setDevice(375, 667, 'dev-se')">
+                    iPhone SE
+                </button>
+            </div>
 
-        <div class="divider"></div>
+            <!-- Viewport Zoom Controls -->
+            <div class="control-group">
+                <button class="btn active" id="zoom-auto" onclick="setZoomMode('auto', this)" title="Automatically scales phone to fit your laptop screen perfectly">
+                    <span class="material-symbols-outlined" style="font-size: 13px;">fit_screen</span>
+                    Auto Fit
+                </button>
+                <button class="btn" id="zoom-80" onclick="setZoomMode(0.8, this)">80%</button>
+                <button class="btn" id="zoom-100" onclick="setZoomMode(1.0, this)">100%</button>
+            </div>
 
-        <div class="tool-group">
-            <span class="tool-label">Zoom</span>
-            <button class="btn" onclick="setZoom(0.85, this)">85%</button>
-            <button class="btn active" id="btn-zoom-default" onclick="setZoom(1.0, this)">100%</button>
-        </div>
-
-        <div class="divider"></div>
-
-        <div class="tool-group">
-            <button class="btn" onclick="reloadFrame()" title="Reload phone frame">
+            <!-- Frame Actions -->
+            <button class="btn btn-action" onclick="reloadFrame()" title="Reload phone frame">
                 <span class="material-symbols-outlined" style="font-size: 14px;">refresh</span>
                 Reload
             </button>
-            <a href="/admin" target="_blank" class="btn" title="Open admin in new browser tab">
+            <a href="/admin/" target="_blank" class="btn btn-action" title="Open admin directly in full browser tab">
                 <span class="material-symbols-outlined" style="font-size: 14px;">open_in_new</span>
-                Open Direct Tab
+                Direct Tab
             </a>
         </div>
-    </div>
+    </header>
 
-    <!-- Remote Navigation Deck (Directly navigates inside the phone) -->
-    <div class="remote-deck">
-        <span style="font-size: 11px; font-weight: 700; color: #64748b; display: flex; align-items: center; margin-right: 4px;">Quick Actions:</span>
-        <button class="remote-btn accent" onclick="remoteAction('toggleMenu')">
+    <!-- Quick Navigation Shortcuts -->
+    <nav class="quick-actions-bar">
+        <span class="quick-label">Remote Controls:</span>
+        <button class="quick-pill accent" onclick="remoteAction('toggleMenu')" title="Toggle mobile navigation menu drawer">
             <span class="material-symbols-outlined" style="font-size: 14px;">menu</span>
             Toggle Drawer
         </button>
-        <button class="remote-btn" onclick="remoteAction('switchView', 'overview')">
+        <button class="quick-pill" onclick="remoteAction('switchView', 'dashboard')">
             <span class="material-symbols-outlined" style="font-size: 14px;">dashboard</span>
             Overview
         </button>
-        <button class="remote-btn" onclick="remoteAction('switchView', 'orders')">
-            <span class="material-symbols-outlined" style="font-size: 14px;">inventory_2</span>
+        <button class="quick-pill" onclick="remoteAction('switchView', 'orders')">
+            <span class="material-symbols-outlined" style="font-size: 14px;">receipt_long</span>
             Orders
         </button>
-        <button class="remote-btn" onclick="remoteAction('switchView', 'inventory')">
-            <span class="material-symbols-outlined" style="font-size: 14px;">store</span>
+        <button class="quick-pill" onclick="remoteAction('switchView', 'inventory')">
+            <span class="material-symbols-outlined" style="font-size: 14px;">inventory_2</span>
             Stock
         </button>
-        <button class="remote-btn" onclick="remoteAction('switchView', 'delivery-boys')">
+        <button class="quick-pill" onclick="remoteAction('switchView', 'earnings')">
             <span class="material-symbols-outlined" style="font-size: 14px;">sports_motorsports</span>
             Delivery
         </button>
-        <button class="remote-btn" onclick="remoteAction('switchView', 'payment-management')">
-            <span class="material-symbols-outlined" style="font-size: 14px;">payments</span>
-            Payments
+        <button class="quick-pill" onclick="remoteAction('switchView', 'products')">
+            <span class="material-symbols-outlined" style="font-size: 14px;">shopping_bag</span>
+            Products
         </button>
-        <button class="remote-btn" onclick="remoteAction('switchView', 'upi-config')">
-            <span class="material-symbols-outlined" style="font-size: 14px;">qr_code_2</span>
-            UPI Config
+        <button class="quick-pill" onclick="remoteAction('switchView', 'client-lock')">
+            <span class="material-symbols-outlined" style="font-size: 14px;">lock_clock</span>
+            Store Lock
         </button>
-    </div>
+        <button class="quick-pill" onclick="remoteAction('switchView', 'customers')">
+            <span class="material-symbols-outlined" style="font-size: 14px;">group</span>
+            Customers
+        </button>
+    </nav>
 
-    <!-- The Phone Mockup Stage -->
-    <div class="simulator-stage" id="simulator-stage">
-        <div class="phone-wrapper" id="phone-wrapper" style="width: 393px; height: 852px;">
-            <!-- Status Bar Indicators -->
-            <div class="status-time" id="status-clock">9:41</div>
-            <div class="status-icons">
-                <span style="font-size: 10px;">5G</span>
-                <span class="material-symbols-outlined" style="font-size: 14px;">wifi</span>
-                <span class="material-symbols-outlined" style="font-size: 14px;">battery_full</span>
+    <!-- Phone Simulator Viewport Container -->
+    <main class="simulator-viewport" id="simulator-viewport">
+        <div class="simulator-stage" id="simulator-stage">
+            <div class="phone-wrapper" id="phone-wrapper" style="width: 393px; height: 852px;">
+                <!-- Status Bar with Time, Dynamic Island & Signal -->
+                <div class="phone-status-bar">
+                    <div class="status-time" id="status-clock">9:41</div>
+                    <div class="dynamic-island">
+                        <span class="island-label">ADMIN</span>
+                        <div class="island-camera"></div>
+                    </div>
+                    <div class="status-icons">
+                        <span style="font-size: 10px;">5G</span>
+                        <span class="material-symbols-outlined" style="font-size: 14px;">wifi</span>
+                        <span class="material-symbols-outlined" style="font-size: 14px;">battery_full</span>
+                    </div>
+                </div>
+
+                <!-- Admin Dashboard Iframe Screen -->
+                <div class="phone-screen-body">
+                    <iframe id="admin-frame" src="/admin/" allow="autoplay; clipboard-write"></iframe>
+                </div>
+
+                <!-- Bottom Home Bar Area -->
+                <div class="phone-home-area">
+                    <div class="home-bar"></div>
+                </div>
             </div>
-
-            <!-- Dynamic Island -->
-            <div class="dynamic-island">
-                <span class="island-label">ADMIN</span>
-                <div class="island-camera"></div>
-            </div>
-
-            <!-- Real-time Admin Frame -->
-            <iframe id="admin-frame" src="/admin"></iframe>
-
-            <!-- Home indicator bar -->
-            <div class="home-bar"></div>
         </div>
-    </div>
-
-    <!-- Instructions / Helper Card -->
-    <div class="info-card">
-        <div style="font-weight: 800; color: #fff; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-            <span class="material-symbols-outlined" style="font-size: 18px; color: #3b82f6;">info</span>
-            How to Use & Test on Your Laptop:
-        </div>
-        <p>1. <strong>Direct Interactive Touch/Click:</strong> You can click, tap, and scroll anywhere inside the phone screen above just like a real mobile device.</p>
-        <p>2. <strong>Sticky Bottom Bar:</strong> The bottom thumb navigation (Overview, Orders, Stock, Delivery, More) is docked to the phone's bottom.</p>
-        <p>3. <strong>Browser DevTools Mode:</strong> You can also press <span class="code-pill">Ctrl + Shift + M</span> in Google Chrome / Edge on <a href="/admin" target="_blank" style="color: #60a5fa; text-decoration: underline;">http://localhost:3000/admin</a> to view in full responsive emulation.</p>
-    </div>
+    </main>
 
     <script>
-        // Update Status Bar Clock
+        let currentZoomMode = 'auto';
+        let currentDeviceW = 393;
+        let currentDeviceH = 852;
+
+        // Status Bar Clock
         function updateClock() {
             const now = new Date();
             let hours = now.getHours();
@@ -499,54 +504,108 @@
         setInterval(updateClock, 1000);
         updateClock();
 
+        // Calculate and Apply Auto-Fit Scale
+        function applyAutoFit() {
+            if (currentZoomMode !== 'auto') return;
+
+            const viewport = document.getElementById('simulator-viewport');
+            const stage = document.getElementById('simulator-stage');
+            const wrapper = document.getElementById('phone-wrapper');
+            if (!viewport || !stage || !wrapper) return;
+
+            const availableW = viewport.clientWidth - 24;
+            const availableH = viewport.clientHeight - 24;
+
+            const scaleW = availableW / currentDeviceW;
+            const scaleH = availableH / currentDeviceH;
+
+            // Pick scale that fits both dimensions
+            let targetScale = Math.min(scaleW, scaleH);
+            targetScale = Math.max(0.45, Math.min(targetScale, 1.0));
+
+            stage.style.transform = `scale(${targetScale})`;
+        }
+
+        // Window resize event for dynamic Auto-Fit
+        window.addEventListener('resize', () => {
+            if (currentZoomMode === 'auto') {
+                applyAutoFit();
+            }
+        });
+
         // Device Switcher
         function setDevice(w, h, btnId) {
+            currentDeviceW = w;
+            currentDeviceH = h;
             const wrapper = document.getElementById('phone-wrapper');
-            wrapper.style.width = w + 'px';
-            wrapper.style.height = h + 'px';
+            if (wrapper) {
+                wrapper.style.width = w + 'px';
+                wrapper.style.height = h + 'px';
+            }
 
-            ['btn-dev-1', 'btn-dev-2', 'btn-dev-3'].forEach(id => {
+            ['dev-iphone', 'dev-pixel', 'dev-se'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.remove('active');
             });
             const activeBtn = document.getElementById(btnId);
             if (activeBtn) activeBtn.classList.add('active');
+
+            if (currentZoomMode === 'auto') {
+                applyAutoFit();
+            }
         }
 
         // Zoom Switcher
-        function setZoom(scale, btn) {
+        function setZoomMode(mode, btn) {
+            currentZoomMode = mode;
             const stage = document.getElementById('simulator-stage');
-            stage.style.transform = `scale(${scale})`;
 
-            btn.parentElement.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
+            if (btn && btn.parentElement) {
+                btn.parentElement.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            }
+
+            if (mode === 'auto') {
+                applyAutoFit();
+            } else {
+                stage.style.transform = `scale(${mode})`;
+            }
         }
 
-        // Frame Reload
+        // Reload Frame
         function reloadFrame() {
             const frame = document.getElementById('admin-frame');
-            frame.src = '/admin?t=' + Date.now();
+            if (frame) {
+                frame.src = '/admin/?t=' + Date.now();
+            }
         }
 
         // Remote Action into the Admin Frame
         function remoteAction(type, arg) {
             const frame = document.getElementById('admin-frame');
+            if (!frame || !frame.contentWindow) return;
+
             try {
-                if (frame.contentWindow) {
-                    if (type === 'toggleMenu') {
-                        if (typeof frame.contentWindow.toggleMobileMenu === 'function') {
-                            frame.contentWindow.toggleMobileMenu();
-                        }
-                    } else if (type === 'switchView') {
-                        if (typeof frame.contentWindow.switchView === 'function') {
-                            frame.contentWindow.switchView(arg);
-                        }
+                if (type === 'toggleMenu') {
+                    if (typeof frame.contentWindow.toggleMobileMenu === 'function') {
+                        frame.contentWindow.toggleMobileMenu();
+                    }
+                } else if (type === 'switchView') {
+                    if (typeof frame.contentWindow.switchView === 'function') {
+                        frame.contentWindow.switchView(arg);
                     }
                 }
             } catch (e) {
                 console.warn('Remote action error:', e);
             }
         }
+
+        // Initialize Auto-Fit once DOM is ready
+        window.addEventListener('DOMContentLoaded', () => {
+            applyAutoFit();
+            setTimeout(applyAutoFit, 100);
+            setTimeout(applyAutoFit, 300);
+        });
     </script>
 </body>
 </html>
