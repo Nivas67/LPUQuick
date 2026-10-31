@@ -306,7 +306,7 @@ window.applyOrderStatusUI = function(newStatus, riderName, targetOrderId, riderP
                                         <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${statusBadgeClass}">${o.status}</span>
                                     </div>
                                     <p class="text-xs text-slate-500 dark:text-slate-400 font-medium line-clamp-1">${o.item_names || 'Campus Groceries & Essentials'}</p>
-                                    <p class="text-[11px] text-slate-400">Total: ₹${o.total} · ${o.payment_method || 'Cash'}${o.payment_status === 'PAID' ? ' · <span class="text-emerald-500 font-bold">PAID</span>' : ''}</p>
+                                    <p class="text-[11px] text-slate-400">Total: ₹${o.total} · ${o.payment_method || 'Cash'}</p>
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <button type="button" class="reorder-btn clay-pill px-4 py-2 text-xs font-black text-emerald dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95" data-order-id="${o.id}">
@@ -615,7 +615,7 @@ window.pages.orders = async function() {
                                 <span class="material-symbols-outlined text-base text-emerald">${initialTracking.icon}</span>
                                 <span>${initialTracking.msg}</span>
                             </p>
-                            <h3 class="font-black text-sm sm:text-base text-slate-900 dark:text-white tracking-tight" id="tracking-order-title">Order #${activeOrder.id.replace('order_', '').toUpperCase()} · Total ₹<span id="tracking-active-total">${activeOrder.total}</span> (${activeOrder.payment_method || 'Cash on Delivery'}${activeOrder.payment_status === 'PAID' ? ' • <span class="text-emerald-500 font-bold">PAID</span>' : ''})</h3>
+                            <h3 class="font-black text-sm sm:text-base text-slate-900 dark:text-white tracking-tight" id="tracking-order-title">Order #${activeOrder.id.replace('order_', '').toUpperCase()} · Total ₹<span id="tracking-active-total">${activeOrder.total}</span> (${activeOrder.payment_method || 'Cash on Delivery'})</h3>
                         </div>
                         <div class="flex items-center gap-3 clay-card p-2.5 px-3.5 rounded-2xl shadow-sm">
                             <div class="w-9 h-9 rounded-xl bg-emerald text-white flex items-center justify-center font-black text-sm shadow-md" id="rider-avatar">

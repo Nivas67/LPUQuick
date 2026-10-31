@@ -360,12 +360,12 @@ window.pages.checkout = async function() {
             <div class="glass-panel card-pedestal rounded-3xl p-5 sm:p-6 shadow-xl border border-[var(--glass-border)] space-y-3.5">
                 <div class="flex items-center justify-between">
                     <h3 class="font-black text-xs sm:text-sm text-slate-900 dark:text-white tracking-tight">Payment Method</h3>
-                    <span class="liquid-badge text-[10px] text-emerald-800 dark:text-emerald-300 font-black px-2.5 py-0.5" id="active-payment-badge">Cash on Delivery Active</span>
+                    <span class="liquid-badge text-[10px] text-emerald-800 dark:text-emerald-300 font-black px-2.5 py-0.5">Cash on Delivery Active</span>
                 </div>
                 
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" id="payment-options">
                     <!-- 1. Cash on Delivery (ACTIVE) -->
-                    <label class="flex items-center gap-3 p-4 rounded-2xl border-2 border-emerald-500 bg-emerald-500/10 cursor-pointer payment-option-label relative shadow-md transition-all select-none" data-method="cod" id="option-cod">
+                    <label class="flex items-center gap-3 p-4 rounded-2xl border-2 border-emerald-500 bg-emerald-500/10 cursor-pointer payment-option-label relative shadow-md" data-method="cod">
                         <input type="radio" name="paymentMethod" value="cod" checked class="text-emerald focus:ring-emerald">
                         <div>
                             <p class="font-black text-xs text-slate-900 dark:text-white">Cash on Delivery</p>
@@ -373,20 +373,20 @@ window.pages.checkout = async function() {
                         </div>
                     </label>
 
-                    <!-- 2. UPI / GPay / QR (Powered by YouPI-PG) -->
-                    <label class="flex items-center gap-3 p-4 rounded-2xl border border-[var(--glass-border)] bg-white/40 dark:bg-slate-800/40 cursor-pointer payment-option-label relative shadow-md transition-all select-none hover:border-emerald-500/50" data-method="upi" id="option-upi">
-                        <input type="radio" name="paymentMethod" value="upi" class="text-emerald focus:ring-emerald">
+                    <!-- 2. UPI / GPay / QR (Soon) -->
+                    <div class="flex items-center gap-3 p-4 rounded-2xl border border-[var(--glass-border)] bg-white/40 dark:bg-slate-800/40 opacity-60 cursor-pointer payment-blocked-trigger relative" data-title="Online UPI Payments">
+                        <input type="radio" name="paymentMethod" value="upi" disabled class="text-slate-400">
                         <div class="min-w-0">
                             <div class="flex items-center gap-1.5">
-                                <p class="font-black text-xs text-slate-900 dark:text-white truncate">UPI / QR</p>
-                                <span class="text-[9px] bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-black px-2 py-0.5 rounded-full border border-emerald-500/30">YouPI</span>
+                                <p class="font-bold text-xs text-slate-600 dark:text-slate-400 truncate">UPI / QR</p>
+                                <span class="text-[8px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-black px-1.5 py-0.5 rounded-full">Soon</span>
                             </div>
-                            <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">GPay • PhonePe • Paytm • CRED</p>
+                            <p class="text-[10px] text-slate-400">Instant UPI</p>
                         </div>
-                    </label>
+                    </div>
 
                     <!-- 3. Cards / NetBanking (Soon) -->
-                    <div class="flex items-center gap-3 p-4 rounded-2xl border border-[var(--glass-border)] bg-white/40 dark:bg-slate-800/40 opacity-60 cursor-pointer payment-blocked-trigger relative select-none" data-title="Card & NetBanking">
+                    <div class="flex items-center gap-3 p-4 rounded-2xl border border-[var(--glass-border)] bg-white/40 dark:bg-slate-800/40 opacity-60 cursor-pointer payment-blocked-trigger relative" data-title="Card & NetBanking">
                         <input type="radio" name="paymentMethod" value="card" disabled class="text-slate-400">
                         <div class="min-w-0">
                             <div class="flex items-center gap-1.5">
@@ -395,20 +395,6 @@ window.pages.checkout = async function() {
                             </div>
                             <p class="text-[10px] text-slate-400">Visa / Master</p>
                         </div>
-                    </div>
-                </div>
-
-                <!-- Online Payment Trust & Guidance Note -->
-                <div class="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-cyan-500/10 border border-emerald-500/20 flex items-start gap-2.5 text-xs shadow-xs">
-                    <span class="material-symbols-outlined text-base text-emerald-500 shrink-0 mt-0.5">verified_user</span>
-                    <div class="space-y-0.5 min-w-0">
-                        <div class="flex items-center gap-1.5 flex-wrap">
-                            <p class="font-black text-[11px] text-emerald-700 dark:text-emerald-300">⚡ Online Payment via UPI / QR Powered by YouPI</p>
-                            <span class="liquid-badge text-[8.5px] font-black px-1.5 py-0.2">ZERO EXTRA FEES</span>
-                        </div>
-                        <p class="text-[10px] text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
-                            Scan dynamic QR or launch 1-tap Google Pay, PhonePe, Paytm, CRED or any UPI app. Instant confirmation with zero surcharge.
-                        </p>
                     </div>
                 </div>
             </div>
@@ -596,368 +582,12 @@ window.pageInits.checkout = function() {
         trigger.onclick = () => {
             const title = trigger.dataset.title || 'Online Payment';
             if (typeof window.showClientToast === 'function') {
-                window.showClientToast(`⏳ ${title} is onboarding. Please use Cash on Delivery or UPI.`, 'info', 'account_balance_wallet');
+                window.showClientToast(`⏳ ${title} is onboarding. Please use Cash on Delivery.`, 'info', 'account_balance_wallet');
             }
         };
     });
 
-    // Payment method toggle handlers (COD vs UPI YouPI-PG)
-    const optionCod = document.getElementById('option-cod');
-    const optionUpi = document.getElementById('option-upi');
-    const badgeEl = document.getElementById('active-payment-badge');
-    const paySliderText = document.getElementById('pay-slider-text');
-    const tapToPayBtn = document.getElementById('tap-to-pay-btn');
-
-    function updatePaymentMethodUI(method) {
-        const total = window.cartTotalCache || 0;
-        if (method === 'upi') {
-            if (optionCod) {
-                optionCod.classList.remove('border-2', 'border-emerald-500', 'bg-emerald-500/10');
-                optionCod.classList.add('border', 'border-[var(--glass-border)]', 'bg-white/40', 'dark:bg-slate-800/40');
-            }
-            if (optionUpi) {
-                optionUpi.classList.remove('border', 'border-[var(--glass-border)]', 'bg-white/40', 'dark:bg-slate-800/40');
-                optionUpi.classList.add('border-2', 'border-emerald-500', 'bg-emerald-500/10');
-            }
-            if (badgeEl) badgeEl.textContent = 'UPI / QR (YouPI) Selected';
-            if (paySliderText) paySliderText.textContent = `Slide to Pay ₹${total} via UPI`;
-            if (tapToPayBtn) {
-                tapToPayBtn.innerHTML = `<span class="material-symbols-outlined text-base">qr_code_2</span> <span>⚡ Pay ₹${total} via UPI (YouPI)</span>`;
-            }
-        } else {
-            if (optionUpi) {
-                optionUpi.classList.remove('border-2', 'border-emerald-500', 'bg-emerald-500/10');
-                optionUpi.classList.add('border', 'border-[var(--glass-border)]', 'bg-white/40', 'dark:bg-slate-800/40');
-            }
-            if (optionCod) {
-                optionCod.classList.remove('border', 'border-[var(--glass-border)]', 'bg-white/40', 'dark:bg-slate-800/40');
-                optionCod.classList.add('border-2', 'border-emerald-500', 'bg-emerald-500/10');
-            }
-            if (badgeEl) badgeEl.textContent = 'Cash on Delivery Active';
-            if (paySliderText) paySliderText.textContent = `Slide to Confirm Order ₹${total}`;
-            if (tapToPayBtn) {
-                tapToPayBtn.innerHTML = `<span class="material-symbols-outlined text-base">bolt</span> <span>⚡ 1-Tap Quick Place (₹${total})</span>`;
-            }
-        }
-    }
-
-    if (optionCod) {
-        optionCod.onclick = (e) => {
-            const radio = optionCod.querySelector('input[type="radio"]');
-            if (radio) radio.checked = true;
-            updatePaymentMethodUI('cod');
-        };
-    }
-
-    if (optionUpi) {
-        optionUpi.onclick = (e) => {
-            const radio = optionUpi.querySelector('input[type="radio"]');
-            if (radio) radio.checked = true;
-            updatePaymentMethodUI('upi');
-        };
-    }
-
     let isSubmitting = false;
-
-    function resetTapBtn() {
-        const tapBtn = document.getElementById('tap-to-pay-btn');
-        if (tapBtn) {
-            tapBtn.disabled = false;
-            const total = window.cartTotalCache || 0;
-            const isUpi = document.querySelector('input[name="paymentMethod"]:checked')?.value === 'upi';
-            if (isUpi) {
-                tapBtn.innerHTML = `<span class="material-symbols-outlined text-base">qr_code_2</span> <span>⚡ Pay ₹${total} via UPI (YouPI)</span>`;
-            } else {
-                tapBtn.innerHTML = `<span class="material-symbols-outlined text-base">bolt</span> <span>⚡ 1-Tap Quick Place (₹${total})</span>`;
-            }
-        }
-    }
-
-    function openCampusUpiFallbackModal(opts) {
-        const orderId = opts.orderId;
-        const amount = Number(opts.amount || window.cartTotalCache || 0).toFixed(2);
-        const upiId = opts.upiId || 'lpuquick@upi';
-        const paymentId = opts.paymentId || '';
-        const payeeName = 'LPUQuick Campus Store';
-        const note = `LPUQuick ${opts.savedHostel} Order ${orderId}`;
-        const upiIntentUri = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(upiIntentUri)}`;
-
-        const existing = document.getElementById('campus-upi-modal-root');
-        if (existing) existing.remove();
-
-        let pollInterval = null;
-        let isPolling = false;
-        let countdownTimer = null;
-        let secondsRemaining = 60;
-
-        const modal = document.createElement('div');
-        modal.id = 'campus-upi-modal-root';
-        modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in select-none';
-        modal.innerHTML = `
-            <div class="relative w-full max-w-sm rounded-3xl p-5 sm:p-6 bg-slate-900 border border-emerald-500/40 text-white shadow-2xl space-y-4">
-                <!-- Close Button -->
-                <button type="button" id="close-campus-upi-modal" class="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors">
-                    <span class="material-symbols-outlined text-lg">close</span>
-                </button>
-
-                <div class="flex items-center gap-2.5">
-                    <div class="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center">
-                        <span class="material-symbols-outlined text-xl">qr_code_2</span>
-                    </div>
-                    <div>
-                        <h3 class="font-black text-sm tracking-tight">Instant UPI Payment</h3>
-                        <p class="text-[10px] text-slate-400">Order #${orderId.replace('order_', '').toUpperCase()}</p>
-                    </div>
-                </div>
-
-                <div class="text-center py-1">
-                    <span class="text-[11px] text-slate-400 uppercase tracking-widest font-bold">Amount to Pay</span>
-                    <p class="text-3xl font-black text-emerald-400 tracking-tight">₹${amount}</p>
-                </div>
-
-                <!-- QR View Container -->
-                <div id="campus-upi-qr-view" class="space-y-4">
-                    <!-- Dynamic QR Code Card -->
-                    <div class="p-3 bg-white rounded-2xl flex flex-col items-center justify-center shadow-inner mx-auto max-w-[210px]">
-                        <img src="${qrUrl}" alt="Scan to pay via UPI" class="w-44 h-44 object-contain rounded-lg" onerror="this.src='https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi'">
-                        <span class="text-[9px] font-black text-slate-700 mt-1 uppercase tracking-wider flex items-center gap-1">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Scan with any UPI App
-                        </span>
-                    </div>
-
-                    <!-- UPI VPA & Copy Button -->
-                    <div class="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center justify-between text-xs">
-                        <div class="truncate mr-2">
-                            <span class="text-[9px] text-slate-400 uppercase font-bold block">Campus UPI ID</span>
-                            <span class="font-mono text-emerald-300 font-bold text-xs" id="campus-upi-vpa-val">${upiId}</span>
-                        </div>
-                        <button type="button" id="copy-upi-vpa-btn" class="bg-slate-700 hover:bg-slate-600 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white shrink-0 transition-colors">
-                            Copy
-                        </button>
-                    </div>
-
-                    <!-- 1-Tap Mobile Intent Buttons -->
-                    <div>
-                        <span class="text-[10px] text-slate-400 font-bold block mb-1.5 text-center">Tap to Open App on Mobile</span>
-                        <div class="grid grid-cols-4 gap-1.5">
-                            <a href="${upiIntentUri}" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-center flex flex-col items-center gap-1 text-[9px] font-bold text-white border border-slate-700/60 transition-transform active:scale-95">
-                                <span class="text-emerald-400 text-xs">🟢</span> GPay
-                            </a>
-                            <a href="${upiIntentUri}" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-center flex flex-col items-center gap-1 text-[9px] font-bold text-white border border-slate-700/60 transition-transform active:scale-95">
-                                <span class="text-purple-400 text-xs">🟣</span> PhonePe
-                            </a>
-                            <a href="${upiIntentUri}" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-center flex flex-col items-center gap-1 text-[9px] font-bold text-white border border-slate-700/60 transition-transform active:scale-95">
-                                <span class="text-sky-400 text-xs">🔷</span> Paytm
-                            </a>
-                            <a href="${upiIntentUri}" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-center flex flex-col items-center gap-1 text-[9px] font-bold text-white border border-slate-700/60 transition-transform active:scale-95">
-                                <span class="text-amber-400 text-xs">⚡</span> UPI
-                            </a>
-                        </div>
-                    </div>
-
-                    <!-- UTR Input & Submit Confirmation -->
-                    <div class="space-y-2 pt-1 border-t border-slate-800">
-                        <input type="text" id="campus-upi-utr-input" placeholder="12-digit UTR / Ref No. (Optional)" maxlength="16" class="w-full px-3 py-2 rounded-xl bg-slate-800/90 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-mono text-center">
-                        <button type="button" id="confirm-campus-upi-btn" class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs uppercase tracking-wide shadow-lg shadow-emerald-500/25 transition-all flex items-center justify-center gap-1.5 cursor-pointer">
-                            <span class="material-symbols-outlined text-sm">verified_user</span>
-                            <span id="campus-upi-verify-btn-text">Verify Payment Status</span>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Processing / Verifying View Container (Initially Hidden) -->
-                <div id="campus-upi-verifying-view" class="hidden text-center py-6 space-y-4">
-                    <div class="w-16 h-16 mx-auto rounded-full bg-emerald-500/10 border-2 border-emerald-500/40 flex items-center justify-center">
-                        <span class="w-8 h-8 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin"></span>
-                    </div>
-                    <div>
-                        <h4 class="font-bold text-base text-white">Payment Verification in Progress</h4>
-                        <p class="text-xs text-slate-400 mt-1">Checking bank &amp; UPI credit confirmation...</p>
-                    </div>
-                    <div class="p-3 rounded-xl bg-slate-800/70 border border-slate-700/70 text-xs space-y-1">
-                        <div class="text-[11px] text-slate-400">Verifying order <span class="font-mono text-emerald-400">#${orderId.replace('order_', '').toUpperCase()}</span></div>
-                        <div class="text-[11px] text-slate-400">Time remaining: <span id="campus-upi-poll-timer" class="font-bold text-white">60s</span></div>
-                    </div>
-                    <p class="text-[10px] text-slate-500">Please do not close this window. Your order will automatically confirm as soon as the bank confirms the credit.</p>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-
-        function cleanup() {
-            if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
-            if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
-        }
-
-        modal.querySelector('#close-campus-upi-modal').onclick = () => {
-            cleanup();
-            modal.remove();
-            if (typeof opts.onCancel === 'function') opts.onCancel();
-        };
-
-        const copyBtn = modal.querySelector('#copy-upi-vpa-btn');
-        copyBtn.onclick = () => {
-            navigator.clipboard.writeText(upiId).then(() => {
-                copyBtn.textContent = 'Copied!';
-                setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000);
-            });
-        };
-
-        async function checkVerificationStatus() {
-            try {
-                const res = await window.api.getOrderPaymentStatus(orderId, paymentId);
-                if (res && res.paid && res.status === 'PAID') {
-                    cleanup();
-                    const utr = res.utr || '';
-                    const verifyingView = modal.querySelector('#campus-upi-verifying-view');
-                    if (verifyingView) {
-                        verifyingView.innerHTML = `
-                            <div class="w-16 h-16 mx-auto rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 flex items-center justify-center animate-bounce">
-                                <span class="material-symbols-outlined text-3xl">check_circle</span>
-                            </div>
-                            <h4 class="font-bold text-base text-emerald-400">Payment Confirmed!</h4>
-                            <p class="text-xs text-slate-300">Redirecting to order confirmation...</p>
-                        `;
-                    }
-                    setTimeout(() => {
-                        modal.remove();
-                        if (typeof opts.onSuccess === 'function') opts.onSuccess(utr);
-                    }, 1200);
-                    return true;
-                }
-                return false;
-            } catch (e) {
-                return false;
-            }
-        }
-
-        function startVerificationFlow() {
-            if (isPolling) return;
-            isPolling = true;
-
-            const qrView = modal.querySelector('#campus-upi-qr-view');
-            const verifyingView = modal.querySelector('#campus-upi-verifying-view');
-            if (qrView) qrView.classList.add('hidden');
-            if (verifyingView) verifyingView.classList.remove('hidden');
-
-            secondsRemaining = 60;
-            const timerEl = modal.querySelector('#campus-upi-poll-timer');
-
-            countdownTimer = setInterval(() => {
-                secondsRemaining--;
-                if (timerEl) timerEl.textContent = `${secondsRemaining}s`;
-                if (secondsRemaining <= 0) {
-                    cleanup();
-                    if (verifyingView) {
-                        verifyingView.innerHTML = `
-                            <div class="w-14 h-14 mx-auto rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/40 flex items-center justify-center">
-                                <span class="material-symbols-outlined text-2xl">pending</span>
-                            </div>
-                            <h4 class="font-bold text-sm text-white">Verification Still in Progress</h4>
-                            <p class="text-xs text-slate-400">Bank is taking slightly longer than expected to confirm. Your order has been registered as pending.</p>
-                            <div class="flex gap-2 justify-center pt-2">
-                                <button type="button" id="campus-upi-retry-btn" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white transition-colors">Retry Check</button>
-                                <button type="button" id="campus-upi-done-btn" class="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-bold text-white transition-colors">View Orders</button>
-                            </div>
-                        `;
-                        const retryBtn = verifyingView.querySelector('#campus-upi-retry-btn');
-                        if (retryBtn) retryBtn.onclick = () => { isPolling = false; startVerificationFlow(); };
-                        const doneBtn = verifyingView.querySelector('#campus-upi-done-btn');
-                        if (doneBtn) doneBtn.onclick = () => {
-                            modal.remove();
-                            window.location.hash = '#/orders';
-                        };
-                    }
-                }
-            }, 1000);
-
-            // Immediate initial check
-            checkVerificationStatus();
-
-            // Continuous polling every 2.5s
-            pollInterval = setInterval(async () => {
-                const confirmed = await checkVerificationStatus();
-                if (confirmed) cleanup();
-            }, 2500);
-        }
-
-        modal.querySelector('#confirm-campus-upi-btn').onclick = () => {
-            startVerificationFlow();
-        };
-
-        // Proactive background verification check while QR is visible
-        const backgroundCheck = setInterval(async () => {
-            if (isPolling) {
-                clearInterval(backgroundCheck);
-                return;
-            }
-            const confirmed = await checkVerificationStatus();
-            if (confirmed) clearInterval(backgroundCheck);
-        }, 3000);
-    }
-
-    async function finalizeOrderPlacement(orderId, paymentMethod, paymentStatus = 'pending', utr = '', paymentId = '', savedPhone = '', savedHostel = '', fullAddress = '') {
-        const userId = window.getEffectiveUserId();
-        try {
-            const orderRes = await window.api.checkout(userId, paymentMethod, fullAddress, {
-                orderId,
-                phone: savedPhone,
-                name: window.CURRENT_USER_NAME || 'LPU Student',
-                email: window.CURRENT_USER_EMAIL || '',
-                hostel_id: savedHostel,
-                paymentStatus,
-                utr,
-                paymentId
-            });
-
-            if (orderRes && orderRes.success && orderRes.order) {
-                const order = orderRes.order;
-                if (typeof window.triggerActiveOrderPoll === 'function') {
-                    window.triggerActiveOrderPoll();
-                }
-                // Reveal order success view
-                const formSec = document.getElementById('checkout-form-section');
-                const successSec = document.getElementById('order-success-section');
-                if (formSec) formSec.classList.add('hidden');
-                if (successSec) {
-                    successSec.classList.remove('hidden');
-                    const idEl = document.getElementById('success-order-id');
-                    if (idEl) idEl.textContent = `#${order.id.replace('order_', '').toUpperCase()}`;
-                    const totalEl = document.getElementById('success-order-total');
-                    if (totalEl) totalEl.textContent = `₹${order.total}`;
-                    const payEl = document.getElementById('success-order-payment');
-                    if (payEl) {
-                        payEl.innerHTML = paymentStatus === 'PAID'
-                            ? `<span class="text-emerald-600 dark:text-emerald-400 font-black">Paid via UPI (YouPI) ${utr ? `• UTR: ${utr}` : ''}</span>`
-                            : paymentMethod;
-                    }
-                }
-                if (typeof window.showClientToast === 'function') {
-                    window.showClientToast(
-                        paymentStatus === 'PAID' ? '🎉 Payment verified! Order confirmed & dispatched.' : '🎉 Order placed successfully! Runner dispatched.',
-                        'success',
-                        'check_circle'
-                    );
-                }
-            } else {
-                throw new Error(orderRes?.error || 'Order placement failed');
-            }
-        } catch (err) {
-            console.error('[Checkout Error]:', err);
-            const errBanner = document.getElementById('checkout-error-banner');
-            const errMsg = document.getElementById('checkout-error-msg');
-            if (errBanner) {
-                errBanner.classList.remove('hidden');
-                if (errMsg) errMsg.textContent = err.message || 'Please check your connection and try again.';
-            }
-            resetTapBtn();
-            if (typeof window.__resetCheckoutSlider === 'function') {
-                window.__resetCheckoutSlider();
-            }
-            isSubmitting = false;
-        }
-    }
 
     async function executeOrderPlacement() {
         if (isSubmitting) return;
@@ -1032,138 +662,61 @@ window.pageInits.checkout = function() {
         } catch (e) {}
 
         const fullAddress = `[${savedHostel}] ${savedHostel} (${savedBlock}), Room ${savedRoom}`;
-        const paymentRadio = document.querySelector('input[name="paymentMethod"]:checked');
-        const selectedMethodType = paymentRadio ? paymentRadio.value : 'cod';
-        const isUpiPayment = selectedMethodType === 'upi';
+        const selectedMethod = 'Cash on Delivery';
 
         const tapBtn = document.getElementById('tap-to-pay-btn');
         if (tapBtn) {
             tapBtn.disabled = true;
-            tapBtn.innerHTML = `<span class="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin mr-2"></span> ${isUpiPayment ? 'Opening YouPI Gateway...' : 'Placing Order...'}`;
+            tapBtn.innerHTML = `<span class="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin mr-2"></span> Placing Order...`;
         }
 
-        // UPI via YouPI-PG Gateway Pathway
-        if (isUpiPayment) {
-            const orderId = window.__currentCheckoutOrderId || `order_${Math.random().toString(36).slice(2, 10)}`;
-            window.__currentCheckoutOrderId = orderId;
+        try {
+            const orderRes = await window.api.checkout(userId, selectedMethod, fullAddress, {
+                phone: savedPhone,
+                name: window.CURRENT_USER_NAME || 'LPU Student',
+                email: window.CURRENT_USER_EMAIL || '',
+                hostel_id: savedHostel
+            });
 
-            try {
-                const youpiRes = await window.api.initYoupiPayment({
-                    orderId,
-                    userId,
-                    hostel_id: savedHostel,
-                    deliveryAddress: fullAddress,
-                    phone: savedPhone,
-                    name: window.CURRENT_USER_NAME || 'LPU Student',
-                    email: window.CURRENT_USER_EMAIL || ''
-                });
-
-                if (youpiRes && youpiRes.success && youpiRes.checkoutUrl) {
-                    const { paymentId, checkoutUrl, amount } = youpiRes;
-
-                    // Launch YouPI Modal
-                    if (window.Youpi && typeof window.Youpi.pay === 'function') {
-                        window.Youpi.pay({
-                            paymentId,
-                            checkoutUrl,
-                            order_id: orderId,
-                            amount: amount || window.cartTotalCache || 0,
-                            currency: 'INR',
-                            name: 'LPUQuick',
-                            description: `Campus Delivery - ${savedHostel}`,
-                            customer: {
-                                name: window.CURRENT_USER_NAME || 'LPU Student',
-                                phone: savedPhone,
-                                email: window.CURRENT_USER_EMAIL || ''
-                            },
-                            handler: async function(response) {
-                                console.log('[YouPI Payment Handler Received]:', response);
-                                const utr = response?.utr || response?.bankRef || '';
-                                await finalizeOrderPlacement(orderId, 'UPI (YouPI)', 'PAID', utr, paymentId, savedPhone, savedHostel, fullAddress);
-                            },
-                            onSuccess: async function(response) {
-                                console.log('[YouPI Payment onSuccess]:', response);
-                                const utr = response?.utr || response?.bankRef || '';
-                                await finalizeOrderPlacement(orderId, 'UPI (YouPI)', 'PAID', utr, paymentId, savedPhone, savedHostel, fullAddress);
-                            },
-                            onFailed: function(response) {
-                                console.warn('[YouPI Payment Failed]:', response);
-                                isSubmitting = false;
-                                resetTapBtn();
-                                if (typeof window.__resetCheckoutSlider === 'function') {
-                                    window.__resetCheckoutSlider();
-                                }
-                                if (typeof window.showClientToast === 'function') {
-                                    window.showClientToast(`❌ Payment failed: ${response?.reason || 'Could not complete UPI transaction'}`, 'error', 'error');
-                                }
-                            },
-                            onClose: function() {
-                                console.log('[YouPI Checkout Modal Dismissed]');
-                                isSubmitting = false;
-                                resetTapBtn();
-                                if (typeof window.__resetCheckoutSlider === 'function') {
-                                    window.__resetCheckoutSlider();
-                                }
-                            }
-                        });
-                        return;
-                    } else if (checkoutUrl) {
-                        window.location.href = checkoutUrl;
-                        return;
-                    }
+            if (orderRes && orderRes.success && orderRes.order) {
+                const order = orderRes.order;
+                if (typeof window.triggerActiveOrderPoll === 'function') {
+                    window.triggerActiveOrderPoll();
                 }
-
-                // If gateway service is offline or in direct UPI mode: Fallback to built-in Campus UPI QR modal
-                openCampusUpiFallbackModal({
-                    orderId,
-                    amount: window.cartTotalCache || youpiRes?.total || 0,
-                    savedHostel,
-                    savedPhone,
-                    fullAddress,
-                    upiId: youpiRes?.upiId || 'lpuquick@upi',
-                    paymentId: youpiRes?.paymentId || '',
-                    onSuccess: async (utr) => {
-                        await finalizeOrderPlacement(orderId, 'UPI (Direct QR)', 'PAID', utr, youpiRes?.paymentId || '', savedPhone, savedHostel, fullAddress);
-                    },
-                    onCancel: () => {
-                        isSubmitting = false;
-                        resetTapBtn();
-                        if (typeof window.__resetCheckoutSlider === 'function') {
-                            window.__resetCheckoutSlider();
-                        }
-                    }
-                });
-            } catch (err) {
-                console.error('[YouPI Checkout Error]:', err);
-                openCampusUpiFallbackModal({
-                    orderId,
-                    amount: window.cartTotalCache || 0,
-                    savedHostel,
-                    savedPhone,
-                    fullAddress,
-                    paymentId: '',
-                    upiId: 'lpuquick@upi',
-                    onSuccess: async (utr) => {
-                        await finalizeOrderPlacement(orderId, 'UPI (Direct QR)', 'PAID', utr, '', savedPhone, savedHostel, fullAddress);
-                    },
-                    onCancel: () => {
-                        isSubmitting = false;
-                        resetTapBtn();
-                        if (typeof window.__resetCheckoutSlider === 'function') {
-                            window.__resetCheckoutSlider();
-                        }
-                    }
-                });
+                // Reveal order success view
+                const formSec = document.getElementById('checkout-form-section');
+                const successSec = document.getElementById('order-success-section');
+                if (formSec) formSec.classList.add('hidden');
+                if (successSec) {
+                    successSec.classList.remove('hidden');
+                    const idEl = document.getElementById('success-order-id');
+                    if (idEl) idEl.textContent = `#${order.id.replace('order_', '').toUpperCase()}`;
+                    const totalEl = document.getElementById('success-order-total');
+                    if (totalEl) totalEl.textContent = `₹${order.total}`;
+                }
+                if (typeof window.showClientToast === 'function') {
+                    window.showClientToast('🎉 Order placed successfully! Runner dispatched.', 'success', 'check_circle');
+                }
+            } else {
+                throw new Error(orderRes?.error || 'Order placement failed');
             }
-            return;
+        } catch (err) {
+            console.error('[Checkout Error]:', err);
+            const errBanner = document.getElementById('checkout-error-banner');
+            const errMsg = document.getElementById('checkout-error-msg');
+            if (errBanner) {
+                errBanner.classList.remove('hidden');
+                if (errMsg) errMsg.textContent = err.message || 'Please check your connection and try again.';
+            }
+            if (tapBtn) {
+                tapBtn.disabled = false;
+                tapBtn.innerHTML = `<span class="material-symbols-outlined text-base">bolt</span> <span>⚡ 1-Tap Quick Place (₹${window.cartTotalCache || 0})</span>`;
+            }
+            isSubmitting = false;
         }
-
-        // Standard Cash on Delivery Pathway
-        const orderId = window.__currentCheckoutOrderId || `order_${Math.random().toString(36).slice(2, 10)}`;
-        window.__currentCheckoutOrderId = orderId;
-        await finalizeOrderPlacement(orderId, 'Cash on Delivery', 'pending', '', '', savedPhone, savedHostel, fullAddress);
     }
 
+    const tapToPayBtn = document.getElementById('tap-to-pay-btn');
     if (tapToPayBtn) {
         tapToPayBtn.onclick = () => {
             executeOrderPlacement();
@@ -1203,20 +756,6 @@ window.pageInits.checkout = function() {
                 sliderProgress.style.width = `${currentOffset + 25}px`;
             }
         }
-
-        window.__resetCheckoutSlider = function() {
-            confirmed = false;
-            setSliderPosition(0, true);
-            sliderThumb.style.cursor = 'grab';
-            const icon = sliderThumb.querySelector('.material-symbols-outlined');
-            if (icon) icon.textContent = 'arrow_forward';
-            if (sliderText) {
-                const total = window.cartTotalCache || 0;
-                const isUpi = document.querySelector('input[name="paymentMethod"]:checked')?.value === 'upi';
-                sliderText.textContent = isUpi ? `Slide to Pay ₹${total} via UPI` : `Slide to Confirm Order ₹${total}`;
-                sliderText.style.color = '';
-            }
-        };
 
         function triggerConfirmation() {
             if (confirmed || isSubmitting) return;

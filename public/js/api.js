@@ -724,10 +724,6 @@ const api = {
                         userId,
                         guestUserId,
                         paymentMethod,
-                        paymentStatus: extraData.paymentStatus,
-                        payment_status: extraData.paymentStatus,
-                        utr: extraData.utr,
-                        paymentId: extraData.paymentId,
                         deliveryAddress,
                         customerPhone: savedPhone,
                         customerName: savedName,
@@ -768,49 +764,6 @@ const api = {
             }
         }
     },
-
-    // YouPI PG Integration Helpers
-    async initYoupiPayment(payload) {
-        try {
-            const res = await fetch(`${API_BASE}/checkout/youpi-init`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            return await res.json();
-        } catch (e) {
-            return { success: false, offline: true, error: e.message };
-        }
-    },
-
-    async verifyYoupiPayment(paymentId) {
-        try {
-            const res = await fetch(`${API_BASE}/checkout/youpi-verify/${paymentId}`);
-            return await res.json();
-        } catch (e) {
-            return { success: false, error: e.message };
-        }
-    },
-
-    async getOrderPaymentStatus(orderId, paymentId = null) {
-        try {
-            const query = paymentId ? `?paymentId=${encodeURIComponent(paymentId)}` : '';
-            const res = await fetch(`${API_BASE}/checkout/order-payment-status/${orderId}${query}`);
-            return await res.json();
-        } catch (e) {
-            return { success: false, error: e.message };
-        }
-    },
-
-    async getYoupiConfig() {
-        try {
-            const res = await fetch(`${API_BASE}/checkout/youpi-config`);
-            return await res.json();
-        } catch (e) {
-            return { success: false, error: e.message };
-        }
-    },
-
     async paymentCallback(orderId, status) {
         const res = await fetch(`${API_BASE}/checkout/payment-callback`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
