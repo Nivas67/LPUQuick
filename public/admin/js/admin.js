@@ -468,13 +468,16 @@ function applyAdminRolePermissions(profile) {
     // Top Bar Assigned Hostel Indicator
     const topBadge = document.getElementById('top-hostel-badge');
     const topName = document.getElementById('top-hostel-name');
+    const mobHostel = document.getElementById('top-hostel-name-mobile');
     if (topBadge && topName) {
         if (!isOwner && profile.assigned_hostel_id) {
             topName.textContent = `${profile.assigned_hostel_id} Dark-Store`;
+            if (mobHostel) mobHostel.textContent = profile.assigned_hostel_id;
             topBadge.className = 'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#0066cc] border border-blue-200';
             topBadge.classList.remove('hidden');
         } else if (isOwner) {
             topName.textContent = 'All Campus Hostels (Owner)';
+            if (mobHostel) mobHostel.textContent = 'All Hostels';
             topBadge.className = 'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-300';
             topBadge.classList.remove('hidden');
         } else {
@@ -635,17 +638,50 @@ function formatCustomerDisplayName(o) {
     return 'Student';
 }
 
-window.toggleMobileMenu = function() {
-    const aside = document.querySelector('aside');
-    if (aside) {
-        aside.classList.toggle('hidden');
+// Mobile Drawer & Off-Canvas Navigation Controller
+window.toggleMobileMenu = function(forceState) {
+    const aside = document.getElementById('admin-sidebar') || document.querySelector('aside');
+    const backdrop = document.getElementById('mobile-sidebar-backdrop');
+    if (!aside) return;
+
+    const isCurrentlyOpen = !aside.classList.contains('-translate-x-full');
+    const shouldOpen = (typeof forceState === 'boolean') ? forceState : !isCurrentlyOpen;
+
+    if (shouldOpen) {
+        aside.classList.remove('-translate-x-full');
+        if (backdrop) {
+            backdrop.classList.remove('hidden');
+            requestAnimationFrame(() => backdrop.classList.remove('opacity-0'));
+        }
+        document.body.classList.add('overflow-hidden');
+    } else {
+        aside.classList.add('-translate-x-full');
+        if (backdrop) {
+            backdrop.classList.add('opacity-0');
+            setTimeout(() => backdrop.classList.add('hidden'), 250);
+        }
+        document.body.classList.remove('overflow-hidden');
     }
 };
+
+// Global helper to keep pending order badges in sync across desktop and mobile bottom bar
+function updatePendingOrdersBadge(count) {
+    const val = Number(count) || 0;
+    const desktopBadge = document.getElementById('nav-pending-badge');
+    const mobileBadge = document.getElementById('mobile-nav-orders-badge');
+    [desktopBadge, mobileBadge].forEach(badge => {
+        if (badge) {
+            badge.textContent = val;
+            badge.classList.toggle('hidden', val <= 0);
+        }
+    });
+}
+window.updatePendingOrdersBadge = updatePendingOrdersBadge;
 
 // View Navigation
 function switchView(viewName) {
     // Role-based view protection
-    if (currentAdminProfile && !currentAdminProfile.is_owner) {
+    if (currentAdminProfile && !isPlatformOwner(currentAdminProfile)) {
         const roles = currentAdminProfile.roles || [];
         const viewRoles = {
             'client-lock': ['owner', 'store_manager'],
@@ -663,7 +699,9 @@ function switchView(viewName) {
             'backup': ['owner'],
             'settings': ['owner'],
             'hostels': ['owner'],
-            'offers-charges': ['owner']
+            'offers-charges': ['owner'],
+            'payment-management': ['owner'],
+            'upi-config': ['owner']
         };
 
         const required = viewRoles[viewName];
@@ -687,6 +725,19 @@ function switchView(viewName) {
         btn.classList.toggle('active', btn.dataset.view === viewName);
     });
 
+    // Sync Mobile Bottom Navigation Active Highlight
+    document.querySelectorAll('.mobile-nav-item').forEach(btn => {
+        const isCurrent = btn.dataset.view === viewName;
+        btn.classList.toggle('active', isCurrent);
+        btn.classList.toggle('text-[#0066cc]', isCurrent);
+        btn.classList.toggle('text-[#5c5f60]', !isCurrent);
+        const label = btn.querySelector('span:last-child');
+        if (label) {
+            label.classList.toggle('font-bold', isCurrent);
+            label.classList.toggle('font-medium', !isCurrent);
+        }
+    });
+
     const titles = {
         'dashboard': 'Dashboard Overview',
         'client-lock': 'Client Dashboard Control & Store Availability',
@@ -704,9 +755,20 @@ function switchView(viewName) {
         'settings': 'Store Settings',
         'hostels': 'Campus Hostels & Dark Stores (Owner Only)',
         'employees': 'Employees & Dark Store Roster',
-        'offers-charges': 'Offers & Charges — Global Pricing & Offer Rules (Owner Only)'
+        'offers-charges': 'Offers & Charges — Global Pricing & Offer Rules (Owner Only)',
+        'payment-management': 'Payment & Refund Management (Super Admin Only)',
+        'upi-config': 'UPI Gateway & Merchant Configuration (Super Admin Only)'
     };
-    document.getElementById('top-title').textContent = titles[viewName] || 'Dashboard';
+    const currentTitle = titles[viewName] || 'Dashboard';
+    const topTitle = document.getElementById('top-title');
+    if (topTitle) topTitle.textContent = currentTitle;
+    const topTitleMob = document.getElementById('top-title-mobile');
+    if (topTitleMob) topTitleMob.textContent = currentTitle;
+
+    // Automatically close off-canvas drawer on mobile navigation selection
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+        toggleMobileMenu(false);
+    }
 
     if (viewName === 'dashboard') loadDashboard();
     else if (viewName === 'client-lock') loadClientLockState();
@@ -724,7 +786,35 @@ function switchView(viewName) {
     else if (viewName === 'hostels') loadHostels();
     else if (viewName === 'employees') loadEmployeesList();
     else if (viewName === 'offers-charges') loadOffersChargesView();
+    else if (viewName === 'payment-management') loadPaymentManagementView();
+    else if (viewName === 'upi-config') loadUpiConfigView();
+
+    try {
+        if (typeof window !== 'undefined' && window.location.hash.replace(/^#\/?/, '') !== viewName) {
+            history.replaceState(null, '', `#${viewName}`);
+        }
+    } catch (e) {}
 }
+
+// Automatic Hash-Based View Router for Admin Portal (/admin#upi-config, /admin#payment-management)
+if (typeof window !== 'undefined') {
+    window.addEventListener('hashchange', () => {
+        const hash = window.location.hash.replace(/^#\/?/, '');
+        if (hash && hash !== activeView && typeof switchView === 'function') switchView(hash);
+    });
+    const triggerHashRoute = () => {
+        const hash = window.location.hash.replace(/^#\/?/, '');
+        if (hash && typeof switchView === 'function') {
+            setTimeout(() => switchView(hash), 150);
+        }
+    };
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', triggerHashRoute);
+    } else {
+        setTimeout(triggerHashRoute, 150);
+    }
+}
+
 
 // Master Live Real-Time Refresh Controller
 async function refreshCurrentView() {
@@ -785,6 +875,10 @@ async function refreshCurrentView() {
             promises.push(loadEmployeesList());
         } else if (activeView === 'offers-charges') {
             promises.push(loadOffersChargesView());
+        } else if (activeView === 'payment-management') {
+            promises.push(loadPaymentManagementView(currentPaymentsPage));
+        } else if (activeView === 'upi-config') {
+            promises.push(loadUpiConfigView());
         }
 
         await Promise.allSettled(promises);
@@ -880,11 +974,7 @@ async function loadDashboard() {
         if (elTotalOrders) elTotalOrders.textContent = totalOrdersVal;
         if (elPendingOrders) elPendingOrders.textContent = pendingCountVal;
 
-        const badge = document.getElementById('nav-pending-badge');
-        if (badge) {
-            badge.textContent = pendingCountVal;
-            badge.classList.toggle('hidden', !pendingCountVal);
-        }
+        updatePendingOrdersBadge(pendingCountVal);
 
         // Load and sync store lock state
         loadClientLockState();
@@ -3459,10 +3549,10 @@ function filterOrders() {
                 </div>
             </td>
             <td class="p-4">
-                <p class="font-semibold text-[#181c1f]">${displayName}</p>
-                <p class="text-[11px] text-[#5c5f60]">${contactHtml}</p>
+                <p class="font-semibold text-[#181c1f]">${escapeHtml(displayName)}</p>
+                <p class="text-[11px] text-[#5c5f60]">${escapeHtml(contactHtml)}</p>
             </td>
-            <td class="p-4 text-[#5c5f60]">${o.delivery_address || 'Not provided'}</td>
+            <td class="p-4 text-[#5c5f60]">${escapeHtml(o.delivery_address || 'Not provided')}</td>
             <td class="p-4 font-bold text-[#137333]">₹${o.total}</td>
             <td class="p-4 text-[#5c5f60]">${o.payment_method || 'COD'}</td>
             <td class="p-4" id="order-status-pill-${o.id}">${getStatusPill(o.status)}</td>
@@ -5310,6 +5400,11 @@ function updateConnectionStatus(connected, mode = 'Live') {
         text.textContent = connected ? mode : 'Offline';
         text.className = `text-[10px] font-bold ${connected ? 'text-[#10B981]' : 'text-[#ba1a1a]'}`;
     }
+    const mobText = document.getElementById('ws-status-text-mobile');
+    if (mobText) {
+        mobText.textContent = connected ? mode : 'Offline';
+        mobText.className = `font-semibold ${connected ? 'text-emerald-700' : 'text-rose-600'}`;
+    }
 }
 
 // Render function for Recent Orders Table in Dashboard
@@ -5354,10 +5449,7 @@ function updateKpiCountersFromCache() {
 
     if (totalOrdersEl) totalOrdersEl.textContent = totalOrdersVal;
     if (pendingOrdersEl) pendingOrdersEl.textContent = pendingCountVal;
-    if (badgeEl) {
-        badgeEl.textContent = pendingCountVal;
-        badgeEl.classList.toggle('hidden', !pendingCountVal);
-    }
+    updatePendingOrdersBadge(pendingCountVal);
     updateDailyRevenue();
 }
 
@@ -5570,8 +5662,8 @@ async function syncOrdersLive() {
     }
 }
 
-const ORDER_POLL_ACTIVE_MS = 5000;   // 5s when tab is active and visible
-const ORDER_POLL_HIDDEN_MS = 60000;  // 60s when tab is in background / minimized
+const ORDER_POLL_ACTIVE_MS = 1500;   // 1.5s when tab is active and visible (instant 1-2s updates)
+const ORDER_POLL_HIDDEN_MS = 30000;  // 30s when tab is in background / minimized
 
 function scheduleNextOrderPoll() {
     if (liveOrderPollInterval) clearTimeout(liveOrderPollInterval);
@@ -5724,7 +5816,7 @@ function handleRealtimeOrderClaimed(data) {
         updateDrawerDispatchCard(o);
     }
     // Trigger immediate server sync to ensure all admins see fresh delivery data
-    setTimeout(() => { syncOrdersLive(); }, 500);
+    syncOrdersLive();
     if (activeView === 'delivery' || activeView === 'earnings') {
         loadDeliveryEarnings();
     }
@@ -5773,7 +5865,7 @@ function handleRealtimeTransferResolved(data) {
     filterOrders();
     if (currentDrawerOrderId === data.orderId) openOrderDrawer(data.orderId);
     if (data.accepted) {
-        setTimeout(() => { syncOrdersLive(); }, 500);
+        syncOrdersLive();
     }
     if (activeView === 'delivery' || activeView === 'earnings') {
         loadDeliveryEarnings();
@@ -5810,6 +5902,12 @@ function handleAdminRealtimePacket(data) {
     if (recentAdminProcessedPackets.size > 200) {
         for (const [k, ts] of recentAdminProcessedPackets.entries()) {
             if (now - ts > 10000) recentAdminProcessedPackets.delete(k);
+        }
+    }
+
+    if (activeView === 'payment-management' && (data.type === 'NEW_ORDER' || data.type === 'ORDER_STATUS_UPDATE' || data.type === 'PAYMENT_UPDATE')) {
+        if (typeof loadPaymentManagementView === 'function') {
+            loadPaymentManagementView(currentPaymentsPage);
         }
     }
 
@@ -5932,6 +6030,7 @@ function initRealtimeWebSocket() {
         realtimeWs.onopen = () => {
             console.log('[Admin WS] ✅ Connected to live orders stream.');
             wsReconnectAttempts = 0;
+            if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
             updateConnectionStatus(true, 'Live (WS)');
 
             // Start heartbeat ping every 20s to keep connection alive
@@ -5958,11 +6057,14 @@ function initRealtimeWebSocket() {
             // WebSocket unavailable (e.g. Vercel Serverless) — Live Poller keeps running seamlessly
             updateConnectionStatus(true, 'Live');
 
-            // If on a serverless platform (e.g. Vercel), cap at 5 attempts and rely on smart live poller
-            if (adminToken && !wsReconnectTimer && wsReconnectAttempts < 5) {
-                const delay = Math.min(2000 * Math.pow(2, wsReconnectAttempts), 30000);
-                wsReconnectAttempts++;
-                wsReconnectTimer = setTimeout(initRealtimeWebSocket, delay);
+            // Continuous resilient reconnect with short exponential backoff (1.5s - 10s max)
+            if (adminToken && !wsReconnectTimer) {
+                const delay = Math.min(1500 * Math.max(1, wsReconnectAttempts), 10000);
+                wsReconnectAttempts = (wsReconnectAttempts + 1) % 20;
+                wsReconnectTimer = setTimeout(() => {
+                    wsReconnectTimer = null;
+                    initRealtimeWebSocket();
+                }, delay);
             }
         };
 
@@ -5972,7 +6074,10 @@ function initRealtimeWebSocket() {
     } catch (e) {
         updateConnectionStatus(true, 'Live');
         if (!wsReconnectTimer) {
-            wsReconnectTimer = setTimeout(initRealtimeWebSocket, 5000);
+            wsReconnectTimer = setTimeout(() => {
+                wsReconnectTimer = null;
+                initRealtimeWebSocket();
+            }, 3000);
         }
     }
 }
@@ -6092,10 +6197,7 @@ function handleRealtimeNewOrder(order) {
         const cur = parseInt(pendingOrdersEl.textContent, 10);
         const pCount = (isNaN(cur) ? 0 : cur) + 1;
         pendingOrdersEl.textContent = pCount;
-        if (badgeEl) {
-            badgeEl.textContent = pCount;
-            badgeEl.classList.remove('hidden');
-        }
+        updatePendingOrdersBadge(pCount);
     }
 
     // 4b. Update daily revenue for new order
@@ -6141,6 +6243,8 @@ function handleRealtimeStatusUpdate(data) {
     const o = ordersCache.find(x => x.id === orderId);
     if (o) {
         o.status = status;
+        if (data.payment_status) o.payment_status = data.payment_status;
+        if (data.payment_method) o.payment_method = data.payment_method;
         if (typeof getOrderSignature === 'function') {
             knownOrderMap.set(orderId, getOrderSignature(o));
         }
@@ -6199,11 +6303,11 @@ function showOrderToast(order) {
             </div>
             <div class="text-xs text-[#181c1f]">
                 <div class="flex justify-between items-center">
-                    <span class="font-bold text-sm text-[#181c1f]">${order.customer_name || 'Customer'}</span>
+                    <span class="font-bold text-sm text-[#181c1f]">${escapeHtml(order.customer_name || 'Customer')}</span>
                     <span class="font-black text-sm text-[#137333]">₹${order.total}</span>
                 </div>
-                <p class="text-[11px] text-[#5c5f60] mt-0.5">📍 ${order.delivery_address || 'Not provided'}</p>
-                <p class="text-[10px] text-[#74777a] italic mt-1 truncate">🛍️ ${order.item_summary || 'Campus essentials'}</p>
+                <p class="text-[11px] text-[#5c5f60] mt-0.5">📍 ${escapeHtml(order.delivery_address || 'Not provided')}</p>
+                <p class="text-[10px] text-[#74777a] italic mt-1 truncate">🛍️ ${escapeHtml(order.item_summary || 'Campus essentials')}</p>
             </div>
             <div class="flex items-center justify-between pt-2 border-t border-[#DADCE0] mt-1">
                 <button onclick="openOrderDrawer('${order.id}'); dismissToast('${toastId}')" class="text-xs bg-[#3c4043] hover:bg-[#262a2d] text-white px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 transition-all active:scale-95 shadow-sm">
@@ -7880,14 +7984,14 @@ initAdminAuth();
 updateSoundUI();
 checkPushStatus();
 
-// Periodic background sync fallback (every 60 seconds when authenticated & visible)
+// Periodic background sync fallback (every 10 seconds when authenticated & visible)
 setInterval(() => {
     if (!adminToken || (typeof document !== 'undefined' && document.hidden)) return;
     if (activeView === 'dashboard') loadDashboard();
-    else if (activeView === 'orders') loadOrders();
+    else if (activeView === 'orders') syncOrdersLive();
     else if (activeView === 'inventory') loadInventory();
     else if (activeView === 'products') loadProducts();
-}, 60000);
+}, 10000);
 
 // ==========================================
 // FINANCIAL INTELLIGENCE & PIN SECURITY CONTROLLER
@@ -8609,8 +8713,8 @@ async function loadDailyRevenueView(forceRefresh = false) {
                                     <span class="font-mono font-bold text-xs text-[#181c1f]">${o.id}</span>
                                     <span class="text-[10px] bg-slate-100 text-[#5c5f60] font-semibold px-2 py-0.5 rounded-full">${o.time_ist || ''}</span>
                                     <span class="px-1.5 py-0.5 rounded-full text-[9px] font-bold ${o.payment_type === 'Cash' ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-indigo-100 text-indigo-800 border border-indigo-200'}">${o.payment_type === 'Cash' ? '💵 Cash' : '📱 UPI'}</span>
-                                    <span class="text-xs font-bold text-[#181c1f] truncate">${o.customer_name}</span>
-                                    <span class="text-[11px] text-[#5c5f60] truncate">${o.delivery_address || ''}</span>
+                                    <span class="text-xs font-bold text-[#181c1f] truncate">${escapeHtml(o.customer_name)}</span>
+                                    <span class="text-[11px] text-[#5c5f60] truncate">${escapeHtml(o.delivery_address || '')}</span>
                                 </div>
                                 <p class="text-[11px] text-[#5c5f60] mt-1 line-clamp-2">${itemsDesc || 'Campus store package'}</p>
                             </div>
@@ -12250,4 +12354,422 @@ function formatForDatetimeLocal(isoString) {
         return '';
     }
 }
+
+// ============================================================
+// SUPER ADMIN PAYMENT & REFUND MANAGEMENT JAVASCRIPT CONTROLLERS
+// ============================================================
+let currentPaymentsPage = 1;
+let currentPaymentsLimit = 25;
+let activePaymentTxns = [];
+let activePaymentSummary = null;
+
+// 1. Load Payment Management View
+async function loadPaymentManagementView(page = 1) {
+    currentPaymentsPage = page;
+    const tbody = document.getElementById('payment-transactions-tbody');
+    if (!tbody) return;
+
+    const statusFilter = document.getElementById('pay-filter-status')?.value || 'ALL';
+    const searchVal = document.getElementById('pay-search-input')?.value?.trim() || '';
+
+    try {
+        const queryParams = new URLSearchParams({
+            page: String(page),
+            limit: String(currentPaymentsLimit)
+        });
+        if (statusFilter !== 'ALL') queryParams.append('status', statusFilter);
+        if (searchVal) queryParams.append('search', searchVal);
+
+        const res = await fetchWithTimeout(`/api/admin/payments?${queryParams.toString()}`, {
+            headers: getAuthHeaders()
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        if (!data.success) throw new Error(data.error || 'Failed to fetch payment records');
+
+        activePaymentTxns = data.transactions || [];
+        activePaymentSummary = data.summary || {};
+
+        // Update 4 Summary KPI Cards
+        updatePaymentSummaryCards(activePaymentSummary);
+
+        // Render table rows
+        renderPaymentTransactionsTable(activePaymentTxns);
+
+        // Update pagination
+        updatePaymentPagination(data.totalCount || 0, page, currentPaymentsLimit);
+    } catch (err) {
+        console.error('[loadPaymentManagementView Error]:', err);
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="p-8 text-center text-rose-500 font-bold">
+                    <div class="flex flex-col items-center gap-2">
+                        <span class="material-symbols-outlined text-2xl">error</span>
+                        <span>Failed to load payment transactions: ${escapeHtml(err.message)}</span>
+                        <button onclick="loadPaymentManagementView()" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-800">Retry</button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }
+}
+
+function updatePaymentSummaryCards(summary = {}) {
+    const elNet = document.getElementById('pay-stat-net');
+    const elGross = document.getElementById('pay-stat-gross');
+    const elRefunded = document.getElementById('pay-stat-refunded');
+    const elPending = document.getElementById('pay-stat-pending');
+    const elSuccessCount = document.getElementById('pay-stat-success-count');
+    const elRefundCount = document.getElementById('pay-stat-refund-count');
+
+    const net = Number(summary.netCollections || 0).toFixed(2);
+    const gross = Number(summary.grossCollected || 0).toFixed(2);
+    const refunded = Number(summary.totalRefunded || 0).toFixed(2);
+    const pendingTotal = (summary.pendingCount || 0) + (summary.failedCount || 0);
+
+    if (elNet) elNet.textContent = `₹${net}`;
+    if (elGross) elGross.textContent = `₹${gross}`;
+    if (elRefunded) elRefunded.textContent = `₹${refunded}`;
+    if (elPending) elPending.textContent = `${pendingTotal} Orders`;
+    if (elSuccessCount) elSuccessCount.textContent = summary.successfulCount || 0;
+    if (elRefundCount) elRefundCount.textContent = summary.refundedCount || 0;
+}
+
+// 10 Status Badge Renderer
+function getPaymentStatusBadge(status = '') {
+    const s = String(status).trim();
+    const map = {
+        'Successful': { bg: 'bg-emerald-100 text-emerald-800 border-emerald-300', icon: 'check_circle', label: 'Successful' },
+        'PAID': { bg: 'bg-emerald-100 text-emerald-800 border-emerald-300', icon: 'check_circle', label: 'Successful' },
+        'Pending': { bg: 'bg-amber-100 text-amber-800 border-amber-300', icon: 'hourglass_top', label: 'Pending' },
+        'Processing': { bg: 'bg-blue-100 text-blue-800 border-blue-300', icon: 'sync', label: 'Processing' },
+        'Failed': { bg: 'bg-rose-100 text-rose-800 border-rose-300', icon: 'cancel', label: 'Failed' },
+        'Cancelled': { bg: 'bg-slate-100 text-slate-800 border-slate-300', icon: 'block', label: 'Cancelled' },
+        'Partially Refunded': { bg: 'bg-cyan-100 text-cyan-800 border-cyan-300', icon: 'call_split', label: 'Partially Refunded' },
+        'Refund Successful': { bg: 'bg-teal-100 text-teal-800 border-teal-300', icon: 'replay', label: 'Refund Successful' },
+        'Refund Pending': { bg: 'bg-purple-100 text-purple-800 border-purple-300', icon: 'hourglass_empty', label: 'Refund Pending' },
+        'Refund Processing': { bg: 'bg-indigo-100 text-indigo-800 border-indigo-300', icon: 'cached', label: 'Refund Processing' },
+        'Refund Failed': { bg: 'bg-red-100 text-red-900 border-red-300', icon: 'error', label: 'Refund Failed' }
+    };
+
+    const cfg = map[s] || { bg: 'bg-slate-100 text-slate-800 border-slate-300', icon: 'info', label: s || 'Unknown' };
+    return `<span class="inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-0.5 rounded-full border ${cfg.bg}">
+        <span class="material-symbols-outlined text-[11px]">${cfg.icon}</span> ${cfg.label}
+    </span>`;
+}
+
+function renderPaymentTransactionsTable(transactions = []) {
+    const tbody = document.getElementById('payment-transactions-tbody');
+    if (!tbody) return;
+
+    if (!transactions.length) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="p-8 text-center text-slate-400">
+                    <div class="flex flex-col items-center gap-1.5">
+                        <span class="material-symbols-outlined text-3xl text-slate-300">payments</span>
+                        <p class="font-bold text-slate-600">No payment transactions found</p>
+                        <p class="text-[11px] text-slate-400">Transactions will automatically stream in real-time as campus orders are initiated.</p>
+                    </div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = transactions.map(t => {
+        const orderId = escapeHtml(t.order_id || '--');
+        const txnId = escapeHtml(t.id || '--');
+        const timeStr = t.created_at ? new Date(t.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }) : '--';
+        const custName = escapeHtml(t.customer_name || 'Campus Student');
+        const custPhone = escapeHtml(t.customer_phone || '--');
+        const method = escapeHtml(t.payment_method || 'UPI');
+        const amount = Number(t.amount || 0).toFixed(2);
+        const utr = t.upi_ref_utr ? escapeHtml(t.upi_ref_utr) : null;
+        const status = t.status || 'Pending';
+        const isRefundable = status === 'Successful' || status === 'PAID' || status === 'Partially Refunded';
+
+        return `
+            <tr class="hover:bg-slate-50 transition-colors">
+                <td class="p-4 font-bold text-[#181c1f]">
+                    <div class="flex items-center gap-1.5">
+                        <span class="font-mono text-emerald-700 text-[11px]">${orderId}</span>
+                        <button type="button" onclick="copyToClipboard('${orderId}', 'Order ID')" class="text-slate-400 hover:text-slate-600 cursor-pointer" title="Copy Order ID">
+                            <span class="material-symbols-outlined text-[12px]">content_copy</span>
+                        </button>
+                    </div>
+                    <span class="text-[10px] text-slate-400 block font-normal font-mono truncate max-w-[120px]">${txnId}</span>
+                </td>
+                <td class="p-4 text-slate-600 text-[11px] whitespace-nowrap">
+                    ${timeStr}
+                </td>
+                <td class="p-4">
+                    <span class="font-bold text-[#181c1f] block">${custName}</span>
+                    <span class="text-[11px] text-slate-500 font-mono">${custPhone}</span>
+                </td>
+                <td class="p-4">
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-100 text-slate-800 font-bold text-[10px]">
+                        <span class="material-symbols-outlined text-xs text-purple-600">qr_code</span> ${method}
+                    </span>
+                </td>
+                <td class="p-4 font-black text-sm text-[#181c1f] whitespace-nowrap">
+                    ₹${amount}
+                </td>
+                <td class="p-4">
+                    ${utr ? `
+                        <div class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono text-[11px] font-bold">
+                            <span>${utr}</span>
+                            <button type="button" onclick="copyToClipboard('${utr}', 'Bank UTR')" class="text-emerald-600 hover:text-emerald-900 cursor-pointer" title="Copy UTR">
+                                <span class="material-symbols-outlined text-[11px]">content_copy</span>
+                            </button>
+                        </div>
+                    ` : `
+                        <span class="text-slate-400 text-[11px] italic">Awaiting Bank</span>
+                    `}
+                </td>
+                <td class="p-4 whitespace-nowrap">
+                    ${getPaymentStatusBadge(status)}
+                </td>
+                <td class="p-4 text-right whitespace-nowrap">
+                    ${isRefundable ? `
+                        <button onclick="openRefundModal('${t.id}')"
+                            class="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg font-bold text-[11px] transition-all cursor-pointer flex items-center gap-1 ml-auto">
+                            <span class="material-symbols-outlined text-xs">replay</span>
+                            <span>Refund</span>
+                        </button>
+                    ` : `
+                        <span class="text-slate-400 text-[10px]">—</span>
+                    `}
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function updatePaymentPagination(totalCount, page, limit) {
+    const info = document.getElementById('pay-pagination-info');
+    const controls = document.getElementById('pay-pagination-controls');
+    if (!info || !controls) return;
+
+    const totalPages = Math.ceil(totalCount / limit) || 1;
+    info.textContent = `Showing ${Math.min(totalCount, (page - 1) * limit + 1)}-${Math.min(totalCount, page * limit)} of ${totalCount} transactions`;
+
+    controls.innerHTML = `
+        <button onclick="loadPaymentManagementView(${page - 1})" ${page <= 1 ? 'disabled class="opacity-40 cursor-not-allowed"' : 'class="hover:bg-slate-200 cursor-pointer"'} class="px-2 py-1 rounded bg-slate-100 text-xs font-bold text-slate-700">Prev</button>
+        <span class="px-2 text-xs font-bold text-slate-600">Page ${page} of ${totalPages}</span>
+        <button onclick="loadPaymentManagementView(${page + 1})" ${page >= totalPages ? 'disabled class="opacity-40 cursor-not-allowed"' : 'class="hover:bg-slate-200 cursor-pointer"'} class="px-2 py-1 rounded bg-slate-100 text-xs font-bold text-slate-700">Next</button>
+    `;
+}
+
+function filterPaymentsList() {
+    loadPaymentManagementView(1);
+}
+
+function clearPaymentFilters() {
+    const search = document.getElementById('pay-search-input');
+    const status = document.getElementById('pay-filter-status');
+    if (search) search.value = '';
+    if (status) status.value = 'ALL';
+    loadPaymentManagementView(1);
+}
+
+// 2. Refund Modal Handling
+let targetRefundTxn = null;
+
+function openRefundModal(txnId) {
+    const txn = activePaymentTxns.find(t => t.id === txnId);
+    if (!txn) return;
+    targetRefundTxn = txn;
+
+    const modal = document.getElementById('refund-modal');
+    if (!modal) return;
+
+    document.getElementById('refund-target-txn-id').value = txn.id;
+    document.getElementById('refund-modal-order-label').textContent = `Order: ${txn.order_id || '--'}`;
+    document.getElementById('refund-customer-name').textContent = txn.customer_name || 'Campus Student';
+    document.getElementById('refund-original-amount').textContent = `₹${Number(txn.amount || 0).toFixed(2)}`;
+
+    // Calculate max refundable
+    const originalAmt = Number(txn.amount || 0);
+    const alreadyRefunded = Number(txn.metadata?.total_refunded || 0);
+    const maxRefundable = Math.max(0, originalAmt - alreadyRefunded);
+
+    document.getElementById('refund-already-refunded').textContent = `₹${alreadyRefunded.toFixed(2)}`;
+    document.getElementById('refund-max-refundable').textContent = `₹${maxRefundable.toFixed(2)}`;
+
+    const amtInput = document.getElementById('refund-amount-input');
+    amtInput.value = maxRefundable.toFixed(2);
+    amtInput.max = maxRefundable;
+
+    modal.classList.remove('hidden');
+}
+
+function closeRefundModal() {
+    const modal = document.getElementById('refund-modal');
+    if (modal) modal.classList.add('hidden');
+    targetRefundTxn = null;
+}
+
+function setFullRefundAmount() {
+    if (!targetRefundTxn) return;
+    const originalAmt = Number(targetRefundTxn.amount || 0);
+    const alreadyRefunded = Number(targetRefundTxn.metadata?.total_refunded || 0);
+    const maxRefundable = Math.max(0, originalAmt - alreadyRefunded);
+    const input = document.getElementById('refund-amount-input');
+    if (input) input.value = maxRefundable.toFixed(2);
+}
+
+function setPartialRefundPercent(percent = 50) {
+    if (!targetRefundTxn) return;
+    const originalAmt = Number(targetRefundTxn.amount || 0);
+    const alreadyRefunded = Number(targetRefundTxn.metadata?.total_refunded || 0);
+    const maxRefundable = Math.max(0, originalAmt - alreadyRefunded);
+    const val = (maxRefundable * (percent / 100)).toFixed(2);
+    const input = document.getElementById('refund-amount-input');
+    if (input) input.value = val;
+}
+
+async function submitRefundModal() {
+    const txnId = document.getElementById('refund-target-txn-id')?.value;
+    const amountVal = parseFloat(document.getElementById('refund-amount-input')?.value);
+    const reasonVal = document.getElementById('refund-reason-select')?.value;
+    const btnSubmit = document.getElementById('btn-submit-refund');
+
+    if (!txnId || isNaN(amountVal) || amountVal <= 0) {
+        showToast('Please enter a valid refund amount greater than ₹0', 'warning');
+        return;
+    }
+
+    if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin">refresh</span> Processing...`;
+    }
+
+    try {
+        const res = await fetchWithTimeout(`/api/admin/payments/${txnId}/refund`, {
+            method: 'POST',
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({
+                amount: amountVal,
+                reason: reasonVal,
+                refund_ref_id: `rfnd_${Date.now()}_${Math.floor(Math.random() * 1000)}`
+            })
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            throw new Error(data.error || 'Refund execution failed');
+        }
+
+        showToast(`✓ Refund of ₹${amountVal.toFixed(2)} processed successfully`, 'success');
+        closeRefundModal();
+        loadPaymentManagementView(currentPaymentsPage);
+    } catch (err) {
+        console.error('[submitRefundModal Error]:', err);
+        showToast('Refund failed: ' + err.message, 'warning');
+    } finally {
+        if (btnSubmit) {
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = `<span class="material-symbols-outlined text-sm">check</span> Confirm &amp; Process Refund`;
+        }
+    }
+}
+
+// 3. Super Admin UPI Configuration Controller
+async function loadUpiConfigView() {
+    try {
+        const res = await fetchWithTimeout('/api/admin/payments/config', {
+            headers: getAuthHeaders()
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        if (data.success && data.config) {
+            const c = data.config;
+            const elVpa = document.getElementById('upi-config-vpa');
+            const elName = document.getElementById('upi-config-name');
+            const elProv = document.getElementById('upi-config-provider');
+            const elEnv = document.getElementById('upi-config-env');
+
+            if (elVpa) elVpa.value = c.merchantVpa || 'lpuquick@upi';
+            if (elName) elName.value = c.merchantPayeeName || 'LPUQuick Campus Services';
+            if (elProv) elProv.value = c.provider || 'YOUPI_V2';
+            if (elEnv) elEnv.value = c.environment || 'SANDBOX';
+
+            const methods = c.enabledPaymentMethods || {};
+            const chkQr = document.getElementById('method-qr');
+            const chkPhonepe = document.getElementById('method-phonepe');
+            const chkGpay = document.getElementById('method-gpay');
+            const chkPaytm = document.getElementById('method-paytm');
+
+            if (chkQr) chkQr.checked = methods.upiQr !== false;
+            if (chkPhonepe) chkPhonepe.checked = methods.phonepe !== false;
+            if (chkGpay) chkGpay.checked = methods.gpay !== false;
+            if (chkPaytm) chkPaytm.checked = methods.paytm !== false;
+        }
+    } catch (err) {
+        console.warn('[loadUpiConfigView Warning]:', err.message);
+    }
+}
+
+async function saveUpiConfig() {
+    const elVpa = document.getElementById('upi-config-vpa');
+    const elName = document.getElementById('upi-config-name');
+    const elProv = document.getElementById('upi-config-provider');
+    const elEnv = document.getElementById('upi-config-env');
+
+    const vpa = elVpa?.value?.trim();
+    const name = elName?.value?.trim();
+
+    if (!vpa || !vpa.includes('@')) {
+        showToast('Please enter a valid Merchant VPA (e.g. merchant@upi)', 'warning');
+        return;
+    }
+    if (!name) {
+        showToast('Please enter a Payee Display Name', 'warning');
+        return;
+    }
+
+    const payload = {
+        merchantVpa: vpa,
+        merchantPayeeName: name,
+        provider: elProv?.value || 'YOUPI_V2',
+        environment: elEnv?.value || 'SANDBOX',
+        enabledPaymentMethods: {
+            upiQr: document.getElementById('method-qr')?.checked !== false,
+            phonepe: document.getElementById('method-phonepe')?.checked !== false,
+            gpay: document.getElementById('method-gpay')?.checked !== false,
+            paytm: document.getElementById('method-paytm')?.checked !== false,
+            anyUpiApp: true
+        }
+    };
+
+    try {
+        const res = await fetchWithTimeout('/api/admin/payments/config', {
+            method: 'POST',
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || 'Failed to save configuration');
+
+        showToast('✓ UPI & Merchant Configuration saved successfully', 'success');
+    } catch (err) {
+        console.error('[saveUpiConfig Error]:', err);
+        showToast('Save failed: ' + err.message, 'warning');
+    }
+}
+
+window.loadPaymentManagementView = loadPaymentManagementView;
+window.filterPaymentsList = filterPaymentsList;
+window.clearPaymentFilters = clearPaymentFilters;
+window.openRefundModal = openRefundModal;
+window.closeRefundModal = closeRefundModal;
+window.setFullRefundAmount = setFullRefundAmount;
+window.setPartialRefundPercent = setPartialRefundPercent;
+window.submitRefundModal = submitRefundModal;
+window.loadUpiConfigView = loadUpiConfigView;
+window.saveUpiConfig = saveUpiConfig;
 

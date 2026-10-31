@@ -98,3 +98,62 @@ body {
     animation: row-flash 2.5s ease-out;
 }
 
+/* ============================================================
+   MOBILE DASHBOARD OPTIMIZATIONS & RESPONSIVE RULES
+   ============================================================ */
+@media (max-width: 767px) {
+    body {
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+    }
+
+    /* Ensure horizontal tables scroll smoothly on mobile touch screens */
+    .overflow-x-auto {
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+    }
+
+    /* Prevent text cutoff in responsive tables */
+    table th, table td {
+        white-space: nowrap;
+    }
+
+    /* Modal dialogs responsiveness on mobile */
+    .modal-overlay > div,
+    #product-modal > div,
+    #refund-modal > div,
+    #modal-fin-unlock > div {
+        max-width: 95vw !important;
+        margin: auto;
+    }
+
+    /* Compact toast notifications on mobile */
+    #toast-container {
+        top: 12px;
+        right: 12px;
+        left: 12px;
+        max-width: calc(100vw - 24px);
+    }
+}
+
+/* Mobile Bottom Navigation Bar Styles */
+.mobile-nav-item.active {
+    color: #0066cc !important;
+    font-weight: 700;
+}
+.mobile-nav-item.active .material-symbols-outlined {
+    font-variation-settings: 'FILL' 1;
+}
+
+/* Safe Area Insets for Notch / Home Indicator Devices (iPhone, Modern Android) */
+@supports (padding: max(0px)) {
+    #mobile-bottom-nav {
+        padding-bottom: max(6px, env(safe-area-inset-bottom, 0px));
+    }
+    #main-content {
+        padding-bottom: max(88px, calc(68px + env(safe-area-inset-bottom, 0px)));
+    }
+}
+
+
+

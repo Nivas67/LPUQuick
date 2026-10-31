@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LPUQuick Admin — Mobile Phone Simulator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #090d16;
+            --surface: #111827;
+            --surface-card: #1f2937;
+            --border: #374151;
+            --brand: #2563eb;
+            --brand-glow: rgba(37, 99, 235, 0.35);
+            --emerald: #10b981;
+            --text: #f9fafb;
+            --text-muted: #9ca3af;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: radial-gradient(circle at 50% 10%, #1e1b4b 0%, #090d16 65%);
+            color: var(--text);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px 16px 60px;
+            overflow-x: hidden;
+        }
+
+        /* Top Header */
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            max-width: 780px;
+        }
+
+        .badge-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 14px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .badge-brand {
+            background: rgba(37, 99, 235, 0.18);
+            border: 1px solid rgba(59, 130, 246, 0.45);
+            color: #60a5fa;
+        }
+
+        .badge-live {
+            background: rgba(16, 185, 129, 0.16);
+            border: 1px solid rgba(16, 185, 129, 0.45);
+            color: #34d399;
+        }
+
+        .live-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #34d399;
+            box-shadow: 0 0 8px #34d399;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.85); }
+        }
+
+        h1 {
+            font-size: 26px;
+            font-weight: 900;
+            letter-spacing: -0.025em;
+            background: linear-gradient(135deg, #ffffff 40%, #93c5fd 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            font-size: 13px;
+            margin-top: 6px;
+        }
+
+        /* Control Toolbar */
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+            max-width: 860px;
+            background: rgba(17, 24, 39, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 10px 18px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+        }
+
+        .tool-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tool-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-right: 4px;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: var(--text);
+            padding: 6px 14px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+            text-decoration: none;
+        }
+
+        .btn:hover {
+            background: rgba(37, 99, 235, 0.2);
+            border-color: rgba(59, 130, 246, 0.5);
+            color: #ffffff;
+            transform: translateY(-1px);
+        }
+
+        .btn.active {
+            background: var(--brand);
+            color: #ffffff;
+            border-color: var(--brand);
+            box-shadow: 0 4px 16px var(--brand-glow);
+        }
+
+        .divider {
+            width: 1px;
+            height: 22px;
+            background: rgba(255, 255, 255, 0.12);
+            margin: 0 4px;
+        }
+
+        /* Remote Controls Bar */
+        .remote-deck {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 24px;
+            max-width: 780px;
+        }
+
+        .remote-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #e2e8f0;
+            padding: 6px 12px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .remote-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.25);
+            color: #ffffff;
+            transform: scale(1.03);
+        }
+
+        .remote-btn.accent {
+            border-color: rgba(59, 130, 246, 0.4);
+            color: #93c5fd;
+        }
+
+        /* Phone Mockup Frame */
+        .simulator-stage {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            perspective: 1200px;
+            transition: transform 0.3s ease;
+        }
+
+        .phone-wrapper {
+            position: relative;
+            background: #000000;
+            border-radius: 54px;
+            box-shadow: 
+                0 0 0 3px #334155,
+                0 0 0 10px #0f172a,
+                0 0 0 13px #475569,
+                0 30px 80px -20px rgba(0, 0, 0, 0.8),
+                0 0 60px rgba(37, 99, 235, 0.2);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Hardware Side Buttons Effect */
+        .phone-wrapper::before {
+            content: '';
+            position: absolute;
+            left: -15px;
+            top: 115px;
+            width: 3px;
+            height: 50px;
+            background: #64748b;
+            border-radius: 2px 0 0 2px;
+        }
+
+        /* Dynamic Island */
+        .dynamic-island {
+            position: absolute;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 30px;
+            background: #000000;
+            border-radius: 20px;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 10px;
+            pointer-events: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+        }
+
+        .status-time {
+            position: absolute;
+            top: 15px;
+            left: 32px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #ffffff;
+            z-index: 50;
+            pointer-events: none;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .status-icons {
+            position: absolute;
+            top: 15px;
+            right: 32px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: #ffffff;
+            z-index: 50;
+            pointer-events: none;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .island-label {
+            font-size: 9px;
+            font-weight: 800;
+            color: #60a5fa;
+            letter-spacing: 0.05em;
+        }
+
+        .island-camera {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #0f172a;
+            box-shadow: inset 0 0 2px #38bdf8;
+        }
+
+        /* Embedded Frame */
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #ffffff;
+            border-radius: 46px;
+        }
+
+        /* Bottom Home Bar Indicator */
+        .home-bar {
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 135px;
+            height: 5px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 9999px;
+            z-index: 50;
+            pointer-events: none;
+        }
+
+        /* Info Card */
+        .info-card {
+            margin-top: 36px;
+            max-width: 680px;
+            background: rgba(17, 24, 39, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 18px;
+            padding: 20px 24px;
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        .info-card strong {
+            color: #f3f4f6;
+        }
+
+        .code-pill {
+            background: rgba(255, 255, 255, 0.1);
+            color: #93c5fd;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Section -->
+    <div class="header">
+        <div class="badge-row">
+            <span class="badge badge-brand">
+                <span class="material-symbols-outlined" style="font-size: 14px;">admin_panel_settings</span>
+                Admin Dashboard Phone Preview
+            </span>
+            <span class="badge badge-live">
+                <span class="live-dot"></span>
+                Port 3000 Live
+            </span>
+        </div>
+        <h1>LPUQuick Admin Mobile Simulator</h1>
+        <p class="subtitle">Interact with the real-time responsive Admin Dashboard directly inside a simulated smartphone viewport.</p>
+    </div>
+
+    <!-- Control Toolbar -->
+    <div class="toolbar">
+        <div class="tool-group">
+            <span class="tool-label">Device</span>
+            <button class="btn active" id="btn-dev-1" onclick="setDevice(393, 852, 'btn-dev-1')">
+                <span class="material-symbols-outlined" style="font-size: 14px;">smartphone</span>
+                iPhone 15 Pro
+            </button>
+            <button class="btn" id="btn-dev-2" onclick="setDevice(412, 915, 'btn-dev-2')">
+                Pixel 8
+            </button>
+            <button class="btn" id="btn-dev-3" onclick="setDevice(375, 667, 'btn-dev-3')">
+                iPhone SE
+            </button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="tool-group">
+            <span class="tool-label">Zoom</span>
+            <button class="btn" onclick="setZoom(0.85, this)">85%</button>
+            <button class="btn active" id="btn-zoom-default" onclick="setZoom(1.0, this)">100%</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="tool-group">
+            <button class="btn" onclick="reloadFrame()" title="Reload phone frame">
+                <span class="material-symbols-outlined" style="font-size: 14px;">refresh</span>
+                Reload
+            </button>
+            <a href="/admin" target="_blank" class="btn" title="Open admin in new browser tab">
+                <span class="material-symbols-outlined" style="font-size: 14px;">open_in_new</span>
+                Open Direct Tab
+            </a>
+        </div>
+    </div>
+
+    <!-- Remote Navigation Deck (Directly navigates inside the phone) -->
+    <div class="remote-deck">
+        <span style="font-size: 11px; font-weight: 700; color: #64748b; display: flex; align-items: center; margin-right: 4px;">Quick Actions:</span>
+        <button class="remote-btn accent" onclick="remoteAction('toggleMenu')">
+            <span class="material-symbols-outlined" style="font-size: 14px;">menu</span>
+            Toggle Drawer
+        </button>
+        <button class="remote-btn" onclick="remoteAction('switchView', 'overview')">
+            <span class="material-symbols-outlined" style="font-size: 14px;">dashboard</span>
+            Overview
+        </button>
+        <button class="remote-btn" onclick="remoteAction('switchView', 'orders')">
+            <span class="material-symbols-outlined" style="font-size: 14px;">inventory_2</span>
+            Orders
+        </button>
+        <button class="remote-btn" onclick="remoteAction('switchView', 'inventory')">
+            <span class="material-symbols-outlined" style="font-size: 14px;">store</span>
+            Stock
+        </button>
+        <button class="remote-btn" onclick="remoteAction('switchView', 'delivery-boys')">
+            <span class="material-symbols-outlined" style="font-size: 14px;">sports_motorsports</span>
+            Delivery
+        </button>
+        <button class="remote-btn" onclick="remoteAction('switchView', 'payment-management')">
+            <span class="material-symbols-outlined" style="font-size: 14px;">payments</span>
+            Payments
+        </button>
+        <button class="remote-btn" onclick="remoteAction('switchView', 'upi-config')">
+            <span class="material-symbols-outlined" style="font-size: 14px;">qr_code_2</span>
+            UPI Config
+        </button>
+    </div>
+
+    <!-- The Phone Mockup Stage -->
+    <div class="simulator-stage" id="simulator-stage">
+        <div class="phone-wrapper" id="phone-wrapper" style="width: 393px; height: 852px;">
+            <!-- Status Bar Indicators -->
+            <div class="status-time" id="status-clock">9:41</div>
+            <div class="status-icons">
+                <span style="font-size: 10px;">5G</span>
+                <span class="material-symbols-outlined" style="font-size: 14px;">wifi</span>
+                <span class="material-symbols-outlined" style="font-size: 14px;">battery_full</span>
+            </div>
+
+            <!-- Dynamic Island -->
+            <div class="dynamic-island">
+                <span class="island-label">ADMIN</span>
+                <div class="island-camera"></div>
+            </div>
+
+            <!-- Real-time Admin Frame -->
+            <iframe id="admin-frame" src="/admin"></iframe>
+
+            <!-- Home indicator bar -->
+            <div class="home-bar"></div>
+        </div>
+    </div>
+
+    <!-- Instructions / Helper Card -->
+    <div class="info-card">
+        <div style="font-weight: 800; color: #fff; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+            <span class="material-symbols-outlined" style="font-size: 18px; color: #3b82f6;">info</span>
+            How to Use & Test on Your Laptop:
+        </div>
+        <p>1. <strong>Direct Interactive Touch/Click:</strong> You can click, tap, and scroll anywhere inside the phone screen above just like a real mobile device.</p>
+        <p>2. <strong>Sticky Bottom Bar:</strong> The bottom thumb navigation (Overview, Orders, Stock, Delivery, More) is docked to the phone's bottom.</p>
+        <p>3. <strong>Browser DevTools Mode:</strong> You can also press <span class="code-pill">Ctrl + Shift + M</span> in Google Chrome / Edge on <a href="/admin" target="_blank" style="color: #60a5fa; text-decoration: underline;">http://localhost:3000/admin</a> to view in full responsive emulation.</p>
+    </div>
+
+    <script>
+        // Update Status Bar Clock
+        function updateClock() {
+            const now = new Date();
+            let hours = now.getHours();
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            hours = hours % 12 || 12;
+            const el = document.getElementById('status-clock');
+            if (el) el.textContent = `${hours}:${minutes}`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Device Switcher
+        function setDevice(w, h, btnId) {
+            const wrapper = document.getElementById('phone-wrapper');
+            wrapper.style.width = w + 'px';
+            wrapper.style.height = h + 'px';
+
+            ['btn-dev-1', 'btn-dev-2', 'btn-dev-3'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.remove('active');
+            });
+            const activeBtn = document.getElementById(btnId);
+            if (activeBtn) activeBtn.classList.add('active');
+        }
+
+        // Zoom Switcher
+        function setZoom(scale, btn) {
+            const stage = document.getElementById('simulator-stage');
+            stage.style.transform = `scale(${scale})`;
+
+            btn.parentElement.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+
+        // Frame Reload
+        function reloadFrame() {
+            const frame = document.getElementById('admin-frame');
+            frame.src = '/admin?t=' + Date.now();
+        }
+
+        // Remote Action into the Admin Frame
+        function remoteAction(type, arg) {
+            const frame = document.getElementById('admin-frame');
+            try {
+                if (frame.contentWindow) {
+                    if (type === 'toggleMenu') {
+                        if (typeof frame.contentWindow.toggleMobileMenu === 'function') {
+                            frame.contentWindow.toggleMobileMenu();
+                        }
+                    } else if (type === 'switchView') {
+                        if (typeof frame.contentWindow.switchView === 'function') {
+                            frame.contentWindow.switchView(arg);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Remote action error:', e);
+            }
+        }
+    </script>
+</body>
+</html>

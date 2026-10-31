@@ -468,13 +468,16 @@ function applyAdminRolePermissions(profile) {
     // Top Bar Assigned Hostel Indicator
     const topBadge = document.getElementById('top-hostel-badge');
     const topName = document.getElementById('top-hostel-name');
+    const mobHostel = document.getElementById('top-hostel-name-mobile');
     if (topBadge && topName) {
         if (!isOwner && profile.assigned_hostel_id) {
             topName.textContent = `${profile.assigned_hostel_id} Dark-Store`;
+            if (mobHostel) mobHostel.textContent = profile.assigned_hostel_id;
             topBadge.className = 'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#0066cc] border border-blue-200';
             topBadge.classList.remove('hidden');
         } else if (isOwner) {
             topName.textContent = 'All Campus Hostels (Owner)';
+            if (mobHostel) mobHostel.textContent = 'All Hostels';
             topBadge.className = 'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-300';
             topBadge.classList.remove('hidden');
         } else {
@@ -635,12 +638,45 @@ function formatCustomerDisplayName(o) {
     return 'Student';
 }
 
-window.toggleMobileMenu = function() {
-    const aside = document.querySelector('aside');
-    if (aside) {
-        aside.classList.toggle('hidden');
+// Mobile Drawer & Off-Canvas Navigation Controller
+window.toggleMobileMenu = function(forceState) {
+    const aside = document.getElementById('admin-sidebar') || document.querySelector('aside');
+    const backdrop = document.getElementById('mobile-sidebar-backdrop');
+    if (!aside) return;
+
+    const isCurrentlyOpen = !aside.classList.contains('-translate-x-full');
+    const shouldOpen = (typeof forceState === 'boolean') ? forceState : !isCurrentlyOpen;
+
+    if (shouldOpen) {
+        aside.classList.remove('-translate-x-full');
+        if (backdrop) {
+            backdrop.classList.remove('hidden');
+            requestAnimationFrame(() => backdrop.classList.remove('opacity-0'));
+        }
+        document.body.classList.add('overflow-hidden');
+    } else {
+        aside.classList.add('-translate-x-full');
+        if (backdrop) {
+            backdrop.classList.add('opacity-0');
+            setTimeout(() => backdrop.classList.add('hidden'), 250);
+        }
+        document.body.classList.remove('overflow-hidden');
     }
 };
+
+// Global helper to keep pending order badges in sync across desktop and mobile bottom bar
+function updatePendingOrdersBadge(count) {
+    const val = Number(count) || 0;
+    const desktopBadge = document.getElementById('nav-pending-badge');
+    const mobileBadge = document.getElementById('mobile-nav-orders-badge');
+    [desktopBadge, mobileBadge].forEach(badge => {
+        if (badge) {
+            badge.textContent = val;
+            badge.classList.toggle('hidden', val <= 0);
+        }
+    });
+}
+window.updatePendingOrdersBadge = updatePendingOrdersBadge;
 
 // View Navigation
 function switchView(viewName) {
@@ -689,6 +725,19 @@ function switchView(viewName) {
         btn.classList.toggle('active', btn.dataset.view === viewName);
     });
 
+    // Sync Mobile Bottom Navigation Active Highlight
+    document.querySelectorAll('.mobile-nav-item').forEach(btn => {
+        const isCurrent = btn.dataset.view === viewName;
+        btn.classList.toggle('active', isCurrent);
+        btn.classList.toggle('text-[#0066cc]', isCurrent);
+        btn.classList.toggle('text-[#5c5f60]', !isCurrent);
+        const label = btn.querySelector('span:last-child');
+        if (label) {
+            label.classList.toggle('font-bold', isCurrent);
+            label.classList.toggle('font-medium', !isCurrent);
+        }
+    });
+
     const titles = {
         'dashboard': 'Dashboard Overview',
         'client-lock': 'Client Dashboard Control & Store Availability',
@@ -710,7 +759,16 @@ function switchView(viewName) {
         'payment-management': 'Payment & Refund Management (Super Admin Only)',
         'upi-config': 'UPI Gateway & Merchant Configuration (Super Admin Only)'
     };
-    document.getElementById('top-title').textContent = titles[viewName] || 'Dashboard';
+    const currentTitle = titles[viewName] || 'Dashboard';
+    const topTitle = document.getElementById('top-title');
+    if (topTitle) topTitle.textContent = currentTitle;
+    const topTitleMob = document.getElementById('top-title-mobile');
+    if (topTitleMob) topTitleMob.textContent = currentTitle;
+
+    // Automatically close off-canvas drawer on mobile navigation selection
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+        toggleMobileMenu(false);
+    }
 
     if (viewName === 'dashboard') loadDashboard();
     else if (viewName === 'client-lock') loadClientLockState();
@@ -730,7 +788,33 @@ function switchView(viewName) {
     else if (viewName === 'offers-charges') loadOffersChargesView();
     else if (viewName === 'payment-management') loadPaymentManagementView();
     else if (viewName === 'upi-config') loadUpiConfigView();
+
+    try {
+        if (typeof window !== 'undefined' && window.location.hash.replace(/^#\/?/, '') !== viewName) {
+            history.replaceState(null, '', `#${viewName}`);
+        }
+    } catch (e) {}
 }
+
+// Automatic Hash-Based View Router for Admin Portal (/admin#upi-config, /admin#payment-management)
+if (typeof window !== 'undefined') {
+    window.addEventListener('hashchange', () => {
+        const hash = window.location.hash.replace(/^#\/?/, '');
+        if (hash && hash !== activeView && typeof switchView === 'function') switchView(hash);
+    });
+    const triggerHashRoute = () => {
+        const hash = window.location.hash.replace(/^#\/?/, '');
+        if (hash && typeof switchView === 'function') {
+            setTimeout(() => switchView(hash), 150);
+        }
+    };
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', triggerHashRoute);
+    } else {
+        setTimeout(triggerHashRoute, 150);
+    }
+}
+
 
 // Master Live Real-Time Refresh Controller
 async function refreshCurrentView() {
@@ -890,11 +974,7 @@ async function loadDashboard() {
         if (elTotalOrders) elTotalOrders.textContent = totalOrdersVal;
         if (elPendingOrders) elPendingOrders.textContent = pendingCountVal;
 
-        const badge = document.getElementById('nav-pending-badge');
-        if (badge) {
-            badge.textContent = pendingCountVal;
-            badge.classList.toggle('hidden', !pendingCountVal);
-        }
+        updatePendingOrdersBadge(pendingCountVal);
 
         // Load and sync store lock state
         loadClientLockState();
@@ -3469,10 +3549,10 @@ function filterOrders() {
                 </div>
             </td>
             <td class="p-4">
-                <p class="font-semibold text-[#181c1f]">${displayName}</p>
-                <p class="text-[11px] text-[#5c5f60]">${contactHtml}</p>
+                <p class="font-semibold text-[#181c1f]">${escapeHtml(displayName)}</p>
+                <p class="text-[11px] text-[#5c5f60]">${escapeHtml(contactHtml)}</p>
             </td>
-            <td class="p-4 text-[#5c5f60]">${o.delivery_address || 'Not provided'}</td>
+            <td class="p-4 text-[#5c5f60]">${escapeHtml(o.delivery_address || 'Not provided')}</td>
             <td class="p-4 font-bold text-[#137333]">₹${o.total}</td>
             <td class="p-4 text-[#5c5f60]">${o.payment_method || 'COD'}</td>
             <td class="p-4" id="order-status-pill-${o.id}">${getStatusPill(o.status)}</td>
@@ -5320,6 +5400,11 @@ function updateConnectionStatus(connected, mode = 'Live') {
         text.textContent = connected ? mode : 'Offline';
         text.className = `text-[10px] font-bold ${connected ? 'text-[#10B981]' : 'text-[#ba1a1a]'}`;
     }
+    const mobText = document.getElementById('ws-status-text-mobile');
+    if (mobText) {
+        mobText.textContent = connected ? mode : 'Offline';
+        mobText.className = `font-semibold ${connected ? 'text-emerald-700' : 'text-rose-600'}`;
+    }
 }
 
 // Render function for Recent Orders Table in Dashboard
@@ -5364,10 +5449,7 @@ function updateKpiCountersFromCache() {
 
     if (totalOrdersEl) totalOrdersEl.textContent = totalOrdersVal;
     if (pendingOrdersEl) pendingOrdersEl.textContent = pendingCountVal;
-    if (badgeEl) {
-        badgeEl.textContent = pendingCountVal;
-        badgeEl.classList.toggle('hidden', !pendingCountVal);
-    }
+    updatePendingOrdersBadge(pendingCountVal);
     updateDailyRevenue();
 }
 
@@ -5580,8 +5662,8 @@ async function syncOrdersLive() {
     }
 }
 
-const ORDER_POLL_ACTIVE_MS = 5000;   // 5s when tab is active and visible
-const ORDER_POLL_HIDDEN_MS = 60000;  // 60s when tab is in background / minimized
+const ORDER_POLL_ACTIVE_MS = 1500;   // 1.5s when tab is active and visible (instant 1-2s updates)
+const ORDER_POLL_HIDDEN_MS = 30000;  // 30s when tab is in background / minimized
 
 function scheduleNextOrderPoll() {
     if (liveOrderPollInterval) clearTimeout(liveOrderPollInterval);
@@ -5734,7 +5816,7 @@ function handleRealtimeOrderClaimed(data) {
         updateDrawerDispatchCard(o);
     }
     // Trigger immediate server sync to ensure all admins see fresh delivery data
-    setTimeout(() => { syncOrdersLive(); }, 500);
+    syncOrdersLive();
     if (activeView === 'delivery' || activeView === 'earnings') {
         loadDeliveryEarnings();
     }
@@ -5783,7 +5865,7 @@ function handleRealtimeTransferResolved(data) {
     filterOrders();
     if (currentDrawerOrderId === data.orderId) openOrderDrawer(data.orderId);
     if (data.accepted) {
-        setTimeout(() => { syncOrdersLive(); }, 500);
+        syncOrdersLive();
     }
     if (activeView === 'delivery' || activeView === 'earnings') {
         loadDeliveryEarnings();
@@ -5948,6 +6030,7 @@ function initRealtimeWebSocket() {
         realtimeWs.onopen = () => {
             console.log('[Admin WS] ✅ Connected to live orders stream.');
             wsReconnectAttempts = 0;
+            if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
             updateConnectionStatus(true, 'Live (WS)');
 
             // Start heartbeat ping every 20s to keep connection alive
@@ -5974,11 +6057,14 @@ function initRealtimeWebSocket() {
             // WebSocket unavailable (e.g. Vercel Serverless) — Live Poller keeps running seamlessly
             updateConnectionStatus(true, 'Live');
 
-            // If on a serverless platform (e.g. Vercel), cap at 5 attempts and rely on smart live poller
-            if (adminToken && !wsReconnectTimer && wsReconnectAttempts < 5) {
-                const delay = Math.min(2000 * Math.pow(2, wsReconnectAttempts), 30000);
-                wsReconnectAttempts++;
-                wsReconnectTimer = setTimeout(initRealtimeWebSocket, delay);
+            // Continuous resilient reconnect with short exponential backoff (1.5s - 10s max)
+            if (adminToken && !wsReconnectTimer) {
+                const delay = Math.min(1500 * Math.max(1, wsReconnectAttempts), 10000);
+                wsReconnectAttempts = (wsReconnectAttempts + 1) % 20;
+                wsReconnectTimer = setTimeout(() => {
+                    wsReconnectTimer = null;
+                    initRealtimeWebSocket();
+                }, delay);
             }
         };
 
@@ -5988,7 +6074,10 @@ function initRealtimeWebSocket() {
     } catch (e) {
         updateConnectionStatus(true, 'Live');
         if (!wsReconnectTimer) {
-            wsReconnectTimer = setTimeout(initRealtimeWebSocket, 5000);
+            wsReconnectTimer = setTimeout(() => {
+                wsReconnectTimer = null;
+                initRealtimeWebSocket();
+            }, 3000);
         }
     }
 }
@@ -6108,10 +6197,7 @@ function handleRealtimeNewOrder(order) {
         const cur = parseInt(pendingOrdersEl.textContent, 10);
         const pCount = (isNaN(cur) ? 0 : cur) + 1;
         pendingOrdersEl.textContent = pCount;
-        if (badgeEl) {
-            badgeEl.textContent = pCount;
-            badgeEl.classList.remove('hidden');
-        }
+        updatePendingOrdersBadge(pCount);
     }
 
     // 4b. Update daily revenue for new order
@@ -6157,6 +6243,8 @@ function handleRealtimeStatusUpdate(data) {
     const o = ordersCache.find(x => x.id === orderId);
     if (o) {
         o.status = status;
+        if (data.payment_status) o.payment_status = data.payment_status;
+        if (data.payment_method) o.payment_method = data.payment_method;
         if (typeof getOrderSignature === 'function') {
             knownOrderMap.set(orderId, getOrderSignature(o));
         }
@@ -6215,11 +6303,11 @@ function showOrderToast(order) {
             </div>
             <div class="text-xs text-[#181c1f]">
                 <div class="flex justify-between items-center">
-                    <span class="font-bold text-sm text-[#181c1f]">${order.customer_name || 'Customer'}</span>
+                    <span class="font-bold text-sm text-[#181c1f]">${escapeHtml(order.customer_name || 'Customer')}</span>
                     <span class="font-black text-sm text-[#137333]">₹${order.total}</span>
                 </div>
-                <p class="text-[11px] text-[#5c5f60] mt-0.5">📍 ${order.delivery_address || 'Not provided'}</p>
-                <p class="text-[10px] text-[#74777a] italic mt-1 truncate">🛍️ ${order.item_summary || 'Campus essentials'}</p>
+                <p class="text-[11px] text-[#5c5f60] mt-0.5">📍 ${escapeHtml(order.delivery_address || 'Not provided')}</p>
+                <p class="text-[10px] text-[#74777a] italic mt-1 truncate">🛍️ ${escapeHtml(order.item_summary || 'Campus essentials')}</p>
             </div>
             <div class="flex items-center justify-between pt-2 border-t border-[#DADCE0] mt-1">
                 <button onclick="openOrderDrawer('${order.id}'); dismissToast('${toastId}')" class="text-xs bg-[#3c4043] hover:bg-[#262a2d] text-white px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 transition-all active:scale-95 shadow-sm">
@@ -7896,14 +7984,14 @@ initAdminAuth();
 updateSoundUI();
 checkPushStatus();
 
-// Periodic background sync fallback (every 60 seconds when authenticated & visible)
+// Periodic background sync fallback (every 10 seconds when authenticated & visible)
 setInterval(() => {
     if (!adminToken || (typeof document !== 'undefined' && document.hidden)) return;
     if (activeView === 'dashboard') loadDashboard();
-    else if (activeView === 'orders') loadOrders();
+    else if (activeView === 'orders') syncOrdersLive();
     else if (activeView === 'inventory') loadInventory();
     else if (activeView === 'products') loadProducts();
-}, 60000);
+}, 10000);
 
 // ==========================================
 // FINANCIAL INTELLIGENCE & PIN SECURITY CONTROLLER
@@ -8625,8 +8713,8 @@ async function loadDailyRevenueView(forceRefresh = false) {
                                     <span class="font-mono font-bold text-xs text-[#181c1f]">${o.id}</span>
                                     <span class="text-[10px] bg-slate-100 text-[#5c5f60] font-semibold px-2 py-0.5 rounded-full">${o.time_ist || ''}</span>
                                     <span class="px-1.5 py-0.5 rounded-full text-[9px] font-bold ${o.payment_type === 'Cash' ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-indigo-100 text-indigo-800 border border-indigo-200'}">${o.payment_type === 'Cash' ? '💵 Cash' : '📱 UPI'}</span>
-                                    <span class="text-xs font-bold text-[#181c1f] truncate">${o.customer_name}</span>
-                                    <span class="text-[11px] text-[#5c5f60] truncate">${o.delivery_address || ''}</span>
+                                    <span class="text-xs font-bold text-[#181c1f] truncate">${escapeHtml(o.customer_name)}</span>
+                                    <span class="text-[11px] text-[#5c5f60] truncate">${escapeHtml(o.delivery_address || '')}</span>
                                 </div>
                                 <p class="text-[11px] text-[#5c5f60] mt-1 line-clamp-2">${itemsDesc || 'Campus store package'}</p>
                             </div>

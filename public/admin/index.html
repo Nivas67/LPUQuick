@@ -47,13 +47,18 @@
     <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3 pointer-events-none max-w-sm w-full">
     </div>
 
-    <!-- SideNavBar (Exact Stitch Architecture) -->
-    <aside
-        class="h-screen w-60 bg-white border-r border-[#DADCE0] shadow-sm z-50 flex flex-col hidden md:flex shrink-0">
-        <div class="p-6 border-b border-[#DADCE0]">
+    <!-- Mobile Backdrop Overlay -->
+    <div id="mobile-sidebar-backdrop" onclick="toggleMobileMenu(false)"
+        class="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs hidden md:hidden transition-opacity duration-300 opacity-0 cursor-pointer">
+    </div>
+
+    <!-- SideNavBar (Desktop & Mobile Drawer) -->
+    <aside id="admin-sidebar"
+        class="fixed inset-y-0 left-0 z-50 h-screen w-72 max-w-[85vw] bg-white border-r border-[#DADCE0] shadow-2xl flex flex-col transform -translate-x-full transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:w-60 md:shadow-sm md:flex md:transition-none shrink-0">
+        <div class="p-4 sm:p-6 border-b border-[#DADCE0] flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <div
-                    class="w-10 h-10 rounded-full bg-[#3c4043] flex items-center justify-center text-white font-black text-lg">
+                    class="w-10 h-10 rounded-full bg-[#3c4043] flex items-center justify-center text-white font-black text-lg shrink-0">
                     ⚡
                 </div>
                 <div>
@@ -61,6 +66,10 @@
                     <p class="text-xs text-[#5c5f60] font-medium">Admin Console</p>
                 </div>
             </div>
+            <!-- Mobile Drawer Close Button -->
+            <button onclick="toggleMobileMenu(false)" class="md:hidden p-1.5 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer" title="Close Menu">
+                <span class="material-symbols-outlined text-xl">close</span>
+            </button>
         </div>
 
         <nav class="flex-1 overflow-y-auto py-4 flex flex-col gap-1 no-scrollbar text-sm" id="desktop-nav">
@@ -110,6 +119,18 @@
                 <span class="material-symbols-outlined text-amber-600">local_offer</span>
                 <span class="flex-1 font-bold text-[#181c1f]">Offers & Charges</span>
                 <span class="text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Owner</span>
+            </button>
+            <button onclick="switchView('payment-management')" data-view="payment-management" data-required-role="owner"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full owner-only-nav hidden">
+                <span class="material-symbols-outlined text-emerald-600">account_balance_wallet</span>
+                <span class="flex-1 font-bold text-[#181c1f]">Payment Management</span>
+                <span class="text-[9px] bg-emerald-600 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Super Admin</span>
+            </button>
+            <button onclick="switchView('upi-config')" data-view="upi-config" data-required-role="owner"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full owner-only-nav hidden">
+                <span class="material-symbols-outlined text-purple-600">qr_code_2</span>
+                <span class="flex-1 font-bold text-[#181c1f]">UPI Configuration</span>
+                <span class="text-[9px] bg-purple-600 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Super Admin</span>
             </button>
             <button onclick="switchView('customers')" data-view="customers" data-required-role="owner,store_manager"
                 class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
@@ -189,44 +210,55 @@
     <!-- Main Workspace -->
     <div class="flex-1 flex flex-col h-screen overflow-hidden">
 
-        <!-- Top App Bar -->
+        <!-- Top App Bar (Responsive Mobile & Desktop) -->
         <header
-            class="sticky top-0 z-40 w-full bg-white/80 backdrop-blur-md border-b border-[#DADCE0] flex justify-between items-center px-6 py-3 shrink-0">
-            <div class="flex items-center gap-3 md:hidden">
-                <button onclick="toggleMobileMenu()" class="text-[#262a2d] p-1.5 hover:bg-[#ebeef2] rounded-lg">
-                    <span class="material-symbols-outlined">menu</span>
+            class="sticky top-0 z-30 w-full bg-white/90 backdrop-blur-md border-b border-[#DADCE0] flex justify-between items-center px-3 sm:px-6 py-2 sm:py-3 shrink-0">
+            <!-- Left: Mobile Brand & Active Title / Desktop Breadcrumb -->
+            <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+                <button onclick="toggleMobileMenu(true)" class="text-[#262a2d] p-1.5 hover:bg-[#ebeef2] rounded-lg md:hidden shrink-0 cursor-pointer" title="Open Navigation Menu">
+                    <span class="material-symbols-outlined text-2xl">menu</span>
                 </button>
-                <span class="font-bold text-base text-[#262a2d]">LPU Quick</span>
+                
+                <!-- Mobile Active View Title & Live Dot -->
+                <div class="min-w-0 md:hidden">
+                    <span class="font-bold text-sm text-[#262a2d] block truncate" id="top-title-mobile">Dashboard Overview</span>
+                    <span class="text-[10px] text-[#5c5f60] flex items-center gap-1.5 leading-none">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span id="ws-status-text-mobile" class="font-semibold text-emerald-700">Live</span>
+                        <span>•</span>
+                        <span id="top-hostel-name-mobile" class="font-semibold text-[#0066cc]">All Hostels</span>
+                    </span>
+                </div>
+
+                <!-- Desktop Page Title Breadcrumb -->
+                <div class="hidden md:flex items-center gap-2 text-xs text-[#5c5f60]">
+                    <span class="font-semibold text-[#262a2d]" id="top-title">Dashboard Overview</span>
+                    <span>•</span>
+                    <span class="flex items-center gap-1.5">
+                        <span id="ws-status-indicator" class="w-2 h-2 rounded-full bg-[#ba1a1a]"></span>
+                        <span id="ws-status-text" class="text-[10px] font-bold text-[#ba1a1a]">Offline</span>
+                        <span class="text-[#5c5f60]">Supabase Cloud</span>
+                    </span>
+                    <span id="top-hostel-badge" class="hidden inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#0066cc] border border-blue-200">
+                        <span class="material-symbols-outlined text-[13px]">domain</span>
+                        <span id="top-hostel-name">BH-13</span>
+                    </span>
+                </div>
             </div>
 
-            <!-- Page Title Breadcrumb -->
-            <div class="hidden sm:flex items-center gap-2 text-xs text-[#5c5f60]">
-                <span class="font-semibold text-[#262a2d]" id="top-title">Dashboard Overview</span>
-                <span>•</span>
-                <span class="flex items-center gap-1.5">
-                    <span id="ws-status-indicator" class="w-2 h-2 rounded-full bg-[#ba1a1a]"></span>
-                    <span id="ws-status-text" class="text-[10px] font-bold text-[#ba1a1a]">Offline</span>
-                    <span class="text-[#5c5f60]">Supabase Cloud</span>
-                </span>
-                <span id="top-hostel-badge" class="hidden inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#0066cc] border border-blue-200">
-                    <span class="material-symbols-outlined text-[13px]">domain</span>
-                    <span id="top-hostel-name">BH-13</span>
-                </span>
-            </div>
-
-            <!-- Actions -->
-            <div class="flex items-center gap-2.5">
+            <!-- Right: Actions Toolbar (Responsive) -->
+            <div class="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
                 <!-- Sound Alert Controls -->
                 <button id="btn-sound-toggle" onclick="toggleSound()"
-                    class="bg-[#e6f4ea] hover:bg-[#ceead6] text-[#137333] px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
+                    class="bg-[#e6f4ea] hover:bg-[#ceead6] text-[#137333] p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
                     title="Toggle audio alert chime">
-                    <span class="material-symbols-outlined text-[16px]" id="sound-icon">volume_up</span>
+                    <span class="material-symbols-outlined text-[18px]" id="sound-icon">volume_up</span>
                     <span id="sound-status-text" class="hidden sm:inline">Sound: ON</span>
                 </button>
 
-                <!-- Sound Theme Selector Dropdown -->
+                <!-- Sound Theme Selector Dropdown (Desktop / Tablet) -->
                 <select id="sound-theme-select" onchange="changeSoundTheme(this.value)"
-                    class="bg-[#f1f4f7] hover:bg-[#e0e3e6] border border-[#DADCE0] rounded-full px-2.5 py-1.5 text-xs font-semibold text-[#3c4043] outline-none cursor-pointer"
+                    class="hidden lg:inline-block bg-[#f1f4f7] hover:bg-[#e0e3e6] border border-[#DADCE0] rounded-full px-2.5 py-1.5 text-xs font-semibold text-[#3c4043] outline-none cursor-pointer"
                     title="Choose order notification sound">
                     <option value="cash_register">💰 Cha-Ching / Cash</option>
                     <option value="urgent_alarm">🚨 Urgent Alarm (Loud)</option>
@@ -236,38 +268,52 @@
                     <option value="crystal_bell">🔔 Crystal Bell</option>
                 </select>
 
+                <!-- Audio Test Button (Desktop) -->
                 <button onclick="unlockAudioEngine(); testCampusSound();"
-                    class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition-all shadow-sm active:scale-95"
+                    class="hidden xl:inline-flex bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 px-3 py-1.5 rounded-full text-xs font-bold items-center gap-1 transition-all shadow-xs active:scale-95 cursor-pointer"
                     title="Test notification sound">
                     <span class="material-symbols-outlined text-[16px]">play_circle</span>
-                    <span class="hidden sm:inline">Test Sound</span>
+                    <span>Test Sound</span>
                 </button>
 
-                <!-- Web Push Notification Toggle Button -->
+                <!-- Web Push Notification Toggle Button (Desktop / Tablet) -->
                 <button id="btn-push-toggle" onclick="togglePushNotifications()"
-                    class="bg-blue-50 hover:bg-blue-100 text-[#1a73e8] border border-blue-200 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+                    class="hidden md:inline-flex bg-blue-50 hover:bg-blue-100 text-[#1a73e8] border border-blue-200 px-3 py-1.5 rounded-full text-xs font-bold items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer"
                     title="Enable background push alerts even when browser is closed">
                     <span class="material-symbols-outlined text-[16px]" id="push-icon">notifications</span>
                     <span id="push-status-text" class="hidden sm:inline">Push Alerts: OFF</span>
                 </button>
 
+                <!-- Force Direct Supabase Sync -->
                 <button id="btn-force-sync" onclick="forceLiveDbSync()"
-                    class="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-xs"
-                    title="Force Direct Supabase Cloud Sync (Laptop & Mobile)">
-                    <span class="material-symbols-outlined text-[16px]">cloud_sync</span>
+                    class="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-xs"
+                    title="Force Direct Supabase Cloud Sync">
+                    <span class="material-symbols-outlined text-[18px]">cloud_sync</span>
                     <span class="hidden sm:inline">Sync Live Orders</span>
                 </button>
 
+                <!-- Refresh Current View -->
                 <button id="btn-header-refresh" onclick="refreshCurrentView()"
-                    class="bg-[#ebeef2] hover:bg-[#e0e3e6] text-[#262a2d] px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-xs"
+                    class="bg-[#ebeef2] hover:bg-[#e0e3e6] text-[#262a2d] p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-xs"
                     title="Refresh all dashboard data">
-                    <span id="btn-header-refresh-icon" class="material-symbols-outlined text-[16px]">sync</span>
+                    <span id="btn-header-refresh-icon" class="material-symbols-outlined text-[18px]">sync</span>
                     <span id="btn-header-refresh-text" class="hidden sm:inline">Refresh</span>
                 </button>
+
+                <!-- Phone Screen Preview Simulator Link -->
+                <a href="/admin-preview" target="_blank"
+                    class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-bold flex items-center gap-1 shadow-xs transition-all cursor-pointer"
+                    title="Open Admin Phone Screen Simulator">
+                    <span class="material-symbols-outlined text-[18px]">smartphone</span>
+                    <span class="hidden sm:inline">Phone Screen</span>
+                </a>
+
+                <!-- Storefront Link -->
                 <a href="/" target="_blank"
-                    class="bg-[#3c4043] hover:bg-[#262a2d] text-white px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 shadow-sm transition-all">
-                    <span class="material-symbols-outlined text-[16px]">storefront</span>
-                    <span>Storefront</span>
+                    class="bg-[#3c4043] hover:bg-[#262a2d] text-white p-1.5 sm:px-3.5 sm:py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 shadow-xs transition-all"
+                    title="Open Storefront">
+                    <span class="material-symbols-outlined text-[18px]">storefront</span>
+                    <span class="hidden sm:inline">Storefront</span>
                 </a>
             </div>
         </header>
@@ -318,8 +364,8 @@
                 to Test ❯</span>
         </div>
 
-        <!-- Dynamic Views Container -->
-        <main class="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#F1F3F4]" id="main-content">
+        <!-- Dynamic Views Container (Responsive Mobile Padding) -->
+        <main class="flex-1 overflow-y-auto p-3 sm:p-6 bg-[#F1F3F4] pb-24 md:pb-6" id="main-content">
 
             <!-- ================= VIEW 1: DASHBOARD ================= -->
             <div id="view-dashboard" class="space-y-6 max-w-[1440px] mx-auto">
@@ -3175,16 +3221,462 @@
                             <!-- Primary Save Button -->
                             <button id="btn-save-offers" onclick="saveOffersCharges()"
                                 class="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.99] cursor-pointer">
-                                <span class="material-symbols-outlined text-base">cloud_upload</span>
-                                <span id="btn-save-offers-text">Save All Offers & Charges</span>
+                                <span class="material-symbols-outlined text-base">save</span>
+                                <span>Save All Offers &amp; Charges</span>
                             </button>
                         </div>
+                    </div>
+                </div>
+            </div>
 
+            <!-- ================= VIEW: PAYMENT MANAGEMENT (SUPER ADMIN ONLY) ================= -->
+            <div id="view-payment-management" class="space-y-6 max-w-[1440px] mx-auto hidden pb-16">
+                <!-- Header Banner -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 uppercase tracking-wider">
+                                <span class="material-symbols-outlined text-xs">admin_panel_settings</span> Primary Super Admin Only
+                            </span>
+                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-300">
+                                <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span> Verified UPI PG V2
+                            </span>
+                        </div>
+                        <h2 class="text-2xl font-bold text-[#181c1f] flex items-center gap-2">
+                            <span>Payment &amp; Refund Management</span>
+                        </h2>
+                        <p class="text-xs text-[#5c5f60]">Server-verified UPI transactions, bank UTR reconciliation, and authoritative refund ledger.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="loadPaymentManagementView()"
+                            class="p-2.5 border border-[#DADCE0] rounded-xl bg-white hover:bg-[#f1f4f7] text-[#3c4043] transition-all shadow-xs flex items-center gap-1.5 text-xs font-bold cursor-pointer"
+                            title="Refresh Payment Records">
+                            <span class="material-symbols-outlined text-base">refresh</span>
+                            <span>Refresh</span>
+                        </button>
+                        <button onclick="switchView('upi-config')"
+                            class="p-2.5 border border-purple-300 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 transition-all shadow-xs flex items-center gap-1.5 text-xs font-bold cursor-pointer">
+                            <span class="material-symbols-outlined text-base">tune</span>
+                            <span>UPI Config</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 4 Financial KPI Summary Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Net Realized Collections (Primary KPI) -->
+                    <div class="p-5 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-md relative overflow-hidden">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-[11px] font-black uppercase tracking-wider text-emerald-100">Net Realized Collections</span>
+                            <span class="p-2 rounded-xl bg-white/10 backdrop-blur-xs">
+                                <span class="material-symbols-outlined text-lg">account_balance</span>
+                            </span>
+                        </div>
+                        <div class="text-2xl sm:text-3xl font-black tracking-tight" id="pay-stat-net">₹0.00</div>
+                        <div class="mt-2 text-[11px] text-emerald-100 flex items-center justify-between">
+                            <span>Gross minus Completed Refunds</span>
+                            <span class="font-bold bg-white/20 px-1.5 py-0.5 rounded text-[10px]">Instant Bank Settlement</span>
+                        </div>
+                    </div>
+
+                    <!-- Gross Confirmed Revenue -->
+                    <div class="p-5 rounded-2xl bg-white border border-[#DADCE0] shadow-xs">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-[11px] font-bold text-[#5c5f60] uppercase tracking-wider">Gross Confirmed Revenue</span>
+                            <span class="p-2 rounded-xl bg-emerald-50 text-emerald-600">
+                                <span class="material-symbols-outlined text-lg">check_circle</span>
+                            </span>
+                        </div>
+                        <div class="text-2xl font-black text-[#181c1f]" id="pay-stat-gross">₹0.00</div>
+                        <div class="mt-2 text-[11px] text-emerald-700 font-medium flex items-center gap-1">
+                            <span id="pay-stat-success-count">0</span> successful UPI payments verified
+                        </div>
+                    </div>
+
+                    <!-- Total Processed Refunds -->
+                    <div class="p-5 rounded-2xl bg-white border border-[#DADCE0] shadow-xs">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-[11px] font-bold text-[#5c5f60] uppercase tracking-wider">Total Processed Refunds</span>
+                            <span class="p-2 rounded-xl bg-rose-50 text-rose-600">
+                                <span class="material-symbols-outlined text-lg">replay</span>
+                            </span>
+                        </div>
+                        <div class="text-2xl font-black text-rose-600" id="pay-stat-refunded">₹0.00</div>
+                        <div class="mt-2 text-[11px] text-[#5c5f60] flex items-center gap-1">
+                            <span id="pay-stat-refund-count">0</span> refunds issued by Super Admin
+                        </div>
+                    </div>
+
+                    <!-- Pending / Processing (Excluded from Revenue) -->
+                    <div class="p-5 rounded-2xl bg-white border border-[#DADCE0] shadow-xs">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-[11px] font-bold text-[#5c5f60] uppercase tracking-wider">Unconfirmed / Failed</span>
+                            <span class="p-2 rounded-xl bg-amber-50 text-amber-600">
+                                <span class="material-symbols-outlined text-lg">hourglass_empty</span>
+                            </span>
+                        </div>
+                        <div class="text-2xl font-black text-amber-600" id="pay-stat-pending">0</div>
+                        <div class="mt-2 text-[11px] text-slate-500 font-medium">
+                            Pending &amp; failed payments excluded from revenue
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filter & Search Toolbar -->
+                <div class="bg-white p-4 rounded-2xl border border-[#DADCE0] shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
+                    <div class="flex-1 w-full flex items-center gap-2">
+                        <div class="relative flex-1">
+                            <span class="material-symbols-outlined absolute left-3 top-2.5 text-[#5c5f60] text-sm">search</span>
+                            <input type="text" id="pay-search-input" placeholder="Search Order ID, UTR, customer phone or name..."
+                                class="w-full pl-9 pr-3 py-2 border border-[#DADCE0] rounded-xl text-xs outline-none focus:border-emerald-600 font-medium"
+                                onkeyup="if(event.key === 'Enter') filterPaymentsList()">
+                        </div>
+                        <button onclick="filterPaymentsList()" class="px-4 py-2 bg-[#181c1f] text-white rounded-xl text-xs font-bold hover:bg-black transition-all cursor-pointer">
+                            Search
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-2 w-full md:w-auto flex-wrap">
+                        <!-- Status Filter -->
+                        <select id="pay-filter-status" onchange="filterPaymentsList()"
+                            class="px-3 py-2 border border-[#DADCE0] rounded-xl text-xs font-bold text-[#181c1f] outline-none bg-white cursor-pointer">
+                            <option value="ALL">All Statuses (10 States)</option>
+                            <option value="Successful">Successful</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Processing">Processing</option>
+                            <option value="Failed">Failed</option>
+                            <option value="Cancelled">Cancelled</option>
+                            <option value="Partially Refunded">Partially Refunded</option>
+                            <option value="Refund Successful">Refund Successful</option>
+                            <option value="Refund Pending">Refund Pending</option>
+                            <option value="Refund Processing">Refund Processing</option>
+                            <option value="Refund Failed">Refund Failed</option>
+                        </select>
+
+                        <button onclick="clearPaymentFilters()" class="px-3 py-2 text-xs font-bold text-[#5c5f60] hover:text-[#181c1f] transition-all cursor-pointer">
+                            Reset
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Transaction Ledger Table -->
+                <div class="bg-white rounded-2xl border border-[#DADCE0] shadow-xs overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="bg-[#f8f9fa] border-b border-[#DADCE0] text-[#5c5f60] font-black uppercase tracking-wider text-[10px]">
+                                    <th class="p-4">Order / ID</th>
+                                    <th class="p-4">Timestamp</th>
+                                    <th class="p-4">Customer</th>
+                                    <th class="p-4">Method / App</th>
+                                    <th class="p-4">Amount</th>
+                                    <th class="p-4">Bank UTR / Ref</th>
+                                    <th class="p-4">Payment Status</th>
+                                    <th class="p-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payment-transactions-tbody" class="divide-y divide-[#DADCE0]">
+                                <tr>
+                                    <td colspan="8" class="p-8 text-center text-slate-400">Loading payment records...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="p-4 border-t border-[#DADCE0] bg-[#fdfdfd] flex items-center justify-between text-xs text-[#5c5f60]">
+                        <span id="pay-pagination-info">Showing 0 of 0 transactions</span>
+                        <div class="flex items-center gap-1.5" id="pay-pagination-controls">
+                            <!-- Prev / Next buttons injected by JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW: UPI CONFIGURATION (SUPER ADMIN ONLY) ================= -->
+            <div id="view-upi-config" class="space-y-6 max-w-[1440px] mx-auto hidden pb-16">
+                <!-- Header Banner -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-900 border border-purple-300 uppercase tracking-wider">
+                                <span class="material-symbols-outlined text-xs">tune</span> Super Admin Configuration
+                            </span>
+                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Zero PIN Collection Guaranteed
+                            </span>
+                        </div>
+                        <h2 class="text-2xl font-bold text-[#181c1f] flex items-center gap-2">
+                            <span>UPI Gateway &amp; Merchant Configuration</span>
+                        </h2>
+                        <p class="text-xs text-[#5c5f60]">Manage authorized merchant account, settlement bank connection, environment, and accepted UPI apps.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="switchView('payment-management')"
+                            class="p-2.5 border border-[#DADCE0] rounded-xl bg-white hover:bg-[#f1f4f7] text-[#3c4043] transition-all shadow-xs flex items-center gap-1.5 text-xs font-bold cursor-pointer">
+                            <span class="material-symbols-outlined text-base">arrow_back</span>
+                            <span>Back to Ledger</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Main Configuration Form -->
+                    <div class="lg:col-span-2 space-y-6">
+                        <div class="bg-white p-6 rounded-3xl border border-[#DADCE0] shadow-xs space-y-5">
+                            <h3 class="text-sm font-black uppercase tracking-wider text-[#181c1f] flex items-center gap-2 border-b border-[#DADCE0] pb-3">
+                                <span class="material-symbols-outlined text-purple-600">store</span>
+                                <span>Merchant Account &amp; Payee Identity</span>
+                            </h3>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-[#181c1f] mb-1.5">Authorized Merchant VPA (UPI ID) *</label>
+                                    <input type="text" id="upi-config-vpa" placeholder="e.g. lpuquick@upi"
+                                        class="w-full px-3.5 py-2.5 border border-[#DADCE0] rounded-xl text-xs font-bold outline-none focus:border-purple-600">
+                                    <p class="text-[10px] text-slate-500 mt-1">Direct destination address for incoming payments.</p>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-[#181c1f] mb-1.5">Payee Display Name *</label>
+                                    <input type="text" id="upi-config-name" placeholder="e.g. LPUQuick Campus Services"
+                                        class="w-full px-3.5 py-2.5 border border-[#DADCE0] rounded-xl text-xs font-bold outline-none focus:border-purple-600">
+                                    <p class="text-[10px] text-slate-500 mt-1">Appears in customer's PhonePe, GPay, and bank apps.</p>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                                <div>
+                                    <label class="block text-xs font-bold text-[#181c1f] mb-1.5">Active Payment Provider</label>
+                                    <select id="upi-config-provider" class="w-full px-3.5 py-2.5 border border-[#DADCE0] rounded-xl text-xs font-bold outline-none bg-white cursor-pointer">
+                                        <option value="YOUPI_V2">YOUPI PG V2 (Direct Dynamic UPI QR &amp; App Intents)</option>
+                                        <option value="PHONEPE_PG">PhonePe PG (Aggregator API Adapter)</option>
+                                        <option value="DIRECT_UPI">Direct Campus Merchant UPI</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-[#181c1f] mb-1.5">Environment Mode</label>
+                                    <select id="upi-config-env" class="w-full px-3.5 py-2.5 border border-[#DADCE0] rounded-xl text-xs font-bold outline-none bg-white cursor-pointer">
+                                        <option value="SANDBOX">SANDBOX (Safe Testing &amp; Simulation)</option>
+                                        <option value="PRODUCTION">PRODUCTION (Live Money &amp; Bank Settlement)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Supported Payment Methods Toggles -->
+                        <div class="bg-white p-6 rounded-3xl border border-[#DADCE0] shadow-xs space-y-4">
+                            <h3 class="text-sm font-black uppercase tracking-wider text-[#181c1f] flex items-center gap-2 border-b border-[#DADCE0] pb-3">
+                                <span class="material-symbols-outlined text-emerald-600">apps</span>
+                                <span>Customer Checkout Methods</span>
+                            </h3>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                                <label class="flex items-center gap-3 p-3 rounded-2xl border border-slate-200 hover:bg-slate-50 cursor-pointer">
+                                    <input type="checkbox" id="method-qr" checked class="w-4 h-4 rounded text-emerald-600">
+                                    <div>
+                                        <span class="font-bold text-[#181c1f] block">Dynamic UPI QR Code</span>
+                                        <span class="text-[10px] text-slate-500">Auto-generated with exact order total and reference</span>
+                                    </div>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 rounded-2xl border border-slate-200 hover:bg-slate-50 cursor-pointer">
+                                    <input type="checkbox" id="method-phonepe" checked class="w-4 h-4 rounded text-emerald-600">
+                                    <div>
+                                        <span class="font-bold text-[#181c1f] block">PhonePe Intent Flow</span>
+                                        <span class="text-[10px] text-slate-500">1-tap checkout via PhonePe app</span>
+                                    </div>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 rounded-2xl border border-slate-200 hover:bg-slate-50 cursor-pointer">
+                                    <input type="checkbox" id="method-gpay" checked class="w-4 h-4 rounded text-emerald-600">
+                                    <div>
+                                        <span class="font-bold text-[#181c1f] block">Google Pay (GPay)</span>
+                                        <span class="text-[10px] text-slate-500">Deep link intent for Google Pay</span>
+                                    </div>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 rounded-2xl border border-slate-200 hover:bg-slate-50 cursor-pointer">
+                                    <input type="checkbox" id="method-paytm" checked class="w-4 h-4 rounded text-emerald-600">
+                                    <div>
+                                        <span class="font-bold text-[#181c1f] block">Paytm UPI</span>
+                                        <span class="text-[10px] text-slate-500">Deep link intent for Paytm app</span>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <button onclick="saveUpiConfig()" class="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.99] cursor-pointer mt-4">
+                                <span class="material-symbols-outlined text-base">save</span>
+                                <span>Save UPI Configuration</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Side Card: Bank Settlement & Security Auditing -->
+                    <div class="space-y-6">
+                        <div class="bg-white p-6 rounded-3xl border border-[#DADCE0] shadow-xs space-y-4">
+                            <h3 class="text-sm font-black uppercase tracking-wider text-[#181c1f] flex items-center gap-2 border-b border-[#DADCE0] pb-3">
+                                <span class="material-symbols-outlined text-blue-600">account_balance</span>
+                                <span>Bank Account Settlement</span>
+                            </h3>
+
+                            <div class="p-4 rounded-2xl bg-blue-50 border border-blue-200 space-y-2 text-xs">
+                                <div class="flex items-center justify-between text-blue-900 font-bold">
+                                    <span>Linked Bank Account</span>
+                                    <span class="text-[10px] bg-blue-200 text-blue-900 px-2 py-0.5 rounded-full font-black">ACTIVE</span>
+                                </div>
+                                <div class="text-sm font-black text-[#181c1f]">HDFC Bank •••• 4821</div>
+                                <div class="text-[11px] text-slate-600">IFSC: HDFC0000242 (Campus Branch)</div>
+                                <div class="text-[11px] text-emerald-700 font-bold flex items-center gap-1 pt-1">
+                                    <span class="material-symbols-outlined text-sm">bolt</span>
+                                    <span>Instant Direct Settlement (Zero Escrow)</span>
+                                </div>
+                            </div>
+
+                            <div class="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900 space-y-1">
+                                <p class="font-bold flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-sm">security</span> Zero Sensitive Data Rule
+                                </p>
+                                <p>LPUQuick never collects or stores student UPI PINs, OTPs, or net-banking passwords. Transactions occur inside the customer's NPCI bank app.</p>
+                            </div>
+                        </div>
+
+                        <!-- Webhook & Verification Endpoint -->
+                        <div class="bg-white p-6 rounded-3xl border border-[#DADCE0] shadow-xs space-y-4">
+                            <h3 class="text-sm font-black uppercase tracking-wider text-[#181c1f] flex items-center gap-2 border-b border-[#DADCE0] pb-3">
+                                <span class="material-symbols-outlined text-slate-700">webhook</span>
+                                <span>Cryptographic Webhook</span>
+                            </h3>
+
+                            <div class="text-xs space-y-2">
+                                <span class="text-slate-500 font-bold block text-[10px]">Server Webhook Endpoint (HMAC-SHA256 Protected)</span>
+                                <div class="p-2.5 rounded-xl bg-slate-100 font-mono text-[11px] text-slate-800 break-all select-all">
+                                    /api/checkout/youpi-webhook
+                                </div>
+                                <p class="text-[10px] text-slate-500">Signs each bank UTR notification with cryptographic HMAC signature to prevent replay and fraud.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= MODAL: INITIATE REFUND (SUPER ADMIN) ================= -->
+            <div id="refund-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+                <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-[#DADCE0] space-y-4">
+                    <div class="flex justify-between items-center border-b border-[#DADCE0] pb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="p-2 rounded-xl bg-rose-50 text-rose-600">
+                                <span class="material-symbols-outlined text-lg">replay</span>
+                            </span>
+                            <div>
+                                <h3 class="font-black text-sm text-[#181c1f]">Initiate Authorized Refund</h3>
+                                <p class="text-[11px] text-[#5c5f60]" id="refund-modal-order-label">Order: order_xxx</p>
+                            </div>
+                        </div>
+                        <button onclick="closeRefundModal()" class="text-[#5c5f60] hover:text-[#181c1f]">
+                            <span class="material-symbols-outlined">close</span>
+                        </button>
+                    </div>
+
+                    <input type="hidden" id="refund-target-txn-id" value="">
+
+                    <!-- Transaction Summary -->
+                    <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+                        <div class="flex justify-between text-slate-600">
+                            <span>Customer Name:</span>
+                            <span class="font-bold text-[#181c1f]" id="refund-customer-name">--</span>
+                        </div>
+                        <div class="flex justify-between text-slate-600">
+                            <span>Original Payment:</span>
+                            <span class="font-bold text-[#181c1f]" id="refund-original-amount">₹0.00</span>
+                        </div>
+                        <div class="flex justify-between text-slate-600">
+                            <span>Already Refunded:</span>
+                            <span class="font-bold text-rose-600" id="refund-already-refunded">₹0.00</span>
+                        </div>
+                        <div class="flex justify-between text-slate-800 font-bold border-t border-slate-200 pt-1.5">
+                            <span>Max Refundable:</span>
+                            <span class="font-black text-emerald-700" id="refund-max-refundable">₹0.00</span>
+                        </div>
+                    </div>
+
+                    <!-- Refund Type / Amount Input -->
+                    <div class="space-y-3 text-xs">
+                        <div>
+                            <label class="block font-bold text-[#181c1f] mb-1">Refund Amount (₹) *</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-2.5 font-bold text-slate-400">₹</span>
+                                <input type="number" id="refund-amount-input" step="0.5" min="1"
+                                    class="w-full pl-7 pr-3 py-2 border border-[#DADCE0] rounded-xl font-black text-sm outline-none focus:border-rose-500">
+                            </div>
+                            <div class="flex gap-2 mt-1.5">
+                                <button type="button" onclick="setFullRefundAmount()" class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
+                                    Full Refund
+                                </button>
+                                <button type="button" onclick="setPartialRefundPercent(50)" class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-bold border border-slate-200">
+                                    50% Refund
+                                </button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block font-bold text-[#181c1f] mb-1">Reason for Refund *</label>
+                            <select id="refund-reason-select" class="w-full px-3 py-2 border border-[#DADCE0] rounded-xl text-xs font-medium outline-none bg-white">
+                                <option value="Item out of stock / Room unavailable">Item out of stock / Room unavailable</option>
+                                <option value="Store closed / Delivery unavailable">Store closed / Delivery unavailable</option>
+                                <option value="Student cancelled order before dispatch">Student cancelled order before dispatch</option>
+                                <option value="Duplicate payment received">Duplicate payment received</option>
+                                <option value="Damaged or incorrect item delivered">Damaged or incorrect item delivered</option>
+                                <option value="Other administrative adjustment">Other administrative adjustment</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-[10px] text-rose-800 flex items-start gap-1.5">
+                        <span class="material-symbols-outlined text-sm shrink-0">info</span>
+                        <span>This action will be idempotently recorded in the payment ledger and cannot be undone.</span>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 pt-2 border-t border-[#DADCE0]">
+                        <button type="button" onclick="closeRefundModal()" class="px-4 py-2 text-xs font-bold text-[#5c5f60] hover:text-[#181c1f]">
+                            Cancel
+                        </button>
+                        <button type="button" id="btn-submit-refund" onclick="submitRefundModal()"
+                            class="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black shadow-md transition-all active:scale-[0.99] flex items-center gap-1.5 cursor-pointer">
+                            <span class="material-symbols-outlined text-sm">check</span>
+                            <span>Confirm &amp; Process Refund</span>
+                        </button>
                     </div>
                 </div>
             </div>
 
         </main>
+
+        <!-- Mobile Bottom App Bar (Sticky Thumb Navigation) -->
+        <nav id="mobile-bottom-nav" class="fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-[#DADCE0] flex md:hidden items-center justify-around py-1.5 px-2 shadow-lg" style="padding-bottom: max(6px, env(safe-area-inset-bottom, 0px));">
+            <button onclick="switchView('dashboard')" data-view="dashboard"
+                class="mobile-nav-item active flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[#0066cc] transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-xl">dashboard</span>
+                <span class="text-[10px] font-bold mt-0.5">Overview</span>
+            </button>
+            <button onclick="switchView('orders')" data-view="orders"
+                class="mobile-nav-item relative flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[#5c5f60] transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-xl">receipt_long</span>
+                <span class="text-[10px] font-medium mt-0.5">Orders</span>
+                <span id="mobile-nav-orders-badge" class="hidden absolute top-0.5 right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-[#ba1a1a] text-white text-[9px] font-black flex items-center justify-center shadow-xs">0</span>
+            </button>
+            <button onclick="switchView('inventory')" data-view="inventory"
+                class="mobile-nav-item flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[#5c5f60] transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-xl">inventory_2</span>
+                <span class="text-[10px] font-medium mt-0.5">Stock</span>
+            </button>
+            <button onclick="switchView('earnings')" data-view="earnings"
+                class="mobile-nav-item flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[#5c5f60] transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-xl">sports_motorsports</span>
+                <span class="text-[10px] font-medium mt-0.5">Delivery</span>
+            </button>
+            <button onclick="toggleMobileMenu(true)"
+                class="mobile-nav-item flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[#5c5f60] transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-xl">menu</span>
+                <span class="text-[10px] font-medium mt-0.5">More</span>
+            </button>
+        </nav>
     </div>
 
     <!-- ================= MODAL: ADD / EDIT PRODUCT ================= -->

@@ -5,6 +5,7 @@ const path = require('path');
 const { getSupabaseClient } = require('./supabase');
 
 const app = express();
+app.set('trust proxy', 1);
 
 // Initialize Supabase Client
 const supabase = getSupabaseClient();
@@ -20,6 +21,22 @@ app.use((req, res, next) => {
     res.setHeader('X-XSS-Protection', '1; mode=block');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+
+    // Content Security Policy (Anti-XSS, anti-clickjacking & injection protection)
+    res.setHeader(
+        'Content-Security-Policy',
+        "default-src 'self'; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://accounts.google.com https://apis.google.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; " +
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.tailwindcss.com; " +
+        "font-src 'self' https://fonts.gstatic.com data:; " +
+        "img-src 'self' data: blob: https:; " +
+        "connect-src 'self' https: wss:; " +
+        "frame-src 'self' https://accounts.google.com; " +
+        "frame-ancestors 'self'; " +
+        "base-uri 'self'; " +
+        "form-action 'self';"
+    );
 
     if (process.env.NODE_ENV === 'production' || req.secure) {
         res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
@@ -48,21 +65,57 @@ app.use(compression({
         return compression.filter(req, res);
     }
 }));
-app.use(cors());
+
+// Strict CORS: Allow recognized origins, mobile webviews, server-to-server, and local development
+const allowedOrigins = [
+    process.env.APP_URL,
+    process.env.PUBLIC_APP_URL,
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:5173',
+    'https://lpuquick.com',
+    'https://www.lpuquick.com'
+].filter(Boolean);
+
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.some(o => origin === o || origin.endsWith('.lpuquick.com') || origin.endsWith('.vercel.app'))) {
+            return callback(null, true);
+        }
+        if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+            return callback(null, true);
+        }
+        callback(null, false);
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-token', 'x-admin-key', 'x-user-id', 'x-user-phone', 'x-hostel-id', 'x-gateway-signature', 'x-gateway-event', 'x-financial-token']
+}));
+
 app.use(express.json({
-    limit: '15mb',
+    limit: '10mb',
     verify: (req, res, buf) => {
         req.rawBody = buf;
     }
 }));
-app.use(express.urlencoded({ extended: true, limit: '15mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Input Sanitization & Anti-Injection Guard
+// Input Sanitization & Anti-Injection Guard (SEC-08 + Anti-Prototype Pollution)
 function sanitizeInput(data) {
     if (!data || typeof data !== 'object') return;
     for (const key of Object.keys(data)) {
+        if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+            delete data[key];
+            continue;
+        }
         if (typeof data[key] === 'string') {
-            data[key] = data[key].replace(/\0/g, '').replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+            data[key] = data[key]
+                .replace(/\0/g, '')
+                .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+                .replace(/<\s*(?:iframe|object|embed|applet|meta|link|style)\b[^>]*>/gi, '')
+                .replace(/on\w+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)/gi, '')
+                .replace(/javascript:[^"'\s]*/gi, '');
         } else if (typeof data[key] === 'object' && data[key] !== null) {
             sanitizeInput(data[key]);
         }
@@ -160,6 +213,11 @@ app.all('/api/*', (req, res) => {
         error: 'API endpoint not found',
         code: 'NOT_FOUND'
     });
+});
+
+// Mobile phone simulator for Admin Dashboard
+app.get(['/admin-preview', '/admin/preview', '/preview-admin', '/mobile-admin'], (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'public', 'admin-preview.html'));
 });
 
 // Admin portal route

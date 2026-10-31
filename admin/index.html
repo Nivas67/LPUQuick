@@ -47,13 +47,18 @@
     <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3 pointer-events-none max-w-sm w-full">
     </div>
 
-    <!-- SideNavBar (Exact Stitch Architecture) -->
-    <aside
-        class="h-screen w-60 bg-white border-r border-[#DADCE0] shadow-sm z-50 flex flex-col hidden md:flex shrink-0">
-        <div class="p-6 border-b border-[#DADCE0]">
+    <!-- Mobile Backdrop Overlay -->
+    <div id="mobile-sidebar-backdrop" onclick="toggleMobileMenu(false)"
+        class="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs hidden md:hidden transition-opacity duration-300 opacity-0 cursor-pointer">
+    </div>
+
+    <!-- SideNavBar (Desktop & Mobile Drawer) -->
+    <aside id="admin-sidebar"
+        class="fixed inset-y-0 left-0 z-50 h-screen w-72 max-w-[85vw] bg-white border-r border-[#DADCE0] shadow-2xl flex flex-col transform -translate-x-full transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:w-60 md:shadow-sm md:flex md:transition-none shrink-0">
+        <div class="p-4 sm:p-6 border-b border-[#DADCE0] flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <div
-                    class="w-10 h-10 rounded-full bg-[#3c4043] flex items-center justify-center text-white font-black text-lg">
+                    class="w-10 h-10 rounded-full bg-[#3c4043] flex items-center justify-center text-white font-black text-lg shrink-0">
                     ⚡
                 </div>
                 <div>
@@ -61,6 +66,10 @@
                     <p class="text-xs text-[#5c5f60] font-medium">Admin Console</p>
                 </div>
             </div>
+            <!-- Mobile Drawer Close Button -->
+            <button onclick="toggleMobileMenu(false)" class="md:hidden p-1.5 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer" title="Close Menu">
+                <span class="material-symbols-outlined text-xl">close</span>
+            </button>
         </div>
 
         <nav class="flex-1 overflow-y-auto py-4 flex flex-col gap-1 no-scrollbar text-sm" id="desktop-nav">
@@ -201,44 +210,55 @@
     <!-- Main Workspace -->
     <div class="flex-1 flex flex-col h-screen overflow-hidden">
 
-        <!-- Top App Bar -->
+        <!-- Top App Bar (Responsive Mobile & Desktop) -->
         <header
-            class="sticky top-0 z-40 w-full bg-white/80 backdrop-blur-md border-b border-[#DADCE0] flex justify-between items-center px-6 py-3 shrink-0">
-            <div class="flex items-center gap-3 md:hidden">
-                <button onclick="toggleMobileMenu()" class="text-[#262a2d] p-1.5 hover:bg-[#ebeef2] rounded-lg">
-                    <span class="material-symbols-outlined">menu</span>
+            class="sticky top-0 z-30 w-full bg-white/90 backdrop-blur-md border-b border-[#DADCE0] flex justify-between items-center px-3 sm:px-6 py-2 sm:py-3 shrink-0">
+            <!-- Left: Mobile Brand & Active Title / Desktop Breadcrumb -->
+            <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+                <button onclick="toggleMobileMenu(true)" class="text-[#262a2d] p-1.5 hover:bg-[#ebeef2] rounded-lg md:hidden shrink-0 cursor-pointer" title="Open Navigation Menu">
+                    <span class="material-symbols-outlined text-2xl">menu</span>
                 </button>
-                <span class="font-bold text-base text-[#262a2d]">LPU Quick</span>
+                
+                <!-- Mobile Active View Title & Live Dot -->
+                <div class="min-w-0 md:hidden">
+                    <span class="font-bold text-sm text-[#262a2d] block truncate" id="top-title-mobile">Dashboard Overview</span>
+                    <span class="text-[10px] text-[#5c5f60] flex items-center gap-1.5 leading-none">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span id="ws-status-text-mobile" class="font-semibold text-emerald-700">Live</span>
+                        <span>•</span>
+                        <span id="top-hostel-name-mobile" class="font-semibold text-[#0066cc]">All Hostels</span>
+                    </span>
+                </div>
+
+                <!-- Desktop Page Title Breadcrumb -->
+                <div class="hidden md:flex items-center gap-2 text-xs text-[#5c5f60]">
+                    <span class="font-semibold text-[#262a2d]" id="top-title">Dashboard Overview</span>
+                    <span>•</span>
+                    <span class="flex items-center gap-1.5">
+                        <span id="ws-status-indicator" class="w-2 h-2 rounded-full bg-[#ba1a1a]"></span>
+                        <span id="ws-status-text" class="text-[10px] font-bold text-[#ba1a1a]">Offline</span>
+                        <span class="text-[#5c5f60]">Supabase Cloud</span>
+                    </span>
+                    <span id="top-hostel-badge" class="hidden inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#0066cc] border border-blue-200">
+                        <span class="material-symbols-outlined text-[13px]">domain</span>
+                        <span id="top-hostel-name">BH-13</span>
+                    </span>
+                </div>
             </div>
 
-            <!-- Page Title Breadcrumb -->
-            <div class="hidden sm:flex items-center gap-2 text-xs text-[#5c5f60]">
-                <span class="font-semibold text-[#262a2d]" id="top-title">Dashboard Overview</span>
-                <span>•</span>
-                <span class="flex items-center gap-1.5">
-                    <span id="ws-status-indicator" class="w-2 h-2 rounded-full bg-[#ba1a1a]"></span>
-                    <span id="ws-status-text" class="text-[10px] font-bold text-[#ba1a1a]">Offline</span>
-                    <span class="text-[#5c5f60]">Supabase Cloud</span>
-                </span>
-                <span id="top-hostel-badge" class="hidden inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#0066cc] border border-blue-200">
-                    <span class="material-symbols-outlined text-[13px]">domain</span>
-                    <span id="top-hostel-name">BH-13</span>
-                </span>
-            </div>
-
-            <!-- Actions -->
-            <div class="flex items-center gap-2.5">
+            <!-- Right: Actions Toolbar (Responsive) -->
+            <div class="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
                 <!-- Sound Alert Controls -->
                 <button id="btn-sound-toggle" onclick="toggleSound()"
-                    class="bg-[#e6f4ea] hover:bg-[#ceead6] text-[#137333] px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
+                    class="bg-[#e6f4ea] hover:bg-[#ceead6] text-[#137333] p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
                     title="Toggle audio alert chime">
-                    <span class="material-symbols-outlined text-[16px]" id="sound-icon">volume_up</span>
+                    <span class="material-symbols-outlined text-[18px]" id="sound-icon">volume_up</span>
                     <span id="sound-status-text" class="hidden sm:inline">Sound: ON</span>
                 </button>
 
-                <!-- Sound Theme Selector Dropdown -->
+                <!-- Sound Theme Selector Dropdown (Desktop / Tablet) -->
                 <select id="sound-theme-select" onchange="changeSoundTheme(this.value)"
-                    class="bg-[#f1f4f7] hover:bg-[#e0e3e6] border border-[#DADCE0] rounded-full px-2.5 py-1.5 text-xs font-semibold text-[#3c4043] outline-none cursor-pointer"
+                    class="hidden lg:inline-block bg-[#f1f4f7] hover:bg-[#e0e3e6] border border-[#DADCE0] rounded-full px-2.5 py-1.5 text-xs font-semibold text-[#3c4043] outline-none cursor-pointer"
                     title="Choose order notification sound">
                     <option value="cash_register">💰 Cha-Ching / Cash</option>
                     <option value="urgent_alarm">🚨 Urgent Alarm (Loud)</option>
@@ -248,38 +268,52 @@
                     <option value="crystal_bell">🔔 Crystal Bell</option>
                 </select>
 
+                <!-- Audio Test Button (Desktop) -->
                 <button onclick="unlockAudioEngine(); testCampusSound();"
-                    class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition-all shadow-sm active:scale-95"
+                    class="hidden xl:inline-flex bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 px-3 py-1.5 rounded-full text-xs font-bold items-center gap-1 transition-all shadow-xs active:scale-95 cursor-pointer"
                     title="Test notification sound">
                     <span class="material-symbols-outlined text-[16px]">play_circle</span>
-                    <span class="hidden sm:inline">Test Sound</span>
+                    <span>Test Sound</span>
                 </button>
 
-                <!-- Web Push Notification Toggle Button -->
+                <!-- Web Push Notification Toggle Button (Desktop / Tablet) -->
                 <button id="btn-push-toggle" onclick="togglePushNotifications()"
-                    class="bg-blue-50 hover:bg-blue-100 text-[#1a73e8] border border-blue-200 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+                    class="hidden md:inline-flex bg-blue-50 hover:bg-blue-100 text-[#1a73e8] border border-blue-200 px-3 py-1.5 rounded-full text-xs font-bold items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer"
                     title="Enable background push alerts even when browser is closed">
                     <span class="material-symbols-outlined text-[16px]" id="push-icon">notifications</span>
                     <span id="push-status-text" class="hidden sm:inline">Push Alerts: OFF</span>
                 </button>
 
+                <!-- Force Direct Supabase Sync -->
                 <button id="btn-force-sync" onclick="forceLiveDbSync()"
-                    class="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-xs"
-                    title="Force Direct Supabase Cloud Sync (Laptop & Mobile)">
-                    <span class="material-symbols-outlined text-[16px]">cloud_sync</span>
+                    class="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-xs"
+                    title="Force Direct Supabase Cloud Sync">
+                    <span class="material-symbols-outlined text-[18px]">cloud_sync</span>
                     <span class="hidden sm:inline">Sync Live Orders</span>
                 </button>
 
+                <!-- Refresh Current View -->
                 <button id="btn-header-refresh" onclick="refreshCurrentView()"
-                    class="bg-[#ebeef2] hover:bg-[#e0e3e6] text-[#262a2d] px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-xs"
+                    class="bg-[#ebeef2] hover:bg-[#e0e3e6] text-[#262a2d] p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-xs"
                     title="Refresh all dashboard data">
-                    <span id="btn-header-refresh-icon" class="material-symbols-outlined text-[16px]">sync</span>
+                    <span id="btn-header-refresh-icon" class="material-symbols-outlined text-[18px]">sync</span>
                     <span id="btn-header-refresh-text" class="hidden sm:inline">Refresh</span>
                 </button>
+
+                <!-- Phone Screen Preview Simulator Link -->
+                <a href="/admin-preview" target="_blank"
+                    class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-bold flex items-center gap-1 shadow-xs transition-all cursor-pointer"
+                    title="Open Admin Phone Screen Simulator">
+                    <span class="material-symbols-outlined text-[18px]">smartphone</span>
+                    <span class="hidden sm:inline">Phone Screen</span>
+                </a>
+
+                <!-- Storefront Link -->
                 <a href="/" target="_blank"
-                    class="bg-[#3c4043] hover:bg-[#262a2d] text-white px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 shadow-sm transition-all">
-                    <span class="material-symbols-outlined text-[16px]">storefront</span>
-                    <span>Storefront</span>
+                    class="bg-[#3c4043] hover:bg-[#262a2d] text-white p-1.5 sm:px-3.5 sm:py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 shadow-xs transition-all"
+                    title="Open Storefront">
+                    <span class="material-symbols-outlined text-[18px]">storefront</span>
+                    <span class="hidden sm:inline">Storefront</span>
                 </a>
             </div>
         </header>
@@ -330,8 +364,8 @@
                 to Test ❯</span>
         </div>
 
-        <!-- Dynamic Views Container -->
-        <main class="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#F1F3F4]" id="main-content">
+        <!-- Dynamic Views Container (Responsive Mobile Padding) -->
+        <main class="flex-1 overflow-y-auto p-3 sm:p-6 bg-[#F1F3F4] pb-24 md:pb-6" id="main-content">
 
             <!-- ================= VIEW 1: DASHBOARD ================= -->
             <div id="view-dashboard" class="space-y-6 max-w-[1440px] mx-auto">
@@ -3187,6 +3221,10 @@
                             <!-- Primary Save Button -->
                             <button id="btn-save-offers" onclick="saveOffersCharges()"
                                 class="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.99] cursor-pointer">
+                                <span class="material-symbols-outlined text-base">save</span>
+                                <span>Save All Offers &amp; Charges</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -3609,6 +3647,36 @@
             </div>
 
         </main>
+
+        <!-- Mobile Bottom App Bar (Sticky Thumb Navigation) -->
+        <nav id="mobile-bottom-nav" class="fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-[#DADCE0] flex md:hidden items-center justify-around py-1.5 px-2 shadow-lg" style="padding-bottom: max(6px, env(safe-area-inset-bottom, 0px));">
+            <button onclick="switchView('dashboard')" data-view="dashboard"
+                class="mobile-nav-item active flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[#0066cc] transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-xl">dashboard</span>
+                <span class="text-[10px] font-bold mt-0.5">Overview</span>
+            </button>
+            <button onclick="switchView('orders')" data-view="orders"
+                class="mobile-nav-item relative flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[#5c5f60] transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-xl">receipt_long</span>
+                <span class="text-[10px] font-medium mt-0.5">Orders</span>
+                <span id="mobile-nav-orders-badge" class="hidden absolute top-0.5 right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-[#ba1a1a] text-white text-[9px] font-black flex items-center justify-center shadow-xs">0</span>
+            </button>
+            <button onclick="switchView('inventory')" data-view="inventory"
+                class="mobile-nav-item flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[#5c5f60] transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-xl">inventory_2</span>
+                <span class="text-[10px] font-medium mt-0.5">Stock</span>
+            </button>
+            <button onclick="switchView('earnings')" data-view="earnings"
+                class="mobile-nav-item flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[#5c5f60] transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-xl">sports_motorsports</span>
+                <span class="text-[10px] font-medium mt-0.5">Delivery</span>
+            </button>
+            <button onclick="toggleMobileMenu(true)"
+                class="mobile-nav-item flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[#5c5f60] transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-xl">menu</span>
+                <span class="text-[10px] font-medium mt-0.5">More</span>
+            </button>
+        </nav>
     </div>
 
     <!-- ================= MODAL: ADD / EDIT PRODUCT ================= -->
