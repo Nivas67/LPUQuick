@@ -4414,14 +4414,7 @@ const supabaseDb = {
                 await supabase.from('users').update({ dob: JSON.stringify(meta) }).eq('id', id);
             } catch (e) {}
         }
-    },
-
-    // ==========================================
-    // UPI PAYMENTS & REFUND MANAGEMENT REPOSITORY
-    // ==========================================
-    payments: require('./paymentDb').payments,
-    refunds: require('./paymentDb').refunds,
-    paymentAudit: require('./paymentDb').audit
+    }
 };
 
 if (typeof cache.on === 'function') {
