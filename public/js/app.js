@@ -557,8 +557,8 @@ window.openAddressModal = async function (isMandatorySetup = false, onComplete =
                 <div class="space-y-1.5">
                     <div class="flex justify-between items-center">
                         <label class="block text-xs font-bold text-slate-700 dark:text-slate-300" for="phone-input">Mobile Phone Number <span class="text-rose-500">*</span></label>
-                        <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-0.5">
-                            <span class="material-symbols-outlined text-xs">chat</span> WhatsApp OTP
+                        <span class="text-[10px] text-slate-400 font-medium flex items-center gap-0.5">
+                            <span class="material-symbols-outlined text-xs">phone</span> Delivery Updates
                         </span>
                     </div>
                     <div class="relative">
@@ -1027,14 +1027,7 @@ window.openAddressModal = async function (isMandatorySetup = false, onComplete =
 
             if (alertBox) alertBox.classList.add('hidden');
 
-            // Check if phone number is already verified
-            const isVerified = localStorage.getItem('lpuquick_phone_verified_' + cleanPhone) === 'true';
-            if (!isVerified) {
-                await launchOtpFlow(cleanPhone);
-                return;
-            }
-
-            // Already verified! Finalize directly
+            // Direct confirmation: OTP disabled for instant campus ordering
             finalizeAddressSave(cleanRoom, cleanPhone);
         };
     }
@@ -2354,9 +2347,9 @@ let _clientPollTimer = null;
 let _clientPollActive = false;
 let _lastPollOrderStatus = null;
 let _lastPollStoreAvail = null;
-const CLIENT_POLL_FAST_MS = 5000;   // 5s for active in-progress order tracking
+const CLIENT_POLL_FAST_MS = 1500;   // 1.5s for active in-progress order tracking (1-2s instant updates)
 const CLIENT_POLL_IDLE_MS = 45000;  // 45s when user has no active order (saves 90%+ Vercel invocations)
-const CLIENT_POLL_STORE_MS = 60000; // 60s for store availability
+const CLIENT_POLL_STORE_MS = 10000; // 10s for store availability updates
 let _storePollTimer = null;
 
 function startClientPollingFallback() {
@@ -2404,21 +2397,23 @@ async function _executeClientPoll() {
             const active = activeRes?.active;
             if (active && !['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(active.status)) {
                 nextDelay = CLIENT_POLL_FAST_MS; // Active in-flight order -> fast 5s poll
-                const newSig = `${active.id}|${active.status}|${active.rider_name || ''}`;
+                const newSig = `${active.id}|${active.status}|${active.payment_status || ''}|${active.rider_name || ''}`;
                 if (newSig !== _lastPollOrderStatus) {
                     _lastPollOrderStatus = newSig;
                     const riderName = active.rider_name || 'Alex';
-                    console.log(`[Poll Sync] Order ${active.id} -> ${active.status} (${riderName})`);
+                    console.log(`[Poll Sync] Order ${active.id} -> ${active.status} (${riderName}) [Pay: ${active.payment_status}]`);
                     handleLiveOrderStatusChange({
                         type: 'STATUS_UPDATE',
                         order_id: active.id,
                         orderId: active.id,
                         status: active.status,
+                        payment_status: active.payment_status,
+                        payment_method: active.payment_method,
                         rider_name: riderName
                     });
                 }
             } else if (active && ['Delivered', 'delivered'].includes(active.status)) {
-                const newSig = `${active.id}|${active.status}`;
+                const newSig = `${active.id}|${active.status}|${active.payment_status || ''}`;
                 if (newSig !== _lastPollOrderStatus) {
                     _lastPollOrderStatus = newSig;
                     handleLiveOrderStatusChange({
@@ -2426,6 +2421,8 @@ async function _executeClientPoll() {
                         order_id: active.id,
                         orderId: active.id,
                         status: active.status,
+                        payment_status: active.payment_status,
+                        payment_method: active.payment_method,
                         rider_name: active.rider_name || 'Alex'
                     });
                 }
@@ -2822,11 +2819,14 @@ function initGlobalClientWebSocket() {
             // Activate fast polling fallback immediately when WS drops
             startClientPollingFallback();
 
-            // Infinite reconnect with exponential backoff (never give up)
-            const delay = Math.min(1000 * Math.pow(2, clientWsReconnectAttempts), 15000);
-            clientWsReconnectAttempts++;
+            // Continuous resilient reconnect with short exponential backoff (1.5s - 10s max)
+            const delay = Math.min(1500 * Math.max(1, clientWsReconnectAttempts), 10000);
+            clientWsReconnectAttempts = (clientWsReconnectAttempts + 1) % 20;
             if (clientWsReconnectTimer) clearTimeout(clientWsReconnectTimer);
-            clientWsReconnectTimer = setTimeout(initGlobalClientWebSocket, delay);
+            clientWsReconnectTimer = setTimeout(() => {
+                clientWsReconnectTimer = null;
+                initGlobalClientWebSocket();
+            }, delay);
         };
 
         globalClientWs.onerror = () => {
@@ -3027,7 +3027,11 @@ function handleLiveOrderStatusChange(data) {
 
     // 2. If user is currently viewing the Live Orders page, update the interactive HUD/map in real-time
     if (typeof window.applyOrderStatusUI === 'function') {
-        window.applyOrderStatusUI(status, riderName, orderId, riderPhone);
+        window.applyOrderStatusUI(status, riderName, orderId, riderPhone, {
+            payment_status: data.payment_status,
+            payment_method: data.payment_method,
+            utr: data.utr
+        });
     } else {
         // Play status chime on any page
         try {
