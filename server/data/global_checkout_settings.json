@@ -1,7 +1,7 @@
 {
   "offers_enabled": true,
   "offer_type": "percentage",
-  "offer_value": 3,
+  "offer_value": 5,
   "minimum_order_value": 350,
   "maximum_discount": 50,
   "free_delivery_enabled": true,
@@ -12,6 +12,6 @@
   "min_cart_value": 35,
   "start_date": null,
   "end_date": null,
-  "updated_at": "2026-10-08T19:01:24.141+00:00",
-  "updated_by": "user_admin_bh13"
+  "updated_at": "2026-11-01T06:45:00.000Z",
+  "updated_by": "Owner"
 }

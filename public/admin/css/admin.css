@@ -99,12 +99,114 @@ body {
 }
 
 /* ============================================================
-   MOBILE DASHBOARD OPTIMIZATIONS & RESPONSIVE RULES
+   REAL-WORLD MOBILE FULL-SCREEN APP RULES (ALL MOBILES)
    ============================================================ */
-@media (max-width: 767px) {
+
+/* Lock root viewport to exactly 100dvh on mobile with zero jumpiness */
+html, body {
+    width: 100%;
+    max-width: 100vw;
+    height: 100%;
+    height: 100dvh;
+    min-height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+@supports (-webkit-touch-callout: none) {
+    /* iOS Safari dynamic address bar fix */
     body {
-        -webkit-tap-highlight-color: transparent;
-        touch-action: manipulation;
+        height: -webkit-fill-available;
+        min-height: -webkit-fill-available;
+    }
+}
+
+/* Header with Safe Area Inset Support (Notch / Dynamic Island / Punch Holes) */
+header {
+    padding-top: max(8px, env(safe-area-inset-top, 0px)) !important;
+    padding-left: max(12px, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(12px, env(safe-area-inset-right, 0px)) !important;
+}
+
+/* Main Scrollable Content Area */
+#main-content {
+    flex: 1 1 0%;
+    height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    padding-bottom: max(92px, calc(76px + env(safe-area-inset-bottom, 0px))) !important;
+    padding-left: max(12px, env(safe-area-inset-left, 0px));
+    padding-right: max(12px, env(safe-area-inset-right, 0px));
+}
+
+/* Sticky Mobile Bottom Navigation Bar (Elevated App Bar) */
+#mobile-bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 40;
+    padding-top: 6px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 0px)) !important;
+    padding-left: max(8px, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(8px, env(safe-area-inset-right, 0px)) !important;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid #DADCE0;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
+    display: flex;
+}
+
+.mobile-nav-item {
+    transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), color 0.15s ease;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+}
+.mobile-nav-item:active {
+    transform: scale(0.92);
+}
+.mobile-nav-item.active {
+    color: #0066cc !important;
+    font-weight: 800;
+}
+.mobile-nav-item.active .material-symbols-outlined {
+    font-variation-settings: 'FILL' 1;
+}
+
+@media (max-width: 767px) {
+    /* Full-Screen Mobile Sign In Experience (Edge-to-Edge like native app) */
+    #admin-auth-screen {
+        padding: 0 !important;
+        background: #ffffff !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+    }
+    #admin-auth-screen > main {
+        max-width: 100% !important;
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 100dvh !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        padding: max(24px, env(safe-area-inset-top, 0px)) 24px max(24px, env(safe-area-inset-bottom, 0px)) !important;
+        box-sizing: border-box !important;
+    }
+    #admin-auth-screen > main > div:first-child {
+        border: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        padding: 0 !important;
+        border-radius: 0 !important;
     }
 
     /* Ensure horizontal tables scroll smoothly on mobile touch screens */
@@ -137,6 +239,14 @@ body {
         white-space: nowrap !important;
     }
 
+    /* Compact Top Notification Banners on Mobile */
+    #push-unlock-banner,
+    #audio-unlock-banner,
+    #incoming-transfer-banner {
+        padding: 6px 12px !important;
+        font-size: 11px !important;
+    }
+
     /* Modal dialogs responsiveness on mobile */
     .modal-overlay > div,
     #product-modal > div,
@@ -148,29 +258,10 @@ body {
 
     /* Compact toast notifications on mobile */
     #toast-container {
-        top: 12px;
+        top: max(12px, env(safe-area-inset-top, 0px));
         right: 12px;
         left: 12px;
         max-width: calc(100vw - 24px);
-    }
-}
-
-/* Mobile Bottom Navigation Bar Styles */
-.mobile-nav-item.active {
-    color: #0066cc !important;
-    font-weight: 700;
-}
-.mobile-nav-item.active .material-symbols-outlined {
-    font-variation-settings: 'FILL' 1;
-}
-
-/* Safe Area Insets for Notch / Home Indicator Devices (iPhone, Modern Android) */
-@supports (padding: max(0px)) {
-    #mobile-bottom-nav {
-        padding-bottom: max(6px, env(safe-area-inset-bottom, 0px));
-    }
-    #main-content {
-        padding-bottom: max(88px, calc(68px + env(safe-area-inset-bottom, 0px)));
     }
 }
 

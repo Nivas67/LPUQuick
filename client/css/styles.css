@@ -1850,3 +1850,21 @@ html.dark #category-sidebar-rail {
     user-select: none;
 }
 
+/* ============================================================
+   REAL-WORLD MOBILE FULLSCREEN & SAFE-AREA ENHANCEMENTS
+   Edge-to-edge support for iPhone Dynamic Island, Home Bars, Android gesture navigation
+   ============================================================ */
+@supports (padding: env(safe-area-inset-bottom)) {
+    .fixed.bottom-3.inset-x-0 {
+        bottom: max(12px, calc(8px + env(safe-area-inset-bottom, 0px))) !important;
+        padding-left: max(16px, env(safe-area-inset-left, 16px));
+        padding-right: max(16px, env(safe-area-inset-right, 16px));
+    }
+
+    #page-container,
+    .page-content,
+    main {
+        padding-bottom: max(96px, calc(84px + env(safe-area-inset-bottom, 0px))) !important;
+    }
+}
+
