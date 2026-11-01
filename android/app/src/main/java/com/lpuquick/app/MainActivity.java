@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.View;
 import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -18,7 +19,19 @@ public class MainActivity extends AppCompatActivity {
 
     private WebView mWebView;
     private SwipeRefreshLayout mSwipeRefresh;
-    private static final String APP_URL = "https://lpu-quick.vercel.app/";
+    private static final String APP_URL = "https://lpu-quick.vercel.app/?app=android";
+
+    public static class WebAppInterface {
+        @JavascriptInterface
+        public boolean isNativeApp() {
+            return true;
+        }
+
+        @JavascriptInterface
+        public String getAppVersion() {
+            return "1.0.0";
+        }
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -44,6 +57,15 @@ public class MainActivity extends AppCompatActivity {
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
         settings.setMediaPlaybackRequiresUserGesture(false);
 
+        // Identify this WebView to the web app so all install options are removed
+        String defaultUa = settings.getUserAgentString();
+        if (defaultUa != null && !defaultUa.contains("LPUQuickAndroidApp")) {
+            settings.setUserAgentString(defaultUa + " LPUQuickAndroidApp/1.0.0 (Android Native)");
+        }
+
+        // Bridge for native detection
+        mWebView.addJavascriptInterface(new WebAppInterface(), "LPUQuickNativeApp");
+
         // Enable cookies
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
@@ -67,6 +89,18 @@ public class MainActivity extends AppCompatActivity {
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 mSwipeRefresh.setRefreshing(false);
+                // Immediately notify web layer to strip any install options in-app
+                mWebView.evaluateJavascript(
+                    "(function() { " +
+                    "   try { " +
+                    "       localStorage.setItem('lpuquick_is_installed_app', 'true'); " +
+                    "       document.documentElement.classList.add('is-installed-app'); " +
+                    "       if (document.body) document.body.classList.add('is-installed-app'); " +
+                    "       if (typeof window.updateInstallUIState === 'function') window.updateInstallUIState(true); " +
+                    "   } catch(e) {} " +
+                    "})();",
+                    null
+                );
             }
         });
 

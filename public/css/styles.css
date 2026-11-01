@@ -1868,3 +1868,35 @@ html.dark #category-sidebar-rail {
     }
 }
 
+
+
+/* ============================================================
+   IN-APP MODE (INSTALLED APP RESTRICTION)
+   When running inside the installed native Android app or PWA,
+   completely strip and hide all install options, buttons, and banners.
+   ============================================================ */
+@media all and (display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui) {
+    .btn-install-app,
+    #pwa-floating-install-banner,
+    #home-mobile-smart-banner,
+    #settings-install-row,
+    #btn-header-install-app,
+    [data-install-trigger] {
+        display: none !important;
+    }
+}
+
+.is-installed-app .btn-install-app,
+.is-installed-app #pwa-floating-install-banner,
+.is-installed-app #home-mobile-smart-banner,
+.is-installed-app #settings-install-row,
+.is-installed-app #btn-header-install-app,
+.is-installed-app [data-install-trigger],
+body.is-installed-app .btn-install-app,
+body.is-installed-app #pwa-floating-install-banner,
+body.is-installed-app #home-mobile-smart-banner,
+body.is-installed-app #settings-install-row,
+body.is-installed-app #btn-header-install-app,
+body.is-installed-app [data-install-trigger] {
+    display: none !important;
+}

@@ -42,6 +42,26 @@
         })();
     </script>
     
+    
+    <!-- Immediate In-App & Standalone Initializer (Zero Flash of Install UI on App) -->
+    <script>
+        (function() {
+            try {
+                var search = window.location.search || '';
+                var isAppParam = search.indexOf('app=android') !== -1 || search.indexOf('source=pwa') !== -1 || search.indexOf('standalone=true') !== -1;
+                var ua = navigator.userAgent || '';
+                var isNativeApp = ua.indexOf('LPUQuickAndroidApp') !== -1 || ua.indexOf('LPUQuickApp') !== -1 || (/\bwv\b/.test(ua) && /Android/i.test(ua));
+                var isDisplayApp = (window.matchMedia && (window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: fullscreen)').matches || window.matchMedia('(display-mode: minimal-ui)').matches)) || window.navigator.standalone === true;
+                var isSavedApp = localStorage.getItem('lpuquick_is_installed_app') === 'true';
+
+                if (isAppParam || isNativeApp || isDisplayApp || isSavedApp) {
+                    localStorage.setItem('lpuquick_is_installed_app', 'true');
+                    document.documentElement.classList.add('is-installed-app');
+                }
+            } catch(e) {}
+        })();
+    </script>
+
     <!-- Hard Client Storage & Cache Purge (Preserving Auth & Address) -->
     <script>
         (function() {

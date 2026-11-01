@@ -10,12 +10,50 @@
 
     // 1. Device and Standalone State Detection
     function isStandaloneMode() {
-        return (
-            window.matchMedia('(display-mode: standalone)').matches ||
-            window.matchMedia('(display-mode: window-controls-overlay)').matches ||
-            window.navigator.standalone === true ||
-            document.referrer.includes('android-app://')
-        );
+        // 1. Query parameter check (e.g. ?app=android or ?source=pwa)
+        try {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('app') === 'android' || params.get('source') === 'pwa' || params.get('standalone') === 'true') {
+                return true;
+            }
+        } catch (e) {}
+
+        // 2. Official Android Native App Bridge & User-Agent
+        const ua = window.navigator.userAgent || '';
+        if (
+            typeof window.LPUQuickNativeApp !== 'undefined' ||
+            typeof window.AndroidApp !== 'undefined' ||
+            ua.includes('LPUQuickAndroidApp') ||
+            ua.includes('LPUQuickApp') ||
+            (/\bwv\b/.test(ua) && /Android/i.test(ua))
+        ) {
+            return true;
+        }
+
+        // 3. Web PWA Standalone / Fullscreen Display Modes
+        try {
+            if (
+                (window.matchMedia && (
+                    window.matchMedia('(display-mode: standalone)').matches ||
+                    window.matchMedia('(display-mode: fullscreen)').matches ||
+                    window.matchMedia('(display-mode: minimal-ui)').matches ||
+                    window.matchMedia('(display-mode: window-controls-overlay)').matches
+                )) ||
+                window.navigator.standalone === true ||
+                (document.referrer && document.referrer.includes('android-app://'))
+            ) {
+                return true;
+            }
+        } catch (e) {}
+
+        // 4. Stored In-App state
+        try {
+            if (localStorage.getItem('lpuquick_is_installed_app') === 'true') {
+                return true;
+            }
+        } catch (e) {}
+
+        return false;
     }
 
     function isIOSDevice() {
@@ -61,6 +99,7 @@
     window.addEventListener('appinstalled', () => {
         deferredPrompt = null;
         console.log('[PWA] App successfully installed!');
+        applyInAppInstalledMode();
         hideInstallBanner();
         updateInstallUIState(true);
         if (typeof window.showToast === 'function') {
@@ -69,15 +108,49 @@
     });
 
     // 4. Update UI Buttons across views
+    function applyInAppInstalledMode() {
+        try {
+            localStorage.setItem('lpuquick_is_installed_app', 'true');
+            document.documentElement.classList.add('is-installed-app');
+            if (document.body) {
+                document.body.classList.add('is-installed-app');
+            }
+        } catch (e) {}
+    }
+
     function updateInstallUIState(isInstalled) {
         const installed = isInstalled || isStandaloneMode();
+        if (installed) {
+            applyInAppInstalledMode();
+        }
+
         document.querySelectorAll('.btn-install-app').forEach((btn) => {
             if (installed) {
                 btn.classList.add('hidden');
+                btn.style.setProperty('display', 'none', 'important');
             } else {
                 btn.classList.remove('hidden');
+                btn.style.removeProperty('display');
             }
         });
+
+        // Hide top smart banner on home page if in app
+        const smartBanner = document.getElementById('home-mobile-smart-banner');
+        if (smartBanner && installed) {
+            smartBanner.remove();
+        }
+
+        // Hide settings install row if in app
+        const settingsInstallRow = document.getElementById('settings-install-row');
+        if (settingsInstallRow) {
+            if (installed) {
+                settingsInstallRow.classList.add('hidden');
+                settingsInstallRow.style.setProperty('display', 'none', 'important');
+            } else {
+                settingsInstallRow.classList.remove('hidden');
+                settingsInstallRow.style.removeProperty('display');
+            }
+        }
 
         const statusBadge = document.getElementById('settings-install-status');
         if (statusBadge) {
@@ -95,10 +168,9 @@
     // 5. Global Install Trigger
     window.showInstallPrompt = async function () {
         if (isStandaloneMode()) {
+            applyInAppInstalledMode();
             if (typeof window.showToast === 'function') {
                 window.showToast('✓ LPUQuick is already installed and running as an app!', 'success');
-            } else {
-                alert('LPUQuick is already installed and running as an app!');
             }
             return;
         }
