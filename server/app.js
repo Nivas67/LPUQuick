@@ -215,6 +215,23 @@ app.all('/api/*', (req, res) => {
     });
 });
 
+// Native Android APK Download Endpoints
+app.get(['/download/apk', '/download/LPUQuick.apk', '/downloads/LPUQuick.apk', '/api/app/download-apk'], (req, res) => {
+    const fs = require('fs');
+    const localApkPath = path.join(__dirname, '..', 'public', 'downloads', 'LPUQuick.apk');
+    const rootApkPath = path.join(__dirname, '..', 'public', 'LPUQuick.apk');
+    const targetApk = fs.existsSync(localApkPath) ? localApkPath : (fs.existsSync(rootApkPath) ? rootApkPath : null);
+
+    if (targetApk) {
+        res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+        res.setHeader('Content-Disposition', 'attachment; filename="LPUQuick.apk"');
+        return res.sendFile(targetApk);
+    }
+
+    // Direct fallback to GitHub Release download URL
+    return res.redirect('https://github.com/Nivas67/LPUQuick/releases/latest/download/LPUQuick.apk');
+});
+
 // Mobile phone simulator for Admin Dashboard
 app.get(['/admin-preview', '/admin/preview', '/preview-admin', '/mobile-admin'], (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'public', 'admin-preview.html'));

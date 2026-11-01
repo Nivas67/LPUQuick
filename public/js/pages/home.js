@@ -808,19 +808,19 @@ window.pages.home = async function () {
             <img src="/logo.png" class="w-8 h-8 rounded-xl object-contain shadow-xs border border-white/20 shrink-0" alt="LPUQuick">
             <div class="truncate">
                 <p class="text-[11px] font-black text-white leading-tight flex items-center gap-1.5">
-                    <span>LPUQuick App</span>
-                    <span class="text-[9px] bg-emerald-500 text-white font-black px-1.5 py-0.2 rounded-full">3 MIN</span>
+                    <span>LPUQuick Mobile App</span>
+                    <span class="text-[9px] bg-emerald-500 text-white font-black px-1.5 py-0.2 rounded-full">REAL APK</span>
                 </p>
-                <p class="text-[10px] text-emerald-400 font-bold truncate">⚡ 1-Tap 3-Min Hostel Delivery</p>
+                <p class="text-[10px] text-emerald-400 font-bold truncate">⚡ 1-Tap & APK Download for Mobiles</p>
             </div>
         </div>
         <div class="flex items-center gap-2 shrink-0">
             <button type="button" onclick="event.stopPropagation(); window.showInstallPrompt()" class="bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-black text-[11px] px-3.5 py-1 rounded-full shadow-md flex items-center gap-1 cursor-pointer transition-all">
-                <span class="material-symbols-outlined text-xs">download</span>
+                <svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                 <span>INSTALL</span>
             </button>
             <button type="button" onclick="event.stopPropagation(); this.closest('#home-mobile-smart-banner').remove()" class="text-slate-400 hover:text-white p-0.5 cursor-pointer" title="Close">
-                <span class="material-symbols-outlined text-sm">close</span>
+                <svg class="w-4 h-4 text-slate-400 hover:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
         </div>
     </div>
@@ -969,22 +969,22 @@ window.pages.home = async function () {
         <section class="btn-install-app p-4 sm:p-5 rounded-3xl border-2 border-emerald-500/40 dark:border-emerald-500/30 bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-emerald-600/15 dark:from-emerald-950/40 dark:to-teal-950/30 backdrop-blur-xl shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 transition-all cursor-pointer select-none" onclick="window.showInstallPrompt()">
             <div class="flex items-center gap-3.5 min-w-0">
                 <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30 shrink-0">
-                    <span class="material-symbols-outlined text-2xl">install_mobile</span>
+                    <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
                 </div>
                 <div class="space-y-0.5 min-w-0">
                     <div class="flex items-center gap-2">
-                        <h3 class="text-sm sm:text-base font-black text-slate-900 dark:text-white tracking-tight">Install LPUQuick Web App</h3>
-                        <span class="liquid-badge text-[9px] font-black px-2 py-0.5 bg-emerald-500 text-white">⚡ 1-Tap</span>
+                        <h3 class="text-sm sm:text-base font-black text-slate-900 dark:text-white tracking-tight">Install LPUQuick Real App</h3>
+                        <span class="liquid-badge text-[9px] font-black px-2 py-0.5 bg-emerald-500 text-white">⚡ APK & WebAPK</span>
                     </div>
                     <p class="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
-                        Install on your phone or PC for lightning-fast 3-min delivery, instant hostel tracking & offline speed.
+                        Download official Android APK or 1-Tap install to your phone's App Drawer for lightning-fast 3-min delivery & live hostel tracking.
                     </p>
                 </div>
             </div>
             <div class="w-full sm:w-auto flex items-center justify-end shrink-0">
                 <button type="button" onclick="event.stopPropagation(); window.showInstallPrompt()" class="w-full sm:w-auto clay-btn clay-btn-primary px-4 py-2 sm:py-2.5 rounded-xl font-black text-xs text-white shadow-md active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer transition-all">
-                    <span class="material-symbols-outlined text-base">download</span>
-                    <span>Install App Now</span>
+                    <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                    <span>Get Real App</span>
                 </button>
             </div>
         </section>

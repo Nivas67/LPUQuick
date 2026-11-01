@@ -189,19 +189,35 @@ window.pages.settings = async function () {
                 </label>
             </div>
 
-            <!-- Install LPUQuick App Option -->
+            <!-- Real Mobile Fullscreen Mode -->
+            <div class="flex items-center justify-between py-1 border-t border-[var(--glass-border)] pt-3.5" id="settings-fullscreen-row">
+                <div class="space-y-0.5 max-w-[75%]">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-base text-blue-600 dark:text-blue-400">fullscreen</span>
+                        <span class="font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-200">Real Mobile Fullscreen</span>
+                        <span class="liquid-badge text-[9px] font-black text-blue-800 dark:text-blue-300 bg-blue-100/90 dark:bg-blue-950/60 px-1.5 py-0.2 border border-blue-400/40">Immersive</span>
+                    </div>
+                    <p class="text-[11px] text-slate-600 dark:text-slate-400 font-medium">Hide mobile browser address bars and run 100% edge-to-edge.</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" class="sr-only peer" id="toggle-fullscreen">
+                    <div class="w-11 h-6 bg-slate-300 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all after:shadow-sm peer-checked:bg-emerald shadow-inner"></div>
+                </label>
+            </div>
+
+            <!-- Install LPUQuick Real App & APK Option -->
             <div class="flex items-center justify-between py-1 border-t border-[var(--glass-border)] pt-3.5" id="settings-install-row">
                 <div class="space-y-0.5 max-w-[70%]">
                     <div class="flex items-center gap-2">
                         <span class="material-symbols-outlined text-base text-emerald-600 dark:text-emerald-400">install_mobile</span>
-                        <span class="font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-200">Install LPUQuick App</span>
-                        <span class="liquid-badge text-[9px] font-black text-emerald-800 dark:text-emerald-300 bg-emerald-100/90 dark:bg-emerald-950/60 px-1.5 py-0.2 border border-emerald-400/40">PWA</span>
+                        <span class="font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-200">Install LPUQuick Real App</span>
+                        <span class="liquid-badge text-[9px] font-black text-emerald-800 dark:text-emerald-300 bg-emerald-100/90 dark:bg-emerald-950/60 px-1.5 py-0.2 border border-emerald-400/40">Real APK</span>
                     </div>
-                    <p class="text-[11px] text-slate-600 dark:text-slate-400 font-medium">Add to phone home screen for 1-tap 3-min ordering & offline speed.</p>
+                    <p class="text-[11px] text-slate-600 dark:text-slate-400 font-medium">Download Android APK or 1-tap install to phone App Drawer.</p>
                 </div>
                 <div class="flex items-center gap-2">
                     <button type="button" onclick="window.showInstallPrompt()" class="btn-install-app clay-btn clay-btn-primary px-3.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md active:scale-95 transition-all text-white cursor-pointer" title="Install LPUQuick App">
-                        <span class="material-symbols-outlined text-sm">download</span>
+                        <svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                         <span>Install</span>
                     </button>
                     <span id="settings-install-status" class="hidden text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400 font-bold px-2.5 py-1 rounded-full border border-emerald-300 dark:border-emerald-800">Installed</span>
@@ -310,6 +326,34 @@ window.pageInits.settings = function () {
                 if (window.router) window.router();
             }
         };
+    }
+
+    // Mobile fullscreen toggle init
+    const fullscreenToggle = document.getElementById('toggle-fullscreen');
+    if (fullscreenToggle) {
+        fullscreenToggle.checked = Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+        fullscreenToggle.onchange = async () => {
+            try {
+                if (fullscreenToggle.checked) {
+                    if (document.documentElement.requestFullscreen) {
+                        await document.documentElement.requestFullscreen();
+                    } else if (document.documentElement.webkitRequestFullscreen) {
+                        await document.documentElement.webkitRequestFullscreen();
+                    }
+                } else {
+                    if (document.exitFullscreen) {
+                        await document.exitFullscreen();
+                    } else if (document.webkitExitFullscreen) {
+                        await document.webkitExitFullscreen();
+                    }
+                }
+            } catch (err) {
+                console.warn('[Fullscreen] toggle note:', err);
+            }
+        };
+        document.addEventListener('fullscreenchange', () => {
+            fullscreenToggle.checked = Boolean(document.fullscreenElement);
+        });
     }
 
     // Refresh PWA install status badge & button

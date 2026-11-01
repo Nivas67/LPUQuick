@@ -103,7 +103,19 @@
             return;
         }
 
-        // Case A: Chromium / Android native prompt is ready
+        // Case A: Android & Mobile phones — Always show Real App & APK Installation Hub
+        if (isAndroidDevice() || (!isIOSDevice() && window.innerWidth <= 768)) {
+            openAndroidInstallModal();
+            return;
+        }
+
+        // Case B: Apple iOS (iPhone / iPad)
+        if (isIOSDevice()) {
+            openIosInstallModal();
+            return;
+        }
+
+        // Case C: Desktop with native prompt ready
         if (deferredPrompt) {
             try {
                 deferredPrompt.prompt();
@@ -119,18 +131,6 @@
                 console.warn('[PWA] Prompt error:', err);
                 openGenericInstallModal();
             }
-            return;
-        }
-
-        // Case B: Apple iOS (iPhone / iPad)
-        if (isIOSDevice()) {
-            openIosInstallModal();
-            return;
-        }
-
-        // Case C: Android fallback (when deferredPrompt was already consumed or browser needs manual tap)
-        if (isAndroidDevice()) {
-            openAndroidInstallModal();
             return;
         }
 
@@ -213,53 +213,147 @@
         document.body.insertAdjacentHTML('beforeend', modalHtml);
     }
 
-    // 7. Android Manual Walkthrough Modal
+    // Native APK Downloader
+    window.downloadAndroidApk = function () {
+        if (typeof window.showToast === 'function') {
+            window.showToast('📥 Downloading LPUQuick.apk... Once downloaded, tap to install on your phone!', 'success');
+        }
+        window.location.href = '/download/LPUQuick.apk';
+    };
+
+    // Open in external Google Chrome (Bypasses WhatsApp / Instagram in-app webview restriction)
+    window.openInExternalChrome = function () {
+        const fullUrl = window.location.href;
+        const chromeIntent = `intent://${window.location.host}${window.location.pathname}${window.location.search}${window.location.hash}#Intent;scheme=https;package=com.android.chrome;end;`;
+        window.location.href = chromeIntent;
+        setTimeout(() => {
+            window.location.href = fullUrl;
+        }, 1500);
+    };
+
+    // Trigger direct Android WebAPK install prompt
+    window.triggerNativeWebApk = async function () {
+        if (deferredPrompt) {
+            try {
+                deferredPrompt.prompt();
+                const choice = await deferredPrompt.userChoice;
+                if (choice.outcome === 'accepted') {
+                    hideInstallBanner();
+                    closeAllInstallModals();
+                    if (typeof window.showToast === 'function') {
+                        window.showToast('🎉 Installing LPUQuick App to your Android App Drawer...', 'success');
+                    }
+                }
+                deferredPrompt = null;
+            } catch (err) {
+                console.warn('[PWA] Prompt execution note:', err);
+                window.downloadAndroidApk();
+            }
+        } else {
+            // Direct APK download fallback
+            window.downloadAndroidApk();
+        }
+    };
+
+    // 7. Android Real Native App & APK Installation Hub
     function openAndroidInstallModal() {
         closeAllInstallModals();
 
+        const ua = navigator.userAgent || '';
+        const isInAppBrowser = /WhatsApp|Instagram|FBAN|FBAV|Line|Snapchat|Twitter/i.test(ua);
+
         const modalHtml = `
-        <div id="android-install-modal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-            <div class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-emerald/30 relative space-y-4">
+        <div id="android-install-modal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-fade-in select-none">
+            <div class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-3xl p-5 sm:p-6 max-w-sm sm:max-w-md w-full shadow-2xl border-2 border-emerald-500/40 relative space-y-4">
                 <!-- Close Button -->
-                <button type="button" onclick="window.closeInstallModal()" class="absolute top-4 right-4 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
-                    <span class="material-symbols-outlined text-xl">close</span>
+                <button type="button" onclick="window.closeInstallModal()" class="absolute top-4 right-4 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors" title="Close">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
 
-                <!-- Header -->
-                <div class="flex items-center gap-3">
-                    <img src="/logo.png" alt="LPUQuick" class="w-12 h-12 rounded-2xl shadow-md border border-emerald/20 flex-shrink-0">
-                    <div>
-                        <h3 class="font-bold text-base text-slate-900 dark:text-white">Install LPUQuick on Android</h3>
-                        <p class="text-xs text-emerald font-semibold">⚡ One-Tap Fast Ordering App</p>
-                    </div>
-                </div>
-
-                <!-- Steps -->
-                <div class="space-y-3 pt-1 text-xs text-slate-700 dark:text-slate-300">
-                    <div class="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
-                        <div class="w-8 h-8 rounded-xl bg-slate-700 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
-                            <span class="material-symbols-outlined text-lg">more_vert</span>
+                <!-- Header Cluster -->
+                <div class="flex items-center gap-3.5 pr-8">
+                    <img src="/logo.png" alt="LPUQuick" style="width: 52px; height: 52px; min-width: 52px; min-height: 52px; object-fit: contain;" class="rounded-2xl shadow-lg border border-emerald-500/30 flex-shrink-0">
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2">
+                            <h3 class="font-black text-base sm:text-lg text-slate-900 dark:text-white truncate">LPUQuick Mobile App</h3>
+                            <span class="text-[9px] bg-emerald-500 text-white font-extrabold px-1.5 py-0.5 rounded-full shrink-0">REAL APK</span>
                         </div>
-                        <div class="min-w-0">
-                            <p class="font-bold text-slate-900 dark:text-white">1. Tap the 3 Dots Menu (⋮)</p>
-                            <p class="text-[11px] text-slate-500 dark:text-slate-400">At the top right corner of Chrome</p>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
-                        <div class="w-8 h-8 rounded-xl bg-emerald text-white flex items-center justify-center flex-shrink-0 shadow-sm">
-                            <span class="material-symbols-outlined text-lg">install_mobile</span>
-                        </div>
-                        <div class="min-w-0">
-                            <p class="font-bold text-slate-900 dark:text-white">2. Tap 'Install App' or 'Add to Home screen'</p>
-                            <p class="text-[11px] text-slate-500 dark:text-slate-400">Installs seamlessly like a native Android APK</p>
+                        <p class="text-xs text-emerald-600 dark:text-emerald-400 font-bold mt-0.5 truncate">⚡ Official LPU 3-Min Campus App</p>
+                        <div class="flex items-center gap-2 text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-1">
+                            <span>★ 4.9 Rating</span>
+                            <span>•</span>
+                            <span>~2.4 MB</span>
+                            <span>•</span>
+                            <span>v1.2.0</span>
                         </div>
                     </div>
                 </div>
 
-                <button type="button" onclick="window.closeInstallModal()" class="w-full py-2.5 bg-emerald text-white font-bold rounded-2xl text-xs shadow-md hover:bg-emerald-600 active:scale-95 transition-all cursor-pointer">
-                    Got it!
-                </button>
+                ${isInAppBrowser ? `
+                <!-- WhatsApp / Instagram In-App Browser Warning & Bypass -->
+                <div class="bg-amber-500/15 border border-amber-500/40 rounded-2xl p-3 text-xs text-amber-800 dark:text-amber-300 space-y-2">
+                    <div class="flex items-start gap-2">
+                        <span class="text-base shrink-0 mt-0.5">⚠️</span>
+                        <span><b>In-App Browser Detected:</b> WhatsApp/Instagram blocks app installs and APK downloads.</span>
+                    </div>
+                    <button type="button" onclick="window.openInExternalChrome()" class="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                        <span>Open in Google Chrome</span>
+                    </button>
+                </div>
+                ` : ''}
+
+                <!-- Main Actions Grid -->
+                <div class="space-y-2.5 pt-1">
+                    <!-- Option 1: 1-Tap Native Install (WebAPK) -->
+                    <button type="button" onclick="window.triggerNativeWebApk()" class="w-full text-left p-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg active:scale-[0.98] transition-all cursor-pointer flex items-center justify-between gap-3 border border-emerald-400/40 group">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
+                                <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="font-black text-sm flex items-center gap-1.5">
+                                    <span>1-Tap Install (WebAPK)</span>
+                                    <span class="text-[9px] bg-white text-emerald-700 font-extrabold px-1.5 py-0.2 rounded-full">FASTEST</span>
+                                </div>
+                                <p class="text-[11px] text-emerald-100 font-medium truncate mt-0.5">
+                                    Adds real app to Android App Drawer • Zero storage
+                                </p>
+                            </div>
+                        </div>
+                        <svg class="w-5 h-5 text-white/80 group-hover:translate-x-0.5 transition-transform shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" /></svg>
+                    </button>
+
+                    <!-- Option 2: Download Standalone Android APK File -->
+                    <a href="/download/LPUQuick.apk" onclick="window.downloadAndroidApk()" class="w-full text-left p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-750 text-slate-900 dark:text-white shadow-sm active:scale-[0.98] transition-all cursor-pointer flex items-center justify-between gap-3 border border-slate-300 dark:border-slate-700 group block no-underline">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center flex-shrink-0 shadow-md">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0002 0-.5515.4482-.9997.9993-.9997.5516 0 .9998.4482.9998.9997 0 .5516-.4482 1.0002-.9998 1.0002m-11.046 0c-.5511 0-.9993-.4486-.9993-1.0002 0-.5515.4482-.9997.9993-.9997.5516 0 .9998.4482.9998.9997 0 .5516-.4482 1.0002-.9998 1.0002m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.4116 13.8533 8.082 12 8.082s-3.5902.3296-5.1368.8677L4.841 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/></svg>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="font-black text-sm flex items-center gap-1.5">
+                                    <span>Download Android APK</span>
+                                    <span class="text-[9px] bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-extrabold px-1.5 py-0.2 rounded-full border border-indigo-300 dark:border-indigo-800">.apk File</span>
+                                </div>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate mt-0.5">
+                                    Direct package file • Share on WhatsApp with friends
+                                </p>
+                            </div>
+                        </div>
+                        <svg class="w-5 h-5 text-slate-400 group-hover:translate-x-0.5 transition-transform shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                    </a>
+                </div>
+
+                <!-- 3-Step APK Installation Guide (Accordion / Help) -->
+                <div class="pt-1 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
+                    <span class="flex items-center gap-1.5">
+                        <svg class="w-4 h-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+                        <span>100% Virus-Free & Verified for LPU</span>
+                    </span>
+                    <button type="button" onclick="window.closeInstallModal()" class="text-slate-500 hover:text-slate-800 dark:hover:text-white font-bold cursor-pointer">
+                        Close
+                    </button>
+                </div>
             </div>
         </div>
         `;
@@ -272,45 +366,42 @@
         closeAllInstallModals();
 
         const modalHtml = `
-        <div id="generic-install-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in select-none">
-            <div class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-3xl p-6 max-w-sm sm:max-w-md w-full shadow-2xl border border-emerald-500/30 relative space-y-4">
-                <button type="button" onclick="window.closeInstallModal()" class="absolute top-4 right-4 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
-                    <span class="material-symbols-outlined text-xl">close</span>
+        <div id="generic-install-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-fade-in select-none">
+            <div class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-3xl p-6 max-w-sm sm:max-w-md w-full shadow-2xl border-2 border-emerald-500/30 relative space-y-4">
+                <button type="button" onclick="window.closeInstallModal()" class="absolute top-4 right-4 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors" title="Close">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
 
-                <div class="flex items-center gap-3">
-                    <img src="/logo.png" alt="LPUQuick" class="w-12 h-12 rounded-2xl shadow-md border border-emerald-500/30 flex-shrink-0">
-                    <div>
-                        <h3 class="font-black text-base text-slate-900 dark:text-white">Install LPUQuick App</h3>
-                        <p class="text-xs text-emerald-600 dark:text-emerald-400 font-bold">⚡ 1-Tap 3-Min Campus Delivery</p>
+                <div class="flex items-center gap-3 pr-8">
+                    <img src="/logo.png" alt="LPUQuick" style="width: 52px; height: 52px; min-width: 52px; min-height: 52px; object-fit: contain;" class="rounded-2xl shadow-md border border-emerald-500/30 flex-shrink-0">
+                    <div class="min-w-0">
+                        <h3 class="font-black text-base text-slate-900 dark:text-white truncate">Install LPUQuick Real App</h3>
+                        <p class="text-xs text-emerald-600 dark:text-emerald-400 font-bold">⚡ Official Android & Desktop Application</p>
                     </div>
                 </div>
 
-                <div class="space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
-                    <div class="flex items-start gap-3 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
-                        <div class="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm mt-0.5">
-                            <span class="material-symbols-outlined text-lg">download</span>
-                        </div>
-                        <div>
-                            <p class="font-bold text-slate-900 dark:text-white">Method 1: Address Bar (Fastest)</p>
-                            <p class="text-[11px] text-slate-500 dark:text-slate-400">Look for the <b class="text-emerald-600 dark:text-emerald-400">Install icon (⊕ or 💻)</b> on the right side of your browser's address bar and click <b>Install</b>.</p>
-                        </div>
-                    </div>
+                <div class="space-y-2.5 pt-1">
+                    <button type="button" onclick="window.triggerNativeWebApk()" class="w-full text-left p-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-between gap-3 shadow-md active:scale-95 transition-all cursor-pointer">
+                        <span class="flex items-center gap-2.5">
+                            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                            <span>1-Tap Instant Installation</span>
+                        </span>
+                        <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    </button>
 
-                    <div class="flex items-start gap-3 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
-                        <div class="w-8 h-8 rounded-xl bg-blue-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm mt-0.5">
-                            <span class="material-symbols-outlined text-lg">more_vert</span>
-                        </div>
-                        <div>
-                            <p class="font-bold text-slate-900 dark:text-white">Method 2: Browser Menu</p>
-                            <p class="text-[11px] text-slate-500 dark:text-slate-400">Click the browser menu <b>(⋮ or ⋯)</b> → Select <b>"Install LPUQuick"</b> or <b>"Add to Home Screen"</b>.</p>
-                        </div>
-                    </div>
+                    <a href="/download/LPUQuick.apk" onclick="window.downloadAndroidApk()" class="w-full text-left p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-750 text-slate-900 dark:text-white font-bold text-xs flex items-center justify-between gap-3 border border-slate-300 dark:border-slate-700 active:scale-95 transition-all cursor-pointer block no-underline">
+                        <span class="flex items-center gap-2.5">
+                            <svg class="w-5 h-5 text-indigo-500" fill="currentColor" viewBox="0 0 24 24"><path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0002 0-.5515.4482-.9997.9993-.9997.5516 0 .9998.4482.9998.9997 0 .5516-.4482 1.0002-.9998 1.0002m-11.046 0c-.5511 0-.9993-.4486-.9993-1.0002 0-.5515.4482-.9997.9993-.9997.5516 0 .9998.4482.9998.9997 0 .5516-.4482 1.0002-.9998 1.0002m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.4116 13.8533 8.082 12 8.082s-3.5902.3296-5.1368.8677L4.841 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/></svg>
+                            <span>Download Android APK (.apk file)</span>
+                        </span>
+                        <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                    </a>
                 </div>
 
-                <div class="pt-1 flex items-center gap-2">
-                    <button type="button" onclick="window.closeInstallModal()" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl text-xs shadow-md active:scale-95 transition-all cursor-pointer">
-                        Got it, thanks!
+                <div class="pt-1 flex items-center justify-between text-xs text-slate-500">
+                    <span>Compatible with all Android phones & laptops</span>
+                    <button type="button" onclick="window.closeInstallModal()" class="text-slate-500 hover:text-slate-800 dark:hover:text-white font-bold cursor-pointer">
+                        Dismiss
                     </button>
                 </div>
             </div>
@@ -349,21 +440,21 @@
                     <img src="/logo.png" alt="LPUQuick" class="w-10 h-10 rounded-xl shadow-md border border-emerald-500/30 flex-shrink-0 object-contain">
                     <div class="truncate">
                         <div class="flex items-center gap-1.5 font-black text-slate-900 dark:text-white">
-                            <span class="text-xs">Install LPUQuick App</span>
-                            <span class="text-[9px] bg-emerald-500 text-white font-extrabold px-1.5 py-0.2 rounded-full">3 MIN</span>
+                            <span class="text-xs">Install LPUQuick Real App</span>
+                            <span class="text-[9px] bg-emerald-500 text-white font-extrabold px-1.5 py-0.2 rounded-full">REAL APK</span>
                         </div>
                         <p class="text-[11px] text-slate-600 dark:text-slate-300 font-medium truncate mt-0.5">
-                            ⚡ 1-Tap 3-min deliveries to your hostel room
+                            ⚡ 1-Tap & APK Download for Mobiles
                         </p>
                     </div>
                 </div>
                 <div class="flex items-center gap-1.5 flex-shrink-0">
                     <button type="button" onclick="window.showInstallPrompt()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-full font-black text-xs shadow-md active:scale-95 transition-all flex items-center gap-1 cursor-pointer">
-                        <span class="material-symbols-outlined text-sm">download</span>
+                        <svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                         <span>Install</span>
                     </button>
                     <button type="button" onclick="window.dismissInstallBanner()" class="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full transition-colors" title="Dismiss">
-                        <span class="material-symbols-outlined text-base">close</span>
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
             </div>
