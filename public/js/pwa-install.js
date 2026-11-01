@@ -213,19 +213,17 @@
         document.body.insertAdjacentHTML('beforeend', modalHtml);
     }
 
-    // Native APK Downloader (Safe download that NEVER navigates the active tab away)
+    // Native APK Downloader (Direct download of compiled 6.2 MB Android APK)
     window.downloadAndroidApk = function (event) {
         if (event) {
-            event.preventDefault();
-            event.stopPropagation();
+            try { event.stopPropagation(); } catch (e) {}
         }
         if (typeof window.showToast === 'function') {
-            window.showToast('📥 Downloading LPUQuick.apk... Tap to install once complete!', 'success');
+            window.showToast('📥 Downloading LPUQuick.apk (6.2 MB)... Tap when finished to install!', 'success');
         }
         const a = document.createElement('a');
-        a.href = '/api/app/download-apk';
+        a.href = '/download/LPUQuick.apk';
         a.download = 'LPUQuick.apk';
-        a.target = '_blank';
         document.body.appendChild(a);
         a.click();
         setTimeout(() => a.remove(), 1000);
@@ -297,9 +295,9 @@
                         <div class="flex items-center gap-2 text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-1">
                             <span>★ 4.9 Rating</span>
                             <span>•</span>
-                            <span>~2.4 MB</span>
+                            <span>~6.2 MB</span>
                             <span>•</span>
-                            <span>v1.2.0</span>
+                            <span>v1.0.0 (Native)</span>
                         </div>
                     </div>
                 </div>
@@ -332,7 +330,7 @@
                                     <span class="text-[9px] bg-white text-emerald-700 font-extrabold px-1.5 py-0.2 rounded-full">FASTEST</span>
                                 </div>
                                 <p class="text-[11px] text-emerald-100 font-medium truncate mt-0.5">
-                                    Adds real app to Android App Drawer • Zero storage
+                                    Installs to App Drawer • Zero file download
                                 </p>
                             </div>
                         </div>
@@ -362,7 +360,7 @@
                     </div>
 
                     <!-- Option 2: Download Standalone Android APK File -->
-                    <button type="button" onclick="window.downloadAndroidApk(event)" class="w-full text-left p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-750 text-slate-900 dark:text-white shadow-sm active:scale-[0.98] transition-all cursor-pointer flex items-center justify-between gap-3 border border-slate-300 dark:border-slate-700 group">
+                    <a href="/download/LPUQuick.apk" download="LPUQuick.apk" onclick="window.downloadAndroidApk(event)" class="w-full text-left p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-750 text-slate-900 dark:text-white shadow-sm active:scale-[0.98] transition-all cursor-pointer flex items-center justify-between gap-3 border border-slate-300 dark:border-slate-700 group block no-underline">
                         <div class="flex items-center gap-3 min-w-0">
                             <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center flex-shrink-0 shadow-md">
                                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0002 0-.5515.4482-.9997.9993-.9997.5516 0 .9998.4482.9998.9997 0 .5516-.4482 1.0002-.9998 1.0002m-11.046 0c-.5511 0-.9993-.4486-.9993-1.0002 0-.5515.4482-.9997.9993-.9997.5516 0 .9998.4482.9998.9997 0 .5516-.4482 1.0002-.9998 1.0002m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.4116 13.8533 8.082 12 8.082s-3.5902.3296-5.1368.8677L4.841 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/></svg>
@@ -370,15 +368,28 @@
                             <div class="min-w-0">
                                 <div class="font-black text-sm flex items-center gap-1.5">
                                     <span>Download Android APK</span>
-                                    <span class="text-[9px] bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-extrabold px-1.5 py-0.2 rounded-full border border-indigo-300 dark:border-indigo-800">.apk File</span>
+                                    <span class="text-[9px] bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-extrabold px-1.5 py-0.2 rounded-full border border-indigo-300 dark:border-indigo-800">~6.2 MB</span>
                                 </div>
                                 <p class="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate mt-0.5">
-                                    Direct package file • Share on WhatsApp with friends
+                                    Full native Android app package (Compiled & Signed)
                                 </p>
                             </div>
                         </div>
                         <svg class="w-5 h-5 text-slate-400 group-hover:translate-x-0.5 transition-transform shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                    </button>
+                    </a>
+
+                    <!-- Android Installation Guide Box -->
+                    <div class="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-3 text-[11px] text-slate-700 dark:text-slate-200 space-y-1.5">
+                        <div class="flex items-center gap-1.5 font-bold text-blue-600 dark:text-blue-400">
+                            <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <span>How to Install on Android:</span>
+                        </div>
+                        <ol class="list-decimal list-inside space-y-1 text-slate-600 dark:text-slate-300 pl-0.5 text-[10.5px]">
+                            <li>Delete any old <b>75 kB</b> file from phone Downloads.</li>
+                            <li>Tap <b>Download Android APK (~6.2 MB)</b> above.</li>
+                            <li>If prompted, tap <b>Settings → Allow from this source</b>, then tap <b>Install</b>!</li>
+                        </ol>
+                    </div>
                 </div>
 
                 <!-- 3-Step APK Installation Guide (Accordion / Help) -->
