@@ -11,6 +11,30 @@ function escapeHtml(str) {
 window.escapeHtml = escapeHtml;
 window.escapeHtmlStr = escapeHtml;
 
+// Universal Authenticated Fetch Helper
+function authFetch(url, options = {}) {
+    let authHeaders = {};
+    try {
+        if (typeof getAuthHeaders === 'function') {
+            authHeaders = getAuthHeaders();
+        } else {
+            const token = localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token');
+            authHeaders = {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': 'Bearer ' + token, 'x-admin-token': token } : {})
+            };
+        }
+    } catch (e) {
+        authHeaders = { 'Content-Type': 'application/json' };
+    }
+    const headers = {
+        ...authHeaders,
+        ...(options.headers || {})
+    };
+    return fetch(url, { ...options, headers });
+}
+window.authFetch = authFetch;
+
 // Multi-Theme High-Volume Web Audio Synthesizer Engine (Cha-Ching, QuickCommerce Pop, Courier Chirp, Arcade, Crystal Bell, Urgent Alarm)
 let audioCtx = null;
 let soundEnabled = localStorage.getItem('lpuquick_admin_sound') !== 'false';
@@ -12773,3 +12797,652 @@ window.submitRefundModal = submitRefundModal;
 window.loadUpiConfigView = loadUpiConfigView;
 window.saveUpiConfig = saveUpiConfig;
 
+
+
+// HOSTEL GROUP MANAGEMENT & SHARED INVENTORY (SUPER ADMIN)
+// ============================================================
+function authFetch(url, options = {}) {
+    const headers = {
+        ...getAuthHeaders(),
+        ...(options.headers || {})
+    };
+    return fetch(url, { ...options, headers });
+}
+window.authFetch = authFetch;
+
+let hostelGroupsCache = [];
+let hostelGroupsStaffCache = [];
+let hostelModalFullList = [];
+let hostelModalFilterActive = 'all';
+
+async function loadHostelGroups() {
+    const tbody = document.getElementById('hostel-groups-tbody');
+    if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-[#5c5f60]"><span class="material-symbols-outlined animate-spin text-lg inline-block align-middle mr-1 text-[#0066cc]">progress_activity</span> Loading hostel groups...</td></tr>';
+    }
+
+    try {
+        const fetchFn = typeof window.authFetch === 'function' ? window.authFetch : (typeof authFetch === 'function' ? authFetch : (u, o = {}) => fetch(u, { ...o, headers: { ...(typeof getAuthHeaders === 'function' ? getAuthHeaders() : {}), ...(o.headers || {}) } }));
+        const res = await fetchFn('/api/admin/hostel-groups');
+        const data = await res.json();
+
+        if (data.success && Array.isArray(data.groups)) {
+            hostelGroupsCache = data.groups;
+            updateHostelGroupsStats();
+            renderHostelGroups(hostelGroupsCache);
+        } else {
+            throw new Error(data.error || 'Failed to fetch hostel groups');
+        }
+    } catch (err) {
+        console.error('[Load Hostel Groups Error]:', err.message);
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-[#ba1a1a]">Failed to load hostel groups: ${escapeHtml(err.message)} <br><button onclick="loadHostelGroups()" class="mt-2 px-3 py-1 bg-white border border-[#ba1a1a] rounded-lg text-xs font-bold text-[#ba1a1a] hover:bg-rose-50">Retry</button></td></tr>`;
+        }
+    }
+}
+
+function updateHostelGroupsStats() {
+    const total = hostelGroupsCache.length;
+    const shared = hostelGroupsCache.filter(g => g.inventory_mode === 'shared').length;
+    const independent = hostelGroupsCache.filter(g => g.inventory_mode === 'independent').length;
+    
+    const allHostelIds = new Set();
+    hostelGroupsCache.forEach(g => {
+        (g.hostel_ids || []).forEach(h => allHostelIds.add(h));
+    });
+
+    const elTotal = document.getElementById('stat-groups-total');
+    if (elTotal) elTotal.textContent = total;
+
+    const elShared = document.getElementById('stat-groups-shared');
+    if (elShared) elShared.textContent = shared;
+
+    const elInd = document.getElementById('stat-groups-independent');
+    if (elInd) elInd.textContent = independent;
+
+    const elHostels = document.getElementById('stat-groups-hostels');
+    if (elHostels) elHostels.textContent = allHostelIds.size;
+
+    const badge = document.getElementById('nav-hostel-groups-badge');
+    if (badge) badge.textContent = total;
+}
+
+function renderHostelGroups(groups) {
+    const tbody = document.getElementById('hostel-groups-tbody');
+    if (!tbody) return;
+
+    if (!groups || groups.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="p-8 text-center text-[#5c5f60]">
+                    <div class="max-w-xs mx-auto space-y-2">
+                        <span class="material-symbols-outlined text-4xl text-gray-300">hub</span>
+                        <p class="font-bold text-[#181c1f]">No Hostel Groups Found</p>
+                        <p class="text-xs text-gray-500">Combine multiple hostels into operational groups with real-time shared inventory and assigned store managers.</p>
+                        <button onclick="openHostelGroupModal()" class="mt-2 px-4 py-2 bg-[#0066cc] text-white rounded-xl text-xs font-bold shadow-sm hover:bg-[#0052a3]">
+                            + Create First Hostel Group
+                        </button>
+                    </div>
+                </td>
+            </tr>`;
+        return;
+    }
+
+    tbody.innerHTML = groups.map(g => {
+        const isShared = g.inventory_mode === 'shared';
+        const isActive = g.status === 'active' || g.is_active === true;
+
+        // Member Hostels chips
+        const memberChips = (g.member_hostels && g.member_hostels.length > 0)
+            ? g.member_hostels.map(m => {
+                const isLive = m.status === 'ACTIVE' || m.status === 'active';
+                return `
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold ${isLive ? 'bg-emerald-50 text-emerald-800 border border-emerald-300' : 'bg-slate-50 text-slate-600 border border-slate-200'}" title="${escapeHtml(m.name)} (${isLive ? 'Live Store' : 'OFF'})">
+                    <span class="w-1.5 h-1.5 rounded-full ${isLive ? 'bg-emerald-500' : 'bg-gray-400'}"></span>
+                    ${escapeHtml(m.id)}
+                </span>`;
+            }).join(' ')
+            : '<span class="text-gray-400 italic text-[11px]">No hostels assigned</span>';
+
+        // Assigned Admins chips
+        const adminChips = (g.assigned_admins && g.assigned_admins.length > 0)
+            ? g.assigned_admins.map(a => `
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200" title="${escapeHtml(a.email)}">
+                    <span class="material-symbols-outlined text-[11px]">person</span>
+                    ${escapeHtml(a.name || a.id)}
+                </span>`).join(' ')
+            : '<span class="text-gray-400 italic text-[11px]">No managers assigned</span>';
+
+        return `
+            <tr class="hover:bg-[#f7fafd] transition-colors text-xs">
+                <td class="p-4">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-xl ${isShared ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-700'} flex items-center justify-center font-bold shrink-0">
+                            <span class="material-symbols-outlined text-base">${isShared ? 'sync_alt' : 'hub'}</span>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-1.5">
+                                <span class="font-bold text-[#181c1f] text-[13px]">${escapeHtml(g.name)}</span>
+                                <span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[9px] font-bold border border-slate-200">${escapeHtml(g.code)}</span>
+                            </div>
+                            <p class="text-[11px] text-[#5c5f60] line-clamp-1">${escapeHtml(g.description || 'No description')}</p>
+                        </div>
+                    </div>
+                </td>
+                <td class="p-4">
+                    <div class="flex items-center gap-2">
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${isShared ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-indigo-100 text-indigo-700 border border-indigo-300'}">
+                            <span class="material-symbols-outlined text-xs">${isShared ? 'sync_alt' : 'domain_disabled'}</span>
+                            ${isShared ? 'Shared Inventory' : 'Independent'}
+                        </span>
+                        <button onclick="toggleHostelGroupMode('${g.id}')"
+                            title="Switch to ${isShared ? 'Independent' : 'Shared'} Inventory Mode"
+                            class="p-1 text-gray-400 hover:text-[#0066cc] rounded-lg hover:bg-slate-100 transition-colors">
+                            <span class="material-symbols-outlined text-sm">swap_horiz</span>
+                        </button>
+                    </div>
+                </td>
+                <td class="p-4">
+                    <div class="flex flex-wrap gap-1 max-w-xs">
+                        ${memberChips}
+                    </div>
+                </td>
+                <td class="p-4">
+                    <div class="flex flex-wrap gap-1 max-w-xs">
+                        ${adminChips}
+                    </div>
+                </td>
+                <td class="p-4">
+                    <button onclick="toggleHostelGroupStatus('${g.id}')"
+                        class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-all active:scale-95 ${isActive ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200' : 'bg-rose-100 text-[#ba1a1a] border border-rose-300 hover:bg-rose-200'}">
+                        <span class="w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-rose-500'}"></span>
+                        ${isActive ? 'Active' : 'Inactive'}
+                    </button>
+                </td>
+                <td class="p-4 text-right">
+                    <div class="flex items-center justify-end gap-1">
+                        <button onclick="openHostelGroupModal('${g.id}')"
+                            class="p-1.5 text-[#5c5f60] hover:text-[#0066cc] hover:bg-[#ebeef2] rounded-lg transition-colors"
+                            title="Edit Group">
+                            <span class="material-symbols-outlined text-base">edit</span>
+                        </button>
+                        <button onclick="deleteHostelGroup('${g.id}', '${escapeHtml(g.name)}')"
+                            class="p-1.5 text-[#5c5f60] hover:text-[#ba1a1a] hover:bg-rose-50 rounded-lg transition-colors"
+                            title="Delete Group">
+                            <span class="material-symbols-outlined text-base">delete</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>`;
+    }).join('');
+}
+
+function filterHostelGroupsTable() {
+    const q = (document.getElementById('filter-hostel-groups-search')?.value || '').toLowerCase().trim();
+    const mode = document.getElementById('filter-hostel-groups-mode')?.value || 'all';
+    const status = document.getElementById('filter-hostel-groups-status')?.value || 'all';
+
+    let filtered = hostelGroupsCache.filter(g => {
+        if (mode !== 'all' && g.inventory_mode !== mode) return false;
+        if (status === 'active' && !(g.status === 'active' || g.is_active === true)) return false;
+        if (status === 'inactive' && (g.status === 'active' || g.is_active === true)) return false;
+
+        if (q) {
+            const matchName = (g.name || '').toLowerCase().includes(q);
+            const matchCode = (g.code || '').toLowerCase().includes(q);
+            const matchHostel = (g.hostel_ids || []).some(h => String(h).toLowerCase().includes(q));
+            if (!matchName && !matchCode && !matchHostel) return false;
+        }
+        return true;
+    });
+
+    renderHostelGroups(filtered);
+}
+
+function updateGroupModeCardStyles() {
+    const sharedRadio = document.querySelector('input[name="group-inventory-mode"][value="shared"]');
+    const sharedCard = document.getElementById('card-mode-shared');
+    const indCard = document.getElementById('card-mode-independent');
+
+    if (sharedRadio && sharedRadio.checked) {
+        if (sharedCard) {
+            sharedCard.className = 'border-2 border-emerald-500 bg-emerald-50/50 p-3 rounded-xl cursor-pointer flex items-start gap-2.5 transition-all group-mode-card';
+        }
+        if (indCard) {
+            indCard.className = 'border border-[#DADCE0] bg-white p-3 rounded-xl cursor-pointer flex items-start gap-2.5 transition-all group-mode-card';
+        }
+    } else {
+        if (sharedCard) {
+            sharedCard.className = 'border border-[#DADCE0] bg-white p-3 rounded-xl cursor-pointer flex items-start gap-2.5 transition-all group-mode-card';
+        }
+        if (indCard) {
+            indCard.className = 'border-2 border-indigo-500 bg-indigo-50/50 p-3 rounded-xl cursor-pointer flex items-start gap-2.5 transition-all group-mode-card';
+        }
+    }
+}
+
+function toggleAllGroupHostels(checked) {
+    document.querySelectorAll('#group-hostels-checklist input[type="checkbox"]').forEach(cb => {
+        cb.checked = Boolean(checked);
+    });
+    updateSelectedHostelsCount();
+}
+
+function toggleLiveGroupHostelsOnly() {
+    document.querySelectorAll('#group-hostels-checklist input[type="checkbox"]').forEach(cb => {
+        const isLive = cb.dataset.isLive === 'true';
+        cb.checked = isLive;
+    });
+    updateSelectedHostelsCount();
+}
+
+function toggleAllGroupAdmins(checked) {
+    document.querySelectorAll('#group-admins-checklist input[type="checkbox"]').forEach(cb => {
+        cb.checked = Boolean(checked);
+    });
+}
+
+function updateSelectedHostelsCount() {
+    const count = document.querySelectorAll('#group-hostels-checklist input[type="checkbox"]:checked').length;
+    const badge = document.getElementById('group-hostel-count-badge');
+    if (badge) {
+        badge.textContent = `${count} selected`;
+        badge.className = count > 0 ? 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800' : 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-[#0066cc]';
+    }
+}
+
+function filterModalHostelsList(filterType) {
+    hostelModalFilterActive = filterType;
+    ['all', 'live', 'bh', 'gh'].forEach(t => {
+        const btn = document.getElementById(`btn-modal-filter-${t}`);
+        if (btn) {
+            if (t === filterType) {
+                btn.className = 'px-2.5 py-1 rounded-lg font-bold bg-[#0066cc] text-white';
+            } else {
+                btn.className = 'px-2.5 py-1 rounded-lg font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50';
+            }
+        }
+    });
+
+    renderModalHostelChecklist();
+}
+
+function renderModalHostelChecklist(preSelected = null) {
+    const checklist = document.getElementById('group-hostels-checklist');
+    if (!checklist) return;
+
+    // Retain checked state before re-render
+    const currentlyChecked = preSelected || new Set(Array.from(document.querySelectorAll('#group-hostels-checklist input[type="checkbox"]:checked')).map(cb => cb.value));
+
+    let list = [...hostelModalFullList];
+
+    if (hostelModalFilterActive === 'live') {
+        list = list.filter(h => h.is_live);
+    } else if (hostelModalFilterActive === 'bh') {
+        list = list.filter(h => h.id.toUpperCase().startsWith('BH'));
+    } else if (hostelModalFilterActive === 'gh') {
+        list = list.filter(h => h.id.toUpperCase().startsWith('GH'));
+    }
+
+    if (list.length === 0) {
+        checklist.innerHTML = '<div class="col-span-full p-4 text-center text-gray-400 text-xs">No hostels found matching filter.</div>';
+        return;
+    }
+
+    checklist.innerHTML = list.map(h => {
+        const isChecked = currentlyChecked.has(h.id);
+        const isLive = h.is_live;
+
+        let managerHtml = '';
+        if (h.manager_name && h.manager_name !== 'Unassigned') {
+            managerHtml = `<span class="text-[10px] text-purple-700 font-semibold truncate block">👤 ${escapeHtml(h.manager_name)}</span>`;
+        } else {
+            managerHtml = `<span class="text-[10px] text-gray-400 truncate block">No Store Manager</span>`;
+        }
+
+        let groupTag = '';
+        if (h.existing_group_name) {
+            groupTag = `<span class="text-[9px] font-bold text-amber-700 bg-amber-50 px-1 py-0.2 rounded border border-amber-200 truncate block">In: ${escapeHtml(h.existing_group_name)}</span>`;
+        }
+
+        return `
+            <label class="flex items-center justify-between p-2.5 bg-white border ${isChecked ? 'border-[#0066cc] bg-blue-50/30' : (isLive ? 'border-emerald-200' : 'border-[#DADCE0]')} rounded-xl cursor-pointer hover:border-[#0066cc] hover:bg-blue-50/40 transition-all text-xs shadow-2xs">
+                <div class="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
+                    <input type="checkbox" name="group-member-hostel" value="${escapeHtml(h.id)}" data-is-live="${isLive}" ${isChecked ? 'checked' : ''} onchange="updateSelectedHostelsCount()" class="rounded text-[#0066cc] focus:ring-[#0066cc] w-4 h-4 shrink-0">
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <span class="font-bold text-slate-900 leading-tight truncate">${escapeHtml(h.name || h.id)}</span>
+                            <span class="px-1.5 py-0.2 rounded font-mono text-[9px] font-bold bg-slate-100 text-slate-700 border border-slate-200 shrink-0">${escapeHtml(h.id)}</span>
+                        </div>
+                        <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+                            ${managerHtml}
+                            ${groupTag}
+                        </div>
+                    </div>
+                </div>
+                <span class="px-2 py-0.5 rounded-full text-[9px] font-bold ${isLive ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-slate-100 text-slate-500'} shrink-0">
+                    ${isLive ? '🟢 LIVE STORE' : 'OFF'}
+                </span>
+            </label>`;
+    }).join('');
+
+    updateSelectedHostelsCount();
+}
+
+async function openHostelGroupModal(groupId = null) {
+    const modal = document.getElementById('modal-hostel-group');
+    if (!modal) return;
+
+    const title = document.getElementById('modal-hostel-group-title');
+    const errEl = document.getElementById('group-form-error');
+    if (errEl) errEl.classList.add('hidden');
+
+    document.getElementById('group-form-id').value = groupId || '';
+    document.getElementById('group-form-name').value = '';
+    document.getElementById('group-form-code').value = '';
+    document.getElementById('group-form-desc').value = '';
+    document.getElementById('group-form-status').value = 'active';
+
+    const sharedRadio = document.querySelector('input[name="group-inventory-mode"][value="shared"]');
+    if (sharedRadio) sharedRadio.checked = true;
+    updateGroupModeCardStyles();
+
+    title.textContent = groupId ? 'Edit Hostel Group' : 'Create Hostel Group';
+
+    const hostelChecklist = document.getElementById('group-hostels-checklist');
+    const adminChecklist = document.getElementById('group-admins-checklist');
+
+    modal.classList.remove('hidden');
+
+    function populateLists(hostelsList, staffList) {
+        const hostelToGroupMap = new Map();
+        (hostelGroupsCache || []).forEach(g => {
+            if (g.id !== groupId) {
+                (g.hostel_ids || []).forEach(hId => {
+                    const clean = String(hId).toUpperCase().replace(/[^A-Z0-9]/g, '');
+                    hostelToGroupMap.set(clean, g.name);
+                });
+            }
+        });
+
+        const fullList = (hostelsList || []).map(h => {
+            const clean = String(h.id).toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const isLive = h.status === 'ACTIVE' || h.status === 'active';
+            return {
+                id: h.id,
+                name: h.name || h.id,
+                status: h.status || 'ACTIVE',
+                is_live: isLive,
+                manager_name: h.manager_name || (h.manager_user_id ? 'Store Manager' : 'Unassigned'),
+                existing_group_name: hostelToGroupMap.get(clean) || null
+            };
+        });
+
+        fullList.sort((a, b) => {
+            if (a.is_live && !b.is_live) return -1;
+            if (!a.is_live && b.is_live) return 1;
+            return a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' });
+        });
+
+        hostelModalFullList = fullList;
+        hostelModalFilterActive = 'all';
+
+        let preSelectedHostels = new Set();
+        let preSelectedAdmins = new Set();
+
+        if (groupId) {
+            const group = (hostelGroupsCache || []).find(g => g.id === groupId);
+            if (group) {
+                document.getElementById('group-form-name').value = group.name || '';
+                document.getElementById('group-form-code').value = group.code || '';
+                document.getElementById('group-form-desc').value = group.description || '';
+                document.getElementById('group-form-status').value = group.status || (group.is_active ? 'active' : 'inactive');
+
+                const modeRadio = document.querySelector(`input[name="group-inventory-mode"][value="${group.inventory_mode || 'shared'}"]`);
+                if (modeRadio) modeRadio.checked = true;
+                updateGroupModeCardStyles();
+
+                (group.hostel_ids || []).forEach(h => {
+                    preSelectedHostels.add(h);
+                    const matched = fullList.find(x => x.id.toUpperCase().replace(/[^A-Z0-9]/g, '') === String(h).toUpperCase().replace(/[^A-Z0-9]/g, ''));
+                    if (matched) preSelectedHostels.add(matched.id);
+                });
+
+                (group.admin_ids || []).forEach(a => preSelectedAdmins.add(String(a)));
+            }
+        }
+
+        renderModalHostelChecklist(preSelectedHostels);
+
+        if (adminChecklist && staffList && staffList.length > 0) {
+            hostelGroupsStaffCache = staffList;
+            adminChecklist.innerHTML = staffList.map(s => {
+                const isChecked = preSelectedAdmins.has(String(s.id));
+                const rolesText = Array.isArray(s.roles) ? s.roles.join(', ') : (s.role || 'Staff');
+                const isDuty = s.duty_status === 'ON_DUTY' || s.is_on_duty;
+                const assignedH = s.assigned_hostel_id ? `🏢 Current: ${s.assigned_hostel_name || s.assigned_hostel_id}` : '🌐 General Admin';
+
+                return `
+                    <label class="flex items-center justify-between p-2.5 bg-white border ${isChecked ? 'border-purple-500 bg-purple-50/30' : 'border-[#DADCE0]'} rounded-xl cursor-pointer hover:border-purple-400 hover:bg-purple-50/40 transition-all text-xs shadow-2xs">
+                        <div class="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
+                            <input type="checkbox" name="group-assigned-admin" value="${escapeHtml(s.id)}" ${isChecked ? 'checked' : ''} class="rounded text-purple-600 focus:ring-purple-500 w-4 h-4 shrink-0">
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-1.5 flex-wrap">
+                                    <span class="font-bold text-slate-900 truncate leading-tight">${escapeHtml(s.name || s.id)}</span>
+                                    <span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-100 text-purple-800 uppercase shrink-0">${escapeHtml(rolesText)}</span>
+                                </div>
+                                <div class="text-[10px] text-gray-500 flex items-center gap-2 mt-0.5 flex-wrap">
+                                    <span class="truncate">📧 ${escapeHtml(s.email || '')}</span>
+                                    <span class="font-medium text-slate-700 truncate">${escapeHtml(assignedH)}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <span class="px-2 py-0.5 rounded-full text-[9px] font-bold ${isDuty ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-slate-100 text-slate-500'} shrink-0">
+                            ${isDuty ? '🟢 On Duty' : '⚪ Off'}
+                        </span>
+                    </label>`;
+            }).join('');
+        }
+    }
+
+    // Immediate fast render if hostelsCache is already available
+    if (hostelsCache && hostelsCache.length > 0) {
+        populateLists(hostelsCache, hostelGroupsStaffCache || []);
+    } else {
+        if (hostelChecklist) {
+            hostelChecklist.innerHTML = '<div class="col-span-full p-4 text-center text-gray-400 text-xs"><span class="material-symbols-outlined animate-spin text-sm inline-block mr-1">progress_activity</span> Loading campus hostels...</div>';
+        }
+        if (adminChecklist) {
+            adminChecklist.innerHTML = '<div class="p-4 text-center text-gray-400 text-xs"><span class="material-symbols-outlined animate-spin text-sm inline-block mr-1">progress_activity</span> Loading store manager roster...</div>';
+        }
+    }
+
+    try {
+        const fetchFn = typeof window.authFetch === 'function' ? window.authFetch : (typeof authFetch === 'function' ? authFetch : (u, o = {}) => fetch(u, { ...o, headers: { ...(typeof getAuthHeaders === 'function' ? getAuthHeaders() : {}), ...(o.headers || {}) } }));
+
+        const [hostelsRes, staffRes] = await Promise.allSettled([
+            fetchFn('/api/admin/hostels'),
+            fetchFn('/api/admin/staff')
+        ]);
+
+        let freshHostels = (hostelsCache && hostelsCache.length > 0) ? hostelsCache : [];
+        if (hostelsRes.status === 'fulfilled' && hostelsRes.value.ok) {
+            try {
+                const hData = await hostelsRes.value.json();
+                if (hData && Array.isArray(hData.hostels) && hData.hostels.length > 0) {
+                    freshHostels = hData.hostels;
+                    hostelsCache = hData.hostels;
+                }
+            } catch (e) {}
+        }
+
+        let freshStaff = hostelGroupsStaffCache || [];
+        if (staffRes.status === 'fulfilled' && staffRes.value.ok) {
+            try {
+                const sData = await staffRes.value.json();
+                if (sData && Array.isArray(sData.staff)) {
+                    freshStaff = sData.staff;
+                    hostelGroupsStaffCache = sData.staff;
+                }
+            } catch (e) {}
+        }
+
+        populateLists(freshHostels, freshStaff);
+
+    } catch (err) {
+        console.error('[Open Hostel Group Modal Error]:', err.message);
+        if (!hostelsCache || hostelsCache.length === 0) {
+            if (hostelChecklist) hostelChecklist.innerHTML = `<div class="col-span-full p-4 text-center text-rose-500 text-xs">Failed to load campus hostels: ${escapeHtml(err.message)}</div>`;
+        }
+    }
+}
+
+function closeHostelGroupModal() {
+    const modal = document.getElementById('modal-hostel-group');
+    if (modal) modal.classList.add('hidden');
+}
+
+async function submitHostelGroupForm(event) {
+    if (event) event.preventDefault();
+
+    const id = document.getElementById('group-form-id').value;
+    const name = document.getElementById('group-form-name').value.trim();
+    const code = document.getElementById('group-form-code').value.trim().toUpperCase();
+    const description = document.getElementById('group-form-desc').value.trim();
+    const status = document.getElementById('group-form-status').value;
+    const inventory_mode = document.querySelector('input[name="group-inventory-mode"]:checked')?.value || 'shared';
+
+    const selectedHostels = Array.from(document.querySelectorAll('#group-hostels-checklist input[type="checkbox"]:checked')).map(cb => cb.value);
+    const selectedAdmins = Array.from(document.querySelectorAll('#group-admins-checklist input[type="checkbox"]:checked')).map(cb => cb.value);
+
+    const errEl = document.getElementById('group-form-error');
+    if (errEl) errEl.classList.add('hidden');
+
+    if (!name) {
+        showToast('Group name is required', 'warning');
+        return;
+    }
+    if (selectedHostels.length === 0) {
+        if (errEl) {
+            errEl.textContent = 'Please select at least one hostel for this group.';
+            errEl.classList.remove('hidden');
+        }
+        showToast('Please select at least one member hostel', 'warning');
+        return;
+    }
+
+    const saveBtn = document.getElementById('btn-save-hostel-group');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="material-symbols-outlined animate-spin text-sm mr-1">progress_activity</span> Saving...';
+    }
+
+    try {
+        const payload = {
+            name,
+            code,
+            description,
+            inventory_mode,
+            status,
+            hostel_ids: selectedHostels,
+            admin_ids: selectedAdmins
+        };
+
+        const url = id ? `/api/admin/hostel-groups/${id}` : '/api/admin/hostel-groups';
+        const method = id ? 'PUT' : 'POST';
+
+        const res = await authFetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message || 'Hostel group saved successfully', 'success');
+            closeHostelGroupModal();
+            await loadHostelGroups();
+            if (typeof populateHostelDropdowns === 'function') populateHostelDropdowns();
+        } else {
+            throw new Error(data.error || 'Failed to save group');
+        }
+    } catch (err) {
+        console.error('[Submit Hostel Group Error]:', err.message);
+        if (errEl) {
+            errEl.textContent = err.message;
+            errEl.classList.remove('hidden');
+        }
+        showToast(err.message, 'error');
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<span class="material-symbols-outlined text-base">check</span><span>Save Hostel Group</span>';
+        }
+    }
+}
+
+async function toggleHostelGroupMode(groupId) {
+    try {
+        const res = await authFetch(`/api/admin/hostel-groups/${groupId}/toggle-mode`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message, 'success');
+            await loadHostelGroups();
+        } else {
+            throw new Error(data.error || 'Failed to toggle inventory mode');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function toggleHostelGroupStatus(groupId) {
+    try {
+        const res = await authFetch(`/api/admin/hostel-groups/${groupId}/toggle-status`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message, 'success');
+            await loadHostelGroups();
+        } else {
+            throw new Error(data.error || 'Failed to toggle status');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function deleteHostelGroup(groupId, groupName) {
+    if (!confirm(`Are you sure you want to delete hostel group "${groupName}"?\n\nMember hostels will immediately revert to independent inventory mode.`)) {
+        return;
+    }
+
+    try {
+        const res = await authFetch(`/api/admin/hostel-groups/${groupId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message || 'Group deleted successfully', 'success');
+            await loadHostelGroups();
+            if (typeof populateHostelDropdowns === 'function') populateHostelDropdowns();
+        } else {
+            throw new Error(data.error || 'Failed to delete group');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+window.loadHostelGroups = loadHostelGroups;
+window.renderHostelGroups = renderHostelGroups;
+window.filterHostelGroupsTable = filterHostelGroupsTable;
+window.openHostelGroupModal = openHostelGroupModal;
+window.closeHostelGroupModal = closeHostelGroupModal;
+window.updateGroupModeCardStyles = updateGroupModeCardStyles;
+window.toggleAllGroupHostels = toggleAllGroupHostels;
+window.toggleLiveGroupHostelsOnly = toggleLiveGroupHostelsOnly;
+window.toggleAllGroupAdmins = toggleAllGroupAdmins;
+window.updateSelectedHostelsCount = updateSelectedHostelsCount;
+window.filterModalHostelsList = filterModalHostelsList;
+window.submitHostelGroupForm = submitHostelGroupForm;
+window.toggleHostelGroupMode = toggleHostelGroupMode;
+window.toggleHostelGroupStatus = toggleHostelGroupStatus;
+window.deleteHostelGroup = deleteHostelGroup;

@@ -362,9 +362,18 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
         const isOwner = Boolean(req.admin && req.admin.is_owner);
         let hostelId = req.query.hostel_id || req.query.hostel || null;
 
-        // Store Managers are strictly locked to their assigned hostel
-        if (!isOwner && req.admin?.assigned_hostel_id) {
-            hostelId = req.admin.assigned_hostel_id;
+        // Store Managers / Group Admins hostel scoping
+        if (!isOwner) {
+            const reqHostel = req.query.hostel_id || req.query.hostel;
+            if (reqHostel && reqHostel !== 'all' && req.admin?.canAccessHostel) {
+                if (req.admin.canAccessHostel(reqHostel)) {
+                    hostelId = reqHostel;
+                } else {
+                    return res.status(403).json({ success: false, code: 'FORBIDDEN', error: 'Forbidden: You do not have access to view orders for this hostel.' });
+                }
+            } else if (req.admin?.assigned_hostel_id && (!req.admin.assigned_hostels || req.admin.assigned_hostels.length <= 1)) {
+                hostelId = req.admin.assigned_hostel_id;
+            }
         }
 
         const forceFresh = req.query.force === 'true' || Boolean(req.query._t);
@@ -458,10 +467,12 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
                 };
             });
 
-            // Filter by target hostel if specified
+            // Filter by target hostel if specified, or by admin's assigned hostels
             if (hostelId && hostelId !== 'all') {
                 const normTarget = normalizeHostelId(hostelId);
                 enriched = enriched.filter(o => matchHostel(o.hostel_id, normTarget));
+            } else if (!isOwner && req.admin?.canAccessHostel) {
+                enriched = enriched.filter(o => req.admin.canAccessHostel(o.hostel_id));
             }
 
             return { orders: enriched };
@@ -2357,6 +2368,10 @@ router.post('/:orderId/cancel', async (req, res) => {
 
     try {
         const result = await supabaseDb.orders.cancelOrder(orderId, reason || 'User requested cancellation', 'customer');
+        try {
+            const foodOrderService = require('../services/foodOrderService');
+            foodOrderService.cancelFoodOrder(orderId, reason || 'User requested cancellation');
+        } catch (e) {}
         if (Array.isArray(fallbackOrdersCache)) {
             const o = fallbackOrdersCache.find(x => x.id === orderId);
             if (o) o.status = 'Cancelled';

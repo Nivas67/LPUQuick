@@ -168,6 +168,8 @@ function resolveAdminRoles(user) {
         if (!roles.includes('store_manager')) roles.push('store_manager');
         if (!roles.includes('inventory_manager')) roles.push('inventory_manager');
         if (!roles.includes('delivery_person')) roles.push('delivery_person');
+        if (!roles.includes('cook')) roles.push('cook');
+        if (!roles.includes('food_department')) roles.push('food_department');
     } else if (roles.length === 0) {
         roles = ['store_manager'];
     }
@@ -241,9 +243,12 @@ async function requireAdmin(req, res, next) {
         user.is_owner = roles.includes('owner');
         user.hasRole = (role) => roles.includes('owner') || roles.includes(role);
 
-        // Multi-Hostel: Resolve store manager / delivery personnel assigned hostel
+        // Multi-Hostel: Resolve store manager / delivery personnel assigned hostel & groups
         if (user.is_owner) {
             user.assigned_hostel_id = null; // Full super-admin access across all hostels
+            user.assigned_hostels = null;
+            user.assigned_groups = null;
+            user.canAccessHostel = () => true;
         } else {
             let assignedHostel = null;
             if (user.dob && typeof user.dob === 'string' && user.dob.startsWith('{')) {
@@ -261,6 +266,29 @@ async function requireAdmin(req, res, next) {
                 } catch (hErr) {}
             }
             user.assigned_hostel_id = assignedHostel;
+
+            let groupHostels = [];
+            let assignedGroups = [];
+            try {
+                const hostelGroupService = require('../services/hostelGroupService');
+                groupHostels = hostelGroupService.getAdminAssignedHostels(user.id);
+                assignedGroups = hostelGroupService.getAdminAssignedGroups(user.id);
+            } catch (gErr) {}
+
+            const allHostels = new Set(groupHostels);
+            if (assignedHostel) allHostels.add(assignedHostel);
+
+            user.assigned_hostels = Array.from(allHostels);
+            user.assigned_groups = assignedGroups;
+
+            user.canAccessHostel = (hostelId) => {
+                if (user.is_owner) return true;
+                if (!hostelId || hostelId === 'all' || hostelId === 'ALL') {
+                    return user.assigned_hostels.length > 0;
+                }
+                const clean = String(hostelId).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+                return user.assigned_hostels.some(h => String(h).trim().toUpperCase().replace(/[^A-Z0-9]/g, '') === clean);
+            };
         }
 
         // Attach verified user to request

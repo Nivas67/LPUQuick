@@ -599,19 +599,12 @@ router.post('/admin/toggle-stock', requireAdmin, async (req, res) => {
         const isOwner = Boolean(req.admin && (req.admin.is_owner || (Array.isArray(req.admin.roles) && req.admin.roles.includes('owner')) || req.admin.role === 'owner' || req.admin.id === 'user_admin_bh13' || (req.admin.email && req.admin.email.toLowerCase() === 'admin@lpu.in')));
         let targetHostel = 'BH-13';
         if (!isOwner) {
-            const assignedHostel = req.admin?.assigned_hostel_id;
-            if (!assignedHostel) {
-                return res.status(403).json({ success: false, code: 'FORBIDDEN', error: 'Forbidden: No assigned hostel found for store manager.' });
+            const reqHostel = req.body.hostel_id || req.body.hostel || req.admin?.assigned_hostel_id;
+            const canAccess = req.admin?.canAccessHostel ? req.admin.canAccessHostel(reqHostel) : (reqHostel === req.admin?.assigned_hostel_id);
+            if (!canAccess) {
+                return res.status(403).json({ success: false, code: 'FORBIDDEN', error: 'Forbidden: You do not have access to manage stock in this hostel.' });
             }
-            const reqHostel = req.body.hostel_id || req.body.hostel;
-            if (reqHostel) {
-                const normReq = String(reqHostel).toUpperCase().replace(/[^A-Z0-9]/g, '');
-                const normAssigned = assignedHostel.toUpperCase().replace(/[^A-Z0-9]/g, '');
-                if (normReq !== normAssigned) {
-                    return res.status(403).json({ success: false, code: 'FORBIDDEN', error: 'Forbidden: You only have access to manage stock in your assigned hostel.' });
-                }
-            }
-            targetHostel = assignedHostel;
+            targetHostel = reqHostel;
         } else {
             targetHostel = req.body.hostel_id || req.body.hostel || 'BH-13';
         }
@@ -632,7 +625,15 @@ router.post('/admin/toggle-stock', requireAdmin, async (req, res) => {
 
         cache.invalidateProducts();
         if (typeof broadcastInventoryUpdate === 'function') {
-            broadcastInventoryUpdate(productId, updated.stock_left, updated.in_stock, targetHostel);
+            try {
+                const hostelGroupService = require('../services/hostelGroupService');
+                const siblings = hostelGroupService.getSiblingHostels(targetHostel);
+                for (const sib of siblings) {
+                    broadcastInventoryUpdate(productId, updated.stock_left, updated.in_stock, sib);
+                }
+            } catch (e) {
+                broadcastInventoryUpdate(productId, updated.stock_left, updated.in_stock, targetHostel);
+            }
         }
         res.json({ success: true, message: `Stock updated for ${targetHostel}`, in_stock: updated.in_stock, stock_left: updated.stock_left, hostel_id: targetHostel });
     } catch (err) {
@@ -652,19 +653,12 @@ router.post('/admin/adjust-stock', requireAdmin, async (req, res) => {
         const isOwner = Boolean(req.admin && (req.admin.is_owner || (Array.isArray(req.admin.roles) && req.admin.roles.includes('owner')) || req.admin.role === 'owner' || req.admin.id === 'user_admin_bh13' || (req.admin.email && req.admin.email.toLowerCase() === 'admin@lpu.in')));
         let targetHostel = 'BH-13';
         if (!isOwner) {
-            const assignedHostel = req.admin?.assigned_hostel_id;
-            if (!assignedHostel) {
-                return res.status(403).json({ success: false, code: 'FORBIDDEN', error: 'Forbidden: No assigned hostel found for store manager.' });
+            const reqHostel = req.body.hostel_id || req.body.hostel || req.admin?.assigned_hostel_id;
+            const canAccess = req.admin?.canAccessHostel ? req.admin.canAccessHostel(reqHostel) : (reqHostel === req.admin?.assigned_hostel_id);
+            if (!canAccess) {
+                return res.status(403).json({ success: false, code: 'FORBIDDEN', error: 'Forbidden: You do not have access to manage stock in this hostel.' });
             }
-            const reqHostel = req.body.hostel_id || req.body.hostel;
-            if (reqHostel) {
-                const normReq = String(reqHostel).toUpperCase().replace(/[^A-Z0-9]/g, '');
-                const normAssigned = assignedHostel.toUpperCase().replace(/[^A-Z0-9]/g, '');
-                if (normReq !== normAssigned) {
-                    return res.status(403).json({ success: false, code: 'FORBIDDEN', error: 'Forbidden: You only have access to manage stock in your assigned hostel.' });
-                }
-            }
-            targetHostel = assignedHostel;
+            targetHostel = reqHostel;
         } else {
             targetHostel = req.body.hostel_id || req.body.hostel || 'BH-13';
         }
@@ -687,7 +681,15 @@ router.post('/admin/adjust-stock', requireAdmin, async (req, res) => {
 
         cache.invalidateProducts();
         if (typeof broadcastInventoryUpdate === 'function') {
-            broadcastInventoryUpdate(productId, updated.stock_left, updated.in_stock, targetHostel);
+            try {
+                const hostelGroupService = require('../services/hostelGroupService');
+                const siblings = hostelGroupService.getSiblingHostels(targetHostel);
+                for (const sib of siblings) {
+                    broadcastInventoryUpdate(productId, updated.stock_left, updated.in_stock, sib);
+                }
+            } catch (e) {
+                broadcastInventoryUpdate(productId, updated.stock_left, updated.in_stock, targetHostel);
+            }
         }
 
         res.json({

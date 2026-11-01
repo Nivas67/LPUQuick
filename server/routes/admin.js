@@ -61,7 +61,9 @@ router.get('/verify', (req, res) => {
             role: req.admin.role,
             roles: req.admin.roles || [],
             is_owner: req.admin.is_owner || false,
-            assigned_hostel_id: req.admin.assigned_hostel_id || null
+            assigned_hostel_id: req.admin.assigned_hostel_id || null,
+            assigned_hostels: req.admin.assigned_hostels || [],
+            assigned_groups: req.admin.assigned_groups || []
         }
     });
 });
@@ -685,7 +687,7 @@ router.get('/staff', requireRole('owner'), async (req, res) => {
 
 // POST /api/admin/staff (Create a new admin team member)
 router.post('/staff', requireRole('owner'), async (req, res) => {
-    const { name, email, phone, password, roles, assigned_hostel_id, is_on_duty, duty_status, status } = req.body;
+    const { name, email, phone, password, roles, assigned_hostel_id, permissions, is_on_duty, duty_status, status } = req.body;
     if (!name || !email || !password) {
         return res.status(400).json({ error: 'Name, email, and password are required' });
     }

@@ -950,14 +950,21 @@ const supabaseDb = {
 
         async getHostelInventory(hostelId, forceFresh = false) {
             const normHostel = this._normalizeHostelId(hostelId);
-            const key = this._getStorageKey(normHostel);
+            let poolId = normHostel;
+            try {
+                const hostelGroupService = require('../services/hostelGroupService');
+                poolId = hostelGroupService.getSharedPoolId(normHostel);
+            } catch (e) {}
+            const key = this._getStorageKey(poolId);
 
             if (forceFresh) {
+                this._memoryHostelInventory.delete(poolId);
                 this._memoryHostelInventory.delete(normHostel);
+                cache.delete(`inventory:hostel:${poolId}`);
                 cache.delete(`inventory:hostel:${normHostel}`);
             }
 
-            return await cache.wrap(`inventory:hostel:${normHostel}`, async () => {
+            return await cache.wrap(`inventory:hostel:${poolId}`, async () => {
                 // 1. Fetch from Supabase app_availability table as authoritative single source of truth
                 const supabase = getSupabaseClient();
                 if (supabase) {
@@ -1043,9 +1050,16 @@ const supabaseDb = {
 
         async setProductStock(hostelId, productId, { stock_left, in_stock, deleted }) {
             const normHostel = this._normalizeHostelId(hostelId);
-            const key = this._getStorageKey(normHostel);
+            let poolId = normHostel;
+            let siblingHostels = [normHostel];
+            try {
+                const hostelGroupService = require('../services/hostelGroupService');
+                poolId = hostelGroupService.getSharedPoolId(normHostel);
+                siblingHostels = hostelGroupService.getSiblingHostels(normHostel);
+            } catch (e) {}
 
-            const inv = await this.getHostelInventory(normHostel, true);
+            const key = this._getStorageKey(poolId);
+            const inv = await this.getHostelInventory(poolId, true);
             const isDeleted = Boolean(deleted);
             const finalStock = isDeleted ? 0 : Math.max(0, parseInt(stock_left !== undefined ? stock_left : 0, 10));
             const finalInStock = isDeleted ? false : (finalStock > 0 && (in_stock !== undefined ? Boolean(in_stock) : true));
@@ -1057,33 +1071,53 @@ const supabaseDb = {
                 updated_at: new Date().toISOString()
             };
 
-            this._memoryHostelInventory.set(normHostel, inv);
+            this._memoryHostelInventory.set(poolId, inv);
+            for (const sib of siblingHostels) {
+                this._memoryHostelInventory.set(sib, inv);
+            }
 
-            // Persist to local file
+            // Persist to local file for pool and all member hostels
             const fileData = this._loadLocalFile();
-            fileData[normHostel] = inv;
+            fileData[poolId] = inv;
+            for (const sib of siblingHostels) {
+                fileData[sib] = inv;
+            }
             this._saveLocalFile(fileData);
 
             // Persist to Supabase app_availability
             const supabase = getSupabaseClient();
             if (supabase) {
+                const upsertRows = [{
+                    id: key,
+                    is_locked: false,
+                    lock_type: 'NONE',
+                    message: JSON.stringify(inv),
+                    updated_at: new Date().toISOString()
+                }];
+                if (poolId !== normHostel) {
+                    for (const sib of siblingHostels) {
+                        upsertRows.push({
+                            id: this._getStorageKey(sib),
+                            is_locked: false,
+                            lock_type: 'NONE',
+                            message: JSON.stringify(inv),
+                            updated_at: new Date().toISOString()
+                        });
+                    }
+                }
                 const { error: upsertErr } = await supabase
                     .from('app_availability')
-                    .upsert([{
-                        id: key,
-                        is_locked: false,
-                        lock_type: 'NONE',
-                        message: JSON.stringify(inv),
-                        updated_at: new Date().toISOString()
-                    }]);
+                    .upsert(upsertRows);
                 if (upsertErr) {
                     throw new Error(`Failed to persist inventory to database: ${upsertErr.message}`);
                 }
             }
 
-            // Keep authoritative cache alive (DO NOT delete from memory!)
-            this._memoryHostelInventory.set(normHostel, inv);
-            cache.set(`inventory:hostel:${normHostel}`, inv, 30000);
+            // Cache invalidation & updates across pool and all sibling hostels
+            cache.set(`inventory:hostel:${poolId}`, inv, 30000);
+            for (const sib of siblingHostels) {
+                cache.set(`inventory:hostel:${sib}`, inv, 30000);
+            }
             cache.invalidateProducts();
             cache.clearByPrefix('home:base:');
 
@@ -1092,16 +1126,24 @@ const supabaseDb = {
                 stock_left: finalStock,
                 in_stock: finalInStock,
                 deleted: isDeleted,
-                hostel_id: normHostel
+                hostel_id: normHostel,
+                shared_pool_id: poolId
             };
         },
 
         async batchUpdateStock(hostelId, updates = []) {
             if (!Array.isArray(updates) || updates.length === 0) return;
             const normHostel = this._normalizeHostelId(hostelId);
-            const key = this._getStorageKey(normHostel);
+            let poolId = normHostel;
+            let siblingHostels = [normHostel];
+            try {
+                const hostelGroupService = require('../services/hostelGroupService');
+                poolId = hostelGroupService.getSharedPoolId(normHostel);
+                siblingHostels = hostelGroupService.getSiblingHostels(normHostel);
+            } catch (e) {}
 
-            const inv = await this.getHostelInventory(normHostel);
+            const key = this._getStorageKey(poolId);
+            const inv = await this.getHostelInventory(poolId);
             for (const u of updates) {
                 if (u.productId) {
                     const finalStock = Math.max(0, parseInt(u.newStock, 10));
@@ -1113,32 +1155,52 @@ const supabaseDb = {
                 }
             }
 
-            this._memoryHostelInventory.set(normHostel, inv);
+            this._memoryHostelInventory.set(poolId, inv);
+            for (const sib of siblingHostels) {
+                this._memoryHostelInventory.set(sib, inv);
+            }
 
-            // Persist to local file
+            // Persist to local file for pool and sibling hostels
             const fileData = this._loadLocalFile();
-            fileData[normHostel] = inv;
+            fileData[poolId] = inv;
+            for (const sib of siblingHostels) {
+                fileData[sib] = inv;
+            }
             this._saveLocalFile(fileData);
 
             // Persist to Supabase app_availability
             const supabase = getSupabaseClient();
             if (supabase) {
+                const upsertRows = [{
+                    id: key,
+                    is_locked: false,
+                    lock_type: 'NONE',
+                    message: JSON.stringify(inv),
+                    updated_at: new Date().toISOString()
+                }];
+                if (poolId !== normHostel) {
+                    for (const sib of siblingHostels) {
+                        upsertRows.push({
+                            id: this._getStorageKey(sib),
+                            is_locked: false,
+                            lock_type: 'NONE',
+                            message: JSON.stringify(inv),
+                            updated_at: new Date().toISOString()
+                        });
+                    }
+                }
                 const { error: upsertErr } = await supabase
                     .from('app_availability')
-                    .upsert([{
-                        id: key,
-                        is_locked: false,
-                        lock_type: 'NONE',
-                        message: JSON.stringify(inv),
-                        updated_at: new Date().toISOString()
-                    }]);
+                    .upsert(upsertRows);
                 if (upsertErr) {
                     throw new Error(`Failed to batch persist inventory to database: ${upsertErr.message}`);
                 }
             }
 
-            this._memoryHostelInventory.set(normHostel, inv);
-            cache.set(`inventory:hostel:${normHostel}`, inv, 30000);
+            cache.set(`inventory:hostel:${poolId}`, inv, 30000);
+            for (const sib of siblingHostels) {
+                cache.set(`inventory:hostel:${sib}`, inv, 30000);
+            }
             cache.invalidateProducts();
             cache.clearByPrefix('home:base:');
         }
@@ -1547,7 +1609,12 @@ const supabaseDb = {
 
         async withHostelInventoryMutex(hostelId, fn) {
             const norm = String(hostelId || 'BH-13').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-            const lockKey = `inv_lock:${norm}`;
+            let poolId = norm;
+            try {
+                const hostelGroupService = require('../services/hostelGroupService');
+                poolId = hostelGroupService.getSharedPoolId(norm);
+            } catch (e) {}
+            const lockKey = `inv_lock:${poolId}`;
             const prevLock = this._hostelInventoryLocks.get(lockKey) || Promise.resolve();
             let release;
             const currentLock = new Promise(resolve => { release = resolve; });
@@ -1795,12 +1862,25 @@ const supabaseDb = {
                 cache.invalidateOrders();
                 cache.invalidateProducts();
 
+                let allGroupStockUpdates = [];
+                try {
+                    const hostelGroupService = require('../services/hostelGroupService');
+                    const siblings = hostelGroupService.getSiblingHostels(cleanHostel);
+                    for (const sib of siblings) {
+                        for (const su of stockUpdates) {
+                            allGroupStockUpdates.push({ ...su, hostel_id: sib });
+                        }
+                    }
+                } catch (e) {
+                    allGroupStockUpdates = stockUpdates;
+                }
+
                 return {
                     ...orderData,
                     hostel_id: cleanHostel,
                     delivery_address: orderAddr,
                     items: formattedItems.map(it => ({ ...it, price: it.unit_price })),
-                    stockUpdates
+                    stockUpdates: allGroupStockUpdates.length > 0 ? allGroupStockUpdates : stockUpdates
                 };
             });
         },
@@ -4134,11 +4214,13 @@ const supabaseDb = {
                 let lastLogin = null;
                 let assignedHostelId = null;
 
+                let permissions = {};
                 if (a.dob && typeof a.dob === 'string' && a.dob.startsWith('{')) {
                     try {
                         const meta = JSON.parse(a.dob);
                         if (Array.isArray(meta.roles)) roles = meta.roles;
                         if (meta.assigned_hostel_id) assignedHostelId = meta.assigned_hostel_id;
+                        if (meta.permissions && typeof meta.permissions === 'object') permissions = meta.permissions;
                         lastLogin = meta.last_login || null;
                     } catch (e) {}
                 }
@@ -4161,6 +4243,7 @@ const supabaseDb = {
                     email: a.email,
                     phone: a.phone || '',
                     roles,
+                    permissions,
                     is_owner: isOwner,
                     assigned_hostel_id: isOwner ? null : (assignedHostelId || null),
                     account_status: a.account_status || 'ACTIVE',
@@ -4170,7 +4253,7 @@ const supabaseDb = {
             });
         },
 
-        async createStaff({ name, email, phone, password, roles, assigned_hostel_id }) {
+        async createStaff({ name, email, phone, password, roles, assigned_hostel_id, permissions }) {
             const supabase = getSupabaseClient();
             if (!supabase) throw new Error('Database client unavailable');
 
@@ -4181,6 +4264,7 @@ const supabaseDb = {
             const dobMeta = JSON.stringify({
                 roles: assignedRoles,
                 assigned_hostel_id: cleanHostel,
+                permissions: permissions || {},
                 last_login: null
             });
 
@@ -4313,10 +4397,12 @@ const supabaseDb = {
                     finalHostel = (updates.assigned_hostel_id && updates.assigned_hostel_id !== 'ALL') ? updates.assigned_hostel_id.trim().toUpperCase() : null;
                 }
 
+                const updatedPermissions = updates.permissions !== undefined ? updates.permissions : (currentMeta.permissions || {});
                 payload.dob = JSON.stringify({
                     ...currentMeta,
                     roles: newRoles,
-                    assigned_hostel_id: isOwner ? null : finalHostel
+                    assigned_hostel_id: isOwner ? null : finalHostel,
+                    permissions: updatedPermissions
                 });
 
                 if (finalHostel && newRoles.includes('store_manager')) {
