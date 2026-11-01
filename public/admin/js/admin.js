@@ -513,7 +513,7 @@ function applyAdminRolePermissions(profile) {
     document.querySelectorAll('#desktop-nav .nav-item, .nav-item, .owner-only-nav, [data-required-role]').forEach(btn => {
         const req = btn.dataset?.requiredRole || '';
         const view = btn.dataset?.view || '';
-        const isOwnerOnly = btn.classList.contains('owner-only-nav') || req === 'owner' || view === 'employees' || view === 'staff' || view === 'hostels' || view === 'daily-revenue' || view === 'backup' || view === 'advertisements' || view === 'offers-charges';
+        const isOwnerOnly = btn.classList.contains('owner-only-nav') || req === 'owner' || view === 'hostel-groups' || view === 'employees' || view === 'staff' || view === 'hostels' || view === 'daily-revenue' || view === 'backup' || view === 'advertisements' || view === 'offers-charges';
 
         if (isOwnerOnly && !isOwner) {
             btn.classList.add('hidden');
