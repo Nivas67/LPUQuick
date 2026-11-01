@@ -385,9 +385,10 @@
                             <span>How to Install on Android:</span>
                         </div>
                         <ol class="list-decimal list-inside space-y-1 text-slate-600 dark:text-slate-300 pl-0.5 text-[10.5px]">
-                            <li>Delete any old <b>75 kB</b> file from phone Downloads.</li>
+                            <li>If an earlier version is already on your phone, <b>uninstall it first</b>.</li>
                             <li>Tap <b>Download Android APK (~6.2 MB)</b> above.</li>
-                            <li>If prompted, tap <b>Settings → Allow from this source</b>, then tap <b>Install</b>!</li>
+                            <li>Open the download, tap <b>Settings → Allow from this source</b> (if asked), then <b>Install</b>!</li>
+                            <li>If Play Protect warns, tap <b>"More details" → "Install anyway"</b>.</li>
                         </ol>
                     </div>
                 </div>
