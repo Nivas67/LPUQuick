@@ -2238,6 +2238,132 @@
                 </div>
             </div>
 
+            <!-- ================= VIEW: HOSTEL GROUP MANAGEMENT (OWNER ONLY) ================= -->
+            <div id="view-hostel-groups" class="space-y-6 max-w-[1440px] mx-auto hidden">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-[#0066cc] border border-blue-300 uppercase tracking-wider">
+                                <span class="material-symbols-outlined text-xs">hub</span> Multi-Hostel Operations
+                            </span>
+                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 uppercase tracking-wider">
+                                <span class="material-symbols-outlined text-xs">sync_alt</span> Shared Inventory System
+                            </span>
+                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 uppercase tracking-wider">
+                                <span class="material-symbols-outlined text-xs">shield_person</span> Owner Privileges
+                            </span>
+                        </div>
+                        <h2 class="text-2xl font-bold text-[#181c1f] flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[#0066cc]">hub</span>
+                            <span>Hostel Group Management & Shared Inventory</span>
+                        </h2>
+                        <p class="text-xs text-[#5c5f60]">Combine multiple hostels into shared operational clusters. Hostels in a shared group operate from a single unified stock pool with atomic concurrency and multi-admin delegation.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="loadHostelGroups()"
+                            class="p-2 border border-[#DADCE0] rounded-xl bg-white hover:bg-[#f1f4f7] text-[#3c4043]"
+                            title="Reload Groups">
+                            <span class="material-symbols-outlined text-lg">refresh</span>
+                        </button>
+                        <button onclick="openHostelGroupModal()"
+                            class="px-4 py-2.5 bg-[#0066cc] hover:bg-[#0052a3] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all active:scale-95">
+                            <span class="material-symbols-outlined text-base">add</span>
+                            <span>Create Hostel Group</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Bento Stat Cards -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-blue-100 text-[#0066cc] flex items-center justify-center">
+                            <span class="material-symbols-outlined text-xl">hub</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60]">Hostel Groups</p>
+                            <h4 class="text-xl font-bold text-[#181c1f]" id="stat-groups-total">0</h4>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-xl">sync_alt</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60]">Shared Inventory Pools</p>
+                            <h4 class="text-xl font-bold text-emerald-800" id="stat-groups-shared">0</h4>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-xl">domain_disabled</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60]">Independent Groups</p>
+                            <h4 class="text-xl font-bold text-indigo-700" id="stat-groups-independent">0</h4>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-xl">domain</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60]">Hostels in Groups</p>
+                            <h4 class="text-xl font-bold text-purple-700" id="stat-groups-hostels">0</h4>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filters & Search Toolbar -->
+                <div class="glass-panel p-3.5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                    <div class="flex items-center gap-2 flex-1 max-w-md">
+                        <div class="relative w-full">
+                            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">search</span>
+                            <input type="text" id="filter-hostel-groups-search" oninput="filterHostelGroupsTable()"
+                                placeholder="Search by group name, code, or member hostel..."
+                                class="w-full pl-9 pr-3 py-2 bg-white border border-[#DADCE0] rounded-xl text-xs focus:border-[#0066cc] outline-none">
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <select id="filter-hostel-groups-mode" onchange="filterHostelGroupsTable()"
+                            class="bg-white border border-[#DADCE0] rounded-xl px-3 py-2 text-xs font-semibold text-[#3c4043] focus:border-[#0066cc] outline-none">
+                            <option value="all">All Inventory Modes</option>
+                            <option value="shared">⚡ Shared Inventory Mode</option>
+                            <option value="independent">🏢 Independent Inventory Mode</option>
+                        </select>
+                        <select id="filter-hostel-groups-status" onchange="filterHostelGroupsTable()"
+                            class="bg-white border border-[#DADCE0] rounded-xl px-3 py-2 text-xs font-semibold text-[#3c4043] focus:border-[#0066cc] outline-none">
+                            <option value="all">All Statuses</option>
+                            <option value="active">Active Groups</option>
+                            <option value="inactive">Inactive Groups</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Hostel Groups Table -->
+                <div class="glass-panel overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="border-b border-[#DADCE0] bg-[#f7fafd] text-[#5c5f60] font-semibold uppercase text-[11px]">
+                                    <th class="p-4">Group Info</th>
+                                    <th class="p-4">Inventory Mode</th>
+                                    <th class="p-4">Member Hostels</th>
+                                    <th class="p-4">Assigned Admins</th>
+                                    <th class="p-4">Status</th>
+                                    <th class="p-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="hostel-groups-tbody" class="divide-y divide-[#DADCE0]">
+                                <tr>
+                                    <td colspan="6" class="p-6 text-center text-[#5c5f60]">Loading hostel groups...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            
             <!-- ================= VIEW: MANAGE ADMINS (OWNER ONLY) ================= -->
             <div id="view-staff" class="space-y-6 max-w-[1440px] mx-auto hidden">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -4636,6 +4762,143 @@
         </div>
     </div>
 
+    <!-- ================= MODAL: CREATE / EDIT HOSTEL GROUP ================= -->
+    <div id="modal-hostel-group" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-[#DADCE0] space-y-4 max-h-[92vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-[#DADCE0] pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[#0066cc] text-xl">hub</span>
+                    <h3 class="font-bold text-base text-[#181c1f]" id="modal-hostel-group-title">Create Hostel Group</h3>
+                </div>
+                <button onclick="closeHostelGroupModal()" class="text-[#5c5f60] hover:text-[#181c1f]">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form id="form-hostel-group" onsubmit="submitHostelGroupForm(event)" class="space-y-4 text-xs">
+                <input type="hidden" id="group-form-id" value="">
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="font-semibold text-[#262a2d] block mb-1">Group Name *</label>
+                        <input type="text" id="group-form-name" required placeholder="e.g. Group A / North Campus"
+                            class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#0066cc] outline-none text-xs bg-white font-medium">
+                    </div>
+                    <div>
+                        <label class="font-semibold text-[#262a2d] block mb-1">Group Code *</label>
+                        <input type="text" id="group-form-code" required placeholder="e.g. GROUP-A"
+                            class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#0066cc] outline-none text-xs bg-white font-mono uppercase">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="font-semibold text-[#262a2d] block mb-1">Description</label>
+                    <textarea id="group-form-desc" rows="2" placeholder="Optional notes about this cluster of hostels..."
+                        class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#0066cc] outline-none text-xs bg-white"></textarea>
+                </div>
+
+                <!-- Inventory Mode Radio Cards -->
+                <div>
+                    <label class="font-semibold text-[#262a2d] block mb-2">Inventory Management Mode *</label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label class="border-2 border-emerald-500 bg-emerald-50/50 p-3 rounded-xl cursor-pointer flex items-start gap-2.5 transition-all group-mode-card" id="card-mode-shared">
+                            <input type="radio" name="group-inventory-mode" value="shared" checked onchange="updateGroupModeCardStyles()" class="mt-0.5 text-emerald-600 focus:ring-emerald-500">
+                            <div>
+                                <div class="font-bold text-emerald-900 flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-base">sync_alt</span>
+                                    <span>Shared Inventory</span>
+                                </div>
+                                <p class="text-[11px] text-emerald-700/90 mt-0.5 leading-snug">All member hostels operate from one shared stock pool in real time. Deductions sync instantly.</p>
+                            </div>
+                        </label>
+                        <label class="border border-[#DADCE0] bg-white p-3 rounded-xl cursor-pointer flex items-start gap-2.5 transition-all group-mode-card" id="card-mode-independent">
+                            <input type="radio" name="group-inventory-mode" value="independent" onchange="updateGroupModeCardStyles()" class="mt-0.5 text-[#0066cc] focus:ring-[#0066cc]">
+                            <div>
+                                <div class="font-bold text-slate-800 flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-base">domain_disabled</span>
+                                    <span>Independent Inventory</span>
+                                </div>
+                                <p class="text-[11px] text-[#5c5f60] mt-0.5 leading-snug">Hostels in this group maintain separate stock pools, while sharing administrative delegation.</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Status Selector -->
+                <div>
+                    <label class="font-semibold text-[#262a2d] block mb-1">Group Status</label>
+                    <select id="group-form-status"
+                        class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#0066cc] outline-none text-xs bg-white font-semibold">
+                        <option value="active">🟢 Active (Operational)</option>
+                        <option value="inactive">🔴 Inactive (Paused - hostels revert to independent)</option>
+                    </select>
+                </div>
+
+                <!-- Member Hostels Checkboxes -->
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="font-semibold text-[#262a2d] flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-sm text-[#0066cc]">domain</span>
+                            <span>Select Member Hostels *</span>
+                            <span id="group-hostel-count-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-[#0066cc]">0 selected</span>
+                        </label>
+                        <div class="space-x-2 text-[11px]">
+                            <button type="button" onclick="toggleAllGroupHostels(true)" class="text-[#0066cc] hover:underline font-bold">Select All</button>
+                            <span class="text-gray-300">|</span>
+                            <button type="button" onclick="toggleLiveGroupHostelsOnly()" class="text-emerald-700 hover:underline font-bold">🟢 Live Stores Only</button>
+                            <span class="text-gray-300">|</span>
+                            <button type="button" onclick="toggleAllGroupHostels(false)" class="text-gray-500 hover:underline">Clear</button>
+                        </div>
+                    </div>
+
+                    <!-- Filter pills -->
+                    <div class="flex items-center gap-1.5 pb-0.5 overflow-x-auto text-[11px]">
+                        <button type="button" onclick="filterModalHostelsList('all')" id="btn-modal-filter-all" class="px-2.5 py-1 rounded-lg font-bold bg-[#0066cc] text-white">All Campus Hostels</button>
+                        <button type="button" onclick="filterModalHostelsList('live')" id="btn-modal-filter-live" class="px-2.5 py-1 rounded-lg font-medium bg-white text-emerald-800 border border-emerald-300 hover:bg-emerald-50">🟢 Live Stores</button>
+                        <button type="button" onclick="filterModalHostelsList('bh')" id="btn-modal-filter-bh" class="px-2.5 py-1 rounded-lg font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50">Boys (BH)</button>
+                        <button type="button" onclick="filterModalHostelsList('gh')" id="btn-modal-filter-gh" class="px-2.5 py-1 rounded-lg font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50">Girls (GH)</button>
+                    </div>
+
+                    <div id="group-hostels-checklist" class="border border-[#DADCE0] rounded-xl p-3 max-h-56 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2 bg-[#f7fafd]">
+                        <!-- Populated dynamically with live status and assigned managers -->
+                    </div>
+                    <p class="text-[10px] text-[#5c5f60] mt-1">Hostels selected here will share inventory and orders under this cluster.</p>
+                </div>
+
+                <!-- Assigned Admins Checkboxes -->
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="font-semibold text-[#262a2d]">Assign Store Managers / Admins</label>
+                        <div class="space-x-2 text-[11px]">
+                            <button type="button" onclick="toggleAllGroupAdmins(true)" class="text-[#0066cc] hover:underline font-bold">Select All</button>
+                            <span class="text-gray-300">|</span>
+                            <button type="button" onclick="toggleAllGroupAdmins(false)" class="text-gray-500 hover:underline">Clear</button>
+                        </div>
+                    </div>
+                    <div id="group-admins-checklist" class="border border-[#DADCE0] rounded-xl p-3 max-h-40 overflow-y-auto space-y-1.5 bg-[#f7fafd]">
+                        <!-- Populated dynamically -->
+                    </div>
+                    <p class="text-[10px] text-[#5c5f60] mt-1">Assigned admins will have operational access to all member hostels in this group.</p>
+                </div>
+
+                <div id="group-form-error" class="hidden p-3 rounded-xl bg-rose-50 text-[#ba1a1a] text-xs font-semibold"></div>
+
+                <div class="flex justify-end gap-2 pt-2 border-t border-[#DADCE0]">
+                    <button type="button" onclick="closeHostelGroupModal()"
+                        class="px-4 py-2 border border-[#DADCE0] rounded-xl hover:bg-[#f1f4f7] text-[#3c4043] font-medium transition-all">
+                        Cancel
+                    </button>
+                    <button type="submit" id="btn-save-hostel-group"
+                        class="px-5 py-2 bg-[#0066cc] hover:bg-[#0052a3] text-white rounded-xl font-bold flex items-center gap-1.5 shadow-sm transition-all active:scale-95">
+                        <span class="material-symbols-outlined text-base">check</span>
+                        <span>Save Hostel Group</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    
     <!-- ================= MODAL: CUSTOMER DETAILS & ORDER HISTORY ================= -->
     <div id="modal-customer-details" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-[#DADCE0] space-y-4 max-h-[92vh] overflow-y-auto">
@@ -5210,7 +5473,7 @@
     <div id="partner-modal-container"></div>
 
     <!-- Application Script Reference -->
-    <script src="/admin/js/admin.js?v=20261102_hostel_groups_v5"></script>
+    <script src="/admin/js/admin.js?v=20261102_hostel_groups_v6"></script>
 
 
 

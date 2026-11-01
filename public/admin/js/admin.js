@@ -723,6 +723,7 @@ function switchView(viewName) {
             'backup': ['owner'],
             'settings': ['owner'],
             'hostels': ['owner'],
+            'hostel-groups': ['owner'],
             'offers-charges': ['owner'],
             'payment-management': ['owner'],
             'upi-config': ['owner']
@@ -778,6 +779,7 @@ function switchView(viewName) {
         'backup': 'Backup & Disaster Recovery (0 - 100)',
         'settings': 'Store Settings',
         'hostels': 'Campus Hostels & Dark Stores (Owner Only)',
+        'hostel-groups': 'Hostel Group Management & Shared Inventory (Owner Only)',
         'employees': 'Employees & Dark Store Roster',
         'offers-charges': 'Offers & Charges — Global Pricing & Offer Rules (Owner Only)',
         'payment-management': 'Payment & Refund Management (Super Admin Only)',
