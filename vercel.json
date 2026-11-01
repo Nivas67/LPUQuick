@@ -209,6 +209,18 @@
       "destination": "/api/index.js"
     },
     {
+      "source": "/download/(.*)",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/download",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/downloads/(.*)",
+      "destination": "/api/index.js"
+    },
+    {
       "source": "/uploads/(.*)",
       "destination": "/public/uploads/$1"
     },

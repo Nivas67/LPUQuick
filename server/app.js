@@ -203,6 +203,24 @@ app.use('/api/hostels', require('./routes/hostels'));
 app.use('/api/admin/sync', require('./routes/sync'));
 app.use('/api/notifications', require('./routes/notifications'));
 
+// Native Android APK Download Endpoints
+app.get(['/download/apk', '/download/LPUQuick.apk', '/downloads/LPUQuick.apk', '/api/app/download-apk', '/api/download/apk', '/api/download/LPUQuick.apk'], (req, res) => {
+    const fs = require('fs');
+    const localApkPath = path.join(__dirname, '..', 'public', 'downloads', 'LPUQuick.apk');
+    const clientApkPath = path.join(__dirname, '..', 'client', 'downloads', 'LPUQuick.apk');
+    const rootApkPath = path.join(__dirname, '..', 'public', 'LPUQuick.apk');
+    const targetApk = fs.existsSync(localApkPath) ? localApkPath : (fs.existsSync(clientApkPath) ? clientApkPath : (fs.existsSync(rootApkPath) ? rootApkPath : null));
+
+    if (targetApk) {
+        res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+        res.setHeader('Content-Disposition', 'attachment; filename="LPUQuick.apk"');
+        return res.sendFile(targetApk);
+    }
+
+    // Direct fallback to GitHub Release download URL
+    return res.redirect('https://github.com/Nivas67/LPUQuick/releases/latest/download/LPUQuick.apk');
+});
+
 // Dedicated 404 Shield for all unhandled /api/* endpoints
 // Returns ultra-light JSON (<60 bytes), caches 404 at edge CDN, and records 404 probe against attacker IP
 app.all('/api/*', (req, res) => {
@@ -213,23 +231,6 @@ app.all('/api/*', (req, res) => {
         error: 'API endpoint not found',
         code: 'NOT_FOUND'
     });
-});
-
-// Native Android APK Download Endpoints
-app.get(['/download/apk', '/download/LPUQuick.apk', '/downloads/LPUQuick.apk', '/api/app/download-apk'], (req, res) => {
-    const fs = require('fs');
-    const localApkPath = path.join(__dirname, '..', 'public', 'downloads', 'LPUQuick.apk');
-    const rootApkPath = path.join(__dirname, '..', 'public', 'LPUQuick.apk');
-    const targetApk = fs.existsSync(localApkPath) ? localApkPath : (fs.existsSync(rootApkPath) ? rootApkPath : null);
-
-    if (targetApk) {
-        res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-        res.setHeader('Content-Disposition', 'attachment; filename="LPUQuick.apk"');
-        return res.sendFile(targetApk);
-    }
-
-    // Direct fallback to GitHub Release download URL
-    return res.redirect('https://github.com/Nivas67/LPUQuick/releases/latest/download/LPUQuick.apk');
 });
 
 // Mobile phone simulator for Admin Dashboard

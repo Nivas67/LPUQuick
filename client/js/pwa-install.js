@@ -213,12 +213,22 @@
         document.body.insertAdjacentHTML('beforeend', modalHtml);
     }
 
-    // Native APK Downloader
-    window.downloadAndroidApk = function () {
-        if (typeof window.showToast === 'function') {
-            window.showToast('📥 Downloading LPUQuick.apk... Once downloaded, tap to install on your phone!', 'success');
+    // Native APK Downloader (Safe download that NEVER navigates the active tab away)
+    window.downloadAndroidApk = function (event) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
         }
-        window.location.href = '/download/LPUQuick.apk';
+        if (typeof window.showToast === 'function') {
+            window.showToast('📥 Downloading LPUQuick.apk... Tap to install once complete!', 'success');
+        }
+        const a = document.createElement('a');
+        a.href = '/api/app/download-apk';
+        a.download = 'LPUQuick.apk';
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => a.remove(), 1000);
     };
 
     // Open in external Google Chrome (Bypasses WhatsApp / Instagram in-app webview restriction)
@@ -245,12 +255,17 @@
                     }
                 }
                 deferredPrompt = null;
+                return;
             } catch (err) {
                 console.warn('[PWA] Prompt execution note:', err);
-                window.downloadAndroidApk();
             }
+        }
+        // If deferredPrompt is not yet ready, reveal the 1-Tap Chrome guide inside the modal
+        const guideEl = document.getElementById('android-chrome-step-guide');
+        if (guideEl) {
+            guideEl.classList.remove('hidden');
+            guideEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         } else {
-            // Direct APK download fallback
             window.downloadAndroidApk();
         }
     };
@@ -324,8 +339,30 @@
                         <svg class="w-5 h-5 text-white/80 group-hover:translate-x-0.5 transition-transform shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" /></svg>
                     </button>
 
+                    <!-- Chrome Direct 3-Step Walkthrough (Revealed if deferredPrompt isn't ready) -->
+                    <div id="android-chrome-step-guide" class="hidden bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-3.5 text-xs text-slate-800 dark:text-slate-200 space-y-2.5 animate-fade-in">
+                        <div class="flex items-center gap-2 font-black text-emerald-700 dark:text-emerald-400">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+                            <span>1-Tap Install in Google Chrome:</span>
+                        </div>
+                        <div class="space-y-2 text-[11px] text-slate-600 dark:text-slate-300">
+                            <div class="flex items-start gap-2">
+                                <span class="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[9px] font-black shrink-0 mt-0.5">1</span>
+                                <span>Tap the <b>Chrome menu (⋮)</b> in top right corner.</span>
+                            </div>
+                            <div class="flex items-start gap-2">
+                                <span class="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[9px] font-black shrink-0 mt-0.5">2</span>
+                                <span>Tap <b>"Install app"</b> or <b>"Add to Home screen"</b>.</span>
+                            </div>
+                            <div class="flex items-start gap-2">
+                                <span class="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[9px] font-black shrink-0 mt-0.5">3</span>
+                                <span>Done! LPUQuick appears in your <b>App Drawer</b>.</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Option 2: Download Standalone Android APK File -->
-                    <a href="/download/LPUQuick.apk" onclick="window.downloadAndroidApk()" class="w-full text-left p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-750 text-slate-900 dark:text-white shadow-sm active:scale-[0.98] transition-all cursor-pointer flex items-center justify-between gap-3 border border-slate-300 dark:border-slate-700 group block no-underline">
+                    <button type="button" onclick="window.downloadAndroidApk(event)" class="w-full text-left p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-750 text-slate-900 dark:text-white shadow-sm active:scale-[0.98] transition-all cursor-pointer flex items-center justify-between gap-3 border border-slate-300 dark:border-slate-700 group">
                         <div class="flex items-center gap-3 min-w-0">
                             <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center flex-shrink-0 shadow-md">
                                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0002 0-.5515.4482-.9997.9993-.9997.5516 0 .9998.4482.9998.9997 0 .5516-.4482 1.0002-.9998 1.0002m-11.046 0c-.5511 0-.9993-.4486-.9993-1.0002 0-.5515.4482-.9997.9993-.9997.5516 0 .9998.4482.9998.9997 0 .5516-.4482 1.0002-.9998 1.0002m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.4116 13.8533 8.082 12 8.082s-3.5902.3296-5.1368.8677L4.841 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/></svg>
@@ -341,7 +378,7 @@
                             </div>
                         </div>
                         <svg class="w-5 h-5 text-slate-400 group-hover:translate-x-0.5 transition-transform shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                    </a>
+                    </button>
                 </div>
 
                 <!-- 3-Step APK Installation Guide (Accordion / Help) -->
