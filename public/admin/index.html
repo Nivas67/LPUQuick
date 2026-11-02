@@ -195,7 +195,7 @@
                 <span class="flex-1 font-bold text-[#181c1f]">Employees</span>
                 <span class="text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Owner</span>
             </button>
-            <button onclick="switchView('food-dept')" data-view="food-dept" data-required-role="owner,store_manager"
+            <button onclick="switchView('food-dept')" data-view="food-dept" data-required-role="owner,store_manager,cook,food_department,food"
                 class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined text-amber-500">soup_kitchen</span>
                 <span class="flex-1 font-bold text-[#181c1f]">Food Department</span>
@@ -487,6 +487,79 @@
                         <p class="text-[8px] text-[#5c5f60] mt-1 font-medium" id="dash-daily-revenue-meta">0 delivered today</p>
                     </div>
                 </div>
+
+                <!-- Food Department Live Kitchen Hub (Displayed for Food Admins & Cooks) -->
+                <div id="dash-food-dept-card" class="hidden glass-panel p-5 rounded-2xl border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/60 via-white to-orange-50/40 shadow-sm space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-200/80 pb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-xl shadow-sm">
+                                🍲
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <h3 class="font-extrabold text-base text-[#181c1f]">Food Department • Kitchen Queue &amp; Preparation</h3>
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white animate-pulse">LIVE KITCHEN</span>
+                                </div>
+                                <p class="text-xs text-[#5c5f60]">Assigned food preparation orders, kitchen workflow, and cooking status</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <button type="button" onclick="switchView('food-dept')" class="px-3 py-1.5 rounded-xl bg-white hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer">
+                                <span class="material-symbols-outlined text-sm">tune</span>
+                                <span>Full Kitchen Hub</span>
+                            </button>
+                            <a href="/food" target="_blank" class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
+                                <span class="material-symbols-outlined text-sm">open_in_new</span>
+                                <span>Cook Terminal (/food)</span>
+                            </a>
+                            <button type="button" onclick="loadDashboardFoodQueue()" class="p-1.5 border border-amber-300 rounded-xl bg-white hover:bg-amber-100 text-amber-800" title="Refresh Kitchen Queue">
+                                <span class="material-symbols-outlined text-sm">refresh</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Kitchen Quick Status Bar -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div class="bg-white/90 p-3 rounded-xl border border-amber-200">
+                            <p class="text-[10px] font-semibold text-[#5c5f60] uppercase">Active In Kitchen</p>
+                            <p class="text-lg font-black text-amber-700" id="dash-food-stat-active">0</p>
+                        </div>
+                        <div class="bg-white/90 p-3 rounded-xl border border-orange-200">
+                            <p class="text-[10px] font-semibold text-[#5c5f60] uppercase">Cooking Right Now</p>
+                            <p class="text-lg font-black text-orange-600" id="dash-food-stat-cooking">0</p>
+                        </div>
+                        <div class="bg-white/90 p-3 rounded-xl border border-emerald-200">
+                            <p class="text-[10px] font-semibold text-[#5c5f60] uppercase">Ready for Pickup</p>
+                            <p class="text-lg font-black text-emerald-700" id="dash-food-stat-ready">0</p>
+                        </div>
+                        <div class="bg-white/90 p-3 rounded-xl border border-blue-200">
+                            <p class="text-[10px] font-semibold text-[#5c5f60] uppercase">Today's Kitchen Total</p>
+                            <p class="text-lg font-black text-blue-700" id="dash-food-stat-total">0</p>
+                        </div>
+                    </div>
+
+                    <!-- Kitchen Orders Queue on Dashboard -->
+                    <div class="overflow-x-auto rounded-xl border border-amber-200 bg-white">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="border-b border-amber-200 bg-amber-50/80 text-amber-900 font-bold uppercase text-[10px]">
+                                    <th class="p-3">Order ID</th>
+                                    <th class="p-3">Student / Hostel Room</th>
+                                    <th class="p-3">Quick's Instant Food Items</th>
+                                    <th class="p-3">Assigned Chef</th>
+                                    <th class="p-3">Kitchen Status</th>
+                                    <th class="p-3 text-right">Quick Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dash-food-orders-tbody" class="divide-y divide-amber-100">
+                                <tr>
+                                    <td colspan="6" class="p-6 text-center text-[#5c5f60]">Loading food department queue...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
 
                 <!-- Financial Information & PIN Security Banner -->
                 <div class="glass-panel p-5 mb-6 border border-emerald-500/20 bg-gradient-to-r from-emerald-500/5 via-white to-white dark:via-slate-900 dark:to-slate-900 relative overflow-hidden shadow-sm hidden"
@@ -1141,6 +1214,12 @@
                             <button onclick="setOrderStatusFilter('all')" data-status="all"
                                 class="order-tab-btn shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full bg-[#3c4043] text-white text-xs font-semibold">All
                                 Orders</button>
+                            <button onclick="setOrderStatusFilter('food_orders')" data-status="food_orders"
+                                class="order-tab-btn shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer">
+                                <span class="material-symbols-outlined text-sm text-amber-600">restaurant</span>
+                                <span>Quick's Instant Food</span>
+                                <span id="badge-food-orders-count" class="px-1.5 py-0.2 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] font-black">0</span>
+                            </button>
                             <button onclick="setOrderStatusFilter('delivered')" data-status="delivered"
                                 class="order-tab-btn shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium flex items-center gap-1.5">
                                 <span>Delivery Success</span>
@@ -2678,7 +2757,7 @@
                         </a>
                         <button type="button" onclick="openProductModalForFood()" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white text-xs font-bold shadow-md shadow-orange-500/20 transition-all flex items-center gap-1.5 cursor-pointer">
                             <span class="material-symbols-outlined text-sm">add_circle</span>
-                            <span>Add Instant Food Item</span>
+                            <span>Add Quick's Instant Food Item</span>
                         </button>
                         <button onclick="loadFoodDeptAdmin()"
                             class="p-2 border border-[#DADCE0] rounded-xl bg-white hover:bg-[#f1f4f7] text-[#3c4043]"
@@ -2728,6 +2807,105 @@
                     </div>
                 </div>
 
+
+                <!-- ================= SECTION: QUICK'S INSTANT FOOD PRODUCTS & STOCK ================= -->
+                <div class="glass-panel overflow-hidden">
+                    <div class="p-4 border-b border-[#DADCE0] flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-amber-50/80 via-orange-50/50 to-amber-50/30">
+                        <div>
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-500 text-white uppercase tracking-wider shadow-2xs">
+                                    <span class="material-symbols-outlined text-xs">restaurant</span> Fresh Kitchen
+                                </span>
+                                <span id="food-stock-total-badge" class="text-[11px] font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">0 Products</span>
+                            </div>
+                            <h3 class="font-bold text-base text-[#181c1f]">Quick's Instant Food Catalog &amp; Live Stock</h3>
+                            <p class="text-[11px] text-[#5c5f60]">All freshly cooked meals, noodles, and hot kitchen items. Stock and availability update in real time on the customer storefront.</p>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <div class="relative w-44 sm:w-56">
+                                <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">search</span>
+                                <input type="text" id="food-products-search-input" oninput="filterFoodDeptProducts()" placeholder="Search food items..."
+                                    class="w-full pl-8 pr-3 py-1.5 bg-white border border-[#DADCE0] rounded-xl text-xs focus:border-amber-500 outline-none">
+                            </div>
+                            <select id="food-products-filter-status" onchange="filterFoodDeptProducts()" class="text-xs border border-[#DADCE0] rounded-xl px-2.5 py-1.5 bg-white text-[#181c1f] font-semibold outline-none cursor-pointer">
+                                <option value="all">All Availability</option>
+                                <option value="in_stock">In Stock Only</option>
+                                <option value="low_stock">Low Stock (1-4)</option>
+                                <option value="out_of_stock">Out of Stock</option>
+                            </select>
+                            <button type="button" onclick="openProductModalForFood()"
+                                class="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1 active:scale-95 cursor-pointer">
+                                <span class="material-symbols-outlined text-sm">add_circle</span>
+                                <span>+ Add Food Item</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="border-b border-[#DADCE0] bg-amber-50/50 text-amber-950 font-semibold uppercase text-[11px]">
+                                    <th class="p-3.5">Food Product</th>
+                                    <th class="p-3.5">Subcategory</th>
+                                    <th class="p-3.5">Selling Price</th>
+                                    <th class="p-3.5">MRP</th>
+                                    <th class="p-3.5">Live Stock</th>
+                                    <th class="p-3.5">Availability</th>
+                                    <th class="p-3.5 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="food-products-tbody" class="divide-y divide-[#DADCE0]">
+                                <tr>
+                                    <td colspan="7" class="p-8 text-center text-[#5c5f60]">Loading Quick's Instant Food items...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Live Food Orders Queue (with Reassignment & Quick Status Updates) -->
+                <div class="glass-panel overflow-hidden">
+                    <div class="p-4 border-b border-[#DADCE0] flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#f7fafd]">
+                        <div>
+                            <div class="flex items-center gap-2 mb-0.5">
+                                <h3 class="font-bold text-sm text-[#181c1f]">Quick's Instant Food Orders &amp; Kitchen Queue</h3>
+                                <span id="food-orders-count-badge" class="px-2 py-0.2 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300">0 Total</span>
+                            </div>
+                            <p class="text-[11px] text-[#5c5f60]">Track orders for freshly prepared food. Update status (Placed → Cooking → Ready → Completed) or reassign cooks in real time.</p>
+                        </div>
+                        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5" id="food-orders-status-filters">
+                            <button type="button" onclick="filterFoodOrdersByStatus('all')" data-status="all" class="food-order-filter-btn px-3 py-1 rounded-full text-xs font-bold bg-[#3c4043] text-white cursor-pointer">All (<span id="count-food-all">0</span>)</button>
+                            <button type="button" onclick="filterFoodOrdersByStatus('placed')" data-status="placed" class="food-order-filter-btn px-3 py-1 rounded-full text-xs font-semibold border border-[#DADCE0] text-[#5c5f60] hover:bg-amber-50 hover:text-amber-900 cursor-pointer">Placed (<span id="count-food-placed">0</span>)</button>
+                            <button type="button" onclick="filterFoodOrdersByStatus('preparing')" data-status="preparing" class="food-order-filter-btn px-3 py-1 rounded-full text-xs font-semibold border border-[#DADCE0] text-[#5c5f60] hover:bg-orange-50 hover:text-orange-900 cursor-pointer">Cooking (<span id="count-food-preparing">0</span>)</button>
+                            <button type="button" onclick="filterFoodOrdersByStatus('ready')" data-status="ready" class="food-order-filter-btn px-3 py-1 rounded-full text-xs font-semibold border border-[#DADCE0] text-[#5c5f60] hover:bg-emerald-50 hover:text-emerald-900 cursor-pointer">Ready (<span id="count-food-ready">0</span>)</button>
+                            <button type="button" onclick="filterFoodOrdersByStatus('completed')" data-status="completed" class="food-order-filter-btn px-3 py-1 rounded-full text-xs font-semibold border border-[#DADCE0] text-[#5c5f60] hover:bg-blue-50 hover:text-blue-900 cursor-pointer">Completed (<span id="count-food-completed">0</span>)</button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="border-b border-[#DADCE0] bg-gray-50/80 text-[#5c5f60] font-semibold uppercase text-[11px]">
+                                    <th class="p-3.5">Order ID &amp; Time</th>
+                                    <th class="p-3.5">Customer &amp; Location</th>
+                                    <th class="p-3.5">Food Items &amp; Qty</th>
+                                    <th class="p-3.5">Amount &amp; Pay</th>
+                                    <th class="p-3.5">Assigned Cook</th>
+                                    <th class="p-3.5">Order Status</th>
+                                    <th class="p-3.5 text-right">Update Status / Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="food-orders-admin-tbody" class="divide-y divide-[#DADCE0]">
+                                <tr>
+                                    <td colspan="7" class="p-8 text-center text-[#5c5f60]">Loading food orders...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            
                 <!-- Assignment Strategy Configuration Card -->
                 <div class="glass-panel p-5 rounded-2xl border border-[#DADCE0] space-y-4">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#DADCE0] pb-3">
@@ -2738,7 +2916,7 @@
                                 <p class="text-[11px] text-[#5c5f60]">Configure how orders containing Instant Food products are automatically routed among kitchen staff.</p>
                             </div>
                         </div>
-                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">Instant Food Routing</span>
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">Quick's Instant Food Routing</span>
                     </div>
 
                     <form id="food-config-form" onsubmit="window.saveFoodConfig(event)" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
@@ -2806,39 +2984,7 @@
                     </div>
                 </div>
 
-                <!-- Live Food Orders Queue (with Reassignment) -->
-                <div class="glass-panel overflow-hidden">
-                    <div class="p-4 border-b border-[#DADCE0] flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#f7fafd]">
-                        <div>
-                            <h3 class="font-bold text-sm text-[#181c1f]">Active Food Orders &amp; Kitchen Queue</h3>
-                            <p class="text-[11px] text-[#5c5f60]">Monitor cooking progress, delivery type, and reassign orders if a cook is unavailable</p>
-                        </div>
-                    </div>
-
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-xs border-collapse">
-                            <thead>
-                                <tr class="border-b border-[#DADCE0] bg-gray-50/80 text-[#5c5f60] font-semibold uppercase text-[11px]">
-                                    <th class="p-3.5">Order ID</th>
-                                    <th class="p-3.5">Customer / Hostel</th>
-                                    <th class="p-3.5">Food Items</th>
-                                    <th class="p-3.5">Type &amp; Schedule</th>
-                                    <th class="p-3.5">Assigned Cook</th>
-                                    <th class="p-3.5">Status</th>
-                                    <th class="p-3.5 text-right">Reassign / Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="food-orders-admin-tbody" class="divide-y divide-[#DADCE0]">
-                                <tr>
-                                    <td colspan="7" class="p-8 text-center text-[#5c5f60]">Loading food orders...</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Modal: Reassign Food Order -->
+                <!-- Modal: Reassign Food Order -->
             <div id="modal-reassign-food-order" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
                 <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#DADCE0] space-y-4">
                     <div class="flex justify-between items-center border-b border-[#DADCE0] pb-3">
@@ -4106,7 +4252,8 @@
                         <label class="font-semibold text-[#262a2d] block mb-1">Category *</label>
                         <select id="form-product-category" required onchange="onModalCategoryChange()"
                             class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
-                            <option value="Instant Food">🍜 Instant Food (Kitchen / Cook)</option>
+                            <option value="Quick's Instant Food">🍳 Quick's Instant Food (Fresh Kitchen / Cook)</option>
+                            <option value="Quick's Instant Snacks">🍿 Quick's Instant Snacks (Snacks &amp; Munchies)</option>
                             <option value="Snacks & Beverages">Snacks & Beverages</option>
                             <option value="Grocery">Grocery</option>
                             <option value="Pharmacy">Pharmacy</option>
@@ -5860,7 +6007,98 @@
     <div id="partner-modal-container"></div>
 
     <!-- Application Script Reference -->
-    <script src="/admin/js/admin.js?v=20261102_hostel_groups_v5"></script>
+    <script src="/admin/js/admin.js?v=20261102_food_dept_v3"></script>
+
+    <!-- Food Order Full Receipt Details Modal -->
+    <div id="modal-food-order-details" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-[#DADCE0] p-5 sm:p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-[#DADCE0] pb-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-xl shadow-xs">
+                        🍳
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 class="font-black text-base text-[#181c1f]">Food Order Details</h3>
+                            <span id="modal-fod-status-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">Order Placed</span>
+                        </div>
+                        <p class="text-xs text-[#5c5f60]" id="modal-fod-order-id">#ORD-...</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeFoodOrderDetailModal()" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors cursor-pointer">
+                    <span class="material-symbols-outlined text-lg">close</span>
+                </button>
+            </div>
+
+            <!-- Customer & Room Information -->
+            <div class="p-3.5 rounded-2xl bg-[#f7fafd] border border-[#DADCE0] space-y-2">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="font-black text-xs text-[#181c1f]" id="modal-fod-customer-name">Student Name</p>
+                        <p class="text-[11px] text-[#5c5f60]" id="modal-fod-customer-contact">📱 +91 ...</p>
+                    </div>
+                    <div class="text-right">
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-blue-50 text-[#0066cc] border border-blue-200" id="modal-fod-hostel-room">
+                            🏢 BH-13 • Room 402
+                        </span>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between text-[11px] text-[#5c5f60] pt-1.5 border-t border-gray-200/60">
+                    <span>Order Date &amp; Time: <strong class="text-[#181c1f]" id="modal-fod-datetime">--</strong></span>
+                    <span id="modal-fod-payment-badge" class="font-bold text-emerald-700">Cash on Delivery (Pending)</span>
+                </div>
+            </div>
+
+            <!-- Special Customer Cooking Instructions -->
+            <div class="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-1">
+                <p class="text-[10px] font-extrabold uppercase text-amber-800 tracking-wider flex items-center gap-1">
+                    <span>📝</span> Special Cooking Instructions
+                </p>
+                <p class="text-xs font-bold text-slate-800 italic" id="modal-fod-instructions">None</p>
+            </div>
+
+            <!-- Ordered Food Items Breakdown -->
+            <div class="space-y-2">
+                <p class="text-xs font-bold text-[#181c1f]">Ordered Fresh Kitchen Items</p>
+                <div class="border border-[#DADCE0] rounded-2xl overflow-hidden bg-white">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50 border-b border-[#DADCE0] text-[#5c5f60] font-semibold text-[10px] uppercase">
+                                <th class="p-2.5">Item</th>
+                                <th class="p-2.5 text-center">Qty</th>
+                                <th class="p-2.5 text-right">Unit Price</th>
+                                <th class="p-2.5 text-right">Line Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modal-fod-items-tbody" class="divide-y divide-gray-100">
+                            <!-- Items dynamically injected -->
+                        </tbody>
+                        <tfoot>
+                            <tr class="bg-amber-50/50 font-bold border-t border-[#DADCE0]">
+                                <td colspan="3" class="p-3 text-right text-xs">Total Order Amount:</td>
+                                <td class="p-3 text-right text-sm text-[#181c1f]" id="modal-fod-total-amount">₹0</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Chef & Preparation Control -->
+            <div class="p-3.5 rounded-2xl bg-slate-50 border border-[#DADCE0] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-lg">👨‍🍳</span>
+                    <div>
+                        <p class="text-[10px] text-[#5c5f60] font-semibold uppercase">Assigned Cook</p>
+                        <p class="text-xs font-black text-[#181c1f]" id="modal-fod-assigned-cook">Kitchen Chef</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5 flex-wrap" id="modal-fod-actions-bar">
+                    <!-- Dynamic transition buttons -->
+                </div>
+            </div>
+        </div>
+    </div>
+
 </body>
 
 </html>

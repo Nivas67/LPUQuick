@@ -203,6 +203,8 @@ app.use('/api/products', require('./routes/products'));
 app.use('/api/hostels', require('./routes/hostels'));
 app.use('/api/admin/sync', require('./routes/sync'));
 app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/food', require('./routes/food'));
+app.get(['/food', '/cook'], (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'food.html')));
 
 // Native Android APK Download Endpoints
 app.get(['/download/apk', '/download/LPUQuick.apk', '/downloads/LPUQuick.apk', '/api/app/download-apk', '/api/download/apk', '/api/download/LPUQuick.apk'], (req, res) => {

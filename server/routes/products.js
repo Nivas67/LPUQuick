@@ -361,6 +361,8 @@ router.post('/admin/create', requireAdmin, async (req, res) => {
         }
 
         cache.invalidateProducts();
+        cache.clearByPrefix('home:base:');
+        cache.clearByPrefix('products:');
         if (typeof broadcastInventoryUpdate === 'function') {
             broadcastInventoryUpdate(created.id, targetStock, targetInStock, targetHostel);
         }
@@ -458,6 +460,8 @@ router.put('/admin/update/:id', requireAdmin, async (req, res) => {
             }
 
             cache.invalidateProducts();
+        cache.clearByPrefix('home:base:');
+        cache.clearByPrefix('products:');
             if (targetStock !== undefined && typeof broadcastInventoryUpdate === 'function') {
                 broadcastInventoryUpdate(id, targetStock, targetInStock, targetHostel);
             }
@@ -497,6 +501,8 @@ router.put('/admin/update/:id', requireAdmin, async (req, res) => {
         }
 
         cache.invalidateProducts();
+        cache.clearByPrefix('home:base:');
+        cache.clearByPrefix('products:');
         if (typeof broadcastCatalogUpdate === 'function') {
             broadcastCatalogUpdate(id, targetHostel, 'update');
         }
@@ -533,6 +539,8 @@ router.delete('/admin/deactivate/:id', requireAdmin, async (req, res) => {
             stock_left: 0
         });
         cache.invalidateProducts();
+        cache.clearByPrefix('home:base:');
+        cache.clearByPrefix('products:');
         if (typeof broadcastInventoryUpdate === 'function') {
             broadcastInventoryUpdate(id, 0, false, storeToDeactivate);
         }
@@ -571,6 +579,8 @@ router.delete('/admin/delete/:id', requireAdmin, async (req, res) => {
         await supabaseDb.products.delete(id);
 
         cache.invalidateProducts();
+        cache.clearByPrefix('home:base:');
+        cache.clearByPrefix('products:');
         cache.clearByPrefix('home:base:');
 
         if (typeof broadcastCatalogUpdate === 'function') {
@@ -624,6 +634,8 @@ router.post('/admin/toggle-stock', requireAdmin, async (req, res) => {
         });
 
         cache.invalidateProducts();
+        cache.clearByPrefix('home:base:');
+        cache.clearByPrefix('products:');
         if (typeof broadcastInventoryUpdate === 'function') {
             try {
                 const hostelGroupService = require('../services/hostelGroupService');
@@ -680,6 +692,8 @@ router.post('/admin/adjust-stock', requireAdmin, async (req, res) => {
         });
 
         cache.invalidateProducts();
+        cache.clearByPrefix('home:base:');
+        cache.clearByPrefix('products:');
         if (typeof broadcastInventoryUpdate === 'function') {
             try {
                 const hostelGroupService = require('../services/hostelGroupService');

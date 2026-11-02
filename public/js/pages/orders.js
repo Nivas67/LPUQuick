@@ -61,8 +61,35 @@ function isOrderCancellable(status) {
     return true;
 }
 
+function isQuickInstantFoodItem(p) {
+    if (!p) return false;
+    const cat = (p.category || p.product_category || '').trim().toLowerCase();
+    const sub = (p.subcategory || p.product_subcategory || '').trim().toLowerCase();
+    const name = (p.name || p.product_name || '').toLowerCase();
+    if (cat.includes('instant snacks') || sub.includes('instant snacks') || cat.includes('snacks & munchies')) return false;
+    if (cat === "quick's instant food" || cat === "quicks instant food") return true;
+    if (sub === "quick's instant food" || sub === "quicks instant food" || sub === 'cook') return true;
+    if ((cat === 'instant food' || cat === 'instant' || sub === 'instant food') && !sub.includes('namkeen') && !/bhelpuri|namkeen|chips|wafer|biscuit/i.test(name)) return true;
+    if (sub.includes('maggi & noodles') || sub.includes('cooked meals') || sub.includes('sandwiches & burgers') || sub.includes('pasta & macaroni') || sub.includes('hot snacks & fries') || sub.includes('soups & bowls')) return true;
+    if (/maggi|cooked meal|hot meal|thali|paratha|sandwich|fresh pasta|fresh burger|chai|coffee|soup|chowmein|macroni/i.test(name)) return true;
+    return false;
+}
+
+function checkOrderIsFood(order) {
+    if (!order) return false;
+    if (order.is_food_order === true || order.is_food_order === 'true') return true;
+    if (order.estimated_delivery_mins === 11 || order.estimated_delivery_mins === '11') return true;
+    if (Array.isArray(order.food_items) && order.food_items.length > 0) return true;
+    if (Array.isArray(order.items) && order.items.some(isQuickInstantFoodItem)) return true;
+    const summary = (order.item_names || order.item_summary || '').toLowerCase();
+    if (/maggi|cooked meal|hot meal|thali|paratha|sandwich|fresh pasta|fresh burger|chai|coffee|soup|chowmein|macroni|quick's instant food|quicks instant food/i.test(summary)) {
+        return true;
+    }
+    return false;
+}
+
 // Compute exact corridor positioning and HUD attributes for each admin order status
-function getOrderTrackingDetails(status, riderName = 'Alex', address = '') {
+function getOrderTrackingDetails(status, riderName = 'Alex', address = '', isFood = false) {
     const s = (status || '').toLowerCase().trim();
     let hostelName = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
     if (address) {
@@ -71,42 +98,50 @@ function getOrderTrackingDetails(status, riderName = 'Alex', address = '') {
     }
     
     // Default fallback (Order Placed / Incoming)
-    let percent = 25;
+    let percent = isFood ? 20 : 25;
     let pinLeft = '14%';
     let pinTop = '50%';
     let step = 1;
-    let icon = 'inventory_2';
-    let badge = `${riderName} · Order Placed`;
-    let msg = `Order placed! ${hostelName} Dark Store received your items.`;
-    let eta = '3 Mins';
+    let icon = isFood ? 'restaurant' : 'inventory_2';
+    let badge = isFood ? 'Kitchen · Order Received' : `${riderName} · Order Placed`;
+    let msg = isFood 
+        ? `Order placed! Kitchen chef at ${hostelName} received your fresh food order.`
+        : `Order placed! ${hostelName} Dark Store received your items.`;
+    let eta = isFood ? '11 Mins' : '5 Mins';
 
     if (s.includes('confirm') || s === 'accepted') {
         percent = 40;
         pinLeft = '20%';
         pinTop = '45%';
         step = 2;
-        icon = 'thumb_up';
-        badge = `${riderName} · Confirmed`;
-        msg = `Order confirmed by ${hostelName} Dark Store. Runner ${riderName} assigned.`;
-        eta = '2.5 Mins';
-    } else if (s.includes('prepar') || s.includes('pack')) {
-        percent = 60;
+        icon = isFood ? 'skillet' : 'thumb_up';
+        badge = isFood ? 'Cook · Preparing Fresh' : `${riderName} · Confirmed`;
+        msg = isFood
+            ? `Order accepted! Assigned cook at ${hostelName} Kitchen is preparing your hot meal fresh.`
+            : `Order confirmed by ${hostelName} Dark Store. Runner ${riderName} assigned.`;
+        eta = isFood ? '9 Mins' : '4 Mins';
+    } else if (s.includes('prepar') || s.includes('pack') || s.includes('cook')) {
+        percent = isFood ? 65 : 60;
         pinLeft = '32%';
         pinTop = '42%';
         step = 3;
-        icon = 'package_2';
-        badge = `${riderName} · Packing Items`;
-        msg = `${riderName} is packing your items in a tamper-proof bag at ${hostelName} Hub.`;
-        eta = '2 Mins';
-    } else if (s.includes('out') || s.includes('route') || s.includes('dispatch')) {
-        percent = 80;
+        icon = isFood ? 'soup_kitchen' : 'package_2';
+        badge = isFood ? 'Cook · Freshly Cooked & Packed' : `${riderName} · Packing Items`;
+        msg = isFood
+            ? `Your food is freshly cooked and packed in a tamper-proof hot bag at ${hostelName} Hub.`
+            : `${riderName} is packing your items in a tamper-proof bag at ${hostelName} Hub.`;
+        eta = isFood ? '5 Mins' : '2.5 Mins';
+    } else if (s.includes('out') || s.includes('route') || s.includes('dispatch') || s.includes('ready')) {
+        percent = isFood ? 85 : 80;
         pinLeft = '62%';
         pinTop = '46%';
         step = 4;
         icon = 'directions_walk';
         badge = `${riderName} · Walking to Room`;
-        msg = `${riderName} picked up your snacks from ${hostelName} Hub and is walking to ${address || hostelName}.`;
-        eta = '1 Min';
+        msg = isFood
+            ? `${riderName} picked up your freshly prepared food from ${hostelName} Hub and is walking to ${address || hostelName}.`
+            : `${riderName} picked up your snacks from ${hostelName} Hub and is walking to ${address || hostelName}.`;
+        eta = isFood ? '2 Mins' : '1 Min';
     } else if (s.includes('deliver')) {
         percent = 100;
         pinLeft = '86%';
@@ -114,7 +149,9 @@ function getOrderTrackingDetails(status, riderName = 'Alex', address = '') {
         step = 5;
         icon = 'task_alt';
         badge = `Delivered to Door 🏁`;
-        msg = `🎉 Order delivered to your hostel room door! Enjoy your snacks.`;
+        msg = isFood
+            ? `🎉 Fresh hot meal delivered to your hostel room door! Enjoy your food.`
+            : `🎉 Order delivered to your hostel room door! Enjoy your snacks.`;
         eta = 'Delivered';
     } else if (s.includes('cancel')) {
         percent = 0;
@@ -162,11 +199,12 @@ window.applyOrderStatusUI = function(newStatus, riderName, targetOrderId, riderP
     const savedHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
     const address = savedRoom ? `${savedHostel} (${savedBlock}), Room ${savedRoom}` : `${savedHostel} (${savedBlock})`;
 
-    const details = getOrderTrackingDetails(newStatus, effectiveRider, address);
+    const isFood = (card && card.dataset.isFood === 'true') || (window.__activeOrderIsFood === true);
+    const details = getOrderTrackingDetails(newStatus, effectiveRider, address, isFood);
 
     // 1. Status Badge & ETA Display
     const etaTime = document.getElementById('tracking-eta-time');
-    if (etaTime) etaTime.textContent = newStatus === 'Delivered' ? 'Status: Delivered ✓' : `Status: ${newStatus}`;
+    if (etaTime) etaTime.textContent = newStatus === 'Delivered' ? 'Status: Delivered ✓' : `ETA: ${details.eta} · ${newStatus}`;
 
     // Update Cancel Option at top of the map
     const cancelContainer = document.getElementById('tracking-cancel-container');
@@ -497,17 +535,17 @@ window.pages.orders = async function() {
     <main class="px-3 sm:px-6 max-w-4xl mx-auto pt-6 space-y-6">
         <!-- Active Order Live Tracking Section -->
         ${activeOrder ? `
-        <section class="space-y-3.5" id="active-order-tracking-card" data-order-id="${activeOrder.id}">
+        <section class="space-y-3.5" id="active-order-tracking-card" data-order-id="${activeOrder.id}" data-is-food="${isFoodOrder ? 'true' : 'false'}">
             <div class="flex justify-between items-center flex-wrap gap-2">
                 <h2 class="text-sm sm:text-base font-black text-slate-900 dark:text-white flex items-center gap-2 tracking-tight">
                     <span class="w-2.5 h-2.5 rounded-full bg-emerald shadow-[0_0_8px_#10b981]"></span>
-                    <span>Live Campus Delivery (3 Mins)</span>
+                    <span id="tracking-card-header">${isFoodOrder ? 'Live Kitchen Delivery (11 Mins)' : 'Live Campus Delivery (5 Mins)'}</span>
                 </h2>
                 <div class="flex items-center gap-2">
                     <!-- High-Contrast Status Pill (Vibrant in both Dark and Light mode) -->
                     <span class="clay-pill px-3 py-1 flex items-center gap-1.5 text-xs font-black text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 dark:bg-slate-900/90 border border-emerald-500/40 shadow-sm" id="tracking-eta">
                         <span class="material-symbols-outlined text-xs text-emerald-500 animate-pulse">${activeOrder.status === 'Delivered' ? 'task_alt' : 'bolt'}</span>
-                        <span id="tracking-eta-time">${activeOrder.status === 'Delivered' ? 'Status: Delivered ✓' : `Status: ${activeOrder.status}`}</span>
+                        <span id="tracking-eta-time">${activeOrder.status === 'Delivered' ? 'Status: Delivered ✓' : `ETA: ${initialTracking.eta} · ${activeOrder.status}`}</span>
                     </span>
                     <!-- Cancel Order Option at top of the map -->
                     <div id="tracking-cancel-container">
@@ -547,7 +585,7 @@ window.pages.orders = async function() {
                         </div>
                         <div class="clay-pill px-2.5 py-1 text-[10px] font-bold text-slate-300 bg-slate-900/80 border border-slate-700 flex items-center gap-1">
                             <span class="text-emerald-400">1.4 m/s</span>
-                            <span>• 3 Min Delivery</span>
+                            <span id="tracking-radar-eta">• ${isFoodOrder ? '11 Min Delivery' : '5 Min Delivery'}</span>
                         </div>
                     </div>
 

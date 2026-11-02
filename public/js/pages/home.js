@@ -8,6 +8,20 @@ function getHomeHostelDisplayName() {
 
 const STORE_CATEGORIES = [
     {
+        id: 'lpq-food',
+        name: "Quick's LPQ Food",
+        subtitle: "Quick's Instant Food",
+        emoji: '🍳',
+        img: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=160&auto=format&fit=crop&q=80',
+        banner: {
+            title: "Quick's LPQ Food • Fresh Kitchen",
+            subtitle: 'Freshly Prepared Hot Food Delivered in Minutes.',
+            tag: 'FRESH KITCHEN',
+            img: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=320&auto=format&fit=crop&q=80',
+            bg: 'linear-gradient(135deg, #7c2d12 0%, #c2410c 50%, #ea580c 100%)'
+        }
+    },
+    {
         id: 'all',
         name: 'All',
         emoji: '🛒',
@@ -99,19 +113,6 @@ const STORE_CATEGORIES = [
         }
     },
     {
-        id: 'instant',
-        name: 'Instant Food',
-        emoji: '🍜',
-        img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/CUP_NOODLES_Mazedaar_masala__Delicious_Masala_Flavour__1788531084520.jpg',
-        banner: {
-            title: 'Cup Noodles & Maggi',
-            subtitle: 'Delicious Masala in 2 Minutes.',
-            tag: 'HOT MEALS',
-            img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/CUP_NOODLES_Mazedaar_masala__Delicious_Masala_Flavour__1788531084520.jpg',
-            bg: 'linear-gradient(135deg, #701a75 0%, #86198f 50%, #c026d3 100%)'
-        }
-    },
-    {
         id: 'snacks',
         name: 'Snacks',
         emoji: '🍿',
@@ -192,9 +193,21 @@ const STORE_CATEGORIES = [
 ];
 
 function classifyProductCategory(p) {
+    if (!p) return 'others';
     const subcat = (p.subcategory || '').trim().toLowerCase();
     const cat = (p.category || '').trim().toLowerCase();
     const text = (p.name || '').toLowerCase();
+
+    // 0. STRICT ISOLATION: Quick's Instant Food (Fresh Kitchen)
+    // Freshly prepared hot meals, maggi, cooked dishes — strictly separate from packaged snacks
+    const isSnack = cat.includes('instant snacks') || subcat.includes('instant snacks') || cat.includes('snacks & munchies') || /bhelpuri|namkeen|bhujia|chips|wafer|biscuit|cookie|kurkure|crisp|sev|mixture/i.test(text);
+    if (p.is_food_product) return 'lpq-food';
+    if (!isSnack) {
+        if ((cat.includes('quick') && cat.includes('food')) || cat === "quick's instant food" || cat === "quicks instant food" || cat === 'lpq food' || cat === "quick's lpq food") return 'lpq-food';
+        if ((subcat.includes('quick') && subcat.includes('food')) || subcat === "quick's instant food" || subcat === "quicks instant food" || subcat === 'cook' || subcat === 'lpq food' || subcat === "quick's lpq food") return 'lpq-food';
+        if ((cat === 'instant food' || cat === 'instant' || subcat === 'instant food') && !subcat.includes('namkeen') && !/bhelpuri|namkeen|chips|wafer|biscuit/i.test(text)) return 'lpq-food';
+        if (subcat.includes('maggi & noodles') || subcat.includes('cooked meals') || subcat.includes('sandwiches & burgers') || subcat.includes('pasta & macaroni') || subcat.includes('hot snacks & fries') || subcat.includes('soups & bowls')) return 'lpq-food';
+    }
 
     // 1. Ground Truth Priority: Check existing database subcategory first
     if (subcat.includes('popcorn')) return 'popcorn';
@@ -203,7 +216,6 @@ function classifyProductCategory(p) {
     if (subcat.includes('biscuit') || subcat.includes('cookie') || subcat.includes('rusk')) return 'biscuits';
     if (subcat.includes('chip') || subcat.includes('wafer') || subcat.includes('crisp') || subcat.includes('nacho')) return 'chips';
     if (subcat.includes('chocolate') || subcat.includes('choco')) return 'chocolates';
-    if (subcat.includes('noodle') || subcat.includes('instant') || subcat.includes('pasta') || subcat.includes('maggi')) return 'instant';
     if (subcat.includes('snack') || subcat.includes('munch')) return 'snacks';
     if (subcat.includes('cand') || subcat.includes('toffee')) return 'candies';
     if (subcat.includes('drink') || subcat.includes('beverage') || subcat.includes('cold drink') || subcat.includes('soda')) return 'drinks';
@@ -214,7 +226,6 @@ function classifyProductCategory(p) {
     if (cat === 'biscuits') return 'biscuits';
     if (cat === 'chips') return 'chips';
     if (cat === 'chocolates') return 'chocolates';
-    if (cat === 'instant' || cat === 'instant food') return 'instant';
     if (cat === 'drinks' || cat === 'beverages') return 'drinks';
     if (cat === 'juices') return 'juices';
     if (cat === 'sweets') return 'sweets';
@@ -224,7 +235,6 @@ function classifyProductCategory(p) {
     if (/popcorn/i.test(text)) return 'popcorn';
     if (/bhelpuri|namkeen|bhujia|sev|snac lite|munchy/i.test(text)) return 'namkeen';
     if (/gobbles|cake|choco pie|bread/i.test(text)) return 'bakery';
-    if (/noodle|pasta|passta|pazzta|maggi|cup noodles|soup|macroni|penne/i.test(text)) return 'instant';
     if (/cadbury|dairy milk|silk|snickers|yoga bar|chocolate/i.test(text)) return 'chocolates';
     if (/biscuit|cookie|cookies|wafer|bourbon|bikis|mom's magic|jimjam|hide & seek|hide and seek|milk shakti|treat rich creme|oreo|milano|fab bourbon|dark fantasy/i.test(text)) return 'biscuits';
     if (/chips|mad angles|doritos|lay's|lays|uncle chips/i.test(text)) return 'chips';
@@ -384,7 +394,7 @@ const DEFAULT_HOME_BANNERS = [
         id: 'banner_default_1',
         type: 'campus_promotion',
         title: 'Corridor Express Snacks & Munchies',
-        subtitle: 'Instant noodles, chilled drinks, and snacks delivered right to your hostel room door in 3 minutes.',
+        subtitle: "Quick's instant food, chilled drinks, and snacks delivered right to your hostel room door in 3 minutes.",
         badge: '⚡ 3-MIN ROOM DROP',
         pill: 'CAMPUS GROUND HUB',
         link_url: '#/categories',
@@ -698,7 +708,7 @@ window.pages.home = async function () {
     const biscuits = inStockProducts.filter(p => classifyProductCategory(p) === 'biscuits');
     const chips = inStockProducts.filter(p => classifyProductCategory(p) === 'chips');
     const chocolates = inStockProducts.filter(p => classifyProductCategory(p) === 'chocolates');
-    const instantFood = inStockProducts.filter(p => classifyProductCategory(p) === 'instant');
+    const instantFood = inStockProducts.filter(p => classifyProductCategory(p) === 'lpq-food');
     const snacks = inStockProducts.filter(p => classifyProductCategory(p) === 'snacks');
 
     const address = getHomeHostelDisplayName();
@@ -729,7 +739,7 @@ window.pages.home = async function () {
     const biscuitCards = buildProductCardsHTML(sortInStockFirst(allProductsFromApi.filter(p => classifyProductCategory(p) === 'biscuits')));
     const chipCards = buildProductCardsHTML(sortInStockFirst(allProductsFromApi.filter(p => classifyProductCategory(p) === 'chips')));
     const chocolateCards = buildProductCardsHTML(sortInStockFirst(allProductsFromApi.filter(p => classifyProductCategory(p) === 'chocolates')));
-    const instantFoodCards = buildProductCardsHTML(sortInStockFirst(allProductsFromApi.filter(p => classifyProductCategory(p) === 'instant')));
+    const instantFoodCards = buildProductCardsHTML(sortInStockFirst(allProductsFromApi.filter(p => classifyProductCategory(p) === 'lpq-food')));
     const snackCards = buildProductCardsHTML(sortInStockFirst(allProductsFromApi.filter(p => classifyProductCategory(p) === 'snacks')));
 
     // Prepare promotional carousel banners (support dynamically added admin posters & gradients)
@@ -1272,9 +1282,9 @@ window.pages.home = async function () {
         <section class="category-secondary-shelf space-y-3 pt-4">
             <div class="flex justify-between items-end">
                 <h2 class="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-                    <span>🍜 Instant Meals & Maggi</span>
+                    <span>🍳 Quick's Instant Food</span>
                 </h2>
-                <button type="button" class="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-0.5 cursor-pointer home-shelf-link" data-target-cat="instant">
+                <button type="button" class="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-0.5 cursor-pointer home-shelf-link" data-target-cat="lpq-food">
                     See all <span class="material-symbols-outlined text-xs">arrow_forward</span>
                 </button>
             </div>
@@ -1354,7 +1364,7 @@ window.pageInits.home = function () {
             const isVeg = card.dataset.veg === '1';
 
             // If user typed a search query, search across ALL categories in store
-            const matchesCategory = (!query && currentCategory !== 'all') ? (cardCat === currentCategory) : true;
+            const matchesCategory = (!query && currentCategory !== 'all') ? (cardCat === currentCategory) : (currentCategory === 'all' ? (cardCat !== 'lpq-food') : true);
             const matchesSearch = (!query || title.includes(query) || (cardCat && cardCat.includes(query)));
             const matchesVeg = (!isVegOnly || isVeg);
 
@@ -1449,7 +1459,7 @@ window.pageInits.home = function () {
             if (titleEl) titleEl.textContent = `Search: "${currentSearchQuery}"`;
             if (subtitleEl) subtitleEl.textContent = `Found ${visibleCount} snacks in ${getHomeHostelDisplayName()} Campus Hub`;
         } else {
-            if (titleEl) titleEl.textContent = catObj.id === 'all' ? 'All Products' : catObj.name;
+            if (titleEl) titleEl.textContent = catObj.id === 'all' ? 'All Products' : (catObj.id === 'lpq-food' ? "Quick's Instant Food" : catObj.name);
             if (subtitleEl) {
                 subtitleEl.textContent = catObj.id === 'all'
                     ? `Showing all available products in ${getHomeHostelDisplayName()} Campus Hub`
@@ -1474,7 +1484,11 @@ window.pageInits.home = function () {
                     } else if (isVegOnly) {
                         emptyTitle.textContent = `No vegetarian items in ${catObj.name}.`;
                     } else {
-                        emptyTitle.textContent = `No ${catObj.name.toLowerCase()} available right now.`;
+                        if (catObj.id === 'lpq-food') {
+                            emptyTitle.textContent = "No quick's instant food available right now.";
+                        } else {
+                            emptyTitle.textContent = `No ${catObj.name.toLowerCase()} available right now.`;
+                        }
                     }
                 }
                 if (emptyDesc) emptyDesc.textContent = query ? 'Try searching another snack like chips, maggi, chocolates, or cold drinks.' : 'Check another category or turn off Veg Only.';
@@ -1515,7 +1529,7 @@ window.pageInits.home = function () {
         const titleEl = document.getElementById('active-category-title');
         const subtitleEl = document.getElementById('active-category-subtitle');
         if (emojiEl) emojiEl.textContent = catObj.emoji;
-        if (titleEl) titleEl.textContent = catObj.id === 'all' ? 'All Products' : catObj.name;
+        if (titleEl) titleEl.textContent = catObj.id === 'all' ? 'All Products' : (catObj.id === 'lpq-food' ? "Quick's Instant Food" : catObj.name);
         if (subtitleEl) {
             subtitleEl.textContent = catObj.id === 'all'
                 ? `Showing all available products in ${getHomeHostelDisplayName()} Campus Hub`

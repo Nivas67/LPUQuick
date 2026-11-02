@@ -169,6 +169,20 @@
                 <span class="flex-1 font-bold text-[#181c1f]">Campus Hostels</span>
                 <span class="text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Owner</span>
             </button>
+            <button onclick="openManageBlocksModal()"
+                                class="px-3.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 shrink-0"
+                                title="Configure Active Blocks & Delivery Points per Hostel">
+                                <span class="material-symbols-outlined text-sm">apartment</span>
+                                <span>Manage Blocks</span>
+                            </button>
+                            <button onclick="switchView('hostel-groups')" data-view="hostel-groups" data-required-role="owner"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full owner-only-nav">
+                <span class="material-symbols-outlined text-[#0066cc]">hub</span>
+                <span class="flex-1 font-bold text-[#181c1f]">Hostel Groups</span>
+                <span id="nav-hostel-groups-badge"
+                    class="text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-bold mr-1">0</span>
+                <span class="text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Owner</span>
+            </button>
             <button onclick="switchView('staff')" data-view="staff" data-required-role="owner"
                 class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full owner-only-nav hidden">
                 <span class="material-symbols-outlined text-[#1a73e8]">manage_accounts</span>
@@ -180,6 +194,12 @@
                 <span class="material-symbols-outlined text-indigo-600">badge</span>
                 <span class="flex-1 font-bold text-[#181c1f]">Employees</span>
                 <span class="text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Owner</span>
+            </button>
+            <button onclick="switchView('food-dept')" data-view="food-dept" data-required-role="owner,store_manager,cook,food_department,food"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+                <span class="material-symbols-outlined text-amber-500">soup_kitchen</span>
+                <span class="flex-1 font-bold text-[#181c1f]">Food Department</span>
+                <span class="text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Kitchen</span>
             </button>
             <button onclick="switchView('backup')" data-view="backup" data-required-role="owner"
                 class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full owner-only-nav hidden">
@@ -468,6 +488,79 @@
                     </div>
                 </div>
 
+                <!-- Food Department Live Kitchen Hub (Displayed for Food Admins & Cooks) -->
+                <div id="dash-food-dept-card" class="hidden glass-panel p-5 rounded-2xl border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/60 via-white to-orange-50/40 shadow-sm space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-200/80 pb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-xl shadow-sm">
+                                🍲
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <h3 class="font-extrabold text-base text-[#181c1f]">Food Department • Kitchen Queue &amp; Preparation</h3>
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white animate-pulse">LIVE KITCHEN</span>
+                                </div>
+                                <p class="text-xs text-[#5c5f60]">Assigned food preparation orders, kitchen workflow, and cooking status</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <button type="button" onclick="switchView('food-dept')" class="px-3 py-1.5 rounded-xl bg-white hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer">
+                                <span class="material-symbols-outlined text-sm">tune</span>
+                                <span>Full Kitchen Hub</span>
+                            </button>
+                            <a href="/food" target="_blank" class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
+                                <span class="material-symbols-outlined text-sm">open_in_new</span>
+                                <span>Cook Terminal (/food)</span>
+                            </a>
+                            <button type="button" onclick="loadDashboardFoodQueue()" class="p-1.5 border border-amber-300 rounded-xl bg-white hover:bg-amber-100 text-amber-800" title="Refresh Kitchen Queue">
+                                <span class="material-symbols-outlined text-sm">refresh</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Kitchen Quick Status Bar -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div class="bg-white/90 p-3 rounded-xl border border-amber-200">
+                            <p class="text-[10px] font-semibold text-[#5c5f60] uppercase">Active In Kitchen</p>
+                            <p class="text-lg font-black text-amber-700" id="dash-food-stat-active">0</p>
+                        </div>
+                        <div class="bg-white/90 p-3 rounded-xl border border-orange-200">
+                            <p class="text-[10px] font-semibold text-[#5c5f60] uppercase">Cooking Right Now</p>
+                            <p class="text-lg font-black text-orange-600" id="dash-food-stat-cooking">0</p>
+                        </div>
+                        <div class="bg-white/90 p-3 rounded-xl border border-emerald-200">
+                            <p class="text-[10px] font-semibold text-[#5c5f60] uppercase">Ready for Pickup</p>
+                            <p class="text-lg font-black text-emerald-700" id="dash-food-stat-ready">0</p>
+                        </div>
+                        <div class="bg-white/90 p-3 rounded-xl border border-blue-200">
+                            <p class="text-[10px] font-semibold text-[#5c5f60] uppercase">Today's Kitchen Total</p>
+                            <p class="text-lg font-black text-blue-700" id="dash-food-stat-total">0</p>
+                        </div>
+                    </div>
+
+                    <!-- Kitchen Orders Queue on Dashboard -->
+                    <div class="overflow-x-auto rounded-xl border border-amber-200 bg-white">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="border-b border-amber-200 bg-amber-50/80 text-amber-900 font-bold uppercase text-[10px]">
+                                    <th class="p-3">Order ID</th>
+                                    <th class="p-3">Student / Hostel Room</th>
+                                    <th class="p-3">Quick's Instant Food Items</th>
+                                    <th class="p-3">Assigned Chef</th>
+                                    <th class="p-3">Kitchen Status</th>
+                                    <th class="p-3 text-right">Quick Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dash-food-orders-tbody" class="divide-y divide-amber-100">
+                                <tr>
+                                    <td colspan="6" class="p-6 text-center text-[#5c5f60]">Loading food department queue...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+
                 <!-- Financial Information & PIN Security Banner -->
                 <div class="glass-panel p-5 mb-6 border border-emerald-500/20 bg-gradient-to-r from-emerald-500/5 via-white to-white dark:via-slate-900 dark:to-slate-900 relative overflow-hidden shadow-sm hidden"
                     id="financial-security-card">
@@ -571,11 +664,19 @@
                             </h3>
                             <p class="text-[11px] text-[#5c5f60]">Live overview across all campus hostels. Monitor active order volumes, store status, and manage dark stores.</p>
                         </div>
-                        <button onclick="switchView('hostels')"
-                            class="px-3.5 py-1.5 bg-[#0066cc] hover:bg-[#0052a3] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all active:scale-95 shrink-0">
-                            <span class="material-symbols-outlined text-sm">settings_suggest</span>
-                            <span>Hostel Management Console</span>
-                        </button>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <button onclick="switchView('hostel-groups')"
+                                class="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#0066cc] border border-blue-200 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 shrink-0"
+                                title="Manage Multi-Hostel Shared Inventory Groups">
+                                <span class="material-symbols-outlined text-sm">hub</span>
+                                <span>Hostel Groups</span>
+                            </button>
+                            <button onclick="switchView('hostels')"
+                                class="px-3.5 py-1.5 bg-[#0066cc] hover:bg-[#0052a3] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all active:scale-95 shrink-0">
+                                <span class="material-symbols-outlined text-sm">settings_suggest</span>
+                                <span>Hostel Management Console</span>
+                            </button>
+                        </div>
                     </div>
                     <div id="dash-hostel-cards-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <!-- Dynamically populated per hostel -->
@@ -1113,6 +1214,12 @@
                             <button onclick="setOrderStatusFilter('all')" data-status="all"
                                 class="order-tab-btn shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full bg-[#3c4043] text-white text-xs font-semibold">All
                                 Orders</button>
+                            <button onclick="setOrderStatusFilter('food_orders')" data-status="food_orders"
+                                class="order-tab-btn shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer">
+                                <span class="material-symbols-outlined text-sm text-amber-600">restaurant</span>
+                                <span>Quick's Instant Food</span>
+                                <span id="badge-food-orders-count" class="px-1.5 py-0.2 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] font-black">0</span>
+                            </button>
                             <button onclick="setOrderStatusFilter('delivered')" data-status="delivered"
                                 class="order-tab-btn shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full border border-[#DADCE0] text-[#5c5f60] hover:bg-[#f1f4f7] text-xs font-medium flex items-center gap-1.5">
                                 <span>Delivery Success</span>
@@ -2155,6 +2262,11 @@
                             title="Reload Hostels">
                             <span class="material-symbols-outlined text-lg">refresh</span>
                         </button>
+                        <button onclick="openManageBlocksModal()"
+                            class="px-4 py-2.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer">
+                            <span class="material-symbols-outlined text-base">apartment</span>
+                            <span>Manage Blocks</span>
+                        </button>
                         <button onclick="openHostelModal()"
                             class="px-4 py-2.5 bg-[#0066cc] hover:bg-[#0052a3] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all active:scale-95">
                             <span class="material-symbols-outlined text-base">add_business</span>
@@ -2220,6 +2332,131 @@
                             <tbody id="hostels-table-tbody" class="divide-y divide-[#DADCE0]">
                                 <tr>
                                     <td colspan="6" class="p-6 text-center text-[#5c5f60]">Loading campus hostels...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW: HOSTEL GROUP MANAGEMENT (OWNER ONLY) ================= -->
+            <div id="view-hostel-groups" class="space-y-6 max-w-[1440px] mx-auto hidden">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-[#0066cc] border border-blue-300 uppercase tracking-wider">
+                                <span class="material-symbols-outlined text-xs">hub</span> Multi-Hostel Operations
+                            </span>
+                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 uppercase tracking-wider">
+                                <span class="material-symbols-outlined text-xs">sync_alt</span> Shared Inventory System
+                            </span>
+                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 uppercase tracking-wider">
+                                <span class="material-symbols-outlined text-xs">shield_person</span> Owner Privileges
+                            </span>
+                        </div>
+                        <h2 class="text-2xl font-bold text-[#181c1f] flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[#0066cc]">hub</span>
+                            <span>Hostel Group Management & Shared Inventory</span>
+                        </h2>
+                        <p class="text-xs text-[#5c5f60]">Combine multiple hostels into shared operational clusters. Hostels in a shared group operate from a single unified stock pool with atomic concurrency and multi-admin delegation.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="loadHostelGroups()"
+                            class="p-2 border border-[#DADCE0] rounded-xl bg-white hover:bg-[#f1f4f7] text-[#3c4043]"
+                            title="Reload Groups">
+                            <span class="material-symbols-outlined text-lg">refresh</span>
+                        </button>
+                        <button onclick="openHostelGroupModal()"
+                            class="px-4 py-2.5 bg-[#0066cc] hover:bg-[#0052a3] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all active:scale-95">
+                            <span class="material-symbols-outlined text-base">add</span>
+                            <span>Create Hostel Group</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Bento Stat Cards -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-blue-100 text-[#0066cc] flex items-center justify-center">
+                            <span class="material-symbols-outlined text-xl">hub</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60]">Hostel Groups</p>
+                            <h4 class="text-xl font-bold text-[#181c1f]" id="stat-groups-total">0</h4>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-xl">sync_alt</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60]">Shared Inventory Pools</p>
+                            <h4 class="text-xl font-bold text-emerald-800" id="stat-groups-shared">0</h4>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-xl">domain_disabled</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60]">Independent Groups</p>
+                            <h4 class="text-xl font-bold text-indigo-700" id="stat-groups-independent">0</h4>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-xl">domain</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60]">Hostels in Groups</p>
+                            <h4 class="text-xl font-bold text-purple-700" id="stat-groups-hostels">0</h4>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filters & Search Toolbar -->
+                <div class="glass-panel p-3.5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                    <div class="flex items-center gap-2 flex-1 max-w-md">
+                        <div class="relative w-full">
+                            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">search</span>
+                            <input type="text" id="filter-hostel-groups-search" oninput="filterHostelGroupsTable()"
+                                placeholder="Search by group name, code, or member hostel..."
+                                class="w-full pl-9 pr-3 py-2 bg-white border border-[#DADCE0] rounded-xl text-xs focus:border-[#0066cc] outline-none">
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <select id="filter-hostel-groups-mode" onchange="filterHostelGroupsTable()"
+                            class="bg-white border border-[#DADCE0] rounded-xl px-3 py-2 text-xs font-semibold text-[#3c4043] focus:border-[#0066cc] outline-none">
+                            <option value="all">All Inventory Modes</option>
+                            <option value="shared">⚡ Shared Inventory Mode</option>
+                            <option value="independent">🏢 Independent Inventory Mode</option>
+                        </select>
+                        <select id="filter-hostel-groups-status" onchange="filterHostelGroupsTable()"
+                            class="bg-white border border-[#DADCE0] rounded-xl px-3 py-2 text-xs font-semibold text-[#3c4043] focus:border-[#0066cc] outline-none">
+                            <option value="all">All Statuses</option>
+                            <option value="active">Active Groups</option>
+                            <option value="inactive">Inactive Groups</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Hostel Groups Table -->
+                <div class="glass-panel overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="border-b border-[#DADCE0] bg-[#f7fafd] text-[#5c5f60] font-semibold uppercase text-[11px]">
+                                    <th class="p-4">Group Info</th>
+                                    <th class="p-4">Inventory Mode</th>
+                                    <th class="p-4">Member Hostels</th>
+                                    <th class="p-4">Assigned Admins</th>
+                                    <th class="p-4">Status</th>
+                                    <th class="p-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="hostel-groups-tbody" class="divide-y divide-[#DADCE0]">
+                                <tr>
+                                    <td colspan="6" class="p-6 text-center text-[#5c5f60]">Loading hostel groups...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -2493,6 +2730,301 @@
                 </div>
             </div>
 
+            <!-- ================= VIEW: FOOD DEPARTMENT & KITCHEN OPERATIONS ================= -->
+            <div id="view-food-dept" class="space-y-6 max-w-[1440px] mx-auto hidden">
+                <!-- Header -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 uppercase tracking-wider">
+                                <span class="material-symbols-outlined text-xs">soup_kitchen</span> Food Fulfillment Engine
+                            </span>
+                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 uppercase tracking-wider">
+                                <span class="material-symbols-outlined text-xs">sync</span> Auto-Routing Active
+                            </span>
+                        </div>
+                        <h2 class="text-2xl font-bold text-[#181c1f] flex items-center gap-2">
+                            <span class="material-symbols-outlined text-amber-600">restaurant</span>
+                            <span>Food Department &amp; Kitchen Operations</span>
+                        </h2>
+                        <p class="text-xs text-[#5c5f60]">Manage assigned cooks, food routing rules, auto-assignment methods, live order queue, and inventory.</p>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <a href="/food" target="_blank"
+                            class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold shadow-md shadow-orange-500/20 transition-all flex items-center gap-1.5 cursor-pointer">
+                            <span class="material-symbols-outlined text-sm">open_in_new</span>
+                            <span>Launch Cook Terminal (/food)</span>
+                        </a>
+                        <button type="button" onclick="openProductModalForFood()" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white text-xs font-bold shadow-md shadow-orange-500/20 transition-all flex items-center gap-1.5 cursor-pointer">
+                            <span class="material-symbols-outlined text-sm">add_circle</span>
+                            <span>Add Quick's Instant Food Item</span>
+                        </button>
+                        <button onclick="loadFoodDeptAdmin()"
+                            class="p-2 border border-[#DADCE0] rounded-xl bg-white hover:bg-[#f1f4f7] text-[#3c4043]"
+                            title="Reload Kitchen Operations">
+                            <span class="material-symbols-outlined text-lg">refresh</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- KPI Metric Cards -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-xl">chef_hat</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60]">Cooks On Duty</p>
+                            <h4 class="text-xl font-bold text-amber-800" id="stat-food-cooks-duty">0</h4>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-xl">orders</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60]">Total Food Orders</p>
+                            <h4 class="text-xl font-bold text-blue-800" id="stat-food-total-orders">0</h4>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-orange-100 text-orange-700 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-xl">cooking</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60]">Currently Cooking</p>
+                            <h4 class="text-xl font-bold text-orange-700" id="stat-food-active-prep">0</h4>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-xl">done_all</span>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-[#5c5f60]">Ready / Completed</p>
+                            <h4 class="text-xl font-bold text-emerald-700" id="stat-food-ready-comp">0</h4>
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- ================= SECTION: QUICK'S INSTANT FOOD PRODUCTS & STOCK ================= -->
+                <div class="glass-panel overflow-hidden">
+                    <div class="p-4 border-b border-[#DADCE0] flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-amber-50/80 via-orange-50/50 to-amber-50/30">
+                        <div>
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-500 text-white uppercase tracking-wider shadow-2xs">
+                                    <span class="material-symbols-outlined text-xs">restaurant</span> Fresh Kitchen
+                                </span>
+                                <span id="food-stock-total-badge" class="text-[11px] font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">0 Products</span>
+                            </div>
+                            <h3 class="font-bold text-base text-[#181c1f]">Quick's Instant Food Catalog &amp; Live Stock</h3>
+                            <p class="text-[11px] text-[#5c5f60]">All freshly cooked meals, noodles, and hot kitchen items. Stock and availability update in real time on the customer storefront.</p>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <div class="relative w-44 sm:w-56">
+                                <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">search</span>
+                                <input type="text" id="food-products-search-input" oninput="filterFoodDeptProducts()" placeholder="Search food items..."
+                                    class="w-full pl-8 pr-3 py-1.5 bg-white border border-[#DADCE0] rounded-xl text-xs focus:border-amber-500 outline-none">
+                            </div>
+                            <select id="food-products-filter-status" onchange="filterFoodDeptProducts()" class="text-xs border border-[#DADCE0] rounded-xl px-2.5 py-1.5 bg-white text-[#181c1f] font-semibold outline-none cursor-pointer">
+                                <option value="all">All Availability</option>
+                                <option value="in_stock">In Stock Only</option>
+                                <option value="low_stock">Low Stock (1-4)</option>
+                                <option value="out_of_stock">Out of Stock</option>
+                            </select>
+                            <button type="button" onclick="openProductModalForFood()"
+                                class="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1 active:scale-95 cursor-pointer">
+                                <span class="material-symbols-outlined text-sm">add_circle</span>
+                                <span>+ Add Food Item</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="border-b border-[#DADCE0] bg-amber-50/50 text-amber-950 font-semibold uppercase text-[11px]">
+                                    <th class="p-3.5">Food Product</th>
+                                    <th class="p-3.5">Subcategory</th>
+                                    <th class="p-3.5">Selling Price</th>
+                                    <th class="p-3.5">MRP</th>
+                                    <th class="p-3.5">Live Stock</th>
+                                    <th class="p-3.5">Availability</th>
+                                    <th class="p-3.5 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="food-products-tbody" class="divide-y divide-[#DADCE0]">
+                                <tr>
+                                    <td colspan="7" class="p-8 text-center text-[#5c5f60]">Loading Quick's Instant Food items...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Live Food Orders Queue (with Reassignment & Quick Status Updates) -->
+                <div class="glass-panel overflow-hidden">
+                    <div class="p-4 border-b border-[#DADCE0] flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#f7fafd]">
+                        <div>
+                            <div class="flex items-center gap-2 mb-0.5">
+                                <h3 class="font-bold text-sm text-[#181c1f]">Quick's Instant Food Orders &amp; Kitchen Queue</h3>
+                                <span id="food-orders-count-badge" class="px-2 py-0.2 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300">0 Total</span>
+                            </div>
+                            <p class="text-[11px] text-[#5c5f60]">Track orders for freshly prepared food. Update status (Placed → Cooking → Ready → Completed) or reassign cooks in real time.</p>
+                        </div>
+                        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5" id="food-orders-status-filters">
+                            <button type="button" onclick="filterFoodOrdersByStatus('all')" data-status="all" class="food-order-filter-btn px-3 py-1 rounded-full text-xs font-bold bg-[#3c4043] text-white cursor-pointer">All (<span id="count-food-all">0</span>)</button>
+                            <button type="button" onclick="filterFoodOrdersByStatus('placed')" data-status="placed" class="food-order-filter-btn px-3 py-1 rounded-full text-xs font-semibold border border-[#DADCE0] text-[#5c5f60] hover:bg-amber-50 hover:text-amber-900 cursor-pointer">Placed (<span id="count-food-placed">0</span>)</button>
+                            <button type="button" onclick="filterFoodOrdersByStatus('preparing')" data-status="preparing" class="food-order-filter-btn px-3 py-1 rounded-full text-xs font-semibold border border-[#DADCE0] text-[#5c5f60] hover:bg-orange-50 hover:text-orange-900 cursor-pointer">Cooking (<span id="count-food-preparing">0</span>)</button>
+                            <button type="button" onclick="filterFoodOrdersByStatus('ready')" data-status="ready" class="food-order-filter-btn px-3 py-1 rounded-full text-xs font-semibold border border-[#DADCE0] text-[#5c5f60] hover:bg-emerald-50 hover:text-emerald-900 cursor-pointer">Ready (<span id="count-food-ready">0</span>)</button>
+                            <button type="button" onclick="filterFoodOrdersByStatus('completed')" data-status="completed" class="food-order-filter-btn px-3 py-1 rounded-full text-xs font-semibold border border-[#DADCE0] text-[#5c5f60] hover:bg-blue-50 hover:text-blue-900 cursor-pointer">Completed (<span id="count-food-completed">0</span>)</button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="border-b border-[#DADCE0] bg-gray-50/80 text-[#5c5f60] font-semibold uppercase text-[11px]">
+                                    <th class="p-3.5">Order ID &amp; Time</th>
+                                    <th class="p-3.5">Customer &amp; Location</th>
+                                    <th class="p-3.5">Food Items &amp; Qty</th>
+                                    <th class="p-3.5">Amount &amp; Pay</th>
+                                    <th class="p-3.5">Assigned Cook</th>
+                                    <th class="p-3.5">Order Status</th>
+                                    <th class="p-3.5 text-right">Update Status / Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="food-orders-admin-tbody" class="divide-y divide-[#DADCE0]">
+                                <tr>
+                                    <td colspan="7" class="p-8 text-center text-[#5c5f60]">Loading food orders...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            
+                <!-- Assignment Strategy Configuration Card -->
+                <div class="glass-panel p-5 rounded-2xl border border-[#DADCE0] space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#DADCE0] pb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-amber-600 text-xl">tune</span>
+                            <div>
+                                <h3 class="font-bold text-sm text-[#181c1f]">Automatic Food Order Assignment Method</h3>
+                                <p class="text-[11px] text-[#5c5f60]">Configure how orders containing Instant Food products are automatically routed among kitchen staff.</p>
+                            </div>
+                        </div>
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">Quick's Instant Food Routing</span>
+                    </div>
+
+                    <form id="food-config-form" onsubmit="window.saveFoodConfig(event)" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-bold text-[#181c1f] mb-1">Assignment Method</label>
+                            <select id="food-config-method" onchange="window.toggleSpecificCookSelect()" class="w-full border border-[#DADCE0] rounded-xl p-2.5 text-xs bg-white font-medium focus:border-amber-500 outline-none">
+                                <option value="least_loaded">⚖️ Least Loaded (Recommended - balances active prep queue)</option>
+                                <option value="round_robin">🔄 Round Robin (Even cyclical distribution across active cooks)</option>
+                                <option value="specific_cook">🎯 Specific Cook (Direct all food orders to single designated chef)</option>
+                            </select>
+                        </div>
+
+                        <div id="food-specific-cook-wrapper" class="hidden">
+                            <label class="block text-xs font-bold text-[#181c1f] mb-1">Select Designated Cook</label>
+                            <select id="food-config-specific-cook" class="w-full border border-[#DADCE0] rounded-xl p-2.5 text-xs bg-white font-medium focus:border-amber-500 outline-none">
+                                <option value="">Select a cook...</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-[#181c1f] mb-1">Default Prep Target (Minutes)</label>
+                            <input type="number" id="food-config-prep-time" min="5" max="60" value="15" class="w-full border border-[#DADCE0] rounded-xl p-2.5 text-xs bg-white font-medium focus:border-amber-500 outline-none">
+                        </div>
+
+                        <div>
+                            <button type="submit" id="btn-save-food-config" class="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer">
+                                <span class="material-symbols-outlined text-sm">save</span>
+                                <span>Save Rules</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Cooks & Staff Roster Table -->
+                <div class="glass-panel overflow-hidden">
+                    <div class="p-4 border-b border-[#DADCE0] flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#f7fafd]">
+                        <div>
+                            <h3 class="font-bold text-sm text-[#181c1f]">Assigned Kitchen Staff &amp; Cooks</h3>
+                            <p class="text-[11px] text-[#5c5f60]">Employees with cook roles, their shift duty status, and permissions</p>
+                        </div>
+                        <button type="button" onclick="openStaffModalWithCookRole()" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer">
+                            <span class="material-symbols-outlined text-sm">person_add</span>
+                            <span>Add New Cook</span>
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="border-b border-[#DADCE0] bg-gray-50/80 text-[#5c5f60] font-semibold uppercase text-[11px]">
+                                    <th class="p-3.5">Cook Profile</th>
+                                    <th class="p-3.5">Assigned Hostel</th>
+                                    <th class="p-3.5">Duty Status</th>
+                                    <th class="p-3.5">Active Prep Orders</th>
+                                    <th class="p-3.5">Grocery Authorization</th>
+                                    <th class="p-3.5 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="food-cooks-tbody" class="divide-y divide-[#DADCE0]">
+                                <tr>
+                                    <td colspan="6" class="p-8 text-center text-[#5c5f60]">Loading cooks roster...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Modal: Reassign Food Order -->
+            <div id="modal-reassign-food-order" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+                <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#DADCE0] space-y-4">
+                    <div class="flex justify-between items-center border-b border-[#DADCE0] pb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-amber-600 text-xl">swap_horiz</span>
+                            <h3 class="font-bold text-base text-[#181c1f]">Reassign Food Order</h3>
+                        </div>
+                        <button type="button" onclick="closeReassignFoodModal()" class="text-[#5c5f60] hover:text-[#181c1f]">
+                            <span class="material-symbols-outlined">close</span>
+                        </button>
+                    </div>
+
+                    <form id="reassign-food-form" onsubmit="window.submitReassignFoodOrder(event)" class="space-y-4 text-xs">
+                        <input type="hidden" id="reassign-order-id">
+                        <div>
+                            <label class="font-semibold text-[#262a2d] block mb-1">Target Order</label>
+                            <p id="reassign-order-label" class="font-mono font-bold text-slate-800 p-2 bg-slate-100 rounded-lg">#order_...</p>
+                        </div>
+
+                        <div>
+                            <label class="font-semibold text-[#262a2d] block mb-1">Assign to Cook *</label>
+                            <select id="reassign-cook-select" required class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-amber-500 outline-none text-xs bg-white font-medium">
+                                <option value="">Select an active cook...</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="font-semibold text-[#262a2d] block mb-1">Reason for Reassignment</label>
+                            <input type="text" id="reassign-reason-input" placeholder="e.g. Previous cook on emergency break" class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-amber-500 outline-none text-xs">
+                        </div>
+
+                        <div class="flex justify-end gap-2 pt-2 border-t border-[#DADCE0]">
+                            <button type="button" onclick="closeReassignFoodModal()" class="px-4 py-2 border border-[#DADCE0] text-[#5c5f60] font-semibold rounded-xl hover:bg-gray-50 cursor-pointer">Cancel</button>
+                            <button type="submit" id="btn-submit-reassign" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl shadow-xs cursor-pointer">Reassign Now</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            
             <!-- ================= VIEW: BACKUP & DISASTER RECOVERY (OWNER ONLY) ================= -->
             <div id="view-backup" class="space-y-6 max-w-[1440px] mx-auto hidden">
                 <!-- Header -->
@@ -3720,6 +4252,8 @@
                         <label class="font-semibold text-[#262a2d] block mb-1">Category *</label>
                         <select id="form-product-category" required onchange="onModalCategoryChange()"
                             class="w-full border border-[#DADCE0] rounded-lg p-2.5 focus:border-[#3c4043] outline-none">
+                            <option value="Quick's Instant Food">🍳 Quick's Instant Food (Fresh Kitchen / Cook)</option>
+                            <option value="Quick's Instant Snacks">🍿 Quick's Instant Snacks (Snacks &amp; Munchies)</option>
                             <option value="Snacks & Beverages">Snacks & Beverages</option>
                             <option value="Grocery">Grocery</option>
                             <option value="Pharmacy">Pharmacy</option>
@@ -4411,6 +4945,28 @@
                                 <p class="text-[11px] text-[#5c5f60] mt-0.5">Delivery queue dispatch, customer address details, click-to-call, order status fulfillment.</p>
                             </div>
                         </label>
+                        <label class="flex items-start gap-2.5 p-2 rounded-lg hover:bg-white cursor-pointer transition-colors border border-transparent hover:border-[#DADCE0]">
+                            <input type="checkbox" id="role-cook" value="cook" class="mt-0.5 rounded border-[#DADCE0] text-amber-500 focus:ring-amber-500 w-4 h-4">
+                            <div>
+                                <span class="font-bold text-[#181c1f] flex items-center gap-1.5">
+                                    <span class="text-sm">👨‍🍳</span> Cook / Food Department
+                                </span>
+                                <p class="text-[11px] text-[#5c5f60] mt-0.5">Assigned to kitchen order terminal (/food), preparation workflow, food product stocks.</p>
+                            </div>
+                        </label>
+                    </div>
+
+                    <!-- Granular Kitchen Staff Permissions -->
+                    <div class="pt-2 border-t border-[#DADCE0]/80 mt-2">
+                        <label class="flex items-start gap-2.5 p-2.5 rounded-xl bg-amber-50/70 border border-amber-200 cursor-pointer hover:bg-amber-50 transition-colors">
+                            <input type="checkbox" id="perm-manage-grocery" value="1" class="mt-0.5 rounded border-amber-300 text-amber-600 focus:ring-amber-500 w-4 h-4">
+                            <div>
+                                <span class="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
+                                    <span>🛒</span> Authorize Grocery Stock Management
+                                </span>
+                                <p class="text-[10px] text-slate-600 mt-0.5">Allow this Cook to view and adjust normal grocery store inventory in addition to food inventory.</p>
+                            </div>
+                        </label>
                     </div>
                 </div>
 
@@ -4556,6 +5112,20 @@
                     </select>
                 </div>
 
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="font-semibold text-[#262a2d] block">Hostel Delivery Blocks / Drop Points *</label>
+                        <div class="flex items-center gap-1.5 text-[10px]">
+                            <button type="button" onclick="setPresetHostelBlocks('ABCD_GATE')" class="text-[#0066cc] font-semibold hover:underline cursor-pointer">+ A, B, C, D, Hostel Main Gate</button>
+                            <span class="text-slate-300">|</span>
+                            <button type="button" onclick="setPresetHostelBlocks('AB_GATE')" class="text-[#0066cc] font-semibold hover:underline cursor-pointer">+ A, B, Hostel Main Gate</button>
+                        </div>
+                    </div>
+                    <input id="form-hostel-blocks" placeholder="e.g. Block A, Block B, Block C, Block D, Hostel Main Gate"
+                        class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#0066cc] outline-none text-xs font-semibold">
+                    <p class="text-[10px] text-[#5c5f60] mt-1">Comma-separated blocks. e.g. Block A, Block B, Block C, Block D, Hostel Main Gate</p>
+                </div>
+
                 <div id="hostel-form-error" class="hidden p-3 rounded-xl bg-rose-50 text-[#ba1a1a] text-xs font-semibold"></div>
 
                 <div class="pt-3 border-t border-[#DADCE0] flex justify-end gap-2">
@@ -4567,6 +5137,111 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+
+    <!-- ================= MODAL: MANAGE HOSTEL BLOCKS & DROP POINTS ================= -->
+    <div id="modal-hostel-blocks" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#DADCE0] space-y-4">
+            <div class="flex justify-between items-center border-b border-[#DADCE0] pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[#0066cc] text-xl">apartment</span>
+                    <div>
+                        <h3 class="font-bold text-base text-[#181c1f]" id="modal-blocks-title">Manage Delivery Blocks</h3>
+                        <p class="text-[11px] text-[#5c5f60]" id="modal-blocks-subtitle">Toggle active blocks displayed on customer storefront</p>
+                    </div>
+                </div>
+                <button onclick="closeHostelBlocksModal()" class="text-[#5c5f60] hover:text-[#181c1f] cursor-pointer">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <div class="space-y-4 text-xs">
+                <!-- Select Hostel Dropdown -->
+                <div>
+                    <label class="font-bold text-slate-800 block mb-1">Select Campus Hostel *</label>
+                    <select id="manage-blocks-hostel-select" onchange="onManageBlocksHostelChange(this.value)"
+                        class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#0066cc] outline-none text-xs bg-white font-bold text-slate-800">
+                        <!-- Populated dynamically with campus hostels -->
+                    </select>
+                </div>
+
+                <!-- Quick Presets -->
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <p class="font-bold text-slate-700 mb-2 flex items-center gap-1">
+                        <span class="material-symbols-outlined text-sm text-[#0066cc]">tune</span>
+                        <span>Quick Presets:</span>
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" onclick="applyBlocksPreset(['Block A', 'Block B'])"
+                            class="px-2.5 py-1 rounded-lg bg-white border border-slate-300 hover:border-[#0066cc] font-semibold text-slate-700 hover:text-[#0066cc] transition-all cursor-pointer">
+                            Block A & B only
+                        </button>
+                        <button type="button" onclick="applyBlocksPreset(['Block A', 'Block B', 'Block C'])"
+                            class="px-2.5 py-1 rounded-lg bg-white border border-slate-300 hover:border-[#0066cc] font-semibold text-slate-700 hover:text-[#0066cc] transition-all cursor-pointer">
+                            Block A, B & C
+                        </button>
+                        <button type="button" onclick="applyBlocksPreset(['Block A', 'Block B', 'Block C', 'Block D'])"
+                            class="px-2.5 py-1 rounded-lg bg-white border border-slate-300 hover:border-[#0066cc] font-semibold text-slate-700 hover:text-[#0066cc] transition-all cursor-pointer">
+                            Block A, B, C & D
+                        </button>
+                        <button type="button" onclick="toggleMainGateBlock()"
+                            class="px-2.5 py-1 rounded-lg bg-white border border-slate-300 hover:border-[#0066cc] font-semibold text-slate-700 hover:text-[#0066cc] transition-all cursor-pointer" id="btn-toggle-main-gate">
+                            + Hostel Main Gate
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Active Blocks Checklist -->
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <label class="font-bold text-slate-900 block">Active Blocks for this Hostel</label>
+                        <span class="text-[10px] text-emerald-700 font-bold" id="blocks-active-count-label">0 Blocks Active</span>
+                    </div>
+                    <p class="text-[11px] text-slate-500 mb-2">Check the blocks that are active and available for customer orders:</p>
+                    
+                    <div id="blocks-checkboxes-container" class="grid grid-cols-2 gap-2 max-h-52 overflow-y-auto p-1">
+                        <!-- Checkbox items rendered dynamically -->
+                    </div>
+                </div>
+
+                <!-- Add Custom Block Field -->
+                <div class="pt-2 border-t border-slate-200">
+                    <label class="font-bold text-slate-900 block mb-1">Add Another Block / Gate</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="input-new-block-name" placeholder="e.g. Block E, North Gate"
+                            class="flex-1 border border-[#DADCE0] rounded-xl px-3 py-2 text-xs focus:border-[#0066cc] outline-none font-medium">
+                        <button type="button" onclick="addNewCustomBlock()"
+                            class="px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl text-xs flex items-center gap-1 cursor-pointer">
+                            <span class="material-symbols-outlined text-sm">add</span>
+                            <span>Add</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Live Preview -->
+                <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                    <p class="text-[10px] font-bold text-emerald-800 uppercase tracking-wider mb-1">Customer Storefront Preview:</p>
+                    <div class="flex flex-wrap gap-1.5" id="blocks-live-preview-pills">
+                        <!-- Pills rendered dynamically -->
+                    </div>
+                </div>
+
+                <div id="blocks-modal-error" class="hidden p-2.5 rounded-xl bg-rose-50 text-[#ba1a1a] text-xs font-semibold"></div>
+
+                <div class="pt-3 border-t border-[#DADCE0] flex justify-end gap-2">
+                    <button type="button" onclick="closeHostelBlocksModal()"
+                        class="px-4 py-2 rounded-xl border border-[#DADCE0] text-[#5c5f60] font-semibold hover:bg-[#f1f4f7] cursor-pointer">
+                        Cancel
+                    </button>
+                    <button type="button" id="btn-save-hostel-blocks" onclick="saveHostelBlocks()"
+                        class="px-5 py-2 rounded-xl bg-[#0066cc] hover:bg-[#0052a3] text-white font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer">
+                        <span class="material-symbols-outlined text-sm">check</span>
+                        <span>Save Active Blocks</span>
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -4616,6 +5291,143 @@
                             <span>Assign Manager</span>
                         </button>
                     </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- ================= MODAL: CREATE / EDIT HOSTEL GROUP ================= -->
+    <div id="modal-hostel-group" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-[#DADCE0] space-y-4 max-h-[92vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-[#DADCE0] pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[#0066cc] text-xl">hub</span>
+                    <h3 class="font-bold text-base text-[#181c1f]" id="modal-hostel-group-title">Create Hostel Group</h3>
+                </div>
+                <button onclick="closeHostelGroupModal()" class="text-[#5c5f60] hover:text-[#181c1f]">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form id="form-hostel-group" onsubmit="submitHostelGroupForm(event)" class="space-y-4 text-xs">
+                <input type="hidden" id="group-form-id" value="">
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="font-semibold text-[#262a2d] block mb-1">Group Name *</label>
+                        <input type="text" id="group-form-name" required placeholder="e.g. Group A / North Campus"
+                            class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#0066cc] outline-none text-xs bg-white font-medium">
+                    </div>
+                    <div>
+                        <label class="font-semibold text-[#262a2d] block mb-1">Group Code *</label>
+                        <input type="text" id="group-form-code" required placeholder="e.g. GROUP-A"
+                            class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#0066cc] outline-none text-xs bg-white font-mono uppercase">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="font-semibold text-[#262a2d] block mb-1">Description</label>
+                    <textarea id="group-form-desc" rows="2" placeholder="Optional notes about this cluster of hostels..."
+                        class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#0066cc] outline-none text-xs bg-white"></textarea>
+                </div>
+
+                <!-- Inventory Mode Radio Cards -->
+                <div>
+                    <label class="font-semibold text-[#262a2d] block mb-2">Inventory Management Mode *</label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label class="border-2 border-emerald-500 bg-emerald-50/50 p-3 rounded-xl cursor-pointer flex items-start gap-2.5 transition-all group-mode-card" id="card-mode-shared">
+                            <input type="radio" name="group-inventory-mode" value="shared" checked onchange="updateGroupModeCardStyles()" class="mt-0.5 text-emerald-600 focus:ring-emerald-500">
+                            <div>
+                                <div class="font-bold text-emerald-900 flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-base">sync_alt</span>
+                                    <span>Shared Inventory</span>
+                                </div>
+                                <p class="text-[11px] text-emerald-700/90 mt-0.5 leading-snug">All member hostels operate from one shared stock pool in real time. Deductions sync instantly.</p>
+                            </div>
+                        </label>
+                        <label class="border border-[#DADCE0] bg-white p-3 rounded-xl cursor-pointer flex items-start gap-2.5 transition-all group-mode-card" id="card-mode-independent">
+                            <input type="radio" name="group-inventory-mode" value="independent" onchange="updateGroupModeCardStyles()" class="mt-0.5 text-[#0066cc] focus:ring-[#0066cc]">
+                            <div>
+                                <div class="font-bold text-slate-800 flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-base">domain_disabled</span>
+                                    <span>Independent Inventory</span>
+                                </div>
+                                <p class="text-[11px] text-[#5c5f60] mt-0.5 leading-snug">Hostels in this group maintain separate stock pools, while sharing administrative delegation.</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Status Selector -->
+                <div>
+                    <label class="font-semibold text-[#262a2d] block mb-1">Group Status</label>
+                    <select id="group-form-status"
+                        class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#0066cc] outline-none text-xs bg-white font-semibold">
+                        <option value="active">🟢 Active (Operational)</option>
+                        <option value="inactive">🔴 Inactive (Paused - hostels revert to independent)</option>
+                    </select>
+                </div>
+
+                <!-- Member Hostels Checkboxes -->
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="font-semibold text-[#262a2d] flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-sm text-[#0066cc]">domain</span>
+                            <span>Select Member Hostels *</span>
+                            <span id="group-hostel-count-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-[#0066cc]">0 selected</span>
+                        </label>
+                        <div class="space-x-2 text-[11px]">
+                            <button type="button" onclick="toggleAllGroupHostels(true)" class="text-[#0066cc] hover:underline font-bold">Select All</button>
+                            <span class="text-gray-300">|</span>
+                            <button type="button" onclick="toggleLiveGroupHostelsOnly()" class="text-emerald-700 hover:underline font-bold">🟢 Live Stores Only</button>
+                            <span class="text-gray-300">|</span>
+                            <button type="button" onclick="toggleAllGroupHostels(false)" class="text-gray-500 hover:underline">Clear</button>
+                        </div>
+                    </div>
+
+                    <!-- Filter pills -->
+                    <div class="flex items-center gap-1.5 pb-0.5 overflow-x-auto text-[11px]">
+                        <button type="button" onclick="filterModalHostelsList('all')" id="btn-modal-filter-all" class="px-2.5 py-1 rounded-lg font-bold bg-[#0066cc] text-white">All Campus Hostels</button>
+                        <button type="button" onclick="filterModalHostelsList('live')" id="btn-modal-filter-live" class="px-2.5 py-1 rounded-lg font-medium bg-white text-emerald-800 border border-emerald-300 hover:bg-emerald-50">🟢 Live Stores</button>
+                        <button type="button" onclick="filterModalHostelsList('bh')" id="btn-modal-filter-bh" class="px-2.5 py-1 rounded-lg font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50">Boys (BH)</button>
+                        <button type="button" onclick="filterModalHostelsList('gh')" id="btn-modal-filter-gh" class="px-2.5 py-1 rounded-lg font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50">Girls (GH)</button>
+                    </div>
+
+                    <div id="group-hostels-checklist" class="border border-[#DADCE0] rounded-xl p-3 max-h-56 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2 bg-[#f7fafd]">
+                        <!-- Populated dynamically with live status and assigned managers -->
+                    </div>
+                    <p class="text-[10px] text-[#5c5f60] mt-1">Hostels selected here will share inventory and orders under this cluster.</p>
+                </div>
+
+                <!-- Assigned Admins Checkboxes -->
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="font-semibold text-[#262a2d]">Assign Store Managers / Admins</label>
+                        <div class="space-x-2 text-[11px]">
+                            <button type="button" onclick="toggleAllGroupAdmins(true)" class="text-[#0066cc] hover:underline font-bold">Select All</button>
+                            <span class="text-gray-300">|</span>
+                            <button type="button" onclick="toggleAllGroupAdmins(false)" class="text-gray-500 hover:underline">Clear</button>
+                        </div>
+                    </div>
+                    <div id="group-admins-checklist" class="border border-[#DADCE0] rounded-xl p-3 max-h-40 overflow-y-auto space-y-1.5 bg-[#f7fafd]">
+                        <!-- Populated dynamically -->
+                    </div>
+                    <p class="text-[10px] text-[#5c5f60] mt-1">Assigned admins will have operational access to all member hostels in this group.</p>
+                </div>
+
+                <div id="group-form-error" class="hidden p-3 rounded-xl bg-rose-50 text-[#ba1a1a] text-xs font-semibold"></div>
+
+                <div class="flex justify-end gap-2 pt-2 border-t border-[#DADCE0]">
+                    <button type="button" onclick="closeHostelGroupModal()"
+                        class="px-4 py-2 border border-[#DADCE0] rounded-xl hover:bg-[#f1f4f7] text-[#3c4043] font-medium transition-all">
+                        Cancel
+                    </button>
+                    <button type="submit" id="btn-save-hostel-group"
+                        class="px-5 py-2 bg-[#0066cc] hover:bg-[#0052a3] text-white rounded-xl font-bold flex items-center gap-1.5 shadow-sm transition-all active:scale-95">
+                        <span class="material-symbols-outlined text-base">check</span>
+                        <span>Save Hostel Group</span>
+                    </button>
                 </div>
             </form>
         </div>
@@ -5195,7 +6007,98 @@
     <div id="partner-modal-container"></div>
 
     <!-- Application Script Reference -->
-    <script src="/admin/js/admin.js?v=20261002_duty_v17"></script>
+    <script src="/admin/js/admin.js?v=20261102_food_dept_v3"></script>
+
+    <!-- Food Order Full Receipt Details Modal -->
+    <div id="modal-food-order-details" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-[#DADCE0] p-5 sm:p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-[#DADCE0] pb-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-xl shadow-xs">
+                        🍳
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 class="font-black text-base text-[#181c1f]">Food Order Details</h3>
+                            <span id="modal-fod-status-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">Order Placed</span>
+                        </div>
+                        <p class="text-xs text-[#5c5f60]" id="modal-fod-order-id">#ORD-...</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeFoodOrderDetailModal()" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors cursor-pointer">
+                    <span class="material-symbols-outlined text-lg">close</span>
+                </button>
+            </div>
+
+            <!-- Customer & Room Information -->
+            <div class="p-3.5 rounded-2xl bg-[#f7fafd] border border-[#DADCE0] space-y-2">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="font-black text-xs text-[#181c1f]" id="modal-fod-customer-name">Student Name</p>
+                        <p class="text-[11px] text-[#5c5f60]" id="modal-fod-customer-contact">📱 +91 ...</p>
+                    </div>
+                    <div class="text-right">
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-blue-50 text-[#0066cc] border border-blue-200" id="modal-fod-hostel-room">
+                            🏢 BH-13 • Room 402
+                        </span>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between text-[11px] text-[#5c5f60] pt-1.5 border-t border-gray-200/60">
+                    <span>Order Date &amp; Time: <strong class="text-[#181c1f]" id="modal-fod-datetime">--</strong></span>
+                    <span id="modal-fod-payment-badge" class="font-bold text-emerald-700">Cash on Delivery (Pending)</span>
+                </div>
+            </div>
+
+            <!-- Special Customer Cooking Instructions -->
+            <div class="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-1">
+                <p class="text-[10px] font-extrabold uppercase text-amber-800 tracking-wider flex items-center gap-1">
+                    <span>📝</span> Special Cooking Instructions
+                </p>
+                <p class="text-xs font-bold text-slate-800 italic" id="modal-fod-instructions">None</p>
+            </div>
+
+            <!-- Ordered Food Items Breakdown -->
+            <div class="space-y-2">
+                <p class="text-xs font-bold text-[#181c1f]">Ordered Fresh Kitchen Items</p>
+                <div class="border border-[#DADCE0] rounded-2xl overflow-hidden bg-white">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50 border-b border-[#DADCE0] text-[#5c5f60] font-semibold text-[10px] uppercase">
+                                <th class="p-2.5">Item</th>
+                                <th class="p-2.5 text-center">Qty</th>
+                                <th class="p-2.5 text-right">Unit Price</th>
+                                <th class="p-2.5 text-right">Line Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modal-fod-items-tbody" class="divide-y divide-gray-100">
+                            <!-- Items dynamically injected -->
+                        </tbody>
+                        <tfoot>
+                            <tr class="bg-amber-50/50 font-bold border-t border-[#DADCE0]">
+                                <td colspan="3" class="p-3 text-right text-xs">Total Order Amount:</td>
+                                <td class="p-3 text-right text-sm text-[#181c1f]" id="modal-fod-total-amount">₹0</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Chef & Preparation Control -->
+            <div class="p-3.5 rounded-2xl bg-slate-50 border border-[#DADCE0] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-lg">👨‍🍳</span>
+                    <div>
+                        <p class="text-[10px] text-[#5c5f60] font-semibold uppercase">Assigned Cook</p>
+                        <p class="text-xs font-black text-[#181c1f]" id="modal-fod-assigned-cook">Kitchen Chef</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5 flex-wrap" id="modal-fod-actions-bar">
+                    <!-- Dynamic transition buttons -->
+                </div>
+            </div>
+        </div>
+    </div>
+
 </body>
 
 </html>

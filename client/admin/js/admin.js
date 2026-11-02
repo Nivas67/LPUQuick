@@ -11,6 +11,31 @@ function escapeHtml(str) {
 window.escapeHtml = escapeHtml;
 window.escapeHtmlStr = escapeHtml;
 
+// Universal Authenticated Fetch Helper
+function authFetch(url, options = {}) {
+    let authHeaders = {};
+    try {
+        if (typeof getAuthHeaders === 'function') {
+            authHeaders = getAuthHeaders();
+        } else {
+            const token = localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token');
+            authHeaders = {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': 'Bearer ' + token, 'x-admin-token': token } : {})
+            };
+        }
+    } catch (e) {
+        authHeaders = { 'Content-Type': 'application/json' };
+    }
+    const headers = {
+        ...authHeaders,
+        ...(options.headers || {})
+    };
+    return fetch(url, { ...options, headers });
+}
+window.authFetch = authFetch;
+
+
 // Multi-Theme High-Volume Web Audio Synthesizer Engine (Cha-Ching, QuickCommerce Pop, Courier Chirp, Arcade, Crystal Bell, Urgent Alarm)
 let audioCtx = null;
 let soundEnabled = localStorage.getItem('lpuquick_admin_sound') !== 'false';
@@ -489,7 +514,7 @@ function applyAdminRolePermissions(profile) {
     document.querySelectorAll('#desktop-nav .nav-item, .nav-item, .owner-only-nav, [data-required-role]').forEach(btn => {
         const req = btn.dataset?.requiredRole || '';
         const view = btn.dataset?.view || '';
-        const isOwnerOnly = btn.classList.contains('owner-only-nav') || req === 'owner' || view === 'employees' || view === 'staff' || view === 'hostels' || view === 'daily-revenue' || view === 'backup' || view === 'advertisements' || view === 'offers-charges';
+        const isOwnerOnly = (btn.classList.contains('owner-only-nav') || req === 'owner' || view === 'hostel-groups' || view === 'employees' || view === 'staff' || view === 'hostels' || view === 'daily-revenue' || view === 'backup' || view === 'advertisements' || view === 'offers-charges') && view !== 'food-dept';
 
         if (isOwnerOnly && !isOwner) {
             btn.classList.add('hidden');
@@ -699,15 +724,17 @@ function switchView(viewName) {
             'backup': ['owner'],
             'settings': ['owner'],
             'hostels': ['owner'],
+            'hostel-groups': ['owner'],
             'offers-charges': ['owner'],
             'payment-management': ['owner'],
-            'upi-config': ['owner']
+            'upi-config': ['owner'],
+            'food-dept': ['owner', 'store_manager', 'cook', 'food_department', 'food']
         };
 
         const required = viewRoles[viewName];
         if (required && !required.some(r => roles.includes(r))) {
             showToast('Access restricted for your staff role', 'warning');
-            const fallback = roles.includes('delivery_person') ? 'orders' : (roles.includes('inventory_manager') ? 'inventory' : 'dashboard');
+            const fallback = (roles.includes('cook') || roles.includes('food_department') || roles.includes('food')) ? 'food-dept' : (roles.includes('delivery_person') ? 'orders' : (roles.includes('inventory_manager') ? 'inventory' : 'dashboard'));
             if (viewName !== fallback) {
                 switchView(fallback);
                 return;
@@ -754,10 +781,12 @@ function switchView(viewName) {
         'backup': 'Backup & Disaster Recovery (0 - 100)',
         'settings': 'Store Settings',
         'hostels': 'Campus Hostels & Dark Stores (Owner Only)',
+        'hostel-groups': 'Hostel Group Management & Shared Inventory (Owner Only)',
         'employees': 'Employees & Dark Store Roster',
         'offers-charges': 'Offers & Charges — Global Pricing & Offer Rules (Owner Only)',
         'payment-management': 'Payment & Refund Management (Super Admin Only)',
-        'upi-config': 'UPI Gateway & Merchant Configuration (Super Admin Only)'
+        'upi-config': 'UPI Gateway & Merchant Configuration (Super Admin Only)',
+        'food-dept': 'Food Department & Kitchen Operations'
     };
     const currentTitle = titles[viewName] || 'Dashboard';
     const topTitle = document.getElementById('top-title');
@@ -784,10 +813,12 @@ function switchView(viewName) {
     else if (viewName === 'advertisements') loadAdvertisementsView();
     else if (viewName === 'backup') loadBackupDashboard();
     else if (viewName === 'hostels') loadHostels();
+    else if (viewName === 'hostel-groups') loadHostelGroups();
     else if (viewName === 'employees') loadEmployeesList();
     else if (viewName === 'offers-charges') loadOffersChargesView();
     else if (viewName === 'payment-management') loadPaymentManagementView();
     else if (viewName === 'upi-config') loadUpiConfigView();
+    else if (viewName === 'food-dept') loadFoodDeptAdmin();
 
     try {
         if (typeof window !== 'undefined' && window.location.hash.replace(/^#\/?/, '') !== viewName) {
@@ -803,9 +834,15 @@ if (typeof window !== 'undefined') {
         if (hash && hash !== activeView && typeof switchView === 'function') switchView(hash);
     });
     const triggerHashRoute = () => {
-        const hash = window.location.hash.replace(/^#\/?/, '');
-        if (hash && typeof switchView === 'function') {
-            setTimeout(() => switchView(hash), 150);
+        let route = window.location.hash.replace(/^#\/?/, '');
+        if (!route && window.location.pathname) {
+            const cleanPath = window.location.pathname.replace(/^\/admin\/?/, '').split('/')[0];
+            if (cleanPath && cleanPath !== 'index.html' && cleanPath !== 'admin') {
+                route = cleanPath;
+            }
+        }
+        if (route && typeof switchView === 'function') {
+            setTimeout(() => switchView(route), 150);
         }
     };
     if (document.readyState === 'loading') {
@@ -987,6 +1024,7 @@ async function loadDashboard() {
         renderRecentOrdersTable(ordersCache);
         updateDailyRevenue();
         renderDashboardHostelCards();
+        if (typeof isFoodDeptAdmin === 'function' && isFoodDeptAdmin()) { loadDashboardFoodQueue(); } else { const fCard = document.getElementById('dash-food-dept-card'); if (fCard) fCard.classList.add('hidden'); }
 
         // Render Low Stock Containers
         const lowContainer = document.getElementById('dash-low-stock-container');
@@ -3332,6 +3370,10 @@ function filterOrders() {
     const badgeBoth = document.getElementById('badge-both-count');
     if (badgeBoth) badgeBoth.textContent = bothCount;
 
+    const foodOrdersCount = ordersCache.filter(o => isOrderFoodDept(o)).length;
+    const badgeFood = document.getElementById('badge-food-orders-count');
+    if (badgeFood) badgeFood.textContent = foodOrdersCount;
+
     const query = (document.getElementById('orders-search-input')?.value || '').toLowerCase();
     const ordHostel = (typeof getActiveAdminHostelFilter === 'function') ? getActiveAdminHostelFilter('orders') : null;
     let filtered = ordersCache.filter(o => {
@@ -3373,6 +3415,8 @@ function filterOrders() {
             const da = o.delivery_assignment;
             return da && da.transfer && da.transfer.status === 'PENDING';
         });
+    } else if (currentOrderFilter === 'food_orders') {
+        filtered = filtered.filter(o => isOrderFoodDept(o));
     } else if (currentOrderFilter === 'active') {
         filtered = filtered.filter(o => !['Delivered', 'delivered', 'completed', 'Completed', 'cancelled', 'Cancelled', 'canceled', 'Canceled', 'rejected', 'Rejected'].includes(o.status));
     } else if (currentOrderFilter === 'delivered') {
@@ -3540,13 +3584,29 @@ function filterOrders() {
             `;
         }
 
+        const isFoodOrder = isOrderFoodDept(o);
+        const rowClass = isFoodOrder
+            ? "bg-gradient-to-r from-amber-50/95 via-orange-50/60 to-amber-50/30 hover:from-amber-100 hover:to-orange-100/90 border-l-4 border-l-amber-500 border-b border-amber-200 transition-colors cursor-pointer shadow-xs"
+            : "hover:bg-[#f7fafd] transition-colors cursor-pointer";
+
         return `
-        <tr class="hover:bg-[#f7fafd] transition-colors cursor-pointer" onclick="openOrderDrawer('${o.id}')" id="order-row-${o.id}">
+        <tr class="${rowClass}" onclick="openOrderDrawer('${o.id}')" id="order-row-${o.id}">
             <td class="p-4 font-bold font-mono text-[#181c1f]">
                 <div class="flex items-center gap-1.5 flex-wrap">
                     <span>#${(o.id || '').replace('order_', '').toUpperCase()}</span>
                     <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-50 text-[#0066cc] border border-blue-200">${escapeHtml(o.hostel_id || 'BH-13')}</span>
+                    ${isFoodOrder ? `
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs">
+                        <span class="material-symbols-outlined text-[10px]">restaurant</span>
+                        <span>Quick's Instant Food (11m)</span>
+                    </span>
+                    ` : ''}
                 </div>
+                ${isFoodOrder && o.cook_name ? `
+                <div class="mt-1 text-[10px] text-amber-900 font-bold flex items-center gap-1">
+                    <span>👨‍🍳 Chef:</span> <span>${escapeHtml(o.cook_name)}</span>
+                </div>
+                ` : ''}
             </td>
             <td class="p-4">
                 <p class="font-semibold text-[#181c1f]">${escapeHtml(displayName)}</p>
@@ -3555,21 +3615,22 @@ function filterOrders() {
             <td class="p-4 text-[#5c5f60]">${escapeHtml(o.delivery_address || 'Not provided')}</td>
             <td class="p-4 font-bold text-[#137333]">₹${o.total}</td>
             <td class="p-4 text-[#5c5f60]">${o.payment_method || 'COD'}</td>
-            <td class="p-4" id="order-status-pill-${o.id}">${getStatusPill(o.status)}</td>
+            <td class="p-4" id="order-status-pill-${o.id}">${getStatusPill(o.status, isFoodOrder)}</td>
             <td class="p-4">${dispatchBadgeHtml}</td>
             <td class="p-4 text-right">${actionButtonsHtml}</td>
         </tr>
     `}).join('');
 }
 
-function getStatusPill(status) {
+function getStatusPill(status, isFood = false) {
     const s = (status || '').toLowerCase();
-    if (s === 'delivered') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#e6f4ea] text-[#137333]">Delivered ✓</span>';
-    if (s === 'cancelled') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#fce8e6] text-[#c5221f] border border-[#f5c6cb]">Cancelled ✕</span>';
+    if (s === 'delivered' || s === 'completed') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#e6f4ea] text-[#137333]">Delivered ✓</span>';
+    if (s === 'cancelled' || s === 'rejected') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#fce8e6] text-[#c5221f] border border-[#f5c6cb]">Cancelled ✕</span>';
+    if (s === 'ready' || s === 'ready in kitchen') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300">🍲 Ready in Kitchen</span>';
     if (s === 'out for delivery') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">En Route 🚶‍♂️</span>';
-    if (s === 'preparing') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800">Preparing 📦</span>';
+    if (s === 'preparing' || s === 'cooking') return isFood ? '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300">🍳 Cooking / Prep (11m)</span>' : '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800">Preparing 📦</span>';
     if (s === 'order confirmed') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">Confirmed 👍</span>';
-    return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#ffdad6] text-[#ba1a1a] animate-pulse">Order Placed ⚡</span>';
+    return isFood ? '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black bg-orange-100 text-orange-900 border border-orange-300 animate-pulse">⚡ Food Placed (11m)</span>' : '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#ffdad6] text-[#ba1a1a] animate-pulse">Order Placed ⚡</span>';
 }
 
 // ================= 5. ORDER DETAILS DRAWER =================
@@ -4312,6 +4373,24 @@ function updateModalProfitPreview() {
 window.updateModalProfitPreview = updateModalProfitPreview;
 
 const DEFAULT_CATEGORY_SUBCATEGORIES = {
+    "Quick's Instant Food": [
+        'Maggi & Noodles',
+        'Cooked Meals & Platters',
+        'Sandwiches & Burgers',
+        'Pasta & Macaroni',
+        'Hot Snacks & Fries',
+        'Soups & Bowls',
+        'Chai, Coffee & Beverages'
+    ],
+    'Instant Food': [
+        'Maggi & Noodles',
+        'Cooked Meals & Platters',
+        'Sandwiches & Burgers',
+        'Pasta & Macaroni',
+        'Hot Snacks & Fries',
+        'Soups & Bowls',
+        'Chai, Coffee & Beverages'
+    ],
     'Snacks & Beverages': [
         'Biscuits',
         'Chips',
@@ -6567,6 +6646,9 @@ function renderStaffTable(list) {
         if (s.roles.includes('delivery_person')) {
             roleBadges.push(`<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">🛵 Delivery</span>`);
         }
+        if (s.roles.includes('cook') || s.roles.includes('food_department') || s.roles.includes('food')) {
+            roleBadges.push(`<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">👨‍🍳 Food Dept</span>`);
+        }
 
         let hostelBadge = '';
         if (isOwner) {
@@ -6667,6 +6749,10 @@ function openStaffModal(staffId = null) {
         document.getElementById('role-store-manager').checked = (staff.roles || []).includes('store_manager');
         document.getElementById('role-inventory-manager').checked = (staff.roles || []).includes('inventory_manager');
         document.getElementById('role-delivery-person').checked = (staff.roles || []).includes('delivery_person') || Boolean(staff.is_delivery_boy);
+        const cookCheckbox = document.getElementById('role-cook');
+        if (cookCheckbox) cookCheckbox.checked = (staff.roles || []).includes('cook') || (staff.roles || []).includes('food_department');
+        const permGroceryCheckbox = document.getElementById('perm-manage-grocery');
+        if (permGroceryCheckbox) permGroceryCheckbox.checked = Boolean(staff.permissions && staff.permissions.can_manage_grocery_inventory);
 
         const isOnDuty = Boolean(staff.is_on_duty || staff.duty_status === 'ON_DUTY' || (staff.delivery_data && staff.delivery_data.duty_status === 'ON_DUTY'));
         const onRadio = document.getElementById('staff-duty-on');
@@ -6715,6 +6801,8 @@ function openStaffModal(staffId = null) {
         document.getElementById('role-store-manager').checked = true;
         document.getElementById('role-inventory-manager').checked = false;
         document.getElementById('role-delivery-person').checked = false;
+        if (document.getElementById('role-cook')) document.getElementById('role-cook').checked = false;
+        if (document.getElementById('perm-manage-grocery')) document.getElementById('perm-manage-grocery').checked = false;
 
         const onRadioNew = document.getElementById('staff-duty-on');
         const offRadioNew = document.getElementById('staff-duty-off');
@@ -6759,6 +6847,13 @@ async function submitStaffForm(e) {
     if (document.getElementById('role-store-manager').checked) roles.push('store_manager');
     if (document.getElementById('role-inventory-manager').checked) roles.push('inventory_manager');
     if (document.getElementById('role-delivery-person').checked) roles.push('delivery_person');
+    if (document.getElementById('role-cook')?.checked) {
+        roles.push('cook');
+        roles.push('food_department');
+    }
+    const permissions = {
+        can_manage_grocery_inventory: Boolean(document.getElementById('perm-manage-grocery')?.checked)
+    };
 
     const isOnDuty = document.getElementById('staff-duty-on')?.checked ?? true;
     const dutyStatus = isOnDuty ? 'ON_DUTY' : 'OFF_DUTY';
@@ -6780,7 +6875,7 @@ async function submitStaffForm(e) {
     try {
         let res;
         if (id) {
-            const payload = { name, phone, roles, assigned_hostel_id: assignedHostelId, is_on_duty: isOnDuty, duty_status: dutyStatus };
+            const payload = { name, phone, roles, permissions, assigned_hostel_id: assignedHostelId, is_on_duty: isOnDuty, duty_status: dutyStatus };
             if (password) payload.password = password;
             res = await fetch(`/api/admin/staff/${id}`, {
                 method: 'PUT',
@@ -6791,7 +6886,7 @@ async function submitStaffForm(e) {
             res = await fetch('/api/admin/staff', {
                 method: 'POST',
                 headers: getAuthHeaders(),
-                body: JSON.stringify({ name, email, phone, password, roles, assigned_hostel_id: assignedHostelId, is_on_duty: isOnDuty, duty_status: dutyStatus })
+                body: JSON.stringify({ name, email, phone, password, roles, permissions, assigned_hostel_id: assignedHostelId, is_on_duty: isOnDuty, duty_status: dutyStatus })
             });
         }
 
@@ -6948,6 +7043,7 @@ function renderEmployeesTable(list) {
         if ((emp.roles || []).includes('store_manager')) roleBadges.push('<span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">🏢 Store Mgr</span>');
         if ((emp.roles || []).includes('inventory_manager')) roleBadges.push('<span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">📦 Inventory</span>');
         if ((emp.roles || []).includes('delivery_person') || emp.is_delivery_boy) roleBadges.push('<span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">🛵 Delivery</span>');
+        if ((emp.roles || []).includes('cook') || (emp.roles || []).includes('food_department') || (emp.roles || []).includes('food')) roleBadges.push('<span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">👨‍🍳 Food Dept</span>');
 
         // Hostel badge
         let hostelBadge = '';
@@ -7357,17 +7453,44 @@ function populateHostelDropdowns() {
             select.appendChild(opt);
         });
 
-        // If non-owner manager assigned to a specific hostel, force lock to their assigned hostel only
-        if (!isOwner && assignedHostel) {
+        // If non-owner manager assigned to hostels or groups
+        const myHostels = (currentAdminProfile?.assigned_hostels && currentAdminProfile.assigned_hostels.length > 0)
+            ? currentAdminProfile.assigned_hostels
+            : (assignedHostel ? [assignedHostel] : []);
+
+        if (!isOwner && myHostels.length > 0) {
             select.innerHTML = '';
-            const matched = hostelsCache.find(h => h.id === assignedHostel);
-            const opt = document.createElement('option');
-            opt.value = assignedHostel;
-            opt.textContent = `🏢 ${matched?.name || assignedHostel} (${assignedHostel})`;
-            select.appendChild(opt);
-            select.value = assignedHostel;
-            select.disabled = true;
-            if (cfg.view) activeAdminHostelFilter[cfg.view] = assignedHostel;
+            if (myHostels.length > 1) {
+                if (cfg.allowAll) {
+                    const allOpt = document.createElement('option');
+                    allOpt.value = 'ALL';
+                    allOpt.textContent = '🏢 All My Assigned Hostels';
+                    select.appendChild(allOpt);
+                }
+                myHostels.forEach(hId => {
+                    const matched = hostelsCache.find(h => h.id === hId);
+                    const opt = document.createElement('option');
+                    opt.value = hId;
+                    opt.textContent = `🏢 ${matched?.name || hId} (${hId})`;
+                    select.appendChild(opt);
+                });
+                select.disabled = false;
+                if (currentVal && (currentVal === 'ALL' || myHostels.includes(currentVal))) {
+                    select.value = currentVal;
+                } else {
+                    select.value = cfg.allowAll ? 'ALL' : myHostels[0];
+                }
+            } else {
+                const singleId = myHostels[0];
+                const matched = hostelsCache.find(h => h.id === singleId);
+                const opt = document.createElement('option');
+                opt.value = singleId;
+                opt.textContent = `🏢 ${matched?.name || singleId} (${singleId})`;
+                select.appendChild(opt);
+                select.value = singleId;
+                select.disabled = true;
+            }
+            if (cfg.view) activeAdminHostelFilter[cfg.view] = select.value;
         } else {
             select.disabled = false;
             if (currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
@@ -7576,11 +7699,18 @@ function renderHostelsTable() {
 
         const createdDate = h.created_at ? new Date(h.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Preset';
 
+        const activeBlocks = Array.isArray(h.blocks) && h.blocks.length > 0 ? h.blocks : ['Block A', 'Block B'];
+        const blocksPills = activeBlocks.map(b => `<span class="bg-blue-50 text-[#0066cc] border border-blue-200 px-1.5 py-0.2 rounded text-[10px] font-bold">${escapeHtml(b)}</span>`).join(' ');
+
         return `
             <tr class="hover:bg-[#f7fafd] transition-colors">
                 <td class="p-4 font-mono font-bold text-[#0066cc] text-xs">${escapeHtml(h.id)}</td>
                 <td class="p-4">
                     <p class="font-semibold text-xs text-[#181c1f]">${escapeHtml(h.name)}</p>
+                    <div class="flex items-center gap-1 flex-wrap mt-1">
+                        <span class="text-[10px] text-slate-400 font-semibold">Active Blocks:</span>
+                        ${blocksPills}
+                    </div>
                 </td>
                 <td class="p-4">${statusBadge}</td>
                 <td class="p-4">${managerDisplay}</td>
@@ -7591,6 +7721,12 @@ function renderHostelsTable() {
                             class="px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${isActive ? 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100' : 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'}"
                             title="${isActive ? 'Pause Storefront (Turn OFF)' : 'Activate Storefront (Turn ON)'}">
                             ${isActive ? '⏸️ Turn OFF' : '▶️ Turn ACTIVE'}
+                        </button>
+                        <button onclick="openManageBlocksModal('${escapeHtml(h.id)}')"
+                            class="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all"
+                            title="Configure Active Blocks for ${escapeHtml(h.name)}">
+                            <span class="material-symbols-outlined text-[14px]">apartment</span>
+                            <span>Blocks</span>
                         </button>
                         <button onclick="openAssignManagerModal('${escapeHtml(h.id)}', '${escapeHtml(h.name)}', '${h.store_manager_id || ''}')"
                             class="p-1.5 text-purple-700 hover:bg-purple-50 rounded-lg transition-all cursor-pointer" title="Assign Store Manager">
@@ -7638,6 +7774,17 @@ function onPresetHostelSelected(val) {
     }
 }
 
+function setPresetHostelBlocks(preset) {
+    const input = document.getElementById('form-hostel-blocks');
+    if (!input) return;
+    if (preset === 'ABCD_GATE') {
+        input.value = 'Block A, Block B, Block C, Block D, Hostel Main Gate';
+    } else if (preset === 'AB_GATE') {
+        input.value = 'Block A, Block B, Hostel Main Gate';
+    }
+}
+window.setPresetHostelBlocks = setPresetHostelBlocks;
+
 function openHostelModal(hostelId = null) {
     editingHostelId = hostelId;
     const modal = document.getElementById('modal-hostel');
@@ -7646,6 +7793,7 @@ function openHostelModal(hostelId = null) {
     const idInput = document.getElementById('form-hostel-id');
     const nameInput = document.getElementById('form-hostel-name');
     const statusSelect = document.getElementById('form-hostel-status');
+    const blocksInput = document.getElementById('form-hostel-blocks');
     const errBox = document.getElementById('hostel-form-error');
 
     if (errBox) errBox.classList.add('hidden');
@@ -7659,6 +7807,11 @@ function openHostelModal(hostelId = null) {
         }
         if (nameInput) nameInput.value = h ? h.name : hostelId;
         if (statusSelect) statusSelect.value = h ? h.status : 'ACTIVE';
+        if (blocksInput) {
+            blocksInput.value = (Array.isArray(h?.blocks) && h.blocks.length > 0)
+                ? h.blocks.join(', ')
+                : 'Block A, Block B, Block C, Block D, Hostel Main Gate';
+        }
 
         if (presetSelect) {
             let matched = false;
@@ -7684,6 +7837,9 @@ function openHostelModal(hostelId = null) {
         }
         if (nameInput) nameInput.value = '';
         if (statusSelect) statusSelect.value = 'ACTIVE';
+        if (blocksInput) {
+            blocksInput.value = 'Block A, Block B, Block C, Block D, Hostel Main Gate';
+        }
     }
 
     if (modal) modal.classList.remove('hidden');
@@ -7700,12 +7856,15 @@ async function submitHostelForm(e) {
     const idInput = document.getElementById('form-hostel-id');
     const nameInput = document.getElementById('form-hostel-name');
     const statusSelect = document.getElementById('form-hostel-status');
+    const blocksInput = document.getElementById('form-hostel-blocks');
     const errBox = document.getElementById('hostel-form-error');
     const saveBtn = document.getElementById('btn-save-hostel');
 
     const id = (idInput?.value || '').trim().toUpperCase();
     const name = (nameInput?.value || '').trim();
     const status = statusSelect?.value || 'ACTIVE';
+    const rawBlocks = (blocksInput?.value || '').trim();
+    const blocks = rawBlocks.split(',').map(s => s.trim()).filter(Boolean);
 
     if (!id || !name) {
         if (errBox) {
@@ -7725,7 +7884,7 @@ async function submitHostelForm(e) {
         const res = await fetch(url, {
             method,
             headers: getAuthHeaders(),
-            body: JSON.stringify({ id, name, status })
+            body: JSON.stringify({ id, name, status, blocks })
         });
         const data = await res.json();
         if (data.success) {
@@ -12773,3 +12932,2000 @@ window.submitRefundModal = submitRefundModal;
 window.loadUpiConfigView = loadUpiConfigView;
 window.saveUpiConfig = saveUpiConfig;
 
+
+
+// =========================================================================
+// FOOD DEPARTMENT & KITCHEN OPERATIONS CONTROLLER (ADMIN)
+// =========================================================================
+
+let foodConfigCache = null;
+let foodCooksCache = [];
+let foodOrdersCache = [];
+
+function openStaffModalWithCookRole() {
+    openStaffModal();
+    setTimeout(() => {
+        const cookCb = document.getElementById('role-cook');
+        if (cookCb) cookCb.checked = true;
+        const storeCb = document.getElementById('role-store-manager');
+        if (storeCb) storeCb.checked = false;
+    }, 50);
+}
+window.openStaffModalWithCookRole = openStaffModalWithCookRole;
+
+async function loadFoodDeptAdmin() {
+    try {
+        const targetHostel = (typeof getActiveLockHostel === 'function' ? getActiveLockHostel() : null) || 'BH-13';
+        const headers = getAuthHeaders();
+
+        const fetchSafe = async (url) => {
+            try {
+                const res = await fetch(url, { headers });
+                if (res.ok) return await res.json();
+            } catch (e) {
+                console.warn('[Admin Food Safe Fetch]: ' + url, e.message);
+            }
+            return null;
+        };
+
+        const [configData, cooksData, ordersData, metricsData, productsData] = await Promise.all([
+            fetchSafe('/api/food/config'),
+            fetchSafe('/api/food/cooks'),
+            fetchSafe('/api/food/orders'),
+            fetchSafe('/api/food/metrics'),
+            fetchSafe('/api/food/products?hostel_id=' + encodeURIComponent(targetHostel))
+        ]);
+
+        if (configData && configData.success && configData.config) {
+            foodConfigCache = configData.config;
+            renderFoodConfig(configData.config);
+        }
+
+        if (cooksData && cooksData.success && Array.isArray(cooksData.cooks)) {
+            foodCooksCache = cooksData.cooks;
+            renderFoodCooks(cooksData.cooks);
+            populateSpecificCookDropdown(cooksData.cooks);
+        }
+
+        if (ordersData && ordersData.success && Array.isArray(ordersData.orders)) {
+            foodOrdersCache = ordersData.orders;
+            renderFoodOrdersAdmin(ordersData.orders);
+        }
+
+        if (metricsData && metricsData.success && metricsData.metrics) {
+            renderFoodDeptMetrics(metricsData.metrics);
+        }
+
+        if (productsData && productsData.success && Array.isArray(productsData.products) && productsData.products.length > 0) {
+            foodProductsCache = productsData.products;
+            renderFoodDeptProducts(foodProductsCache);
+        } else if (typeof fetchFoodDeptProducts === 'function') {
+            await fetchFoodDeptProducts();
+        }
+    } catch (err) {
+        console.error('[Admin Food Dept Load Error]:', err);
+        if (typeof fetchFoodDeptProducts === 'function') {
+            fetchFoodDeptProducts();
+        }
+    }
+}
+window.loadFoodDeptAdmin = loadFoodDeptAdmin;
+
+function renderFoodDeptMetrics(m) {
+    const onDutyCooks = foodCooksCache.filter(c => c.duty_status === 'ON_DUTY' || c.is_on_duty !== false).length;
+    const statDuty = document.getElementById('stat-food-cooks-duty');
+    if (statDuty) statDuty.textContent = onDutyCooks;
+
+    const statTotal = document.getElementById('stat-food-total-orders');
+    if (statTotal) statTotal.textContent = m.total_food_orders || foodOrdersCache.length;
+
+    const statPrep = document.getElementById('stat-food-active-prep');
+    if (statPrep) statPrep.textContent = m.preparing_count || 0;
+
+    const statReady = document.getElementById('stat-food-ready-comp');
+    if (statReady) statReady.textContent = (m.ready_count || 0) + (m.completed_count || 0);
+}
+
+function renderFoodConfig(cfg) {
+    const methodSelect = document.getElementById('food-config-method');
+    const prepInput = document.getElementById('food-config-prep-time');
+    const specificSelect = document.getElementById('food-config-specific-cook');
+
+    if (methodSelect && cfg.assignment_method) {
+        methodSelect.value = cfg.assignment_method;
+    }
+    if (prepInput && cfg.prep_time_minutes) {
+        prepInput.value = cfg.prep_time_minutes;
+    }
+    if (specificSelect && cfg.specific_cook_id) {
+        specificSelect.value = cfg.specific_cook_id;
+    }
+
+    toggleSpecificCookSelect();
+}
+
+window.toggleSpecificCookSelect = function() {
+    const methodSelect = document.getElementById('food-config-method');
+    const wrapper = document.getElementById('food-specific-cook-wrapper');
+    if (!methodSelect || !wrapper) return;
+
+    if (methodSelect.value === 'specific_cook') {
+        wrapper.classList.remove('hidden');
+    } else {
+        wrapper.classList.add('hidden');
+    }
+};
+
+function populateSpecificCookDropdown(cooks) {
+    const select = document.getElementById('food-config-specific-cook');
+    if (!select) return;
+
+    const currentVal = foodConfigCache?.specific_cook_id || select.value;
+    select.innerHTML = '<option value="">Select a designated cook...</option>';
+
+    cooks.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = `👨‍🍳 ${c.name} (${c.duty_status === 'ON_DUTY' ? 'On Duty' : 'Off Duty'})`;
+        select.appendChild(opt);
+    });
+
+    if (currentVal) select.value = currentVal;
+}
+
+window.saveFoodConfig = async function(e) {
+    if (e) e.preventDefault();
+    const method = document.getElementById('food-config-method')?.value || 'least_loaded';
+    const specificCookId = document.getElementById('food-config-specific-cook')?.value || null;
+    const prepTime = Number(document.getElementById('food-config-prep-time')?.value) || 15;
+    const btn = document.getElementById('btn-save-food-config');
+
+    if (method === 'specific_cook' && !specificCookId) {
+        showToast('Please select a specific designated cook.', 'warning');
+        return;
+    }
+
+    try {
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">sync</span> Saving...';
+        }
+
+        const res = await fetch('/api/food/config', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                assignment_method: method,
+                specific_cook_id: specificCookId,
+                prep_time_minutes: prepTime
+            })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+            foodConfigCache = data.config;
+            showToast('Food assignment rules saved successfully!', 'success');
+        } else {
+            throw new Error(data.error || 'Failed to save configuration');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<span class="material-symbols-outlined text-sm">save</span> <span>Save Rules</span>';
+        }
+    }
+};
+
+function renderFoodCooks(cooks) {
+    const tbody = document.getElementById('food-cooks-tbody');
+    if (!tbody) return;
+
+    if (cooks.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="p-8 text-center text-[#5c5f60]">
+                    No kitchen staff found. Click "Add New Cook" above to designate employees to the Food Department.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = cooks.map(cook => {
+        const isOnDuty = cook.duty_status === 'ON_DUTY' || cook.is_on_duty !== false;
+        const canGrocery = Boolean(cook.permissions && cook.permissions.can_manage_grocery_inventory);
+
+        return `
+            <tr class="hover:bg-slate-50/70 transition-colors">
+                <td class="p-3.5">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-full bg-amber-100 text-amber-800 font-bold flex items-center justify-center text-xs">
+                            👨‍🍳
+                        </div>
+                        <div>
+                            <p class="font-bold text-[#181c1f]">${escapeHtml(cook.name)}</p>
+                            <p class="text-[11px] text-[#5c5f60]">${escapeHtml(cook.phone || cook.email)}</p>
+                        </div>
+                    </div>
+                </td>
+                <td class="p-3.5 font-medium text-[#181c1f]">
+                    ${cook.assigned_hostel_id ? `🏢 ${cook.assigned_hostel_id}` : '<span class="text-gray-400">All Hostels</span>'}
+                </td>
+                <td class="p-3.5">
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${isOnDuty ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-gray-100 text-gray-600 border border-gray-300'}">
+                        <span class="w-2 h-2 rounded-full ${isOnDuty ? 'bg-emerald-500' : 'bg-gray-400'}"></span>
+                        ${isOnDuty ? 'ON DUTY' : 'OFF DUTY'}
+                    </span>
+                </td>
+                <td class="p-3.5 font-bold text-sm text-[#181c1f]">
+                    ${cook.active_orders_count || 0} active
+                </td>
+                <td class="p-3.5">
+                    <button type="button" onclick="toggleCookGroceryPermission('${cook.id}', ${canGrocery})" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${canGrocery ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100' : 'bg-slate-50 text-slate-600 border-slate-300 hover:bg-slate-100'}" title="Click to toggle grocery inventory management">
+                        <span class="material-symbols-outlined text-xs">${canGrocery ? 'check_circle' : 'remove_circle_outline'}</span>
+                        <span>${canGrocery ? 'Authorized' : 'Restricted'}</span>
+                    </button>
+                </td>
+                <td class="p-3.5 text-right">
+                    <div class="inline-flex items-center gap-2">
+                        <button type="button" onclick="toggleCookDutyStatus('${cook.id}', ${isOnDuty})" class="px-2.5 py-1 border border-[#DADCE0] hover:bg-gray-100 rounded-lg text-xs font-semibold text-[#5c5f60] transition-colors cursor-pointer">
+                            ${isOnDuty ? 'Set Off Duty' : 'Set On Duty'}
+                        </button>
+                        <button type="button" onclick="openStaffModal('${cook.id}')" class="p-1 text-[#1a73e8] hover:bg-blue-50 rounded-lg transition-colors cursor-pointer" title="Edit Staff Profile">
+                            <span class="material-symbols-outlined text-base">edit</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+window.toggleCookDutyStatus = async function(cookId, currentDuty) {
+    try {
+        const nextDuty = !currentDuty;
+        const res = await fetch(`/api/admin/staff/${cookId}`, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                is_on_duty: nextDuty,
+                duty_status: nextDuty ? 'ON_DUTY' : 'OFF_DUTY'
+            })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast(nextDuty ? 'Cook marked ON DUTY' : 'Cook marked OFF DUTY', 'info');
+            loadFoodDeptAdmin();
+        } else {
+            throw new Error(data.error || 'Failed to update duty status');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+};
+
+window.toggleCookGroceryPermission = async function(cookId, currentPerm) {
+    try {
+        const nextPerm = !currentPerm;
+        const res = await fetch(`/api/admin/staff/${cookId}`, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                permissions: { can_manage_grocery_inventory: nextPerm }
+            })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast(nextPerm ? 'Authorized cook for grocery inventory!' : 'Restricted cook from grocery inventory', 'info');
+            loadFoodDeptAdmin();
+        } else {
+            throw new Error(data.error || 'Failed to update grocery permission');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+};
+
+function renderFoodOrdersAdmin(orders) {
+    const tbody = document.getElementById('food-orders-admin-tbody');
+    if (!tbody) return;
+
+    const totalOrders = orders.length;
+    const placedOrders = orders.filter(o => ['order placed', 'placed', 'pending'].includes((o.status || '').toLowerCase())).length;
+    const preparingOrders = orders.filter(o => ['preparing', 'cooking', 'in progress'].includes((o.status || '').toLowerCase())).length;
+    const readyOrders = orders.filter(o => ['ready', 'ready in kitchen', 'cooked'].includes((o.status || '').toLowerCase())).length;
+    const completedOrders = orders.filter(o => ['completed', 'delivered', 'done'].includes((o.status || '').toLowerCase())).length;
+
+    const cAll = document.getElementById('count-food-all'); if (cAll) cAll.textContent = totalOrders;
+    const cPlaced = document.getElementById('count-food-placed'); if (cPlaced) cPlaced.textContent = placedOrders;
+    const cPrep = document.getElementById('count-food-preparing'); if (cPrep) cPrep.textContent = preparingOrders;
+    const cReady = document.getElementById('count-food-ready'); if (cReady) cReady.textContent = readyOrders;
+    const cComp = document.getElementById('count-food-completed'); if (cComp) cComp.textContent = completedOrders;
+    const badgeQueue = document.getElementById('food-orders-count-badge'); if (badgeQueue) badgeQueue.textContent = `${totalOrders} Total`;
+
+    let filtered = orders;
+    if (foodOrdersFilterActive === 'placed') {
+        filtered = orders.filter(o => ['order placed', 'placed', 'pending'].includes((o.status || '').toLowerCase()));
+    } else if (foodOrdersFilterActive === 'preparing') {
+        filtered = orders.filter(o => ['preparing', 'cooking', 'in progress'].includes((o.status || '').toLowerCase()));
+    } else if (foodOrdersFilterActive === 'ready') {
+        filtered = orders.filter(o => ['ready', 'ready in kitchen', 'cooked'].includes((o.status || '').toLowerCase()));
+    } else if (foodOrdersFilterActive === 'completed') {
+        filtered = orders.filter(o => ['completed', 'delivered', 'done'].includes((o.status || '').toLowerCase()));
+    }
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="p-8 text-center text-[#5c5f60]">
+                    <div class="max-w-xs mx-auto space-y-1">
+                        <span class="material-symbols-outlined text-3xl text-gray-300">receipt_long</span>
+                        <p class="font-bold text-[#181c1f]">No food orders in this filter</p>
+                        <p class="text-xs text-gray-500">Incoming Quick's Instant Food orders will appear here automatically.</p>
+                    </div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(order => {
+        const shortId = order.order_id.replace(/^order_/, '').slice(0, 8);
+        const s = (order.status || 'Order Placed').toLowerCase();
+
+        let statusPill = '';
+        let quickActionBtn = '';
+
+        if (s === 'completed' || s === 'delivered') {
+            statusPill = '<span class="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">✓ Completed</span>';
+            quickActionBtn = '<span class="text-xs text-emerald-700 font-bold flex items-center justify-end gap-1"><span class="material-symbols-outlined text-sm">check_circle</span> Delivered</span>';
+        } else if (s === 'ready' || s === 'ready in kitchen') {
+            statusPill = '<span class="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300">🍲 Ready in Kitchen</span>';
+            quickActionBtn = `<button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Completed')" class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer flex items-center gap-1 ml-auto"><span>✓ Mark Completed</span></button>`;
+        } else if (s === 'preparing' || s === 'cooking') {
+            statusPill = '<span class="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300">🍳 Cooking / Preparing</span>';
+            quickActionBtn = `<button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Ready')" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer flex items-center gap-1 ml-auto"><span>🍲 Mark Ready</span></button>`;
+        } else {
+            statusPill = '<span class="px-2.5 py-1 rounded-full text-[10px] font-black bg-orange-100 text-orange-900 border border-orange-300 animate-pulse">⚡ Order Placed</span>';
+            quickActionBtn = `<button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Preparing')" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer flex items-center gap-1 ml-auto"><span>🍳 Start Cooking</span></button>`;
+        }
+
+        const itemsHtml = (order.food_items || []).map(i => `
+            <div class="inline-flex items-center gap-1 bg-amber-50 text-amber-950 border border-amber-200 px-2 py-0.5 rounded text-[11px] font-bold mr-1 mb-1">
+                <span>${escapeHtml(i.name)}</span>
+                <span class="text-amber-800">×${i.quantity}</span>
+                ${i.price ? `<span class="text-amber-600 font-semibold">(₹${i.price})</span>` : ''}
+            </div>
+        `).join('');
+
+        return `
+            <tr class="hover:bg-amber-50/40 transition-colors">
+                <td class="p-3.5">
+                    <p class="font-mono font-bold text-xs text-[#181c1f]">#${shortId.toUpperCase()}</p>
+                    <p class="text-[10px] text-[#5c5f60]">${escapeHtml(order.order_time_formatted || '')}</p>
+                    <span class="inline-block mt-0.5 text-[9px] font-black px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300">11m Food Delivery</span>
+                </td>
+                <td class="p-3.5">
+                    <p class="font-bold text-xs text-[#181c1f]">${escapeHtml(order.customer_name)}</p>
+                    <p class="text-[11px] font-semibold text-amber-900">${escapeHtml(order.delivery_address || order.hostel_id || 'Hostel')}</p>
+                    ${order.customer_phone ? `<p class="text-[10px] text-[#5c5f60]">📞 ${escapeHtml(order.customer_phone)}</p>` : ''}
+                </td>
+                <td class="p-3.5 max-w-xs">
+                    <div class="flex flex-wrap">${itemsHtml || '<span class="text-gray-400">Food Item</span>'}</div>
+                    ${order.special_instructions && order.special_instructions !== 'None' ? `<p class="text-[10px] text-amber-800 italic mt-0.5">Note: ${escapeHtml(order.special_instructions)}</p>` : ''}
+                </td>
+                <td class="p-3.5">
+                    <p class="font-bold text-xs text-[#181c1f]">₹${Number(order.total_amount || order.total || 0).toFixed(2)}</p>
+                    <span class="inline-block text-[9px] font-bold px-1.5 py-0.2 rounded bg-gray-100 text-gray-700 uppercase">${escapeHtml(order.payment_method || 'COD')}</span>
+                </td>
+                <td class="p-3.5 font-medium text-[#181c1f]">
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-sm">👨‍🍳</span>
+                        <div>
+                            <p class="font-bold text-xs text-[#181c1f]">${escapeHtml(order.cook_name || 'Chef Assigned')}</p>
+                            <button type="button" onclick="openReassignFoodModal('${order.order_id}')" class="text-[10px] text-amber-700 hover:underline font-semibold flex items-center gap-0.5 cursor-pointer">
+                                <span>Reassign</span> <span class="material-symbols-outlined text-[11px]">swap_horiz</span>
+                            </button>
+                        </div>
+                    </div>
+                </td>
+                <td class="p-3.5">${statusPill}</td>
+                <td class="p-3.5 text-right">
+                    <div class="flex items-center justify-end gap-1.5">
+                        ${quickActionBtn}
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+window.openReassignFoodModal = function(orderId) {
+    const modal = document.getElementById('modal-reassign-food-order');
+    const orderIdInput = document.getElementById('reassign-order-id');
+    const orderLabel = document.getElementById('reassign-order-label');
+    const cookSelect = document.getElementById('reassign-cook-select');
+
+    if (!modal || !orderIdInput || !orderLabel || !cookSelect) return;
+
+    orderIdInput.value = orderId;
+    orderLabel.textContent = '#' + orderId.replace(/^order_/, '').slice(0, 8);
+
+    cookSelect.innerHTML = '<option value="">Select an active cook...</option>';
+    foodCooksCache.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = `👨‍🍳 ${c.name} (${c.duty_status === 'ON_DUTY' ? 'On Duty' : 'Off Duty'}) - ${c.active_orders_count || 0} active`;
+        cookSelect.appendChild(opt);
+    });
+
+    modal.classList.remove('hidden');
+};
+
+window.closeReassignFoodModal = function() {
+    const modal = document.getElementById('modal-reassign-food-order');
+    if (modal) modal.classList.add('hidden');
+};
+
+window.submitReassignFoodOrder = async function(e) {
+    if (e) e.preventDefault();
+    const orderId = document.getElementById('reassign-order-id')?.value;
+    const cookId = document.getElementById('reassign-cook-select')?.value;
+    const reason = document.getElementById('reassign-reason-input')?.value || 'Reassigned by Admin';
+    const btn = document.getElementById('btn-submit-reassign');
+
+    if (!orderId || !cookId) {
+        showToast('Please select a target cook.', 'warning');
+        return;
+    }
+
+    try {
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Reassigning...';
+        }
+
+        const res = await fetch(`/api/food/orders/${orderId}/reassign`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ cook_id: cookId, reason: reason })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+            closeReassignFoodModal();
+            showToast('Order successfully reassigned to new cook!', 'success');
+            loadFoodDeptAdmin();
+        } else {
+            throw new Error(data.error || 'Failed to reassign order');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Reassign Now';
+        }
+    }
+};
+
+
+function openProductModalForFood() {
+    openProductModal();
+    const catSelect = document.getElementById('form-product-category');
+    if (catSelect) {
+        catSelect.value = "Quick's Instant Food"; if (!catSelect.value) catSelect.value = 'Instant Food';
+        if (typeof onModalCategoryChange === 'function') {
+            onModalCategoryChange();
+        }
+    }
+}
+window.openProductModalForFood = openProductModalForFood;
+
+
+// ============================================================
+// HOSTEL GROUP MANAGEMENT & SHARED INVENTORY (SUPER ADMIN)
+// ============================================================
+function authFetch(url, options = {}) {
+    const headers = {
+        ...getAuthHeaders(),
+        ...(options.headers || {})
+    };
+    return fetch(url, { ...options, headers });
+}
+window.authFetch = authFetch;
+
+let hostelGroupsCache = [];
+let hostelGroupsStaffCache = [];
+let hostelModalFullList = [];
+let hostelModalFilterActive = 'all';
+
+async function loadHostelGroups() {
+    const tbody = document.getElementById('hostel-groups-tbody');
+    if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-[#5c5f60]"><span class="material-symbols-outlined animate-spin text-lg inline-block align-middle mr-1 text-[#0066cc]">progress_activity</span> Loading hostel groups...</td></tr>';
+    }
+
+    try {
+        const fetchFn = typeof window.authFetch === 'function' ? window.authFetch : (typeof authFetch === 'function' ? authFetch : (u, o = {}) => fetch(u, { ...o, headers: { ...(typeof getAuthHeaders === 'function' ? getAuthHeaders() : {}), ...(o.headers || {}) } }));
+        const res = await fetchFn('/api/admin/hostel-groups');
+        const data = await res.json();
+
+        if (data.success && Array.isArray(data.groups)) {
+            hostelGroupsCache = data.groups;
+            updateHostelGroupsStats();
+            renderHostelGroups(hostelGroupsCache);
+        } else {
+            throw new Error(data.error || 'Failed to fetch hostel groups');
+        }
+    } catch (err) {
+        console.error('[Load Hostel Groups Error]:', err.message);
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-[#ba1a1a]">Failed to load hostel groups: ${escapeHtml(err.message)} <br><button onclick="loadHostelGroups()" class="mt-2 px-3 py-1 bg-white border border-[#ba1a1a] rounded-lg text-xs font-bold text-[#ba1a1a] hover:bg-rose-50">Retry</button></td></tr>`;
+        }
+    }
+}
+
+function updateHostelGroupsStats() {
+    const total = hostelGroupsCache.length;
+    const shared = hostelGroupsCache.filter(g => g.inventory_mode === 'shared').length;
+    const independent = hostelGroupsCache.filter(g => g.inventory_mode === 'independent').length;
+    
+    const allHostelIds = new Set();
+    hostelGroupsCache.forEach(g => {
+        (g.hostel_ids || []).forEach(h => allHostelIds.add(h));
+    });
+
+    const elTotal = document.getElementById('stat-groups-total');
+    if (elTotal) elTotal.textContent = total;
+
+    const elShared = document.getElementById('stat-groups-shared');
+    if (elShared) elShared.textContent = shared;
+
+    const elInd = document.getElementById('stat-groups-independent');
+    if (elInd) elInd.textContent = independent;
+
+    const elHostels = document.getElementById('stat-groups-hostels');
+    if (elHostels) elHostels.textContent = allHostelIds.size;
+
+    const badge = document.getElementById('nav-hostel-groups-badge');
+    if (badge) badge.textContent = total;
+}
+
+function renderHostelGroups(groups) {
+    const tbody = document.getElementById('hostel-groups-tbody');
+    if (!tbody) return;
+
+    if (!groups || groups.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="p-8 text-center text-[#5c5f60]">
+                    <div class="max-w-xs mx-auto space-y-2">
+                        <span class="material-symbols-outlined text-4xl text-gray-300">hub</span>
+                        <p class="font-bold text-[#181c1f]">No Hostel Groups Found</p>
+                        <p class="text-xs text-gray-500">Combine multiple hostels into operational groups with real-time shared inventory and assigned store managers.</p>
+                        <button onclick="openHostelGroupModal()" class="mt-2 px-4 py-2 bg-[#0066cc] text-white rounded-xl text-xs font-bold shadow-sm hover:bg-[#0052a3]">
+                            + Create First Hostel Group
+                        </button>
+                    </div>
+                </td>
+            </tr>`;
+        return;
+    }
+
+    tbody.innerHTML = groups.map(g => {
+        const isShared = g.inventory_mode === 'shared';
+        const isActive = g.status === 'active' || g.is_active === true;
+
+        // Member Hostels chips
+        const memberChips = (g.member_hostels && g.member_hostels.length > 0)
+            ? g.member_hostels.map(m => {
+                const isLive = m.status === 'ACTIVE' || m.status === 'active';
+                return `
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold ${isLive ? 'bg-emerald-50 text-emerald-800 border border-emerald-300' : 'bg-slate-50 text-slate-600 border border-slate-200'}" title="${escapeHtml(m.name)} (${isLive ? 'Live Store' : 'OFF'})">
+                    <span class="w-1.5 h-1.5 rounded-full ${isLive ? 'bg-emerald-500' : 'bg-gray-400'}"></span>
+                    ${escapeHtml(m.id)}
+                </span>`;
+            }).join(' ')
+            : '<span class="text-gray-400 italic text-[11px]">No hostels assigned</span>';
+
+        // Assigned Admins chips
+        const adminChips = (g.assigned_admins && g.assigned_admins.length > 0)
+            ? g.assigned_admins.map(a => `
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200" title="${escapeHtml(a.email)}">
+                    <span class="material-symbols-outlined text-[11px]">person</span>
+                    ${escapeHtml(a.name || a.id)}
+                </span>`).join(' ')
+            : '<span class="text-gray-400 italic text-[11px]">No managers assigned</span>';
+
+        return `
+            <tr class="hover:bg-[#f7fafd] transition-colors text-xs">
+                <td class="p-4">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-xl ${isShared ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-700'} flex items-center justify-center font-bold shrink-0">
+                            <span class="material-symbols-outlined text-base">${isShared ? 'sync_alt' : 'hub'}</span>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-1.5">
+                                <span class="font-bold text-[#181c1f] text-[13px]">${escapeHtml(g.name)}</span>
+                                <span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[9px] font-bold border border-slate-200">${escapeHtml(g.code)}</span>
+                            </div>
+                            <p class="text-[11px] text-[#5c5f60] line-clamp-1">${escapeHtml(g.description || 'No description')}</p>
+                        </div>
+                    </div>
+                </td>
+                <td class="p-4">
+                    <div class="flex items-center gap-2">
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${isShared ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-indigo-100 text-indigo-700 border border-indigo-300'}">
+                            <span class="material-symbols-outlined text-xs">${isShared ? 'sync_alt' : 'domain_disabled'}</span>
+                            ${isShared ? 'Shared Inventory' : 'Independent'}
+                        </span>
+                        <button onclick="toggleHostelGroupMode('${g.id}')"
+                            title="Switch to ${isShared ? 'Independent' : 'Shared'} Inventory Mode"
+                            class="p-1 text-gray-400 hover:text-[#0066cc] rounded-lg hover:bg-slate-100 transition-colors">
+                            <span class="material-symbols-outlined text-sm">swap_horiz</span>
+                        </button>
+                    </div>
+                </td>
+                <td class="p-4">
+                    <div class="flex flex-wrap gap-1 max-w-xs">
+                        ${memberChips}
+                    </div>
+                </td>
+                <td class="p-4">
+                    <div class="flex flex-wrap gap-1 max-w-xs">
+                        ${adminChips}
+                    </div>
+                </td>
+                <td class="p-4">
+                    <button onclick="toggleHostelGroupStatus('${g.id}')"
+                        class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-all active:scale-95 ${isActive ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200' : 'bg-rose-100 text-[#ba1a1a] border border-rose-300 hover:bg-rose-200'}">
+                        <span class="w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-rose-500'}"></span>
+                        ${isActive ? 'Active' : 'Inactive'}
+                    </button>
+                </td>
+                <td class="p-4 text-right">
+                    <div class="flex items-center justify-end gap-1">
+                        <button onclick="openHostelGroupModal('${g.id}')"
+                            class="p-1.5 text-[#5c5f60] hover:text-[#0066cc] hover:bg-[#ebeef2] rounded-lg transition-colors"
+                            title="Edit Group">
+                            <span class="material-symbols-outlined text-base">edit</span>
+                        </button>
+                        <button onclick="deleteHostelGroup('${g.id}', '${escapeHtml(g.name)}')"
+                            class="p-1.5 text-[#5c5f60] hover:text-[#ba1a1a] hover:bg-rose-50 rounded-lg transition-colors"
+                            title="Delete Group">
+                            <span class="material-symbols-outlined text-base">delete</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>`;
+    }).join('');
+}
+
+function filterHostelGroupsTable() {
+    const q = (document.getElementById('filter-hostel-groups-search')?.value || '').toLowerCase().trim();
+    const mode = document.getElementById('filter-hostel-groups-mode')?.value || 'all';
+    const status = document.getElementById('filter-hostel-groups-status')?.value || 'all';
+
+    let filtered = hostelGroupsCache.filter(g => {
+        if (mode !== 'all' && g.inventory_mode !== mode) return false;
+        if (status === 'active' && !(g.status === 'active' || g.is_active === true)) return false;
+        if (status === 'inactive' && (g.status === 'active' || g.is_active === true)) return false;
+
+        if (q) {
+            const matchName = (g.name || '').toLowerCase().includes(q);
+            const matchCode = (g.code || '').toLowerCase().includes(q);
+            const matchHostel = (g.hostel_ids || []).some(h => String(h).toLowerCase().includes(q));
+            if (!matchName && !matchCode && !matchHostel) return false;
+        }
+        return true;
+    });
+
+    renderHostelGroups(filtered);
+}
+
+function updateGroupModeCardStyles() {
+    const sharedRadio = document.querySelector('input[name="group-inventory-mode"][value="shared"]');
+    const sharedCard = document.getElementById('card-mode-shared');
+    const indCard = document.getElementById('card-mode-independent');
+
+    if (sharedRadio && sharedRadio.checked) {
+        if (sharedCard) {
+            sharedCard.className = 'border-2 border-emerald-500 bg-emerald-50/50 p-3 rounded-xl cursor-pointer flex items-start gap-2.5 transition-all group-mode-card';
+        }
+        if (indCard) {
+            indCard.className = 'border border-[#DADCE0] bg-white p-3 rounded-xl cursor-pointer flex items-start gap-2.5 transition-all group-mode-card';
+        }
+    } else {
+        if (sharedCard) {
+            sharedCard.className = 'border border-[#DADCE0] bg-white p-3 rounded-xl cursor-pointer flex items-start gap-2.5 transition-all group-mode-card';
+        }
+        if (indCard) {
+            indCard.className = 'border-2 border-indigo-500 bg-indigo-50/50 p-3 rounded-xl cursor-pointer flex items-start gap-2.5 transition-all group-mode-card';
+        }
+    }
+}
+
+function toggleAllGroupHostels(checked) {
+    document.querySelectorAll('#group-hostels-checklist input[type="checkbox"]').forEach(cb => {
+        cb.checked = Boolean(checked);
+    });
+    updateSelectedHostelsCount();
+}
+
+function toggleLiveGroupHostelsOnly() {
+    document.querySelectorAll('#group-hostels-checklist input[type="checkbox"]').forEach(cb => {
+        const isLive = cb.dataset.isLive === 'true';
+        cb.checked = isLive;
+    });
+    updateSelectedHostelsCount();
+}
+
+function toggleAllGroupAdmins(checked) {
+    document.querySelectorAll('#group-admins-checklist input[type="checkbox"]').forEach(cb => {
+        cb.checked = Boolean(checked);
+    });
+}
+
+function updateSelectedHostelsCount() {
+    const count = document.querySelectorAll('#group-hostels-checklist input[type="checkbox"]:checked').length;
+    const badge = document.getElementById('group-hostel-count-badge');
+    if (badge) {
+        badge.textContent = `${count} selected`;
+        badge.className = count > 0 ? 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800' : 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-[#0066cc]';
+    }
+}
+
+function filterModalHostelsList(filterType) {
+    hostelModalFilterActive = filterType;
+    ['all', 'live', 'bh', 'gh'].forEach(t => {
+        const btn = document.getElementById(`btn-modal-filter-${t}`);
+        if (btn) {
+            if (t === filterType) {
+                btn.className = 'px-2.5 py-1 rounded-lg font-bold bg-[#0066cc] text-white';
+            } else {
+                btn.className = 'px-2.5 py-1 rounded-lg font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50';
+            }
+        }
+    });
+
+    renderModalHostelChecklist();
+}
+
+function renderModalHostelChecklist(preSelected = null) {
+    const checklist = document.getElementById('group-hostels-checklist');
+    if (!checklist) return;
+
+    // Retain checked state before re-render
+    const currentlyChecked = preSelected || new Set(Array.from(document.querySelectorAll('#group-hostels-checklist input[type="checkbox"]:checked')).map(cb => cb.value));
+
+    let list = [...hostelModalFullList];
+
+    if (hostelModalFilterActive === 'live') {
+        list = list.filter(h => h.is_live);
+    } else if (hostelModalFilterActive === 'bh') {
+        list = list.filter(h => h.id.toUpperCase().startsWith('BH'));
+    } else if (hostelModalFilterActive === 'gh') {
+        list = list.filter(h => h.id.toUpperCase().startsWith('GH'));
+    }
+
+    if (list.length === 0) {
+        checklist.innerHTML = '<div class="col-span-full p-4 text-center text-gray-400 text-xs">No hostels found matching filter.</div>';
+        return;
+    }
+
+    checklist.innerHTML = list.map(h => {
+        const isChecked = currentlyChecked.has(h.id);
+        const isLive = h.is_live;
+
+        let managerHtml = '';
+        if (h.manager_name && h.manager_name !== 'Unassigned') {
+            managerHtml = `<span class="text-[10px] text-purple-700 font-semibold truncate block">👤 ${escapeHtml(h.manager_name)}</span>`;
+        } else {
+            managerHtml = `<span class="text-[10px] text-gray-400 truncate block">No Store Manager</span>`;
+        }
+
+        let groupTag = '';
+        if (h.existing_group_name) {
+            groupTag = `<span class="text-[9px] font-bold text-amber-700 bg-amber-50 px-1 py-0.2 rounded border border-amber-200 truncate block">In: ${escapeHtml(h.existing_group_name)}</span>`;
+        }
+
+        return `
+            <label class="flex items-center justify-between p-2.5 bg-white border ${isChecked ? 'border-[#0066cc] bg-blue-50/30' : (isLive ? 'border-emerald-200' : 'border-[#DADCE0]')} rounded-xl cursor-pointer hover:border-[#0066cc] hover:bg-blue-50/40 transition-all text-xs shadow-2xs">
+                <div class="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
+                    <input type="checkbox" name="group-member-hostel" value="${escapeHtml(h.id)}" data-is-live="${isLive}" ${isChecked ? 'checked' : ''} onchange="updateSelectedHostelsCount()" class="rounded text-[#0066cc] focus:ring-[#0066cc] w-4 h-4 shrink-0">
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <span class="font-bold text-slate-900 leading-tight truncate">${escapeHtml(h.name || h.id)}</span>
+                            <span class="px-1.5 py-0.2 rounded font-mono text-[9px] font-bold bg-slate-100 text-slate-700 border border-slate-200 shrink-0">${escapeHtml(h.id)}</span>
+                        </div>
+                        <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+                            ${managerHtml}
+                            ${groupTag}
+                        </div>
+                    </div>
+                </div>
+                <span class="px-2 py-0.5 rounded-full text-[9px] font-bold ${isLive ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-slate-100 text-slate-500'} shrink-0">
+                    ${isLive ? '🟢 LIVE STORE' : 'OFF'}
+                </span>
+            </label>`;
+    }).join('');
+
+    updateSelectedHostelsCount();
+}
+
+async function openHostelGroupModal(groupId = null) {
+    const modal = document.getElementById('modal-hostel-group');
+    if (!modal) return;
+
+    const title = document.getElementById('modal-hostel-group-title');
+    const errEl = document.getElementById('group-form-error');
+    if (errEl) errEl.classList.add('hidden');
+
+    document.getElementById('group-form-id').value = groupId || '';
+    document.getElementById('group-form-name').value = '';
+    document.getElementById('group-form-code').value = '';
+    document.getElementById('group-form-desc').value = '';
+    document.getElementById('group-form-status').value = 'active';
+
+    const sharedRadio = document.querySelector('input[name="group-inventory-mode"][value="shared"]');
+    if (sharedRadio) sharedRadio.checked = true;
+    updateGroupModeCardStyles();
+
+    title.textContent = groupId ? 'Edit Hostel Group' : 'Create Hostel Group';
+
+    const hostelChecklist = document.getElementById('group-hostels-checklist');
+    const adminChecklist = document.getElementById('group-admins-checklist');
+
+    modal.classList.remove('hidden');
+
+    function populateLists(hostelsList, staffList) {
+        const hostelToGroupMap = new Map();
+        (hostelGroupsCache || []).forEach(g => {
+            if (g.id !== groupId) {
+                (g.hostel_ids || []).forEach(hId => {
+                    const clean = String(hId).toUpperCase().replace(/[^A-Z0-9]/g, '');
+                    hostelToGroupMap.set(clean, g.name);
+                });
+            }
+        });
+
+        const fullList = (hostelsList || []).map(h => {
+            const clean = String(h.id).toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const isLive = h.status === 'ACTIVE' || h.status === 'active';
+            return {
+                id: h.id,
+                name: h.name || h.id,
+                status: h.status || 'ACTIVE',
+                is_live: isLive,
+                manager_name: h.manager_name || (h.manager_user_id ? 'Store Manager' : 'Unassigned'),
+                existing_group_name: hostelToGroupMap.get(clean) || null
+            };
+        });
+
+        fullList.sort((a, b) => {
+            if (a.is_live && !b.is_live) return -1;
+            if (!a.is_live && b.is_live) return 1;
+            return a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' });
+        });
+
+        hostelModalFullList = fullList;
+        hostelModalFilterActive = 'all';
+
+        let preSelectedHostels = new Set();
+        let preSelectedAdmins = new Set();
+
+        if (groupId) {
+            const group = (hostelGroupsCache || []).find(g => g.id === groupId);
+            if (group) {
+                document.getElementById('group-form-name').value = group.name || '';
+                document.getElementById('group-form-code').value = group.code || '';
+                document.getElementById('group-form-desc').value = group.description || '';
+                document.getElementById('group-form-status').value = group.status || (group.is_active ? 'active' : 'inactive');
+
+                const modeRadio = document.querySelector(`input[name="group-inventory-mode"][value="${group.inventory_mode || 'shared'}"]`);
+                if (modeRadio) modeRadio.checked = true;
+                updateGroupModeCardStyles();
+
+                (group.hostel_ids || []).forEach(h => {
+                    preSelectedHostels.add(h);
+                    const matched = fullList.find(x => x.id.toUpperCase().replace(/[^A-Z0-9]/g, '') === String(h).toUpperCase().replace(/[^A-Z0-9]/g, ''));
+                    if (matched) preSelectedHostels.add(matched.id);
+                });
+
+                (group.admin_ids || []).forEach(a => preSelectedAdmins.add(String(a)));
+            }
+        }
+
+        renderModalHostelChecklist(preSelectedHostels);
+
+        if (adminChecklist && staffList && staffList.length > 0) {
+            hostelGroupsStaffCache = staffList;
+            adminChecklist.innerHTML = staffList.map(s => {
+                const isChecked = preSelectedAdmins.has(String(s.id));
+                const rolesText = Array.isArray(s.roles) ? s.roles.join(', ') : (s.role || 'Staff');
+                const isDuty = s.duty_status === 'ON_DUTY' || s.is_on_duty;
+                const assignedH = s.assigned_hostel_id ? `🏢 Current: ${s.assigned_hostel_name || s.assigned_hostel_id}` : '🌐 General Admin';
+
+                return `
+                    <label class="flex items-center justify-between p-2.5 bg-white border ${isChecked ? 'border-purple-500 bg-purple-50/30' : 'border-[#DADCE0]'} rounded-xl cursor-pointer hover:border-purple-400 hover:bg-purple-50/40 transition-all text-xs shadow-2xs">
+                        <div class="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
+                            <input type="checkbox" name="group-assigned-admin" value="${escapeHtml(s.id)}" ${isChecked ? 'checked' : ''} class="rounded text-purple-600 focus:ring-purple-500 w-4 h-4 shrink-0">
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-1.5 flex-wrap">
+                                    <span class="font-bold text-slate-900 truncate leading-tight">${escapeHtml(s.name || s.id)}</span>
+                                    <span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-100 text-purple-800 uppercase shrink-0">${escapeHtml(rolesText)}</span>
+                                </div>
+                                <div class="text-[10px] text-gray-500 flex items-center gap-2 mt-0.5 flex-wrap">
+                                    <span class="truncate">📧 ${escapeHtml(s.email || '')}</span>
+                                    <span class="font-medium text-slate-700 truncate">${escapeHtml(assignedH)}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <span class="px-2 py-0.5 rounded-full text-[9px] font-bold ${isDuty ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-slate-100 text-slate-500'} shrink-0">
+                            ${isDuty ? '🟢 On Duty' : '⚪ Off'}
+                        </span>
+                    </label>`;
+            }).join('');
+        }
+    }
+
+    // Immediate fast render if hostelsCache is already available
+    if (hostelsCache && hostelsCache.length > 0) {
+        populateLists(hostelsCache, hostelGroupsStaffCache || []);
+    } else {
+        if (hostelChecklist) {
+            hostelChecklist.innerHTML = '<div class="col-span-full p-4 text-center text-gray-400 text-xs"><span class="material-symbols-outlined animate-spin text-sm inline-block mr-1">progress_activity</span> Loading campus hostels...</div>';
+        }
+        if (adminChecklist) {
+            adminChecklist.innerHTML = '<div class="p-4 text-center text-gray-400 text-xs"><span class="material-symbols-outlined animate-spin text-sm inline-block mr-1">progress_activity</span> Loading store manager roster...</div>';
+        }
+    }
+
+    try {
+        const fetchFn = typeof window.authFetch === 'function' ? window.authFetch : (typeof authFetch === 'function' ? authFetch : (u, o = {}) => fetch(u, { ...o, headers: { ...(typeof getAuthHeaders === 'function' ? getAuthHeaders() : {}), ...(o.headers || {}) } }));
+
+        const [hostelsRes, staffRes] = await Promise.allSettled([
+            fetchFn('/api/admin/hostels'),
+            fetchFn('/api/admin/staff')
+        ]);
+
+        let freshHostels = (hostelsCache && hostelsCache.length > 0) ? hostelsCache : [];
+        if (hostelsRes.status === 'fulfilled' && hostelsRes.value.ok) {
+            try {
+                const hData = await hostelsRes.value.json();
+                if (hData && Array.isArray(hData.hostels) && hData.hostels.length > 0) {
+                    freshHostels = hData.hostels;
+                    hostelsCache = hData.hostels;
+                }
+            } catch (e) {}
+        }
+
+        let freshStaff = hostelGroupsStaffCache || [];
+        if (staffRes.status === 'fulfilled' && staffRes.value.ok) {
+            try {
+                const sData = await staffRes.value.json();
+                if (sData && Array.isArray(sData.staff)) {
+                    freshStaff = sData.staff;
+                    hostelGroupsStaffCache = sData.staff;
+                }
+            } catch (e) {}
+        }
+
+        populateLists(freshHostels, freshStaff);
+
+    } catch (err) {
+        console.error('[Open Hostel Group Modal Error]:', err.message);
+        if (!hostelsCache || hostelsCache.length === 0) {
+            if (hostelChecklist) hostelChecklist.innerHTML = `<div class="col-span-full p-4 text-center text-rose-500 text-xs">Failed to load campus hostels: ${escapeHtml(err.message)}</div>`;
+        }
+    }
+}
+
+function closeHostelGroupModal() {
+    const modal = document.getElementById('modal-hostel-group');
+    if (modal) modal.classList.add('hidden');
+}
+
+async function submitHostelGroupForm(event) {
+    if (event) event.preventDefault();
+
+    const id = document.getElementById('group-form-id').value;
+    const name = document.getElementById('group-form-name').value.trim();
+    const code = document.getElementById('group-form-code').value.trim().toUpperCase();
+    const description = document.getElementById('group-form-desc').value.trim();
+    const status = document.getElementById('group-form-status').value;
+    const inventory_mode = document.querySelector('input[name="group-inventory-mode"]:checked')?.value || 'shared';
+
+    const selectedHostels = Array.from(document.querySelectorAll('#group-hostels-checklist input[type="checkbox"]:checked')).map(cb => cb.value);
+    const selectedAdmins = Array.from(document.querySelectorAll('#group-admins-checklist input[type="checkbox"]:checked')).map(cb => cb.value);
+
+    const errEl = document.getElementById('group-form-error');
+    if (errEl) errEl.classList.add('hidden');
+
+    if (!name) {
+        showToast('Group name is required', 'warning');
+        return;
+    }
+    if (selectedHostels.length === 0) {
+        if (errEl) {
+            errEl.textContent = 'Please select at least one hostel for this group.';
+            errEl.classList.remove('hidden');
+        }
+        showToast('Please select at least one member hostel', 'warning');
+        return;
+    }
+
+    const saveBtn = document.getElementById('btn-save-hostel-group');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="material-symbols-outlined animate-spin text-sm mr-1">progress_activity</span> Saving...';
+    }
+
+    try {
+        const payload = {
+            name,
+            code,
+            description,
+            inventory_mode,
+            status,
+            hostel_ids: selectedHostels,
+            admin_ids: selectedAdmins
+        };
+
+        const url = id ? `/api/admin/hostel-groups/${id}` : '/api/admin/hostel-groups';
+        const method = id ? 'PUT' : 'POST';
+
+        const res = await authFetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message || 'Hostel group saved successfully', 'success');
+            closeHostelGroupModal();
+            await loadHostelGroups();
+            if (typeof populateHostelDropdowns === 'function') populateHostelDropdowns();
+        } else {
+            throw new Error(data.error || 'Failed to save group');
+        }
+    } catch (err) {
+        console.error('[Submit Hostel Group Error]:', err.message);
+        if (errEl) {
+            errEl.textContent = err.message;
+            errEl.classList.remove('hidden');
+        }
+        showToast(err.message, 'error');
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<span class="material-symbols-outlined text-base">check</span><span>Save Hostel Group</span>';
+        }
+    }
+}
+
+async function toggleHostelGroupMode(groupId) {
+    try {
+        const res = await authFetch(`/api/admin/hostel-groups/${groupId}/toggle-mode`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message, 'success');
+            await loadHostelGroups();
+        } else {
+            throw new Error(data.error || 'Failed to toggle inventory mode');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function toggleHostelGroupStatus(groupId) {
+    try {
+        const res = await authFetch(`/api/admin/hostel-groups/${groupId}/toggle-status`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message, 'success');
+            await loadHostelGroups();
+        } else {
+            throw new Error(data.error || 'Failed to toggle status');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function deleteHostelGroup(groupId, groupName) {
+    if (!confirm(`Are you sure you want to delete hostel group "${groupName}"?\n\nMember hostels will immediately revert to independent inventory mode.`)) {
+        return;
+    }
+
+    try {
+        const res = await authFetch(`/api/admin/hostel-groups/${groupId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message || 'Group deleted successfully', 'success');
+            await loadHostelGroups();
+            if (typeof populateHostelDropdowns === 'function') populateHostelDropdowns();
+        } else {
+            throw new Error(data.error || 'Failed to delete group');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+window.loadHostelGroups = loadHostelGroups;
+window.renderHostelGroups = renderHostelGroups;
+window.filterHostelGroupsTable = filterHostelGroupsTable;
+window.openHostelGroupModal = openHostelGroupModal;
+window.closeHostelGroupModal = closeHostelGroupModal;
+window.updateGroupModeCardStyles = updateGroupModeCardStyles;
+window.toggleAllGroupHostels = toggleAllGroupHostels;
+window.toggleLiveGroupHostelsOnly = toggleLiveGroupHostelsOnly;
+window.toggleAllGroupAdmins = toggleAllGroupAdmins;
+window.updateSelectedHostelsCount = updateSelectedHostelsCount;
+window.filterModalHostelsList = filterModalHostelsList;
+window.submitHostelGroupForm = submitHostelGroupForm;
+window.toggleHostelGroupMode = toggleHostelGroupMode;
+window.toggleHostelGroupStatus = toggleHostelGroupStatus;
+window.deleteHostelGroup = deleteHostelGroup;
+
+
+// ================= HOSTEL DELIVERY BLOCKS MANAGEMENT MODAL =================
+let currentManagingBlocksHostelId = null;
+
+function openManageBlocksModal(hostelId = null) {
+    const modal = document.getElementById('modal-hostel-blocks');
+    if (!modal) return;
+
+    const select = document.getElementById('manage-blocks-hostel-select');
+    if (select && Array.isArray(hostelsCache) && hostelsCache.length > 0) {
+        select.innerHTML = hostelsCache.map(h => `
+            <option value="${escapeHtml(h.id)}">${escapeHtml(h.id)} - ${escapeHtml(h.name)} (${h.status === 'ACTIVE' ? 'LIVE' : 'OFF'})</option>
+        `).join('');
+    }
+
+    currentManagingBlocksHostelId = hostelId || (hostelsCache && hostelsCache[0]?.id) || 'BH-13';
+    if (select) {
+        select.value = currentManagingBlocksHostelId;
+    }
+
+    const titleEl = document.getElementById('modal-blocks-title');
+    if (titleEl) {
+        const found = (hostelsCache || []).find(h => h.id === currentManagingBlocksHostelId);
+        titleEl.textContent = `Manage Delivery Blocks: ${currentManagingBlocksHostelId} (${found?.name || ''})`;
+    }
+
+    renderHostelBlocksChecklist();
+    modal.classList.remove('hidden');
+}
+
+function closeHostelBlocksModal() {
+    const modal = document.getElementById('modal-hostel-blocks');
+    if (modal) modal.classList.add('hidden');
+}
+
+function onManageBlocksHostelChange(hostelId) {
+    currentManagingBlocksHostelId = hostelId;
+    const titleEl = document.getElementById('modal-blocks-title');
+    if (titleEl) {
+        const found = (hostelsCache || []).find(h => h.id === currentManagingBlocksHostelId);
+        titleEl.textContent = `Manage Delivery Blocks: ${currentManagingBlocksHostelId} (${found?.name || ''})`;
+    }
+    renderHostelBlocksChecklist();
+}
+
+function renderHostelBlocksChecklist() {
+    const container = document.getElementById('blocks-checkboxes-container');
+    if (!container) return;
+
+    const hostel = (hostelsCache || []).find(h => h.id === currentManagingBlocksHostelId);
+    const activeBlocks = Array.isArray(hostel?.blocks) && hostel.blocks.length > 0 ? hostel.blocks : ['Block A', 'Block B'];
+
+    // Standard base blocks
+    const standardBlocks = ['Block A', 'Block B', 'Block C', 'Block D', 'Hostel Main Gate'];
+    const allKnownBlocks = [...standardBlocks];
+    activeBlocks.forEach(b => {
+        if (!allKnownBlocks.includes(b)) allKnownBlocks.push(b);
+    });
+
+    container.innerHTML = allKnownBlocks.map(b => {
+        const isActive = activeBlocks.includes(b);
+        const isGate = b.toLowerCase().includes('gate');
+        return `
+            <label class="flex items-center gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer ${isActive ? 'border-[#0066cc] bg-blue-50/40 text-[#0066cc]' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'}" id="label-block-${escapeHtml(b).replace(/[^a-zA-Z0-9]/g, '_')}">
+                <input type="checkbox" value="${escapeHtml(b)}" ${isActive ? 'checked' : ''} onchange="onBlockCheckboxToggled(this)" class="rounded text-[#0066cc] focus:ring-[#0066cc] w-4 h-4 shrink-0">
+                <span class="material-symbols-outlined text-base shrink-0 ${isActive ? 'text-[#0066cc]' : 'text-slate-400'}">${isGate ? 'sensor_door' : 'apartment'}</span>
+                <span class="font-bold text-xs truncate flex-1">${escapeHtml(b)}</span>
+            </label>
+        `;
+    }).join('');
+
+    updateBlocksModalLivePreview();
+}
+
+function onBlockCheckboxToggled(cb) {
+    const label = cb.closest('label');
+    const isChecked = cb.checked;
+    const icon = label ? label.querySelector('.material-symbols-outlined') : null;
+
+    if (label) {
+        if (isChecked) {
+            label.className = 'flex items-center gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer border-[#0066cc] bg-blue-50/40 text-[#0066cc]';
+            if (icon) icon.className = 'material-symbols-outlined text-base shrink-0 text-[#0066cc]';
+        } else {
+            label.className = 'flex items-center gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer border-slate-200 bg-white text-slate-700 hover:border-slate-300';
+            if (icon) icon.className = 'material-symbols-outlined text-base shrink-0 text-slate-400';
+        }
+    }
+    updateBlocksModalLivePreview();
+}
+
+function applyBlocksPreset(presetList) {
+    const container = document.getElementById('blocks-checkboxes-container');
+    if (!container) return;
+
+    const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(cb => {
+        cb.checked = presetList.includes(cb.value);
+        onBlockCheckboxToggled(cb);
+    });
+}
+
+function toggleMainGateBlock() {
+    const container = document.getElementById('blocks-checkboxes-container');
+    if (!container) return;
+
+    let gateCheckbox = Array.from(container.querySelectorAll('input[type="checkbox"]')).find(cb => cb.value.toLowerCase().includes('gate'));
+    if (gateCheckbox) {
+        gateCheckbox.checked = !gateCheckbox.checked;
+        onBlockCheckboxToggled(gateCheckbox);
+    } else {
+        addNewCustomBlock('Hostel Main Gate');
+    }
+}
+
+function addNewCustomBlock(predefinedName = null) {
+    const input = document.getElementById('input-new-block-name');
+    const rawVal = predefinedName || (input ? input.value : '');
+    const blockName = (rawVal || '').trim();
+    if (!blockName) return;
+
+    const container = document.getElementById('blocks-checkboxes-container');
+    if (!container) return;
+
+    // Check if already exists
+    const existing = Array.from(container.querySelectorAll('input[type="checkbox"]')).find(cb => cb.value.toLowerCase() === blockName.toLowerCase());
+    if (existing) {
+        existing.checked = true;
+        onBlockCheckboxToggled(existing);
+        if (input) input.value = '';
+        return;
+    }
+
+    const isGate = blockName.toLowerCase().includes('gate');
+    const newHtml = `
+        <label class="flex items-center gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer border-[#0066cc] bg-blue-50/40 text-[#0066cc]" id="label-block-${escapeHtml(blockName).replace(/[^a-zA-Z0-9]/g, '_')}">
+            <input type="checkbox" value="${escapeHtml(blockName)}" checked onchange="onBlockCheckboxToggled(this)" class="rounded text-[#0066cc] focus:ring-[#0066cc] w-4 h-4 shrink-0">
+            <span class="material-symbols-outlined text-base shrink-0 text-[#0066cc]">${isGate ? 'sensor_door' : 'apartment'}</span>
+            <span class="font-bold text-xs truncate flex-1">${escapeHtml(blockName)}</span>
+        </label>
+    `;
+    container.insertAdjacentHTML('beforeend', newHtml);
+    if (input) input.value = '';
+    updateBlocksModalLivePreview();
+}
+
+function updateBlocksModalLivePreview() {
+    const modal = document.getElementById('modal-hostel-blocks');
+    if (!modal) return;
+
+    const checkedBoxes = Array.from(modal.querySelectorAll('#blocks-checkboxes-container input[type="checkbox"]:checked'));
+    const checkedBlocks = checkedBoxes.map(cb => cb.value);
+
+    const countLabel = document.getElementById('blocks-active-count-label');
+    if (countLabel) {
+        countLabel.textContent = `${checkedBlocks.length} Block${checkedBlocks.length === 1 ? '' : 's'} Active on Storefront`;
+    }
+
+    const previewContainer = document.getElementById('blocks-live-preview-pills');
+    if (previewContainer) {
+        if (checkedBlocks.length === 0) {
+            previewContainer.innerHTML = '<span class="text-rose-500 font-bold text-xs">⚠️ No blocks selected! At least one block must be active.</span>';
+        } else {
+            previewContainer.innerHTML = checkedBlocks.map(b => {
+                const isGate = b.toLowerCase().includes('gate');
+                return `
+                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-600 text-white shadow-2xs">
+                        <span class="material-symbols-outlined text-xs">${isGate ? 'sensor_door' : 'apartment'}</span>
+                        <span>${escapeHtml(b)}</span>
+                    </span>
+                `;
+            }).join('');
+        }
+    }
+}
+
+async function saveHostelBlocks() {
+    if (!currentManagingBlocksHostelId) return;
+
+    const modal = document.getElementById('modal-hostel-blocks');
+    const checkedBoxes = Array.from(modal.querySelectorAll('#blocks-checkboxes-container input[type="checkbox"]:checked'));
+    const checkedBlocks = checkedBoxes.map(cb => cb.value.trim()).filter(Boolean);
+
+    const errBox = document.getElementById('blocks-modal-error');
+    if (errBox) errBox.classList.add('hidden');
+
+    if (checkedBlocks.length === 0) {
+        if (errBox) {
+            errBox.textContent = 'Please select at least one active block (e.g. Block A).';
+            errBox.classList.remove('hidden');
+        }
+        return;
+    }
+
+    const saveBtn = document.getElementById('btn-save-hostel-blocks');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin mr-1">sync</span> Saving...';
+    }
+
+    try {
+        const res = await fetch(`/api/admin/hostels/${encodeURIComponent(currentManagingBlocksHostelId)}`, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ blocks: checkedBlocks })
+        });
+        const data = await res.json();
+        if (data && data.success) {
+            // Update cache
+            const targetHostel = (hostelsCache || []).find(h => h.id === currentManagingBlocksHostelId);
+            if (targetHostel) {
+                targetHostel.blocks = checkedBlocks;
+            }
+            renderHostelsTable();
+            closeHostelBlocksModal();
+            showToast(`✓ ${currentManagingBlocksHostelId} active blocks saved: ${checkedBlocks.join(', ')}`, 'success');
+        } else {
+            if (errBox) {
+                errBox.textContent = data.error || 'Failed to update blocks';
+                errBox.classList.remove('hidden');
+            }
+        }
+    } catch (err) {
+        if (errBox) {
+            errBox.textContent = 'Network error: ' + err.message;
+            errBox.classList.remove('hidden');
+        }
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<span class="material-symbols-outlined text-sm">check</span><span>Save Active Blocks</span>';
+        }
+    }
+}
+
+window.openManageBlocksModal = openManageBlocksModal;
+window.closeHostelBlocksModal = closeHostelBlocksModal;
+window.onManageBlocksHostelChange = onManageBlocksHostelChange;
+window.applyBlocksPreset = applyBlocksPreset;
+window.toggleMainGateBlock = toggleMainGateBlock;
+window.addNewCustomBlock = addNewCustomBlock;
+window.onBlockCheckboxToggled = onBlockCheckboxToggled;
+window.saveHostelBlocks = saveHostelBlocks;
+
+
+// ============================================================
+// FOOD DEPARTMENT & LIVE KITCHEN QUEUE FOR ADMIN DASHBOARD
+// ============================================================
+function isFoodDeptAdmin(profile = currentAdminProfile) {
+    if (!profile) return false;
+    if (typeof isPlatformOwner === 'function' && isPlatformOwner(profile)) return true;
+    if (profile.is_owner) return true;
+    const roles = Array.isArray(profile.roles) ? profile.roles : [];
+    return roles.includes('cook') || roles.includes('food_department') || roles.includes('food') || profile.department === 'food';
+}
+window.isFoodDeptAdmin = isFoodDeptAdmin;
+
+async function loadDashboardFoodQueue() {
+    const card = document.getElementById('dash-food-dept-card');
+    if (!card) return;
+    card.classList.remove('hidden');
+
+    const tbody = document.getElementById('dash-food-orders-tbody');
+    try {
+        const [ordersRes, metricsRes] = await Promise.all([
+            fetch('/api/food/orders', { headers: getAuthHeaders() }),
+            fetch('/api/food/metrics', { headers: getAuthHeaders() })
+        ]);
+
+        let orders = [];
+        if (ordersRes.ok) {
+            const oData = await ordersRes.json();
+            if (oData.success && Array.isArray(oData.orders)) {
+                orders = oData.orders;
+            }
+        }
+
+        let metrics = {};
+        if (metricsRes.ok) {
+            const mData = await metricsRes.json();
+            if (mData.success && mData.metrics) {
+                metrics = mData.metrics;
+            }
+        }
+
+        // Update Stats
+        const statActive = document.getElementById('dash-food-stat-active');
+        const statCooking = document.getElementById('dash-food-stat-cooking');
+        const statReady = document.getElementById('dash-food-stat-ready');
+        const statTotal = document.getElementById('dash-food-stat-total');
+
+        const activeOrders = orders.filter(o => o.status !== 'Delivered' && o.status !== 'Cancelled');
+        const cookingOrders = orders.filter(o => o.status === 'Cooking' || o.status === 'Preparing');
+        const readyOrders = orders.filter(o => o.status === 'Ready' || o.status === 'Ready for Pickup');
+
+        if (statActive) statActive.textContent = activeOrders.length;
+        if (statCooking) statCooking.textContent = metrics.preparing_count !== undefined ? metrics.preparing_count : cookingOrders.length;
+        if (statReady) statReady.textContent = metrics.ready_count !== undefined ? metrics.ready_count : readyOrders.length;
+        if (statTotal) statTotal.textContent = metrics.total_food_orders || orders.length;
+
+        if (!tbody) return;
+
+        if (orders.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="p-8 text-center text-[#5c5f60]">
+                        <span class="text-2xl block mb-1">🍳</span>
+                        <p class="font-bold text-xs text-[#181c1f]">No active kitchen orders</p>
+                        <p class="text-[11px] text-[#5c5f60]">All Quick's Instant Food orders are prepped & delivered!</p>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = orders.slice(0, 10).map(order => {
+            const shortId = (order.order_id || '').replace(/^order_/, '').slice(0, 8);
+            const itemsSummary = (order.food_items || []).map(i => `${i.name} (×${i.quantity})`).join(', ') || "Quick's Instant Food";
+            const isCooking = order.status === 'Cooking' || order.status === 'Preparing';
+            const isReady = order.status === 'Ready' || order.status === 'Ready for Pickup';
+
+            let statusBadge = '';
+            if (isReady) {
+                statusBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">READY</span>';
+            } else if (isCooking) {
+                statusBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-orange-100 text-orange-800 border border-orange-300 animate-pulse">COOKING</span>';
+            } else {
+                statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">${escapeHtml(order.status)}</span>`;
+            }
+
+            return `
+                <tr class="hover:bg-amber-50/50 transition-colors">
+                    <td class="p-3 font-mono font-bold text-[#181c1f]">#${shortId}</td>
+                    <td class="p-3">
+                        <p class="font-bold text-[#181c1f]">${escapeHtml(order.customer_name)}</p>
+                        <p class="text-[10px] text-[#5c5f60]">${escapeHtml(order.delivery_address)}</p>
+                    </td>
+                    <td class="p-3 text-xs text-[#181c1f] max-w-xs truncate" title="${escapeHtml(itemsSummary)}">
+                        🍜 ${escapeHtml(itemsSummary)}
+                    </td>
+                    <td class="p-3 font-medium text-xs text-amber-900">
+                        👨‍🍳 ${escapeHtml(order.cook_name || 'Assigned Chef')}
+                    </td>
+                    <td class="p-3">${statusBadge}</td>
+                    <td class="p-3 text-right">
+                        <div class="inline-flex items-center gap-1.5 justify-end">
+                            ${!isReady ? `
+                                <button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Ready')" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer" title="Mark order prepared & ready for delivery">
+                                    <span>Mark Ready</span>
+                                    <span class="material-symbols-outlined text-[13px]">check</span>
+                                </button>
+                            ` : `
+                                <span class="text-[11px] font-bold text-emerald-700 flex items-center gap-0.5">
+                                    <span class="material-symbols-outlined text-xs">done_all</span> Handed Over
+                                </span>
+                            `}
+                            <button type="button" onclick="openReassignFoodModal('${order.order_id}')" class="p-1 rounded-lg border border-[#DADCE0] hover:bg-white text-[#5c5f60]" title="Reassign Cook">
+                                <span class="material-symbols-outlined text-sm">swap_horiz</span>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    } catch (err) {
+        console.warn('[Dash Food Queue Load Note]:', err.message);
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-xs text-amber-800">Kitchen queue updated.</td></tr>';
+        }
+    }
+}
+window.loadDashboardFoodQueue = loadDashboardFoodQueue;
+
+async function updateFoodOrderStatus(orderId, status) {
+    try {
+        showToast(`Updating kitchen order status to ${status}...`, 'info');
+        const res = await fetch(`/api/food/orders/${orderId}/status`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ status })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast(`Order marked ${status}!`, 'success');
+            loadDashboardFoodQueue();
+            if (typeof loadFoodDeptAdmin === 'function') loadFoodDeptAdmin();
+        } else {
+            throw new Error(data.error || 'Failed to update order status');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+window.updateFoodOrderStatus = updateFoodOrderStatus;
+
+
+// ============================================================
+// COMPLETE FOOD DEPARTMENT ORDER DETAILS & MODAL (LPQ FOOD)
+// ============================================================
+let currentFoodOrdersCache = [];
+
+function openFoodOrderDetailModal(orderId) {
+    const modal = document.getElementById('modal-food-order-details');
+    if (!modal) return;
+
+    const order = currentFoodOrdersCache.find(o => o.order_id === orderId) || 
+                  (foodOrdersCache || []).find(o => o.order_id === orderId);
+    if (!order) {
+        showToast('Order details not found.', 'warning');
+        return;
+    }
+
+    const shortId = (order.order_id || '').replace(/^order_/, '').slice(0, 8);
+    document.getElementById('modal-fod-order-id').textContent = '#' + shortId.toUpperCase() + ' (' + order.order_id + ')';
+    document.getElementById('modal-fod-customer-name').textContent = order.customer_name || 'Hostel Student';
+    document.getElementById('modal-fod-customer-contact').textContent = '📱 ' + (order.customer_phone || 'No phone') + (order.customer_email ? ' • ' + order.customer_email : '');
+    document.getElementById('modal-fod-hostel-room').textContent = '🏢 ' + (order.delivery_address || 'Hostel');
+    document.getElementById('modal-fod-datetime').textContent = order.order_time_formatted || new Date(order.created_at || Date.now()).toLocaleString('en-IN');
+    
+    const payBadge = document.getElementById('modal-fod-payment-badge');
+    if (payBadge) {
+        const isPaid = (order.payment_status || '').toLowerCase() === 'paid';
+        payBadge.textContent = (order.payment_method || 'Cash on Delivery') + (isPaid ? ' (PAID)' : ' (Pending)');
+        payBadge.className = isPaid ? 'font-black text-emerald-700' : 'font-bold text-amber-700';
+    }
+
+    const instrEl = document.getElementById('modal-fod-instructions');
+    if (instrEl) {
+        instrEl.textContent = (order.special_instructions && order.special_instructions !== 'None') 
+            ? '"' + order.special_instructions + '"' 
+            : 'None (Standard Preparation)';
+    }
+
+    const statusBadge = document.getElementById('modal-fod-status-badge');
+    if (statusBadge) {
+        statusBadge.textContent = order.status || 'Order Placed';
+    }
+
+    const cookEl = document.getElementById('modal-fod-assigned-cook');
+    if (cookEl) {
+        cookEl.textContent = '👨‍🍳 ' + (order.cook_name || 'Unassigned Chef');
+    }
+
+    // Render Items Table
+    const tbody = document.getElementById('modal-fod-items-tbody');
+    if (tbody) {
+        const items = Array.isArray(order.food_items) ? order.food_items : [];
+        if (items.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="p-3 text-center text-gray-400">Fresh Food Item</td></tr>';
+        } else {
+            tbody.innerHTML = items.map(item => {
+                const qty = Number(item.quantity) || 1;
+                const price = Number(item.price || 0);
+                const lineTotal = item.line_total !== undefined ? item.line_total : (qty * price);
+                return `
+                    <tr class="hover:bg-gray-50/80">
+                        <td class="p-2.5 font-bold text-[#181c1f]">${escapeHtml(item.name || "Quick's Instant Food")}</td>
+                        <td class="p-2.5 text-center font-bold text-gray-700">×${qty}</td>
+                        <td class="p-2.5 text-right font-medium text-gray-600">₹${price}</td>
+                        <td class="p-2.5 text-right font-black text-[#181c1f]">₹${lineTotal}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    }
+
+    const totalEl = document.getElementById('modal-fod-total-amount');
+    if (totalEl) totalEl.textContent = '₹' + (order.total_amount || order.total || 0);
+
+    // Actions Bar
+    const actionsBar = document.getElementById('modal-fod-actions-bar');
+    if (actionsBar) {
+        const st = (order.status || '').toLowerCase();
+        let btns = '';
+
+        if (st === 'order placed' || st === 'new') {
+            btns += `
+                <button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Accepted'); closeFoodOrderDetailModal();" class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer">
+                    <span class="material-symbols-outlined text-sm">check</span> Accept
+                </button>
+                <button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Rejected'); closeFoodOrderDetailModal();" class="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-300 hover:bg-rose-100 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer">
+                    <span class="material-symbols-outlined text-sm">close</span> Reject
+                </button>
+            `;
+        } else if (st === 'accepted') {
+            btns += `
+                <button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Preparing'); closeFoodOrderDetailModal();" class="px-3 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer">
+                    <span class="material-symbols-outlined text-sm">cooking</span> Start Cooking
+                </button>
+            `;
+        } else if (st.includes('prep') || st.includes('cook')) {
+            btns += `
+                <button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Ready'); closeFoodOrderDetailModal();" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer">
+                    <span class="material-symbols-outlined text-sm">done_all</span> Mark Ready
+                </button>
+            `;
+        } else if (st.includes('ready')) {
+            btns += `
+                <button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Completed'); closeFoodOrderDetailModal();" class="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer">
+                    <span class="material-symbols-outlined text-sm">verified</span> Mark Completed
+                </button>
+            `;
+        }
+
+        btns += `
+            <button type="button" onclick="closeFoodOrderDetailModal(); openReassignFoodModal('${order.order_id}');" class="px-2.5 py-1.5 rounded-xl border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer">
+                <span class="material-symbols-outlined text-sm">swap_horiz</span> Reassign Cook
+            </button>
+        `;
+        actionsBar.innerHTML = btns;
+    }
+
+    modal.classList.remove('hidden');
+}
+window.openFoodOrderDetailModal = openFoodOrderDetailModal;
+
+function closeFoodOrderDetailModal() {
+    const modal = document.getElementById('modal-food-order-details');
+    if (modal) modal.classList.add('hidden');
+}
+window.closeFoodOrderDetailModal = closeFoodOrderDetailModal;
+
+// Override renderFoodOrdersAdmin to show all 10 required items with receipt links
+function renderFoodOrdersAdmin(orders) {
+    const tbody = document.getElementById('food-orders-admin-tbody');
+    if (!tbody) return;
+
+    currentFoodOrdersCache = orders || [];
+
+    if (!orders || orders.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="p-8 text-center text-[#5c5f60]">
+                    <span class="text-2xl block mb-1">🍳</span>
+                    <p class="font-bold text-xs text-[#181c1f]">No food orders in the queue</p>
+                    <p class="text-[11px] text-[#5c5f60]">Orders for Quick's Instant Food will automatically appear here with real-time assignment.</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = orders.map(order => {
+        const shortId = (order.order_id || '').replace(/^order_/, '').slice(0, 8);
+        const items = Array.isArray(order.food_items) ? order.food_items : [];
+        const itemsDetail = items.map(i => `${i.name || "Quick's Instant Food"} (×${i.quantity || 1} @ ₹${i.price || 0})`).join(', ') || "Quick's Instant Food";
+        const hasInstructions = order.special_instructions && order.special_instructions !== 'None';
+        const formattedDate = order.order_time_formatted || (order.created_at ? new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--');
+
+        let statusClass = 'bg-amber-100 text-amber-800 border-amber-300';
+        const st = (order.status || '').toLowerCase();
+        if (st.includes('prep') || st.includes('cook')) statusClass = 'bg-orange-100 text-orange-800 border-orange-300 animate-pulse';
+        else if (st.includes('ready')) statusClass = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+        else if (st.includes('complete') || st.includes('deliver')) statusClass = 'bg-blue-100 text-blue-800 border-blue-300';
+        else if (st.includes('reject') || st.includes('cancel')) statusClass = 'bg-rose-100 text-rose-800 border-rose-300';
+
+        return `
+            <tr class="hover:bg-slate-50/80 transition-colors">
+                <td class="p-3 font-mono font-bold text-[#181c1f]">
+                    <button type="button" onclick="openFoodOrderDetailModal('${order.order_id}')" class="text-blue-600 hover:underline flex items-center gap-1 font-mono cursor-pointer" title="Click to view full receipt details">
+                        #${shortId}
+                        <span class="material-symbols-outlined text-[13px]">receipt_long</span>
+                    </button>
+                    <span class="text-[10px] text-gray-500 block">${formattedDate}</span>
+                </td>
+                <td class="p-3">
+                    <p class="font-bold text-[#181c1f] text-xs">${escapeHtml(order.customer_name || 'Student')}</p>
+                    <p class="text-[11px] text-[#5c5f60] font-mono">${escapeHtml(order.customer_phone || '')}</p>
+                </td>
+                <td class="p-3 text-xs">
+                    <span class="inline-flex items-center gap-1 font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200">
+                        🏢 ${escapeHtml(order.delivery_address || 'Hostel')}
+                    </span>
+                    ${order.room_number ? `<span class="text-[10px] text-gray-500 block mt-0.5">Room ${escapeHtml(order.room_number)}</span>` : ''}
+                </td>
+                <td class="p-3 text-xs max-w-xs">
+                    <p class="font-bold text-[#181c1f] truncate" title="${escapeHtml(itemsDetail)}">🍲 ${escapeHtml(itemsDetail)}</p>
+                    ${hasInstructions ? `<p class="text-[10px] text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 mt-1 truncate" title="Special Instructions: ${escapeHtml(order.special_instructions)}">📝 ${escapeHtml(order.special_instructions)}</p>` : ''}
+                </td>
+                <td class="p-3 font-mono text-xs">
+                    <span class="font-black text-[#181c1f]">₹${order.total_amount || order.total || 0}</span>
+                    <span class="text-[9px] block text-gray-500">${escapeHtml(order.payment_method || 'COD')}</span>
+                </td>
+                <td class="p-3 font-semibold text-xs text-amber-900">
+                    👨‍🍳 ${escapeHtml(order.cook_name || 'Unassigned')}
+                </td>
+                <td class="p-3">
+                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black border ${statusClass}">
+                        ${escapeHtml(order.status || 'Order Placed')}
+                    </span>
+                </td>
+                <td class="p-3 text-right">
+                    <div class="flex items-center gap-1 justify-end">
+                        <button type="button" onclick="openFoodOrderDetailModal('${order.order_id}')" class="px-2.5 py-1 rounded-lg border border-gray-300 hover:bg-gray-100 text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1" title="View complete details">
+                            <span>Details</span>
+                        </button>
+                        <button type="button" onclick="openReassignFoodModal('${order.order_id}')" class="p-1 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 cursor-pointer" title="Reassign Cook">
+                            <span class="material-symbols-outlined text-sm">swap_horiz</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+window.renderFoodOrdersAdmin = renderFoodOrdersAdmin;
+
+
+// ============================================================
+// FOOD DEPARTMENT & QUICK'S INSTANT FOOD ORDER DIFFERENTIATION
+// ============================================================
+function isOrderFoodDept(o) {
+    if (!o) return false;
+    if (o.is_food_order === true || o.is_food_order === 'true') return true;
+    if (Number(o.estimated_delivery_mins) === 11) return true;
+    if (o.cook_id || o.cook_name) return true;
+    const rawAddr = (o.delivery_address || '').toLowerCase();
+    if (rawAddr.includes('kitchen') || rawAddr.includes("quick's instant food")) return true;
+    const items = o.items || o.order_items || [];
+    if (Array.isArray(items) && items.some(it => {
+        const c = (it.category || '').toLowerCase();
+        const sc = (it.subcategory || '').toLowerCase();
+        const n = (it.name || it.product_name || '').toLowerCase();
+        return c.includes('instant food') || sc.includes('instant food') || sc.includes('maggi') || sc.includes('cook') || /maggi|cooked meal|pazzta|passta|thali/i.test(n);
+    })) return true;
+    if (typeof foodOrdersCache !== 'undefined' && Array.isArray(foodOrdersCache)) {
+        if (foodOrdersCache.some(fo => fo.order_id === o.id || fo.order_id === o.id?.replace(/^order_/, ''))) return true;
+    }
+    return false;
+}
+window.isOrderFoodDept = isOrderFoodDept;
+
+
+let foodProductsCache = [];
+let foodOrdersFilterActive = 'all';
+
+async function fetchFoodDeptProducts() {
+    try {
+        const targetHostel = (typeof getActiveLockHostel === 'function' ? getActiveLockHostel() : null) || 'BH-13';
+        const res = await fetch('/api/food/products?hostel_id=' + encodeURIComponent(targetHostel), { headers: getAuthHeaders() });
+        if (res.ok) {
+            const data = await res.json();
+            if (data.success && Array.isArray(data.products) && data.products.length > 0) {
+                foodProductsCache = data.products;
+                renderFoodDeptProducts(foodProductsCache);
+                return;
+            }
+        }
+    } catch (e) {
+        console.warn('[Fetch Food Products API Notice]:', e.message);
+    }
+
+    // Fallback: Filter from existing productsCache or fetch /api/products
+    let list = Array.isArray(productsCache) ? productsCache : [];
+    if (list.length === 0) {
+        try {
+            const pRes = await fetch('/api/products?includeInactive=true', { headers: getAuthHeaders() });
+            if (pRes.ok) {
+                const pData = await pRes.json();
+                list = pData.products || [];
+            }
+        } catch (e) {}
+    }
+
+    if (list.length > 0) {
+        foodProductsCache = list.filter(p => {
+            if (p.deleted) return false;
+            const c = (p.category || '').toLowerCase();
+            const sc = (p.subcategory || '').toLowerCase();
+            const n = (p.name || '').toLowerCase();
+            if (c.includes('instant snacks') || sc.includes('instant snacks') || c.includes('snacks & munchies')) return false;
+            return c.includes('food') || sc.includes('food') || sc.includes('maggi') || sc.includes('cook') || /maggi|cooked meal|pazzta|passta|instant food/i.test(n) || c === "quick's instant food";
+        });
+        renderFoodDeptProducts(foodProductsCache);
+    } else {
+        renderFoodDeptProducts([]);
+    }
+}
+
+function renderFoodDeptProducts(products) {
+    const tbody = document.getElementById('food-products-tbody');
+    const badge = document.getElementById('food-stock-total-badge');
+    if (badge) badge.textContent = `${products.length} Products`;
+    if (!tbody) return;
+
+    if (!products || products.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="p-8 text-center text-[#5c5f60]">
+                    <div class="max-w-xs mx-auto space-y-2">
+                        <span class="material-symbols-outlined text-4xl text-amber-300">ramen_dining</span>
+                        <p class="font-bold text-[#181c1f]">No Quick's Instant Food items found</p>
+                        <p class="text-xs text-gray-500">Add freshly prepared meals, noodles, or hot snacks to this category.</p>
+                        <button type="button" onclick="openProductModalForFood()" class="mt-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl text-xs font-bold shadow-xs hover:opacity-90">
+                            + Add First Food Item
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = products.map(p => {
+        const stock = p.stock_left !== undefined ? Math.max(0, Number(p.stock_left)) : (p.in_stock ? (p.stock_left || 0) : 0);
+        const isOutOfStock = !p.in_stock || stock <= 0;
+        const isLowStock = stock > 0 && stock <= 4;
+
+        let statusBadge = '';
+        if (isOutOfStock) {
+            statusBadge = `<button type="button" onclick="toggleFoodItemStock('${p.id}', true)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-300 hover:bg-rose-200 cursor-pointer" title="Click to make In Stock">Out of Stock</button>`;
+        } else if (isLowStock) {
+            statusBadge = `<button type="button" onclick="toggleFoodItemStock('${p.id}', false)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200 cursor-pointer" title="Click to mark Out of Stock">Low Stock (${stock} left)</button>`;
+        } else {
+            statusBadge = `<button type="button" onclick="toggleFoodItemStock('${p.id}', false)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200 cursor-pointer" title="Click to mark Out of Stock">In Stock (${stock} left)</button>`;
+        }
+
+        const sellingPrice = Number(p.price) || 0;
+        const mrp = Number(p.mrp || p.price) || sellingPrice;
+
+        return `
+            <tr class="hover:bg-amber-50/40 transition-colors">
+                <td class="p-3.5">
+                    <div class="flex items-center gap-3">
+                        <img src="${p.image_url}" class="w-10 h-10 rounded-xl object-cover border border-[#DADCE0] bg-[#f1f4f7]" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'">
+                        <div>
+                            <p class="font-bold text-xs text-[#181c1f]">${escapeHtml(p.name)}</p>
+                            <p class="text-[10px] text-[#5c5f60] flex items-center gap-1.5 flex-wrap">
+                                <span>${escapeHtml(p.unit || 'piece')} ${p.size ? '• ' + escapeHtml(p.size) : ''}</span>
+                                <span class="text-[9px] font-black px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300">${escapeHtml(p.hostel_id || 'BH-13')}</span>
+                            </p>
+                        </div>
+                    </div>
+                </td>
+                <td class="p-3.5">
+                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                        ${escapeHtml(p.subcategory || "Quick's Instant Food")}
+                    </span>
+                </td>
+                <td class="p-3.5 font-bold text-[#181c1f]">₹${sellingPrice.toFixed(2)}</td>
+                <td class="p-3.5 text-[#74777a] line-through">₹${mrp.toFixed(2)}</td>
+                <td class="p-3.5">
+                    <div class="inline-flex items-center gap-1.5 bg-white border border-[#DADCE0] rounded-xl px-2 py-1 shadow-2xs">
+                        <button type="button" onclick="updateFoodItemStock('${p.id}', ${stock - 1})" class="w-6 h-6 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-black text-xs cursor-pointer active:scale-95">−</button>
+                        <button type="button" onclick="promptCustomStock('${p.id}', '${p.name.replace(/'/g, "\\'")}', ${stock})" class="font-bold text-xs text-[#181c1f] px-1 hover:text-amber-700 cursor-pointer" title="Click to enter exact stock">${stock}</button>
+                        <button type="button" onclick="updateFoodItemStock('${p.id}', ${stock + 1})" class="w-6 h-6 flex items-center justify-center rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-black text-xs cursor-pointer active:scale-95">+</button>
+                    </div>
+                </td>
+                <td class="p-3.5">${statusBadge}</td>
+                <td class="p-3.5 text-right">
+                    <div class="flex items-center justify-end gap-1.5">
+                        <button type="button" onclick="editProduct('${p.id}')" class="p-1.5 text-amber-800 hover:bg-amber-100 rounded-lg transition-all cursor-pointer" title="Edit Food Item">
+                            <span class="material-symbols-outlined text-[18px]">edit</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+window.renderFoodDeptProducts = renderFoodDeptProducts;
+
+function filterFoodDeptProducts() {
+    const q = (document.getElementById('food-products-search-input')?.value || '').toLowerCase().trim();
+    const status = document.getElementById('food-products-filter-status')?.value || 'all';
+
+    let filtered = foodProductsCache.filter(p => {
+        const matchName = (p.name || '').toLowerCase().includes(q);
+        const matchSub = (p.subcategory || '').toLowerCase().includes(q);
+        if (q && !matchName && !matchSub) return false;
+
+        const stock = p.stock_left !== undefined ? Math.max(0, Number(p.stock_left)) : (p.in_stock ? (p.stock_left || 0) : 0);
+        if (status === 'in_stock') return p.in_stock && stock > 0;
+        if (status === 'low_stock') return stock > 0 && stock <= 4;
+        if (status === 'out_of_stock') return !p.in_stock || stock === 0;
+        return true;
+    });
+
+    renderFoodDeptProducts(filtered);
+}
+window.filterFoodDeptProducts = filterFoodDeptProducts;
+
+async function updateFoodItemStock(productId, newStock) {
+    const safeStock = Math.max(0, Number(newStock) || 0);
+    try {
+        const res = await fetch(`/api/food/products/${productId}/stock`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ stock_left: safeStock, in_stock: safeStock > 0 })
+        });
+        const data = await res.json();
+        if (data.success) {
+            const p = foodProductsCache.find(x => x.id === productId);
+            if (p) {
+                p.stock_left = safeStock;
+                p.in_stock = safeStock > 0;
+            }
+            const pGlob = (typeof productsCache !== 'undefined') ? productsCache.find(x => x.id === productId) : null;
+            if (pGlob) {
+                pGlob.stock_left = safeStock;
+                pGlob.in_stock = safeStock > 0;
+            }
+            renderFoodDeptProducts(foodProductsCache);
+            showToast(`Stock updated to ${safeStock}`, 'success');
+        } else {
+            throw new Error(data.error || 'Failed to update stock');
+        }
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+window.updateFoodItemStock = updateFoodItemStock;
+
+async function toggleFoodItemStock(productId, setInStock) {
+    const targetStock = setInStock ? 5 : 0;
+    await updateFoodItemStock(productId, targetStock);
+}
+window.toggleFoodItemStock = toggleFoodItemStock;
+
+function filterFoodOrdersByStatus(status) {
+    foodOrdersFilterActive = status;
+    document.querySelectorAll('.food-order-filter-btn').forEach(btn => {
+        const active = btn.dataset.status === status;
+        if (active) {
+            btn.className = 'food-order-filter-btn px-3 py-1 rounded-full text-xs font-bold bg-[#3c4043] text-white cursor-pointer';
+        } else {
+            btn.className = 'food-order-filter-btn px-3 py-1 rounded-full text-xs font-semibold border border-[#DADCE0] text-[#5c5f60] hover:bg-amber-50 hover:text-amber-900 cursor-pointer';
+        }
+    });
+    renderFoodOrdersAdmin(foodOrdersCache);
+}
+window.filterFoodOrdersByStatus = filterFoodOrdersByStatus;
+
+async function updateFoodOrderStatus(orderId, newStatus) {
+    try {
+        const res = await fetch(`/api/food/orders/${orderId}/status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ status: newStatus })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(`Order #${orderId.slice(0, 8)} status: ${newStatus}`, 'success');
+            await loadFoodDeptAdmin();
+            if (typeof filterOrders === 'function') filterOrders();
+        } else {
+            throw new Error(data.error || 'Failed to update status');
+        }
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+window.updateFoodOrderStatus = updateFoodOrderStatus;

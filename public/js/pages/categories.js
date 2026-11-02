@@ -3,9 +3,21 @@ window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
 function resolveProductRailCategory(p) {
+    if (!p) return 'snacks';
     const sub = (p.subcategory || '').trim().toLowerCase();
     const name = (p.name || '').toLowerCase();
     const cat = (p.category || '').toLowerCase();
+
+    // 0. STRICT ISOLATION: Quick's Instant Food (Fresh Kitchen)
+    // Strictly separate from Quick's Instant Snacks or packaged munchies
+    const isSnackItem = cat.includes('instant snacks') || sub.includes('instant snacks') || cat.includes('snacks & munchies') || /bhelpuri|namkeen|bhujia|chips|wafer|biscuit|cookie|kurkure|crisp|sev|mixture/i.test(name);
+    if (p.is_food_product) return 'lpq-food';
+    if (!isSnackItem) {
+        if ((cat.includes('quick') && cat.includes('food')) || cat === "quick's instant food" || cat === "quicks instant food" || cat === 'lpq food' || cat === "quick's lpq food") return 'lpq-food';
+        if ((sub.includes('quick') && sub.includes('food')) || sub === "quick's instant food" || sub === "quicks instant food" || sub === 'cook' || sub === 'lpq food' || sub === "quick's lpq food") return 'lpq-food';
+        if ((cat === 'instant food' || cat === 'instant' || sub === 'instant food') && !sub.includes('namkeen') && !/bhelpuri|namkeen|chips|wafer|biscuit/i.test(name)) return 'lpq-food';
+        if (sub.includes('maggi & noodles') || sub.includes('cooked meals') || sub.includes('sandwiches & burgers') || sub.includes('pasta & macaroni') || sub.includes('hot snacks & fries') || sub.includes('soups & bowls')) return 'lpq-food';
+    }
 
     // 1. Primary Priority: Ground Truth Subcategory assigned by Admin or Catalog
     if (sub) {
@@ -17,9 +29,6 @@ function resolveProductRailCategory(p) {
         }
         if (sub.includes('chocolate') || sub.includes('cand') || sub.includes('toffee')) {
             return 'chocolates';
-        }
-        if (sub.includes('noodle') || sub.includes('instant') || sub.includes('pasta') || sub.includes('maggi') || sub.includes('soup')) {
-            return 'noodles';
         }
         if (sub.includes('namkeen') || sub.includes('bhujia') || sub.includes('bhelpuri') || sub.includes('sev') || sub.includes('mixture')) {
             return 'namkeen';
@@ -45,7 +54,6 @@ function resolveProductRailCategory(p) {
     if (cat === 'biscuits' || cat === 'cookies' || cat === 'bakery') return 'biscuits';
     if (cat === 'chips' || cat === 'crisps') return 'chips';
     if (cat === 'chocolates' || cat === 'chocolate' || cat === 'candies') return 'chocolates';
-    if (cat === 'noodles' || cat === 'instant food' || cat === 'instant') return 'noodles';
     if (cat === 'namkeen') return 'namkeen';
     if (cat === 'snacks' || cat === 'munchies' || cat === 'popcorn') return 'snacks';
     if (cat === 'sweets') return 'sweets';
@@ -55,7 +63,6 @@ function resolveProductRailCategory(p) {
     if (/popcorn/i.test(name)) return 'snacks';
     if (/bhelpuri|namkeen|bhujia|sev|snac lite/i.test(name)) return 'namkeen';
     if (/gobbles|cake|choco pie|bread/i.test(name)) return 'biscuits';
-    if (/noodle|pasta|passta|pazzta|maggi|cup noodles|soup|macroni|penne|chowmein/i.test(name)) return 'noodles';
     if (/biscuit|cookie|cookies|wafer|bourbon|bikis|mom's magic|jimjam|hide & seek|hide and seek|milk shakti|treat rich creme|oreo|milano|fab bourbon|dark fantasy/i.test(name)) return 'biscuits';
     if (/chips|mad angles|doritos|lay's|lays|uncle chips|bingo/i.test(name)) return 'chips';
     if (/crax|tedhe medhe|kurkure|curls|cheese balls/i.test(name)) return 'chips';
@@ -69,6 +76,14 @@ function resolveProductRailCategory(p) {
 }
 
 const RAIL_CATEGORIES = [
+    {
+        id: 'lpq-food',
+        name: "Quick's LPQ Food",
+        headerTitle: "Quick's Instant Food",
+        status: 'live',
+        image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=160&auto=format&fit=crop&q=80',
+        match: (p) => resolveProductRailCategory(p) === 'lpq-food'
+    },
     {
         id: 'biscuits',
         name: 'Cookies',
@@ -92,14 +107,6 @@ const RAIL_CATEGORIES = [
         status: 'live',
         image: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_e581ce64_1788463600537.jpg',
         match: (p) => resolveProductRailCategory(p) === 'chocolates'
-    },
-    {
-        id: 'noodles',
-        name: 'Instant Food',
-        headerTitle: 'Instant Food & Noodles',
-        status: 'live',
-        image: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/Maggie_Double_Masala_2-Minute_noodles_95g_1788872878836.jpg',
-        match: (p) => resolveProductRailCategory(p) === 'noodles'
     },
     {
         id: 'namkeen',
@@ -131,7 +138,7 @@ const RAIL_CATEGORIES = [
         headerTitle: 'All Snacks & Munchies',
         status: 'live',
         image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=160&auto=format&fit=crop&q=80',
-        match: () => true
+        match: (p) => resolveProductRailCategory(p) !== 'lpq-food'
     },
     // Upper Categories placed in Left Rail & blocked as Coming Soon
     {
@@ -403,7 +410,14 @@ window.pageInits.categories = async function() {
     const toastEl = document.getElementById('coming-soon-toast');
     const toastText = document.getElementById('coming-soon-toast-text');
 
-    let activeCatId = 'biscuits'; // Default matches reference screenshot
+    let activeCatId = 'lpq-food';
+    const urlParams = new URLSearchParams(window.location.hash.split('?')[1] || '');
+    const requestedCat = urlParams.get('category');
+    if (requestedCat === 'lpq-food' || requestedCat === 'quick-instant-food' || requestedCat === 'food') {
+        activeCatId = 'lpq-food';
+    } else if (requestedCat && RAIL_CATEGORIES.some(c => c.id === requestedCat)) {
+        activeCatId = requestedCat;
+    } // Default matches reference screenshot
     let isVegOnly = false;
     let currentSort = 'popular';
     let allProducts = [];

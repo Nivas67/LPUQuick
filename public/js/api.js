@@ -729,6 +729,8 @@ const api = {
                         customerName: savedName,
                         customerEmail: savedEmail,
                         hostel_id: extraData.hostel_id || window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13',
+                        instructions: extraData.instructions || extraData.special_instructions || '',
+                        special_instructions: extraData.instructions || extraData.special_instructions || '',
                         items
                     })
                 });

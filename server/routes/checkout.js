@@ -332,6 +332,10 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
             normalizedDeliveryAddress = `[${targetHostelId}] ${normalizedDeliveryAddress}`;
         }
 
+        const foodOrderService = require('../services/foodOrderService');
+        const isFoodOrder = orderItems.some(it => foodOrderService.isFoodProduct(it));
+        const estimatedDeliveryMins = isFoodOrder ? 11 : 5;
+
         const orderPayload = {
             id: orderId,
             hostel_id: targetHostelId,
@@ -348,7 +352,9 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
             payment_method: method,
             payment_status: 'pending',
             rider_name: rider,
-            delivery_address: normalizedDeliveryAddress
+            delivery_address: normalizedDeliveryAddress,
+            is_food_order: isFoodOrder,
+            estimated_delivery_mins: estimatedDeliveryMins
         };
 
         const createdOrder = await supabaseDb.orders.createOrder(orderPayload, orderItems);
@@ -403,6 +409,20 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
             }).catch(pErr => console.warn('[Push Service New Order Note]:', pErr.message));
         } catch (pushErr) {}
 
+        // 4. Automatic Food Department Order Routing for Quick's Instant Food items
+        try {
+            const foodOrderService = require('../services/foodOrderService');
+            const instructions = (req.body.instructions || req.body.special_instructions || req.body.notes || '').trim();
+            await foodOrderService.handleNewFoodOrder({
+                orderId,
+                orderPayload,
+                foodItems: orderItems,
+                instructions
+            });
+        } catch (foodRouteErr) {
+            console.warn('[Food Department Auto-Routing Note]:', foodRouteErr.message);
+        }
+
         res.json({
             success: true,
             orderId,
@@ -416,7 +436,7 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
                 tax: 0,
                 total
             },
-            message: 'Order placed successfully! 3-minute delivery countdown initiated.'
+            message: isFoodOrder ? 'Order placed successfully! 11-minute delivery countdown initiated.' : 'Order placed successfully! 5-minute delivery countdown initiated.'
         });
     } catch (err) {
         console.error('[Checkout Error]:', err.message);

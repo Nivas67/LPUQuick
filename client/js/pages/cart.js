@@ -2,6 +2,31 @@
 window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
+function isQuickInstantFoodProduct(p) {
+    if (!p) return false;
+    const cat = (p.category || p.product_category || '').trim().toLowerCase();
+    const sub = (p.subcategory || p.product_subcategory || '').trim().toLowerCase();
+    const name = (p.name || p.product_name || '').toLowerCase();
+    if (cat.includes('instant snacks') || sub.includes('instant snacks') || cat.includes('snacks & munchies')) return false;
+    if (cat === "quick's instant food" || cat === "quicks instant food") return true;
+    if (sub === "quick's instant food" || sub === "quicks instant food" || sub === 'cook') return true;
+    if ((cat === 'instant food' || cat === 'instant' || sub === 'instant food') && !sub.includes('namkeen') && !/bhelpuri|namkeen|chips|wafer|biscuit/i.test(name)) return true;
+    if (sub.includes('maggi & noodles') || sub.includes('cooked meals') || sub.includes('sandwiches & burgers') || sub.includes('pasta & macaroni') || sub.includes('hot snacks & fries') || sub.includes('soups & bowls')) return true;
+    if (/maggi|cooked meal|hot meal|thali|paratha|sandwich|fresh pasta|fresh burger|chai|coffee|soup|chowmein|macroni/i.test(name)) return true;
+    return false;
+}
+
+function checkCartHasFood(items) {
+    if (!Array.isArray(items) || items.length === 0) return false;
+    return items.some(item => {
+        if (isQuickInstantFoodProduct(item)) return true;
+        const cached = (typeof window !== 'undefined' && window.__cachedProducts) ? window.__cachedProducts.get(item.product_id || item.id) : null;
+        if (cached && isQuickInstantFoodProduct(cached)) return true;
+        return false;
+    });
+}
+
+
 function calculateCartCharges(cartSubtotal, settings) {
     const s = settings || window.latestCheckoutSettings || {
         offers_enabled: true,
@@ -126,6 +151,9 @@ window.pages.cart = async function() {
 
     // Accurate MRP, Subtotal & Quantity calculations
     const totalQuantity = items.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
+    const hasFoodOrder = checkCartHasFood(items);
+    const deliveryEtaText = hasFoodOrder ? '11 mins' : '5 mins';
+    const deliveryEtaBadge = hasFoodOrder ? '11m Kitchen' : '5m Express';
     const totalMrp = items.reduce((sum, item) => sum + ((Number(item.mrp) || Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
     const subtotal = items.reduce((sum, item) => sum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
     const mrpDiscount = Math.max(0, totalMrp - subtotal);
@@ -224,7 +252,7 @@ window.pages.cart = async function() {
                 </a>
                 <div>
                     <h1 class="text-sm sm:text-base font-black text-slate-900 dark:text-white tracking-tight leading-tight">Your Cart</h1>
-                    <p class="text-[10px] sm:text-[11px] text-slate-500 font-semibold" id="cart-header-subtitle">${totalQuantity} ${totalQuantity === 1 ? 'item' : 'items'} · Delivering to ${window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus')} (3 mins)</p>
+                    <p class="text-[10px] sm:text-[11px] text-slate-500 font-semibold" id="cart-header-subtitle">${totalQuantity} ${totalQuantity === 1 ? 'item' : 'items'} · Delivering to ${window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus')} (${deliveryEtaText})</p>
                 </div>
             </div>
             <div class="flex items-center gap-2">
@@ -233,7 +261,7 @@ window.pages.cart = async function() {
                 ` : ''}
                 <div class="clay-pill px-2.5 py-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                     <span class="w-1.5 h-1.5 rounded-full bg-emerald animate-pulse"></span>
-                    <span>3m Express</span>
+                    <span>${deliveryEtaBadge}</span>
                 </div>
             </div>
         </div>
@@ -287,7 +315,7 @@ window.pages.cart = async function() {
             <div class="glass-panel card-pedestal rounded-2xl p-3.5 flex items-center justify-between text-xs shadow-xs border border-[var(--glass-border)]">
                 <div class="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-200">
                     <span class="material-symbols-outlined text-base text-emerald">electric_bolt</span>
-                    <span>Free 3-Min Campus Room Delivery Guaranteed</span>
+                    <span>Free ${hasFoodOrder ? '11-Min' : '5-Min'} Campus Room Delivery Guaranteed</span>
                 </div>
                 <span class="text-[11px] font-black text-emerald-700 dark:text-emerald-400 liquid-badge px-2 py-0.5">Saved ₹${charges.baseDelivery > 0 ? charges.baseDelivery : 25}</span>
             </div>
@@ -295,7 +323,7 @@ window.pages.cart = async function() {
             <div class="glass-panel card-pedestal rounded-2xl p-3.5 flex items-center justify-between text-xs shadow-xs border border-[var(--glass-border)]">
                 <div class="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-200">
                     <span class="material-symbols-outlined text-base text-emerald">electric_bolt</span>
-                    <span>3-Min Campus Room Delivery: ₹${charges.delivery}</span>
+                    <span>${hasFoodOrder ? '11-Min' : '5-Min'} Campus Room Delivery: ₹${charges.delivery}</span>
                 </div>
             </div>
             `}
@@ -578,7 +606,9 @@ window.pageInits.cart = function() {
         // Header subtitle
         const cartSubtitle = document.getElementById('cart-header-subtitle');
         if (cartSubtitle) {
-            cartSubtitle.textContent = `${totalQty} ${totalQty === 1 ? 'item' : 'items'} · Delivering to ${window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus')} (3 mins)`;
+            const hasFoodNow = checkCartHasFood(cart?.items || []);
+        const etaText = hasFoodNow ? '11 mins' : '5 mins';
+        cartSubtitle.textContent = `${totalQty} ${totalQty === 1 ? 'item' : 'items'} · Delivering to ${window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus')} (${etaText})`;
         }
 
         // Dynamic Banners
@@ -635,7 +665,7 @@ window.pageInits.cart = function() {
                 <div class="glass-panel card-pedestal rounded-2xl p-3.5 flex items-center justify-between text-xs shadow-xs border border-[var(--glass-border)]">
                     <div class="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-200">
                         <span class="material-symbols-outlined text-base text-emerald">electric_bolt</span>
-                        <span>Free 3-Min Campus Room Delivery Guaranteed</span>
+                        <span>Free ${charges && checkCartHasFood(cart?.items || []) ? '11-Min' : '5-Min'} Campus Room Delivery Guaranteed</span>
                     </div>
                     <span class="text-[11px] font-black text-emerald-700 dark:text-emerald-400 liquid-badge px-2 py-0.5">Saved ₹${charges.baseDelivery > 0 ? charges.baseDelivery : 25}</span>
                 </div>`;
@@ -644,7 +674,7 @@ window.pageInits.cart = function() {
                 <div class="glass-panel card-pedestal rounded-2xl p-3.5 flex items-center justify-between text-xs shadow-xs border border-[var(--glass-border)]">
                     <div class="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-200">
                         <span class="material-symbols-outlined text-base text-emerald">electric_bolt</span>
-                        <span>3-Min Campus Room Delivery: ₹${charges.delivery}</span>
+                        <span>${charges && checkCartHasFood(cart?.items || []) ? '11-Min' : '5-Min'} Campus Room Delivery: ₹${charges.delivery}</span>
                     </div>
                 </div>`;
             }

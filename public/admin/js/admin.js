@@ -514,7 +514,7 @@ function applyAdminRolePermissions(profile) {
     document.querySelectorAll('#desktop-nav .nav-item, .nav-item, .owner-only-nav, [data-required-role]').forEach(btn => {
         const req = btn.dataset?.requiredRole || '';
         const view = btn.dataset?.view || '';
-        const isOwnerOnly = btn.classList.contains('owner-only-nav') || req === 'owner' || view === 'hostel-groups' || view === 'employees' || view === 'staff' || view === 'hostels' || view === 'daily-revenue' || view === 'backup' || view === 'advertisements' || view === 'offers-charges';
+        const isOwnerOnly = (btn.classList.contains('owner-only-nav') || req === 'owner' || view === 'hostel-groups' || view === 'employees' || view === 'staff' || view === 'hostels' || view === 'daily-revenue' || view === 'backup' || view === 'advertisements' || view === 'offers-charges') && view !== 'food-dept';
 
         if (isOwnerOnly && !isOwner) {
             btn.classList.add('hidden');
@@ -728,13 +728,13 @@ function switchView(viewName) {
             'offers-charges': ['owner'],
             'payment-management': ['owner'],
             'upi-config': ['owner'],
-            'food-dept': ['owner', 'store_manager', 'cook']
+            'food-dept': ['owner', 'store_manager', 'cook', 'food_department', 'food']
         };
 
         const required = viewRoles[viewName];
         if (required && !required.some(r => roles.includes(r))) {
             showToast('Access restricted for your staff role', 'warning');
-            const fallback = roles.includes('delivery_person') ? 'orders' : (roles.includes('inventory_manager') ? 'inventory' : 'dashboard');
+            const fallback = (roles.includes('cook') || roles.includes('food_department') || roles.includes('food')) ? 'food-dept' : (roles.includes('delivery_person') ? 'orders' : (roles.includes('inventory_manager') ? 'inventory' : 'dashboard'));
             if (viewName !== fallback) {
                 switchView(fallback);
                 return;
@@ -834,9 +834,15 @@ if (typeof window !== 'undefined') {
         if (hash && hash !== activeView && typeof switchView === 'function') switchView(hash);
     });
     const triggerHashRoute = () => {
-        const hash = window.location.hash.replace(/^#\/?/, '');
-        if (hash && typeof switchView === 'function') {
-            setTimeout(() => switchView(hash), 150);
+        let route = window.location.hash.replace(/^#\/?/, '');
+        if (!route && window.location.pathname) {
+            const cleanPath = window.location.pathname.replace(/^\/admin\/?/, '').split('/')[0];
+            if (cleanPath && cleanPath !== 'index.html' && cleanPath !== 'admin') {
+                route = cleanPath;
+            }
+        }
+        if (route && typeof switchView === 'function') {
+            setTimeout(() => switchView(route), 150);
         }
     };
     if (document.readyState === 'loading') {
@@ -1018,6 +1024,7 @@ async function loadDashboard() {
         renderRecentOrdersTable(ordersCache);
         updateDailyRevenue();
         renderDashboardHostelCards();
+        if (typeof isFoodDeptAdmin === 'function' && isFoodDeptAdmin()) { loadDashboardFoodQueue(); } else { const fCard = document.getElementById('dash-food-dept-card'); if (fCard) fCard.classList.add('hidden'); }
 
         // Render Low Stock Containers
         const lowContainer = document.getElementById('dash-low-stock-container');
@@ -3363,6 +3370,10 @@ function filterOrders() {
     const badgeBoth = document.getElementById('badge-both-count');
     if (badgeBoth) badgeBoth.textContent = bothCount;
 
+    const foodOrdersCount = ordersCache.filter(o => isOrderFoodDept(o)).length;
+    const badgeFood = document.getElementById('badge-food-orders-count');
+    if (badgeFood) badgeFood.textContent = foodOrdersCount;
+
     const query = (document.getElementById('orders-search-input')?.value || '').toLowerCase();
     const ordHostel = (typeof getActiveAdminHostelFilter === 'function') ? getActiveAdminHostelFilter('orders') : null;
     let filtered = ordersCache.filter(o => {
@@ -3404,6 +3415,8 @@ function filterOrders() {
             const da = o.delivery_assignment;
             return da && da.transfer && da.transfer.status === 'PENDING';
         });
+    } else if (currentOrderFilter === 'food_orders') {
+        filtered = filtered.filter(o => isOrderFoodDept(o));
     } else if (currentOrderFilter === 'active') {
         filtered = filtered.filter(o => !['Delivered', 'delivered', 'completed', 'Completed', 'cancelled', 'Cancelled', 'canceled', 'Canceled', 'rejected', 'Rejected'].includes(o.status));
     } else if (currentOrderFilter === 'delivered') {
@@ -3571,13 +3584,29 @@ function filterOrders() {
             `;
         }
 
+        const isFoodOrder = isOrderFoodDept(o);
+        const rowClass = isFoodOrder
+            ? "bg-gradient-to-r from-amber-50/95 via-orange-50/60 to-amber-50/30 hover:from-amber-100 hover:to-orange-100/90 border-l-4 border-l-amber-500 border-b border-amber-200 transition-colors cursor-pointer shadow-xs"
+            : "hover:bg-[#f7fafd] transition-colors cursor-pointer";
+
         return `
-        <tr class="hover:bg-[#f7fafd] transition-colors cursor-pointer" onclick="openOrderDrawer('${o.id}')" id="order-row-${o.id}">
+        <tr class="${rowClass}" onclick="openOrderDrawer('${o.id}')" id="order-row-${o.id}">
             <td class="p-4 font-bold font-mono text-[#181c1f]">
                 <div class="flex items-center gap-1.5 flex-wrap">
                     <span>#${(o.id || '').replace('order_', '').toUpperCase()}</span>
                     <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-50 text-[#0066cc] border border-blue-200">${escapeHtml(o.hostel_id || 'BH-13')}</span>
+                    ${isFoodOrder ? `
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs">
+                        <span class="material-symbols-outlined text-[10px]">restaurant</span>
+                        <span>Quick's Instant Food (11m)</span>
+                    </span>
+                    ` : ''}
                 </div>
+                ${isFoodOrder && o.cook_name ? `
+                <div class="mt-1 text-[10px] text-amber-900 font-bold flex items-center gap-1">
+                    <span>👨‍🍳 Chef:</span> <span>${escapeHtml(o.cook_name)}</span>
+                </div>
+                ` : ''}
             </td>
             <td class="p-4">
                 <p class="font-semibold text-[#181c1f]">${escapeHtml(displayName)}</p>
@@ -3586,21 +3615,22 @@ function filterOrders() {
             <td class="p-4 text-[#5c5f60]">${escapeHtml(o.delivery_address || 'Not provided')}</td>
             <td class="p-4 font-bold text-[#137333]">₹${o.total}</td>
             <td class="p-4 text-[#5c5f60]">${o.payment_method || 'COD'}</td>
-            <td class="p-4" id="order-status-pill-${o.id}">${getStatusPill(o.status)}</td>
+            <td class="p-4" id="order-status-pill-${o.id}">${getStatusPill(o.status, isFoodOrder)}</td>
             <td class="p-4">${dispatchBadgeHtml}</td>
             <td class="p-4 text-right">${actionButtonsHtml}</td>
         </tr>
     `}).join('');
 }
 
-function getStatusPill(status) {
+function getStatusPill(status, isFood = false) {
     const s = (status || '').toLowerCase();
-    if (s === 'delivered') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#e6f4ea] text-[#137333]">Delivered ✓</span>';
-    if (s === 'cancelled') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#fce8e6] text-[#c5221f] border border-[#f5c6cb]">Cancelled ✕</span>';
+    if (s === 'delivered' || s === 'completed') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#e6f4ea] text-[#137333]">Delivered ✓</span>';
+    if (s === 'cancelled' || s === 'rejected') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#fce8e6] text-[#c5221f] border border-[#f5c6cb]">Cancelled ✕</span>';
+    if (s === 'ready' || s === 'ready in kitchen') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300">🍲 Ready in Kitchen</span>';
     if (s === 'out for delivery') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">En Route 🚶‍♂️</span>';
-    if (s === 'preparing') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800">Preparing 📦</span>';
+    if (s === 'preparing' || s === 'cooking') return isFood ? '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300">🍳 Cooking / Prep (11m)</span>' : '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800">Preparing 📦</span>';
     if (s === 'order confirmed') return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">Confirmed 👍</span>';
-    return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#ffdad6] text-[#ba1a1a] animate-pulse">Order Placed ⚡</span>';
+    return isFood ? '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black bg-orange-100 text-orange-900 border border-orange-300 animate-pulse">⚡ Food Placed (11m)</span>' : '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#ffdad6] text-[#ba1a1a] animate-pulse">Order Placed ⚡</span>';
 }
 
 // ================= 5. ORDER DETAILS DRAWER =================
@@ -4343,6 +4373,15 @@ function updateModalProfitPreview() {
 window.updateModalProfitPreview = updateModalProfitPreview;
 
 const DEFAULT_CATEGORY_SUBCATEGORIES = {
+    "Quick's Instant Food": [
+        'Maggi & Noodles',
+        'Cooked Meals & Platters',
+        'Sandwiches & Burgers',
+        'Pasta & Macaroni',
+        'Hot Snacks & Fries',
+        'Soups & Bowls',
+        'Chai, Coffee & Beverages'
+    ],
     'Instant Food': [
         'Maggi & Noodles',
         'Cooked Meals & Platters',
@@ -6607,6 +6646,9 @@ function renderStaffTable(list) {
         if (s.roles.includes('delivery_person')) {
             roleBadges.push(`<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">🛵 Delivery</span>`);
         }
+        if (s.roles.includes('cook') || s.roles.includes('food_department') || s.roles.includes('food')) {
+            roleBadges.push(`<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">👨‍🍳 Food Dept</span>`);
+        }
 
         let hostelBadge = '';
         if (isOwner) {
@@ -7001,6 +7043,7 @@ function renderEmployeesTable(list) {
         if ((emp.roles || []).includes('store_manager')) roleBadges.push('<span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">🏢 Store Mgr</span>');
         if ((emp.roles || []).includes('inventory_manager')) roleBadges.push('<span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">📦 Inventory</span>');
         if ((emp.roles || []).includes('delivery_person') || emp.is_delivery_boy) roleBadges.push('<span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">🛵 Delivery</span>');
+        if ((emp.roles || []).includes('cook') || (emp.roles || []).includes('food_department') || (emp.roles || []).includes('food')) roleBadges.push('<span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">👨‍🍳 Food Dept</span>');
 
         // Hostel badge
         let hostelBadge = '';
@@ -12912,47 +12955,58 @@ window.openStaffModalWithCookRole = openStaffModalWithCookRole;
 
 async function loadFoodDeptAdmin() {
     try {
-        const [configRes, cooksRes, ordersRes, metricsRes] = await Promise.all([
-            fetch('/api/food/config', { headers: getAuthHeaders() }),
-            fetch('/api/food/cooks', { headers: getAuthHeaders() }),
-            fetch('/api/food/orders', { headers: getAuthHeaders() }),
-            fetch('/api/food/metrics', { headers: getAuthHeaders() })
+        const targetHostel = (typeof getActiveLockHostel === 'function' ? getActiveLockHostel() : null) || 'BH-13';
+        const headers = getAuthHeaders();
+
+        const fetchSafe = async (url) => {
+            try {
+                const res = await fetch(url, { headers });
+                if (res.ok) return await res.json();
+            } catch (e) {
+                console.warn('[Admin Food Safe Fetch]: ' + url, e.message);
+            }
+            return null;
+        };
+
+        const [configData, cooksData, ordersData, metricsData, productsData] = await Promise.all([
+            fetchSafe('/api/food/config'),
+            fetchSafe('/api/food/cooks'),
+            fetchSafe('/api/food/orders'),
+            fetchSafe('/api/food/metrics'),
+            fetchSafe('/api/food/products?hostel_id=' + encodeURIComponent(targetHostel))
         ]);
 
-        if (configRes.ok) {
-            const data = await configRes.json();
-            if (data.success && data.config) {
-                foodConfigCache = data.config;
-                renderFoodConfig(data.config);
-            }
+        if (configData && configData.success && configData.config) {
+            foodConfigCache = configData.config;
+            renderFoodConfig(configData.config);
         }
 
-        if (cooksRes.ok) {
-            const data = await cooksRes.json();
-            if (data.success && Array.isArray(data.cooks)) {
-                foodCooksCache = data.cooks;
-                renderFoodCooks(data.cooks);
-                populateSpecificCookDropdown(data.cooks);
-            }
+        if (cooksData && cooksData.success && Array.isArray(cooksData.cooks)) {
+            foodCooksCache = cooksData.cooks;
+            renderFoodCooks(cooksData.cooks);
+            populateSpecificCookDropdown(cooksData.cooks);
         }
 
-        if (ordersRes.ok) {
-            const data = await ordersRes.json();
-            if (data.success && Array.isArray(data.orders)) {
-                foodOrdersCache = data.orders;
-                renderFoodOrdersAdmin(data.orders);
-            }
+        if (ordersData && ordersData.success && Array.isArray(ordersData.orders)) {
+            foodOrdersCache = ordersData.orders;
+            renderFoodOrdersAdmin(ordersData.orders);
         }
 
-        if (metricsRes.ok) {
-            const data = await metricsRes.json();
-            if (data.success && data.metrics) {
-                renderFoodDeptMetrics(data.metrics);
-            }
+        if (metricsData && metricsData.success && metricsData.metrics) {
+            renderFoodDeptMetrics(metricsData.metrics);
+        }
+
+        if (productsData && productsData.success && Array.isArray(productsData.products) && productsData.products.length > 0) {
+            foodProductsCache = productsData.products;
+            renderFoodDeptProducts(foodProductsCache);
+        } else if (typeof fetchFoodDeptProducts === 'function') {
+            await fetchFoodDeptProducts();
         }
     } catch (err) {
         console.error('[Admin Food Dept Load Error]:', err);
-        showToast('Error loading food department data: ' + err.message, 'error');
+        if (typeof fetchFoodDeptProducts === 'function') {
+            fetchFoodDeptProducts();
+        }
     }
 }
 window.loadFoodDeptAdmin = loadFoodDeptAdmin;
@@ -13180,56 +13234,110 @@ function renderFoodOrdersAdmin(orders) {
     const tbody = document.getElementById('food-orders-admin-tbody');
     if (!tbody) return;
 
-    if (orders.length === 0) {
+    const totalOrders = orders.length;
+    const placedOrders = orders.filter(o => ['order placed', 'placed', 'pending'].includes((o.status || '').toLowerCase())).length;
+    const preparingOrders = orders.filter(o => ['preparing', 'cooking', 'in progress'].includes((o.status || '').toLowerCase())).length;
+    const readyOrders = orders.filter(o => ['ready', 'ready in kitchen', 'cooked'].includes((o.status || '').toLowerCase())).length;
+    const completedOrders = orders.filter(o => ['completed', 'delivered', 'done'].includes((o.status || '').toLowerCase())).length;
+
+    const cAll = document.getElementById('count-food-all'); if (cAll) cAll.textContent = totalOrders;
+    const cPlaced = document.getElementById('count-food-placed'); if (cPlaced) cPlaced.textContent = placedOrders;
+    const cPrep = document.getElementById('count-food-preparing'); if (cPrep) cPrep.textContent = preparingOrders;
+    const cReady = document.getElementById('count-food-ready'); if (cReady) cReady.textContent = readyOrders;
+    const cComp = document.getElementById('count-food-completed'); if (cComp) cComp.textContent = completedOrders;
+    const badgeQueue = document.getElementById('food-orders-count-badge'); if (badgeQueue) badgeQueue.textContent = `${totalOrders} Total`;
+
+    let filtered = orders;
+    if (foodOrdersFilterActive === 'placed') {
+        filtered = orders.filter(o => ['order placed', 'placed', 'pending'].includes((o.status || '').toLowerCase()));
+    } else if (foodOrdersFilterActive === 'preparing') {
+        filtered = orders.filter(o => ['preparing', 'cooking', 'in progress'].includes((o.status || '').toLowerCase()));
+    } else if (foodOrdersFilterActive === 'ready') {
+        filtered = orders.filter(o => ['ready', 'ready in kitchen', 'cooked'].includes((o.status || '').toLowerCase()));
+    } else if (foodOrdersFilterActive === 'completed') {
+        filtered = orders.filter(o => ['completed', 'delivered', 'done'].includes((o.status || '').toLowerCase()));
+    }
+
+    if (filtered.length === 0) {
         tbody.innerHTML = `
             <tr>
                 <td colspan="7" class="p-8 text-center text-[#5c5f60]">
-                    No food orders in the queue.
+                    <div class="max-w-xs mx-auto space-y-1">
+                        <span class="material-symbols-outlined text-3xl text-gray-300">receipt_long</span>
+                        <p class="font-bold text-[#181c1f]">No food orders in this filter</p>
+                        <p class="text-xs text-gray-500">Incoming Quick's Instant Food orders will appear here automatically.</p>
+                    </div>
                 </td>
             </tr>
         `;
         return;
     }
 
-    tbody.innerHTML = orders.map(order => {
+    tbody.innerHTML = filtered.map(order => {
         const shortId = order.order_id.replace(/^order_/, '').slice(0, 8);
-        const isScheduled = order.order_type === 'scheduled' || Boolean(order.scheduled_time);
-        const isTakeaway = order.order_type === 'takeaway';
+        const s = (order.status || 'Order Placed').toLowerCase();
 
-        let typeBadge = '';
-        if (isScheduled) {
-            typeBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-purple-100 text-purple-800 border border-purple-200">⏰ SCHEDULED</span>';
-        } else if (isTakeaway) {
-            typeBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-indigo-100 text-indigo-800 border border-indigo-200">🛍️ TAKEAWAY</span>';
+        let statusPill = '';
+        let quickActionBtn = '';
+
+        if (s === 'completed' || s === 'delivered') {
+            statusPill = '<span class="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">✓ Completed</span>';
+            quickActionBtn = '<span class="text-xs text-emerald-700 font-bold flex items-center justify-end gap-1"><span class="material-symbols-outlined text-sm">check_circle</span> Delivered</span>';
+        } else if (s === 'ready' || s === 'ready in kitchen') {
+            statusPill = '<span class="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300">🍲 Ready in Kitchen</span>';
+            quickActionBtn = `<button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Completed')" class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer flex items-center gap-1 ml-auto"><span>✓ Mark Completed</span></button>`;
+        } else if (s === 'preparing' || s === 'cooking') {
+            statusPill = '<span class="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300">🍳 Cooking / Preparing</span>';
+            quickActionBtn = `<button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Ready')" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer flex items-center gap-1 ml-auto"><span>🍲 Mark Ready</span></button>`;
         } else {
-            typeBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-200">🚚 DELIVERY (15-20m)</span>';
+            statusPill = '<span class="px-2.5 py-1 rounded-full text-[10px] font-black bg-orange-100 text-orange-900 border border-orange-300 animate-pulse">⚡ Order Placed</span>';
+            quickActionBtn = `<button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Preparing')" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer flex items-center gap-1 ml-auto"><span>🍳 Start Cooking</span></button>`;
         }
 
-        const itemsSummary = (order.food_items || []).map(i => `${i.name} (×${i.quantity})`).join(', ');
+        const itemsHtml = (order.food_items || []).map(i => `
+            <div class="inline-flex items-center gap-1 bg-amber-50 text-amber-950 border border-amber-200 px-2 py-0.5 rounded text-[11px] font-bold mr-1 mb-1">
+                <span>${escapeHtml(i.name)}</span>
+                <span class="text-amber-800">×${i.quantity}</span>
+                ${i.price ? `<span class="text-amber-600 font-semibold">(₹${i.price})</span>` : ''}
+            </div>
+        `).join('');
 
         return `
-            <tr class="hover:bg-slate-50/70 transition-colors">
-                <td class="p-3.5 font-mono font-bold text-[#181c1f]">#${shortId}</td>
+            <tr class="hover:bg-amber-50/40 transition-colors">
                 <td class="p-3.5">
-                    <p class="font-bold text-[#181c1f]">${escapeHtml(order.customer_name)}</p>
-                    <p class="text-[11px] text-[#5c5f60]">${escapeHtml(order.delivery_address || 'Hostel')}</p>
+                    <p class="font-mono font-bold text-xs text-[#181c1f]">#${shortId.toUpperCase()}</p>
+                    <p class="text-[10px] text-[#5c5f60]">${escapeHtml(order.order_time_formatted || '')}</p>
+                    <span class="inline-block mt-0.5 text-[9px] font-black px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300">11m Food Delivery</span>
                 </td>
-                <td class="p-3.5 text-xs text-[#181c1f] max-w-xs truncate" title="${escapeHtml(itemsSummary)}">
-                    ${escapeHtml(itemsSummary)}
+                <td class="p-3.5">
+                    <p class="font-bold text-xs text-[#181c1f]">${escapeHtml(order.customer_name)}</p>
+                    <p class="text-[11px] font-semibold text-amber-900">${escapeHtml(order.delivery_address || order.hostel_id || 'Hostel')}</p>
+                    ${order.customer_phone ? `<p class="text-[10px] text-[#5c5f60]">📞 ${escapeHtml(order.customer_phone)}</p>` : ''}
                 </td>
-                <td class="p-3.5">${typeBadge}</td>
+                <td class="p-3.5 max-w-xs">
+                    <div class="flex flex-wrap">${itemsHtml || '<span class="text-gray-400">Food Item</span>'}</div>
+                    ${order.special_instructions && order.special_instructions !== 'None' ? `<p class="text-[10px] text-amber-800 italic mt-0.5">Note: ${escapeHtml(order.special_instructions)}</p>` : ''}
+                </td>
+                <td class="p-3.5">
+                    <p class="font-bold text-xs text-[#181c1f]">₹${Number(order.total_amount || order.total || 0).toFixed(2)}</p>
+                    <span class="inline-block text-[9px] font-bold px-1.5 py-0.2 rounded bg-gray-100 text-gray-700 uppercase">${escapeHtml(order.payment_method || 'COD')}</span>
+                </td>
                 <td class="p-3.5 font-medium text-[#181c1f]">
-                    👨‍🍳 ${escapeHtml(order.cook_name || 'Unassigned')}
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-sm">👨‍🍳</span>
+                        <div>
+                            <p class="font-bold text-xs text-[#181c1f]">${escapeHtml(order.cook_name || 'Chef Assigned')}</p>
+                            <button type="button" onclick="openReassignFoodModal('${order.order_id}')" class="text-[10px] text-amber-700 hover:underline font-semibold flex items-center gap-0.5 cursor-pointer">
+                                <span>Reassign</span> <span class="material-symbols-outlined text-[11px]">swap_horiz</span>
+                            </button>
+                        </div>
+                    </div>
                 </td>
-                <td class="p-3.5">
-                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-300">
-                        ${order.status}
-                    </span>
-                </td>
+                <td class="p-3.5">${statusPill}</td>
                 <td class="p-3.5 text-right">
-                    <button type="button" onclick="openReassignFoodModal('${order.order_id}')" class="px-3 py-1.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1 ml-auto">
-                        <span class="material-symbols-outlined text-sm">swap_horiz</span> Reassign
-                    </button>
+                    <div class="flex items-center justify-end gap-1.5">
+                        ${quickActionBtn}
+                    </div>
                 </td>
             </tr>
         `;
@@ -13310,7 +13418,7 @@ function openProductModalForFood() {
     openProductModal();
     const catSelect = document.getElementById('form-product-category');
     if (catSelect) {
-        catSelect.value = 'Instant Food';
+        catSelect.value = "Quick's Instant Food"; if (!catSelect.value) catSelect.value = 'Instant Food';
         if (typeof onModalCategoryChange === 'function') {
             onModalCategoryChange();
         }
@@ -14211,3 +14319,613 @@ window.toggleMainGateBlock = toggleMainGateBlock;
 window.addNewCustomBlock = addNewCustomBlock;
 window.onBlockCheckboxToggled = onBlockCheckboxToggled;
 window.saveHostelBlocks = saveHostelBlocks;
+
+
+// ============================================================
+// FOOD DEPARTMENT & LIVE KITCHEN QUEUE FOR ADMIN DASHBOARD
+// ============================================================
+function isFoodDeptAdmin(profile = currentAdminProfile) {
+    if (!profile) return false;
+    if (typeof isPlatformOwner === 'function' && isPlatformOwner(profile)) return true;
+    if (profile.is_owner) return true;
+    const roles = Array.isArray(profile.roles) ? profile.roles : [];
+    return roles.includes('cook') || roles.includes('food_department') || roles.includes('food') || profile.department === 'food';
+}
+window.isFoodDeptAdmin = isFoodDeptAdmin;
+
+async function loadDashboardFoodQueue() {
+    const card = document.getElementById('dash-food-dept-card');
+    if (!card) return;
+    card.classList.remove('hidden');
+
+    const tbody = document.getElementById('dash-food-orders-tbody');
+    try {
+        const [ordersRes, metricsRes] = await Promise.all([
+            fetch('/api/food/orders', { headers: getAuthHeaders() }),
+            fetch('/api/food/metrics', { headers: getAuthHeaders() })
+        ]);
+
+        let orders = [];
+        if (ordersRes.ok) {
+            const oData = await ordersRes.json();
+            if (oData.success && Array.isArray(oData.orders)) {
+                orders = oData.orders;
+            }
+        }
+
+        let metrics = {};
+        if (metricsRes.ok) {
+            const mData = await metricsRes.json();
+            if (mData.success && mData.metrics) {
+                metrics = mData.metrics;
+            }
+        }
+
+        // Update Stats
+        const statActive = document.getElementById('dash-food-stat-active');
+        const statCooking = document.getElementById('dash-food-stat-cooking');
+        const statReady = document.getElementById('dash-food-stat-ready');
+        const statTotal = document.getElementById('dash-food-stat-total');
+
+        const activeOrders = orders.filter(o => o.status !== 'Delivered' && o.status !== 'Cancelled');
+        const cookingOrders = orders.filter(o => o.status === 'Cooking' || o.status === 'Preparing');
+        const readyOrders = orders.filter(o => o.status === 'Ready' || o.status === 'Ready for Pickup');
+
+        if (statActive) statActive.textContent = activeOrders.length;
+        if (statCooking) statCooking.textContent = metrics.preparing_count !== undefined ? metrics.preparing_count : cookingOrders.length;
+        if (statReady) statReady.textContent = metrics.ready_count !== undefined ? metrics.ready_count : readyOrders.length;
+        if (statTotal) statTotal.textContent = metrics.total_food_orders || orders.length;
+
+        if (!tbody) return;
+
+        if (orders.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="p-8 text-center text-[#5c5f60]">
+                        <span class="text-2xl block mb-1">🍳</span>
+                        <p class="font-bold text-xs text-[#181c1f]">No active kitchen orders</p>
+                        <p class="text-[11px] text-[#5c5f60]">All Quick's Instant Food orders are prepped & delivered!</p>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = orders.slice(0, 10).map(order => {
+            const shortId = (order.order_id || '').replace(/^order_/, '').slice(0, 8);
+            const itemsSummary = (order.food_items || []).map(i => `${i.name} (×${i.quantity})`).join(', ') || "Quick's Instant Food";
+            const isCooking = order.status === 'Cooking' || order.status === 'Preparing';
+            const isReady = order.status === 'Ready' || order.status === 'Ready for Pickup';
+
+            let statusBadge = '';
+            if (isReady) {
+                statusBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">READY</span>';
+            } else if (isCooking) {
+                statusBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-orange-100 text-orange-800 border border-orange-300 animate-pulse">COOKING</span>';
+            } else {
+                statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">${escapeHtml(order.status)}</span>`;
+            }
+
+            return `
+                <tr class="hover:bg-amber-50/50 transition-colors">
+                    <td class="p-3 font-mono font-bold text-[#181c1f]">#${shortId}</td>
+                    <td class="p-3">
+                        <p class="font-bold text-[#181c1f]">${escapeHtml(order.customer_name)}</p>
+                        <p class="text-[10px] text-[#5c5f60]">${escapeHtml(order.delivery_address)}</p>
+                    </td>
+                    <td class="p-3 text-xs text-[#181c1f] max-w-xs truncate" title="${escapeHtml(itemsSummary)}">
+                        🍜 ${escapeHtml(itemsSummary)}
+                    </td>
+                    <td class="p-3 font-medium text-xs text-amber-900">
+                        👨‍🍳 ${escapeHtml(order.cook_name || 'Assigned Chef')}
+                    </td>
+                    <td class="p-3">${statusBadge}</td>
+                    <td class="p-3 text-right">
+                        <div class="inline-flex items-center gap-1.5 justify-end">
+                            ${!isReady ? `
+                                <button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Ready')" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer" title="Mark order prepared & ready for delivery">
+                                    <span>Mark Ready</span>
+                                    <span class="material-symbols-outlined text-[13px]">check</span>
+                                </button>
+                            ` : `
+                                <span class="text-[11px] font-bold text-emerald-700 flex items-center gap-0.5">
+                                    <span class="material-symbols-outlined text-xs">done_all</span> Handed Over
+                                </span>
+                            `}
+                            <button type="button" onclick="openReassignFoodModal('${order.order_id}')" class="p-1 rounded-lg border border-[#DADCE0] hover:bg-white text-[#5c5f60]" title="Reassign Cook">
+                                <span class="material-symbols-outlined text-sm">swap_horiz</span>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    } catch (err) {
+        console.warn('[Dash Food Queue Load Note]:', err.message);
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-xs text-amber-800">Kitchen queue updated.</td></tr>';
+        }
+    }
+}
+window.loadDashboardFoodQueue = loadDashboardFoodQueue;
+
+async function updateFoodOrderStatus(orderId, status) {
+    try {
+        showToast(`Updating kitchen order status to ${status}...`, 'info');
+        const res = await fetch(`/api/food/orders/${orderId}/status`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ status })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast(`Order marked ${status}!`, 'success');
+            loadDashboardFoodQueue();
+            if (typeof loadFoodDeptAdmin === 'function') loadFoodDeptAdmin();
+        } else {
+            throw new Error(data.error || 'Failed to update order status');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+window.updateFoodOrderStatus = updateFoodOrderStatus;
+
+
+// ============================================================
+// COMPLETE FOOD DEPARTMENT ORDER DETAILS & MODAL (LPQ FOOD)
+// ============================================================
+let currentFoodOrdersCache = [];
+
+function openFoodOrderDetailModal(orderId) {
+    const modal = document.getElementById('modal-food-order-details');
+    if (!modal) return;
+
+    const order = currentFoodOrdersCache.find(o => o.order_id === orderId) || 
+                  (foodOrdersCache || []).find(o => o.order_id === orderId);
+    if (!order) {
+        showToast('Order details not found.', 'warning');
+        return;
+    }
+
+    const shortId = (order.order_id || '').replace(/^order_/, '').slice(0, 8);
+    document.getElementById('modal-fod-order-id').textContent = '#' + shortId.toUpperCase() + ' (' + order.order_id + ')';
+    document.getElementById('modal-fod-customer-name').textContent = order.customer_name || 'Hostel Student';
+    document.getElementById('modal-fod-customer-contact').textContent = '📱 ' + (order.customer_phone || 'No phone') + (order.customer_email ? ' • ' + order.customer_email : '');
+    document.getElementById('modal-fod-hostel-room').textContent = '🏢 ' + (order.delivery_address || 'Hostel');
+    document.getElementById('modal-fod-datetime').textContent = order.order_time_formatted || new Date(order.created_at || Date.now()).toLocaleString('en-IN');
+    
+    const payBadge = document.getElementById('modal-fod-payment-badge');
+    if (payBadge) {
+        const isPaid = (order.payment_status || '').toLowerCase() === 'paid';
+        payBadge.textContent = (order.payment_method || 'Cash on Delivery') + (isPaid ? ' (PAID)' : ' (Pending)');
+        payBadge.className = isPaid ? 'font-black text-emerald-700' : 'font-bold text-amber-700';
+    }
+
+    const instrEl = document.getElementById('modal-fod-instructions');
+    if (instrEl) {
+        instrEl.textContent = (order.special_instructions && order.special_instructions !== 'None') 
+            ? '"' + order.special_instructions + '"' 
+            : 'None (Standard Preparation)';
+    }
+
+    const statusBadge = document.getElementById('modal-fod-status-badge');
+    if (statusBadge) {
+        statusBadge.textContent = order.status || 'Order Placed';
+    }
+
+    const cookEl = document.getElementById('modal-fod-assigned-cook');
+    if (cookEl) {
+        cookEl.textContent = '👨‍🍳 ' + (order.cook_name || 'Unassigned Chef');
+    }
+
+    // Render Items Table
+    const tbody = document.getElementById('modal-fod-items-tbody');
+    if (tbody) {
+        const items = Array.isArray(order.food_items) ? order.food_items : [];
+        if (items.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="p-3 text-center text-gray-400">Fresh Food Item</td></tr>';
+        } else {
+            tbody.innerHTML = items.map(item => {
+                const qty = Number(item.quantity) || 1;
+                const price = Number(item.price || 0);
+                const lineTotal = item.line_total !== undefined ? item.line_total : (qty * price);
+                return `
+                    <tr class="hover:bg-gray-50/80">
+                        <td class="p-2.5 font-bold text-[#181c1f]">${escapeHtml(item.name || "Quick's Instant Food")}</td>
+                        <td class="p-2.5 text-center font-bold text-gray-700">×${qty}</td>
+                        <td class="p-2.5 text-right font-medium text-gray-600">₹${price}</td>
+                        <td class="p-2.5 text-right font-black text-[#181c1f]">₹${lineTotal}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    }
+
+    const totalEl = document.getElementById('modal-fod-total-amount');
+    if (totalEl) totalEl.textContent = '₹' + (order.total_amount || order.total || 0);
+
+    // Actions Bar
+    const actionsBar = document.getElementById('modal-fod-actions-bar');
+    if (actionsBar) {
+        const st = (order.status || '').toLowerCase();
+        let btns = '';
+
+        if (st === 'order placed' || st === 'new') {
+            btns += `
+                <button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Accepted'); closeFoodOrderDetailModal();" class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer">
+                    <span class="material-symbols-outlined text-sm">check</span> Accept
+                </button>
+                <button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Rejected'); closeFoodOrderDetailModal();" class="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-300 hover:bg-rose-100 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer">
+                    <span class="material-symbols-outlined text-sm">close</span> Reject
+                </button>
+            `;
+        } else if (st === 'accepted') {
+            btns += `
+                <button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Preparing'); closeFoodOrderDetailModal();" class="px-3 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer">
+                    <span class="material-symbols-outlined text-sm">cooking</span> Start Cooking
+                </button>
+            `;
+        } else if (st.includes('prep') || st.includes('cook')) {
+            btns += `
+                <button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Ready'); closeFoodOrderDetailModal();" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer">
+                    <span class="material-symbols-outlined text-sm">done_all</span> Mark Ready
+                </button>
+            `;
+        } else if (st.includes('ready')) {
+            btns += `
+                <button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Completed'); closeFoodOrderDetailModal();" class="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer">
+                    <span class="material-symbols-outlined text-sm">verified</span> Mark Completed
+                </button>
+            `;
+        }
+
+        btns += `
+            <button type="button" onclick="closeFoodOrderDetailModal(); openReassignFoodModal('${order.order_id}');" class="px-2.5 py-1.5 rounded-xl border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer">
+                <span class="material-symbols-outlined text-sm">swap_horiz</span> Reassign Cook
+            </button>
+        `;
+        actionsBar.innerHTML = btns;
+    }
+
+    modal.classList.remove('hidden');
+}
+window.openFoodOrderDetailModal = openFoodOrderDetailModal;
+
+function closeFoodOrderDetailModal() {
+    const modal = document.getElementById('modal-food-order-details');
+    if (modal) modal.classList.add('hidden');
+}
+window.closeFoodOrderDetailModal = closeFoodOrderDetailModal;
+
+// Override renderFoodOrdersAdmin to show all 10 required items with receipt links
+function renderFoodOrdersAdmin(orders) {
+    const tbody = document.getElementById('food-orders-admin-tbody');
+    if (!tbody) return;
+
+    currentFoodOrdersCache = orders || [];
+
+    if (!orders || orders.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="p-8 text-center text-[#5c5f60]">
+                    <span class="text-2xl block mb-1">🍳</span>
+                    <p class="font-bold text-xs text-[#181c1f]">No food orders in the queue</p>
+                    <p class="text-[11px] text-[#5c5f60]">Orders for Quick's Instant Food will automatically appear here with real-time assignment.</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = orders.map(order => {
+        const shortId = (order.order_id || '').replace(/^order_/, '').slice(0, 8);
+        const items = Array.isArray(order.food_items) ? order.food_items : [];
+        const itemsDetail = items.map(i => `${i.name || "Quick's Instant Food"} (×${i.quantity || 1} @ ₹${i.price || 0})`).join(', ') || "Quick's Instant Food";
+        const hasInstructions = order.special_instructions && order.special_instructions !== 'None';
+        const formattedDate = order.order_time_formatted || (order.created_at ? new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--');
+
+        let statusClass = 'bg-amber-100 text-amber-800 border-amber-300';
+        const st = (order.status || '').toLowerCase();
+        if (st.includes('prep') || st.includes('cook')) statusClass = 'bg-orange-100 text-orange-800 border-orange-300 animate-pulse';
+        else if (st.includes('ready')) statusClass = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+        else if (st.includes('complete') || st.includes('deliver')) statusClass = 'bg-blue-100 text-blue-800 border-blue-300';
+        else if (st.includes('reject') || st.includes('cancel')) statusClass = 'bg-rose-100 text-rose-800 border-rose-300';
+
+        return `
+            <tr class="hover:bg-slate-50/80 transition-colors">
+                <td class="p-3 font-mono font-bold text-[#181c1f]">
+                    <button type="button" onclick="openFoodOrderDetailModal('${order.order_id}')" class="text-blue-600 hover:underline flex items-center gap-1 font-mono cursor-pointer" title="Click to view full receipt details">
+                        #${shortId}
+                        <span class="material-symbols-outlined text-[13px]">receipt_long</span>
+                    </button>
+                    <span class="text-[10px] text-gray-500 block">${formattedDate}</span>
+                </td>
+                <td class="p-3">
+                    <p class="font-bold text-[#181c1f] text-xs">${escapeHtml(order.customer_name || 'Student')}</p>
+                    <p class="text-[11px] text-[#5c5f60] font-mono">${escapeHtml(order.customer_phone || '')}</p>
+                </td>
+                <td class="p-3 text-xs">
+                    <span class="inline-flex items-center gap-1 font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200">
+                        🏢 ${escapeHtml(order.delivery_address || 'Hostel')}
+                    </span>
+                    ${order.room_number ? `<span class="text-[10px] text-gray-500 block mt-0.5">Room ${escapeHtml(order.room_number)}</span>` : ''}
+                </td>
+                <td class="p-3 text-xs max-w-xs">
+                    <p class="font-bold text-[#181c1f] truncate" title="${escapeHtml(itemsDetail)}">🍲 ${escapeHtml(itemsDetail)}</p>
+                    ${hasInstructions ? `<p class="text-[10px] text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 mt-1 truncate" title="Special Instructions: ${escapeHtml(order.special_instructions)}">📝 ${escapeHtml(order.special_instructions)}</p>` : ''}
+                </td>
+                <td class="p-3 font-mono text-xs">
+                    <span class="font-black text-[#181c1f]">₹${order.total_amount || order.total || 0}</span>
+                    <span class="text-[9px] block text-gray-500">${escapeHtml(order.payment_method || 'COD')}</span>
+                </td>
+                <td class="p-3 font-semibold text-xs text-amber-900">
+                    👨‍🍳 ${escapeHtml(order.cook_name || 'Unassigned')}
+                </td>
+                <td class="p-3">
+                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black border ${statusClass}">
+                        ${escapeHtml(order.status || 'Order Placed')}
+                    </span>
+                </td>
+                <td class="p-3 text-right">
+                    <div class="flex items-center gap-1 justify-end">
+                        <button type="button" onclick="openFoodOrderDetailModal('${order.order_id}')" class="px-2.5 py-1 rounded-lg border border-gray-300 hover:bg-gray-100 text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1" title="View complete details">
+                            <span>Details</span>
+                        </button>
+                        <button type="button" onclick="openReassignFoodModal('${order.order_id}')" class="p-1 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 cursor-pointer" title="Reassign Cook">
+                            <span class="material-symbols-outlined text-sm">swap_horiz</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+window.renderFoodOrdersAdmin = renderFoodOrdersAdmin;
+
+
+// ============================================================
+// FOOD DEPARTMENT & QUICK'S INSTANT FOOD ORDER DIFFERENTIATION
+// ============================================================
+function isOrderFoodDept(o) {
+    if (!o) return false;
+    if (o.is_food_order === true || o.is_food_order === 'true') return true;
+    if (Number(o.estimated_delivery_mins) === 11) return true;
+    if (o.cook_id || o.cook_name) return true;
+    const rawAddr = (o.delivery_address || '').toLowerCase();
+    if (rawAddr.includes('kitchen') || rawAddr.includes("quick's instant food")) return true;
+    const items = o.items || o.order_items || [];
+    if (Array.isArray(items) && items.some(it => {
+        const c = (it.category || '').toLowerCase();
+        const sc = (it.subcategory || '').toLowerCase();
+        const n = (it.name || it.product_name || '').toLowerCase();
+        return c.includes('instant food') || sc.includes('instant food') || sc.includes('maggi') || sc.includes('cook') || /maggi|cooked meal|pazzta|passta|thali/i.test(n);
+    })) return true;
+    if (typeof foodOrdersCache !== 'undefined' && Array.isArray(foodOrdersCache)) {
+        if (foodOrdersCache.some(fo => fo.order_id === o.id || fo.order_id === o.id?.replace(/^order_/, ''))) return true;
+    }
+    return false;
+}
+window.isOrderFoodDept = isOrderFoodDept;
+
+
+let foodProductsCache = [];
+let foodOrdersFilterActive = 'all';
+
+async function fetchFoodDeptProducts() {
+    try {
+        const targetHostel = (typeof getActiveLockHostel === 'function' ? getActiveLockHostel() : null) || 'BH-13';
+        const res = await fetch('/api/food/products?hostel_id=' + encodeURIComponent(targetHostel), { headers: getAuthHeaders() });
+        if (res.ok) {
+            const data = await res.json();
+            if (data.success && Array.isArray(data.products) && data.products.length > 0) {
+                foodProductsCache = data.products;
+                renderFoodDeptProducts(foodProductsCache);
+                return;
+            }
+        }
+    } catch (e) {
+        console.warn('[Fetch Food Products API Notice]:', e.message);
+    }
+
+    // Fallback: Filter from existing productsCache or fetch /api/products
+    let list = Array.isArray(productsCache) ? productsCache : [];
+    if (list.length === 0) {
+        try {
+            const pRes = await fetch('/api/products?includeInactive=true', { headers: getAuthHeaders() });
+            if (pRes.ok) {
+                const pData = await pRes.json();
+                list = pData.products || [];
+            }
+        } catch (e) {}
+    }
+
+    if (list.length > 0) {
+        foodProductsCache = list.filter(p => {
+            if (p.deleted) return false;
+            const c = (p.category || '').toLowerCase();
+            const sc = (p.subcategory || '').toLowerCase();
+            const n = (p.name || '').toLowerCase();
+            if (c.includes('instant snacks') || sc.includes('instant snacks') || c.includes('snacks & munchies')) return false;
+            return c.includes('food') || sc.includes('food') || sc.includes('maggi') || sc.includes('cook') || /maggi|cooked meal|pazzta|passta|instant food/i.test(n) || c === "quick's instant food";
+        });
+        renderFoodDeptProducts(foodProductsCache);
+    } else {
+        renderFoodDeptProducts([]);
+    }
+}
+
+function renderFoodDeptProducts(products) {
+    const tbody = document.getElementById('food-products-tbody');
+    const badge = document.getElementById('food-stock-total-badge');
+    if (badge) badge.textContent = `${products.length} Products`;
+    if (!tbody) return;
+
+    if (!products || products.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="p-8 text-center text-[#5c5f60]">
+                    <div class="max-w-xs mx-auto space-y-2">
+                        <span class="material-symbols-outlined text-4xl text-amber-300">ramen_dining</span>
+                        <p class="font-bold text-[#181c1f]">No Quick's Instant Food items found</p>
+                        <p class="text-xs text-gray-500">Add freshly prepared meals, noodles, or hot snacks to this category.</p>
+                        <button type="button" onclick="openProductModalForFood()" class="mt-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl text-xs font-bold shadow-xs hover:opacity-90">
+                            + Add First Food Item
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = products.map(p => {
+        const stock = p.stock_left !== undefined ? Math.max(0, Number(p.stock_left)) : (p.in_stock ? (p.stock_left || 0) : 0);
+        const isOutOfStock = !p.in_stock || stock <= 0;
+        const isLowStock = stock > 0 && stock <= 4;
+
+        let statusBadge = '';
+        if (isOutOfStock) {
+            statusBadge = `<button type="button" onclick="toggleFoodItemStock('${p.id}', true)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-300 hover:bg-rose-200 cursor-pointer" title="Click to make In Stock">Out of Stock</button>`;
+        } else if (isLowStock) {
+            statusBadge = `<button type="button" onclick="toggleFoodItemStock('${p.id}', false)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200 cursor-pointer" title="Click to mark Out of Stock">Low Stock (${stock} left)</button>`;
+        } else {
+            statusBadge = `<button type="button" onclick="toggleFoodItemStock('${p.id}', false)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200 cursor-pointer" title="Click to mark Out of Stock">In Stock (${stock} left)</button>`;
+        }
+
+        const sellingPrice = Number(p.price) || 0;
+        const mrp = Number(p.mrp || p.price) || sellingPrice;
+
+        return `
+            <tr class="hover:bg-amber-50/40 transition-colors">
+                <td class="p-3.5">
+                    <div class="flex items-center gap-3">
+                        <img src="${p.image_url}" class="w-10 h-10 rounded-xl object-cover border border-[#DADCE0] bg-[#f1f4f7]" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'">
+                        <div>
+                            <p class="font-bold text-xs text-[#181c1f]">${escapeHtml(p.name)}</p>
+                            <p class="text-[10px] text-[#5c5f60] flex items-center gap-1.5 flex-wrap">
+                                <span>${escapeHtml(p.unit || 'piece')} ${p.size ? '• ' + escapeHtml(p.size) : ''}</span>
+                                <span class="text-[9px] font-black px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300">${escapeHtml(p.hostel_id || 'BH-13')}</span>
+                            </p>
+                        </div>
+                    </div>
+                </td>
+                <td class="p-3.5">
+                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                        ${escapeHtml(p.subcategory || "Quick's Instant Food")}
+                    </span>
+                </td>
+                <td class="p-3.5 font-bold text-[#181c1f]">₹${sellingPrice.toFixed(2)}</td>
+                <td class="p-3.5 text-[#74777a] line-through">₹${mrp.toFixed(2)}</td>
+                <td class="p-3.5">
+                    <div class="inline-flex items-center gap-1.5 bg-white border border-[#DADCE0] rounded-xl px-2 py-1 shadow-2xs">
+                        <button type="button" onclick="updateFoodItemStock('${p.id}', ${stock - 1})" class="w-6 h-6 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-black text-xs cursor-pointer active:scale-95">−</button>
+                        <button type="button" onclick="promptCustomStock('${p.id}', '${p.name.replace(/'/g, "\\'")}', ${stock})" class="font-bold text-xs text-[#181c1f] px-1 hover:text-amber-700 cursor-pointer" title="Click to enter exact stock">${stock}</button>
+                        <button type="button" onclick="updateFoodItemStock('${p.id}', ${stock + 1})" class="w-6 h-6 flex items-center justify-center rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-black text-xs cursor-pointer active:scale-95">+</button>
+                    </div>
+                </td>
+                <td class="p-3.5">${statusBadge}</td>
+                <td class="p-3.5 text-right">
+                    <div class="flex items-center justify-end gap-1.5">
+                        <button type="button" onclick="editProduct('${p.id}')" class="p-1.5 text-amber-800 hover:bg-amber-100 rounded-lg transition-all cursor-pointer" title="Edit Food Item">
+                            <span class="material-symbols-outlined text-[18px]">edit</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+window.renderFoodDeptProducts = renderFoodDeptProducts;
+
+function filterFoodDeptProducts() {
+    const q = (document.getElementById('food-products-search-input')?.value || '').toLowerCase().trim();
+    const status = document.getElementById('food-products-filter-status')?.value || 'all';
+
+    let filtered = foodProductsCache.filter(p => {
+        const matchName = (p.name || '').toLowerCase().includes(q);
+        const matchSub = (p.subcategory || '').toLowerCase().includes(q);
+        if (q && !matchName && !matchSub) return false;
+
+        const stock = p.stock_left !== undefined ? Math.max(0, Number(p.stock_left)) : (p.in_stock ? (p.stock_left || 0) : 0);
+        if (status === 'in_stock') return p.in_stock && stock > 0;
+        if (status === 'low_stock') return stock > 0 && stock <= 4;
+        if (status === 'out_of_stock') return !p.in_stock || stock === 0;
+        return true;
+    });
+
+    renderFoodDeptProducts(filtered);
+}
+window.filterFoodDeptProducts = filterFoodDeptProducts;
+
+async function updateFoodItemStock(productId, newStock) {
+    const safeStock = Math.max(0, Number(newStock) || 0);
+    try {
+        const res = await fetch(`/api/food/products/${productId}/stock`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ stock_left: safeStock, in_stock: safeStock > 0 })
+        });
+        const data = await res.json();
+        if (data.success) {
+            const p = foodProductsCache.find(x => x.id === productId);
+            if (p) {
+                p.stock_left = safeStock;
+                p.in_stock = safeStock > 0;
+            }
+            const pGlob = (typeof productsCache !== 'undefined') ? productsCache.find(x => x.id === productId) : null;
+            if (pGlob) {
+                pGlob.stock_left = safeStock;
+                pGlob.in_stock = safeStock > 0;
+            }
+            renderFoodDeptProducts(foodProductsCache);
+            showToast(`Stock updated to ${safeStock}`, 'success');
+        } else {
+            throw new Error(data.error || 'Failed to update stock');
+        }
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+window.updateFoodItemStock = updateFoodItemStock;
+
+async function toggleFoodItemStock(productId, setInStock) {
+    const targetStock = setInStock ? 5 : 0;
+    await updateFoodItemStock(productId, targetStock);
+}
+window.toggleFoodItemStock = toggleFoodItemStock;
+
+function filterFoodOrdersByStatus(status) {
+    foodOrdersFilterActive = status;
+    document.querySelectorAll('.food-order-filter-btn').forEach(btn => {
+        const active = btn.dataset.status === status;
+        if (active) {
+            btn.className = 'food-order-filter-btn px-3 py-1 rounded-full text-xs font-bold bg-[#3c4043] text-white cursor-pointer';
+        } else {
+            btn.className = 'food-order-filter-btn px-3 py-1 rounded-full text-xs font-semibold border border-[#DADCE0] text-[#5c5f60] hover:bg-amber-50 hover:text-amber-900 cursor-pointer';
+        }
+    });
+    renderFoodOrdersAdmin(foodOrdersCache);
+}
+window.filterFoodOrdersByStatus = filterFoodOrdersByStatus;
+
+async function updateFoodOrderStatus(orderId, newStatus) {
+    try {
+        const res = await fetch(`/api/food/orders/${orderId}/status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ status: newStatus })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(`Order #${orderId.slice(0, 8)} status: ${newStatus}`, 'success');
+            await loadFoodDeptAdmin();
+            if (typeof filterOrders === 'function') filterOrders();
+        } else {
+            throw new Error(data.error || 'Failed to update status');
+        }
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+window.updateFoodOrderStatus = updateFoodOrderStatus;

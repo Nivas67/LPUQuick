@@ -11,6 +11,7 @@ const { getRiderStatus, isRiderOnline, setRiderStatus, getAllRiderStatuses } = r
 const pushService = require('../notifications/pushService');
 const cache = require('../cache');
 const financialEngine = require('../utils/financialEngine');
+const foodOrderService = require('../services/foodOrderService');
 
 function normalizeHostelId(input) {
     if (!input || input === 'all' || input === 'ALL') return null;
@@ -433,6 +434,9 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
                 }
             }
 
+            const foodOrderService = require('../services/foodOrderService');
+            const foodMeta = foodOrderService.loadFoodMeta();
+
             // 3. Fast in-memory assembly
             let enriched = orders.map(order => {
                 const user = userMap.get(order.user_id);
@@ -441,12 +445,14 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
                 const customerEmail = (order.customer_email && !order.customer_email.endsWith('@lpu.in')) ? order.customer_email : (user?.email || order.customer_email || '');
                 const deliveryInfo = supabaseDb.orders.parseDeliveryMeta(order.rider_name);
                 const hId = extractHostelId(order);
+                const meta = (foodMeta && (foodMeta[order.id] || foodMeta[order.id?.replace(/^order_/, '')])) || null;
+                const isFood = Boolean(meta || order.is_food_order === true || order.is_food_order === 'true' || (order.delivery_address && order.delivery_address.toLowerCase().includes("quick's instant food")));
 
                 return {
                     id: order.id,
                     hostel_id: hId,
                     user_id: order.user_id,
-                    status: order.status || 'Order Placed',
+                    status: meta?.status || order.status || 'Order Placed',
                     subtotal: order.subtotal || 0,
                     delivery_fee: order.delivery_fee || 0,
                     platform_fee: order.platform_fee || 0,
@@ -463,9 +469,54 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
                     customer_name: customerName,
                     customer_phone: customerPhone,
                     customer_email: customerEmail,
-                    item_summary: order.delivery_address || 'Campus items'
+                    item_summary: order.delivery_address || 'Campus items',
+                    is_food_order: isFood,
+                    estimated_delivery_mins: isFood ? 11 : 5,
+                    cook_name: meta?.cook_name || order.cook_name || null,
+                    cook_id: meta?.cook_id || order.cook_id || null,
+                    food_status: meta?.status || null
                 };
             });
+
+            // Ensure all standalone kitchen orders from food_orders_meta are included in the orders queue
+            const existingIds = new Set(enriched.map(o => String(o.id)));
+            if (foodMeta) {
+                for (const [metaId, m] of Object.entries(foodMeta)) {
+                    const oid = m.order_id || metaId;
+                    if (!existingIds.has(oid)) {
+                        enriched.unshift({
+                            id: oid,
+                            hostel_id: m.hostel_id || 'BH-13',
+                            user_id: m.customer_phone || 'guest',
+                            status: m.status || 'Cooking',
+                            subtotal: m.total_amount || 0,
+                            delivery_fee: 0,
+                            platform_fee: 0,
+                            tax: 0,
+                            total: m.total_amount || 0,
+                            payment_method: m.payment_method || 'UPI',
+                            payment_status: m.payment_status || 'paid',
+                            rider_name: 'Campus Kitchen Express',
+                            delivery_assignment: {},
+                            rider_lat: 31.2560,
+                            rider_lng: 75.7030,
+                            delivery_address: m.delivery_address || `[${m.hostel_id || 'BH-13'}] Room ${m.room_number || ''}`,
+                            created_at: m.created_at || m.order_date,
+                            customer_name: m.customer_name || 'Campus Student',
+                            customer_phone: m.customer_phone || '',
+                            customer_email: m.customer_email || '',
+                            item_summary: (m.food_items || []).map(i => `${i.name} (x${i.quantity})`).join(', ') || "Quick's Instant Food",
+                            items: m.food_items || [],
+                            is_food_order: true,
+                            estimated_delivery_mins: 11,
+                            cook_name: m.cook_name || null,
+                            cook_id: m.cook_id || null,
+                            food_status: m.status || 'Cooking'
+                        });
+                        existingIds.add(oid);
+                    }
+                }
+            }
 
             // Filter by target hostel if specified, or by admin's assigned hostels
             if (hostelId && hostelId !== 'all') {
@@ -765,6 +816,26 @@ router.post('/admin/status', requireAdmin, async (req, res) => {
         if (paymentMethod) updateOptions.payment_method = paymentMethod;
         if (paymentStatus) updateOptions.payment_status = paymentStatus;
 
+        // Sync status if this order is a Quick's Instant Food order
+        const cleanId = String(orderId || '').replace(/^#/, '').trim();
+        const foodMeta = (typeof foodOrderService?.loadFoodMeta === 'function') ? foodOrderService.loadFoodMeta() : {};
+        const foodKey = Object.keys(foodMeta).find(k => 
+            k === cleanId || 
+            k.toLowerCase() === cleanId.toLowerCase() || 
+            k === `order_${cleanId}` || 
+            k.toLowerCase() === `order_${cleanId}`.toLowerCase() ||
+            cleanId === `order_${k}` ||
+            cleanId.toLowerCase() === `order_${k}`.toLowerCase()
+        );
+
+        if (foodKey && typeof foodOrderService?.updateFoodOrderStatus === 'function') {
+            try {
+                await foodOrderService.updateFoodOrderStatus(foodKey, status, req.admin?.name || 'Admin', req.body.reason || '');
+            } catch (foodSyncErr) {
+                console.warn('[Food Order Pre-Sync Warning]:', foodSyncErr.message);
+            }
+        }
+
         const updated = await supabaseDb.orders.updateStatus(orderId, status, updateOptions);
         if (updated && updated.rider_name) {
             riderName = typeof updated.rider_name === 'string' && updated.rider_name.startsWith('{') ? (JSON.parse(updated.rider_name).name || riderName) : updated.rider_name;
@@ -772,7 +843,7 @@ router.post('/admin/status', requireAdmin, async (req, res) => {
 
         // Keep local in-memory fallback cache in sync with confirmed database write
         if (Array.isArray(fallbackOrdersCache)) {
-            const o = fallbackOrdersCache.find(x => x.id === orderId || x.id === orderId.replace('order_', '') || x.id === `order_${orderId}`);
+            const o = fallbackOrdersCache.find(x => x.id === orderId || x.id === orderId.replace('order_', '') || x.id === `order_${orderId}` || (foodKey && x.id === foodKey));
             if (o) {
                 o.status = status;
                 if (paymentMethod) o.payment_method = paymentMethod;
@@ -788,6 +859,41 @@ router.post('/admin/status', requireAdmin, async (req, res) => {
         res.json({ success: true, order: updated });
     } catch (err) {
         console.error('[Admin Status Update Exception]:', err.message);
+
+        // Resilient Fallback for Kitchen / Food Orders (never throw "Order not found" for recorded food orders)
+        const cleanId = String(orderId || '').replace(/^#/, '').trim();
+        const foodMeta = (typeof foodOrderService?.loadFoodMeta === 'function') ? foodOrderService.loadFoodMeta() : {};
+        const foodKey = Object.keys(foodMeta).find(k => 
+            k === cleanId || 
+            k.toLowerCase() === cleanId.toLowerCase() || 
+            k === `order_${cleanId}` || 
+            k.toLowerCase() === `order_${cleanId}`.toLowerCase() ||
+            cleanId === `order_${k}` ||
+            cleanId.toLowerCase() === `order_${k}`.toLowerCase()
+        );
+
+        if (foodKey && typeof foodOrderService?.updateFoodOrderStatus === 'function') {
+            try {
+                const updatedFood = await foodOrderService.updateFoodOrderStatus(foodKey, status, req.admin?.name || 'Admin', req.body.reason || '');
+                if (Array.isArray(fallbackOrdersCache)) {
+                    const o = fallbackOrdersCache.find(x => x.id === orderId || x.id === foodKey || x.id === orderId.replace('order_', ''));
+                    if (o) {
+                        o.status = status;
+                        if (paymentMethod) o.payment_method = paymentMethod;
+                        if (paymentStatus) o.payment_status = paymentStatus;
+                    }
+                }
+                cache.invalidateOrders();
+                broadcastStatusUpdate(foodKey, status, 'Campus Kitchen Express', {
+                    payment_method: paymentMethod || updatedFood?.payment_method,
+                    payment_status: paymentStatus || updatedFood?.payment_status
+                });
+                return res.json({ success: true, order: { ...updatedFood, id: foodKey } });
+            } catch (fErr) {
+                console.warn('[Food Order Update Fallback Warning]:', fErr.message);
+            }
+        }
+
         if (['cancelled', 'canceled', 'rejected'].includes(String(status || '').toLowerCase().trim())) {
             try {
                 await supabaseDb.orders.restockOrderItems(orderId);
@@ -2247,7 +2353,57 @@ router.post('/:orderId/edit', requireAdmin, async (req, res) => {
 router.get('/', requireAdmin, async (req, res) => {
     try {
         const orders = await supabaseDb.orders.getAllOrders();
-        res.json({ orders });
+        const foodOrderService = require('../services/foodOrderService');
+        const foodMeta = foodOrderService.loadFoodMeta();
+        const enriched = (orders || []).map(o => {
+            const meta = (foodMeta && (foodMeta[o.id] || foodMeta[o.id?.replace(/^order_/, '')])) || null;
+            const items = Array.isArray(o.items) ? o.items : [];
+            const hasFoodItem = items.some(it => foodOrderService.isFoodProduct(it));
+            const isFood = Boolean(meta || o.is_food_order === true || o.is_food_order === 'true' || hasFoodItem);
+            return {
+                ...o,
+                is_food_order: isFood,
+                estimated_delivery_mins: isFood ? 11 : 5,
+                cook_name: meta?.cook_name || o.cook_name || null,
+                cook_id: meta?.cook_id || o.cook_id || null,
+                food_status: meta?.status || null
+            };
+        });
+
+        // Ensure all food orders from kitchen queue are visible in campus orders queue
+        const existingIds = new Set(enriched.map(o => String(o.id)));
+        if (foodMeta) {
+            for (const [metaId, m] of Object.entries(foodMeta)) {
+                const oid = m.order_id || metaId;
+                if (!existingIds.has(oid)) {
+                    enriched.unshift({
+                        id: oid,
+                        user_id: m.customer_phone || 'guest',
+                        customer_name: m.customer_name,
+                        customer_phone: m.customer_phone,
+                        customer_email: m.customer_email,
+                        delivery_address: m.delivery_address,
+                        hostel_id: m.hostel_id || 'BH-13',
+                        room_number: m.room_number || '',
+                        items: m.food_items || [],
+                        total: m.total_amount || 0,
+                        total_amount: m.total_amount || 0,
+                        payment_status: m.payment_status || 'paid',
+                        payment_method: m.payment_method || 'UPI',
+                        status: m.status || 'Cooking',
+                        created_at: m.created_at || m.order_date,
+                        is_food_order: true,
+                        estimated_delivery_mins: 11,
+                        cook_name: m.cook_name || null,
+                        cook_id: m.cook_id || null,
+                        food_status: m.status || 'Cooking'
+                    });
+                    existingIds.add(oid);
+                }
+            }
+        }
+
+        res.json({ orders: enriched });
     } catch (err) {
         console.error('[Orders Fetch Error]:', err.message);
         res.status(500).json({ error: 'Failed to fetch orders.' });
@@ -2288,8 +2444,18 @@ router.get('/:userId', async (req, res) => {
             if (o && o.id) uniqueMap.set(o.id, o);
         }
         const uniqueOrders = Array.from(uniqueMap.values());
-        const cleanActive = uniqueOrders.filter(o => !['Delivered', 'Cancelled', 'delivered', 'cancelled'].includes(o.status));
-        const cleanPast = uniqueOrders.filter(o => ['Delivered', 'Cancelled', 'delivered', 'cancelled'].includes(o.status));
+        const foodOrderService = require('../services/foodOrderService');
+        const foodMeta = foodOrderService.loadFoodMeta();
+        const enrichOrder = o => {
+            const isFood = Boolean((foodMeta && foodMeta[o.id]) || o.is_food_order === true || o.is_food_order === 'true');
+            return {
+                ...o,
+                is_food_order: isFood,
+                estimated_delivery_mins: isFood ? 11 : 5
+            };
+        };
+        const cleanActive = uniqueOrders.filter(o => !['Delivered', 'Cancelled', 'delivered', 'cancelled'].includes(o.status)).map(enrichOrder);
+        const cleanPast = uniqueOrders.filter(o => ['Delivered', 'Cancelled', 'delivered', 'cancelled'].includes(o.status)).map(enrichOrder);
 
         res.setHeader('Cache-Control', 'no-cache, private');
         res.json({ active: cleanActive, past: cleanPast });
@@ -2320,8 +2486,13 @@ router.get('/:userId/active', async (req, res) => {
             if (error || !data || data.length === 0) return null;
             const o = data[0];
             const meta = supabaseDb.orders.parseDeliveryMeta(o.rider_name);
+            const foodOrderService = require('../services/foodOrderService');
+            const foodMeta = foodOrderService.loadFoodMeta();
+            const isFood = Boolean((foodMeta && foodMeta[o.id]) || o.is_food_order === true || o.is_food_order === 'true');
             return {
                 ...o,
+                is_food_order: isFood,
+                estimated_delivery_mins: isFood ? 11 : 5,
                 rider_name: supabaseDb.orders.formatRiderDisplayName(o.rider_name, 'Alex'),
                 rider_phone: meta.phone || '7671836211',
                 delivery_assignment: meta

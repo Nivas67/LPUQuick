@@ -1,17 +1,17 @@
 {
   "offers_enabled": true,
   "offer_type": "percentage",
-  "offer_value": 5,
-  "minimum_order_value": 350,
-  "maximum_discount": 50,
-  "free_delivery_enabled": true,
-  "free_delivery_threshold": 0,
+  "offer_value": 3,
+  "minimum_order_value": 249,
+  "maximum_discount": 0,
+  "free_delivery_enabled": false,
+  "free_delivery_threshold": 199,
   "delivery_fee": 0,
-  "handling_fee": 3,
+  "handling_fee": 4,
   "handling_fee_enabled": true,
   "min_cart_value": 35,
   "start_date": null,
   "end_date": null,
-  "updated_at": "2026-11-01T06:45:00.000Z",
-  "updated_by": "Owner"
+  "updated_at": "2026-11-01T18:09:34.563+00:00",
+  "updated_by": "user_admin_bh13"
 }

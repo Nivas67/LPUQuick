@@ -658,7 +658,38 @@ function broadcastOrderDeleted(orderId) {
     try { broadcastToSupabase('ORDER_DELETED', JSON.parse(payload)); } catch(e) {}
 }
 
+
+// Broadcast Food Department specific events
+function broadcastFoodOrder(data) {
+    const payload = JSON.stringify({
+        type: 'food_order_placed',
+        order: data.order,
+        target_cook_id: data.target_cook_id,
+        timestamp: new Date().toISOString()
+    });
+    chunkedBroadcast(adminSockets, payload);
+    chunkedBroadcast(clientSockets, payload);
+    try { broadcastToSupabase('FOOD_ORDER_PLACED', JSON.parse(payload)); } catch(e) {}
+}
+
+function broadcastFoodStatus(data) {
+    const payload = JSON.stringify({
+        type: 'food_order_status_update',
+        orderId: data.orderId,
+        status: data.status,
+        updatedBy: data.updatedBy,
+        reason: data.reason,
+        order: data.order,
+        timestamp: new Date().toISOString()
+    });
+    chunkedBroadcast(adminSockets, payload);
+    chunkedBroadcast(clientSockets, payload);
+    try { broadcastToSupabase('FOOD_STATUS_UPDATE', JSON.parse(payload)); } catch(e) {}
+}
+
 module.exports = {
+    broadcastFoodOrderPlaced: broadcastFoodOrder,
+    broadcastFoodStatusUpdate: broadcastFoodStatus,
     setupRealtime,
     broadcastOrderPlaced: notifyAdminNewOrder,
     broadcastStatusUpdate,

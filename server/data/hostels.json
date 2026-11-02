@@ -5,11 +5,12 @@
     "status": "ACTIVE",
     "blocks": [
       "Block A",
-      "Block B"
+      "Block B",
+      "Hostel Main Gate"
     ],
     "manager_user_id": "admin_4a30214501",
     "created_at": "2026-10-01T00:00:00.000Z",
-    "updated_at": "2026-11-02T03:48:27.748Z"
+    "updated_at": "2026-11-02T04:07:07.134Z"
   },
   {
     "id": "BH-12",
@@ -29,11 +30,12 @@
     "status": "ACTIVE",
     "blocks": [
       "Block A",
-      "Block B"
+      "Block B",
+      "Hostel Main Gate"
     ],
     "manager_user_id": "user_full_test_mtncad0n",
     "created_at": "2026-10-02T07:16:25.310Z",
-    "updated_at": "2026-10-03T04:43:12.540Z"
+    "updated_at": "2026-11-02T04:08:44.493Z"
   },
   {
     "id": "BH-6",
@@ -79,11 +81,11 @@
       "Block A",
       "Block B",
       "Block C",
-      "Main Gate"
+      "Hostel Main Gate"
     ],
     "manager_user_id": "admin_60082a0696",
     "created_at": "2026-10-05T15:23:27.304Z",
-    "updated_at": "2026-11-02T03:49:30.665Z"
+    "updated_at": "2026-11-02T04:07:25.151Z"
   },
   {
     "id": "BH-1",
@@ -115,10 +117,11 @@
     "status": "ACTIVE",
     "blocks": [
       "Block A",
-      "Block B"
+      "Block B",
+      "Hostel Main Gate"
     ],
     "manager_user_id": "admin_cfc0b1b7c3",
     "created_at": "2026-11-01T17:59:14.550Z",
-    "updated_at": "2026-11-02T03:49:48.880Z"
+    "updated_at": "2026-11-02T04:07:38.879Z"
   }
 ]

@@ -2,6 +2,31 @@
 window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
+function isQuickInstantFoodProduct(p) {
+    if (!p) return false;
+    const cat = (p.category || p.product_category || '').trim().toLowerCase();
+    const sub = (p.subcategory || p.product_subcategory || '').trim().toLowerCase();
+    const name = (p.name || p.product_name || '').toLowerCase();
+    if (cat.includes('instant snacks') || sub.includes('instant snacks') || cat.includes('snacks & munchies')) return false;
+    if (cat === "quick's instant food" || cat === "quicks instant food") return true;
+    if (sub === "quick's instant food" || sub === "quicks instant food" || sub === 'cook') return true;
+    if ((cat === 'instant food' || cat === 'instant' || sub === 'instant food') && !sub.includes('namkeen') && !/bhelpuri|namkeen|chips|wafer|biscuit/i.test(name)) return true;
+    if (sub.includes('maggi & noodles') || sub.includes('cooked meals') || sub.includes('sandwiches & burgers') || sub.includes('pasta & macaroni') || sub.includes('hot snacks & fries') || sub.includes('soups & bowls')) return true;
+    if (/maggi|cooked meal|hot meal|thali|paratha|sandwich|fresh pasta|fresh burger|chai|coffee|soup|chowmein|macroni/i.test(name)) return true;
+    return false;
+}
+
+function checkCartHasFood(items) {
+    if (!Array.isArray(items) || items.length === 0) return false;
+    return items.some(item => {
+        if (isQuickInstantFoodProduct(item)) return true;
+        const cached = (typeof window !== 'undefined' && window.__cachedProducts) ? window.__cachedProducts.get(item.product_id || item.id) : null;
+        if (cached && isQuickInstantFoodProduct(cached)) return true;
+        return false;
+    });
+}
+
+
 window.pages.checkout = async function() {
     let savedHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id');
     if (!savedHostel) {
@@ -39,6 +64,9 @@ window.pages.checkout = async function() {
     
     // Accurate MRP, Subtotal & Quantity calculations
     const totalQuantity = items.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
+    const hasFoodOrder = checkCartHasFood(items);
+    const deliveryEtaText = hasFoodOrder ? '11 mins delivery' : '5 mins delivery';
+    const deliveryEtaBadge = hasFoodOrder ? '11 mins' : '5 mins';
     const totalMrp = items.reduce((sum, item) => sum + ((Number(item.mrp) || Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
     const subtotal = items.reduce((sum, item) => sum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
     const mrpDiscount = Math.max(0, totalMrp - subtotal);
@@ -200,7 +228,7 @@ window.pages.checkout = async function() {
             </div>
             <div class="clay-pill px-3 py-1 flex items-center gap-1.5 text-xs font-black text-emerald-600 dark:text-emerald-400">
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald animate-pulse"></span>
-                <span>3 mins delivery</span>
+                <span>${deliveryEtaText}</span>
             </div>
         </div>
     </header>
@@ -255,7 +283,7 @@ window.pages.checkout = async function() {
                         <div>
                             <div class="flex items-center gap-2">
                                 <h3 class="font-black text-slate-900 dark:text-white text-xs sm:text-sm tracking-tight">Hostel Delivery Destination</h3>
-                                <span class="liquid-badge text-[10px] text-emerald-800 dark:text-emerald-300 px-2 py-0.5 font-black">3 mins</span>
+                                <span class="liquid-badge text-[10px] text-emerald-800 dark:text-emerald-300 px-2 py-0.5 font-black">${deliveryEtaBadge}</span>
                                 <span class="clay-pill text-[10px] text-emerald-600 dark:text-emerald-400 font-black px-2 py-0.5">${savedHostel}</span>
                             </div>
                             <p class="text-xs text-slate-600 dark:text-slate-300 mt-1 font-medium" id="checkout-address-text">${address}</p>
@@ -359,6 +387,17 @@ window.pages.checkout = async function() {
                 </div>
             </div>
 
+            
+            <!-- Cooking & Delivery Special Instructions -->
+            <div class="glass-panel card-pedestal rounded-3xl p-4 sm:p-5 shadow-xl border border-[var(--glass-border)] space-y-2">
+                <div class="flex items-center gap-2">
+                    <span class="text-base">📝</span>
+                    <label for="checkout-special-instructions" class="font-black text-xs sm:text-sm text-slate-900 dark:text-white tracking-tight">Special Cooking & Delivery Instructions</label>
+                    <span class="text-[10px] text-slate-400 font-semibold">(Optional)</span>
+                </div>
+                <input type="text" id="checkout-special-instructions" maxlength="200" placeholder="e.g. Extra spicy, less oil, call when outside room..." class="w-full text-xs p-3 rounded-2xl bg-white/60 dark:bg-slate-800/60 border border-[var(--glass-border)] text-slate-800 dark:text-white placeholder-slate-400 outline-none focus:border-amber-500 transition-all font-medium">
+            </div>
+
             <!-- Payment Method Selection -->
             <div class="glass-panel card-pedestal rounded-3xl p-5 sm:p-6 shadow-xl border border-[var(--glass-border)] space-y-3.5">
                 <div class="flex items-center justify-between">
@@ -455,7 +494,7 @@ window.pages.checkout = async function() {
                     </button>
                     <div class="flex items-center justify-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
                         <span class="material-symbols-outlined text-xs text-emerald">verified</span>
-                        <span>3-Min Corridor Dispatch • Pay cash on room delivery</span>
+                        <span>${hasFoodOrder ? '11-Min Kitchen Corridor Dispatch' : '5-Min Corridor Dispatch'} • Pay cash on room delivery</span>
                     </div>
                 </div>
                 `)}
@@ -679,7 +718,9 @@ window.pageInits.checkout = function() {
                 phone: savedPhone,
                 name: window.CURRENT_USER_NAME || 'LPU Student',
                 email: window.CURRENT_USER_EMAIL || '',
-                hostel_id: savedHostel
+                hostel_id: savedHostel,
+                instructions: document.getElementById('checkout-special-instructions')?.value?.trim() || '',
+                special_instructions: document.getElementById('checkout-special-instructions')?.value?.trim() || ''
             });
 
             if (orderRes && orderRes.success && orderRes.order) {

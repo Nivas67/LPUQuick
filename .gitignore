@@ -11,3 +11,7 @@ scripts/test_*.js
 scripts/verify_*.js
 server/data/order_snapshots.json
 scratch/
+.agent/
+.agents/
+android/.gradle/
+android/build/
