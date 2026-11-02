@@ -1242,7 +1242,7 @@ router.get('/hostels', async (req, res) => {
 // POST /api/admin/hostels - Create new hostel (Owner Only)
 router.post('/hostels', requireRole('owner'), async (req, res) => {
     try {
-        const { id, name, status, manager_user_id } = req.body;
+        const { id, name, status, blocks, manager_user_id } = req.body;
         if (!id || !name) {
             return res.status(400).json({ success: false, error: 'Hostel ID and Name are required (e.g. ID: BH-5, Name: BH-5 Boys Hostel)' });
         }
@@ -1252,6 +1252,7 @@ router.post('/hostels', requireRole('owner'), async (req, res) => {
             id: normalizedId,
             name: String(name).trim(),
             status: status === 'OFF' ? 'OFF' : 'ACTIVE',
+            blocks: blocks || undefined,
             manager_user_id: manager_user_id || null
         });
 
@@ -1276,11 +1277,12 @@ router.post('/hostels', requireRole('owner'), async (req, res) => {
 router.put('/hostels/:id', requireRole('owner'), async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, status } = req.body;
+        const { name, status, blocks } = req.body;
 
         const patch = {};
         if (name) patch.name = String(name).trim();
         if (status) patch.status = status === 'OFF' ? 'OFF' : 'ACTIVE';
+        if (blocks !== undefined) patch.blocks = blocks;
 
         const updated = await supabaseDb.hostels.update(id, patch);
 

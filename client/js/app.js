@@ -432,14 +432,32 @@ window.openAddressModal = async function (isMandatorySetup = false, onComplete =
         const isActive = activeKeySet.has(cleanKey);
         const matchedLive = liveHostelMap.get(cleanKey);
         const canonId = matchedLive ? matchedLive.id : (loc.startsWith('BH') || loc.startsWith('GH') ? loc.replace(/^([A-Z]+)(\d+)/, '$1-$2') : loc);
+        const blocks = (matchedLive && Array.isArray(matchedLive.blocks) && matchedLive.blocks.length > 0)
+            ? matchedLive.blocks
+            : ['Block A', 'Block B', 'Block C', 'Block D', 'Main Gate'];
         return {
             id: canonId,
             name: loc,
             displayName: matchedLive?.name || loc,
             active: isActive,
+            blocks: blocks,
             tag: isActive ? 'Live 3m' : 'Coming Soon'
         };
     });
+
+    function getHostelBlocks(hostelKeyOrId) {
+        if (!hostelKeyOrId) return ['Block A', 'Block B', 'Block C', 'Block D', 'Main Gate'];
+        const clean = normalizeHostelKey(hostelKeyOrId);
+        const found = allLocations.find(h => normalizeHostelKey(h.id) === clean || normalizeHostelKey(h.name) === clean);
+        if (found && Array.isArray(found.blocks) && found.blocks.length > 0) {
+            return found.blocks;
+        }
+        const matched = liveHostelMap.get(clean);
+        if (matched && Array.isArray(matched.blocks) && matched.blocks.length > 0) {
+            return matched.blocks;
+        }
+        return ['Block A', 'Block B', 'Block C', 'Block D', 'Main Gate'];
+    }
 
     // Active hostels go to the top ("GOES UP ON THE IMAGE")
     allLocations.sort((a, b) => {
@@ -470,7 +488,11 @@ window.openAddressModal = async function (isMandatorySetup = false, onComplete =
         }
     }
 
-    let selectedBlock = window.currentBlock || localStorage.getItem('lpuquick_block') || 'Block A';
+    let currentHostelBlocks = getHostelBlocks(selectedHostel);
+    let selectedBlock = window.currentBlock || localStorage.getItem('lpuquick_block') || currentHostelBlocks[0] || 'Block A';
+    if (!currentHostelBlocks.includes(selectedBlock)) {
+        selectedBlock = currentHostelBlocks[0] || 'Block A';
+    }
     const savedRoom = window.currentRoom || localStorage.getItem('lpuquick_room') || '';
     let savedPhone = localStorage.getItem('lpuquick_phone') || '';
     if (savedPhone === '7671836211' || savedPhone === '7671836211') savedPhone = '';
@@ -534,16 +556,12 @@ window.openAddressModal = async function (isMandatorySetup = false, onComplete =
 
                 <!-- Block Selector -->
                 <div class="space-y-2">
-                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">Block</label>
+                    <div class="flex justify-between items-center text-xs">
+                        <label class="block font-bold text-slate-700 dark:text-slate-300">Block / Drop Point</label>
+                        <span class="text-[10px] text-slate-400 font-medium" id="block-count-badge">${currentHostelBlocks.length} Options</span>
+                    </div>
                     <div class="grid grid-cols-2 gap-2.5" id="block-selector">
-                        <button type="button" class="py-2 px-3 rounded-xl text-xs font-bold transition-transform active:scale-95 block-btn flex items-center justify-center gap-1.5 cursor-pointer ${selectedBlock === 'Block A' ? 'clay-btn-primary text-white shadow-sm' : 'clay-card text-slate-700 dark:text-slate-300'}" data-block="Block A">
-                            <span class="material-symbols-outlined text-sm">apartment</span>
-                            Block A
-                        </button>
-                        <button type="button" class="py-2 px-3 rounded-xl text-xs font-bold transition-transform active:scale-95 block-btn flex items-center justify-center gap-1.5 cursor-pointer ${selectedBlock === 'Block B' ? 'clay-btn-primary text-white shadow-sm' : 'clay-card text-slate-700 dark:text-slate-300'}" data-block="Block B">
-                            <span class="material-symbols-outlined text-sm">apartment</span>
-                            Block B
-                        </button>
+                        <!-- Populated dynamically by renderBlockButtons -->
                     </div>
                 </div>
 
@@ -706,8 +724,9 @@ window.openAddressModal = async function (isMandatorySetup = false, onComplete =
 
                 const hLabel = modal.querySelector('#selected-hostel-active-label');
                 if (hLabel) hLabel.textContent = `${selectedHostel} Selected`;
-                const btnSave = modal.querySelector('#save-address-btn');
-                if (btnSave) btnSave.innerHTML = `Confirm Address & Deliver to ${selectedHostel} (<span id="btn-block-label">${selectedBlock}</span>)`;
+
+                // Update blocks dynamically for newly picked hostel
+                renderBlockButtons(selectedHostel);
 
                 // INSTANT PERSISTENCE: Save immediately to state and storage
                 window.currentHostelId = selectedHostel;
@@ -735,20 +754,101 @@ window.openAddressModal = async function (isMandatorySetup = false, onComplete =
         };
     });
 
-    // Block selection handler
-    modal.querySelectorAll('.block-btn').forEach(btn => {
-        btn.onclick = () => {
-            modal.querySelectorAll('.block-btn').forEach(b => {
-                b.classList.remove('border-2', 'border-emerald', 'bg-emerald/10', 'text-emerald', 'shadow-sm');
-                b.classList.add('border-surface-variant', 'bg-surface', 'text-on-surface');
-            });
-            btn.classList.remove('border-surface-variant', 'bg-surface', 'text-on-surface');
-            btn.classList.add('border-2', 'border-emerald', 'bg-emerald/10', 'text-emerald', 'shadow-sm');
-            selectedBlock = btn.dataset.block;
-            const label = document.getElementById('btn-block-label');
-            if (label) label.textContent = selectedBlock;
-        };
-    });
+    // Dynamic Block Renderer for Selected Hostel
+    function renderBlockButtons(hostelId) {
+        const blockContainer = modal.querySelector('#block-selector');
+        if (!blockContainer) return;
+
+        const blocks = getHostelBlocks(hostelId);
+        const countBadge = modal.querySelector('#block-count-badge');
+        if (countBadge) countBadge.textContent = `${blocks.length} Options`;
+
+        // If currently selected block is not in this hostel's blocks, default to first block
+        if (!blocks.includes(selectedBlock)) {
+            selectedBlock = blocks[0] || 'Block A';
+        }
+
+        // Responsive grid layout based on number of blocks
+        if (blocks.length <= 2) {
+            blockContainer.className = 'grid grid-cols-2 gap-2.5';
+        } else if (blocks.length === 3) {
+            blockContainer.className = 'grid grid-cols-3 gap-2';
+        } else if (blocks.length === 4) {
+            blockContainer.className = 'grid grid-cols-2 sm:grid-cols-4 gap-2';
+        } else {
+            blockContainer.className = 'grid grid-cols-2 sm:grid-cols-3 gap-2';
+        }
+
+        blockContainer.innerHTML = blocks.map((block, idx) => {
+            const isSelected = selectedBlock === block;
+            const isGate = block.toLowerCase().includes('gate');
+            const icon = isGate ? 'sensor_door' : 'apartment';
+            const isOddLast = (blocks.length % 2 === 1) && (idx === blocks.length - 1) && blocks.length > 2;
+            const colSpanClass = isOddLast ? 'col-span-2 sm:col-span-1' : '';
+            const activeClass = isSelected
+                ? 'clay-btn-primary text-white shadow-sm'
+                : 'clay-card text-slate-700 dark:text-slate-300 hover:border-emerald-500/50';
+
+            return `
+                <button type="button" class="py-2.5 px-3 rounded-xl text-xs font-bold transition-transform active:scale-95 block-btn flex items-center justify-center gap-1.5 cursor-pointer ${colSpanClass} ${activeClass}" data-block="${block}">
+                    <span class="material-symbols-outlined text-sm">${icon}</span>
+                    <span>${block}</span>
+                </button>
+            `;
+        }).join('');
+
+        blockContainer.querySelectorAll('.block-btn').forEach(btn => {
+            btn.onclick = () => {
+                blockContainer.querySelectorAll('.block-btn').forEach(b => {
+                    b.classList.remove('clay-btn-primary', 'text-white', 'shadow-sm');
+                    b.classList.add('clay-card', 'text-slate-700', 'dark:text-slate-300');
+                });
+                btn.classList.remove('clay-card', 'text-slate-700', 'dark:text-slate-300');
+                btn.classList.add('clay-btn-primary', 'text-white', 'shadow-sm');
+
+                selectedBlock = btn.dataset.block;
+                const label = modal.querySelector('#btn-block-label');
+                if (label) label.textContent = selectedBlock;
+                const btnSave = modal.querySelector('#save-address-btn');
+                if (btnSave) {
+                    btnSave.innerHTML = `Confirm Address & Deliver to ${selectedHostel} (<span id="btn-block-label">${selectedBlock}</span>)`;
+                }
+
+                // Adjust room number label and placeholder if Main Gate
+                const isGate = selectedBlock.toLowerCase().includes('gate');
+                const roomLabel = modal.querySelector('label[for="room-input"]');
+                const roomInp = modal.querySelector('#room-input');
+                if (isGate) {
+                    if (roomLabel) roomLabel.innerHTML = 'Room Number / Meeting Point (Optional for Main Gate)';
+                    if (roomInp) roomInp.placeholder = 'Optional (e.g. Gate 1, Security Desk)';
+                } else {
+                    if (roomLabel) roomLabel.innerHTML = 'Room Number (Digits only) *';
+                    if (roomInp) roomInp.placeholder = 'e.g. 304';
+                }
+            };
+        });
+
+        const label = modal.querySelector('#btn-block-label');
+        if (label) label.textContent = selectedBlock;
+        const btnSave = modal.querySelector('#save-address-btn');
+        if (btnSave) {
+            btnSave.innerHTML = `Confirm Address & Deliver to ${selectedHostel} (<span id="btn-block-label">${selectedBlock}</span>)`;
+        }
+
+        const isGate = selectedBlock.toLowerCase().includes('gate');
+        const roomLabel = modal.querySelector('label[for="room-input"]');
+        const roomInp = modal.querySelector('#room-input');
+        if (isGate) {
+            if (roomLabel) roomLabel.innerHTML = 'Room Number / Meeting Point (Optional for Main Gate)';
+            if (roomInp) roomInp.placeholder = 'Optional (e.g. Gate 1, Security Desk)';
+        } else {
+            if (roomLabel) roomLabel.innerHTML = 'Room Number (Digits only) *';
+            if (roomInp) roomInp.placeholder = 'e.g. 304';
+        }
+    }
+
+    // Initial render of blocks
+    renderBlockButtons(selectedHostel);
 
     // Disabled hostels click handler
     modal.querySelectorAll('.hostel-disabled-btn').forEach(btn => {
@@ -768,8 +868,14 @@ window.openAddressModal = async function (isMandatorySetup = false, onComplete =
         window.currentHostelId = selectedHostel;
         window.currentAddress = selectedHostel.replace('-', '');
         window.currentBlock = selectedBlock;
-        window.currentRoom = room;
-        window.currentAddressDetail = `${selectedHostel} (${selectedBlock}), Room ${room}`;
+        window.currentRoom = room || '';
+
+        const isMainGate = selectedBlock && selectedBlock.toLowerCase().includes('gate');
+        if (isMainGate && !room) {
+            window.currentAddressDetail = `${selectedHostel} (${selectedBlock})`;
+        } else {
+            window.currentAddressDetail = `${selectedHostel} (${selectedBlock})${room ? `, Room ${room}` : ''}`;
+        }
 
         localStorage.setItem('lpuquick_hostel_id', window.currentHostelId);
         localStorage.setItem('lpuquick_address', window.currentAddress);
@@ -1005,8 +1111,9 @@ window.openAddressModal = async function (isMandatorySetup = false, onComplete =
             const alertBox = modal.querySelector('#address-validation-alert');
             const alertMsg = modal.querySelector('#address-validation-msg');
 
+            const isMainGate = selectedBlock && selectedBlock.toLowerCase().includes('gate');
             const cleanRoom = (room || '').replace(/\D/g, '');
-            if (!cleanRoom) {
+            if (!cleanRoom && !isMainGate) {
                 if (alertBox && alertMsg) {
                     alertBox.classList.remove('hidden');
                     alertMsg.textContent = 'Please enter a valid numeric Room Number (e.g. 304).';

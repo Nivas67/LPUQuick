@@ -35,6 +35,7 @@ function authFetch(url, options = {}) {
 }
 window.authFetch = authFetch;
 
+
 // Multi-Theme High-Volume Web Audio Synthesizer Engine (Cha-Ching, QuickCommerce Pop, Courier Chirp, Arcade, Crystal Bell, Urgent Alarm)
 let audioCtx = null;
 let soundEnabled = localStorage.getItem('lpuquick_admin_sound') !== 'false';
@@ -726,7 +727,8 @@ function switchView(viewName) {
             'hostel-groups': ['owner'],
             'offers-charges': ['owner'],
             'payment-management': ['owner'],
-            'upi-config': ['owner']
+            'upi-config': ['owner'],
+            'food-dept': ['owner', 'store_manager', 'cook']
         };
 
         const required = viewRoles[viewName];
@@ -783,7 +785,8 @@ function switchView(viewName) {
         'employees': 'Employees & Dark Store Roster',
         'offers-charges': 'Offers & Charges — Global Pricing & Offer Rules (Owner Only)',
         'payment-management': 'Payment & Refund Management (Super Admin Only)',
-        'upi-config': 'UPI Gateway & Merchant Configuration (Super Admin Only)'
+        'upi-config': 'UPI Gateway & Merchant Configuration (Super Admin Only)',
+        'food-dept': 'Food Department & Kitchen Operations'
     };
     const currentTitle = titles[viewName] || 'Dashboard';
     const topTitle = document.getElementById('top-title');
@@ -810,10 +813,12 @@ function switchView(viewName) {
     else if (viewName === 'advertisements') loadAdvertisementsView();
     else if (viewName === 'backup') loadBackupDashboard();
     else if (viewName === 'hostels') loadHostels();
+    else if (viewName === 'hostel-groups') loadHostelGroups();
     else if (viewName === 'employees') loadEmployeesList();
     else if (viewName === 'offers-charges') loadOffersChargesView();
     else if (viewName === 'payment-management') loadPaymentManagementView();
     else if (viewName === 'upi-config') loadUpiConfigView();
+    else if (viewName === 'food-dept') loadFoodDeptAdmin();
 
     try {
         if (typeof window !== 'undefined' && window.location.hash.replace(/^#\/?/, '') !== viewName) {
@@ -4338,6 +4343,15 @@ function updateModalProfitPreview() {
 window.updateModalProfitPreview = updateModalProfitPreview;
 
 const DEFAULT_CATEGORY_SUBCATEGORIES = {
+    'Instant Food': [
+        'Maggi & Noodles',
+        'Cooked Meals & Platters',
+        'Sandwiches & Burgers',
+        'Pasta & Macaroni',
+        'Hot Snacks & Fries',
+        'Soups & Bowls',
+        'Chai, Coffee & Beverages'
+    ],
     'Snacks & Beverages': [
         'Biscuits',
         'Chips',
@@ -6693,6 +6707,10 @@ function openStaffModal(staffId = null) {
         document.getElementById('role-store-manager').checked = (staff.roles || []).includes('store_manager');
         document.getElementById('role-inventory-manager').checked = (staff.roles || []).includes('inventory_manager');
         document.getElementById('role-delivery-person').checked = (staff.roles || []).includes('delivery_person') || Boolean(staff.is_delivery_boy);
+        const cookCheckbox = document.getElementById('role-cook');
+        if (cookCheckbox) cookCheckbox.checked = (staff.roles || []).includes('cook') || (staff.roles || []).includes('food_department');
+        const permGroceryCheckbox = document.getElementById('perm-manage-grocery');
+        if (permGroceryCheckbox) permGroceryCheckbox.checked = Boolean(staff.permissions && staff.permissions.can_manage_grocery_inventory);
 
         const isOnDuty = Boolean(staff.is_on_duty || staff.duty_status === 'ON_DUTY' || (staff.delivery_data && staff.delivery_data.duty_status === 'ON_DUTY'));
         const onRadio = document.getElementById('staff-duty-on');
@@ -6741,6 +6759,8 @@ function openStaffModal(staffId = null) {
         document.getElementById('role-store-manager').checked = true;
         document.getElementById('role-inventory-manager').checked = false;
         document.getElementById('role-delivery-person').checked = false;
+        if (document.getElementById('role-cook')) document.getElementById('role-cook').checked = false;
+        if (document.getElementById('perm-manage-grocery')) document.getElementById('perm-manage-grocery').checked = false;
 
         const onRadioNew = document.getElementById('staff-duty-on');
         const offRadioNew = document.getElementById('staff-duty-off');
@@ -6785,6 +6805,13 @@ async function submitStaffForm(e) {
     if (document.getElementById('role-store-manager').checked) roles.push('store_manager');
     if (document.getElementById('role-inventory-manager').checked) roles.push('inventory_manager');
     if (document.getElementById('role-delivery-person').checked) roles.push('delivery_person');
+    if (document.getElementById('role-cook')?.checked) {
+        roles.push('cook');
+        roles.push('food_department');
+    }
+    const permissions = {
+        can_manage_grocery_inventory: Boolean(document.getElementById('perm-manage-grocery')?.checked)
+    };
 
     const isOnDuty = document.getElementById('staff-duty-on')?.checked ?? true;
     const dutyStatus = isOnDuty ? 'ON_DUTY' : 'OFF_DUTY';
@@ -6806,7 +6833,7 @@ async function submitStaffForm(e) {
     try {
         let res;
         if (id) {
-            const payload = { name, phone, roles, assigned_hostel_id: assignedHostelId, is_on_duty: isOnDuty, duty_status: dutyStatus };
+            const payload = { name, phone, roles, permissions, assigned_hostel_id: assignedHostelId, is_on_duty: isOnDuty, duty_status: dutyStatus };
             if (password) payload.password = password;
             res = await fetch(`/api/admin/staff/${id}`, {
                 method: 'PUT',
@@ -6817,7 +6844,7 @@ async function submitStaffForm(e) {
             res = await fetch('/api/admin/staff', {
                 method: 'POST',
                 headers: getAuthHeaders(),
-                body: JSON.stringify({ name, email, phone, password, roles, assigned_hostel_id: assignedHostelId, is_on_duty: isOnDuty, duty_status: dutyStatus })
+                body: JSON.stringify({ name, email, phone, password, roles, permissions, assigned_hostel_id: assignedHostelId, is_on_duty: isOnDuty, duty_status: dutyStatus })
             });
         }
 
@@ -7383,17 +7410,44 @@ function populateHostelDropdowns() {
             select.appendChild(opt);
         });
 
-        // If non-owner manager assigned to a specific hostel, force lock to their assigned hostel only
-        if (!isOwner && assignedHostel) {
+        // If non-owner manager assigned to hostels or groups
+        const myHostels = (currentAdminProfile?.assigned_hostels && currentAdminProfile.assigned_hostels.length > 0)
+            ? currentAdminProfile.assigned_hostels
+            : (assignedHostel ? [assignedHostel] : []);
+
+        if (!isOwner && myHostels.length > 0) {
             select.innerHTML = '';
-            const matched = hostelsCache.find(h => h.id === assignedHostel);
-            const opt = document.createElement('option');
-            opt.value = assignedHostel;
-            opt.textContent = `🏢 ${matched?.name || assignedHostel} (${assignedHostel})`;
-            select.appendChild(opt);
-            select.value = assignedHostel;
-            select.disabled = true;
-            if (cfg.view) activeAdminHostelFilter[cfg.view] = assignedHostel;
+            if (myHostels.length > 1) {
+                if (cfg.allowAll) {
+                    const allOpt = document.createElement('option');
+                    allOpt.value = 'ALL';
+                    allOpt.textContent = '🏢 All My Assigned Hostels';
+                    select.appendChild(allOpt);
+                }
+                myHostels.forEach(hId => {
+                    const matched = hostelsCache.find(h => h.id === hId);
+                    const opt = document.createElement('option');
+                    opt.value = hId;
+                    opt.textContent = `🏢 ${matched?.name || hId} (${hId})`;
+                    select.appendChild(opt);
+                });
+                select.disabled = false;
+                if (currentVal && (currentVal === 'ALL' || myHostels.includes(currentVal))) {
+                    select.value = currentVal;
+                } else {
+                    select.value = cfg.allowAll ? 'ALL' : myHostels[0];
+                }
+            } else {
+                const singleId = myHostels[0];
+                const matched = hostelsCache.find(h => h.id === singleId);
+                const opt = document.createElement('option');
+                opt.value = singleId;
+                opt.textContent = `🏢 ${matched?.name || singleId} (${singleId})`;
+                select.appendChild(opt);
+                select.value = singleId;
+                select.disabled = true;
+            }
+            if (cfg.view) activeAdminHostelFilter[cfg.view] = select.value;
         } else {
             select.disabled = false;
             if (currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
@@ -7602,11 +7656,16 @@ function renderHostelsTable() {
 
         const createdDate = h.created_at ? new Date(h.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Preset';
 
+        const blocksList = Array.isArray(h.blocks) && h.blocks.length > 0 
+            ? h.blocks.join(', ') 
+            : 'Block A, Block B, Block C, Block D, Main Gate';
+
         return `
             <tr class="hover:bg-[#f7fafd] transition-colors">
                 <td class="p-4 font-mono font-bold text-[#0066cc] text-xs">${escapeHtml(h.id)}</td>
                 <td class="p-4">
                     <p class="font-semibold text-xs text-[#181c1f]">${escapeHtml(h.name)}</p>
+                    <p class="text-[10px] text-[#5c5f60] font-medium mt-0.5"><span class="text-[#0066cc] font-bold">Blocks:</span> ${escapeHtml(blocksList)}</p>
                 </td>
                 <td class="p-4">${statusBadge}</td>
                 <td class="p-4">${managerDisplay}</td>
@@ -7664,6 +7723,17 @@ function onPresetHostelSelected(val) {
     }
 }
 
+function setPresetHostelBlocks(preset) {
+    const input = document.getElementById('form-hostel-blocks');
+    if (!input) return;
+    if (preset === 'ABCD_GATE') {
+        input.value = 'Block A, Block B, Block C, Block D, Main Gate';
+    } else if (preset === 'AB_GATE') {
+        input.value = 'Block A, Block B, Main Gate';
+    }
+}
+window.setPresetHostelBlocks = setPresetHostelBlocks;
+
 function openHostelModal(hostelId = null) {
     editingHostelId = hostelId;
     const modal = document.getElementById('modal-hostel');
@@ -7672,6 +7742,7 @@ function openHostelModal(hostelId = null) {
     const idInput = document.getElementById('form-hostel-id');
     const nameInput = document.getElementById('form-hostel-name');
     const statusSelect = document.getElementById('form-hostel-status');
+    const blocksInput = document.getElementById('form-hostel-blocks');
     const errBox = document.getElementById('hostel-form-error');
 
     if (errBox) errBox.classList.add('hidden');
@@ -7685,6 +7756,11 @@ function openHostelModal(hostelId = null) {
         }
         if (nameInput) nameInput.value = h ? h.name : hostelId;
         if (statusSelect) statusSelect.value = h ? h.status : 'ACTIVE';
+        if (blocksInput) {
+            blocksInput.value = (Array.isArray(h?.blocks) && h.blocks.length > 0)
+                ? h.blocks.join(', ')
+                : 'Block A, Block B, Block C, Block D, Main Gate';
+        }
 
         if (presetSelect) {
             let matched = false;
@@ -7710,6 +7786,9 @@ function openHostelModal(hostelId = null) {
         }
         if (nameInput) nameInput.value = '';
         if (statusSelect) statusSelect.value = 'ACTIVE';
+        if (blocksInput) {
+            blocksInput.value = 'Block A, Block B, Block C, Block D, Main Gate';
+        }
     }
 
     if (modal) modal.classList.remove('hidden');
@@ -7726,12 +7805,15 @@ async function submitHostelForm(e) {
     const idInput = document.getElementById('form-hostel-id');
     const nameInput = document.getElementById('form-hostel-name');
     const statusSelect = document.getElementById('form-hostel-status');
+    const blocksInput = document.getElementById('form-hostel-blocks');
     const errBox = document.getElementById('hostel-form-error');
     const saveBtn = document.getElementById('btn-save-hostel');
 
     const id = (idInput?.value || '').trim().toUpperCase();
     const name = (nameInput?.value || '').trim();
     const status = statusSelect?.value || 'ACTIVE';
+    const rawBlocks = (blocksInput?.value || '').trim();
+    const blocks = rawBlocks.split(',').map(s => s.trim()).filter(Boolean);
 
     if (!id || !name) {
         if (errBox) {
@@ -7751,7 +7833,7 @@ async function submitHostelForm(e) {
         const res = await fetch(url, {
             method,
             headers: getAuthHeaders(),
-            body: JSON.stringify({ id, name, status })
+            body: JSON.stringify({ id, name, status, blocks })
         });
         const data = await res.json();
         if (data.success) {
@@ -12801,6 +12883,435 @@ window.saveUpiConfig = saveUpiConfig;
 
 
 
+// =========================================================================
+// FOOD DEPARTMENT & KITCHEN OPERATIONS CONTROLLER (ADMIN)
+// =========================================================================
+
+let foodConfigCache = null;
+let foodCooksCache = [];
+let foodOrdersCache = [];
+
+function openStaffModalWithCookRole() {
+    openStaffModal();
+    setTimeout(() => {
+        const cookCb = document.getElementById('role-cook');
+        if (cookCb) cookCb.checked = true;
+        const storeCb = document.getElementById('role-store-manager');
+        if (storeCb) storeCb.checked = false;
+    }, 50);
+}
+window.openStaffModalWithCookRole = openStaffModalWithCookRole;
+
+async function loadFoodDeptAdmin() {
+    try {
+        const [configRes, cooksRes, ordersRes, metricsRes] = await Promise.all([
+            fetch('/api/food/config', { headers: getAuthHeaders() }),
+            fetch('/api/food/cooks', { headers: getAuthHeaders() }),
+            fetch('/api/food/orders', { headers: getAuthHeaders() }),
+            fetch('/api/food/metrics', { headers: getAuthHeaders() })
+        ]);
+
+        if (configRes.ok) {
+            const data = await configRes.json();
+            if (data.success && data.config) {
+                foodConfigCache = data.config;
+                renderFoodConfig(data.config);
+            }
+        }
+
+        if (cooksRes.ok) {
+            const data = await cooksRes.json();
+            if (data.success && Array.isArray(data.cooks)) {
+                foodCooksCache = data.cooks;
+                renderFoodCooks(data.cooks);
+                populateSpecificCookDropdown(data.cooks);
+            }
+        }
+
+        if (ordersRes.ok) {
+            const data = await ordersRes.json();
+            if (data.success && Array.isArray(data.orders)) {
+                foodOrdersCache = data.orders;
+                renderFoodOrdersAdmin(data.orders);
+            }
+        }
+
+        if (metricsRes.ok) {
+            const data = await metricsRes.json();
+            if (data.success && data.metrics) {
+                renderFoodDeptMetrics(data.metrics);
+            }
+        }
+    } catch (err) {
+        console.error('[Admin Food Dept Load Error]:', err);
+        showToast('Error loading food department data: ' + err.message, 'error');
+    }
+}
+window.loadFoodDeptAdmin = loadFoodDeptAdmin;
+
+function renderFoodDeptMetrics(m) {
+    const onDutyCooks = foodCooksCache.filter(c => c.duty_status === 'ON_DUTY' || c.is_on_duty !== false).length;
+    const statDuty = document.getElementById('stat-food-cooks-duty');
+    if (statDuty) statDuty.textContent = onDutyCooks;
+
+    const statTotal = document.getElementById('stat-food-total-orders');
+    if (statTotal) statTotal.textContent = m.total_food_orders || foodOrdersCache.length;
+
+    const statPrep = document.getElementById('stat-food-active-prep');
+    if (statPrep) statPrep.textContent = m.preparing_count || 0;
+
+    const statReady = document.getElementById('stat-food-ready-comp');
+    if (statReady) statReady.textContent = (m.ready_count || 0) + (m.completed_count || 0);
+}
+
+function renderFoodConfig(cfg) {
+    const methodSelect = document.getElementById('food-config-method');
+    const prepInput = document.getElementById('food-config-prep-time');
+    const specificSelect = document.getElementById('food-config-specific-cook');
+
+    if (methodSelect && cfg.assignment_method) {
+        methodSelect.value = cfg.assignment_method;
+    }
+    if (prepInput && cfg.prep_time_minutes) {
+        prepInput.value = cfg.prep_time_minutes;
+    }
+    if (specificSelect && cfg.specific_cook_id) {
+        specificSelect.value = cfg.specific_cook_id;
+    }
+
+    toggleSpecificCookSelect();
+}
+
+window.toggleSpecificCookSelect = function() {
+    const methodSelect = document.getElementById('food-config-method');
+    const wrapper = document.getElementById('food-specific-cook-wrapper');
+    if (!methodSelect || !wrapper) return;
+
+    if (methodSelect.value === 'specific_cook') {
+        wrapper.classList.remove('hidden');
+    } else {
+        wrapper.classList.add('hidden');
+    }
+};
+
+function populateSpecificCookDropdown(cooks) {
+    const select = document.getElementById('food-config-specific-cook');
+    if (!select) return;
+
+    const currentVal = foodConfigCache?.specific_cook_id || select.value;
+    select.innerHTML = '<option value="">Select a designated cook...</option>';
+
+    cooks.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = `👨‍🍳 ${c.name} (${c.duty_status === 'ON_DUTY' ? 'On Duty' : 'Off Duty'})`;
+        select.appendChild(opt);
+    });
+
+    if (currentVal) select.value = currentVal;
+}
+
+window.saveFoodConfig = async function(e) {
+    if (e) e.preventDefault();
+    const method = document.getElementById('food-config-method')?.value || 'least_loaded';
+    const specificCookId = document.getElementById('food-config-specific-cook')?.value || null;
+    const prepTime = Number(document.getElementById('food-config-prep-time')?.value) || 15;
+    const btn = document.getElementById('btn-save-food-config');
+
+    if (method === 'specific_cook' && !specificCookId) {
+        showToast('Please select a specific designated cook.', 'warning');
+        return;
+    }
+
+    try {
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">sync</span> Saving...';
+        }
+
+        const res = await fetch('/api/food/config', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                assignment_method: method,
+                specific_cook_id: specificCookId,
+                prep_time_minutes: prepTime
+            })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+            foodConfigCache = data.config;
+            showToast('Food assignment rules saved successfully!', 'success');
+        } else {
+            throw new Error(data.error || 'Failed to save configuration');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<span class="material-symbols-outlined text-sm">save</span> <span>Save Rules</span>';
+        }
+    }
+};
+
+function renderFoodCooks(cooks) {
+    const tbody = document.getElementById('food-cooks-tbody');
+    if (!tbody) return;
+
+    if (cooks.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="p-8 text-center text-[#5c5f60]">
+                    No kitchen staff found. Click "Add New Cook" above to designate employees to the Food Department.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = cooks.map(cook => {
+        const isOnDuty = cook.duty_status === 'ON_DUTY' || cook.is_on_duty !== false;
+        const canGrocery = Boolean(cook.permissions && cook.permissions.can_manage_grocery_inventory);
+
+        return `
+            <tr class="hover:bg-slate-50/70 transition-colors">
+                <td class="p-3.5">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-full bg-amber-100 text-amber-800 font-bold flex items-center justify-center text-xs">
+                            👨‍🍳
+                        </div>
+                        <div>
+                            <p class="font-bold text-[#181c1f]">${escapeHtml(cook.name)}</p>
+                            <p class="text-[11px] text-[#5c5f60]">${escapeHtml(cook.phone || cook.email)}</p>
+                        </div>
+                    </div>
+                </td>
+                <td class="p-3.5 font-medium text-[#181c1f]">
+                    ${cook.assigned_hostel_id ? `🏢 ${cook.assigned_hostel_id}` : '<span class="text-gray-400">All Hostels</span>'}
+                </td>
+                <td class="p-3.5">
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${isOnDuty ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-gray-100 text-gray-600 border border-gray-300'}">
+                        <span class="w-2 h-2 rounded-full ${isOnDuty ? 'bg-emerald-500' : 'bg-gray-400'}"></span>
+                        ${isOnDuty ? 'ON DUTY' : 'OFF DUTY'}
+                    </span>
+                </td>
+                <td class="p-3.5 font-bold text-sm text-[#181c1f]">
+                    ${cook.active_orders_count || 0} active
+                </td>
+                <td class="p-3.5">
+                    <button type="button" onclick="toggleCookGroceryPermission('${cook.id}', ${canGrocery})" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${canGrocery ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100' : 'bg-slate-50 text-slate-600 border-slate-300 hover:bg-slate-100'}" title="Click to toggle grocery inventory management">
+                        <span class="material-symbols-outlined text-xs">${canGrocery ? 'check_circle' : 'remove_circle_outline'}</span>
+                        <span>${canGrocery ? 'Authorized' : 'Restricted'}</span>
+                    </button>
+                </td>
+                <td class="p-3.5 text-right">
+                    <div class="inline-flex items-center gap-2">
+                        <button type="button" onclick="toggleCookDutyStatus('${cook.id}', ${isOnDuty})" class="px-2.5 py-1 border border-[#DADCE0] hover:bg-gray-100 rounded-lg text-xs font-semibold text-[#5c5f60] transition-colors cursor-pointer">
+                            ${isOnDuty ? 'Set Off Duty' : 'Set On Duty'}
+                        </button>
+                        <button type="button" onclick="openStaffModal('${cook.id}')" class="p-1 text-[#1a73e8] hover:bg-blue-50 rounded-lg transition-colors cursor-pointer" title="Edit Staff Profile">
+                            <span class="material-symbols-outlined text-base">edit</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+window.toggleCookDutyStatus = async function(cookId, currentDuty) {
+    try {
+        const nextDuty = !currentDuty;
+        const res = await fetch(`/api/admin/staff/${cookId}`, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                is_on_duty: nextDuty,
+                duty_status: nextDuty ? 'ON_DUTY' : 'OFF_DUTY'
+            })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast(nextDuty ? 'Cook marked ON DUTY' : 'Cook marked OFF DUTY', 'info');
+            loadFoodDeptAdmin();
+        } else {
+            throw new Error(data.error || 'Failed to update duty status');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+};
+
+window.toggleCookGroceryPermission = async function(cookId, currentPerm) {
+    try {
+        const nextPerm = !currentPerm;
+        const res = await fetch(`/api/admin/staff/${cookId}`, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                permissions: { can_manage_grocery_inventory: nextPerm }
+            })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast(nextPerm ? 'Authorized cook for grocery inventory!' : 'Restricted cook from grocery inventory', 'info');
+            loadFoodDeptAdmin();
+        } else {
+            throw new Error(data.error || 'Failed to update grocery permission');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+};
+
+function renderFoodOrdersAdmin(orders) {
+    const tbody = document.getElementById('food-orders-admin-tbody');
+    if (!tbody) return;
+
+    if (orders.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="p-8 text-center text-[#5c5f60]">
+                    No food orders in the queue.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = orders.map(order => {
+        const shortId = order.order_id.replace(/^order_/, '').slice(0, 8);
+        const isScheduled = order.order_type === 'scheduled' || Boolean(order.scheduled_time);
+        const isTakeaway = order.order_type === 'takeaway';
+
+        let typeBadge = '';
+        if (isScheduled) {
+            typeBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-purple-100 text-purple-800 border border-purple-200">⏰ SCHEDULED</span>';
+        } else if (isTakeaway) {
+            typeBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-indigo-100 text-indigo-800 border border-indigo-200">🛍️ TAKEAWAY</span>';
+        } else {
+            typeBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-200">🚚 DELIVERY (15-20m)</span>';
+        }
+
+        const itemsSummary = (order.food_items || []).map(i => `${i.name} (×${i.quantity})`).join(', ');
+
+        return `
+            <tr class="hover:bg-slate-50/70 transition-colors">
+                <td class="p-3.5 font-mono font-bold text-[#181c1f]">#${shortId}</td>
+                <td class="p-3.5">
+                    <p class="font-bold text-[#181c1f]">${escapeHtml(order.customer_name)}</p>
+                    <p class="text-[11px] text-[#5c5f60]">${escapeHtml(order.delivery_address || 'Hostel')}</p>
+                </td>
+                <td class="p-3.5 text-xs text-[#181c1f] max-w-xs truncate" title="${escapeHtml(itemsSummary)}">
+                    ${escapeHtml(itemsSummary)}
+                </td>
+                <td class="p-3.5">${typeBadge}</td>
+                <td class="p-3.5 font-medium text-[#181c1f]">
+                    👨‍🍳 ${escapeHtml(order.cook_name || 'Unassigned')}
+                </td>
+                <td class="p-3.5">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-300">
+                        ${order.status}
+                    </span>
+                </td>
+                <td class="p-3.5 text-right">
+                    <button type="button" onclick="openReassignFoodModal('${order.order_id}')" class="px-3 py-1.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1 ml-auto">
+                        <span class="material-symbols-outlined text-sm">swap_horiz</span> Reassign
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+window.openReassignFoodModal = function(orderId) {
+    const modal = document.getElementById('modal-reassign-food-order');
+    const orderIdInput = document.getElementById('reassign-order-id');
+    const orderLabel = document.getElementById('reassign-order-label');
+    const cookSelect = document.getElementById('reassign-cook-select');
+
+    if (!modal || !orderIdInput || !orderLabel || !cookSelect) return;
+
+    orderIdInput.value = orderId;
+    orderLabel.textContent = '#' + orderId.replace(/^order_/, '').slice(0, 8);
+
+    cookSelect.innerHTML = '<option value="">Select an active cook...</option>';
+    foodCooksCache.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = `👨‍🍳 ${c.name} (${c.duty_status === 'ON_DUTY' ? 'On Duty' : 'Off Duty'}) - ${c.active_orders_count || 0} active`;
+        cookSelect.appendChild(opt);
+    });
+
+    modal.classList.remove('hidden');
+};
+
+window.closeReassignFoodModal = function() {
+    const modal = document.getElementById('modal-reassign-food-order');
+    if (modal) modal.classList.add('hidden');
+};
+
+window.submitReassignFoodOrder = async function(e) {
+    if (e) e.preventDefault();
+    const orderId = document.getElementById('reassign-order-id')?.value;
+    const cookId = document.getElementById('reassign-cook-select')?.value;
+    const reason = document.getElementById('reassign-reason-input')?.value || 'Reassigned by Admin';
+    const btn = document.getElementById('btn-submit-reassign');
+
+    if (!orderId || !cookId) {
+        showToast('Please select a target cook.', 'warning');
+        return;
+    }
+
+    try {
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Reassigning...';
+        }
+
+        const res = await fetch(`/api/food/orders/${orderId}/reassign`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ cook_id: cookId, reason: reason })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+            closeReassignFoodModal();
+            showToast('Order successfully reassigned to new cook!', 'success');
+            loadFoodDeptAdmin();
+        } else {
+            throw new Error(data.error || 'Failed to reassign order');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Reassign Now';
+        }
+    }
+};
+
+
+function openProductModalForFood() {
+    openProductModal();
+    const catSelect = document.getElementById('form-product-category');
+    if (catSelect) {
+        catSelect.value = 'Instant Food';
+        if (typeof onModalCategoryChange === 'function') {
+            onModalCategoryChange();
+        }
+    }
+}
+window.openProductModalForFood = openProductModalForFood;
+
+
+// ============================================================
 // HOSTEL GROUP MANAGEMENT & SHARED INVENTORY (SUPER ADMIN)
 // ============================================================
 function authFetch(url, options = {}) {

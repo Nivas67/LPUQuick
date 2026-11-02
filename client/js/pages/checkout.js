@@ -136,9 +136,12 @@ window.pages.checkout = async function() {
     const savedRoom = localStorage.getItem('lpuquick_room') || window.currentRoom;
     const savedBlock = localStorage.getItem('lpuquick_block') || window.currentBlock || 'Block A';
     const savedPhone = (localStorage.getItem('lpuquick_phone') || window.currentPhone || '').replace(/\D/g, '');
-    const address = (savedRoom && savedPhone.length === 10) 
-        ? `${savedHostel} (${savedBlock}), Room ${savedRoom} • +91${savedPhone}` 
-        : (savedRoom ? `${savedHostel} (${savedBlock}), Room ${savedRoom} • ⚠️ Mobile Number Mandatory` : `Please set your ${savedHostel} room & mobile number`);
+    const isMainGate = savedBlock && savedBlock.toLowerCase().includes('gate');
+    const hasValidContact = savedPhone.length === 10;
+    const hasValidLocation = isMainGate || Boolean(savedRoom);
+    const address = (hasValidLocation && hasValidContact)
+        ? `${savedHostel} (${savedBlock})${savedRoom ? `, Room ${savedRoom}` : ''} • +91${savedPhone}`
+        : (hasValidLocation ? `${savedHostel} (${savedBlock})${savedRoom ? `, Room ${savedRoom}` : ''} • ⚠️ Mobile Number Mandatory` : `Please set your ${savedHostel} room & mobile number`);
 
     const itemRows = items.map(item => {
         const itemMrp = Number(item.mrp) || Number(item.price) || 0;
@@ -631,7 +634,8 @@ window.pageInits.checkout = function() {
         const savedBlock = localStorage.getItem('lpuquick_block') || window.currentBlock || 'Block A';
         const savedPhone = (localStorage.getItem('lpuquick_phone') || window.currentPhone || '').replace(/\D/g, '');
         
-        if (!savedRoom || savedPhone.length !== 10) {
+        const isMainGate = savedBlock && savedBlock.toLowerCase().includes('gate');
+        if ((!savedRoom && !isMainGate) || savedPhone.length !== 10) {
             isSubmitting = false;
             window.openAddressModal(true, () => {
                 if (window.router) window.router();

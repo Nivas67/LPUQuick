@@ -14,11 +14,12 @@ router.get('/active', async (req, res) => {
         let activeHostels = await supabaseDb.hostels.getActiveHostels();
         if (!activeHostels) activeHostels = [];
 
-        // Return minimal projection to conserve bandwidth
+        // Return projection with delivery blocks
         const projected = activeHostels.map(h => ({
             id: h.id,
             name: h.name,
-            status: h.status
+            status: h.status,
+            blocks: Array.isArray(h.blocks) && h.blocks.length > 0 ? h.blocks : ['Block A', 'Block B', 'Block C', 'Block D', 'Main Gate']
         }));
 
         res.json({
