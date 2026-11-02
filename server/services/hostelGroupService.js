@@ -8,6 +8,7 @@ class HostelGroupService {
         this._filePath = path.join(__dirname, '..', 'data', 'hostel_groups.json');
         this._groups = [];
         this._initialized = false;
+        this._loadFromDisk();
     }
 
     _normalizeHostelId(hostelId) {
@@ -131,6 +132,9 @@ class HostelGroupService {
      * Resolves the active group for a given hostel ID.
      */
     getGroupByHostelSync(hostelId) {
+        if (!this._groups || this._groups.length === 0) {
+            this._loadFromDisk();
+        }
         const clean = this._normalizeHostelId(hostelId);
         if (!clean) return null;
         return this._groups.find(g => {
@@ -152,6 +156,9 @@ class HostelGroupService {
      * Otherwise returns cleanHostel.
      */
     getSharedPoolId(hostelId) {
+        if (!this._groups || this._groups.length === 0) {
+            this._loadFromDisk();
+        }
         const clean = this._normalizeHostelId(hostelId) || 'BH-13';
         const group = this.getGroupByHostelSync(clean);
         if (group && group.inventory_mode === 'shared') {
@@ -171,6 +178,9 @@ class HostelGroupService {
      * Returns all member hostels for the hostel's group, or [cleanHostel] if not shared.
      */
     getSiblingHostels(hostelId) {
+        if (!this._groups || this._groups.length === 0) {
+            this._loadFromDisk();
+        }
         const clean = this._normalizeHostelId(hostelId) || 'BH-13';
         const group = this.getGroupByHostelSync(clean);
         if (group && group.inventory_mode === 'shared' && Array.isArray(group.hostel_ids)) {
@@ -411,38 +421,63 @@ class HostelGroupService {
             const poolKey = `group_${group.id}`;
             const existingPoolInv = await supabaseDb.inventory.getHostelInventory(poolKey, true);
 
-            // If pool is empty, copy from the first hostel with inventory
-            if (!existingPoolInv || Object.keys(existingPoolInv).length === 0) {
-                let donorInv = {};
-                for (const h of group.hostel_ids) {
-                    const inv = await supabaseDb.inventory.getHostelInventory(h, true);
-                    if (inv && Object.keys(inv).length > 0) {
-                        donorInv = inv;
-                        break;
-                    }
-                }
-
-                if (Object.keys(donorInv).length > 0) {
-                    // Save donor inventory as the shared pool
-                    for (const [prodId, data] of Object.entries(donorInv)) {
-                        await supabaseDb.inventory.setProductStock(poolKey, prodId, {
-                            stock_left: data.stock_left,
-                            in_stock: data.in_stock,
-                            deleted: data.deleted
-                        });
+            // Merge inventories from all member hostels and local file, taking HIGHEST positive stock
+            const mergedInv = { ...(existingPoolInv || {}) };
+            for (const h of (group.hostel_ids || [])) {
+                const inv = await supabaseDb.inventory.getHostelInventory(h, true);
+                for (const [prodId, data] of Object.entries(inv || {})) {
+                    if (!data) continue;
+                    const stock = Math.max(0, Number(data.stock_left) || 0);
+                    if (!mergedInv[prodId]) {
+                        mergedInv[prodId] = {
+                            stock_left: stock,
+                            in_stock: Boolean(data.in_stock && stock > 0),
+                            deleted: Boolean(data.deleted),
+                            updated_at: data.updated_at || new Date().toISOString()
+                        };
+                    } else {
+                        const existingStock = Math.max(0, Number(mergedInv[prodId].stock_left) || 0);
+                        const finalStock = Math.max(existingStock, stock);
+                        mergedInv[prodId] = {
+                            stock_left: finalStock,
+                            in_stock: finalStock > 0 && (mergedInv[prodId].in_stock || data.in_stock),
+                            deleted: Boolean(mergedInv[prodId].deleted && data.deleted),
+                            updated_at: new Date().toISOString()
+                        };
                     }
                 }
             }
 
-            // Sync pool inventory into each member hostel
-            const sharedInv = await supabaseDb.inventory.getHostelInventory(poolKey, true);
-            for (const h of group.hostel_ids) {
-                for (const [prodId, data] of Object.entries(sharedInv)) {
-                    await supabaseDb.inventory.setProductStock(h, prodId, {
-                        stock_left: data.stock_left,
-                        in_stock: data.in_stock,
-                        deleted: data.deleted
-                    });
+            // Also merge local hostel_inventory.json file in case file has newer/more products for these hostels
+            const fileData = supabaseDb.inventory._loadLocalFile();
+            for (const h of (group.hostel_ids || [])) {
+                const normH = supabaseDb.inventory._normalizeHostelId(h);
+                const fileInv = fileData[h] || fileData[normH] || {};
+                for (const [prodId, data] of Object.entries(fileInv)) {
+                    if (!data) continue;
+                    const stock = Math.max(0, Number(data.stock_left) || 0);
+                    if (stock > 0) {
+                        const existingStock = Math.max(0, Number(mergedInv[prodId]?.stock_left) || 0);
+                        const finalStock = Math.max(existingStock, stock);
+                        mergedInv[prodId] = {
+                            stock_left: finalStock,
+                            in_stock: true,
+                            deleted: false,
+                            updated_at: new Date().toISOString()
+                        };
+                    }
+                }
+            }
+
+            if (Object.keys(mergedInv).length > 0) {
+                const updates = Object.entries(mergedInv).map(([productId, d]) => ({
+                    productId,
+                    newStock: d.stock_left,
+                    newInStock: d.in_stock && d.stock_left > 0
+                }));
+                await supabaseDb.inventory.batchUpdateStock(poolKey, updates);
+                for (const h of group.hostel_ids) {
+                    await supabaseDb.inventory.batchUpdateStock(h, updates);
                 }
             }
         } catch (e) {

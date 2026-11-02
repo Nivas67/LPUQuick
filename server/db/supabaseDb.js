@@ -359,7 +359,13 @@ const supabaseDb = {
             prod.hostel_id = cleanHostel;
 
             const isCampusBaseline = originHostel === 'BH13' || originHostel === 'ALL' || originHostel === 'CAMPUS';
-            const isLocalCustom = originHostel === targetHostelNorm;
+            let isSharedSibling = false;
+            try {
+                const hostelGroupService = require('../services/hostelGroupService');
+                const siblings = hostelGroupService.getSiblingHostels(cleanHostel);
+                isSharedSibling = siblings.some(s => s.toUpperCase().replace(/[^A-Z0-9]/g, '') === originHostel);
+            } catch (e) {}
+            const isLocalCustom = (originHostel === targetHostelNorm) || isSharedSibling;
 
             const override = hostelInventory[prod.id];
             if (override !== undefined) {
@@ -1006,6 +1012,7 @@ const supabaseDb = {
                             try {
                                 const parsed = JSON.parse(data.message);
                                 if (parsed && typeof parsed === 'object') {
+                                    this._memoryHostelInventory.set(poolId, parsed);
                                     this._memoryHostelInventory.set(normHostel, parsed);
                                     return parsed;
                                 }
@@ -1017,16 +1024,22 @@ const supabaseDb = {
                 }
 
                 // 2. Secondary fallback: check memory cache
+                if (this._memoryHostelInventory.has(poolId)) {
+                    return this._memoryHostelInventory.get(poolId);
+                }
                 if (this._memoryHostelInventory.has(normHostel)) {
                     return this._memoryHostelInventory.get(normHostel);
                 }
 
                 // 3. Fallback to local file (with backward compatibility for un-hyphenated keys)
                 const fileData = this._loadLocalFile();
-                const hostelData = fileData[normHostel]
+                const hostelData = fileData[poolId]
+                    || fileData[poolId.toUpperCase().replace(/[^A-Z0-9]/g, '')]
+                    || fileData[normHostel]
                     || fileData[normHostel.replace('-', ' ')]
                     || fileData[normHostel.replace('-', '')]
                     || {};
+                this._memoryHostelInventory.set(poolId, hostelData);
                 this._memoryHostelInventory.set(normHostel, hostelData);
                 return hostelData;
             }, forceFresh ? 0 : 30000); // 30s TTL for public storefront, 0 for forceFresh/admin

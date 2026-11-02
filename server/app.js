@@ -11,6 +11,12 @@ app.set('trust proxy', 1);
 const supabase = getSupabaseClient();
 console.log('[Database] 100% Supabase Cloud PostgreSQL Active (Single Database Mode)');
 
+// Initialize Hostel Groups & Shared Inventory Registry
+try {
+    const hostelGroupService = require('./services/hostelGroupService');
+    hostelGroupService.init().catch(err => console.warn('[HostelGroupService init note]:', err.message));
+} catch (e) {}
+
 // Security Middleware & Response Headers
 app.disable('x-powered-by');
 

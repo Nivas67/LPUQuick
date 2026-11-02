@@ -472,11 +472,15 @@ window.pages.orders = async function() {
     window.CURRENT_ACTIVE_ORDER_ID = activeOrder ? activeOrder.id : null;
     window.CURRENT_ACTIVE_ORDER_STATUS = activeOrder ? activeOrder.status : 'Order Placed';
 
+    const isFoodOrder = checkOrderIsFood(activeOrder);
+    window.__activeOrderIsFood = isFoodOrder;
+
     // Accurate calculation for initial screen render based on real activeOrder status
     const initialTracking = getOrderTrackingDetails(
         activeOrder ? activeOrder.status : 'Order Placed', 
         activeRiderName, 
-        activeOrder?.delivery_address || hostelAddress
+        activeOrder?.delivery_address || hostelAddress,
+        isFoodOrder
     );
 
     const isClientOwner = isClientPlatformOwner();
