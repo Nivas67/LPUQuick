@@ -814,12 +814,12 @@ window.openAddressModal = async function (isMandatorySetup = false, onComplete =
                     btnSave.innerHTML = `Confirm Address & Deliver to ${selectedHostel} (<span id="btn-block-label">${selectedBlock}</span>)`;
                 }
 
-                // Adjust room number label and placeholder if Main Gate
+                // Adjust room number label and placeholder if Hostel Main Gate
                 const isGate = selectedBlock.toLowerCase().includes('gate');
                 const roomLabel = modal.querySelector('label[for="room-input"]');
                 const roomInp = modal.querySelector('#room-input');
                 if (isGate) {
-                    if (roomLabel) roomLabel.innerHTML = 'Room Number / Meeting Point (Optional for Main Gate)';
+                    if (roomLabel) roomLabel.innerHTML = 'Room Number / Meeting Point (Optional for Hostel Main Gate)';
                     if (roomInp) roomInp.placeholder = 'Optional (e.g. Gate 1, Security Desk)';
                 } else {
                     if (roomLabel) roomLabel.innerHTML = 'Room Number (Digits only) *';
@@ -839,7 +839,7 @@ window.openAddressModal = async function (isMandatorySetup = false, onComplete =
         const roomLabel = modal.querySelector('label[for="room-input"]');
         const roomInp = modal.querySelector('#room-input');
         if (isGate) {
-            if (roomLabel) roomLabel.innerHTML = 'Room Number / Meeting Point (Optional for Main Gate)';
+            if (roomLabel) roomLabel.innerHTML = 'Room Number / Meeting Point (Optional for Hostel Main Gate)';
             if (roomInp) roomInp.placeholder = 'Optional (e.g. Gate 1, Security Desk)';
         } else {
             if (roomLabel) roomLabel.innerHTML = 'Room Number (Digits only) *';

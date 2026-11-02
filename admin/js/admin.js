@@ -7735,9 +7735,9 @@ function setPresetHostelBlocks(preset) {
     const input = document.getElementById('form-hostel-blocks');
     if (!input) return;
     if (preset === 'ABCD_GATE') {
-        input.value = 'Block A, Block B, Block C, Block D, Main Gate';
+        input.value = 'Block A, Block B, Block C, Block D, Hostel Main Gate';
     } else if (preset === 'AB_GATE') {
-        input.value = 'Block A, Block B, Main Gate';
+        input.value = 'Block A, Block B, Hostel Main Gate';
     }
 }
 window.setPresetHostelBlocks = setPresetHostelBlocks;
@@ -7767,7 +7767,7 @@ function openHostelModal(hostelId = null) {
         if (blocksInput) {
             blocksInput.value = (Array.isArray(h?.blocks) && h.blocks.length > 0)
                 ? h.blocks.join(', ')
-                : 'Block A, Block B, Block C, Block D, Main Gate';
+                : 'Block A, Block B, Block C, Block D, Hostel Main Gate';
         }
 
         if (presetSelect) {
@@ -7795,7 +7795,7 @@ function openHostelModal(hostelId = null) {
         if (nameInput) nameInput.value = '';
         if (statusSelect) statusSelect.value = 'ACTIVE';
         if (blocksInput) {
-            blocksInput.value = 'Block A, Block B, Block C, Block D, Main Gate';
+            blocksInput.value = 'Block A, Block B, Block C, Block D, Hostel Main Gate';
         }
     }
 
@@ -14021,7 +14021,7 @@ function renderHostelBlocksChecklist() {
     const activeBlocks = Array.isArray(hostel?.blocks) && hostel.blocks.length > 0 ? hostel.blocks : ['Block A', 'Block B'];
 
     // Standard base blocks
-    const standardBlocks = ['Block A', 'Block B', 'Block C', 'Block D', 'Main Gate'];
+    const standardBlocks = ['Block A', 'Block B', 'Block C', 'Block D', 'Hostel Main Gate'];
     const allKnownBlocks = [...standardBlocks];
     activeBlocks.forEach(b => {
         if (!allKnownBlocks.includes(b)) allKnownBlocks.push(b);
@@ -14079,7 +14079,7 @@ function toggleMainGateBlock() {
         gateCheckbox.checked = !gateCheckbox.checked;
         onBlockCheckboxToggled(gateCheckbox);
     } else {
-        addNewCustomBlock('Main Gate');
+        addNewCustomBlock('Hostel Main Gate');
     }
 }
 

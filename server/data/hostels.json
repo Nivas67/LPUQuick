@@ -5,12 +5,11 @@
     "status": "ACTIVE",
     "blocks": [
       "Block A",
-      "Block B",
-      "Block C"
+      "Block B"
     ],
     "manager_user_id": "admin_4a30214501",
     "created_at": "2026-10-01T00:00:00.000Z",
-    "updated_at": "2026-11-02T03:30:00.000Z"
+    "updated_at": "2026-11-02T03:48:27.748Z"
   },
   {
     "id": "BH-12",
@@ -79,11 +78,12 @@
     "blocks": [
       "Block A",
       "Block B",
-      "Block C"
+      "Block C",
+      "Main Gate"
     ],
     "manager_user_id": "admin_60082a0696",
     "created_at": "2026-10-05T15:23:27.304Z",
-    "updated_at": "2026-10-05T15:32:48.577Z"
+    "updated_at": "2026-11-02T03:49:30.665Z"
   },
   {
     "id": "BH-1",
@@ -119,6 +119,6 @@
     ],
     "manager_user_id": "admin_cfc0b1b7c3",
     "created_at": "2026-11-01T17:59:14.550Z",
-    "updated_at": "2026-11-01T19:57:31.923Z"
+    "updated_at": "2026-11-02T03:49:48.880Z"
   }
 ]
