@@ -42,12 +42,12 @@ const supabaseDb = {
                     this._memoryHostels = JSON.parse(fs.readFileSync(this._hostelsFilePath, 'utf8'));
                 } else {
                     this._memoryHostels = [
-                        { id: 'BH-13', name: 'Boys Hostel 13', status: 'ACTIVE', blocks: ['Block A', 'Block B', 'Block C', 'Block D', 'Main Gate'], manager_user_id: 'admin_4a30214501', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-                        { id: 'BH-12', name: 'Boys Hostel 12', status: 'ACTIVE', blocks: ['Block A', 'Block B', 'Block C', 'Block D', 'Main Gate'], manager_user_id: 'user_881d5b03', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-                        { id: 'BH-11', name: 'Boys Hostel 11', status: 'ACTIVE', blocks: ['Block A', 'Block B', 'Block C', 'Block D', 'Main Gate'], manager_user_id: 'user_full_test_mtncad0n', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-                        { id: 'BH-6', name: 'Boys Hostel 6', status: 'OFF', blocks: ['Block A', 'Block B', 'Block C', 'Block D', 'Main Gate'], manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-                        { id: 'BH-5', name: 'Boys Hostel 5', status: 'OFF', blocks: ['Block A', 'Block B', 'Block C', 'Block D', 'Main Gate'], manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-                        { id: 'BH-4', name: 'Boys Hostel 4', status: 'OFF', blocks: ['Block A', 'Block B', 'Block C', 'Block D', 'Main Gate'], manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+                        { id: 'BH-13', name: 'Boys Hostel 13', status: 'ACTIVE', blocks: ['Block A', 'Block B'], manager_user_id: 'admin_4a30214501', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                        { id: 'BH-12', name: 'Boys Hostel 12', status: 'ACTIVE', blocks: ['Block A', 'Block B'], manager_user_id: 'user_881d5b03', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                        { id: 'BH-11', name: 'Boys Hostel 11', status: 'ACTIVE', blocks: ['Block A', 'Block B'], manager_user_id: 'user_full_test_mtncad0n', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                        { id: 'BH-6', name: 'Boys Hostel 6', status: 'OFF', blocks: ['Block A', 'Block B'], manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                        { id: 'BH-5', name: 'Boys Hostel 5', status: 'OFF', blocks: ['Block A', 'Block B'], manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                        { id: 'BH-4', name: 'Boys Hostel 4', status: 'OFF', blocks: ['Block A', 'Block B'], manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
                     ];
                     try {
                         const dir = path.dirname(this._hostelsFilePath);
@@ -57,12 +57,12 @@ const supabaseDb = {
                 }
             } catch (e) {
                 this._memoryHostels = [
-                    { id: 'BH-13', name: 'Boys Hostel 13', status: 'ACTIVE', blocks: ['Block A', 'Block B', 'Block C', 'Block D', 'Main Gate'], manager_user_id: 'admin_4a30214501', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-                    { id: 'BH-12', name: 'Boys Hostel 12', status: 'ACTIVE', blocks: ['Block A', 'Block B', 'Block C', 'Block D', 'Main Gate'], manager_user_id: 'user_881d5b03', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-                    { id: 'BH-11', name: 'Boys Hostel 11', status: 'ACTIVE', blocks: ['Block A', 'Block B', 'Block C', 'Block D', 'Main Gate'], manager_user_id: 'user_full_test_mtncad0n', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-                    { id: 'BH-6', name: 'Boys Hostel 6', status: 'OFF', blocks: ['Block A', 'Block B', 'Block C', 'Block D', 'Main Gate'], manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-                    { id: 'BH-5', name: 'Boys Hostel 5', status: 'OFF', blocks: ['Block A', 'Block B', 'Block C', 'Block D', 'Main Gate'], manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-                    { id: 'BH-4', name: 'Boys Hostel 4', status: 'OFF', blocks: ['Block A', 'Block B', 'Block C', 'Block D', 'Main Gate'], manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+                    { id: 'BH-13', name: 'Boys Hostel 13', status: 'ACTIVE', blocks: ['Block A', 'Block B'], manager_user_id: 'admin_4a30214501', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                    { id: 'BH-12', name: 'Boys Hostel 12', status: 'ACTIVE', blocks: ['Block A', 'Block B'], manager_user_id: 'user_881d5b03', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                    { id: 'BH-11', name: 'Boys Hostel 11', status: 'ACTIVE', blocks: ['Block A', 'Block B'], manager_user_id: 'user_full_test_mtncad0n', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                    { id: 'BH-6', name: 'Boys Hostel 6', status: 'OFF', blocks: ['Block A', 'Block B'], manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                    { id: 'BH-5', name: 'Boys Hostel 5', status: 'OFF', blocks: ['Block A', 'Block B'], manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+                    { id: 'BH-4', name: 'Boys Hostel 4', status: 'OFF', blocks: ['Block A', 'Block B'], manager_user_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
                 ];
             }
             return this._memoryHostels;
@@ -114,7 +114,7 @@ const supabaseDb = {
                                     this._memoryHostels = parsed.map(h => {
                                         if (!Array.isArray(h.blocks) || h.blocks.length === 0) {
                                             needsSync = true;
-                                            return { ...h, blocks: ['Block A', 'Block B', 'Block C', 'Block D', 'Main Gate'] };
+                                            return { ...h, blocks: ['Block A', 'Block B'] };
                                         }
                                         return h;
                                     });
@@ -160,7 +160,7 @@ const supabaseDb = {
                 // Resilient local snapshot fallback
                 let list = [...(this._memoryHostels || this._loadHostelsFromDisk())].map(h => ({
                     ...h,
-                    blocks: Array.isArray(h.blocks) && h.blocks.length > 0 ? h.blocks : ['Block A', 'Block B', 'Block C', 'Block D', 'Main Gate']
+                    blocks: Array.isArray(h.blocks) && h.blocks.length > 0 ? h.blocks : ['Block A', 'Block B']
                 }));
                 if (status) {
                     list = list.filter(h => h.status === status);
@@ -198,7 +198,7 @@ const supabaseDb = {
                 ? blocks 
                 : (typeof blocks === 'string' && blocks.trim() 
                     ? blocks.split(',').map(s => s.trim()).filter(Boolean) 
-                    : ['Block A', 'Block B', 'Block C', 'Block D', 'Main Gate']);
+                    : ['Block A', 'Block B']);
 
             const record = {
                 id: cleanId,
@@ -240,7 +240,7 @@ const supabaseDb = {
                     ? updates.blocks 
                     : (typeof updates.blocks === 'string' 
                         ? updates.blocks.split(',').map(s => s.trim()).filter(Boolean) 
-                        : ['Block A', 'Block B', 'Block C', 'Block D', 'Main Gate']);
+                        : ['Block A', 'Block B']);
             }
 
             const current = this._memoryHostels || this._loadHostelsFromDisk();

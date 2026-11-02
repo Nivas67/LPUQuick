@@ -19,7 +19,7 @@ router.get('/active', async (req, res) => {
             id: h.id,
             name: h.name,
             status: h.status,
-            blocks: Array.isArray(h.blocks) && h.blocks.length > 0 ? h.blocks : ['Block A', 'Block B', 'Block C', 'Block D', 'Main Gate']
+            blocks: Array.isArray(h.blocks) && h.blocks.length > 0 ? h.blocks : ['Block A', 'Block B']
         }));
 
         res.json({

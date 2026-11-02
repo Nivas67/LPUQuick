@@ -169,7 +169,13 @@
                 <span class="flex-1 font-bold text-[#181c1f]">Campus Hostels</span>
                 <span class="text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Owner</span>
             </button>
-            <button onclick="switchView('hostel-groups')" data-view="hostel-groups" data-required-role="owner"
+            <button onclick="openManageBlocksModal()"
+                                class="px-3.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 shrink-0"
+                                title="Configure Active Blocks & Delivery Points per Hostel">
+                                <span class="material-symbols-outlined text-sm">apartment</span>
+                                <span>Manage Blocks</span>
+                            </button>
+                            <button onclick="switchView('hostel-groups')" data-view="hostel-groups" data-required-role="owner"
                 class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full owner-only-nav">
                 <span class="material-symbols-outlined text-[#0066cc]">hub</span>
                 <span class="flex-1 font-bold text-[#181c1f]">Hostel Groups</span>
@@ -2176,6 +2182,11 @@
                             class="p-2 border border-[#DADCE0] rounded-xl bg-white hover:bg-[#f1f4f7] text-[#3c4043]"
                             title="Reload Hostels">
                             <span class="material-symbols-outlined text-lg">refresh</span>
+                        </button>
+                        <button onclick="openManageBlocksModal()"
+                            class="px-4 py-2.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer">
+                            <span class="material-symbols-outlined text-base">apartment</span>
+                            <span>Manage Blocks</span>
                         </button>
                         <button onclick="openHostelModal()"
                             class="px-4 py-2.5 bg-[#0066cc] hover:bg-[#0052a3] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all active:scale-95">
@@ -4979,6 +4990,111 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+
+    <!-- ================= MODAL: MANAGE HOSTEL BLOCKS & DROP POINTS ================= -->
+    <div id="modal-hostel-blocks" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#DADCE0] space-y-4">
+            <div class="flex justify-between items-center border-b border-[#DADCE0] pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[#0066cc] text-xl">apartment</span>
+                    <div>
+                        <h3 class="font-bold text-base text-[#181c1f]" id="modal-blocks-title">Manage Delivery Blocks</h3>
+                        <p class="text-[11px] text-[#5c5f60]" id="modal-blocks-subtitle">Toggle active blocks displayed on customer storefront</p>
+                    </div>
+                </div>
+                <button onclick="closeHostelBlocksModal()" class="text-[#5c5f60] hover:text-[#181c1f] cursor-pointer">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <div class="space-y-4 text-xs">
+                <!-- Select Hostel Dropdown -->
+                <div>
+                    <label class="font-bold text-slate-800 block mb-1">Select Campus Hostel *</label>
+                    <select id="manage-blocks-hostel-select" onchange="onManageBlocksHostelChange(this.value)"
+                        class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#0066cc] outline-none text-xs bg-white font-bold text-slate-800">
+                        <!-- Populated dynamically with campus hostels -->
+                    </select>
+                </div>
+
+                <!-- Quick Presets -->
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <p class="font-bold text-slate-700 mb-2 flex items-center gap-1">
+                        <span class="material-symbols-outlined text-sm text-[#0066cc]">tune</span>
+                        <span>Quick Presets:</span>
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" onclick="applyBlocksPreset(['Block A', 'Block B'])"
+                            class="px-2.5 py-1 rounded-lg bg-white border border-slate-300 hover:border-[#0066cc] font-semibold text-slate-700 hover:text-[#0066cc] transition-all cursor-pointer">
+                            Block A & B only
+                        </button>
+                        <button type="button" onclick="applyBlocksPreset(['Block A', 'Block B', 'Block C'])"
+                            class="px-2.5 py-1 rounded-lg bg-white border border-slate-300 hover:border-[#0066cc] font-semibold text-slate-700 hover:text-[#0066cc] transition-all cursor-pointer">
+                            Block A, B & C
+                        </button>
+                        <button type="button" onclick="applyBlocksPreset(['Block A', 'Block B', 'Block C', 'Block D'])"
+                            class="px-2.5 py-1 rounded-lg bg-white border border-slate-300 hover:border-[#0066cc] font-semibold text-slate-700 hover:text-[#0066cc] transition-all cursor-pointer">
+                            Block A, B, C & D
+                        </button>
+                        <button type="button" onclick="toggleMainGateBlock()"
+                            class="px-2.5 py-1 rounded-lg bg-white border border-slate-300 hover:border-[#0066cc] font-semibold text-slate-700 hover:text-[#0066cc] transition-all cursor-pointer" id="btn-toggle-main-gate">
+                            + Main Gate
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Active Blocks Checklist -->
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <label class="font-bold text-slate-900 block">Active Blocks for this Hostel</label>
+                        <span class="text-[10px] text-emerald-700 font-bold" id="blocks-active-count-label">0 Blocks Active</span>
+                    </div>
+                    <p class="text-[11px] text-slate-500 mb-2">Check the blocks that are active and available for customer orders:</p>
+                    
+                    <div id="blocks-checkboxes-container" class="grid grid-cols-2 gap-2 max-h-52 overflow-y-auto p-1">
+                        <!-- Checkbox items rendered dynamically -->
+                    </div>
+                </div>
+
+                <!-- Add Custom Block Field -->
+                <div class="pt-2 border-t border-slate-200">
+                    <label class="font-bold text-slate-900 block mb-1">Add Another Block / Gate</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="input-new-block-name" placeholder="e.g. Block E, North Gate"
+                            class="flex-1 border border-[#DADCE0] rounded-xl px-3 py-2 text-xs focus:border-[#0066cc] outline-none font-medium">
+                        <button type="button" onclick="addNewCustomBlock()"
+                            class="px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl text-xs flex items-center gap-1 cursor-pointer">
+                            <span class="material-symbols-outlined text-sm">add</span>
+                            <span>Add</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Live Preview -->
+                <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                    <p class="text-[10px] font-bold text-emerald-800 uppercase tracking-wider mb-1">Customer Storefront Preview:</p>
+                    <div class="flex flex-wrap gap-1.5" id="blocks-live-preview-pills">
+                        <!-- Pills rendered dynamically -->
+                    </div>
+                </div>
+
+                <div id="blocks-modal-error" class="hidden p-2.5 rounded-xl bg-rose-50 text-[#ba1a1a] text-xs font-semibold"></div>
+
+                <div class="pt-3 border-t border-[#DADCE0] flex justify-end gap-2">
+                    <button type="button" onclick="closeHostelBlocksModal()"
+                        class="px-4 py-2 rounded-xl border border-[#DADCE0] text-[#5c5f60] font-semibold hover:bg-[#f1f4f7] cursor-pointer">
+                        Cancel
+                    </button>
+                    <button type="button" id="btn-save-hostel-blocks" onclick="saveHostelBlocks()"
+                        class="px-5 py-2 rounded-xl bg-[#0066cc] hover:bg-[#0052a3] text-white font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer">
+                        <span class="material-symbols-outlined text-sm">check</span>
+                        <span>Save Active Blocks</span>
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 

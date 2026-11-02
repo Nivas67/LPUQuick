@@ -7656,16 +7656,18 @@ function renderHostelsTable() {
 
         const createdDate = h.created_at ? new Date(h.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Preset';
 
-        const blocksList = Array.isArray(h.blocks) && h.blocks.length > 0 
-            ? h.blocks.join(', ') 
-            : 'Block A, Block B, Block C, Block D, Main Gate';
+        const activeBlocks = Array.isArray(h.blocks) && h.blocks.length > 0 ? h.blocks : ['Block A', 'Block B'];
+        const blocksPills = activeBlocks.map(b => `<span class="bg-blue-50 text-[#0066cc] border border-blue-200 px-1.5 py-0.2 rounded text-[10px] font-bold">${escapeHtml(b)}</span>`).join(' ');
 
         return `
             <tr class="hover:bg-[#f7fafd] transition-colors">
                 <td class="p-4 font-mono font-bold text-[#0066cc] text-xs">${escapeHtml(h.id)}</td>
                 <td class="p-4">
                     <p class="font-semibold text-xs text-[#181c1f]">${escapeHtml(h.name)}</p>
-                    <p class="text-[10px] text-[#5c5f60] font-medium mt-0.5"><span class="text-[#0066cc] font-bold">Blocks:</span> ${escapeHtml(blocksList)}</p>
+                    <div class="flex items-center gap-1 flex-wrap mt-1">
+                        <span class="text-[10px] text-slate-400 font-semibold">Active Blocks:</span>
+                        ${blocksPills}
+                    </div>
                 </td>
                 <td class="p-4">${statusBadge}</td>
                 <td class="p-4">${managerDisplay}</td>
@@ -7676,6 +7678,12 @@ function renderHostelsTable() {
                             class="px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${isActive ? 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100' : 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'}"
                             title="${isActive ? 'Pause Storefront (Turn OFF)' : 'Activate Storefront (Turn ON)'}">
                             ${isActive ? '⏸️ Turn OFF' : '▶️ Turn ACTIVE'}
+                        </button>
+                        <button onclick="openManageBlocksModal('${escapeHtml(h.id)}')"
+                            class="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all"
+                            title="Configure Active Blocks for ${escapeHtml(h.name)}">
+                            <span class="material-symbols-outlined text-[14px]">apartment</span>
+                            <span>Blocks</span>
                         </button>
                         <button onclick="openAssignManagerModal('${escapeHtml(h.id)}', '${escapeHtml(h.name)}', '${h.store_manager_id || ''}')"
                             class="p-1.5 text-purple-700 hover:bg-purple-50 rounded-lg transition-all cursor-pointer" title="Assign Store Manager">
@@ -13959,3 +13967,247 @@ window.submitHostelGroupForm = submitHostelGroupForm;
 window.toggleHostelGroupMode = toggleHostelGroupMode;
 window.toggleHostelGroupStatus = toggleHostelGroupStatus;
 window.deleteHostelGroup = deleteHostelGroup;
+
+
+// ================= HOSTEL DELIVERY BLOCKS MANAGEMENT MODAL =================
+let currentManagingBlocksHostelId = null;
+
+function openManageBlocksModal(hostelId = null) {
+    const modal = document.getElementById('modal-hostel-blocks');
+    if (!modal) return;
+
+    const select = document.getElementById('manage-blocks-hostel-select');
+    if (select && Array.isArray(hostelsCache) && hostelsCache.length > 0) {
+        select.innerHTML = hostelsCache.map(h => `
+            <option value="${escapeHtml(h.id)}">${escapeHtml(h.id)} - ${escapeHtml(h.name)} (${h.status === 'ACTIVE' ? 'LIVE' : 'OFF'})</option>
+        `).join('');
+    }
+
+    currentManagingBlocksHostelId = hostelId || (hostelsCache && hostelsCache[0]?.id) || 'BH-13';
+    if (select) {
+        select.value = currentManagingBlocksHostelId;
+    }
+
+    const titleEl = document.getElementById('modal-blocks-title');
+    if (titleEl) {
+        const found = (hostelsCache || []).find(h => h.id === currentManagingBlocksHostelId);
+        titleEl.textContent = `Manage Delivery Blocks: ${currentManagingBlocksHostelId} (${found?.name || ''})`;
+    }
+
+    renderHostelBlocksChecklist();
+    modal.classList.remove('hidden');
+}
+
+function closeHostelBlocksModal() {
+    const modal = document.getElementById('modal-hostel-blocks');
+    if (modal) modal.classList.add('hidden');
+}
+
+function onManageBlocksHostelChange(hostelId) {
+    currentManagingBlocksHostelId = hostelId;
+    const titleEl = document.getElementById('modal-blocks-title');
+    if (titleEl) {
+        const found = (hostelsCache || []).find(h => h.id === currentManagingBlocksHostelId);
+        titleEl.textContent = `Manage Delivery Blocks: ${currentManagingBlocksHostelId} (${found?.name || ''})`;
+    }
+    renderHostelBlocksChecklist();
+}
+
+function renderHostelBlocksChecklist() {
+    const container = document.getElementById('blocks-checkboxes-container');
+    if (!container) return;
+
+    const hostel = (hostelsCache || []).find(h => h.id === currentManagingBlocksHostelId);
+    const activeBlocks = Array.isArray(hostel?.blocks) && hostel.blocks.length > 0 ? hostel.blocks : ['Block A', 'Block B'];
+
+    // Standard base blocks
+    const standardBlocks = ['Block A', 'Block B', 'Block C', 'Block D', 'Main Gate'];
+    const allKnownBlocks = [...standardBlocks];
+    activeBlocks.forEach(b => {
+        if (!allKnownBlocks.includes(b)) allKnownBlocks.push(b);
+    });
+
+    container.innerHTML = allKnownBlocks.map(b => {
+        const isActive = activeBlocks.includes(b);
+        const isGate = b.toLowerCase().includes('gate');
+        return `
+            <label class="flex items-center gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer ${isActive ? 'border-[#0066cc] bg-blue-50/40 text-[#0066cc]' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'}" id="label-block-${escapeHtml(b).replace(/[^a-zA-Z0-9]/g, '_')}">
+                <input type="checkbox" value="${escapeHtml(b)}" ${isActive ? 'checked' : ''} onchange="onBlockCheckboxToggled(this)" class="rounded text-[#0066cc] focus:ring-[#0066cc] w-4 h-4 shrink-0">
+                <span class="material-symbols-outlined text-base shrink-0 ${isActive ? 'text-[#0066cc]' : 'text-slate-400'}">${isGate ? 'sensor_door' : 'apartment'}</span>
+                <span class="font-bold text-xs truncate flex-1">${escapeHtml(b)}</span>
+            </label>
+        `;
+    }).join('');
+
+    updateBlocksModalLivePreview();
+}
+
+function onBlockCheckboxToggled(cb) {
+    const label = cb.closest('label');
+    const isChecked = cb.checked;
+    const icon = label ? label.querySelector('.material-symbols-outlined') : null;
+
+    if (label) {
+        if (isChecked) {
+            label.className = 'flex items-center gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer border-[#0066cc] bg-blue-50/40 text-[#0066cc]';
+            if (icon) icon.className = 'material-symbols-outlined text-base shrink-0 text-[#0066cc]';
+        } else {
+            label.className = 'flex items-center gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer border-slate-200 bg-white text-slate-700 hover:border-slate-300';
+            if (icon) icon.className = 'material-symbols-outlined text-base shrink-0 text-slate-400';
+        }
+    }
+    updateBlocksModalLivePreview();
+}
+
+function applyBlocksPreset(presetList) {
+    const container = document.getElementById('blocks-checkboxes-container');
+    if (!container) return;
+
+    const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(cb => {
+        cb.checked = presetList.includes(cb.value);
+        onBlockCheckboxToggled(cb);
+    });
+}
+
+function toggleMainGateBlock() {
+    const container = document.getElementById('blocks-checkboxes-container');
+    if (!container) return;
+
+    let gateCheckbox = Array.from(container.querySelectorAll('input[type="checkbox"]')).find(cb => cb.value.toLowerCase().includes('gate'));
+    if (gateCheckbox) {
+        gateCheckbox.checked = !gateCheckbox.checked;
+        onBlockCheckboxToggled(gateCheckbox);
+    } else {
+        addNewCustomBlock('Main Gate');
+    }
+}
+
+function addNewCustomBlock(predefinedName = null) {
+    const input = document.getElementById('input-new-block-name');
+    const rawVal = predefinedName || (input ? input.value : '');
+    const blockName = (rawVal || '').trim();
+    if (!blockName) return;
+
+    const container = document.getElementById('blocks-checkboxes-container');
+    if (!container) return;
+
+    // Check if already exists
+    const existing = Array.from(container.querySelectorAll('input[type="checkbox"]')).find(cb => cb.value.toLowerCase() === blockName.toLowerCase());
+    if (existing) {
+        existing.checked = true;
+        onBlockCheckboxToggled(existing);
+        if (input) input.value = '';
+        return;
+    }
+
+    const isGate = blockName.toLowerCase().includes('gate');
+    const newHtml = `
+        <label class="flex items-center gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer border-[#0066cc] bg-blue-50/40 text-[#0066cc]" id="label-block-${escapeHtml(blockName).replace(/[^a-zA-Z0-9]/g, '_')}">
+            <input type="checkbox" value="${escapeHtml(blockName)}" checked onchange="onBlockCheckboxToggled(this)" class="rounded text-[#0066cc] focus:ring-[#0066cc] w-4 h-4 shrink-0">
+            <span class="material-symbols-outlined text-base shrink-0 text-[#0066cc]">${isGate ? 'sensor_door' : 'apartment'}</span>
+            <span class="font-bold text-xs truncate flex-1">${escapeHtml(blockName)}</span>
+        </label>
+    `;
+    container.insertAdjacentHTML('beforeend', newHtml);
+    if (input) input.value = '';
+    updateBlocksModalLivePreview();
+}
+
+function updateBlocksModalLivePreview() {
+    const modal = document.getElementById('modal-hostel-blocks');
+    if (!modal) return;
+
+    const checkedBoxes = Array.from(modal.querySelectorAll('#blocks-checkboxes-container input[type="checkbox"]:checked'));
+    const checkedBlocks = checkedBoxes.map(cb => cb.value);
+
+    const countLabel = document.getElementById('blocks-active-count-label');
+    if (countLabel) {
+        countLabel.textContent = `${checkedBlocks.length} Block${checkedBlocks.length === 1 ? '' : 's'} Active on Storefront`;
+    }
+
+    const previewContainer = document.getElementById('blocks-live-preview-pills');
+    if (previewContainer) {
+        if (checkedBlocks.length === 0) {
+            previewContainer.innerHTML = '<span class="text-rose-500 font-bold text-xs">⚠️ No blocks selected! At least one block must be active.</span>';
+        } else {
+            previewContainer.innerHTML = checkedBlocks.map(b => {
+                const isGate = b.toLowerCase().includes('gate');
+                return `
+                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-600 text-white shadow-2xs">
+                        <span class="material-symbols-outlined text-xs">${isGate ? 'sensor_door' : 'apartment'}</span>
+                        <span>${escapeHtml(b)}</span>
+                    </span>
+                `;
+            }).join('');
+        }
+    }
+}
+
+async function saveHostelBlocks() {
+    if (!currentManagingBlocksHostelId) return;
+
+    const modal = document.getElementById('modal-hostel-blocks');
+    const checkedBoxes = Array.from(modal.querySelectorAll('#blocks-checkboxes-container input[type="checkbox"]:checked'));
+    const checkedBlocks = checkedBoxes.map(cb => cb.value.trim()).filter(Boolean);
+
+    const errBox = document.getElementById('blocks-modal-error');
+    if (errBox) errBox.classList.add('hidden');
+
+    if (checkedBlocks.length === 0) {
+        if (errBox) {
+            errBox.textContent = 'Please select at least one active block (e.g. Block A).';
+            errBox.classList.remove('hidden');
+        }
+        return;
+    }
+
+    const saveBtn = document.getElementById('btn-save-hostel-blocks');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin mr-1">sync</span> Saving...';
+    }
+
+    try {
+        const res = await fetch(`/api/admin/hostels/${encodeURIComponent(currentManagingBlocksHostelId)}`, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ blocks: checkedBlocks })
+        });
+        const data = await res.json();
+        if (data && data.success) {
+            // Update cache
+            const targetHostel = (hostelsCache || []).find(h => h.id === currentManagingBlocksHostelId);
+            if (targetHostel) {
+                targetHostel.blocks = checkedBlocks;
+            }
+            renderHostelsTable();
+            closeHostelBlocksModal();
+            showToast(`✓ ${currentManagingBlocksHostelId} active blocks saved: ${checkedBlocks.join(', ')}`, 'success');
+        } else {
+            if (errBox) {
+                errBox.textContent = data.error || 'Failed to update blocks';
+                errBox.classList.remove('hidden');
+            }
+        }
+    } catch (err) {
+        if (errBox) {
+            errBox.textContent = 'Network error: ' + err.message;
+            errBox.classList.remove('hidden');
+        }
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<span class="material-symbols-outlined text-sm">check</span><span>Save Active Blocks</span>';
+        }
+    }
+}
+
+window.openManageBlocksModal = openManageBlocksModal;
+window.closeHostelBlocksModal = closeHostelBlocksModal;
+window.onManageBlocksHostelChange = onManageBlocksHostelChange;
+window.applyBlocksPreset = applyBlocksPreset;
+window.toggleMainGateBlock = toggleMainGateBlock;
+window.addNewCustomBlock = addNewCustomBlock;
+window.onBlockCheckboxToggled = onBlockCheckboxToggled;
+window.saveHostelBlocks = saveHostelBlocks;

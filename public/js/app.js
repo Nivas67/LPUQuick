@@ -434,7 +434,7 @@ window.openAddressModal = async function (isMandatorySetup = false, onComplete =
         const canonId = matchedLive ? matchedLive.id : (loc.startsWith('BH') || loc.startsWith('GH') ? loc.replace(/^([A-Z]+)(\d+)/, '$1-$2') : loc);
         const blocks = (matchedLive && Array.isArray(matchedLive.blocks) && matchedLive.blocks.length > 0)
             ? matchedLive.blocks
-            : ['Block A', 'Block B', 'Block C', 'Block D', 'Main Gate'];
+            : ['Block A', 'Block B'];
         return {
             id: canonId,
             name: loc,
@@ -446,7 +446,7 @@ window.openAddressModal = async function (isMandatorySetup = false, onComplete =
     });
 
     function getHostelBlocks(hostelKeyOrId) {
-        if (!hostelKeyOrId) return ['Block A', 'Block B', 'Block C', 'Block D', 'Main Gate'];
+        if (!hostelKeyOrId) return ['Block A', 'Block B'];
         const clean = normalizeHostelKey(hostelKeyOrId);
         const found = allLocations.find(h => normalizeHostelKey(h.id) === clean || normalizeHostelKey(h.name) === clean);
         if (found && Array.isArray(found.blocks) && found.blocks.length > 0) {
@@ -456,7 +456,7 @@ window.openAddressModal = async function (isMandatorySetup = false, onComplete =
         if (matched && Array.isArray(matched.blocks) && matched.blocks.length > 0) {
             return matched.blocks;
         }
-        return ['Block A', 'Block B', 'Block C', 'Block D', 'Main Gate'];
+        return ['Block A', 'Block B'];
     }
 
     // Active hostels go to the top ("GOES UP ON THE IMAGE")
