@@ -4253,6 +4253,7 @@ const supabaseDb = {
                 let roles = [];
                 let lastLogin = null;
                 let assignedHostelId = null;
+                let assignedHostels = [];
 
                 let permissions = {};
                 if (a.dob && typeof a.dob === 'string' && a.dob.startsWith('{')) {
@@ -4260,19 +4261,31 @@ const supabaseDb = {
                         const meta = JSON.parse(a.dob);
                         if (Array.isArray(meta.roles)) roles = meta.roles;
                         if (meta.assigned_hostel_id) assignedHostelId = meta.assigned_hostel_id;
+                        if (Array.isArray(meta.assigned_hostels)) {
+                            assignedHostels = meta.assigned_hostels.map(h => String(h).trim().toUpperCase()).filter(Boolean);
+                        }
                         if (meta.permissions && typeof meta.permissions === 'object') permissions = meta.permissions;
                         lastLogin = meta.last_login || null;
                     } catch (e) {}
                 }
 
-                if (!assignedHostelId && hostels.length > 0) {
-                    const matchedHostel = hostels.find(h => h.manager_user_id === a.id);
-                    if (matchedHostel) assignedHostelId = matchedHostel.id;
+                if (hostels.length > 0) {
+                    const managedHostels = hostels.filter(h => h.manager_user_id === a.id).map(h => h.id);
+                    managedHostels.forEach(hId => {
+                        if (!assignedHostels.includes(hId)) assignedHostels.push(hId);
+                    });
+                }
+                if (assignedHostelId && !assignedHostels.includes(assignedHostelId)) {
+                    assignedHostels.unshift(assignedHostelId);
+                }
+                if (!assignedHostelId && assignedHostels.length > 0) {
+                    assignedHostelId = assignedHostels[0];
                 }
 
                 if (isOwner) {
                     if (!roles.includes('owner')) roles.unshift('owner');
                     assignedHostelId = null;
+                    assignedHostels = [];
                 } else if (roles.length === 0) {
                     roles = ['store_manager'];
                 }
@@ -4286,6 +4299,7 @@ const supabaseDb = {
                     permissions,
                     is_owner: isOwner,
                     assigned_hostel_id: isOwner ? null : (assignedHostelId || null),
+                    assigned_hostels: isOwner ? [] : assignedHostels,
                     account_status: a.account_status || 'ACTIVE',
                     last_login: lastLogin,
                     created_at: a.created_at
@@ -4293,17 +4307,32 @@ const supabaseDb = {
             });
         },
 
-        async createStaff({ name, email, phone, password, roles, assigned_hostel_id, permissions }) {
+        async createStaff({ name, email, phone, password, roles, assigned_hostel_id, assigned_hostels, permissions }) {
             const supabase = getSupabaseClient();
             if (!supabase) throw new Error('Database client unavailable');
 
             const cleanEmail = email.trim().toLowerCase();
             const cleanPhone = phone ? phone.trim() : null;
             const assignedRoles = Array.isArray(roles) && roles.length > 0 ? roles : ['store_manager'];
-            const cleanHostel = (assigned_hostel_id && assigned_hostel_id !== 'ALL') ? assigned_hostel_id.trim().toUpperCase() : null;
+
+            let cleanHostels = [];
+            if (Array.isArray(assigned_hostels)) {
+                cleanHostels = assigned_hostels.map(h => String(h).trim().toUpperCase()).filter(h => h && h !== 'ALL');
+            } else if (typeof assigned_hostels === 'string') {
+                cleanHostels = assigned_hostels.split(',').map(h => h.trim().toUpperCase()).filter(h => h && h !== 'ALL');
+            }
+            let cleanHostel = (assigned_hostel_id && assigned_hostel_id !== 'ALL') ? assigned_hostel_id.trim().toUpperCase() : null;
+            if (cleanHostel && !cleanHostels.includes(cleanHostel)) {
+                cleanHostels.unshift(cleanHostel);
+            }
+            if (!cleanHostel && cleanHostels.length > 0) {
+                cleanHostel = cleanHostels[0];
+            }
+
             const dobMeta = JSON.stringify({
                 roles: assignedRoles,
                 assigned_hostel_id: cleanHostel,
+                assigned_hostels: cleanHostels,
                 permissions: permissions || {},
                 last_login: null
             });
@@ -4346,8 +4375,10 @@ const supabaseDb = {
 
                 if (error) throw new Error(`Staff profile promotion failed: ${error.message}`);
 
-                if (cleanHostel && assignedRoles.includes('store_manager')) {
-                    try { await supabaseDb.hostels.assignManager(cleanHostel, data.id); } catch (e) {}
+                if (cleanHostels.length > 0 && assignedRoles.includes('store_manager')) {
+                    for (const hId of cleanHostels) {
+                        try { await supabaseDb.hostels.assignManager(hId, data.id); } catch (e) {}
+                    }
                 }
 
                 return {
@@ -4357,6 +4388,7 @@ const supabaseDb = {
                     phone: data.phone,
                     roles: assignedRoles,
                     assigned_hostel_id: cleanHostel,
+                    assigned_hostels: cleanHostels,
                     account_status: data.account_status,
                     created_at: data.created_at
                 };
@@ -4385,8 +4417,10 @@ const supabaseDb = {
             if (data?.id) cache.delete(`user:id:${data.id}`);
             cache.clearByPrefix('staff:');
 
-            if (cleanHostel && assignedRoles.includes('store_manager')) {
-                try { await supabaseDb.hostels.assignManager(cleanHostel, data.id); } catch (e) {}
+            if (cleanHostels.length > 0 && assignedRoles.includes('store_manager')) {
+                for (const hId of cleanHostels) {
+                    try { await supabaseDb.hostels.assignManager(hId, data.id); } catch (e) {}
+                }
             }
 
             return {
@@ -4396,6 +4430,7 @@ const supabaseDb = {
                 phone: data.phone,
                 roles: assignedRoles,
                 assigned_hostel_id: cleanHostel,
+                assigned_hostels: cleanHostels,
                 account_status: data.account_status,
                 created_at: data.created_at
             };
@@ -4422,7 +4457,9 @@ const supabaseDb = {
             if (updates.account_status && !isOwner) payload.account_status = updates.account_status;
 
             let finalHostel = null;
-            if (updates.roles && Array.isArray(updates.roles) || updates.assigned_hostel_id !== undefined) {
+            let finalHostels = [];
+            const hasHostelUpdate = updates.assigned_hostels !== undefined || updates.assigned_hostel_id !== undefined;
+            if ((updates.roles && Array.isArray(updates.roles)) || hasHostelUpdate || updates.permissions !== undefined) {
                 let currentMeta = {};
                 if (current.dob && current.dob.startsWith('{')) {
                     try { currentMeta = JSON.parse(current.dob); } catch (e) {}
@@ -4433,8 +4470,22 @@ const supabaseDb = {
                 if (isOwner && !newRoles.includes('owner')) newRoles.unshift('owner');
                 
                 finalHostel = currentMeta.assigned_hostel_id || null;
-                if (updates.assigned_hostel_id !== undefined) {
+                finalHostels = Array.isArray(currentMeta.assigned_hostels) ? [...currentMeta.assigned_hostels] : (finalHostel ? [finalHostel] : []);
+
+                if (updates.assigned_hostels !== undefined) {
+                    if (Array.isArray(updates.assigned_hostels)) {
+                        finalHostels = updates.assigned_hostels.map(h => String(h).trim().toUpperCase()).filter(h => h && h !== 'ALL');
+                    } else if (typeof updates.assigned_hostels === 'string') {
+                        finalHostels = updates.assigned_hostels.split(',').map(h => h.trim().toUpperCase()).filter(h => h && h !== 'ALL');
+                    }
+                    finalHostel = finalHostels[0] || null;
+                } else if (updates.assigned_hostel_id !== undefined) {
                     finalHostel = (updates.assigned_hostel_id && updates.assigned_hostel_id !== 'ALL') ? updates.assigned_hostel_id.trim().toUpperCase() : null;
+                    if (finalHostel) {
+                        finalHostels = [finalHostel];
+                    } else {
+                        finalHostels = [];
+                    }
                 }
 
                 const updatedPermissions = updates.permissions !== undefined ? updates.permissions : (currentMeta.permissions || {});
@@ -4442,18 +4493,21 @@ const supabaseDb = {
                     ...currentMeta,
                     roles: newRoles,
                     assigned_hostel_id: isOwner ? null : finalHostel,
+                    assigned_hostels: isOwner ? [] : finalHostels,
                     permissions: updatedPermissions
                 });
 
-                if (finalHostel && newRoles.includes('store_manager')) {
-                    try { await supabaseDb.hostels.assignManager(finalHostel, id); } catch (e) {}
+                if (newRoles.includes('store_manager') && finalHostels.length > 0) {
+                    for (const hId of finalHostels) {
+                        try { await supabaseDb.hostels.assignManager(hId, id); } catch (e) {}
+                    }
                 }
 
-                // If user was removed as store manager or moved to another hostel, clean old manager assignments
+                // If user was removed as store manager or unassigned from specific hostels, clean old manager assignments
                 try {
                     const allHostels = await supabaseDb.hostels.getAll({ includeInactive: true });
                     for (const h of (allHostels || [])) {
-                        if (h.manager_user_id === id && (!newRoles.includes('store_manager') || h.id !== finalHostel)) {
+                        if (h.manager_user_id === id && (!newRoles.includes('store_manager') || !finalHostels.includes(h.id))) {
                             await supabaseDb.hostels.removeManager(h.id);
                         }
                     }
@@ -4483,12 +4537,19 @@ const supabaseDb = {
 
             let roles = [];
             let assignedHostelId = null;
+            let assignedHostels = [];
             if (data.dob && data.dob.startsWith('{')) {
                 try {
                     const parsed = JSON.parse(data.dob);
                     roles = parsed.roles || [];
                     assignedHostelId = parsed.assigned_hostel_id || null;
+                    if (Array.isArray(parsed.assigned_hostels)) {
+                        assignedHostels = parsed.assigned_hostels;
+                    }
                 } catch (e) {}
+            }
+            if (!assignedHostelId && assignedHostels.length > 0) {
+                assignedHostelId = assignedHostels[0];
             }
             if (isOwner && !roles.includes('owner')) {
                 roles.unshift('owner');
@@ -4502,6 +4563,7 @@ const supabaseDb = {
                 account_status: data.account_status,
                 roles,
                 assigned_hostel_id: isOwner ? null : assignedHostelId,
+                assigned_hostels: isOwner ? [] : assignedHostels,
                 is_owner: isOwner
             };
         },

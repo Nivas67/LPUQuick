@@ -251,19 +251,26 @@ async function requireAdmin(req, res, next) {
             user.canAccessHostel = () => true;
         } else {
             let assignedHostel = null;
+            let explicitHostels = [];
             if (user.dob && typeof user.dob === 'string' && user.dob.startsWith('{')) {
                 try {
                     const parsedDob = JSON.parse(user.dob);
                     if (parsedDob.assigned_hostel_id) assignedHostel = parsedDob.assigned_hostel_id;
+                    if (Array.isArray(parsedDob.assigned_hostels)) {
+                        explicitHostels = parsedDob.assigned_hostels.map(h => String(h).trim().toUpperCase()).filter(Boolean);
+                    }
                 } catch (e) {}
             }
 
+            let managedHostels = [];
+            try {
+                const hostels = await supabaseDb.hostels.getAll({ includeInactive: true });
+                managedHostels = (hostels || []).filter(h => h.manager_user_id === user.id).map(h => h.id);
+            } catch (hErr) {}
+
             if (!assignedHostel) {
-                try {
-                    const hostels = await supabaseDb.hostels.getAll({ includeInactive: true });
-                    const matched = (hostels || []).find(h => h.manager_user_id === user.id);
-                    if (matched) assignedHostel = matched.id;
-                } catch (hErr) {}
+                if (explicitHostels.length > 0) assignedHostel = explicitHostels[0];
+                else if (managedHostels.length > 0) assignedHostel = managedHostels[0];
             }
             user.assigned_hostel_id = assignedHostel;
 
@@ -276,6 +283,8 @@ async function requireAdmin(req, res, next) {
             } catch (gErr) {}
 
             const allHostels = new Set(groupHostels);
+            explicitHostels.forEach(h => allHostels.add(h));
+            managedHostels.forEach(h => allHostels.add(h));
             if (assignedHostel) allHostels.add(assignedHostel);
 
             user.assigned_hostels = Array.from(allHostels);

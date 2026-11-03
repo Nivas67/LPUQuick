@@ -769,7 +769,8 @@ router.post('/admin/status', requireAdmin, async (req, res) => {
         }
         if (existingOrder) {
             const hId = extractHostelId(existingOrder);
-            if (!matchHostel(hId, req.admin.assigned_hostel_id)) {
+            const canAccess = req.admin.canAccessHostel ? req.admin.canAccessHostel(hId) : matchHostel(hId, req.admin.assigned_hostel_id);
+            if (!canAccess) {
                 return res.status(403).json({ error: 'Forbidden: You do not have permission to modify orders from other hostels.' });
             }
         }
@@ -982,6 +983,7 @@ router.get('/admin/delivery-staff', requireAdmin, async (req, res) => {
                     roles: s.roles,
                     is_owner: s.is_owner,
                     assigned_hostel_id: s.assigned_hostel_id || null,
+                    assigned_hostels: Array.isArray(s.assigned_hostels) && s.assigned_hostels.length > 0 ? s.assigned_hostels : (s.assigned_hostel_id ? [s.assigned_hostel_id] : []),
                     active_deliveries: loadMap[s.id] || 0,
                     availability_status: status,
                     is_available: status === 'Active'
@@ -1952,10 +1954,11 @@ router.post('/:orderId/claim', requireAdmin, requireRole('delivery_person'), asy
         }
         if (existingOrder) {
             const hId = extractHostelId(existingOrder);
-            if (!matchHostel(hId, req.admin.assigned_hostel_id)) {
+            const canAccess = req.admin.canAccessHostel ? req.admin.canAccessHostel(hId) : matchHostel(hId, req.admin.assigned_hostel_id);
+            if (!canAccess) {
                 return res.status(403).json({
                     success: false,
-                    error: `Forbidden: You are assigned to ${req.admin.assigned_hostel_id} and cannot accept deliveries for ${hId}.`
+                    error: `Forbidden: You do not have permission to accept deliveries for ${hId}.`
                 });
             }
         }
@@ -2036,10 +2039,11 @@ router.post('/:orderId/transfer/request', requireAdmin, async (req, res) => {
     // Verify store manager / delivery personnel hostel scoping
     if (!req.admin.is_owner && req.admin.assigned_hostel_id) {
         const hId = extractHostelId(order);
-        if (!matchHostel(hId, req.admin.assigned_hostel_id)) {
+        const canAccess = req.admin.canAccessHostel ? req.admin.canAccessHostel(hId) : matchHostel(hId, req.admin.assigned_hostel_id);
+        if (!canAccess) {
             return res.status(403).json({
                 success: false,
-                error: `Forbidden: You are assigned to ${req.admin.assigned_hostel_id} and cannot transfer orders from ${hId}.`
+                error: `Forbidden: You do not have permission to transfer orders from ${hId}.`
             });
         }
     }

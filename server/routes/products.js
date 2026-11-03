@@ -201,7 +201,7 @@ router.get('/', async (req, res) => {
 
         let hostelId = req.query.hostel_id || req.query.hostel || '';
         
-        // If an authenticated admin has an assigned hostel (Store Manager / Staff), lock to their hostel
+        // If an authenticated admin has assigned hostel(s) (Store Manager / Staff), scope to their hostels
         if (verifiedAdmin && verifiedAdmin.role !== 'owner' && verifiedAdmin.sub !== 'user_admin_bh13') {
             let user = (staffUserCache && staffUserCache.get(verifiedAdmin.sub)) || (KNOWN_STAFF_FALLBACKS && KNOWN_STAFF_FALLBACKS[verifiedAdmin.sub]);
             if (!user) {
@@ -210,14 +210,27 @@ router.get('/', async (req, res) => {
                     if (user) staffUserCache.set(user.id, user);
                 } catch (e) {}
             }
+            let allowedHostels = [];
             if (user?.dob && typeof user.dob === 'string' && user.dob.startsWith('{')) {
                 try {
                     const parsed = JSON.parse(user.dob);
-                    if (parsed.assigned_hostel_id) hostelId = parsed.assigned_hostel_id;
+                    if (Array.isArray(parsed.assigned_hostels)) {
+                        allowedHostels = parsed.assigned_hostels.map(h => String(h).trim().toUpperCase()).filter(Boolean);
+                    }
+                    if (parsed.assigned_hostel_id && !allowedHostels.includes(parsed.assigned_hostel_id.toUpperCase())) {
+                        allowedHostels.unshift(parsed.assigned_hostel_id.toUpperCase());
+                    }
                 } catch (e) {}
             }
-            if (!hostelId && user?.assigned_hostel_id) {
-                hostelId = user.assigned_hostel_id;
+            if (allowedHostels.length === 0 && user?.assigned_hostel_id) {
+                allowedHostels = [user.assigned_hostel_id.toUpperCase()];
+            }
+
+            const reqHostel = (req.query.hostel_id || req.query.hostel || '').toUpperCase().trim();
+            if (reqHostel && allowedHostels.some(h => h.replace(/[^A-Z0-9]/g, '') === reqHostel.replace(/[^A-Z0-9]/g, ''))) {
+                hostelId = reqHostel;
+            } else if (allowedHostels.length > 0) {
+                hostelId = allowedHostels[0];
             }
         }
 
@@ -323,8 +336,14 @@ router.post('/admin/create', requireAdmin, async (req, res) => {
 
         const isOwner = Boolean(req.admin && req.admin.is_owner);
         let targetHostel = hostel_id || 'BH-13';
-        if (!isOwner && req.admin?.assigned_hostel_id) {
-            targetHostel = req.admin.assigned_hostel_id;
+        if (!isOwner && req.admin) {
+            if (hostel_id && req.admin.canAccessHostel && req.admin.canAccessHostel(hostel_id)) {
+                targetHostel = hostel_id;
+            } else if (req.admin.assigned_hostel_id) {
+                targetHostel = req.admin.assigned_hostel_id;
+            } else if (req.admin.assigned_hostels && req.admin.assigned_hostels.length > 0) {
+                targetHostel = req.admin.assigned_hostels[0];
+            }
         }
 
         const normTarget = targetHostel.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -393,18 +412,19 @@ router.put('/admin/update/:id', requireAdmin, async (req, res) => {
 
         let targetHostel = 'BH-13';
         if (!isOwner) {
-            if (!assignedHostel) {
-                return res.status(403).json({ success: false, code: 'FORBIDDEN', error: 'Forbidden: No assigned hostel found for store manager.' });
-            }
             const reqHostel = req.body.hostel_id || req.body.hostel;
             if (reqHostel) {
-                const normReq = String(reqHostel).toUpperCase().replace(/[^A-Z0-9]/g, '');
-                const normAssigned = assignedHostel.toUpperCase().replace(/[^A-Z0-9]/g, '');
-                if (normReq !== normAssigned) {
-                    return res.status(403).json({ success: false, code: 'FORBIDDEN', error: 'Forbidden: You only have access to manage products in your assigned hostel.' });
+                if (req.admin?.canAccessHostel && !req.admin.canAccessHostel(reqHostel)) {
+                    return res.status(403).json({ success: false, code: 'FORBIDDEN', error: 'Forbidden: You only have access to manage products in your assigned hostels.' });
                 }
+                targetHostel = reqHostel;
+            } else if (assignedHostel) {
+                targetHostel = assignedHostel;
+            } else if (req.admin?.assigned_hostels && req.admin.assigned_hostels.length > 0) {
+                targetHostel = req.admin.assigned_hostels[0];
+            } else {
+                return res.status(403).json({ success: false, code: 'FORBIDDEN', error: 'Forbidden: No assigned hostel found for store manager.' });
             }
-            targetHostel = assignedHostel;
         } else {
             targetHostel = req.body.hostel_id || req.body.hostel || 'BH-13';
         }
@@ -527,12 +547,18 @@ router.delete('/admin/deactivate/:id', requireAdmin, async (req, res) => {
     const { id } = req.params;
     try {
         const isOwner = Boolean(req.admin && req.admin.is_owner);
-        const assignedHostel = req.admin?.assigned_hostel_id || null;
-        const targetHostel = (!isOwner && assignedHostel) ? assignedHostel : (req.query.hostel_id || req.body?.hostel_id || 'BH-13');
-
-        const storeToDeactivate = (!isOwner && assignedHostel)
-            ? assignedHostel
-            : (req.query.hostel_id || req.body?.hostel_id || 'BH-13');
+        const reqHostel = req.query.hostel_id || req.body?.hostel_id;
+        let storeToDeactivate = reqHostel || 'BH-13';
+        if (!isOwner) {
+            if (reqHostel && req.admin?.canAccessHostel && req.admin.canAccessHostel(reqHostel)) {
+                storeToDeactivate = reqHostel;
+            } else if (req.admin?.assigned_hostel_id) {
+                storeToDeactivate = req.admin.assigned_hostel_id;
+            } else if (req.admin?.assigned_hostels && req.admin.assigned_hostels.length > 0) {
+                storeToDeactivate = req.admin.assigned_hostels[0];
+            }
+        }
+        const targetHostel = storeToDeactivate;
 
         const updatedStock = await supabaseDb.inventory.setProductStock(storeToDeactivate, id, {
             in_stock: false,

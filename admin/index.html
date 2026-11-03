@@ -4970,21 +4970,39 @@
                     </div>
                 </div>
 
-                <!-- Available Hostel to Assign -->
-                <div class="bg-[#f7fafd] border border-[#DADCE0] p-4 rounded-xl space-y-2">
-                    <label class="font-bold text-[#181c1f] text-xs flex items-center justify-between">
-                        <span class="flex items-center gap-1.5">
+                <!-- Assigned Hostels (Multi-Hostel Assignment) -->
+                <div class="bg-[#f7fafd] border border-[#DADCE0] p-4 rounded-xl space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <label class="font-bold text-[#181c1f] text-xs flex items-center gap-1.5">
                             <span class="material-symbols-outlined text-sm text-[#1a73e8]">domain</span>
-                            <span>Available Hostel to Assign</span>
+                            <span>Assigned Hostels &amp; Stores (Multi-Hostel)</span>
+                        </label>
+                        <span id="staff-hostel-count-badge" class="text-[10px] text-[#1a73e8] font-bold bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                            All Hostels (General Admin)
                         </span>
-                        <span class="text-[10px] text-[#1a73e8] font-bold">Dark-Store Scoping</span>
-                    </label>
-                    <select id="form-staff-hostel"
-                        class="w-full border border-[#DADCE0] rounded-xl p-2.5 focus:border-[#1a73e8] outline-none text-xs bg-white cursor-pointer font-medium text-[#181c1f]">
+                    </div>
+
+                    <div class="flex items-center justify-between gap-2 pt-0.5">
+                        <span class="text-[11px] text-[#5c5f60]">Assign one or multiple hostels to this admin:</span>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="selectAllStaffHostels(true)" class="text-[11px] font-bold text-[#1a73e8] hover:underline cursor-pointer">Select All</button>
+                            <span class="text-gray-300">|</span>
+                            <button type="button" onclick="selectAllStaffHostels(false)" class="text-[11px] font-bold text-gray-500 hover:text-gray-700 cursor-pointer">Clear All</button>
+                        </div>
+                    </div>
+
+                    <!-- Multi-hostel checkbox checklist -->
+                    <div id="staff-hostels-checklist" class="max-h-44 overflow-y-auto border border-[#DADCE0] rounded-xl p-2.5 bg-white grid grid-cols-2 sm:grid-cols-3 gap-1.5 shadow-2xs">
+                        <!-- Populated dynamically by openStaffModal -->
+                    </div>
+
+                    <!-- Hidden legacy select for zero-breakage backwards compatibility -->
+                    <select id="form-staff-hostel" class="hidden">
                         <option value="">🏢 None / All Hostels (General Admin)</option>
                     </select>
-                    <p class="text-[11px] text-[#5c5f60]">
-                        Assign this Delivery Person or Store Manager to an available campus hostel. When they log in, they will only see and manage orders, inventory, and activity for their assigned hostel.
+
+                    <p class="text-[11px] text-[#5c5f60] leading-relaxed">
+                        When this staff member logs in, they will have permissions to manage products, inventory, orders, and delivery dispatch for all selected hostels.
                     </p>
                 </div>
 

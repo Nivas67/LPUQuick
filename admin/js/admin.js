@@ -480,7 +480,10 @@ function applyAdminRolePermissions(profile) {
             if (roles.includes('store_manager')) roleLabels.push('Store Mgr');
             if (roles.includes('inventory_manager')) roleLabels.push('Inventory');
             if (roles.includes('delivery_person')) roleLabels.push('Delivery');
-            const hostelTag = profile.assigned_hostel_id ? ` • ${profile.assigned_hostel_id}` : '';
+            const myHostels = (profile.assigned_hostels && profile.assigned_hostels.length > 0)
+                ? profile.assigned_hostels
+                : (profile.assigned_hostel_id ? [profile.assigned_hostel_id] : []);
+            const hostelTag = myHostels.length > 0 ? ` • ${myHostels.join(', ')}` : '';
             roleEl.textContent = (roleLabels.join(' • ') || 'Staff Member') + hostelTag;
             roleEl.className = 'text-[10px] text-[#1a73e8] font-semibold truncate';
         }
@@ -495,9 +498,15 @@ function applyAdminRolePermissions(profile) {
     const topName = document.getElementById('top-hostel-name');
     const mobHostel = document.getElementById('top-hostel-name-mobile');
     if (topBadge && topName) {
-        if (!isOwner && profile.assigned_hostel_id) {
-            topName.textContent = `${profile.assigned_hostel_id} Dark-Store`;
-            if (mobHostel) mobHostel.textContent = profile.assigned_hostel_id;
+        const myHostels = (profile.assigned_hostels && profile.assigned_hostels.length > 0)
+            ? profile.assigned_hostels
+            : (profile.assigned_hostel_id ? [profile.assigned_hostel_id] : []);
+        if (!isOwner && myHostels.length > 0) {
+            const hLabel = myHostels.length > 2 
+                ? `${myHostels.slice(0, 2).join(', ')} +${myHostels.length - 2}` 
+                : myHostels.join(', ');
+            topName.textContent = `${hLabel} Dark-Store`;
+            if (mobHostel) mobHostel.textContent = hLabel;
             topBadge.className = 'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#0066cc] border border-blue-200';
             topBadge.classList.remove('hidden');
         } else if (isOwner) {
@@ -536,11 +545,14 @@ function applyAdminRolePermissions(profile) {
     if (typeof populateHostelDropdowns === 'function') {
         populateHostelDropdowns();
     }
-    if (!isOwner && profile.assigned_hostel_id) {
+    const myAssignedHostels = (profile.assigned_hostels && profile.assigned_hostels.length > 0)
+        ? profile.assigned_hostels
+        : (profile.assigned_hostel_id ? [profile.assigned_hostel_id] : []);
+    if (!isOwner && myAssignedHostels.length === 1) {
         ['products-hostel-filter', 'inventory-hostel-filter', 'orders-hostel-filter'].forEach(id => {
             const el = document.getElementById(id);
             if (el) {
-                el.value = profile.assigned_hostel_id;
+                el.value = myAssignedHostels[0];
                 el.disabled = true;
             }
         });
@@ -1421,9 +1433,13 @@ async function handleApplyLock(e) {
     }
     let targetHostel = getActiveLockHostel();
     const isOwner = typeof isPlatformOwner === 'function' ? isPlatformOwner(currentAdminProfile) : Boolean(currentAdminProfile?.is_owner);
-    const assignedHostel = currentAdminProfile?.assigned_hostel_id;
-    if (!isOwner && assignedHostel) {
-        targetHostel = assignedHostel;
+    const myHostels = (currentAdminProfile?.assigned_hostels && currentAdminProfile.assigned_hostels.length > 0)
+        ? currentAdminProfile.assigned_hostels
+        : (currentAdminProfile?.assigned_hostel_id ? [currentAdminProfile.assigned_hostel_id] : []);
+    if (!isOwner && myHostels.length > 0) {
+        if (!myHostels.includes(targetHostel)) {
+            targetHostel = myHostels[0];
+        }
     }
 
     const payload = {
@@ -1462,10 +1478,14 @@ async function handleApplyLock(e) {
 
 async function handleUnlockStore(overrideHostel) {
     const isOwner = typeof isPlatformOwner === 'function' ? isPlatformOwner(currentAdminProfile) : Boolean(currentAdminProfile?.is_owner);
-    const assignedHostel = currentAdminProfile?.assigned_hostel_id;
+    const myHostels = (currentAdminProfile?.assigned_hostels && currentAdminProfile.assigned_hostels.length > 0)
+        ? currentAdminProfile.assigned_hostels
+        : (currentAdminProfile?.assigned_hostel_id ? [currentAdminProfile.assigned_hostel_id] : []);
     let targetHostel = overrideHostel || getActiveLockHostel();
-    if (!isOwner && assignedHostel) {
-        targetHostel = assignedHostel;
+    if (!isOwner && myHostels.length > 0) {
+        if (!myHostels.includes(targetHostel)) {
+            targetHostel = myHostels[0];
+        }
     }
     const hostelLabel = (targetHostel && targetHostel !== 'ALL') ? ` for ${targetHostel}` : '';
     if (!confirm(`Are you sure you want to UNLOCK the client storefront${hostelLabel} and make orders available now?`)) {
@@ -4605,9 +4625,27 @@ function openProductModal(product = null) {
             hostelSelect.value = (currentAdminProfile && currentAdminProfile.assigned_hostel_id)
                 || (activeFilter && activeFilter !== 'ALL' ? activeFilter : 'BH-13');
         }
-        if (!isOwner && currentAdminProfile && currentAdminProfile.assigned_hostel_id) {
-            hostelSelect.value = currentAdminProfile.assigned_hostel_id;
+        const myHostels = (currentAdminProfile?.assigned_hostels && currentAdminProfile.assigned_hostels.length > 0)
+            ? currentAdminProfile.assigned_hostels
+            : (currentAdminProfile?.assigned_hostel_id ? [currentAdminProfile.assigned_hostel_id] : []);
+
+        if (!isOwner && myHostels.length === 1) {
+            hostelSelect.value = myHostels[0];
             hostelSelect.disabled = true;
+        } else if (!isOwner && myHostels.length > 1) {
+            Array.from(hostelSelect.options).forEach(opt => {
+                if (opt.value && !myHostels.includes(opt.value)) {
+                    opt.disabled = true;
+                    opt.style.display = 'none';
+                } else {
+                    opt.disabled = false;
+                    opt.style.display = '';
+                }
+            });
+            if (!myHostels.includes(hostelSelect.value)) {
+                hostelSelect.value = myHostels[0];
+            }
+            hostelSelect.disabled = false;
         } else {
             hostelSelect.disabled = false;
         }
@@ -4657,9 +4695,13 @@ async function handleModalDeleteProduct() {
 
 async function editProduct(id) {
     const isOwner = isPlatformOwner();
-    const hostelId = (currentAdminProfile && currentAdminProfile.assigned_hostel_id && !isOwner)
-        ? currentAdminProfile.assigned_hostel_id
-        : ((typeof getActiveAdminHostelFilter === 'function') ? getActiveAdminHostelFilter('products') : null);
+    const myHostels = (currentAdminProfile?.assigned_hostels && currentAdminProfile.assigned_hostels.length > 0)
+        ? currentAdminProfile.assigned_hostels
+        : (currentAdminProfile?.assigned_hostel_id ? [currentAdminProfile.assigned_hostel_id] : []);
+    const activeFilter = (typeof getActiveAdminHostelFilter === 'function') ? getActiveAdminHostelFilter('products') : null;
+    const hostelId = (!isOwner && myHostels.length === 1)
+        ? myHostels[0]
+        : (activeFilter || currentAdminProfile?.assigned_hostel_id || null);
     const hostelParam = hostelId ? `?hostel_id=${encodeURIComponent(hostelId)}&force=true` : '?force=true';
     try {
         const res = await fetch(`/api/products/${id}${hostelParam}&_t=${Date.now()}`, {
@@ -4722,10 +4764,13 @@ async function handleProductSubmit(e) {
         }
 
         const isOwner = isPlatformOwner();
+        const myHostels = (currentAdminProfile?.assigned_hostels && currentAdminProfile.assigned_hostels.length > 0)
+            ? currentAdminProfile.assigned_hostels
+            : (currentAdminProfile?.assigned_hostel_id ? [currentAdminProfile.assigned_hostel_id] : []);
         const hostelSelect = document.getElementById('form-product-hostel');
-        const hostelVal = (currentAdminProfile && currentAdminProfile.assigned_hostel_id && !isOwner)
-            ? currentAdminProfile.assigned_hostel_id
-            : (hostelSelect?.value || currentAdminProfile?.assigned_hostel_id || 'BH-13');
+        const hostelVal = (hostelSelect?.value && (!currentAdminProfile || isOwner || myHostels.includes(hostelSelect.value)))
+            ? hostelSelect.value
+            : (currentAdminProfile?.assigned_hostel_id || 'BH-13');
 
         const currentName = document.getElementById('form-product-name').value.trim();
         const currentCategory = document.getElementById('form-product-category').value;
@@ -6651,10 +6696,15 @@ function renderStaffTable(list) {
         }
 
         let hostelBadge = '';
+        const assignedList = Array.isArray(s.assigned_hostels) && s.assigned_hostels.length > 0 
+            ? s.assigned_hostels 
+            : (s.assigned_hostel_id ? [s.assigned_hostel_id] : []);
         if (isOwner) {
             hostelBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-300">🌐 All Hostels (Master)</span>`;
-        } else if (s.assigned_hostel_id) {
-            hostelBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#0066cc] border border-blue-200">🏢 ${escapeHtml(s.assigned_hostel_id)}</span>`;
+        } else if (assignedList.length > 0) {
+            hostelBadge = assignedList.map(h => 
+                `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#0066cc] border border-blue-200">🏢 ${escapeHtml(h)}</span>`
+            ).join(' ');
         } else {
             hostelBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-200">🌐 All Hostels</span>`;
         }
@@ -6712,6 +6762,105 @@ function renderStaffTable(list) {
     }).join('');
 }
 
+
+function updateStaffHostelCountBadge() {
+    const badge = document.getElementById('staff-hostel-count-badge');
+    const checked = getSelectedStaffHostels();
+    const legacySelect = document.getElementById('form-staff-hostel');
+    if (legacySelect) {
+        legacySelect.value = checked[0] || '';
+    }
+    if (!badge) return;
+    if (checked.length === 0) {
+        badge.textContent = 'All Hostels (General Admin)';
+        badge.className = 'text-[10px] text-gray-600 font-bold bg-gray-100 px-2 py-0.5 rounded-full border border-gray-200';
+    } else if (checked.length === 1) {
+        badge.textContent = `1 Hostel: ${checked[0]}`;
+        badge.className = 'text-[10px] text-[#1a73e8] font-bold bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200';
+    } else {
+        badge.textContent = `${checked.length} Hostels Assigned`;
+        badge.className = 'text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200';
+    }
+}
+
+function getSelectedStaffHostels() {
+    const container = document.getElementById('staff-hostels-checklist');
+    if (!container) {
+        const legacy = document.getElementById('form-staff-hostel')?.value;
+        return legacy ? [legacy] : [];
+    }
+    const checked = Array.from(container.querySelectorAll('input[name="staff-assigned-hostels"]:checked'))
+        .map(cb => cb.value.trim().toUpperCase())
+        .filter(Boolean);
+    return checked;
+}
+
+function selectAllStaffHostels(selectAll = true) {
+    const container = document.getElementById('staff-hostels-checklist');
+    if (!container) return;
+    container.querySelectorAll('input[name="staff-assigned-hostels"]').forEach(cb => {
+        cb.checked = Boolean(selectAll);
+    });
+    updateStaffHostelCountBadge();
+}
+
+function populateStaffHostelsChecklist(selectedHostels = []) {
+    const container = document.getElementById('staff-hostels-checklist');
+    const legacySelect = document.getElementById('form-staff-hostel');
+    
+    let normalizedSelected = [];
+    if (Array.isArray(selectedHostels)) {
+        normalizedSelected = selectedHostels.map(h => String(h).trim().toUpperCase()).filter(Boolean);
+    } else if (typeof selectedHostels === 'string' && selectedHostels.trim()) {
+        normalizedSelected = [selectedHostels.trim().toUpperCase()];
+    }
+
+    if (legacySelect) {
+        legacySelect.innerHTML = '<option value="">🏢 None / All Hostels (General Admin)</option>';
+    }
+
+    const activeHostels = (hostelsCache || []).slice().sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
+
+    normalizedSelected.forEach(sel => {
+        if (sel && !activeHostels.some(h => h.id.toUpperCase() === sel)) {
+            activeHostels.push({ id: sel, name: sel, status: 'INACTIVE' });
+        }
+    });
+
+    if (legacySelect) {
+        activeHostels.forEach(h => {
+            const opt = document.createElement('option');
+            opt.value = h.id;
+            opt.textContent = `🏢 ${h.name || h.id} (${h.id})${h.status === 'INACTIVE' ? ' [Inactive]' : ''}`;
+            legacySelect.appendChild(opt);
+        });
+        legacySelect.value = normalizedSelected[0] || '';
+    }
+
+    if (container) {
+        container.innerHTML = activeHostels.map(h => {
+            const isChecked = normalizedSelected.includes(h.id.toUpperCase());
+            const isInactive = h.status === 'INACTIVE';
+            return `
+                <label class="flex items-center gap-2 p-2 rounded-lg border ${isChecked ? 'border-blue-400 bg-blue-50/50' : 'border-gray-200 bg-white'} hover:border-blue-300 hover:bg-blue-50/30 cursor-pointer transition-all text-xs">
+                    <input type="checkbox" name="staff-assigned-hostels" value="${escapeHtml(h.id)}" ${isChecked ? 'checked' : ''} onchange="updateStaffHostelCountBadge()" class="rounded text-[#1a73e8] focus:ring-[#1a73e8] w-4 h-4 shrink-0">
+                    <div class="min-w-0 flex-1 truncate">
+                        <span class="font-bold text-slate-800">${escapeHtml(h.name || h.id)}</span>
+                        ${isInactive ? '<span class="text-[9px] text-rose-500 font-bold ml-1">[Inactive]</span>' : ''}
+                    </div>
+                </label>
+            `;
+        }).join('');
+    }
+
+    updateStaffHostelCountBadge();
+}
+
+window.selectAllStaffHostels = selectAllStaffHostels;
+window.updateStaffHostelCountBadge = updateStaffHostelCountBadge;
+window.populateStaffHostelsChecklist = populateStaffHostelsChecklist;
+window.getSelectedStaffHostels = getSelectedStaffHostels;
+
 function openStaffModal(staffId = null) {
     const modal = document.getElementById('modal-staff');
     if (!modal) return;
@@ -6760,25 +6909,10 @@ function openStaffModal(staffId = null) {
         if (onRadio) onRadio.checked = isOnDuty;
         if (offRadio) offRadio.checked = !isOnDuty;
 
-        const hostelSelect = document.getElementById('form-staff-hostel');
-        if (hostelSelect) {
-            hostelSelect.innerHTML = '<option value="">🏢 None / All Hostels (General Admin)</option>';
-            const activeHostels = (hostelsCache || []).filter(h => h.status === 'ACTIVE' || h.status === 'active');
-            activeHostels.forEach(h => {
-                const opt = document.createElement('option');
-                opt.value = h.id;
-                opt.textContent = `🏢 ${h.name || h.id} (${h.id})`;
-                hostelSelect.appendChild(opt);
-            });
-            // If current assignment is inactive, keep it in list
-            if (staff.assigned_hostel_id && !activeHostels.some(h => h.id === staff.assigned_hostel_id)) {
-                const opt = document.createElement('option');
-                opt.value = staff.assigned_hostel_id;
-                opt.textContent = `🏢 ${staff.assigned_hostel_name || staff.assigned_hostel_id} [Inactive]`;
-                hostelSelect.appendChild(opt);
-            }
-            hostelSelect.value = staff.assigned_hostel_id || '';
-        }
+        const assignedList = Array.isArray(staff.assigned_hostels) && staff.assigned_hostels.length > 0
+            ? staff.assigned_hostels
+            : (staff.assigned_hostel_id ? [staff.assigned_hostel_id] : []);
+        populateStaffHostelsChecklist(assignedList);
 
         if (delBtn) {
             delBtn.classList.toggle('hidden', staff.is_owner);
@@ -6809,18 +6943,7 @@ function openStaffModal(staffId = null) {
         if (onRadioNew) onRadioNew.checked = true;
         if (offRadioNew) offRadioNew.checked = false;
 
-        const hostelSelect = document.getElementById('form-staff-hostel');
-        if (hostelSelect) {
-            hostelSelect.innerHTML = '<option value="">🏢 None / All Hostels (General Admin)</option>';
-            const activeHostels = (hostelsCache || []).filter(h => h.status === 'ACTIVE' || h.status === 'active');
-            activeHostels.forEach(h => {
-                const opt = document.createElement('option');
-                opt.value = h.id;
-                opt.textContent = `🏢 ${h.name || h.id} (${h.id})`;
-                hostelSelect.appendChild(opt);
-            });
-            hostelSelect.value = '';
-        }
+        populateStaffHostelsChecklist([]);
 
         if (delBtn) delBtn.classList.add('hidden');
     }
@@ -6840,7 +6963,8 @@ async function submitStaffForm(e) {
     const email = document.getElementById('form-staff-email').value.trim();
     const phone = document.getElementById('form-staff-phone').value.trim();
     const password = document.getElementById('form-staff-password').value;
-    const assignedHostelId = document.getElementById('form-staff-hostel')?.value || null;
+    const selectedHostels = typeof getSelectedStaffHostels === 'function' ? getSelectedStaffHostels() : [];
+    const assignedHostelId = selectedHostels[0] || (document.getElementById('form-staff-hostel')?.value || null);
     const errBox = document.getElementById('staff-form-error');
 
     const roles = [];
@@ -6875,7 +6999,16 @@ async function submitStaffForm(e) {
     try {
         let res;
         if (id) {
-            const payload = { name, phone, roles, permissions, assigned_hostel_id: assignedHostelId, is_on_duty: isOnDuty, duty_status: dutyStatus };
+            const payload = { 
+                name, 
+                phone, 
+                roles, 
+                permissions, 
+                assigned_hostel_id: assignedHostelId, 
+                assigned_hostels: selectedHostels, 
+                is_on_duty: isOnDuty, 
+                duty_status: dutyStatus 
+            };
             if (password) payload.password = password;
             res = await fetch(`/api/admin/staff/${id}`, {
                 method: 'PUT',
@@ -6886,7 +7019,18 @@ async function submitStaffForm(e) {
             res = await fetch('/api/admin/staff', {
                 method: 'POST',
                 headers: getAuthHeaders(),
-                body: JSON.stringify({ name, email, phone, password, roles, permissions, assigned_hostel_id: assignedHostelId, is_on_duty: isOnDuty, duty_status: dutyStatus })
+                body: JSON.stringify({ 
+                    name, 
+                    email, 
+                    phone, 
+                    password, 
+                    roles, 
+                    permissions, 
+                    assigned_hostel_id: assignedHostelId, 
+                    assigned_hostels: selectedHostels, 
+                    is_on_duty: isOnDuty, 
+                    duty_status: dutyStatus 
+                })
             });
         }
 
@@ -6985,7 +7129,15 @@ async function loadEmployeesList() {
         el('stat-emp-total', employeesCache.length);
         el('stat-emp-managers', employeesCache.filter(e => e.is_store_manager).length);
         el('stat-emp-riders', employeesCache.filter(e => e.is_delivery_boy).length);
-        el('stat-emp-hostels', new Set(employeesCache.map(e => e.assigned_hostel_id).filter(Boolean)).size);
+        const coveredH = new Set();
+        employeesCache.forEach(e => {
+            if (Array.isArray(e.assigned_hostels) && e.assigned_hostels.length > 0) {
+                e.assigned_hostels.forEach(h => { if (h) coveredH.add(h); });
+            } else if (e.assigned_hostel_id) {
+                coveredH.add(e.assigned_hostel_id);
+            }
+        });
+        el('stat-emp-hostels', coveredH.size);
         el('stat-emp-onduty', employeesCache.filter(e => e.delivery_data?.duty_status === 'ON_DUTY').length);
 
         // Populate hostel filter dropdown with ONLY active hostels (active by me)
@@ -7047,10 +7199,15 @@ function renderEmployeesTable(list) {
 
         // Hostel badge
         let hostelBadge = '';
+        const assignedList = Array.isArray(emp.assigned_hostels) && emp.assigned_hostels.length > 0 
+            ? emp.assigned_hostels 
+            : (emp.assigned_hostel_id ? [emp.assigned_hostel_id] : []);
         if (isOwner) {
             hostelBadge = '<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-300">🌐 All Hostels (Master)</span>';
-        } else if (emp.assigned_hostel_id) {
-            hostelBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#0066cc] border border-blue-200">🏢 ${escapeHtml(emp.assigned_hostel_name || emp.assigned_hostel_id)}</span>`;
+        } else if (assignedList.length > 0) {
+            hostelBadge = assignedList.map(h => 
+                `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#0066cc] border border-blue-200">🏢 ${escapeHtml(h)}</span>`
+            ).join(' ');
         } else {
             hostelBadge = '<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-200">General Ops</span>';
         }
@@ -7163,12 +7320,12 @@ function filterEmployeesList() {
     if (hostelVal) {
         filtered = filtered.filter(e => {
             if (!e) return false;
-            const hId = (e.assigned_hostel_id || '').toUpperCase().trim();
             const hVal = hostelVal.toUpperCase().trim();
+            const assignedList = Array.isArray(e.assigned_hostels) && e.assigned_hostels.length > 0
+                ? e.assigned_hostels.map(h => String(h).toUpperCase().trim())
+                : (e.assigned_hostel_id ? [e.assigned_hostel_id.toUpperCase().trim()] : []);
             const hName = (e.assigned_hostel_name || '').toLowerCase().trim();
-            return hId === hVal || 
-                   hId === hVal.replace(/\s+/g, '-') || 
-                   hId.replace(/\s+/g, '-') === hVal || 
+            return assignedList.some(h => h === hVal || h === hVal.replace(/\s+/g, '-') || h.replace(/\s+/g, '-') === hVal) || 
                    (hName && hName.includes(hostelVal.toLowerCase()));
         });
     }
@@ -7410,12 +7567,24 @@ let activeAdminHostelFilter = {
 };
 
 function getActiveAdminHostelFilter(view = 'products') {
-    // If logged in admin is a Store Manager with assigned_hostel_id, lock to that hostel
-    if (currentAdminProfile && !isPlatformOwner(currentAdminProfile) && currentAdminProfile.assigned_hostel_id) {
-        return currentAdminProfile.assigned_hostel_id;
+    const isOwner = isPlatformOwner(currentAdminProfile);
+    const assignedHostels = (currentAdminProfile?.assigned_hostels && currentAdminProfile.assigned_hostels.length > 0)
+        ? currentAdminProfile.assigned_hostels
+        : (currentAdminProfile?.assigned_hostel_id ? [currentAdminProfile.assigned_hostel_id] : []);
+
+    // If logged in admin is assigned to exactly 1 hostel, lock to that single hostel
+    if (!isOwner && assignedHostels.length === 1) {
+        return assignedHostels[0];
     }
+
     const val = activeAdminHostelFilter[view] || 'ALL';
-    return (val && val !== 'ALL') ? val : null;
+    if (val && val !== 'ALL') {
+        if (!isOwner && assignedHostels.length > 1) {
+            return assignedHostels.includes(val) ? val : assignedHostels[0];
+        }
+        return val;
+    }
+    return null;
 }
 
 function populateHostelDropdowns() {

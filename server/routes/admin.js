@@ -622,6 +622,7 @@ router.get('/employees', requireRole('owner'), async (req, res) => {
                 duty_status: isDuty ? 'ON_DUTY' : 'OFF_DUTY',
                 is_on_duty: isDuty,
                 assigned_hostel_id: s.assigned_hostel_id || null,
+                assigned_hostels: Array.isArray(s.assigned_hostels) && s.assigned_hostels.length > 0 ? s.assigned_hostels : (s.assigned_hostel_id ? [s.assigned_hostel_id] : []),
                 assigned_hostel_name: assignedHostel ? assignedHostel.name : (s.is_owner ? 'All Campus Hostels (Master)' : (s.assigned_hostel_id || 'General Operations')),
                 managed_hostels: managed.map(h => ({ id: h.id, name: h.name, status: h.status })),
                 last_login: s.last_login || null,
@@ -648,7 +649,7 @@ router.get('/employees', requireRole('owner'), async (req, res) => {
             store_managers: employees.filter(e => e.is_store_manager).length,
             delivery_boys: employees.filter(e => e.is_delivery_boy).length,
             inventory_managers: employees.filter(e => e.is_inventory_manager).length,
-            hostels_covered: new Set(employees.map(e => e.assigned_hostel_id).filter(Boolean)).size,
+            hostels_covered: new Set(employees.flatMap(e => (Array.isArray(e.assigned_hostels) && e.assigned_hostels.length > 0) ? e.assigned_hostels : [e.assigned_hostel_id]).filter(Boolean)).size,
             active_on_duty: employees.filter(e => e.duty_status === 'ON_DUTY').length
         };
 
@@ -687,7 +688,7 @@ router.get('/staff', requireRole('owner'), async (req, res) => {
 
 // POST /api/admin/staff (Create a new admin team member)
 router.post('/staff', requireRole('owner'), async (req, res) => {
-    const { name, email, phone, password, roles, assigned_hostel_id, permissions, is_on_duty, duty_status, status } = req.body;
+    const { name, email, phone, password, roles, assigned_hostel_id, assigned_hostels, permissions, is_on_duty, duty_status, status } = req.body;
     if (!name || !email || !password) {
         return res.status(400).json({ error: 'Name, email, and password are required' });
     }
@@ -699,7 +700,9 @@ router.post('/staff', requireRole('owner'), async (req, res) => {
             phone,
             password,
             roles: Array.isArray(roles) && roles.length > 0 ? roles : ['store_manager'],
-            assigned_hostel_id: assigned_hostel_id || null
+            assigned_hostel_id: assigned_hostel_id || null,
+            assigned_hostels: assigned_hostels || (assigned_hostel_id ? [assigned_hostel_id] : []),
+            permissions: permissions || {}
         });
 
         if (created && created.id) {
@@ -1396,7 +1399,13 @@ const handleAssignManager = async (req, res) => {
             if (user.dob && typeof user.dob === 'string' && user.dob.startsWith('{')) {
                 meta = JSON.parse(user.dob);
             }
-            meta.assigned_hostel_id = id;
+            if (!Array.isArray(meta.assigned_hostels)) {
+                meta.assigned_hostels = meta.assigned_hostel_id ? [meta.assigned_hostel_id] : [];
+            }
+            if (!meta.assigned_hostels.includes(id)) {
+                meta.assigned_hostels.push(id);
+            }
+            meta.assigned_hostel_id = meta.assigned_hostels[0] || id;
             if (!meta.roles) meta.roles = ['store_manager'];
             else if (!meta.roles.includes('store_manager')) meta.roles.push('store_manager');
 
@@ -1444,7 +1453,12 @@ const handleRemoveManager = async (req, res) => {
                 const u = await supabaseDb.users.getById(previousManagerId);
                 if (u && u.dob && typeof u.dob === 'string' && u.dob.startsWith('{')) {
                     const meta = JSON.parse(u.dob);
-                    delete meta.assigned_hostel_id;
+                    if (Array.isArray(meta.assigned_hostels)) {
+                        meta.assigned_hostels = meta.assigned_hostels.filter(h => h !== id);
+                        meta.assigned_hostel_id = meta.assigned_hostels[0] || null;
+                    } else if (meta.assigned_hostel_id === id) {
+                        delete meta.assigned_hostel_id;
+                    }
                     const supabase = require('../supabase').getSupabaseClient();
                     if (supabase) {
                         await supabase.from('users').update({ dob: JSON.stringify(meta) }).eq('id', previousManagerId);
