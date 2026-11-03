@@ -7637,7 +7637,7 @@ function populateHostelDropdowns() {
                     select.appendChild(allOpt);
                 }
                 myHostels.forEach(hId => {
-                    const matched = hostelsCache.find(h => h.id === hId);
+                    const matched = hostelsCache.find(h => h.id === hId || (h.id && hId && h.id.replace(/[^A-Z0-9]/g, '') === hId.replace(/[^A-Z0-9]/g, '')));
                     const opt = document.createElement('option');
                     opt.value = hId;
                     opt.textContent = `🏢 ${matched?.name || hId} (${hId})`;
@@ -7651,7 +7651,7 @@ function populateHostelDropdowns() {
                 }
             } else {
                 const singleId = myHostels[0];
-                const matched = hostelsCache.find(h => h.id === singleId);
+                const matched = hostelsCache.find(h => h.id === singleId || (h.id && singleId && h.id.replace(/[^A-Z0-9]/g, '') === singleId.replace(/[^A-Z0-9]/g, '')));
                 const opt = document.createElement('option');
                 opt.value = singleId;
                 opt.textContent = `🏢 ${matched?.name || singleId} (${singleId})`;

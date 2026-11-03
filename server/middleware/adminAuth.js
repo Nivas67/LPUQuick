@@ -262,33 +262,40 @@ async function requireAdmin(req, res, next) {
                 } catch (e) {}
             }
 
-            let managedHostels = [];
-            try {
-                const hostels = await supabaseDb.hostels.getAll({ includeInactive: true });
-                managedHostels = (hostels || []).filter(h => h.manager_user_id === user.id).map(h => h.id);
-            } catch (hErr) {}
+            if (explicitHostels.length > 0) {
+                user.assigned_hostels = explicitHostels;
+                user.assigned_hostel_id = assignedHostel || explicitHostels[0];
+                user.assigned_groups = [];
+            } else {
+                let managedHostels = [];
+                try {
+                    const hostels = await supabaseDb.hostels.getAll({ includeInactive: true });
+                    managedHostels = (hostels || []).filter(h => h.manager_user_id === user.id).map(h => h.id);
+                } catch (hErr) {}
 
-            if (!assignedHostel) {
-                if (explicitHostels.length > 0) assignedHostel = explicitHostels[0];
-                else if (managedHostels.length > 0) assignedHostel = managedHostels[0];
+                if (!assignedHostel && managedHostels.length > 0) {
+                    assignedHostel = managedHostels[0];
+                }
+                user.assigned_hostel_id = assignedHostel;
+
+                let groupHostels = [];
+                let assignedGroups = [];
+                try {
+                    const hostelGroupService = require('../services/hostelGroupService');
+                    groupHostels = hostelGroupService.getAdminAssignedHostels(user.id);
+                    assignedGroups = hostelGroupService.getAdminAssignedGroups(user.id);
+                } catch (gErr) {}
+
+                const allHostels = new Set(groupHostels);
+                managedHostels.forEach(h => allHostels.add(h));
+                if (assignedHostel) allHostels.add(assignedHostel);
+
+                user.assigned_hostels = Array.from(allHostels);
+                user.assigned_groups = assignedGroups;
+                if (!user.assigned_hostel_id && user.assigned_hostels.length > 0) {
+                    user.assigned_hostel_id = user.assigned_hostels[0];
+                }
             }
-            user.assigned_hostel_id = assignedHostel;
-
-            let groupHostels = [];
-            let assignedGroups = [];
-            try {
-                const hostelGroupService = require('../services/hostelGroupService');
-                groupHostels = hostelGroupService.getAdminAssignedHostels(user.id);
-                assignedGroups = hostelGroupService.getAdminAssignedGroups(user.id);
-            } catch (gErr) {}
-
-            const allHostels = new Set(groupHostels);
-            explicitHostels.forEach(h => allHostels.add(h));
-            managedHostels.forEach(h => allHostels.add(h));
-            if (assignedHostel) allHostels.add(assignedHostel);
-
-            user.assigned_hostels = Array.from(allHostels);
-            user.assigned_groups = assignedGroups;
 
             user.canAccessHostel = (hostelId) => {
                 if (user.is_owner) return true;

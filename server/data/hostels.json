@@ -33,9 +33,9 @@
       "Block B",
       "Hostel Main Gate"
     ],
-    "manager_user_id": "user_full_test_mtncad0n",
+    "manager_user_id": null,
     "created_at": "2026-10-02T07:16:25.310Z",
-    "updated_at": "2026-11-02T04:08:44.493Z"
+    "updated_at": "2026-11-03T14:41:11.520Z"
   },
   {
     "id": "BH-6",
@@ -85,7 +85,7 @@
     ],
     "manager_user_id": "admin_60082a0696",
     "created_at": "2026-10-05T15:23:27.304Z",
-    "updated_at": "2026-11-02T04:07:25.151Z"
+    "updated_at": "2026-11-03T20:31:03.077Z"
   },
   {
     "id": "BH-1",
@@ -122,6 +122,50 @@
     ],
     "manager_user_id": "admin_cfc0b1b7c3",
     "created_at": "2026-11-01T17:59:14.550Z",
-    "updated_at": "2026-11-02T04:07:38.879Z"
+    "updated_at": "2026-11-03T20:31:51.309Z"
+  },
+  {
+    "id": "GH-1",
+    "name": "Girls Hostel 1",
+    "status": "ACTIVE",
+    "blocks": [
+      "Block A"
+    ],
+    "manager_user_id": "admin_6d489b061e",
+    "created_at": "2026-11-03T17:24:11.584Z",
+    "updated_at": "2026-11-03T20:30:17.817Z"
+  },
+  {
+    "id": "GH-2",
+    "name": "Girls Hostel 2",
+    "status": "ACTIVE",
+    "blocks": [
+      "Block A"
+    ],
+    "manager_user_id": "admin_6d489b061e",
+    "created_at": "2026-11-03T17:24:37.216Z",
+    "updated_at": "2026-11-03T20:30:19.300Z"
+  },
+  {
+    "id": "GH-3",
+    "name": "Girls Hostel 3",
+    "status": "ACTIVE",
+    "blocks": [
+      "Block A"
+    ],
+    "manager_user_id": "admin_cfc0b1b7c3",
+    "created_at": "2026-11-03T17:24:59.321Z",
+    "updated_at": "2026-11-03T20:31:51.890Z"
+  },
+  {
+    "id": "GH-4",
+    "name": "Girls Hostel 4",
+    "status": "ACTIVE",
+    "blocks": [
+      "Block A"
+    ],
+    "manager_user_id": "admin_60082a0696",
+    "created_at": "2026-11-03T17:25:19.723Z",
+    "updated_at": "2026-11-03T20:31:03.654Z"
   }
 ]

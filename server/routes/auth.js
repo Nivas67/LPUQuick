@@ -422,20 +422,45 @@ router.post('/admin-login', async (req, res) => {
 
         // Multi-Hostel: Resolve store manager / delivery personnel assigned hostel
         let assignedHostelId = null;
+        let assignedHostels = [];
         if (!isOwner) {
+            let explicitHostels = [];
             if (user.dob && typeof user.dob === 'string' && user.dob.startsWith('{')) {
                 try {
                     const parsedDob = JSON.parse(user.dob);
                     if (parsedDob.assigned_hostel_id) assignedHostelId = parsedDob.assigned_hostel_id;
+                    if (Array.isArray(parsedDob.assigned_hostels)) {
+                        explicitHostels = parsedDob.assigned_hostels.map(h => String(h).trim().toUpperCase()).filter(Boolean);
+                    }
                 } catch (e) {}
             }
 
-            if (!assignedHostelId) {
+            if (explicitHostels.length > 0) {
+                assignedHostels = explicitHostels;
+                if (!assignedHostelId) assignedHostelId = explicitHostels[0];
+            } else {
+                let managedHostels = [];
                 try {
                     const hostels = await supabaseDb.hostels.getAll({ includeInactive: true });
-                    const matched = (hostels || []).find(h => h.manager_user_id === user.id);
-                    if (matched) assignedHostelId = matched.id;
+                    managedHostels = (hostels || []).filter(h => h.manager_user_id === user.id).map(h => h.id);
+                    if (!assignedHostelId && managedHostels.length > 0) {
+                        assignedHostelId = managedHostels[0];
+                    }
                 } catch (hErr) {}
+
+                let groupHostels = [];
+                try {
+                    const hostelGroupService = require('../services/hostelGroupService');
+                    groupHostels = hostelGroupService.getAdminAssignedHostels(user.id);
+                } catch (gErr) {}
+
+                const allHostels = new Set(groupHostels);
+                managedHostels.forEach(h => allHostels.add(h));
+                if (assignedHostelId) allHostels.add(assignedHostelId);
+                assignedHostels = Array.from(allHostels);
+                if (!assignedHostelId && assignedHostels.length > 0) {
+                    assignedHostelId = assignedHostels[0];
+                }
             }
         }
 
@@ -455,7 +480,7 @@ router.post('/admin-login', async (req, res) => {
                 await supabaseDb.audit.logAction({
                     adminId: user.id,
                     action: 'ADMIN_LOGIN',
-                    metadata: { email: user.email, roles, assigned_hostel_id: assignedHostelId, timestamp: new Date().toISOString() }
+                    metadata: { email: user.email, roles, assigned_hostel_id: assignedHostelId, assigned_hostels: assignedHostels, timestamp: new Date().toISOString() }
                 });
             }
         } catch (auditErr) {}
@@ -470,7 +495,8 @@ router.post('/admin-login', async (req, res) => {
                 role: 'admin',
                 roles,
                 is_owner: isOwner,
-                assigned_hostel_id: assignedHostelId
+                assigned_hostel_id: assignedHostelId,
+                assigned_hostels: assignedHostels
             }
         });
     } catch (err) {
