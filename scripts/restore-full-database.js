@@ -216,7 +216,7 @@ async function restoreFullDatabase() {
     console.log('\n4. Restoring Order Items...');
     const orderItemsToRestore = [
         // order_1cd3afdd items
-        { id: 'item_1cd_1', order_id: 'order_1cd3afdd', product_id: 'prod_maggi_70g', quantity: 2, unit_price: 14 },
+        { id: 'item_1cd_1', order_id: 'order_1cd3afdd', product_id: 'prod_magiee_70g', quantity: 2, unit_price: 14 },
         { id: 'item_1cd_2', order_id: 'order_1cd3afdd', product_id: 'prod_lays_magic_masala', quantity: 3, unit_price: 20 },
         { id: 'item_1cd_3', order_id: 'order_1cd3afdd', product_id: 'prod_sting_berry', quantity: 2, unit_price: 20 },
 

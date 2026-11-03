@@ -10,8 +10,8 @@ router.get('/', async (req, res) => {
             const categories = await supabaseDb.products.getCategories();
 
             const categoryMeta = {
-                "Quick's Instant Food": { icon: 'ramen_dining', color: 'secondary-container', description: 'Maggi, Cup Noodles, Pasta & Kitchen Specials' },
-                'Instant Food': { icon: 'ramen_dining', color: 'secondary-container', description: 'Maggi, Cup Noodles, Pasta & Kitchen Specials' },
+                "Quick's Instant Food": { icon: 'ramen_dining', color: 'secondary-container', description: 'magiee, Cup Noodles, Pasta & Kitchen Specials' },
+                'Instant Food': { icon: 'ramen_dining', color: 'secondary-container', description: 'magiee, Cup Noodles, Pasta & Kitchen Specials' },
                 'Bakery & Biscuits': { icon: 'cookie', color: 'primary-container', description: 'Cookies, Rusks, Cakes & Bread' },
                 'Snacks & Beverages': { icon: 'fastfood', color: 'secondary-container', description: 'Chips, Drinks, Noodles & Instant' },
                 'Grocery': { icon: 'shopping_cart', color: 'primary-container', description: 'Fresh Dairy, Fruits & Staples' },

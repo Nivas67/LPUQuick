@@ -11,8 +11,8 @@ function isQuickInstantFoodProduct(p) {
     if (cat === "quick's instant food" || cat === "quicks instant food") return true;
     if (sub === "quick's instant food" || sub === "quicks instant food" || sub === 'cook') return true;
     if ((cat === 'instant food' || cat === 'instant' || sub === 'instant food') && !sub.includes('namkeen') && !/bhelpuri|namkeen|chips|wafer|biscuit/i.test(name)) return true;
-    if (sub.includes('maggi & noodles') || sub.includes('cooked meals') || sub.includes('sandwiches & burgers') || sub.includes('pasta & macaroni') || sub.includes('hot snacks & fries') || sub.includes('soups & bowls')) return true;
-    if (/maggi|cooked meal|hot meal|thali|paratha|sandwich|fresh pasta|fresh burger|chai|coffee|soup|chowmein|macroni/i.test(name)) return true;
+    if (sub.includes('magiee & noodles') || sub.includes('cooked meals') || sub.includes('sandwiches & burgers') || sub.includes('pasta & macaroni') || sub.includes('hot snacks & fries') || sub.includes('soups & bowls')) return true;
+    if (/magiee|cooked meal|hot meal|thali|paratha|sandwich|fresh pasta|fresh burger|chai|coffee|soup|chowmein|macroni/i.test(name)) return true;
     return false;
 }
 
@@ -27,7 +27,7 @@ function checkCartHasFood(items) {
 }
 
 
-window.pages.checkout = async function() {
+window.pages.checkout = async function () {
     let savedHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id');
     if (!savedHostel) {
         const addrDetail = localStorage.getItem('lpuquick_address_detail') || '';
@@ -53,15 +53,15 @@ window.pages.checkout = async function() {
 
     let cartData;
     const userId = window.getEffectiveUserId();
-    try { 
-        cartData = await window.api.getCart(userId, savedHostel); 
-    } catch(e) { 
-        cartData = { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 } }; 
+    try {
+        cartData = await window.api.getCart(userId, savedHostel);
+    } catch (e) {
+        cartData = { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 } };
     }
 
     const items = cartData.items || [];
     const p = cartData.pricing || { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 };
-    
+
     // Accurate MRP, Subtotal & Quantity calculations
     const totalQuantity = items.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
     const hasFoodOrder = checkCartHasFood(items);
@@ -70,7 +70,7 @@ window.pages.checkout = async function() {
     const totalMrp = items.reduce((sum, item) => sum + ((Number(item.mrp) || Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
     const subtotal = items.reduce((sum, item) => sum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
     const mrpDiscount = Math.max(0, totalMrp - subtotal);
-    
+
     // Dynamic Settings from Owner
     let checkoutSettings = window.latestCheckoutSettings || null;
     try {
@@ -79,7 +79,7 @@ window.pages.checkout = async function() {
             checkoutSettings = settingsRes.settings;
             window.latestCheckoutSettings = checkoutSettings;
         }
-    } catch(e) {}
+    } catch (e) { }
 
     checkoutSettings = checkoutSettings || {
         offers_enabled: false,
@@ -553,7 +553,7 @@ window.pages.checkout = async function() {
 </div>`;
 };
 
-window.pageInits.checkout = function() {
+window.pageInits.checkout = function () {
     const userId = window.getEffectiveUserId();
 
     // Quantity buttons inside checkout summary
@@ -672,7 +672,7 @@ window.pageInits.checkout = function() {
         const savedRoom = localStorage.getItem('lpuquick_room') || window.currentRoom;
         const savedBlock = localStorage.getItem('lpuquick_block') || window.currentBlock || 'Block A';
         const savedPhone = (localStorage.getItem('lpuquick_phone') || window.currentPhone || '').replace(/\D/g, '');
-        
+
         const isMainGate = savedBlock && savedBlock.toLowerCase().includes('gate');
         if ((!savedRoom && !isMainGate) || savedPhone.length !== 10) {
             isSubmitting = false;
@@ -702,7 +702,7 @@ window.pageInits.checkout = function() {
                     return;
                 }
             }
-        } catch (e) {}
+        } catch (e) { }
 
         const fullAddress = `[${savedHostel}] ${savedHostel} (${savedBlock}), Room ${savedRoom}`;
         const selectedMethod = 'Cash on Delivery';
@@ -792,10 +792,10 @@ window.pageInits.checkout = function() {
         function setSliderPosition(offset, smooth = false) {
             const maxDrag = getMaxDrag();
             currentOffset = Math.max(0, Math.min(maxDrag, offset));
-            
+
             sliderThumb.style.transition = smooth ? 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)' : 'none';
             sliderThumb.style.transform = `translateX(${currentOffset}px)`;
-            
+
             if (sliderProgress) {
                 sliderProgress.style.transition = smooth ? 'width 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)' : 'none';
                 sliderProgress.style.width = `${currentOffset + 25}px`;
@@ -806,10 +806,10 @@ window.pageInits.checkout = function() {
             if (confirmed || isSubmitting) return;
             confirmed = true;
             isDragging = false;
-            
+
             const maxDrag = getMaxDrag();
             setSliderPosition(maxDrag, true);
-            
+
             if (sliderText) {
                 sliderText.textContent = '✓ Order Confirmed!';
                 sliderText.style.color = '#10b981';
@@ -819,21 +819,21 @@ window.pageInits.checkout = function() {
                 const icon = sliderThumb.querySelector('.material-symbols-outlined');
                 if (icon) icon.textContent = 'check';
             }
-            
+
             executeOrderPlacement();
         }
 
         function onPointerDown(e) {
             if (confirmed || isSubmitting) return;
             if (e.button !== undefined && e.button !== 0) return; // Only left mouse click or touch
-            
+
             isDragging = true;
             e.preventDefault();
-            
+
             const maxDrag = getMaxDrag();
             const trackRect = sliderTrack.getBoundingClientRect();
             const thumbRect = sliderThumb.getBoundingClientRect();
-            
+
             // If user clicked directly on track ahead of thumb (common on laptop trackpads)
             const clickPosOnTrack = e.clientX - trackRect.left - (thumbRect.width / 2);
             if (e.target !== sliderThumb && !sliderThumb.contains(e.target)) {
@@ -845,14 +845,14 @@ window.pageInits.checkout = function() {
                     setSliderPosition(clickPosOnTrack, true);
                 }
             }
-            
+
             startPointerX = e.clientX;
             startOffset = currentOffset;
-            
+
             try {
                 sliderThumb.setPointerCapture(e.pointerId);
-            } catch (err) {}
-            
+            } catch (err) { }
+
             sliderThumb.style.cursor = 'grabbing';
             document.body.style.userSelect = 'none';
         }
@@ -860,11 +860,11 @@ window.pageInits.checkout = function() {
         function onPointerMove(e) {
             if (!isDragging || confirmed || isSubmitting) return;
             e.preventDefault();
-            
+
             const deltaX = e.clientX - startPointerX;
             const targetOffset = startOffset + deltaX;
             setSliderPosition(targetOffset, false);
-            
+
             const maxDrag = getMaxDrag();
             if (maxDrag > 0 && currentOffset >= maxDrag * 0.85) {
                 triggerConfirmation();
@@ -876,11 +876,11 @@ window.pageInits.checkout = function() {
             isDragging = false;
             document.body.style.userSelect = '';
             sliderThumb.style.cursor = 'grab';
-            
+
             try {
                 sliderThumb.releasePointerCapture(e.pointerId);
-            } catch (err) {}
-            
+            } catch (err) { }
+
             const maxDrag = getMaxDrag();
             if (maxDrag > 0 && currentOffset >= maxDrag * 0.65) {
                 // If dragged at least 65% across on laptop trackpad/mouse, snap to finish!

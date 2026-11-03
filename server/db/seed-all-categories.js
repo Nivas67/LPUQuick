@@ -310,7 +310,7 @@ const allProducts = [
     // --- Snacks & Drinks: Instant Food ---
     {
         id: 'prod_inst_01',
-        name: 'Maggi 2-Minute Masala Instant Noodles',
+        name: 'magiee 2-Minute Masala Instant Noodles',
         category: 'Instant Food',
         subcategory: 'Noodles & Pasta',
         price: 56,
@@ -318,7 +318,7 @@ const allProducts = [
         unit: 'pack',
         size: '4 x 70 g',
         image_url: 'https://images.unsplash.com/photo-1612927601601-6638404737ce?w=400',
-        tags: 'maggi,noodles,instant,hostel midnight',
+        tags: 'magiee,noodles,instant,hostel midnight',
         in_stock: 1, bestseller: 1, is_new: 0, rating: 4.9, review_count: '6.2 lac', is_veg: 1, stock_left: 0
     },
     {

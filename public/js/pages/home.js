@@ -199,14 +199,14 @@ function classifyProductCategory(p) {
     const text = (p.name || '').toLowerCase();
 
     // 0. STRICT ISOLATION: Quick's Instant Food (Fresh Kitchen)
-    // Freshly prepared hot meals, maggi, cooked dishes — strictly separate from packaged snacks
+    // Freshly prepared hot meals, magiee, cooked dishes — strictly separate from packaged snacks
     const isSnack = cat.includes('instant snacks') || subcat.includes('instant snacks') || cat.includes('snacks & munchies') || /bhelpuri|namkeen|bhujia|chips|wafer|biscuit|cookie|kurkure|crisp|sev|mixture/i.test(text);
     if (p.is_food_product) return 'lpq-food';
     if (!isSnack) {
         if ((cat.includes('quick') && cat.includes('food')) || cat === "quick's instant food" || cat === "quicks instant food" || cat === 'lpq food' || cat === "quick's lpq food") return 'lpq-food';
         if ((subcat.includes('quick') && subcat.includes('food')) || subcat === "quick's instant food" || subcat === "quicks instant food" || subcat === 'cook' || subcat === 'lpq food' || subcat === "quick's lpq food") return 'lpq-food';
         if ((cat === 'instant food' || cat === 'instant' || subcat === 'instant food') && !subcat.includes('namkeen') && !/bhelpuri|namkeen|chips|wafer|biscuit/i.test(text)) return 'lpq-food';
-        if (subcat.includes('maggi & noodles') || subcat.includes('cooked meals') || subcat.includes('sandwiches & burgers') || subcat.includes('pasta & macaroni') || subcat.includes('hot snacks & fries') || subcat.includes('soups & bowls')) return 'lpq-food';
+        if (subcat.includes('magiee & noodles') || subcat.includes('cooked meals') || subcat.includes('sandwiches & burgers') || subcat.includes('pasta & macaroni') || subcat.includes('hot snacks & fries') || subcat.includes('soups & bowls')) return 'lpq-food';
     }
 
     // 1. Ground Truth Priority: Check existing database subcategory first
@@ -409,7 +409,7 @@ const DEFAULT_HOME_BANNERS = [
         id: 'banner_default_2',
         type: 'campus_promotion',
         title: 'Late Night Study & Gaming Fuel',
-        subtitle: 'Hot Maggi, cold drinks, chocolate bars, and crunchy chips ready for your midnight grind.',
+        subtitle: 'Hot magiee, cold drinks, chocolate bars, and crunchy chips ready for your midnight grind.',
         badge: '🌙 TILL 3 AM',
         pill: 'MIDNIGHT FUEL',
         link_url: '#/categories',
@@ -867,7 +867,7 @@ window.pages.home = async function () {
                 <span class="material-symbols-outlined text-base">search</span>
             </button>
             <input class="w-full pl-9 pr-14 py-1.5 rounded-full border border-[var(--glass-border)] bg-slate-100/60 dark:bg-slate-800/60 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition-all" 
-                   placeholder="Search snacks, drinks, maggi, chocolates..." 
+                   placeholder="Search snacks, drinks, magiee, chocolates..." 
                    type="text" 
                    id="desktop-search" 
                    autocomplete="off">
@@ -1009,7 +1009,7 @@ window.pages.home = async function () {
                     <span class="material-symbols-outlined text-lg">search</span>
                 </button>
                 <input class="w-full pl-10 pr-10 py-2.5 rounded-2xl border border-[var(--glass-border)] bg-slate-100/70 dark:bg-slate-800/70 backdrop-blur-md text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 shadow-xs font-medium" 
-                       placeholder="Search snacks, drinks, maggi, chips..." 
+                       placeholder="Search snacks, drinks, magiee, chips..." 
                        type="text" 
                        id="mobile-search" 
                        autocomplete="off">
@@ -1491,7 +1491,7 @@ window.pageInits.home = function () {
                         }
                     }
                 }
-                if (emptyDesc) emptyDesc.textContent = query ? 'Try searching another snack like chips, maggi, chocolates, or cold drinks.' : 'Check another category or turn off Veg Only.';
+                if (emptyDesc) emptyDesc.textContent = query ? 'Try searching another snack like chips, magiee, chocolates, or cold drinks.' : 'Check another category or turn off Veg Only.';
             }
         } else {
             if (emptyState) emptyState.classList.add('hidden');
@@ -1761,7 +1761,7 @@ window.pageInits.home = function () {
             dropdownEl.innerHTML = `
                 <div class="p-3 text-center text-xs text-slate-500 dark:text-slate-400">
                     <p class="font-bold text-slate-800 dark:text-slate-100 mb-1">No items found for "${query}"</p>
-                    <p class="text-[11px]">Try searching "maggi", "chips", "cold drink", "biscuit"...</p>
+                    <p class="text-[11px]">Try searching "magiee", "chips", "cold drink", "biscuit"...</p>
                 </div>
             `;
             return;

@@ -16,7 +16,7 @@
 | **DATABASE METHOD** | **SNAPSHOT / DETERMINISTIC REVERSION** | PITR unavailable on Supabase free tier |
 | **CUSTOMERS VERIFIED** | **YES** | All 5 student customers verified |
 | **PRODUCTS VERIFIED** | **YES** | All 53 products verified with genuine images |
-| **INVENTORY VERIFIED** | **YES** | Stock counts verified (Maggi: 45, Lay's: 38, etc.) |
+| **INVENTORY VERIFIED** | **YES** | Stock counts verified (magiee: 45, Lay's: 38, etc.) |
 | **ORDERS VERIFIED** | **YES** | All 8 historical orders verified |
 | **ORDER HISTORY VERIFIED** | **YES** | Customer history isolation verified |
 | **ADMIN DATA VERIFIED** | **YES** | `admin_001` permissions verified |

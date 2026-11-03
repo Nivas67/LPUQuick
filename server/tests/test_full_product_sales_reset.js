@@ -44,9 +44,9 @@ async function runEndToEndVerification() {
     console.log(`  Client /api/home products count: ${homeData.all_products?.length || 0}`);
     assert.strictEqual(homeData.all_products?.length || 0, 0, 'Home products must be 0');
 
-    const searchRes = await fetch(`${API_BASE}/products/search?q=maggi`);
+    const searchRes = await fetch(`${API_BASE}/products/search?q=magiee`);
     const searchData = await searchRes.json();
-    console.log(`  Search 'maggi' results: ${searchData.results?.length || 0}`);
+    console.log(`  Search 'magiee' results: ${searchData.results?.length || 0}`);
     assert.strictEqual(searchData.results?.length || 0, 0, 'Search results must be empty');
 
     // 3. ADMIN LOGIN & AUTHENTICATION
@@ -118,7 +118,7 @@ async function runEndToEndVerification() {
 
     // 6. FUNCTIONALITY TEST: CREATE 1 TEMPORARY PRODUCT, VERIFY COUNT 0 -> 1, THEN DELETE
     console.log('\n--- 6. Testing Functionality: Temporary Product Cycle (0 -> 1 -> 0) ---');
-    
+
     // Create product through official admin API
     const createRes = await fetch(`${API_BASE}/products/admin/create`, {
         method: 'POST',

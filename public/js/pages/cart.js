@@ -11,8 +11,8 @@ function isQuickInstantFoodProduct(p) {
     if (cat === "quick's instant food" || cat === "quicks instant food") return true;
     if (sub === "quick's instant food" || sub === "quicks instant food" || sub === 'cook') return true;
     if ((cat === 'instant food' || cat === 'instant' || sub === 'instant food') && !sub.includes('namkeen') && !/bhelpuri|namkeen|chips|wafer|biscuit/i.test(name)) return true;
-    if (sub.includes('maggi & noodles') || sub.includes('cooked meals') || sub.includes('sandwiches & burgers') || sub.includes('pasta & macaroni') || sub.includes('hot snacks & fries') || sub.includes('soups & bowls')) return true;
-    if (/maggi|cooked meal|hot meal|thali|paratha|sandwich|fresh pasta|fresh burger|chai|coffee|soup|chowmein|macroni/i.test(name)) return true;
+    if (sub.includes('magiee & noodles') || sub.includes('cooked meals') || sub.includes('sandwiches & burgers') || sub.includes('pasta & macaroni') || sub.includes('hot snacks & fries') || sub.includes('soups & bowls')) return true;
+    if (/magiee|cooked meal|hot meal|thali|paratha|sandwich|fresh pasta|fresh burger|chai|coffee|soup|chowmein|macroni/i.test(name)) return true;
     return false;
 }
 
@@ -113,18 +113,18 @@ function calculateCartCharges(cartSubtotal, settings) {
     };
 }
 
-window.pages.cart = async function() {
+window.pages.cart = async function () {
     let cartData;
     const userId = typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : (window.CURRENT_USER_ID || 'guest');
     const currentHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
-    try { 
-        cartData = await window.api.getCart(userId, currentHostel); 
-    } catch(e) { 
-        cartData = { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0, free_delivery_remaining: 199 } }; 
+    try {
+        cartData = await window.api.getCart(userId, currentHostel);
+    } catch (e) {
+        cartData = { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0, free_delivery_remaining: 199 } };
     }
 
     const items = cartData.items || [];
-    
+
     // Dynamic Settings from Owner/Admin
     let checkoutSettings = window.latestCheckoutSettings || null;
     try {
@@ -133,7 +133,7 @@ window.pages.cart = async function() {
             checkoutSettings = settingsRes.settings;
             window.latestCheckoutSettings = checkoutSettings;
         }
-    } catch(e) {}
+    } catch (e) { }
 
     checkoutSettings = checkoutSettings || {
         offers_enabled: true,
@@ -157,7 +157,7 @@ window.pages.cart = async function() {
     const totalMrp = items.reduce((sum, item) => sum + ((Number(item.mrp) || Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
     const subtotal = items.reduce((sum, item) => sum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
     const mrpDiscount = Math.max(0, totalMrp - subtotal);
-    
+
     // Dynamic charges calculation
     const charges = calculateCartCharges(subtotal, checkoutSettings);
     const exactTotal = charges.total;
@@ -171,7 +171,7 @@ window.pages.cart = async function() {
             </div>
             <h3 class="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight">Your Cart is Empty</h3>
             <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1.5 mb-6 max-w-sm mx-auto leading-relaxed">
-                Add midnight snacks, cold energy drinks, Maggi, or study supplies from ${window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus')} Hub.
+                Add midnight snacks, cold energy drinks, magiee, or study supplies from ${window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus')} Hub.
             </p>
             <a href="#/" class="clay-btn clay-btn-primary inline-flex items-center gap-2 px-7 py-3 rounded-2xl text-xs font-black shadow-xl tracking-wide uppercase">
                 <span>Explore Store</span>
@@ -184,7 +184,7 @@ window.pages.cart = async function() {
         const hasItemDiscount = itemMrp > itemPrice;
         const discPercent = hasItemDiscount ? Math.round(((itemMrp - itemPrice) / itemMrp) * 100) : 0;
         const cachedProd = window.__cachedProducts?.get(item.product_id);
-        
+
         // Authoritative Store Stock Determination
         let stockLeft = 0;
         if (item.stock_left !== undefined && item.stock_left !== null) {
@@ -194,7 +194,7 @@ window.pages.cart = async function() {
         } else if (item.in_stock !== false) {
             stockLeft = 10;
         }
-        
+
         const isOutOfStock = (item.in_stock === false) || stockLeft <= 0;
         const isMaxStockReached = (Number(item.quantity) || 1) >= stockLeft && stockLeft > 0;
 
@@ -434,7 +434,7 @@ window.pages.cart = async function() {
                     Checkout Disabled
                 </button>
                 ` : (items.length > 0 ? (
-                    !charges.isMinMet ? `
+            !charges.isMinMet ? `
                     <button disabled class="w-full clay-card text-slate-400 dark:text-slate-500 rounded-2xl py-4 font-bold text-xs text-center cursor-not-allowed flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-700 opacity-90 shadow-none" id="proceed-to-checkout-btn">
                         <span class="material-symbols-outlined text-sm">lock</span>
                         <span>Min Order Value ₹${charges.minCart} (Add ₹${charges.minShortfall} more)</span>
@@ -445,7 +445,7 @@ window.pages.cart = async function() {
                         <span class="material-symbols-outlined text-base">arrow_forward</span>
                     </a>
                     `
-                ) : `
+        ) : `
                 <button disabled class="w-full clay-card text-slate-400 rounded-2xl py-4 font-bold text-xs text-center cursor-not-allowed">
                     Cart is Empty
                 </button>
@@ -458,7 +458,7 @@ window.pages.cart = async function() {
     <!-- Mobile Sticky Checkout Capsule (Liquid Glass) -->
     <div id="cart-mobile-checkout-container">
     ${items.length > 0 && !window.__isUserBlocked ? (
-        !charges.isMinMet ? `
+            !charges.isMinMet ? `
         <div class="lg:hidden fixed bottom-16 inset-x-3 z-30 pointer-events-none flex justify-center">
             <div class="pointer-events-auto liquid-dock-pill max-w-md w-full p-3 px-4 flex items-center justify-between gap-3 rounded-3xl shadow-2xl border border-amber-500/40">
                 <div>
@@ -485,7 +485,7 @@ window.pages.cart = async function() {
             </div>
         </div>
         `
-    ) : ''}
+        ) : ''}
     </div>
 
     ${typeof window.renderBottomNav === 'function' ? window.renderBottomNav('cart') : `
@@ -520,7 +520,7 @@ window.pages.cart = async function() {
 </div>`;
 };
 
-window.pageInits.cart = function() {
+window.pageInits.cart = function () {
     const userId = typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : (window.CURRENT_USER_ID || 'guest');
 
     const clearBtn = document.getElementById('clear-cart-btn');
@@ -607,8 +607,8 @@ window.pageInits.cart = function() {
         const cartSubtitle = document.getElementById('cart-header-subtitle');
         if (cartSubtitle) {
             const hasFoodNow = checkCartHasFood(cart?.items || []);
-        const etaText = hasFoodNow ? '11 mins' : '5 mins';
-        cartSubtitle.textContent = `${totalQty} ${totalQty === 1 ? 'item' : 'items'} · Delivering to ${window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus')} (${etaText})`;
+            const etaText = hasFoodNow ? '11 mins' : '5 mins';
+            cartSubtitle.textContent = `${totalQty} ${totalQty === 1 ? 'item' : 'items'} · Delivering to ${window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus')} (${etaText})`;
         }
 
         // Dynamic Banners
@@ -694,7 +694,7 @@ window.pageInits.cart = function() {
 
         const billSubtotal = document.getElementById('bill-subtotal-val');
         if (billSubtotal) billSubtotal.textContent = `₹${subtotal}`;
-        
+
         const discountRow = document.getElementById('bill-discount-row');
         const billDiscount = document.getElementById('bill-discount-val');
         const billDiscountLabel = document.getElementById('bill-discount-label');
@@ -814,7 +814,7 @@ window.pageInits.cart = function() {
             const activeHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
             const cachedProd = window.__cachedProducts?.get(productId);
             const stockLeftAttr = btn.dataset.stockLeft || row?.dataset?.stockLeft;
-            
+
             // Accurate Dark Store Stock Determination
             let stockLeft = 0;
             if (stockLeftAttr !== undefined && stockLeftAttr !== '' && stockLeftAttr !== null) {

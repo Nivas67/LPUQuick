@@ -126,7 +126,7 @@ const formattedItems = items.map(item => {
   - Instant `+ ADD` button to add directly to cart from the dropdown.
   - "View all X results (↵ Enter)" footer.
 - **Whole-Store Search:** Updated `applyFilters()` so that whenever an active query exists, it searches the entire store catalog across all categories rather than being artificially restricted to the currently selected category rail item.
-- **Catalog Population:** Sorted in-stock items first while retaining out-of-stock items (with "Out of stock" badge) so student favorites like Maggi (stock 0) can still be searched and found.
+- **Catalog Population:** Sorted in-stock items first while retaining out-of-stock items (with "Out of stock" badge) so student favorites like magiee (stock 0) can still be searched and found.
 - **Auto-Scroll to Results:** Pressing `Enter` or clicking the search icon automatically smooth-scrolls the page down to `#shop-catalog-split-row` where matching cards are highlighted.
 
 ### 3. Client Web Install Options

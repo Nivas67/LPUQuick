@@ -16,7 +16,7 @@ function resolveProductRailCategory(p) {
         if ((cat.includes('quick') && cat.includes('food')) || cat === "quick's instant food" || cat === "quicks instant food" || cat === 'lpq food' || cat === "quick's lpq food") return 'lpq-food';
         if ((sub.includes('quick') && sub.includes('food')) || sub === "quick's instant food" || sub === "quicks instant food" || sub === 'cook' || sub === 'lpq food' || sub === "quick's lpq food") return 'lpq-food';
         if ((cat === 'instant food' || cat === 'instant' || sub === 'instant food') && !sub.includes('namkeen') && !/bhelpuri|namkeen|chips|wafer|biscuit/i.test(name)) return 'lpq-food';
-        if (sub.includes('maggi & noodles') || sub.includes('cooked meals') || sub.includes('sandwiches & burgers') || sub.includes('pasta & macaroni') || sub.includes('hot snacks & fries') || sub.includes('soups & bowls')) return 'lpq-food';
+        if (sub.includes('magiee & noodles') || sub.includes('cooked meals') || sub.includes('sandwiches & burgers') || sub.includes('pasta & macaroni') || sub.includes('hot snacks & fries') || sub.includes('soups & bowls')) return 'lpq-food';
     }
 
     // 1. Primary Priority: Ground Truth Subcategory assigned by Admin or Catalog
@@ -167,7 +167,7 @@ const RAIL_CATEGORIES = [
     }
 ];
 
-window.pages.categories = async function() {
+window.pages.categories = async function () {
     const address = window.currentAddressDetail?.label || `${window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus')} (Block A), Room 304`;
 
     return `
@@ -198,7 +198,7 @@ window.pages.categories = async function() {
                 <span class="material-symbols-outlined text-sm">search</span>
             </button>
             <input class="w-full pl-9 pr-9 py-1.5 rounded-full border border-[var(--glass-border)] bg-slate-100/70 dark:bg-slate-800/70 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition-all font-medium" 
-                   placeholder="Search biscuits, chips, chocolates, maggi..." 
+                   placeholder="Search biscuits, chips, chocolates, magiee..." 
                    type="text" 
                    id="desktop-cat-search" 
                    autocomplete="off">
@@ -388,7 +388,7 @@ window.pages.categories = async function() {
 </div>`;
 };
 
-window.pageInits.categories = async function() {
+window.pageInits.categories = async function () {
     const railContainer = document.getElementById('category-sidebar-rail');
     const headerTitle = document.getElementById('cat-header-title');
     const liveContainer = document.getElementById('live-cat-container');
@@ -509,8 +509,8 @@ window.pageInits.categories = async function() {
 
         const q = (desktopSearch?.value || mobileSearch?.value || '').trim().toLowerCase();
         if (q) {
-            filtered = filtered.filter(p => 
-                (p.name || '').toLowerCase().includes(q) || 
+            filtered = filtered.filter(p =>
+                (p.name || '').toLowerCase().includes(q) ||
                 (p.tags || '').toLowerCase().includes(q)
             );
         }
@@ -680,7 +680,7 @@ window.pageInits.categories = async function() {
             allProducts = res?.products || [];
             renderRail();
             filterAndRenderProducts();
-        } catch(e) {
+        } catch (e) {
             console.error('[Categories Page] Failed to fetch products:', e);
             if (productsGrid) {
                 productsGrid.innerHTML = `
@@ -759,15 +759,15 @@ window.pageInits.categories = async function() {
 
     // Promo "Shop now" button
     promoShopNowBtn?.addEventListener('click', () => {
-        const targetCat = document.querySelector('.category-rail-item[data-cat-id="chocolates"]') || 
-                          document.querySelector('.category-rail-item[data-cat-id="biscuits"]');
+        const targetCat = document.querySelector('.category-rail-item[data-cat-id="chocolates"]') ||
+            document.querySelector('.category-rail-item[data-cat-id="biscuits"]');
         if (targetCat) targetCat.click();
     });
 
     // Switch to Live from Blocked screen
     switchToLiveBtn?.addEventListener('click', () => {
         const biscuitBtn = document.querySelector('.category-rail-item[data-cat-id="biscuits"]') ||
-                           document.querySelector('.category-rail-item[data-cat-id="all"]');
+            document.querySelector('.category-rail-item[data-cat-id="all"]');
         if (biscuitBtn) biscuitBtn.click();
     });
 

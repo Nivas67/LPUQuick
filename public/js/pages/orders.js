@@ -12,7 +12,7 @@ function formatClientRiderInfo(raw) {
             name = parsed.name || parsed.assigned_to_name || 'Alex';
             phone = parsed.phone || parsed.assigned_to_phone || '7671836211';
             return { name, phone };
-        } catch (e) {}
+        } catch (e) { }
     }
     return { name: raw, phone };
 }
@@ -30,7 +30,7 @@ function isClientPlatformOwner() {
                 return true;
             }
         }
-    } catch (e) {}
+    } catch (e) { }
 
     const currentEmail = (window.CURRENT_USER_EMAIL || '').toLowerCase().trim();
     const currentId = (window.CURRENT_USER_ID || '').trim();
@@ -46,7 +46,7 @@ function isClientPlatformOwner() {
                 return true;
             }
         }
-    } catch (e) {}
+    } catch (e) { }
 
     return false;
 }
@@ -70,8 +70,8 @@ function isQuickInstantFoodItem(p) {
     if (cat === "quick's instant food" || cat === "quicks instant food") return true;
     if (sub === "quick's instant food" || sub === "quicks instant food" || sub === 'cook') return true;
     if ((cat === 'instant food' || cat === 'instant' || sub === 'instant food') && !sub.includes('namkeen') && !/bhelpuri|namkeen|chips|wafer|biscuit/i.test(name)) return true;
-    if (sub.includes('maggi & noodles') || sub.includes('cooked meals') || sub.includes('sandwiches & burgers') || sub.includes('pasta & macaroni') || sub.includes('hot snacks & fries') || sub.includes('soups & bowls')) return true;
-    if (/maggi|cooked meal|hot meal|thali|paratha|sandwich|fresh pasta|fresh burger|chai|coffee|soup|chowmein|macroni/i.test(name)) return true;
+    if (sub.includes('magiee & noodles') || sub.includes('cooked meals') || sub.includes('sandwiches & burgers') || sub.includes('pasta & macaroni') || sub.includes('hot snacks & fries') || sub.includes('soups & bowls')) return true;
+    if (/magiee|cooked meal|hot meal|thali|paratha|sandwich|fresh pasta|fresh burger|chai|coffee|soup|chowmein|macroni/i.test(name)) return true;
     return false;
 }
 
@@ -82,7 +82,7 @@ function checkOrderIsFood(order) {
     if (Array.isArray(order.food_items) && order.food_items.length > 0) return true;
     if (Array.isArray(order.items) && order.items.some(isQuickInstantFoodItem)) return true;
     const summary = (order.item_names || order.item_summary || '').toLowerCase();
-    if (/maggi|cooked meal|hot meal|thali|paratha|sandwich|fresh pasta|fresh burger|chai|coffee|soup|chowmein|macroni|quick's instant food|quicks instant food/i.test(summary)) {
+    if (/magiee|cooked meal|hot meal|thali|paratha|sandwich|fresh pasta|fresh burger|chai|coffee|soup|chowmein|macroni|quick's instant food|quicks instant food/i.test(summary)) {
         return true;
     }
     return false;
@@ -96,7 +96,7 @@ function getOrderTrackingDetails(status, riderName = 'Alex', address = '', isFoo
         const m = address.match(/([B|G]H[-\s]?\d+|UniMall)/i);
         if (m) hostelName = m[1].toUpperCase();
     }
-    
+
     // Default fallback (Order Placed / Incoming)
     let percent = isFood ? 20 : 25;
     let pinLeft = '14%';
@@ -104,7 +104,7 @@ function getOrderTrackingDetails(status, riderName = 'Alex', address = '', isFoo
     let step = 1;
     let icon = isFood ? 'restaurant' : 'inventory_2';
     let badge = isFood ? 'Kitchen · Order Received' : `${riderName} · Order Placed`;
-    let msg = isFood 
+    let msg = isFood
         ? `Order placed! Kitchen chef at ${hostelName} received your fresh food order.`
         : `Order placed! ${hostelName} Dark Store received your items.`;
     let eta = isFood ? '11 Mins' : '5 Mins';
@@ -168,7 +168,7 @@ function getOrderTrackingDetails(status, riderName = 'Alex', address = '', isFoo
 }
 
 // Global In-Place UI Updater called immediately via WebSocket when Admin changes status
-window.applyOrderStatusUI = function(newStatus, riderName, targetOrderId, riderPhone) {
+window.applyOrderStatusUI = function (newStatus, riderName, targetOrderId, riderPhone) {
     console.log(`[Orders Page UI] ⚡ Applying admin status update in real-time: ${newStatus} (${riderName})`);
 
     // Invalidate API cache immediately so background calls don't return stale state
@@ -320,7 +320,7 @@ window.applyOrderStatusUI = function(newStatus, riderName, targetOrderId, riderP
             osc.start(ctx.currentTime);
             osc.stop(ctx.currentTime + 0.4);
         }
-    } catch (e) {}
+    } catch (e) { }
 
     // 8. If order delivered or cancelled, update past orders list in place without wiping the map
     if (details.step === 5 || details.step === 0) {
@@ -333,8 +333,8 @@ window.applyOrderStatusUI = function(newStatus, riderName, targetOrderId, riderP
                         const isClientOwner = isClientPlatformOwner();
                         const pastRowsHtml = refreshed.past.map(o => {
                             const isCancelled = ['Cancelled', 'cancelled'].includes(o.status);
-                            const statusBadgeClass = isCancelled 
-                                ? 'bg-rose-500/10 text-rose-500 border border-rose-500/25' 
+                            const statusBadgeClass = isCancelled
+                                ? 'bg-rose-500/10 text-rose-500 border border-rose-500/25'
                                 : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25';
                             return `
                             <div class="glass-panel card-pedestal rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row justify-between sm:items-center gap-3.5 hover:translate-y-[-2px] transition-all shadow-md">
@@ -356,13 +356,13 @@ window.applyOrderStatusUI = function(newStatus, riderName, targetOrderId, riderP
                         }).join('');
                         pastList.innerHTML = pastRowsHtml;
                     }
-                } catch(e) {}
+                } catch (e) { }
             }
         }, 1200);
     }
 };
 
-window.pages.orders = async function() {
+window.pages.orders = async function () {
     if (!window.isUserLoggedIn()) {
         return `
 <div class="bg-background text-on-background min-h-screen pb-32">
@@ -477,8 +477,8 @@ window.pages.orders = async function() {
 
     // Accurate calculation for initial screen render based on real activeOrder status
     const initialTracking = getOrderTrackingDetails(
-        activeOrder ? activeOrder.status : 'Order Placed', 
-        activeRiderName, 
+        activeOrder ? activeOrder.status : 'Order Placed',
+        activeRiderName,
         activeOrder?.delivery_address || hostelAddress,
         isFoodOrder
     );
@@ -486,8 +486,8 @@ window.pages.orders = async function() {
     const isClientOwner = isClientPlatformOwner();
     const pastRows = pastOrders.map(o => {
         const isCancelled = ['Cancelled', 'cancelled'].includes(o.status);
-        const statusBadgeClass = isCancelled 
-            ? 'bg-rose-500/10 text-rose-500 border border-rose-500/25' 
+        const statusBadgeClass = isCancelled
+            ? 'bg-rose-500/10 text-rose-500 border border-rose-500/25'
             : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25';
         return `
         <div class="glass-panel card-pedestal rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row justify-between sm:items-center gap-3.5 hover:translate-y-[-2px] transition-all shadow-md">
@@ -751,7 +751,7 @@ window.pages.orders = async function() {
 </div>`;
 };
 
-window.pageInits.orders = function() {
+window.pageInits.orders = function () {
     const userId = window.CURRENT_USER_ID;
 
     // Clean up any existing tracking timer
@@ -845,7 +845,7 @@ window.pageInits.orders = function() {
                         }
                     }
                 }
-            } catch(e) {
+            } catch (e) {
                 // Silent catch for polling
             }
         }, 5000);
@@ -855,7 +855,7 @@ window.pageInits.orders = function() {
 };
 
 // Cancel Order Modal Handlers & Actions
-window.promptCancelActiveOrder = function(orderId) {
+window.promptCancelActiveOrder = function (orderId) {
     if (!orderId) orderId = window.CURRENT_ACTIVE_ORDER_ID;
     if (!orderId) return;
 
@@ -874,7 +874,7 @@ window.promptCancelActiveOrder = function(orderId) {
 
     modal = document.createElement('div');
     modal.id = 'cancel-order-modal';
-    modal.onclick = function(e) {
+    modal.onclick = function (e) {
         if (e.target === modal) window.closeCancelOrderModal();
     };
     modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150';
@@ -919,12 +919,12 @@ window.promptCancelActiveOrder = function(orderId) {
     document.body.appendChild(modal);
 };
 
-window.closeCancelOrderModal = function() {
+window.closeCancelOrderModal = function () {
     const modal = document.getElementById('cancel-order-modal');
     if (modal) modal.remove();
 };
 
-window.executeCancelActiveOrder = async function(orderId) {
+window.executeCancelActiveOrder = async function (orderId) {
     const confirmBtn = document.getElementById('btn-confirm-cancel-order');
     const reasonSelect = document.getElementById('cancel-order-reason-select');
     const reason = reasonSelect ? reasonSelect.value : 'User requested cancellation';
@@ -972,7 +972,7 @@ window.executeCancelActiveOrder = async function(orderId) {
 };
 
 // Order deletion is strictly restricted to the Admin Console only
-window.promptDeleteOrder = function() {
+window.promptDeleteOrder = function () {
     console.warn('[Security] Order deletion is strictly restricted to the Admin Console.');
 };
 

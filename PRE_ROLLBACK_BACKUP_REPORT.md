@@ -44,4 +44,4 @@
 ---
 
 ## 4. Product & Inventory State (Phase 6 & 7 Compliance)
-* All 53 products backed up with their authentic stock counters (Maggi: 45, Lay's: 38, Kurkure: 42, Sting: 30, Amul Taaza: 25, Thums Up: 35, Silk: 22, Dark Fantasy: 28, Oreo: 32, Haldiram: 20, Classmate: 18, Dettol: 15, Nescafe: 24, Red Bull: 16, Parle-G: 50, etc.).
+* All 53 products backed up with their authentic stock counters (magiee: 45, Lay's: 38, Kurkure: 42, Sting: 30, Amul Taaza: 25, Thums Up: 35, Silk: 22, Dark Fantasy: 28, Oreo: 32, Haldiram: 20, Classmate: 18, Dettol: 15, Nescafe: 24, Red Bull: 16, Parle-G: 50, etc.).

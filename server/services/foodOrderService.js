@@ -13,7 +13,7 @@ function loadFoodConfig() {
         if (fs.existsSync(CONFIG_FILE)) {
             return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
         }
-    } catch (e) {}
+    } catch (e) { }
     return {
         assignment_method: 'least_loaded',
         prep_time_minutes: 15,
@@ -36,7 +36,7 @@ function loadFoodMeta() {
         if (fs.existsSync(FOOD_META_FILE)) {
             return JSON.parse(fs.readFileSync(FOOD_META_FILE, 'utf8'));
         }
-    } catch (e) {}
+    } catch (e) { }
     return {};
 }
 
@@ -68,7 +68,7 @@ function isFoodProduct(item) {
     if (/bhelpuri|namkeen|bhujia|chips|wafer|biscuit|cookie|kurkure|crisp|sev|mixture/i.test(name)) {
         return false;
     }
-    if (cat === 'snacks & beverages' && !sub.includes('instant food') && !sub.includes('cook') && !sub.includes('maggi & noodles') && !sub.includes('cooked meals') && !sub.includes('sandwiches & burgers') && !sub.includes('pasta & macaroni') && !sub.includes('hot snacks & fries') && !sub.includes('soups & bowls')) {
+    if (cat === 'snacks & beverages' && !sub.includes('instant food') && !sub.includes('cook') && !sub.includes('magiee & noodles') && !sub.includes('cooked meals') && !sub.includes('sandwiches & burgers') && !sub.includes('pasta & macaroni') && !sub.includes('hot snacks & fries') && !sub.includes('soups & bowls')) {
         return false;
     }
 
@@ -79,12 +79,12 @@ function isFoodProduct(item) {
     if (sub === "quick's instant food" || sub === "quicks instant food" || sub === "instant food" || sub === "cook") {
         return true;
     }
-    if (sub.includes('maggi & noodles') || sub.includes('cooked meals') || sub.includes('sandwiches & burgers') || sub.includes('pasta & macaroni') || sub.includes('hot snacks & fries') || sub.includes('soups & bowls')) {
+    if (sub.includes('magiee & noodles') || sub.includes('cooked meals') || sub.includes('sandwiches & burgers') || sub.includes('pasta & macaroni') || sub.includes('hot snacks & fries') || sub.includes('soups & bowls')) {
         return true;
     }
 
     // Fresh Prepared Kitchen keywords
-    if (/maggi|cooked meal|hot meal|thali|paratha|sandwich|fresh pasta|fresh burger|chai|coffee|soup|chowmein|macroni/i.test(name)) {
+    if (/magiee|cooked meal|hot meal|thali|paratha|sandwich|fresh pasta|fresh burger|chai|coffee|soup|chowmein|macroni/i.test(name)) {
         return true;
     }
 
@@ -230,9 +230,9 @@ async function handleNewFoodOrder({ orderId, orderPayload, foodItems, instructio
                 total: foodOrderRecord.total_amount,
                 delivery_address: rawAddress,
                 customer_name: `${foodOrderRecord.customer_name} (🍳 Fresh Food Order)`
-            }).catch(() => {});
+            }).catch(() => { });
         }
-    } catch (e) {}
+    } catch (e) { }
 
     return foodOrderRecord;
 }
@@ -245,10 +245,10 @@ async function updateFoodOrderStatus(orderId, status, updatedBy = 'Cook', reason
     const cleanId = String(orderId || '').replace(/^#/, '').trim();
 
     // Flexible key resolution (matches order_test_398956, test_398956, #TEST_398956)
-    const foodKey = Object.keys(foodMeta).find(k => 
-        k === cleanId || 
-        k.toLowerCase() === cleanId.toLowerCase() || 
-        k === `order_${cleanId}` || 
+    const foodKey = Object.keys(foodMeta).find(k =>
+        k === cleanId ||
+        k.toLowerCase() === cleanId.toLowerCase() ||
+        k === `order_${cleanId}` ||
         k.toLowerCase() === `order_${cleanId}`.toLowerCase() ||
         cleanId === `order_${k}` ||
         cleanId.toLowerCase() === `order_${k}`.toLowerCase()
@@ -291,13 +291,13 @@ async function updateFoodOrderStatus(orderId, status, updatedBy = 'Cook', reason
     // Synchronize overall order status in database if order exists in Supabase
     try {
         if (canonicalStatus === 'Preparing') {
-            await supabaseDb.orders.updateOrderStatus(foodKey, 'Preparing', { adminName: updatedBy }).catch(() => {});
+            await supabaseDb.orders.updateOrderStatus(foodKey, 'Preparing', { adminName: updatedBy }).catch(() => { });
         } else if (canonicalStatus === 'Ready') {
-            await supabaseDb.orders.updateOrderStatus(foodKey, 'Out for Delivery', { adminName: updatedBy }).catch(() => {});
+            await supabaseDb.orders.updateOrderStatus(foodKey, 'Out for Delivery', { adminName: updatedBy }).catch(() => { });
         } else if (canonicalStatus === 'Completed') {
-            await supabaseDb.orders.updateOrderStatus(foodKey, 'Delivered', { adminName: updatedBy }).catch(() => {});
+            await supabaseDb.orders.updateOrderStatus(foodKey, 'Delivered', { adminName: updatedBy }).catch(() => { });
         } else if (canonicalStatus === 'Cancelled' || canonicalStatus === 'Rejected') {
-            await supabaseDb.orders.cancelOrder(foodKey, reason || `Order ${canonicalStatus} by ${updatedBy}`, 'admin').catch(() => {});
+            await supabaseDb.orders.cancelOrder(foodKey, reason || `Order ${canonicalStatus} by ${updatedBy}`, 'admin').catch(() => { });
         }
     } catch (dbSyncErr) {
         console.warn('[Food Order DB Sync Notice]:', dbSyncErr.message);

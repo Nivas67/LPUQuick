@@ -93,7 +93,7 @@ try {
     if (fallbackAudio && !fallbackAudio.src) {
         fallbackAudio.src = generateChimeWavDataUri();
     }
-} catch(e) {}
+} catch (e) { }
 
 function getAudioContext() {
     if (!audioCtx) {
@@ -103,7 +103,7 @@ function getAudioContext() {
         }
     }
     if (audioCtx && audioCtx.state === 'suspended') {
-        audioCtx.resume().catch(() => {});
+        audioCtx.resume().catch(() => { });
     }
     return audioCtx;
 }
@@ -113,7 +113,7 @@ function unlockAudioEngine() {
     const ctx = getAudioContext();
     if (ctx) {
         if (ctx.state === 'suspended') {
-            ctx.resume().catch(() => {});
+            ctx.resume().catch(() => { });
         }
         try {
             const osc = ctx.createOscillator();
@@ -123,14 +123,14 @@ function unlockAudioEngine() {
             gain.connect(ctx.destination);
             osc.start(0);
             osc.stop(ctx.currentTime + 0.01);
-        } catch(e) {}
+        } catch (e) { }
     }
     const fallbackAudio = document.getElementById('order-chime');
     if (fallbackAudio) {
         try {
             if (!fallbackAudio.src) fallbackAudio.src = generateChimeWavDataUri();
             fallbackAudio.volume = 1.0;
-        } catch(e) {}
+        } catch (e) { }
     }
     const banner = document.getElementById('audio-unlock-banner');
     if (banner) banner.classList.add('hidden');
@@ -155,7 +155,7 @@ function playCampusChime(theme = currentSoundTheme) {
     // Haptic vibration feedback on mobile/tablets
     try {
         if (navigator.vibrate) navigator.vibrate([250, 100, 250]);
-    } catch(e) {}
+    } catch (e) { }
 
     // Trigger HTML5 Audio Element fallback
     try {
@@ -172,9 +172,9 @@ function playCampusChime(theme = currentSoundTheme) {
         fallbackAudio.volume = 1.0;
         const playPromise = fallbackAudio.play();
         if (playPromise !== undefined) {
-            playPromise.catch(() => {});
+            playPromise.catch(() => { });
         }
-    } catch(e) {}
+    } catch (e) { }
 
     try {
         const ctx = getAudioContext();
@@ -183,153 +183,153 @@ function playCampusChime(theme = currentSoundTheme) {
         const playSynthesized = () => {
             const now = ctx.currentTime;
             if (theme === 'cash_register') {
-            // Theme 1: High Volume Cash Register "Cha-Ching" + Metallic Shimmer
-            // Lever Click
-            const osc0 = ctx.createOscillator();
-            const gain0 = ctx.createGain();
-            osc0.type = 'triangle';
-            osc0.frequency.setValueAtTime(400, now);
-            osc0.frequency.exponentialRampToValueAtTime(1600, now + 0.05);
-            gain0.gain.setValueAtTime(0.7, now);
-            gain0.gain.exponentialRampToValueAtTime(0.01, now + 0.06);
-            osc0.connect(gain0);
-            gain0.connect(ctx.destination);
-            osc0.start(now);
-            osc0.stop(now + 0.06);
+                // Theme 1: High Volume Cash Register "Cha-Ching" + Metallic Shimmer
+                // Lever Click
+                const osc0 = ctx.createOscillator();
+                const gain0 = ctx.createGain();
+                osc0.type = 'triangle';
+                osc0.frequency.setValueAtTime(400, now);
+                osc0.frequency.exponentialRampToValueAtTime(1600, now + 0.05);
+                gain0.gain.setValueAtTime(0.7, now);
+                gain0.gain.exponentialRampToValueAtTime(0.01, now + 0.06);
+                osc0.connect(gain0);
+                gain0.connect(ctx.destination);
+                osc0.start(now);
+                osc0.stop(now + 0.06);
 
-            // Cha-Ching Ring Note (B5 -> E6)
-            const osc1 = ctx.createOscillator();
-            const gain1 = ctx.createGain();
-            osc1.type = 'sine';
-            osc1.frequency.setValueAtTime(987.77, now + 0.05);
-            osc1.frequency.exponentialRampToValueAtTime(1318.51, now + 0.12);
-            gain1.gain.setValueAtTime(0, now + 0.05);
-            gain1.gain.linearRampToValueAtTime(0.9, now + 0.08);
-            gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
-            osc1.connect(gain1);
-            gain1.connect(ctx.destination);
-            osc1.start(now + 0.05);
-            osc1.stop(now + 0.8);
+                // Cha-Ching Ring Note (B5 -> E6)
+                const osc1 = ctx.createOscillator();
+                const gain1 = ctx.createGain();
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(987.77, now + 0.05);
+                osc1.frequency.exponentialRampToValueAtTime(1318.51, now + 0.12);
+                gain1.gain.setValueAtTime(0, now + 0.05);
+                gain1.gain.linearRampToValueAtTime(0.9, now + 0.08);
+                gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+                osc1.connect(gain1);
+                gain1.connect(ctx.destination);
+                osc1.start(now + 0.05);
+                osc1.stop(now + 0.8);
 
-            // High Coin Harmonic Ring (1975Hz - B6)
-            const osc2 = ctx.createOscillator();
-            const gain2 = ctx.createGain();
-            osc2.type = 'sine';
-            osc2.frequency.setValueAtTime(1975.53, now + 0.09);
-            gain2.gain.setValueAtTime(0, now + 0.09);
-            gain2.gain.linearRampToValueAtTime(0.75, now + 0.12);
-            gain2.gain.exponentialRampToValueAtTime(0.001, now + 1.1);
-            osc2.connect(gain2);
-            gain2.connect(ctx.destination);
-            osc2.start(now + 0.09);
-            osc2.stop(now + 1.1);
+                // High Coin Harmonic Ring (1975Hz - B6)
+                const osc2 = ctx.createOscillator();
+                const gain2 = ctx.createGain();
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(1975.53, now + 0.09);
+                gain2.gain.setValueAtTime(0, now + 0.09);
+                gain2.gain.linearRampToValueAtTime(0.75, now + 0.12);
+                gain2.gain.exponentialRampToValueAtTime(0.001, now + 1.1);
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.start(now + 0.09);
+                osc2.stop(now + 1.1);
 
-        } else if (theme === 'swiggy_pop') {
-            // Theme 2: QuickCommerce Pop (C5 -> E5 -> G5 -> C6)
-            const notes = [523.25, 659.25, 783.99, 1046.50];
-            notes.forEach((f, idx) => {
-                const t = now + (idx * 0.07);
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(f, t);
-                gain.gain.setValueAtTime(0, t);
-                gain.gain.linearRampToValueAtTime(0.85, t + 0.015);
-                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.start(t);
-                osc.stop(t + 0.28);
-            });
+            } else if (theme === 'swiggy_pop') {
+                // Theme 2: QuickCommerce Pop (C5 -> E5 -> G5 -> C6)
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((f, idx) => {
+                    const t = now + (idx * 0.07);
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(f, t);
+                    gain.gain.setValueAtTime(0, t);
+                    gain.gain.linearRampToValueAtTime(0.85, t + 0.015);
+                    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(t);
+                    osc.stop(t + 0.28);
+                });
 
-        } else if (theme === 'express_beep') {
-            // Theme 3: Courier Delivery Double-Chirp (1760Hz -> 2093Hz)
-            [0, 0.12].forEach(offset => {
-                const t = now + offset;
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(1760, t);
-                osc.frequency.exponentialRampToValueAtTime(2093, t + 0.06);
-                gain.gain.setValueAtTime(0, t);
-                gain.gain.linearRampToValueAtTime(0.8, t + 0.01);
-                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.start(t);
-                osc.stop(t + 0.1);
-            });
+            } else if (theme === 'express_beep') {
+                // Theme 3: Courier Delivery Double-Chirp (1760Hz -> 2093Hz)
+                [0, 0.12].forEach(offset => {
+                    const t = now + offset;
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(1760, t);
+                    osc.frequency.exponentialRampToValueAtTime(2093, t + 0.06);
+                    gain.gain.setValueAtTime(0, t);
+                    gain.gain.linearRampToValueAtTime(0.8, t + 0.01);
+                    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(t);
+                    osc.stop(t + 0.1);
+                });
 
-        } else if (theme === 'arcade_ding') {
-            // Theme 4: Arcade Level-Up Victory Ding (A4 -> C#5 -> E5 -> A5)
-            const notes = [440, 554.37, 659.25, 880];
-            notes.forEach((f, idx) => {
-                const t = now + (idx * 0.06);
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(f, t);
-                gain.gain.setValueAtTime(0, t);
-                gain.gain.linearRampToValueAtTime(0.85, t + 0.01);
-                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.start(t);
-                osc.stop(t + 0.35);
-            });
+            } else if (theme === 'arcade_ding') {
+                // Theme 4: Arcade Level-Up Victory Ding (A4 -> C#5 -> E5 -> A5)
+                const notes = [440, 554.37, 659.25, 880];
+                notes.forEach((f, idx) => {
+                    const t = now + (idx * 0.06);
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(f, t);
+                    gain.gain.setValueAtTime(0, t);
+                    gain.gain.linearRampToValueAtTime(0.85, t + 0.01);
+                    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(t);
+                    osc.stop(t + 0.35);
+                });
 
-        } else if (theme === 'urgent_alarm') {
-            // Theme 6: Urgent Delivery Triple Alert (High Siren Pulsing)
-            [0, 0.15, 0.30].forEach(offset => {
-                const t = now + offset;
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(880, t);
-                osc.frequency.setValueAtTime(1320, t + 0.06);
-                gain.gain.setValueAtTime(0.6, t);
-                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.start(t);
-                osc.stop(t + 0.12);
-            });
+            } else if (theme === 'urgent_alarm') {
+                // Theme 6: Urgent Delivery Triple Alert (High Siren Pulsing)
+                [0, 0.15, 0.30].forEach(offset => {
+                    const t = now + offset;
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(880, t);
+                    osc.frequency.setValueAtTime(1320, t + 0.06);
+                    gain.gain.setValueAtTime(0.6, t);
+                    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(t);
+                    osc.stop(t + 0.12);
+                });
 
+            } else {
+                // Theme 5: Crystal Bell Dual Chime (E5 -> A5 -> C#6 -> E6)
+                const osc1 = ctx.createOscillator();
+                const gain1 = ctx.createGain();
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(659.25, now);
+                osc1.frequency.exponentialRampToValueAtTime(880.0, now + 0.08);
+                gain1.gain.setValueAtTime(0, now);
+                gain1.gain.linearRampToValueAtTime(0.8, now + 0.02);
+                gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+                osc1.connect(gain1);
+                gain1.connect(ctx.destination);
+                osc1.start(now);
+                osc1.stop(now + 0.7);
+
+                const osc2 = ctx.createOscillator();
+                const gain2 = ctx.createGain();
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(1108.73, now + 0.1);
+                osc2.frequency.exponentialRampToValueAtTime(1318.51, now + 0.2);
+                gain2.gain.setValueAtTime(0, now + 0.1);
+                gain2.gain.linearRampToValueAtTime(0.85, now + 0.13);
+                gain2.gain.exponentialRampToValueAtTime(0.001, now + 1.1);
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.start(now + 0.1);
+                osc2.stop(now + 1.1);
+            }
+        };
+
+        if (ctx.state === 'suspended') {
+            ctx.resume().then(playSynthesized).catch(playSynthesized);
         } else {
-            // Theme 5: Crystal Bell Dual Chime (E5 -> A5 -> C#6 -> E6)
-            const osc1 = ctx.createOscillator();
-            const gain1 = ctx.createGain();
-            osc1.type = 'sine';
-            osc1.frequency.setValueAtTime(659.25, now);
-            osc1.frequency.exponentialRampToValueAtTime(880.0, now + 0.08);
-            gain1.gain.setValueAtTime(0, now);
-            gain1.gain.linearRampToValueAtTime(0.8, now + 0.02);
-            gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
-            osc1.connect(gain1);
-            gain1.connect(ctx.destination);
-            osc1.start(now);
-            osc1.stop(now + 0.7);
-
-            const osc2 = ctx.createOscillator();
-            const gain2 = ctx.createGain();
-            osc2.type = 'sine';
-            osc2.frequency.setValueAtTime(1108.73, now + 0.1);
-            osc2.frequency.exponentialRampToValueAtTime(1318.51, now + 0.2);
-            gain2.gain.setValueAtTime(0, now + 0.1);
-            gain2.gain.linearRampToValueAtTime(0.85, now + 0.13);
-            gain2.gain.exponentialRampToValueAtTime(0.001, now + 1.1);
-            osc2.connect(gain2);
-            gain2.connect(ctx.destination);
-            osc2.start(now + 0.1);
-            osc2.stop(now + 1.1);
+            playSynthesized();
         }
-    };
-
-    if (ctx.state === 'suspended') {
-        ctx.resume().then(playSynthesized).catch(playSynthesized);
-    } else {
-        playSynthesized();
-    }
 
     } catch (e) {
         console.warn('[Audio Synthesizer Error]:', e);
@@ -373,7 +373,7 @@ function updateSoundUI() {
     const icon = document.getElementById('sound-icon');
     const text = document.getElementById('sound-status-text');
     const select = document.getElementById('sound-theme-select');
-    
+
     if (select) {
         select.value = currentSoundTheme;
     }
@@ -403,7 +403,7 @@ try {
     if (savedOrders) ordersCache = JSON.parse(savedOrders);
     const savedProducts = localStorage.getItem('lpuquick_admin_products_cache');
     if (savedProducts) productsCache = JSON.parse(savedProducts);
-} catch (e) {}
+} catch (e) { }
 
 // Proactively calculate and display accurate real-time revenue and KPIs immediately on script execution
 if (typeof window !== 'undefined') {
@@ -411,7 +411,7 @@ if (typeof window !== 'undefined') {
         try {
             if (typeof updateDailyRevenue === 'function') updateDailyRevenue();
             if (typeof updateKpiCountersFromCache === 'function') updateKpiCountersFromCache();
-        } catch (e) {}
+        } catch (e) { }
     };
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', triggerInitialKpiSync);
@@ -432,7 +432,7 @@ let currentAdminProfile = null;
 try {
     const savedProf = localStorage.getItem('lpuquick_admin_profile');
     if (savedProf) currentAdminProfile = JSON.parse(savedProf);
-} catch (e) {}
+} catch (e) { }
 
 function isPlatformOwner(profile = currentAdminProfile) {
     if (!profile) return false;
@@ -451,7 +451,7 @@ function applyAdminRolePermissions(profile) {
     currentAdminProfile = profile;
     try {
         localStorage.setItem('lpuquick_admin_profile', JSON.stringify(profile));
-    } catch (e) {}
+    } catch (e) { }
 
     const roles = Array.isArray(profile.roles) ? profile.roles : ['store_manager'];
     const isOwner = isPlatformOwner(profile);
@@ -502,8 +502,8 @@ function applyAdminRolePermissions(profile) {
             ? profile.assigned_hostels
             : (profile.assigned_hostel_id ? [profile.assigned_hostel_id] : []);
         if (!isOwner && myHostels.length > 0) {
-            const hLabel = myHostels.length > 2 
-                ? `${myHostels.slice(0, 2).join(', ')} +${myHostels.length - 2}` 
+            const hLabel = myHostels.length > 2
+                ? `${myHostels.slice(0, 2).join(', ')} +${myHostels.length - 2}`
                 : myHostels.join(', ');
             topName.textContent = `${hLabel} Dark-Store`;
             if (mobHostel) mobHostel.textContent = hLabel;
@@ -676,7 +676,7 @@ function formatCustomerDisplayName(o) {
 }
 
 // Mobile Drawer & Off-Canvas Navigation Controller
-window.toggleMobileMenu = function(forceState) {
+window.toggleMobileMenu = function (forceState) {
     const aside = document.getElementById('admin-sidebar') || document.querySelector('aside');
     const backdrop = document.getElementById('mobile-sidebar-backdrop');
     if (!aside) return;
@@ -756,7 +756,7 @@ function switchView(viewName) {
 
     activeView = viewName;
     document.querySelectorAll('#main-content > div').forEach(el => el.classList.add('hidden'));
-    
+
     const target = document.getElementById(`view-${viewName}`);
     if (target) target.classList.remove('hidden');
 
@@ -836,7 +836,7 @@ function switchView(viewName) {
         if (typeof window !== 'undefined' && window.location.hash.replace(/^#\/?/, '') !== viewName) {
             history.replaceState(null, '', `#${viewName}`);
         }
-    } catch (e) {}
+    } catch (e) { }
 }
 
 // Automatic Hash-Based View Router for Admin Portal (/admin#upi-config, /admin#payment-management)
@@ -888,7 +888,7 @@ async function refreshCurrentView() {
                     headers: getAuthHeaders()
                 }, 3000)
             ]);
-        } catch (e) {}
+        } catch (e) { }
 
         // Reload data based on active view and refresh global components
         const promises = [
@@ -976,7 +976,7 @@ async function loadDashboard() {
         // Cache orders immediately
         if (ordersData.orders && Array.isArray(ordersData.orders)) {
             ordersCache = ordersData.orders;
-            try { localStorage.setItem('lpuquick_admin_orders_cache', JSON.stringify(ordersCache)); } catch(e){}
+            try { localStorage.setItem('lpuquick_admin_orders_cache', JSON.stringify(ordersCache)); } catch (e) { }
         }
 
         // Ensure productsCache is populated with authoritative live data from Supabase
@@ -987,10 +987,10 @@ async function loadDashboard() {
                 const list = Array.isArray(prodJson) ? prodJson : (prodJson.products || prodJson.data || []);
                 if (list.length > 0) {
                     productsCache = list;
-                    try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch(e){}
+                    try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) { }
                 }
             }
-        } catch(e) {}
+        } catch (e) { }
 
         const m = analyticsData.metrics || {};
 
@@ -1234,7 +1234,7 @@ function updateClientLockUI(avail, targetHostelLabel) {
         heroCard.className = 'glass-panel p-6 border-l-4 border-l-[#b06000] bg-[#fef7e0]/20';
         stateBadge.className = 'px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wide bg-[#fef7e0] text-[#b06000] border border-[#fce8b2]';
         stateBadge.textContent = 'SCHEDULED LOCK' + hostelTag;
-        headline.textContent = `Scheduled to lock at ${new Date(avail.start_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+        headline.textContent = `Scheduled to lock at ${new Date(avail.start_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
         sub.textContent = `Lock window: ${new Date(avail.start_at).toLocaleString()} until ${new Date(avail.end_at).toLocaleString()}`;
         timerBox?.classList.add('hidden');
         quickUnlockBtn?.classList.add('hidden');
@@ -1300,7 +1300,7 @@ function startLockCountdown(seconds, endAt) {
     const updateTimer = () => {
         const now = Date.now();
         const diff = Math.max(0, Math.floor((endTimestamp - now) / 1000));
-        
+
         const h = String(Math.floor(diff / 3600)).padStart(2, '0');
         const m = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
         const s = String(diff % 60).padStart(2, '0');
@@ -1375,7 +1375,7 @@ function setDurationUntil(targetHour) {
         target.setDate(target.getDate() + 1); // Tomorrow morning
     }
     const diffMins = Math.max(1, Math.round((target.getTime() - now.getTime()) / 60000));
-    
+
     const input = document.getElementById('input-custom-duration');
     if (input) input.value = diffMins;
 
@@ -1572,7 +1572,7 @@ function renderLockHostelOverview(allHostelLocks) {
         const mOpenedBy = masterLock.opened_by_name || 'Nivas Naidu (Main Admin)';
 
         // RED if closed, GREEN if open
-        const mBg = isSelected 
+        const mBg = isSelected
             ? (mLocked ? 'bg-[#fff5f5]' : 'bg-[#f0fdf4]')
             : (mLocked ? 'bg-[#fff8f8]' : 'bg-[#f6fef9]');
         const mBorder = isSelected
@@ -1825,7 +1825,7 @@ async function loadProducts(force = true) {
             if (reqSeq !== currentProductRequestSeq) return;
             if (data.products && Array.isArray(data.products)) {
                 productsCache = reconcileWithRecentStockUpdates(data.products, hostelId);
-                try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) {}
+                try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) { }
             }
         }
         filterProducts();
@@ -1880,9 +1880,9 @@ function filterProducts() {
 
     tbody.innerHTML = filtered.map(p => {
         const stock = p.stock_left !== undefined ? Math.max(0, Number(p.stock_left)) : (p.in_stock ? (p.stock_left || 0) : 0);
-        const statusBadge = stock > 4 
+        const statusBadge = stock > 4
             ? `<button onclick="toggleProductStock('${p.id}', false)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold badge-in-stock cursor-pointer hover:opacity-80 transition-all" title="Click to mark Out of Stock">In Stock</button>`
-            : (stock > 0 
+            : (stock > 0
                 ? `<button onclick="toggleProductStock('${p.id}', false)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold badge-low-stock cursor-pointer hover:opacity-80 transition-all" title="Click to mark Out of Stock">Low Stock (${stock} left)</button>`
                 : `<button onclick="toggleProductStock('${p.id}', true)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold badge-out-of-stock cursor-pointer hover:opacity-80 transition-all" title="Click to set in-stock amount">Out of Stock</button>`);
 
@@ -1959,7 +1959,7 @@ async function loadInventory(force = true) {
             if (reqSeq !== currentInventoryRequestSeq) return;
             if (data.products && Array.isArray(data.products)) {
                 productsCache = reconcileWithRecentStockUpdates(data.products, hostelId);
-                try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) {}
+                try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) { }
             }
         }
         filterInventory();
@@ -2019,9 +2019,9 @@ function filterInventory() {
 
     tbody.innerHTML = filtered.map(p => {
         const stock = p.stock_left !== undefined ? Math.max(0, Number(p.stock_left)) : (p.in_stock ? (p.stock_left || 0) : 0);
-        const statusBadge = stock > 4 
+        const statusBadge = stock > 4
             ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold badge-in-stock">In Stock</span>'
-            : (stock > 0 
+            : (stock > 0
                 ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold badge-low-stock">Low Stock (${stock} left)</span>`
                 : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold badge-out-of-stock">Out of Stock</span>');
 
@@ -2063,8 +2063,8 @@ async function adjustStock(productId, delta) {
     const prevInStock = p ? Boolean(p.in_stock) : false;
     const newStock = Math.max(0, prevStock + Number(delta));
 
-    const hostelId = (typeof getActiveAdminHostelFilter === 'function') 
-        ? (getActiveAdminHostelFilter('inventory') || getActiveAdminHostelFilter('products')) 
+    const hostelId = (typeof getActiveAdminHostelFilter === 'function')
+        ? (getActiveAdminHostelFilter('inventory') || getActiveAdminHostelFilter('products'))
         : null;
     const targetHostel = hostelId || (p && (p.origin_hostel || p.hostel_id)) || 'BH-13';
 
@@ -2073,7 +2073,7 @@ async function adjustStock(productId, delta) {
         p.stock_left = newStock;
         p.in_stock = newStock > 0;
         registerRecentStockUpdate(productId, newStock, newStock > 0, targetHostel);
-        try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) {}
+        try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) { }
     }
     filterProducts();
     if (typeof filterInventory === 'function') filterInventory();
@@ -2090,7 +2090,7 @@ async function adjustStock(productId, delta) {
                 p.stock_left = data.stock_left;
                 p.in_stock = data.in_stock;
                 registerRecentStockUpdate(productId, data.stock_left, data.in_stock, targetHostel);
-                try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) {}
+                try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) { }
                 filterProducts();
                 if (typeof filterInventory === 'function') filterInventory();
             }
@@ -2103,7 +2103,7 @@ async function adjustStock(productId, delta) {
             p.stock_left = prevStock;
             p.in_stock = prevInStock;
             registerRecentStockUpdate(productId, prevStock, prevInStock, targetHostel);
-            try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) {}
+            try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) { }
             filterProducts();
             if (typeof filterInventory === 'function') filterInventory();
         }
@@ -2124,8 +2124,8 @@ async function promptCustomStock(productId, name, current) {
         return;
     }
 
-    const hostelId = (typeof getActiveAdminHostelFilter === 'function') 
-        ? (getActiveAdminHostelFilter(activeView === 'inventory' ? 'inventory' : 'products')) 
+    const hostelId = (typeof getActiveAdminHostelFilter === 'function')
+        ? (getActiveAdminHostelFilter(activeView === 'inventory' ? 'inventory' : 'products'))
         : null;
     const targetHostel = hostelId || (p && (p.origin_hostel || p.hostel_id)) || 'BH-13';
 
@@ -2134,7 +2134,7 @@ async function promptCustomStock(productId, name, current) {
         p.stock_left = parsed;
         p.in_stock = parsed > 0;
         registerRecentStockUpdate(productId, parsed, parsed > 0, targetHostel);
-        try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) {}
+        try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) { }
     }
     filterProducts();
     if (typeof filterInventory === 'function') filterInventory();
@@ -2151,7 +2151,7 @@ async function promptCustomStock(productId, name, current) {
                 p.stock_left = data.stock_left;
                 p.in_stock = data.in_stock;
                 registerRecentStockUpdate(productId, data.stock_left, data.in_stock, targetHostel);
-                try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) {}
+                try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) { }
                 filterProducts();
                 if (typeof filterInventory === 'function') filterInventory();
             }
@@ -2165,7 +2165,7 @@ async function promptCustomStock(productId, name, current) {
             p.stock_left = prevStock;
             p.in_stock = prevInStock;
             registerRecentStockUpdate(productId, prevStock, prevInStock, targetHostel);
-            try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) {}
+            try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) { }
             filterProducts();
             if (typeof filterInventory === 'function') filterInventory();
         }
@@ -2179,8 +2179,8 @@ async function toggleProductStock(productId, inStock) {
     const prevStock = p.stock_left !== undefined ? p.stock_left : 0;
     const prevInStock = Boolean(p.in_stock);
 
-    const hostelId = (typeof getActiveAdminHostelFilter === 'function') 
-        ? (getActiveAdminHostelFilter(activeView === 'inventory' ? 'inventory' : 'products')) 
+    const hostelId = (typeof getActiveAdminHostelFilter === 'function')
+        ? (getActiveAdminHostelFilter(activeView === 'inventory' ? 'inventory' : 'products'))
         : null;
     const targetHostel = hostelId || (p.origin_hostel || p.hostel_id) || 'BH-13';
 
@@ -2201,7 +2201,7 @@ async function toggleProductStock(productId, inStock) {
     p.in_stock = targetStock > 0;
     p.stock_left = targetStock;
     registerRecentStockUpdate(productId, targetStock, targetStock > 0, targetHostel);
-    try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) {}
+    try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) { }
     filterProducts();
     if (typeof filterInventory === 'function') filterInventory();
 
@@ -2216,7 +2216,7 @@ async function toggleProductStock(productId, inStock) {
             p.stock_left = data.stock_left;
             p.in_stock = data.in_stock;
             registerRecentStockUpdate(productId, data.stock_left, data.in_stock, targetHostel);
-            try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) {}
+            try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) { }
             filterProducts();
             if (typeof filterInventory === 'function') filterInventory();
             showToast(targetStock > 0 ? `Set "${p.name}" stock to ${targetStock}` : `Marked "${p.name}" Out of Stock`, 'success');
@@ -2228,7 +2228,7 @@ async function toggleProductStock(productId, inStock) {
         p.stock_left = prevStock;
         p.in_stock = prevInStock;
         registerRecentStockUpdate(productId, prevStock, prevInStock, targetHostel);
-        try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) {}
+        try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) { }
         filterProducts();
         if (typeof filterInventory === 'function') filterInventory();
         alert('Stock update failed: ' + err.message);
@@ -2245,7 +2245,7 @@ async function loadOrders() {
             const data = await res.json();
             if (data.orders && Array.isArray(data.orders)) {
                 ordersCache = data.orders;
-                try { localStorage.setItem('lpuquick_admin_orders_cache', JSON.stringify(ordersCache)); } catch (e) {}
+                try { localStorage.setItem('lpuquick_admin_orders_cache', JSON.stringify(ordersCache)); } catch (e) { }
                 updateDailyRevenue();
                 updateKpiCountersFromCache();
             }
@@ -2424,7 +2424,7 @@ async function enablePushNotifications() {
                 try {
                     const stale = await reg.pushManager.getSubscription();
                     if (stale) await stale.unsubscribe();
-                } catch (_) {}
+                } catch (_) { }
 
                 sub = await reg.pushManager.subscribe({
                     userVisibleOnly: true,
@@ -2459,7 +2459,7 @@ async function enablePushNotifications() {
                 adminId: currentAdminProfile?.id || null,
                 adminName: currentAdminProfile?.name || 'Admin'
             })
-        }).catch(() => {});
+        }).catch(() => { });
 
         return true;
     } catch (e) {
@@ -2470,7 +2470,7 @@ async function enablePushNotifications() {
         const isBrave = (navigator.brave && typeof navigator.brave.isBrave === 'function');
         let braveDetected = false;
         if (isBrave) {
-            try { braveDetected = await navigator.brave.isBrave(); } catch (_) {}
+            try { braveDetected = await navigator.brave.isBrave(); } catch (_) { }
         }
 
         if (braveDetected) {
@@ -2500,7 +2500,7 @@ async function disablePushNotifications() {
                 method: 'POST',
                 headers: getAuthHeaders(),
                 body: JSON.stringify({ endpoint })
-            }).catch(() => {});
+            }).catch(() => { });
         }
         updatePushUI(false);
         showToast('Push notifications disabled for this device', 'info');
@@ -2565,7 +2565,7 @@ async function claimOrder(orderId) {
         const data = await res.json();
         if (res.ok && data.success) {
             showToast(data.message || 'Delivery accepted successfully!', 'success');
-            
+
             const returnedOrder = data.order || {};
             const assignedName = returnedOrder.delivery_assignment?.assigned_to_name || returnedOrder.rider_name || myName;
             const updatedDa = returnedOrder.delivery_assignment || {
@@ -2739,7 +2739,7 @@ function openTransferModal(orderId) {
     document.getElementById('transfer-order-id').value = orderId;
     document.getElementById('transfer-order-label').textContent = `#${(orderId || '').replace('order_', '').toUpperCase()}`;
     document.getElementById('transfer-order-room').textContent = order.delivery_address || 'Campus Hostel';
-    
+
     const currRider = order.delivery_assignment?.assigned_to_name || order.rider_name || 'Unassigned';
     document.getElementById('transfer-order-curr-rider').textContent = currRider;
 
@@ -2860,7 +2860,7 @@ function showIncomingTransferAlert(transferData) {
         const shortId = (transferData.orderId || '').replace('order_', '').slice(0, 8).toUpperCase();
         txt.innerHTML = `🛵 <strong>${transferData.fromName}</strong> requested to transfer Order <span class="font-mono underline">#${shortId}</span> to you! (${transferData.reason || 'Assistance requested'})`;
         banner.classList.remove('hidden');
-        try { playCampusChime(); } catch (e) {}
+        try { playCampusChime(); } catch (e) { }
     }
 }
 
@@ -2884,7 +2884,7 @@ async function openEditOrderModal(orderId) {
                 const d = await res.json();
                 if (d.order) order = d.order;
             }
-        } catch (e) {}
+        } catch (e) { }
     }
 
     if (!order) {
@@ -3104,7 +3104,7 @@ async function submitOrderEdit(event) {
         const data = await res.json();
         if (res.ok && data.success) {
             showToast(`Order #${currentEditOrderData.id.replace('order_', '').toUpperCase()} updated! New Total: ₹${data.order.total}`, 'success');
-            
+
             // Update local cache
             const idx = ordersCache.findIndex(o => o.id === currentEditOrderData.id);
             if (idx >= 0 && data.order) {
@@ -3152,8 +3152,8 @@ function updateDrawerDispatchCard(order) {
     const myId = currentAdminProfile?.id;
     const myName = (currentAdminProfile?.name || '').trim().toLowerCase();
     const assignedRiderName = da.assigned_to_name || da.name || (hasExplicitRider ? rawRider : null) || 'Delivery Rider';
-    const isAssignedToMe = (da.assigned_to && myId && da.assigned_to === myId) || 
-                           (myName && assignedRiderName && assignedRiderName.toLowerCase() === myName);
+    const isAssignedToMe = (da.assigned_to && myId && da.assigned_to === myId) ||
+        (myName && assignedRiderName && assignedRiderName.toLowerCase() === myName);
     const isOwnerOrStoreMgr = currentAdminProfile?.is_owner || (currentAdminProfile?.roles || []).includes('owner') || (currentAdminProfile?.roles || []).includes('store_manager');
 
     const badge = document.getElementById('drawer-dispatch-status-badge');
@@ -3200,7 +3200,7 @@ function updateDrawerDispatchCard(order) {
         const riderName = assignedRiderName;
         if (badge) {
             badge.textContent = isAssignedToMe ? '🛵 Assigned to You' : 'Assigned';
-            badge.className = isAssignedToMe 
+            badge.className = isAssignedToMe
                 ? 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-300'
                 : 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300';
         }
@@ -3229,7 +3229,7 @@ function updateDrawerDispatchCard(order) {
             badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300';
         }
         const canAcceptDelivery = Boolean(currentAdminProfile && (
-            currentAdminProfile.is_owner || 
+            currentAdminProfile.is_owner ||
             (Array.isArray(currentAdminProfile.roles) && (currentAdminProfile.roles.includes('delivery_person') || currentAdminProfile.roles.includes('owner')))
         ));
         if (nameEl) nameEl.textContent = canAcceptDelivery ? 'No delivery person assigned. You can accept this delivery.' : 'No delivery person assigned. Waiting for active courier.';
@@ -3302,8 +3302,8 @@ function filterOrders() {
         const da = o.delivery_assignment || {};
         const rawRider = typeof o.rider_name === 'string' && !o.rider_name.startsWith('{') ? o.rider_name.trim() : null;
         const assignedName = da.assigned_to_name || da.name || (rawRider && !['Alex', 'Campus Express', 'Unassigned', 'unassigned'].includes(rawRider) ? rawRider : null) || '';
-        const isAssignedToMe = (da.assigned_to && myId && da.assigned_to === myId) || 
-                               (myName && assignedName && assignedName.toLowerCase() === myName);
+        const isAssignedToMe = (da.assigned_to && myId && da.assigned_to === myId) ||
+            (myName && assignedName && assignedName.toLowerCase() === myName);
         return !isDone && isAssignedToMe;
     }).length;
 
@@ -3312,11 +3312,11 @@ function filterOrders() {
         return da && da.transfer && da.transfer.status === 'PENDING' && (da.transfer.to_id === myId || isOwnerOrStoreMgr || da.transfer.from_id === myId);
     }).length;
 
-    const deliveredCount = ordersCache.filter(o => 
+    const deliveredCount = ordersCache.filter(o =>
         ['Delivered', 'delivered', 'completed', 'Completed'].includes(o.status)
     ).length;
 
-    const cancelledCount = ordersCache.filter(o => 
+    const cancelledCount = ordersCache.filter(o =>
         ['Cancelled', 'cancelled', 'canceled', 'Canceled', 'rejected', 'Rejected'].includes(o.status)
     ).length;
 
@@ -3426,8 +3426,8 @@ function filterOrders() {
             const da = o.delivery_assignment || {};
             const rawRider = typeof o.rider_name === 'string' && !o.rider_name.startsWith('{') ? o.rider_name.trim() : null;
             const assignedName = da.assigned_to_name || da.name || (rawRider && !['Alex', 'Campus Express', 'Unassigned', 'unassigned'].includes(rawRider) ? rawRider : null) || '';
-            const isAssignedToMe = (da.assigned_to && myId && da.assigned_to === myId) || 
-                                   (myName && assignedName && assignedName.toLowerCase() === myName);
+            const isAssignedToMe = (da.assigned_to && myId && da.assigned_to === myId) ||
+                (myName && assignedName && assignedName.toLowerCase() === myName);
             return !isDone && isAssignedToMe;
         });
     } else if (currentOrderFilter === 'transfers') {
@@ -3509,8 +3509,8 @@ function filterOrders() {
         const isUnassigned = !isClaimed;
         const isPendingTransfer = da.transfer && da.transfer.status === 'PENDING';
         const isOfferedToMe = isPendingTransfer && da.transfer.to_id === myId;
-        const isAssignedToMe = (da.assigned_to && myId && da.assigned_to === myId) || 
-                               (myName && assignedRiderName && assignedRiderName.toLowerCase() === myName);
+        const isAssignedToMe = (da.assigned_to && myId && da.assigned_to === myId) ||
+            (myName && assignedRiderName && assignedRiderName.toLowerCase() === myName);
 
         // Delivery Dispatch badge column
         let dispatchBadgeHtml = '';
@@ -3533,7 +3533,7 @@ function filterOrders() {
 
         // Action / Dispatch buttons column
         const canAcceptDelivery = Boolean(currentAdminProfile && (
-            currentAdminProfile.is_owner || 
+            currentAdminProfile.is_owner ||
             (Array.isArray(currentAdminProfile.roles) && (currentAdminProfile.roles.includes('delivery_person') || currentAdminProfile.roles.includes('owner')))
         ));
         const isOwner = isPlatformOwner();
@@ -4002,7 +4002,7 @@ function updateDrawerSplitHint(cash, upi, total) {
     const hint = document.getElementById('drawer-split-calc-hint');
     const badge = document.getElementById('drawer-payment-badge');
     const errorMsg = document.getElementById('drawer-split-error-msg');
-    
+
     if (Math.abs((cash + upi) - total) > 0.01) {
         if (errorMsg) {
             errorMsg.textContent = `⚠️ Cash (₹${cash}) + UPI (₹${upi}) = ₹${cash + upi}, must equal Total ₹${total}`;
@@ -4110,7 +4110,7 @@ async function applyDrawerStatusUpdate() {
             knownOrderMap.set(targetOrderId, getOrderSignature(o));
         }
     }
-    
+
     // Update live pills in DOM
     const pill1 = document.getElementById(`order-status-pill-${targetOrderId}`);
     if (pill1) pill1.innerHTML = getStatusPill(newStatus);
@@ -4333,7 +4333,7 @@ function processProductImageFile(file) {
                 const uploadRes = await fetch('/api/products/admin/upload-image', {
                     method: 'POST',
                     headers: getAuthHeaders(),
-                    body: JSON.stringify({ 
+                    body: JSON.stringify({
                         image_data: compressed,
                         filename: prodName
                     })
@@ -4394,7 +4394,7 @@ window.updateModalProfitPreview = updateModalProfitPreview;
 
 const DEFAULT_CATEGORY_SUBCATEGORIES = {
     "Quick's Instant Food": [
-        'Maggi & Noodles',
+        'magiee & Noodles',
         'Cooked Meals & Platters',
         'Sandwiches & Burgers',
         'Pasta & Macaroni',
@@ -4403,7 +4403,7 @@ const DEFAULT_CATEGORY_SUBCATEGORIES = {
         'Chai, Coffee & Beverages'
     ],
     'Instant Food': [
-        'Maggi & Noodles',
+        'magiee & Noodles',
         'Cooked Meals & Platters',
         'Sandwiches & Burgers',
         'Pasta & Macaroni',
@@ -4744,7 +4744,7 @@ async function handleProductSubmit(e) {
                 const uploadRes = await fetch('/api/products/admin/upload-image', {
                     method: 'POST',
                     headers: getAuthHeaders(),
-                    body: JSON.stringify({ 
+                    body: JSON.stringify({
                         image_data: imageUrl,
                         filename: document.getElementById('form-product-name').value.trim()
                     })
@@ -4856,8 +4856,8 @@ async function deactivateProduct(id, name) {
     if (!confirm(`Are you sure you want to deactivate "${name}"? It will become unavailable to students while preserving historical orders.`)) return;
 
     try {
-        const hostelId = (typeof getActiveAdminHostelFilter === 'function') 
-            ? (getActiveAdminHostelFilter('products') || getActiveAdminHostelFilter('inventory')) 
+        const hostelId = (typeof getActiveAdminHostelFilter === 'function')
+            ? (getActiveAdminHostelFilter('products') || getActiveAdminHostelFilter('inventory'))
             : null;
         const hostelParam = hostelId ? `?hostel_id=${encodeURIComponent(hostelId)}` : '';
         const res = await fetch(`/api/products/admin/deactivate/${id}${hostelParam}`, {
@@ -4958,8 +4958,8 @@ function renderCustomersTable(customers, page = 1) {
             ? `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#ffdad6] text-[#ba1a1a] border border-[#ffb4ab]">BLOCKED (${c.block_reason || 'Fake Orders'})</span>`
             : `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#e6f4ea] text-[#137333] border border-[#ceead6]">Active Student</span>`;
 
-        const lastActiveTime = c.last_login 
-            ? new Date(c.last_login).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) 
+        const lastActiveTime = c.last_login
+            ? new Date(c.last_login).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
             : (c.last_order_date ? new Date(c.last_order_date).toLocaleDateString() : '<span class="text-[#74777a] italic">Never</span>');
 
         const actionBtn = isBlocked
@@ -5097,7 +5097,7 @@ async function viewCustomerDetails(customerId) {
         const isBlocked = c.account_status === 'BLOCKED';
         if (statusBadge) {
             statusBadge.textContent = isBlocked ? `BLOCKED (${c.block_reason || 'Fraud'})` : 'ACTIVE STUDENT';
-            statusBadge.className = isBlocked 
+            statusBadge.className = isBlocked
                 ? 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#ffdad6] text-[#ba1a1a] border border-[#ffb4ab]'
                 : 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#e6f4ea] text-[#137333] border border-[#ceead6]';
         }
@@ -5114,7 +5114,7 @@ async function viewCustomerDetails(customerId) {
 
         const emailEl = document.getElementById('cust-modal-email');
         if (emailEl) {
-            emailEl.innerHTML = c.email 
+            emailEl.innerHTML = c.email
                 ? `<span class="material-symbols-outlined text-xs text-[#5c5f60]">mail</span><span class="text-[#5c5f60]">${c.email}</span>`
                 : '';
         }
@@ -5142,7 +5142,7 @@ async function viewCustomerDetails(customerId) {
         if (totalOrdersEl) totalOrdersEl.textContent = c.total_orders || 0;
         if (deliveredOrdersEl) deliveredOrdersEl.textContent = c.delivered_orders || 0;
         if (totalSpentEl) totalSpentEl.textContent = `₹${c.total_spent || 0}`;
-        
+
         const lastActiveDate = c.last_login ? new Date(c.last_login).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : (c.last_order_date ? new Date(c.last_order_date).toLocaleDateString() : 'N/A');
         if (lastActiveEl) lastActiveEl.textContent = lastActiveDate;
 
@@ -5207,7 +5207,7 @@ async function loadBlacklistData() {
         const res = await fetch(`/api/admin/blacklist`, { headers: getAuthHeaders() });
         const data = await res.json();
         blacklistCache = data.blacklist || [];
-        
+
         // Update nav badge
         const badge = document.getElementById('nav-blacklist-badge');
         if (badge) {
@@ -5226,8 +5226,8 @@ function setBlacklistFilter(filter) {
     currentBlacklistFilter = filter;
     document.querySelectorAll('.bl-filter-pill').forEach(pill => {
         const match = (filter === 'all' && pill.textContent.includes('All')) ||
-                      (filter === 'fake' && pill.textContent.includes('Fake')) ||
-                      (filter === 'other' && pill.textContent.includes('Other'));
+            (filter === 'fake' && pill.textContent.includes('Fake')) ||
+            (filter === 'other' && pill.textContent.includes('Other'));
         if (match) {
             pill.className = 'bl-filter-pill active px-3 py-1.5 rounded-full border border-[#3c4043] bg-[#3c4043] text-white font-semibold';
         } else {
@@ -5273,7 +5273,7 @@ function renderBlacklistTable(records) {
         const isBlocked = b.status === 'BLOCKED';
         const phoneHtml = b.customer_phone ? `<span class="font-medium text-[#181c1f]">${b.customer_phone}</span>` : `<span class="text-[#74777a] italic">Not provided</span>`;
         const emailHtml = b.customer_email ? `<span class="font-medium text-[#181c1f]">${b.customer_email}</span>` : `<span class="text-[#74777a] italic">Not provided</span>`;
-        
+
         const statusHtml = isBlocked
             ? `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#ffdad6] text-[#ba1a1a] border border-[#ffb4ab]">BLOCKED</span>`
             : `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#e6f4ea] text-[#137333] border border-[#ceead6]">RESOLVED</span>`;
@@ -5335,7 +5335,7 @@ function openManualBlockModal() {
     if (!customersCache || customersCache.length === 0) {
         loadCustomers().then(() => {
             populateSelect(customersCache);
-        }).catch(() => {});
+        }).catch(() => { });
     }
 }
 
@@ -5478,7 +5478,7 @@ async function loadAnalytics() {
 
         if (ordersEl) ordersEl.textContent = `${m.deliveredOrdersCount || m.totalOrdersCount || 0}`;
         if (activeOrdersEl) activeOrdersEl.textContent = `${m.pendingOrdersCount || 0}`;
-        
+
         const rate = m.totalProducts > 0 ? Math.round(((m.totalProducts - (m.outOfStockCount || 0)) / m.totalProducts) * 100) : 100;
         if (stockRateEl) stockRateEl.textContent = `${rate}%`;
 
@@ -5664,7 +5664,7 @@ async function forceLiveDbSync() {
         await fetch(`/api/orders/admin/invalidate-cache?_t=${Date.now()}`, {
             method: 'POST',
             headers: getAuthHeaders()
-        }).catch(() => {});
+        }).catch(() => { });
 
         await loadDashboard();
         if (activeView === 'orders') await loadOrders();
@@ -5711,7 +5711,7 @@ async function syncOrdersLive() {
 
         // Keep local cache fresh at all times
         ordersCache = orders;
-        try { localStorage.setItem('lpuquick_admin_orders_cache', JSON.stringify(orders)); } catch(e){}
+        try { localStorage.setItem('lpuquick_admin_orders_cache', JSON.stringify(orders)); } catch (e) { }
         updateDailyRevenue();
         updateKpiCountersFromCache();
 
@@ -5753,7 +5753,7 @@ async function syncOrdersLive() {
                 }
                 hasOrderChanges = true;
                 knownOrderMap.set(order.id, currentSig);
-                
+
                 // If status itself changed, trigger status update notification & KPI refresh
                 if (!prevSig || !prevSig.startsWith(order.status + '|')) {
                     handleRealtimeStatusUpdate({ orderId: order.id, status: order.status });
@@ -5833,7 +5833,7 @@ async function initSupabaseRealtime() {
         if (!cfg?.supabaseUrl || !cfg?.supabaseAnonKey) return;
 
         if (adminSupabaseChannel) {
-            try { adminSupabaseChannel.unsubscribe(); } catch(e) {}
+            try { adminSupabaseChannel.unsubscribe(); } catch (e) { }
             adminSupabaseChannel = null;
         }
 
@@ -5883,7 +5883,7 @@ async function initSupabaseRealtime() {
                         order: payload.new
                     });
                 }
-            } catch(e) {
+            } catch (e) {
                 console.warn('[Admin Supabase PG Changes Note]:', e);
             }
         });
@@ -5894,7 +5894,7 @@ async function initSupabaseRealtime() {
                 updateConnectionStatus(true, 'Live (Cloud + WS)');
             }
         });
-    } catch(err) {
+    } catch (err) {
         console.warn('[Admin Supabase Init Note]:', err.message);
     }
 }
@@ -6141,7 +6141,7 @@ function initRealtimeWebSocket() {
     }
 
     if (realtimeWs) {
-        try { realtimeWs.close(); } catch(e){}
+        try { realtimeWs.close(); } catch (e) { }
         realtimeWs = null;
     }
 
@@ -6193,7 +6193,7 @@ function initRealtimeWebSocket() {
         };
 
         realtimeWs.onerror = (err) => {
-            try { realtimeWs.close(); } catch(e){}
+            try { realtimeWs.close(); } catch (e) { }
         };
     } catch (e) {
         updateConnectionStatus(true, 'Live');
@@ -6230,8 +6230,8 @@ function handleRealtimeInventoryUpdate(data) {
     const { productId, stock_left, in_stock, hostel_id } = data;
 
     // Strict Dark-Store Hostel Isolation: Only update in-memory cache if viewing matching hostel (or ALL)
-    const currentFilter = (typeof getActiveAdminHostelFilter === 'function') 
-        ? getActiveAdminHostelFilter(activeView === 'inventory' ? 'inventory' : 'products') 
+    const currentFilter = (typeof getActiveAdminHostelFilter === 'function')
+        ? getActiveAdminHostelFilter(activeView === 'inventory' ? 'inventory' : 'products')
         : null;
 
     if (hostel_id && currentFilter) {
@@ -6251,7 +6251,7 @@ function handleRealtimeInventoryUpdate(data) {
     if (p) {
         p.stock_left = stock_left;
         p.in_stock = in_stock;
-        try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) {}
+        try { localStorage.setItem('lpuquick_admin_products_cache', JSON.stringify(productsCache)); } catch (e) { }
     } else {
         if (typeof loadProducts === 'function') loadProducts(true);
         if (typeof loadInventory === 'function') loadInventory(true);
@@ -6529,25 +6529,25 @@ async function handleAdminLogin(e) {
         } catch (jsonErr) {
             data = { success: false, error: 'Server error (' + res.status + '). Please try again.' };
         }
-        
+
         if (data.success && data.token) {
             adminToken = data.token;
             localStorage.setItem('lpuquick_admin_token', adminToken);
             sessionStorage.setItem('lpuquick_admin_token', adminToken);
-            
+
             // Clear any error states
             if (errorBox) errorBox.classList.add('hidden');
             if (errorText) errorText.textContent = '';
-            
+
             // Welcome chime and UI unlock
             try {
                 getAudioContext();
                 playCampusChime();
-            } catch (aErr) {}
-            
+            } catch (aErr) { }
+
             hideLoginModal();
             if (typeof loadHostels === 'function') {
-                loadHostels().catch(() => {});
+                loadHostels().catch(() => { });
             }
             const initialView = applyAdminRolePermissions(data.admin);
             switchView(initialView);
@@ -6578,7 +6578,7 @@ function logoutAdmin() {
     adminToken = '';
     currentAdminProfile = null;
     if (realtimeWs) {
-        try { realtimeWs.close(); } catch(e){}
+        try { realtimeWs.close(); } catch (e) { }
     }
     showLoginModal();
 }
@@ -6696,20 +6696,20 @@ function renderStaffTable(list) {
         }
 
         let hostelBadge = '';
-        const assignedList = Array.isArray(s.assigned_hostels) && s.assigned_hostels.length > 0 
-            ? s.assigned_hostels 
+        const assignedList = Array.isArray(s.assigned_hostels) && s.assigned_hostels.length > 0
+            ? s.assigned_hostels
             : (s.assigned_hostel_id ? [s.assigned_hostel_id] : []);
         if (isOwner) {
             hostelBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-300">🌐 All Hostels (Master)</span>`;
         } else if (assignedList.length > 0) {
-            hostelBadge = assignedList.map(h => 
+            hostelBadge = assignedList.map(h =>
                 `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#0066cc] border border-blue-200">🏢 ${escapeHtml(h)}</span>`
             ).join(' ');
         } else {
             hostelBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-200">🌐 All Hostels</span>`;
         }
 
-        const lastActiveStr = s.last_login 
+        const lastActiveStr = s.last_login
             ? new Date(s.last_login).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
             : '<span class="text-[#74777a] italic">Never</span>';
 
@@ -6807,7 +6807,7 @@ function selectAllStaffHostels(selectAll = true) {
 function populateStaffHostelsChecklist(selectedHostels = []) {
     const container = document.getElementById('staff-hostels-checklist');
     const legacySelect = document.getElementById('form-staff-hostel');
-    
+
     let normalizedSelected = [];
     if (Array.isArray(selectedHostels)) {
         normalizedSelected = selectedHostels.map(h => String(h).trim().toUpperCase()).filter(Boolean);
@@ -6999,15 +6999,15 @@ async function submitStaffForm(e) {
     try {
         let res;
         if (id) {
-            const payload = { 
-                name, 
-                phone, 
-                roles, 
-                permissions, 
-                assigned_hostel_id: assignedHostelId, 
-                assigned_hostels: selectedHostels, 
-                is_on_duty: isOnDuty, 
-                duty_status: dutyStatus 
+            const payload = {
+                name,
+                phone,
+                roles,
+                permissions,
+                assigned_hostel_id: assignedHostelId,
+                assigned_hostels: selectedHostels,
+                is_on_duty: isOnDuty,
+                duty_status: dutyStatus
             };
             if (password) payload.password = password;
             res = await fetch(`/api/admin/staff/${id}`, {
@@ -7019,17 +7019,17 @@ async function submitStaffForm(e) {
             res = await fetch('/api/admin/staff', {
                 method: 'POST',
                 headers: getAuthHeaders(),
-                body: JSON.stringify({ 
-                    name, 
-                    email, 
-                    phone, 
-                    password, 
-                    roles, 
-                    permissions, 
-                    assigned_hostel_id: assignedHostelId, 
-                    assigned_hostels: selectedHostels, 
-                    is_on_duty: isOnDuty, 
-                    duty_status: dutyStatus 
+                body: JSON.stringify({
+                    name,
+                    email,
+                    phone,
+                    password,
+                    roles,
+                    permissions,
+                    assigned_hostel_id: assignedHostelId,
+                    assigned_hostels: selectedHostels,
+                    is_on_duty: isOnDuty,
+                    duty_status: dutyStatus
                 })
             });
         }
@@ -7199,13 +7199,13 @@ function renderEmployeesTable(list) {
 
         // Hostel badge
         let hostelBadge = '';
-        const assignedList = Array.isArray(emp.assigned_hostels) && emp.assigned_hostels.length > 0 
-            ? emp.assigned_hostels 
+        const assignedList = Array.isArray(emp.assigned_hostels) && emp.assigned_hostels.length > 0
+            ? emp.assigned_hostels
             : (emp.assigned_hostel_id ? [emp.assigned_hostel_id] : []);
         if (isOwner) {
             hostelBadge = '<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-300">🌐 All Hostels (Master)</span>';
         } else if (assignedList.length > 0) {
-            hostelBadge = assignedList.map(h => 
+            hostelBadge = assignedList.map(h =>
                 `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#0066cc] border border-blue-200">🏢 ${escapeHtml(h)}</span>`
             ).join(' ');
         } else {
@@ -7325,8 +7325,8 @@ function filterEmployeesList() {
                 ? e.assigned_hostels.map(h => String(h).toUpperCase().trim())
                 : (e.assigned_hostel_id ? [e.assigned_hostel_id.toUpperCase().trim()] : []);
             const hName = (e.assigned_hostel_name || '').toLowerCase().trim();
-            return assignedList.some(h => h === hVal || h === hVal.replace(/\s+/g, '-') || h.replace(/\s+/g, '-') === hVal) || 
-                   (hName && hName.includes(hostelVal.toLowerCase()));
+            return assignedList.some(h => h === hVal || h === hVal.replace(/\s+/g, '-') || h.replace(/\s+/g, '-') === hVal) ||
+                (hName && hName.includes(hostelVal.toLowerCase()));
         });
     }
 
@@ -7732,11 +7732,11 @@ function renderDashboardHostelCards() {
         const hid = h.id;
         const norm = hid.toLowerCase().replace('-', '');
         const hostelOrders = (ordersCache || []).filter(o => (o.hostel_id || 'BH-13').toLowerCase().replace('-', '') === norm);
-        
+
         const activeOrdersCount = hostelOrders.filter(o => ['Order Placed', 'Preparing', 'Out for Delivery', 'pending', 'confirmed', 'accepted'].includes(o.status)).length;
         const deliveredOrders = hostelOrders.filter(o => ['Delivered', 'delivered', 'completed', 'Completed'].includes(o.status));
         const deliveredRev = deliveredOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
-        
+
         const isActive = h.status === 'ACTIVE';
 
         return `
@@ -7854,7 +7854,7 @@ function renderHostelsTable() {
                 <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> OFF / PAUSED (Orders Blocked)
                </span>`;
 
-        const managerDisplay = h.manager_name 
+        const managerDisplay = h.manager_name
             ? `<div class="flex items-center gap-2">
                 <div class="w-6 h-6 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-[10px]">
                     ${escapeHtml((h.manager_name[0] || 'M').toUpperCase())}
@@ -8079,7 +8079,7 @@ async function submitHostelForm(e) {
 async function toggleHostelStatus(id, currentStatus) {
     const newStatus = currentStatus === 'ACTIVE' ? 'OFF' : 'ACTIVE';
     const action = newStatus === 'ACTIVE' ? 'activate' : 'deactivate';
-    
+
     if (newStatus === 'OFF') {
         const confirmPause = confirm(`Turn OFF ordering for ${id}?\n\nExisting product and order data will NOT be deleted, but students will not be able to place new orders from this hostel.`);
         if (!confirmPause) return;
@@ -8296,7 +8296,7 @@ async function initAdminAuth() {
             adminToken = savedToken;
             hideLoginModal();
             if (typeof loadHostels === 'function') {
-                loadHostels().catch(() => {});
+                loadHostels().catch(() => { });
             }
             const initialView = applyAdminRolePermissions(data.admin);
             switchView(initialView);
@@ -8327,7 +8327,7 @@ setInterval(() => {
 let financialToken = null;
 try {
     financialToken = sessionStorage.getItem('lpuquick_financial_token');
-} catch (e) {}
+} catch (e) { }
 let financialTimerInterval = null;
 let isFinancialConfigured = false;
 
@@ -8358,7 +8358,7 @@ async function checkFinancialStatus() {
                 }
             } else if (!data.is_unlocked) {
                 financialToken = null;
-                try { sessionStorage.removeItem('lpuquick_financial_token'); } catch (e) {}
+                try { sessionStorage.removeItem('lpuquick_financial_token'); } catch (e) { }
                 if (activeView === 'daily-revenue') {
                     loadDailyRevenueView();
                 }
@@ -8402,7 +8402,7 @@ function updateFinancialUI(status) {
             icon.className = 'w-10 h-10 rounded-2xl bg-rose-500/10 text-rose-600 flex items-center justify-center font-bold';
         }
         if (desc) {
-            desc.textContent = isFinancialConfigured 
+            desc.textContent = isFinancialConfigured
                 ? 'Revenue & Profit figures are encrypted with PIN security.'
                 : 'Financial PIN not configured. Tap PIN Setup to create one.';
         }
@@ -8438,8 +8438,8 @@ async function fetchFinancialData() {
             if (valRev) valRev.textContent = `₹${(data.metrics.total_revenue || 0).toLocaleString('en-IN')}`;
             if (valProf) valProf.textContent = `₹${(data.metrics.total_profit || 0).toLocaleString('en-IN')}`;
             if (subRev) {
-                const count = data.metrics.delivered_orders_count !== undefined 
-                    ? data.metrics.delivered_orders_count 
+                const count = data.metrics.delivered_orders_count !== undefined
+                    ? data.metrics.delivered_orders_count
                     : (data.metrics.completed_orders_count || 0);
                 subRev.textContent = `From ${count} delivered orders`;
                 subRev.classList.remove('hidden');
@@ -8492,7 +8492,7 @@ function stopFinancialTimer() {
 }
 
 // Modal open/close handlers
-window.openFinancialUnlockModal = function() {
+window.openFinancialUnlockModal = function () {
     if (!isFinancialConfigured) {
         openFinancialSetupModal();
         return;
@@ -8508,12 +8508,12 @@ window.openFinancialUnlockModal = function() {
     if (modal) modal.classList.remove('hidden');
 };
 
-window.closeFinancialUnlockModal = function() {
+window.closeFinancialUnlockModal = function () {
     const modal = document.getElementById('modal-fin-unlock');
     if (modal) modal.classList.add('hidden');
 };
 
-window.openFinancialSetupModal = function() {
+window.openFinancialSetupModal = function () {
     const modal = document.getElementById('modal-fin-setup');
     const currentGroup = document.getElementById('fin-setup-current-group');
     const title = document.getElementById('fin-setup-modal-title');
@@ -8544,12 +8544,12 @@ window.openFinancialSetupModal = function() {
     if (modal) modal.classList.remove('hidden');
 };
 
-window.closeFinancialSetupModal = function() {
+window.closeFinancialSetupModal = function () {
     const modal = document.getElementById('modal-fin-setup');
     if (modal) modal.classList.add('hidden');
 };
 
-window.submitFinancialUnlock = async function(e) {
+window.submitFinancialUnlock = async function (e) {
     if (e) e.preventDefault();
     const pin = document.getElementById('input-fin-pin')?.value?.trim();
     const err = document.getElementById('fin-unlock-error');
@@ -8577,7 +8577,7 @@ window.submitFinancialUnlock = async function(e) {
         const data = await res.json();
         if (data.success && data.financial_token) {
             financialToken = data.financial_token;
-            try { sessionStorage.setItem('lpuquick_financial_token', financialToken); } catch (e) {}
+            try { sessionStorage.setItem('lpuquick_financial_token', financialToken); } catch (e) { }
             closeFinancialUnlockModal();
             showToast('✓ Financial metrics unlocked successfully', 'success');
             checkFinancialStatus();
@@ -8600,7 +8600,7 @@ window.submitFinancialUnlock = async function(e) {
     }
 };
 
-window.submitFinancialSetup = async function(e) {
+window.submitFinancialSetup = async function (e) {
     if (e) e.preventDefault();
     const curPin = document.getElementById('input-fin-current-pin')?.value?.trim();
     const newPin = document.getElementById('input-fin-new-pin')?.value?.trim();
@@ -8668,7 +8668,7 @@ window.submitFinancialSetup = async function(e) {
     }
 };
 
-window.lockFinancialData = async function() {
+window.lockFinancialData = async function () {
     if (!adminToken) return;
     try {
         await fetch('/api/admin/financial/lock', {
@@ -8679,9 +8679,9 @@ window.lockFinancialData = async function() {
                 ...(financialToken ? { 'X-Financial-Token': financialToken } : {})
             }
         });
-    } catch (e) {}
+    } catch (e) { }
     financialToken = null;
-    try { sessionStorage.removeItem('lpuquick_financial_token'); } catch (e) {}
+    try { sessionStorage.removeItem('lpuquick_financial_token'); } catch (e) { }
     showToast('Financial data locked', 'info');
     checkFinancialStatus();
     if (activeView === 'daily-revenue') {
@@ -8705,7 +8705,7 @@ let currentDailyRevenueFilter = {
 };
 let cachedDailyRevenueData = null;
 
-window.handleDailyRevenuePinAction = function() {
+window.handleDailyRevenuePinAction = function () {
     if (financialToken) {
         if (confirm('Financial intelligence is currently unlocked. Do you want to relock financial metrics immediately?')) {
             window.lockFinancialData();
@@ -8715,7 +8715,7 @@ window.handleDailyRevenuePinAction = function() {
     }
 };
 
-window.setDailyRevenueFilter = function(range) {
+window.setDailyRevenueFilter = function (range) {
     currentDailyRevenueFilter.range = range;
     currentDailyRevenueFilter.startDate = null;
     currentDailyRevenueFilter.endDate = null;
@@ -8738,7 +8738,7 @@ window.setDailyRevenueFilter = function(range) {
     loadDailyRevenueView();
 };
 
-window.applyCustomDailyRevenueFilter = function() {
+window.applyCustomDailyRevenueFilter = function () {
     const startInput = document.getElementById('dr-filter-start-date');
     const endInput = document.getElementById('dr-filter-end-date');
     const start = startInput?.value?.trim();
@@ -8761,7 +8761,7 @@ window.applyCustomDailyRevenueFilter = function() {
     loadDailyRevenueView();
 };
 
-window.filterDailyRevenueTable = function(query) {
+window.filterDailyRevenueTable = function (query) {
     const q = (query || '').trim().toLowerCase();
     const rows = document.querySelectorAll('#dr-days-tbody > tr.dr-day-row');
     let visibleCount = 0;
@@ -8784,7 +8784,7 @@ window.filterDailyRevenueTable = function(query) {
     }
 };
 
-window.toggleDailyOrdersDrawer = function(dateKey) {
+window.toggleDailyOrdersDrawer = function (dateKey) {
     const detailRow = document.getElementById(`dr-orders-row-${dateKey}`);
     const toggleBtn = document.getElementById(`dr-toggle-btn-${dateKey}`);
     const icon = toggleBtn?.querySelector('.material-symbols-outlined');
@@ -9142,8 +9142,8 @@ const ADMIN_GRADIENT_THEMES = {
 
 function getAdminGradientTheme(poster, index) {
     const keys = ['emerald', 'purple', 'amber', 'cyan'];
-    const key = (poster.gradient && ADMIN_GRADIENT_THEMES[poster.gradient]) 
-        ? poster.gradient 
+    const key = (poster.gradient && ADMIN_GRADIENT_THEMES[poster.gradient])
+        ? poster.gradient
         : keys[index % keys.length];
     return { key, ...(ADMIN_GRADIENT_THEMES[key] || ADMIN_GRADIENT_THEMES.emerald) };
 }
@@ -9166,7 +9166,7 @@ const DEFAULT_ADMIN_POSTERS = [
     {
         id: 'banner_default_2',
         title: 'Late Night Study & Gaming Fuel',
-        subtitle: 'Hot Maggi, cold drinks, chocolate bars, and crunchy chips ready for your midnight grind.',
+        subtitle: 'Hot magiee, cold drinks, chocolate bars, and crunchy chips ready for your midnight grind.',
         badge: '🌙 TILL 3 AM',
         pill: 'MIDNIGHT FUEL',
         link_url: '#/categories',
@@ -9246,14 +9246,14 @@ async function loadAdvertisementsView() {
             const cachedPosters = localStorage.getItem('lpuquick_admin_posters');
             const cachedSettings = localStorage.getItem('lpuquick_admin_carousel_settings');
             if (cachedPosters) {
-                try { adminPosters = JSON.parse(cachedPosters); } catch (e) {}
+                try { adminPosters = JSON.parse(cachedPosters); } catch (e) { }
             }
             if (cachedSettings) {
                 try {
                     const parsed = JSON.parse(cachedSettings);
                     if (parsed.autoplay_delay) adminCarouselDelay = Number(parsed.autoplay_delay);
                     if (parsed.autoplay_enabled !== undefined) adminCarouselAutoplay = Boolean(parsed.autoplay_enabled);
-                } catch (e) {}
+                } catch (e) { }
             }
             if (!adminPosters || adminPosters.length === 0) {
                 adminPosters = JSON.parse(JSON.stringify(DEFAULT_ADMIN_POSTERS));
@@ -9564,7 +9564,7 @@ async function saveAdminCarouselSettingsQuietly() {
             },
             body: JSON.stringify(payload)
         });
-    } catch (e) {}
+    } catch (e) { }
 }
 
 async function saveAdminCarouselSettings() {
@@ -10255,7 +10255,7 @@ async function togglePosterActive(id) {
                 renderAdminPostersGrid();
             }
         }
-    } catch (netErr) {}
+    } catch (netErr) { }
 
     showToast(`Poster ${poster.is_active ? 'activated' : 'paused'} in carousel`, 'info');
 }
@@ -10288,7 +10288,7 @@ async function movePosterOrder(id, delta) {
             headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
             body: JSON.stringify({ ordered_ids: adminPosters.map(p => p.id) })
         });
-    } catch (e) {}
+    } catch (e) { }
 
     showToast('Poster order updated', 'info');
 }
@@ -10361,7 +10361,7 @@ try {
             }
         };
     }
-} catch (e) {}
+} catch (e) { }
 
 function notifyLocalAdsUpdated() {
     try {
@@ -10378,11 +10378,11 @@ function notifyLocalAdsUpdated() {
             localStorage.setItem('lpuquick_admin_posters', JSON.stringify(adminPosters));
             localStorage.setItem('lpuquick_active_banners', JSON.stringify(adminPosters));
             localStorage.setItem('lpuquick_carousel_settings', JSON.stringify(payload.settings));
-        } catch (storageErr) {}
+        } catch (storageErr) { }
 
         adsBroadcastChannel?.postMessage(payload);
         window.dispatchEvent(new CustomEvent('advertisementsUpdated', { detail: payload }));
-    } catch (e) {}
+    } catch (e) { }
 }
 
 // Cross-tab storage event listener
@@ -10395,7 +10395,7 @@ window.addEventListener('storage', (e) => {
                 posters: cachedPosters ? JSON.parse(cachedPosters) : undefined,
                 settings: cachedSettings ? JSON.parse(cachedSettings) : undefined
             });
-        } catch (err) {}
+        } catch (err) { }
     }
 });
 
@@ -10989,7 +10989,7 @@ function renderFleetPartnersTable(partners) {
             ? '<span class="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full border border-emerald-300"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>Active</span>'
             : '<span class="inline-flex items-center gap-1 text-[10px] font-bold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>Offline</span>';
 
-        const shiftBadge = p.primary_shift 
+        const shiftBadge = p.primary_shift
             ? `<div class="text-[10px] text-indigo-700 font-semibold mt-0.5 flex items-center gap-1"><span class="material-symbols-outlined text-xs">schedule</span><span>${escapeHtml(p.primary_shift)}</span></div>`
             : '';
 
@@ -11088,7 +11088,7 @@ function setFleetPresetFilter(preset) {
     const todayBtn = document.getElementById('fleet-filter-today');
     const weekBtn = document.getElementById('fleet-filter-week');
     const monthBtn = document.getElementById('fleet-filter-month');
-    
+
     [todayBtn, weekBtn, monthBtn].forEach(b => {
         if (b) b.className = 'fleet-preset-btn px-3 py-1.5 rounded-xl border border-[#DADCE0] bg-[#F8FAFD] hover:bg-white text-[#181c1f] font-bold transition-all cursor-pointer';
     });
@@ -11419,8 +11419,8 @@ function openPartnerShiftModal() {
     shifts.forEach(s => {
         const isCurrent = s.is_current;
         const borderClass = isCurrent ? 'border-2 border-[#0066cc] bg-blue-50/50' : 'border border-[#EBF0F7] bg-[#F8FAFD]';
-        const activeBadge = isCurrent 
-            ? '<span class="text-[10px] bg-emerald-100 text-emerald-800 font-black px-2 py-0.5 rounded-full border border-emerald-300 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>ACTIVE NOW</span>' 
+        const activeBadge = isCurrent
+            ? '<span class="text-[10px] bg-emerald-100 text-emerald-800 font-black px-2 py-0.5 rounded-full border border-emerald-300 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>ACTIVE NOW</span>'
             : '<span class="text-[10px] text-[#5c5f60] font-bold bg-slate-100 px-2 py-0.5 rounded-full">Scheduled</span>';
 
         shiftsHtml += `
@@ -11722,7 +11722,7 @@ async function loadBackupDashboard() {
 
         currentBackupStatus = data;
         const tables = data.tables || {};
-        
+
         // Update Snapshot Cards
         const elUsers = document.getElementById('backup-stat-users');
         if (elUsers) elUsers.textContent = (tables.users !== undefined && tables.users >= 0) ? tables.users.toLocaleString() : '0';
@@ -12093,7 +12093,7 @@ async function confirmAndExecuteRestore() {
 
 
 // Toggle Employee / Staff Duty Status (On Duty / Off Duty) across Admin Console
-window.toggleEmployeeDuty = async function(empId, setOnDuty) {
+window.toggleEmployeeDuty = async function (empId, setOnDuty) {
     if (!empId) return;
     try {
         const res = await fetch(`/api/admin/employees/${empId}/duty-status`, {
@@ -12104,7 +12104,7 @@ window.toggleEmployeeDuty = async function(empId, setOnDuty) {
         const data = await res.json();
         if (data.success) {
             showToast(`Duty status updated: ${setOnDuty ? '🟢 ON DUTY (Online)' : '⚪ OFF DUTY (Offline)'}`, 'success');
-            
+
             // 1. Update in-memory employeesCache
             if (typeof employeesCache !== 'undefined' && Array.isArray(employeesCache)) {
                 const found = employeesCache.find(e => e.id === empId);
@@ -12305,7 +12305,7 @@ function toggleOffersMasterSwitch() {
     const current = btn.dataset.active === 'true';
     const next = !current;
     updateMasterSwitchUI('offers-master-switch', 'offers-master-switch-knob', 'offers-master-switch-label', next, 'ON', 'OFF');
-    
+
     const fieldsContainer = document.getElementById('offers-config-fields');
     if (fieldsContainer) {
         fieldsContainer.style.opacity = next ? '1' : '0.55';
@@ -13213,7 +13213,7 @@ function renderFoodConfig(cfg) {
     toggleSpecificCookSelect();
 }
 
-window.toggleSpecificCookSelect = function() {
+window.toggleSpecificCookSelect = function () {
     const methodSelect = document.getElementById('food-config-method');
     const wrapper = document.getElementById('food-specific-cook-wrapper');
     if (!methodSelect || !wrapper) return;
@@ -13242,7 +13242,7 @@ function populateSpecificCookDropdown(cooks) {
     if (currentVal) select.value = currentVal;
 }
 
-window.saveFoodConfig = async function(e) {
+window.saveFoodConfig = async function (e) {
     if (e) e.preventDefault();
     const method = document.getElementById('food-config-method')?.value || 'least_loaded';
     const specificCookId = document.getElementById('food-config-specific-cook')?.value || null;
@@ -13352,7 +13352,7 @@ function renderFoodCooks(cooks) {
     }).join('');
 }
 
-window.toggleCookDutyStatus = async function(cookId, currentDuty) {
+window.toggleCookDutyStatus = async function (cookId, currentDuty) {
     try {
         const nextDuty = !currentDuty;
         const res = await fetch(`/api/admin/staff/${cookId}`, {
@@ -13376,7 +13376,7 @@ window.toggleCookDutyStatus = async function(cookId, currentDuty) {
     }
 };
 
-window.toggleCookGroceryPermission = async function(cookId, currentPerm) {
+window.toggleCookGroceryPermission = async function (cookId, currentPerm) {
     try {
         const nextPerm = !currentPerm;
         const res = await fetch(`/api/admin/staff/${cookId}`, {
@@ -13513,7 +13513,7 @@ function renderFoodOrdersAdmin(orders) {
     }).join('');
 }
 
-window.openReassignFoodModal = function(orderId) {
+window.openReassignFoodModal = function (orderId) {
     const modal = document.getElementById('modal-reassign-food-order');
     const orderIdInput = document.getElementById('reassign-order-id');
     const orderLabel = document.getElementById('reassign-order-label');
@@ -13535,12 +13535,12 @@ window.openReassignFoodModal = function(orderId) {
     modal.classList.remove('hidden');
 };
 
-window.closeReassignFoodModal = function() {
+window.closeReassignFoodModal = function () {
     const modal = document.getElementById('modal-reassign-food-order');
     if (modal) modal.classList.add('hidden');
 };
 
-window.submitReassignFoodOrder = async function(e) {
+window.submitReassignFoodOrder = async function (e) {
     if (e) e.preventDefault();
     const orderId = document.getElementById('reassign-order-id')?.value;
     const cookId = document.getElementById('reassign-cook-select')?.value;
@@ -13643,7 +13643,7 @@ function updateHostelGroupsStats() {
     const total = hostelGroupsCache.length;
     const shared = hostelGroupsCache.filter(g => g.inventory_mode === 'shared').length;
     const independent = hostelGroupsCache.filter(g => g.inventory_mode === 'independent').length;
-    
+
     const allHostelIds = new Set();
     hostelGroupsCache.forEach(g => {
         (g.hostel_ids || []).forEach(h => allHostelIds.add(h));
@@ -14071,7 +14071,7 @@ async function openHostelGroupModal(groupId = null) {
                     freshHostels = hData.hostels;
                     hostelsCache = hData.hostels;
                 }
-            } catch (e) {}
+            } catch (e) { }
         }
 
         let freshStaff = hostelGroupsStaffCache || [];
@@ -14082,7 +14082,7 @@ async function openHostelGroupModal(groupId = null) {
                     freshStaff = sData.staff;
                     hostelGroupsStaffCache = sData.staff;
                 }
-            } catch (e) {}
+            } catch (e) { }
         }
 
         populateLists(freshHostels, freshStaff);
@@ -14650,8 +14650,8 @@ function openFoodOrderDetailModal(orderId) {
     const modal = document.getElementById('modal-food-order-details');
     if (!modal) return;
 
-    const order = currentFoodOrdersCache.find(o => o.order_id === orderId) || 
-                  (foodOrdersCache || []).find(o => o.order_id === orderId);
+    const order = currentFoodOrdersCache.find(o => o.order_id === orderId) ||
+        (foodOrdersCache || []).find(o => o.order_id === orderId);
     if (!order) {
         showToast('Order details not found.', 'warning');
         return;
@@ -14663,7 +14663,7 @@ function openFoodOrderDetailModal(orderId) {
     document.getElementById('modal-fod-customer-contact').textContent = '📱 ' + (order.customer_phone || 'No phone') + (order.customer_email ? ' • ' + order.customer_email : '');
     document.getElementById('modal-fod-hostel-room').textContent = '🏢 ' + (order.delivery_address || 'Hostel');
     document.getElementById('modal-fod-datetime').textContent = order.order_time_formatted || new Date(order.created_at || Date.now()).toLocaleString('en-IN');
-    
+
     const payBadge = document.getElementById('modal-fod-payment-badge');
     if (payBadge) {
         const isPaid = (order.payment_status || '').toLowerCase() === 'paid';
@@ -14673,8 +14673,8 @@ function openFoodOrderDetailModal(orderId) {
 
     const instrEl = document.getElementById('modal-fod-instructions');
     if (instrEl) {
-        instrEl.textContent = (order.special_instructions && order.special_instructions !== 'None') 
-            ? '"' + order.special_instructions + '"' 
+        instrEl.textContent = (order.special_instructions && order.special_instructions !== 'None')
+            ? '"' + order.special_instructions + '"'
             : 'None (Standard Preparation)';
     }
 
@@ -14868,7 +14868,7 @@ function isOrderFoodDept(o) {
         const c = (it.category || '').toLowerCase();
         const sc = (it.subcategory || '').toLowerCase();
         const n = (it.name || it.product_name || '').toLowerCase();
-        return c.includes('instant food') || sc.includes('instant food') || sc.includes('maggi') || sc.includes('cook') || /maggi|cooked meal|pazzta|passta|thali/i.test(n);
+        return c.includes('instant food') || sc.includes('instant food') || sc.includes('magiee') || sc.includes('cook') || /magiee|cooked meal|pazzta|passta|thali/i.test(n);
     })) return true;
     if (typeof foodOrdersCache !== 'undefined' && Array.isArray(foodOrdersCache)) {
         if (foodOrdersCache.some(fo => fo.order_id === o.id || fo.order_id === o.id?.replace(/^order_/, ''))) return true;
@@ -14906,7 +14906,7 @@ async function fetchFoodDeptProducts() {
                 const pData = await pRes.json();
                 list = pData.products || [];
             }
-        } catch (e) {}
+        } catch (e) { }
     }
 
     if (list.length > 0) {
@@ -14916,7 +14916,7 @@ async function fetchFoodDeptProducts() {
             const sc = (p.subcategory || '').toLowerCase();
             const n = (p.name || '').toLowerCase();
             if (c.includes('instant snacks') || sc.includes('instant snacks') || c.includes('snacks & munchies')) return false;
-            return c.includes('food') || sc.includes('food') || sc.includes('maggi') || sc.includes('cook') || /maggi|cooked meal|pazzta|passta|instant food/i.test(n) || c === "quick's instant food";
+            return c.includes('food') || sc.includes('food') || sc.includes('magiee') || sc.includes('cook') || /magiee|cooked meal|pazzta|passta|instant food/i.test(n) || c === "quick's instant food";
         });
         renderFoodDeptProducts(foodProductsCache);
     } else {

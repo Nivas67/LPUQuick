@@ -13,7 +13,7 @@
 | :--- | :--- | :--- | :--- |
 | **Users / Customers** | 6 verified users | 6 verified users (`admin_001`, `user_001`, `user_nivas`, `user_jaswanth_varma`, `user_rohit_k`, `user_aman_s`) | **PASS** |
 | **Products** | 53 authentic items | 53 items | **PASS** |
-| **Inventory / Stock** | Exact stock quantities | Maggi: 45, Lay's: 38, Kurkure: 42, Sting: 30, etc. | **PASS** |
+| **Inventory / Stock** | Exact stock quantities | magiee: 45, Lay's: 38, Kurkure: 42, Sting: 30, etc. | **PASS** |
 | **Orders** | 8 historical orders | 8 orders (`order_1cd3afdd`, `order_783df829`, `order_4917a421`, etc.) | **PASS** |
 | **Order Items** | 35 items | 35 items linked cleanly | **PASS** |
 | **Admin Permissions** | `admin_001` role `admin`| Intact with full administrative access | **PASS** |

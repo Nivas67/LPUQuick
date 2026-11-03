@@ -43,7 +43,7 @@ function parseIntent(query) {
         'drink': 'Snacks & Beverages', 'drinks': 'Snacks & Beverages', 'beverage': 'Snacks & Beverages',
         'cola': 'Snacks & Beverages', 'juice': 'Snacks & Beverages', 'soda': 'Snacks & Beverages',
         'cookie': 'Snacks & Beverages', 'cookies': 'Snacks & Beverages', 'biscuit': 'Snacks & Beverages',
-        'noodle': 'Snacks & Beverages', 'maggi': 'Snacks & Beverages',
+        'noodle': 'Snacks & Beverages', 'magiee': 'Snacks & Beverages',
         'grocery': 'Grocery', 'milk': 'Grocery', 'bread': 'Grocery', 'egg': 'Grocery',
         'fruit': 'Grocery', 'vegetable': 'Grocery',
         'medicine': 'Pharmacy', 'pharmacy': 'Pharmacy',

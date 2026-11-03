@@ -29,7 +29,7 @@ async function runAudit() {
             const res = await fetch(`http://127.0.0.1:${PORT}/json`);
             targets = await res.json();
             if (targets && targets.length > 0) break;
-        } catch (e) {}
+        } catch (e) { }
     }
 
     if (!targets || targets.length === 0) {
@@ -186,10 +186,10 @@ async function runAudit() {
 
                 const oreoVisible = Array.from(document.querySelectorAll('#home-main-products-grid .product-card-item:not(.hidden)')).map(c => c.querySelector('h3')?.textContent.trim());
 
-                // Search Maggi while in Biscuits
-                searchMobile.value = 'Maggi';
+                // Search magiee while in Biscuits
+                searchMobile.value = 'magiee';
                 searchMobile.dispatchEvent(new Event('input', { bubbles: true }));
-                const maggiVisible = Array.from(document.querySelectorAll('#home-main-products-grid .product-card-item:not(.hidden)')).length;
+                const magieeVisible = Array.from(document.querySelectorAll('#home-main-products-grid .product-card-item:not(.hidden)')).length;
                 const emptyState = document.getElementById('category-empty-state');
                 const emptyVisible = emptyState && !emptyState.classList.contains('hidden');
 
@@ -201,14 +201,14 @@ async function runAudit() {
                 return {
                     oreoCount: oreoVisible.length,
                     oreoTitles: oreoVisible,
-                    maggiCountInBiscuits: maggiVisible,
+                    magieeCountInBiscuits: magieeVisible,
                     emptyStateVisibleOnMismatch: emptyVisible
                 };
             })()`,
             returnByValue: true
         });
         console.log('Biscuits + "Oreo" Count:', searchResult.result.value.oreoCount, searchResult.result.value.oreoTitles);
-        console.log('Biscuits + "Maggi" Count:', searchResult.result.value.maggiCountInBiscuits);
+        console.log('Biscuits + "magiee" Count:', searchResult.result.value.magieeCountInBiscuits);
         console.log('Empty State Shown on Mismatch:', searchResult.result.value.emptyStateVisibleOnMismatch);
 
         // Test 5: ADD Stability & Zero Layout Shift Measurement
