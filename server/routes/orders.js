@@ -437,6 +437,44 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
             const foodOrderService = require('../services/foodOrderService');
             const foodMeta = foodOrderService.loadFoodMeta();
 
+            // Food Orders Batch Detection from order_items
+            const foodOrdersMap = new Map();
+            try {
+                const allProducts = await supabaseDb.products.getAll({});
+                const foodProductMap = new Map();
+                (allProducts || []).forEach(p => {
+                    if (foodOrderService.isFoodProduct(p)) {
+                        foodProductMap.set(p.id, p);
+                    }
+                });
+                const foodProductIds = Array.from(foodProductMap.keys());
+                if (foodProductIds.length > 0) {
+                    const { data: foodItems } = await withTimeout(
+                        supabase.from('order_items').select('order_id, product_id, quantity, unit_price').in('product_id', foodProductIds),
+                        8000,
+                        { data: null }
+                    );
+                    if (foodItems && Array.isArray(foodItems)) {
+                        foodItems.forEach(fi => {
+                            const p = foodProductMap.get(fi.product_id);
+                            if (!foodOrdersMap.has(fi.order_id)) {
+                                foodOrdersMap.set(fi.order_id, []);
+                            }
+                            foodOrdersMap.get(fi.order_id).push({
+                                id: fi.product_id,
+                                name: p?.name || "Quick's Instant Food",
+                                quantity: Number(fi.quantity) || 1,
+                                price: Number(fi.unit_price) || 0,
+                                line_total: (Number(fi.quantity) || 1) * (Number(fi.unit_price) || 0),
+                                image_url: p?.image_url || ''
+                            });
+                        });
+                    }
+                }
+            } catch (fErr) {
+                console.warn('[Admin Orders Food Detection Note]:', fErr.message);
+            }
+
             // 3. Fast in-memory assembly
             let enriched = orders.map(order => {
                 const user = userMap.get(order.user_id);
@@ -446,7 +484,12 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
                 const deliveryInfo = supabaseDb.orders.parseDeliveryMeta(order.rider_name);
                 const hId = extractHostelId(order);
                 const meta = (foodMeta && (foodMeta[order.id] || foodMeta[order.id?.replace(/^order_/, '')])) || null;
-                const isFood = Boolean(meta || order.is_food_order === true || order.is_food_order === 'true' || (order.delivery_address && order.delivery_address.toLowerCase().includes("quick's instant food")));
+                const dbFoodItems = foodOrdersMap.get(order.id) || [];
+                const isFood = Boolean(meta || dbFoodItems.length > 0 || order.is_food_order === true || order.is_food_order === 'true' || (order.delivery_address && order.delivery_address.toLowerCase().includes("quick's instant food")));
+                const resolvedFoodItems = (meta && meta.food_items && meta.food_items.length > 0) ? meta.food_items : dbFoodItems;
+                const itemSummary = resolvedFoodItems.length > 0
+                    ? resolvedFoodItems.map(i => `${i.name} (x${i.quantity})`).join(', ')
+                    : (order.delivery_address || 'Campus items');
 
                 return {
                     id: order.id,
@@ -469,12 +512,14 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
                     customer_name: customerName,
                     customer_phone: customerPhone,
                     customer_email: customerEmail,
-                    item_summary: order.delivery_address || 'Campus items',
+                    item_summary: itemSummary,
+                    items: resolvedFoodItems,
+                    food_items: resolvedFoodItems,
                     is_food_order: isFood,
                     estimated_delivery_mins: isFood ? 11 : 5,
-                    cook_name: meta?.cook_name || order.cook_name || null,
+                    cook_name: meta?.cook_name || order.cook_name || (isFood ? 'Kitchen Chef' : null),
                     cook_id: meta?.cook_id || order.cook_id || null,
-                    food_status: meta?.status || null
+                    food_status: meta?.status || (isFood ? (order.status || 'Cooking') : null)
                 };
             });
 

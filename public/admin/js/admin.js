@@ -4394,6 +4394,7 @@ window.updateModalProfitPreview = updateModalProfitPreview;
 
 const DEFAULT_CATEGORY_SUBCATEGORIES = {
     "Quick's Instant Food": [
+        'Maggi & Noodles',
         'magiee & Noodles',
         'Cooked Meals & Platters',
         'Sandwiches & Burgers',
@@ -4403,6 +4404,7 @@ const DEFAULT_CATEGORY_SUBCATEGORIES = {
         'Chai, Coffee & Beverages'
     ],
     'Instant Food': [
+        'Maggi & Noodles',
         'magiee & Noodles',
         'Cooked Meals & Platters',
         'Sandwiches & Burgers',
@@ -14863,12 +14865,14 @@ function isOrderFoodDept(o) {
     if (o.cook_id || o.cook_name) return true;
     const rawAddr = (o.delivery_address || '').toLowerCase();
     if (rawAddr.includes('kitchen') || rawAddr.includes("quick's instant food")) return true;
-    const items = o.items || o.order_items || [];
+    const summary = (o.item_summary || o.item_names || '').toLowerCase();
+    if (/maggi|magiee|noodle|cooked meal|hot meal|pazzta|passta|thali|paratha|sandwich|fresh pasta|fresh burger|quick's instant food|quicks instant food/i.test(summary)) return true;
+    const items = o.items || o.order_items || o.food_items || [];
     if (Array.isArray(items) && items.some(it => {
         const c = (it.category || '').toLowerCase();
         const sc = (it.subcategory || '').toLowerCase();
         const n = (it.name || it.product_name || '').toLowerCase();
-        return c.includes('instant food') || sc.includes('instant food') || sc.includes('magiee') || sc.includes('cook') || /magiee|cooked meal|pazzta|passta|thali/i.test(n);
+        return c.includes('instant food') || sc.includes('instant food') || sc.includes('maggi') || sc.includes('magiee') || sc.includes('cook') || /maggi|magiee|cooked meal|pazzta|passta|thali/i.test(n) || c === "quick's instant food";
     })) return true;
     if (typeof foodOrdersCache !== 'undefined' && Array.isArray(foodOrdersCache)) {
         if (foodOrdersCache.some(fo => fo.order_id === o.id || fo.order_id === o.id?.replace(/^order_/, ''))) return true;
@@ -14916,7 +14920,7 @@ async function fetchFoodDeptProducts() {
             const sc = (p.subcategory || '').toLowerCase();
             const n = (p.name || '').toLowerCase();
             if (c.includes('instant snacks') || sc.includes('instant snacks') || c.includes('snacks & munchies')) return false;
-            return c.includes('food') || sc.includes('food') || sc.includes('magiee') || sc.includes('cook') || /magiee|cooked meal|pazzta|passta|instant food/i.test(n) || c === "quick's instant food";
+            return c.includes('food') || sc.includes('food') || sc.includes('maggi') || sc.includes('magiee') || sc.includes('cook') || /maggi|magiee|cooked meal|pazzta|passta|instant food/i.test(n) || c === "quick's instant food";
         });
         renderFoodDeptProducts(foodProductsCache);
     } else {

@@ -31,16 +31,48 @@ function saveFoodConfig(cfg) {
     }
 }
 
+let _cachedFoodMeta = null;
+
 function loadFoodMeta() {
+    if (_cachedFoodMeta) return _cachedFoodMeta;
     try {
         if (fs.existsSync(FOOD_META_FILE)) {
-            return JSON.parse(fs.readFileSync(FOOD_META_FILE, 'utf8'));
+            _cachedFoodMeta = JSON.parse(fs.readFileSync(FOOD_META_FILE, 'utf8'));
+            return _cachedFoodMeta;
         }
     } catch (e) { }
-    return {};
+    _cachedFoodMeta = {};
+    return _cachedFoodMeta;
 }
 
+async function syncFoodMetaFromCloud() {
+    try {
+        const supabase = getSupabaseClient();
+        if (!supabase) return;
+        const { data, error } = await supabase
+            .from('app_availability')
+            .select('message')
+            .eq('id', 'food_orders_registry')
+            .maybeSingle();
+        if (!error && data && data.message) {
+            const parsed = JSON.parse(data.message);
+            if (parsed && typeof parsed === 'object') {
+                _cachedFoodMeta = { ...loadFoodMeta(), ...parsed };
+                try {
+                    const dir = path.dirname(FOOD_META_FILE);
+                    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                    fs.writeFileSync(FOOD_META_FILE, JSON.stringify(_cachedFoodMeta, null, 2), 'utf8');
+                } catch (e) {}
+            }
+        }
+    } catch (err) {
+        console.warn('[FoodMeta Cloud Sync Note]:', err.message);
+    }
+}
+syncFoodMetaFromCloud().catch(() => {});
+
 function saveFoodMeta(meta) {
+    _cachedFoodMeta = meta;
     try {
         const dir = path.dirname(FOOD_META_FILE);
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -48,6 +80,18 @@ function saveFoodMeta(meta) {
     } catch (e) {
         console.warn('[Food Meta Save Note]:', e.message);
     }
+    try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            supabase.from('app_availability').upsert([{
+                id: 'food_orders_registry',
+                is_locked: false,
+                lock_type: 'NONE',
+                message: JSON.stringify(meta),
+                updated_at: new Date().toISOString()
+            }]).catch(err => console.warn('[FoodMeta Cloud Save Note]:', err.message));
+        }
+    } catch (e) {}
 }
 
 /**
@@ -79,12 +123,12 @@ function isFoodProduct(item) {
     if (sub === "quick's instant food" || sub === "quicks instant food" || sub === "instant food" || sub === "cook") {
         return true;
     }
-    if (sub.includes('magiee & noodles') || sub.includes('cooked meals') || sub.includes('sandwiches & burgers') || sub.includes('pasta & macaroni') || sub.includes('hot snacks & fries') || sub.includes('soups & bowls')) {
+    if (sub.includes('maggi') || sub.includes('magiee') || sub.includes('noodle') || sub.includes('cooked meals') || sub.includes('sandwiches & burgers') || sub.includes('pasta & macaroni') || sub.includes('hot snacks & fries') || sub.includes('soups & bowls')) {
         return true;
     }
 
     // Fresh Prepared Kitchen keywords
-    if (/magiee|cooked meal|hot meal|thali|paratha|sandwich|fresh pasta|fresh burger|chai|coffee|soup|chowmein|macroni/i.test(name)) {
+    if (/maggi|magiee|noodle|cooked meal|hot meal|thali|paratha|sandwich|fresh pasta|fresh burger|chai|coffee|soup|chowmein|macroni/i.test(name)) {
         return true;
     }
 
