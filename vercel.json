@@ -26,7 +26,7 @@
       ]
     },
     {
-      "source": "/admin/(css|js)/(.*)",
+      "source": "/ad-new/(css|js)/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
@@ -52,7 +52,7 @@
       ]
     },
     {
-      "source": "/admin",
+      "source": "/ad-new",
       "headers": [
         {
           "key": "Cache-Control",
@@ -69,7 +69,7 @@
       ]
     },
     {
-      "source": "/admin/:match*",
+      "source": "/ad-new/:match*",
       "headers": [
         {
           "key": "Cache-Control",
@@ -225,27 +225,27 @@
       "destination": "/public/uploads/$1"
     },
     {
-      "source": "/admin/css/(.*)",
+      "source": "/ad-new/css/(.*)",
       "destination": "/admin/css/$1"
     },
     {
-      "source": "/admin/js/(.*)",
+      "source": "/ad-new/js/(.*)",
       "destination": "/admin/js/$1"
     },
     {
-      "source": "/admin/(.*)\\.(png|jpg|jpeg|svg|ico|webp|woff2|mp3)",
+      "source": "/ad-new/(.*)\\.(png|jpg|jpeg|svg|ico|webp|woff2|mp3)",
       "destination": "/admin/$1.$2"
     },
     {
-      "source": "/admin-preview",
+      "source": "/ad-new-preview",
       "destination": "/public/admin-preview.html"
     },
     {
-      "source": "/admin/preview",
+      "source": "/ad-new/preview",
       "destination": "/public/admin-preview.html"
     },
     {
-      "source": "/admin_preview",
+      "source": "/ad-new_preview",
       "destination": "/public/admin-preview.html"
     },
     {
@@ -253,11 +253,11 @@
       "destination": "/public/admin-preview.html"
     },
     {
-      "source": "/admin/(.*)",
+      "source": "/ad-new/(.*)",
       "destination": "/admin/index.html"
     },
     {
-      "source": "/admin",
+      "source": "/ad-new",
       "destination": "/admin/index.html"
     },
     {
@@ -297,7 +297,7 @@
       "destination": "/client/$1.$2"
     },
     {
-      "source": "/((?!api/|admin/).*)",
+      "source": "/((?!api/|ad-new/).*)",
       "destination": "/client/index.html"
     }
   ]

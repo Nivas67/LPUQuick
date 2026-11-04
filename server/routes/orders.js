@@ -1007,7 +1007,7 @@ router.get('/admin/delivery-staff', requireAdmin, async (req, res) => {
 
             const deliveryStaff = (staff || []).filter(s => 
                 s.account_status === 'ACTIVE' && 
-                ((Array.isArray(s.roles) && (s.roles.includes('delivery_person') || s.roles.includes('owner'))) || Boolean(s.is_owner) || s.id === 'user_admin_bh13')
+                ((Array.isArray(s.roles) && (s.roles.includes('delivery_person') || s.roles.includes('owner'))) || Boolean(s.is_owner))
             );
 
             const loadMap = {};
@@ -1070,7 +1070,7 @@ router.post('/delivery-pricing-config', async (req, res) => {
         if (adminToken) {
             const verified = verifyAdminToken(adminToken);
             if (verified && verified.sub) {
-                if (verified.sub === 'user_admin_bh13') {
+                if (verified.role === 'owner' || (Array.isArray(verified.roles) && verified.roles.includes('owner'))) {
                     isOwner = true;
                 } else {
                     const u = await supabaseDb.users.getUserById(verified.sub);
@@ -1167,7 +1167,7 @@ router.post('/delivery-duty-status', async (req, res) => {
             }
         }
         let isOwner = false;
-        if (adminId === 'user_admin_bh13') {
+        if (adminId && (ownerStaff?.id === adminId || req.admin?.is_owner)) {
             isOwner = true;
         } else if (adminId) {
             try {
@@ -1245,7 +1245,7 @@ router.get('/delivery-earnings', async (req, res) => {
                         requesterAdmin.is_owner = Boolean(u.is_owner || roles.includes('owner'));
                         isRequesterOwner = requesterAdmin.is_owner;
                     } else {
-                        const isBh13Owner = verified.sub === 'user_admin_bh13';
+                        const isBh13Owner = verified.role === 'owner' || (Array.isArray(verified.roles) && verified.roles.includes('owner'));
                         requesterAdmin = { id: verified.sub, role: verified.role || 'staff', is_owner: isBh13Owner };
                         isRequesterOwner = isBh13Owner;
                     }
@@ -1369,15 +1369,14 @@ router.get('/delivery-earnings', async (req, res) => {
             const hasDeliveryRole = s.account_status === 'ACTIVE' && (
                 (Array.isArray(s.roles) && (s.roles.includes('delivery_person') || s.roles.includes('owner'))) ||
                 Boolean(s.is_owner) ||
-                s.id === 'user_admin_bh13' ||
-                s.email === 'admin@lpu.in'
+                (Array.isArray(s.roles) && s.roles.includes('owner')) || s.is_owner || s.role === 'owner'
             );
             if (hasDeliveryRole) {
                 partnerMap.set(s.id, {
                     partner_id: s.id,
                     partner_name: s.name || 'Campus Partner',
                     phone: s.phone || 'N/A',
-                    is_owner: Boolean(s.is_owner || (Array.isArray(s.roles) && s.roles.includes('owner')) || s.id === 'user_admin_bh13'),
+                    is_owner: Boolean(s.is_owner || (Array.isArray(s.roles) && s.roles.includes('owner')) || s.role === 'owner'),
                     today_deliveries: 0,
                     today_wage: 0.00,
                     monthly_deliveries: 0,
@@ -1510,7 +1509,7 @@ router.get('/delivery-earnings', async (req, res) => {
 
         // Identify Owner details
         const ownerStaff = (Array.isArray(staffList) ? staffList : []).find(s => s.is_owner || (Array.isArray(s.roles) && s.roles.includes('owner')));
-        const ownerId = req.query.ownerId || ownerStaff?.id || 'user_admin_bh13';
+        const ownerId = req.query.ownerId || ownerStaff?.id || 'owner';
         const ownerName = req.query.ownerName || ownerStaff?.name || 'Nivas Naidu';
 
         // 3. Base Fleet Orders: Orders handled by any assigned delivery partner
@@ -2102,13 +2101,13 @@ router.post('/:orderId/transfer/request', requireAdmin, async (req, res) => {
     }
 
     const adminRoles = req.admin.roles || [];
-    const isOwnerOrStoreMgr = adminRoles.includes('owner') || adminRoles.includes('store_manager') || Boolean(req.admin.is_owner) || req.admin.id === 'user_admin_bh13';
+    const isOwnerOrStoreMgr = adminRoles.includes('owner') || adminRoles.includes('store_manager') || Boolean(req.admin.is_owner);
 
     try {
         const toUser = await supabaseDb.users.getUserById(toAdminId);
         if (toUser) {
             const toRoles = resolveAdminRoles(toUser);
-            const hasDelivery = toRoles.includes('delivery_person') || toRoles.includes('owner') || Boolean(toUser.is_owner) || toUser.id === 'user_admin_bh13';
+            const hasDelivery = toRoles.includes('delivery_person') || toRoles.includes('owner') || Boolean(toUser.is_owner);
             if (!hasDelivery) {
                 return res.status(400).json({ success: false, error: 'Selected recipient is not assigned the delivery role' });
             }
@@ -2278,7 +2277,7 @@ router.post('/:orderId/transfer/direct', requireAdmin, requireRole('owner', 'sto
         const targetUser = await supabaseDb.users.getUserById(targetAdminId);
         if (targetUser) {
             const targetRoles = resolveAdminRoles(targetUser);
-            const hasDelivery = targetRoles.includes('delivery_person') || targetRoles.includes('owner') || Boolean(targetUser.is_owner) || targetUser.id === 'user_admin_bh13';
+            const hasDelivery = targetRoles.includes('delivery_person') || targetRoles.includes('owner') || Boolean(targetUser.is_owner);
             if (!hasDelivery) {
                 return res.status(400).json({ success: false, error: 'Selected staff member is not assigned the delivery role' });
             }
@@ -2700,7 +2699,7 @@ async function requireOwner(req, res, next) {
         if (authHeader) {
             const verified = verifyAdminToken(authHeader);
             if (verified && verified.sub) {
-                if (verified.sub === 'user_admin_bh13' || verified.role === 'owner') {
+                if (verified.role === 'owner' || (Array.isArray(verified.roles) && verified.roles.includes('owner'))) {
                     req.admin = { id: verified.sub, role: 'owner', is_owner: true };
                     return next();
                 }
@@ -2711,7 +2710,7 @@ async function requireOwner(req, res, next) {
                 }
                 if (user) {
                     const roles = resolveAdminRoles(user);
-                    if (roles.includes('owner') || user.id === 'user_admin_bh13' || user.email === 'admin@lpu.in' || user.role === 'owner') {
+                    if (roles.includes('owner') || user.role === 'owner' || user.is_owner) {
                         req.admin = user;
                         return next();
                     }
@@ -2722,9 +2721,9 @@ async function requireOwner(req, res, next) {
         // 2. Check client user ID if passed
         const userId = req.headers['x-user-id'] || req.body?.userId || req.query?.userId;
         if (userId) {
-            if (userId === 'user_admin_bh13') return next();
+            if (req.admin?.is_owner) return next();
             const user = await supabaseDb.users.getUserById(userId).catch(() => null);
-            if (user && (user.email === 'admin@lpu.in' || user.role === 'owner' || user.id === 'user_admin_bh13')) {
+            if (user && (user.role === 'owner' || user.is_owner || (Array.isArray(user.roles) && user.roles.includes('owner')))) {
                 return next();
             }
         }

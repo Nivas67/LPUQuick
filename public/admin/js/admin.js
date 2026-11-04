@@ -15131,3 +15131,299 @@ async function terminateAllAdminSessions() {
     }
 }
 window.terminateAllAdminSessions = terminateAllAdminSessions;
+
+
+// ============================================================
+// AUDIT LOGS & IP SECURITY LOGIC
+// ============================================================
+let _cachedAuditLogs = [];
+let _cachedBlockedIps = [];
+
+async function loadAuditLogs() {
+    const tbody = document.getElementById('audit-logs-table-body');
+    const totalStat = document.getElementById('audit-stat-total');
+    if (!tbody) return;
+
+    try {
+        const res = await fetchWithTimeout('/api/admin/audit-logs?limit=250', {
+            headers: getAuthHeaders()
+        }, 12000);
+
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        if (data.success && Array.isArray(data.logs)) {
+            _cachedAuditLogs = data.logs;
+            if (totalStat) totalStat.textContent = String(data.count || data.logs.length);
+            renderAuditLogsTable(_cachedAuditLogs);
+        }
+    } catch (err) {
+        console.warn('[loadAuditLogs Error]:', err);
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-rose-500 font-bold">Failed to load live audit trail. ' + (err.message || '') + '</td></tr>';
+        }
+    }
+}
+window.loadAuditLogs = loadAuditLogs;
+
+function renderAuditLogsTable(logs) {
+    const tbody = document.getElementById('audit-logs-table-body');
+    if (!tbody) return;
+
+    if (!logs || logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="py-10 text-center text-slate-400 font-medium">No audit events found matching criteria.</td></tr>';
+        return;
+    }
+
+    const actionColors = {
+        'PRODUCT': 'bg-emerald-100 text-emerald-800 border-emerald-300',
+        'STOCK': 'bg-amber-100 text-amber-800 border-amber-300',
+        'ORDER': 'bg-blue-100 text-blue-800 border-blue-300',
+        'LOGIN': 'bg-purple-100 text-purple-800 border-purple-300',
+        'IP': 'bg-rose-100 text-rose-800 border-rose-300',
+        'TERMINATE': 'bg-red-100 text-red-800 border-red-300',
+        'LOCK': 'bg-orange-100 text-orange-800 border-orange-300',
+        'STAFF': 'bg-indigo-100 text-indigo-800 border-indigo-300',
+        'PAGE_VIEW': 'bg-slate-100 text-slate-700 border-slate-300'
+    };
+
+    function getActionClass(action) {
+        const act = (action || '').toUpperCase();
+        for (const [key, cls] of Object.entries(actionColors)) {
+            if (act.includes(key)) return cls;
+        }
+        return 'bg-slate-100 text-slate-700 border-slate-300';
+    }
+
+    tbody.innerHTML = logs.map(l => {
+        const timeStr = l.created_at ? new Date(l.created_at).toLocaleString('en-IN', {
+            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'
+        }) : 'Recent';
+
+        const meta = l.metadata || {};
+        const ip = meta.ip || 'N/A';
+        const adminName = meta.admin_name || l.admin_id || 'Admin';
+        const adminEmail = meta.admin_email ? '(' + meta.admin_email + ')' : '';
+        const badgeClass = getActionClass(l.action);
+        const reason = l.reason || l.action || 'Administrative action';
+
+        const blockButton = (ip && ip !== 'N/A' && ip !== '127.0.0.1' && ip !== 'localhost') ? `
+            <button onclick="openIpBlockModal('${ip}')" class="px-2.5 py-1 text-[10px] font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg flex items-center gap-1 transition-all cursor-pointer ml-auto" title="Block IP ${ip}">
+                <span class="material-symbols-outlined text-[13px]">block</span>
+                <span>Block IP</span>
+            </button>
+        ` : `
+            <span class="text-[10px] text-slate-400 font-bold ml-auto">Local / Direct</span>
+        `;
+
+        return `
+            <tr class="hover:bg-slate-50/70 transition-colors">
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 whitespace-nowrap">${timeStr}</td>
+                <td class="py-3 px-4">
+                    <div class="flex items-center gap-2">
+                        <div class="w-6 h-6 rounded-full bg-slate-200 text-slate-700 text-[10px] font-black flex items-center justify-center shrink-0">
+                            ${adminName.charAt(0).toUpperCase()}
+                        </div>
+                        <div class="min-w-0">
+                            <span class="font-bold text-[#181c1f] block truncate">${escapeHtml(adminName)}</span>
+                            <span class="text-[10px] text-slate-400 block truncate">${escapeHtml(adminEmail)}</span>
+                        </div>
+                    </div>
+                </td>
+                <td class="py-3 px-4">
+                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${badgeClass} whitespace-nowrap">
+                        ${escapeHtml(l.action || 'ACTION')}
+                    </span>
+                </td>
+                <td class="py-3 px-4 text-[#181c1f] max-w-xs break-all">
+                    <span class="font-medium text-xs">${escapeHtml(reason)}</span>
+                </td>
+                <td class="py-3 px-4 font-mono font-bold text-slate-700 whitespace-nowrap">
+                    ${escapeHtml(ip)}
+                </td>
+                <td class="py-3 px-4 text-right whitespace-nowrap">
+                    ${blockButton}
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function filterAuditLogs() {
+    const search = (document.getElementById('audit-log-search')?.value || '').toLowerCase().trim();
+    const filter = (document.getElementById('audit-action-filter')?.value || 'ALL').toUpperCase();
+
+    let filtered = _cachedAuditLogs;
+    if (filter !== 'ALL') {
+        filtered = filtered.filter(l => (l.action || '').toUpperCase().includes(filter));
+    }
+    if (search) {
+        filtered = filtered.filter(l => {
+            const act = (l.action || '').toLowerCase();
+            const reason = (l.reason || '').toLowerCase();
+            const admin = (l.admin_id || '').toLowerCase();
+            const metaStr = l.metadata ? JSON.stringify(l.metadata).toLowerCase() : '';
+            return act.includes(search) || reason.includes(search) || admin.includes(search) || metaStr.includes(search);
+        });
+    }
+    renderAuditLogsTable(filtered);
+}
+window.filterAuditLogs = filterAuditLogs;
+
+async function loadBlockedIps() {
+    const tbody = document.getElementById('blocked-ips-table-body');
+    const badge = document.getElementById('blocked-ips-badge');
+    const statBlocked = document.getElementById('audit-stat-blocked-ips');
+    if (!tbody) return;
+
+    try {
+        const res = await fetchWithTimeout('/api/admin/ip-blocks', {
+            headers: getAuthHeaders()
+        }, 8000);
+
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        if (data.success && Array.isArray(data.blocked_ips)) {
+            _cachedBlockedIps = data.blocked_ips;
+            const count = data.count || data.blocked_ips.length;
+            if (badge) badge.textContent = count + ' IPs';
+            if (statBlocked) statStatBlocked(count);
+            renderBlockedIpsTable(_cachedBlockedIps);
+        }
+    } catch (err) {
+        console.warn('[loadBlockedIps Error]:', err);
+    }
+}
+window.loadBlockedIps = loadBlockedIps;
+
+function statStatBlocked(count) {
+    const el = document.getElementById('audit-stat-blocked-ips');
+    if (el) el.textContent = String(count);
+}
+
+function renderBlockedIpsTable(ips) {
+    const tbody = document.getElementById('blocked-ips-table-body');
+    if (!tbody) return;
+
+    if (!ips || ips.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-slate-400 font-medium">No IPs currently blocked. All campus network access open.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = ips.map(entry => {
+        const dateStr = entry.blocked_at ? new Date(entry.blocked_at).toLocaleString('en-IN', {
+            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+        }) : 'Recent';
+
+        const customMsg = entry.message ? `"${escapeHtml(entry.message)}"` : '<span class="italic text-slate-400">(Blank empty screen)</span>';
+
+        return `
+            <tr class="hover:bg-slate-50 transition-colors">
+                <td class="py-3 px-4 font-mono font-bold text-rose-600">${escapeHtml(entry.ip)}</td>
+                <td class="py-3 px-4 text-slate-500 whitespace-nowrap text-[11px]">${dateStr}</td>
+                <td class="py-3 px-4 font-medium text-slate-700">${escapeHtml(entry.reason || 'Manual block')}</td>
+                <td class="py-3 px-4 text-slate-600 font-mono text-[11px]">${customMsg}</td>
+                <td class="py-3 px-4 text-slate-500">${escapeHtml(entry.blocked_by || 'Admin')}</td>
+                <td class="py-3 px-4 text-right">
+                    <button onclick="unblockIpAddress('${entry.ip}')" class="px-3 py-1 text-xs font-black bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-lg transition-all cursor-pointer">
+                        Unblock
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function openIpBlockModal(targetIp = '') {
+    const modal = document.getElementById('modal-block-ip');
+    const input = document.getElementById('block-ip-input');
+    const reason = document.getElementById('block-ip-reason');
+    const message = document.getElementById('block-ip-message');
+    if (!modal) return;
+
+    if (input) input.value = targetIp || '';
+    if (reason) reason.value = '';
+    if (message) message.value = '';
+
+    modal.classList.remove('hidden');
+    if (input) input.focus();
+}
+window.openIpBlockModal = openIpBlockModal;
+
+function closeIpBlockModal() {
+    const modal = document.getElementById('modal-block-ip');
+    if (modal) modal.classList.add('hidden');
+}
+window.closeIpBlockModal = closeIpBlockModal;
+
+async function handleBlockIpSubmit(event) {
+    if (event) event.preventDefault();
+    const input = document.getElementById('block-ip-input');
+    const reason = document.getElementById('block-ip-reason');
+    const message = document.getElementById('block-ip-message');
+    const submitBtn = document.getElementById('block-ip-submit-btn');
+
+    const ip = (input?.value || '').trim();
+    if (!ip) {
+        showToast('Please enter a valid IP address to block', 'warning');
+        return;
+    }
+
+    try {
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Blocking...';
+        }
+
+        const res = await fetchWithTimeout('/api/admin/ip-block', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                ip,
+                reason: (reason?.value || '').trim() || 'Blocked by administrator',
+                message: (message?.value || '').trim()
+            })
+        }, 10000);
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            throw new Error(data.error || 'Failed to block IP');
+        }
+
+        showToast(`IP ${ip} has been blocked successfully!`, 'success');
+        closeIpBlockModal();
+        await loadBlockedIps();
+        await loadAuditLogs();
+    } catch (err) {
+        showToast('IP Block Error: ' + err.message, 'error');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<span class="material-symbols-outlined text-sm">block</span><span>Confirm Block IP</span>';
+        }
+    }
+}
+window.handleBlockIpSubmit = handleBlockIpSubmit;
+
+async function unblockIpAddress(ip) {
+    if (!ip) return;
+    if (!confirm(`Are you sure you want to UNBLOCK IP ${ip}?`)) return;
+
+    try {
+        const res = await fetchWithTimeout(`/api/admin/ip-block/${encodeURIComponent(ip)}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+        }, 8000);
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            throw new Error(data.error || 'Failed to unblock IP');
+        }
+
+        showToast(`IP ${ip} unblocked successfully!`, 'success');
+        await loadBlockedIps();
+        await loadAuditLogs();
+    } catch (err) {
+        showToast('Unblock Error: ' + err.message, 'error');
+    }
+}
+window.unblockIpAddress = unblockIpAddress;

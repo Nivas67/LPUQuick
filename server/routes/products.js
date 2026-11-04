@@ -14,9 +14,9 @@ function isPlatformOwnerToken(tokenString) {
     if (cleanToken.startsWith('Bearer ')) cleanToken = cleanToken.slice(7).trim();
     const verified = verifyAdminToken(cleanToken);
     if (!verified) return false;
-    if (verified.role === 'owner' || verified.sub === 'user_admin_bh13') return true;
+    if (verified.role === 'owner' || (Array.isArray(verified.roles) && verified.roles.includes('owner'))) return true;
     const user = (staffUserCache && staffUserCache.get(verified.sub)) || (KNOWN_STAFF_FALLBACKS && KNOWN_STAFF_FALLBACKS[verified.sub]);
-    if (user && (user.role === 'owner' || user.id === 'user_admin_bh13' || user.email === 'admin@lpu.in')) return true;
+    if (user && (user.role === 'owner' || user.is_owner || (Array.isArray(user.roles) && user.roles.includes('owner')))) return true;
     const roles = resolveAdminRoles ? resolveAdminRoles(user || { id: verified.sub, role: verified.role }) : [];
     return roles.includes('owner');
 }
@@ -202,7 +202,7 @@ router.get('/', async (req, res) => {
         let hostelId = req.query.hostel_id || req.query.hostel || '';
         
         // If an authenticated admin has assigned hostel(s) (Store Manager / Staff), scope to their hostels
-        if (verifiedAdmin && verifiedAdmin.role !== 'owner' && verifiedAdmin.sub !== 'user_admin_bh13') {
+        if (verifiedAdmin && verifiedAdmin.role !== 'owner' && !verifiedAdmin.is_owner && !(Array.isArray(verifiedAdmin.roles) && verifiedAdmin.roles.includes('owner'))) {
             let user = (staffUserCache && staffUserCache.get(verifiedAdmin.sub)) || (KNOWN_STAFF_FALLBACKS && KNOWN_STAFF_FALLBACKS[verifiedAdmin.sub]);
             if (!user) {
                 try {
@@ -407,7 +407,7 @@ router.put('/admin/update/:id', requireAdmin, async (req, res) => {
     const { id } = req.params;
     try {
         const updateData = { ...req.body };
-        const isOwner = Boolean(req.admin && (req.admin.is_owner || (Array.isArray(req.admin.roles) && req.admin.roles.includes('owner')) || req.admin.role === 'owner' || req.admin.id === 'user_admin_bh13' || (req.admin.email && req.admin.email.toLowerCase() === 'admin@lpu.in')));
+        const isOwner = Boolean(req.admin && (req.admin.is_owner || (Array.isArray(req.admin.roles) && req.admin.roles.includes('owner')) || req.admin.role === 'owner'));
         const assignedHostel = req.admin?.assigned_hostel_id || null;
 
         let targetHostel = 'BH-13';
@@ -584,7 +584,7 @@ router.delete('/admin/deactivate/:id', requireAdmin, async (req, res) => {
 router.delete('/admin/delete/:id', requireAdmin, async (req, res) => {
     const { id } = req.params;
     try {
-        const isOwner = Boolean(req.admin && (req.admin.is_owner || (Array.isArray(req.admin.roles) && req.admin.roles.includes('owner')) || req.admin.role === 'owner' || req.admin.id === 'user_admin_bh13' || (req.admin.email && req.admin.email.toLowerCase() === 'admin@lpu.in')));
+        const isOwner = Boolean(req.admin && (req.admin.is_owner || (Array.isArray(req.admin.roles) && req.admin.roles.includes('owner')) || req.admin.role === 'owner'));
 
         // STRICT SECURITY ENFORCEMENT: ONLY Main Admin (Owner) can delete products
         if (!isOwner) {
@@ -632,7 +632,7 @@ router.post('/admin/toggle-stock', requireAdmin, async (req, res) => {
     }
 
     try {
-        const isOwner = Boolean(req.admin && (req.admin.is_owner || (Array.isArray(req.admin.roles) && req.admin.roles.includes('owner')) || req.admin.role === 'owner' || req.admin.id === 'user_admin_bh13' || (req.admin.email && req.admin.email.toLowerCase() === 'admin@lpu.in')));
+        const isOwner = Boolean(req.admin && (req.admin.is_owner || (Array.isArray(req.admin.roles) && req.admin.roles.includes('owner')) || req.admin.role === 'owner'));
         let targetHostel = 'BH-13';
         if (!isOwner) {
             const reqHostel = req.body.hostel_id || req.body.hostel || req.admin?.assigned_hostel_id;
@@ -688,7 +688,7 @@ router.post('/admin/adjust-stock', requireAdmin, async (req, res) => {
     }
 
     try {
-        const isOwner = Boolean(req.admin && (req.admin.is_owner || (Array.isArray(req.admin.roles) && req.admin.roles.includes('owner')) || req.admin.role === 'owner' || req.admin.id === 'user_admin_bh13' || (req.admin.email && req.admin.email.toLowerCase() === 'admin@lpu.in')));
+        const isOwner = Boolean(req.admin && (req.admin.is_owner || (Array.isArray(req.admin.roles) && req.admin.roles.includes('owner')) || req.admin.role === 'owner'));
         let targetHostel = 'BH-13';
         if (!isOwner) {
             const reqHostel = req.body.hostel_id || req.body.hostel || req.admin?.assigned_hostel_id;

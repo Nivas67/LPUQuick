@@ -130,8 +130,7 @@ function requireOwner(req, res, next) {
     const isOwner = Boolean(
         user?.is_owner || 
         user?.role === 'owner' || 
-        user?.id === 'user_admin_bh13' || 
-        user?.email === 'admin@lpu.in' || 
+        user?.is_owner === true || (Array.isArray(user?.roles) && user?.roles.includes('owner')) || 
         (Array.isArray(user?.roles) && user.roles.includes('owner'))
     );
     if (!isOwner) {

@@ -373,13 +373,9 @@ router.post('/admin-login', async (req, res) => {
             console.warn('[Admin Login User Lookup Notice]:', dbErr.message);
         }
 
-        // Fail-safe staff fallback if cloud database has a momentary latency spike or connection issue
-        if (!user && (staffUserCache || KNOWN_STAFF_FALLBACKS)) {
-            const matchedStaff = (staffUserCache && staffUserCache.get(trimmedEmail)) ||
-                Object.values(KNOWN_STAFF_FALLBACKS || {}).find(s => s.email && s.email.toLowerCase() === trimmedEmail);
-            if (matchedStaff) {
-                user = { ...matchedStaff, password_hash: 'hash_Nivas@2006$%' };
-            }
+        // Fail-safe staff fallback for temporary cache
+        if (!user && staffUserCache) {
+            user = staffUserCache.get(trimmedEmail) || null;
         }
 
         if (!user || (user.role !== 'admin' && user.role !== 'owner')) {
@@ -402,10 +398,7 @@ router.post('/admin-login', async (req, res) => {
         // Verify password against stored hash or secure environment ADMIN_PASSWORD
         const isPasswordCorrect = (user.password_hash && (
             user.password_hash === password ||
-            user.password_hash === `hash_${password}` ||
-            (user.email === 'admin@lpu.in' && (password === 'Nivas@2006$%' || password === 'Nivas@2006$')) ||
-            (user.email === 'nivx@lpuquick.in' && (password === 'Nivas@2006$' || password === 'Nivas@2006$%')) ||
-            (user.role === 'admin' && (password === 'Lpuquick@123' || user.password_hash === `hash_${password}`))
+            user.password_hash === `hash_${password}`
         )) || (process.env.ADMIN_PASSWORD && password === process.env.ADMIN_PASSWORD);
 
         if (!isPasswordCorrect) {

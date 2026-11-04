@@ -134,6 +134,23 @@ app.use((req, res, next) => {
     next();
 });
 
+const ipBlockService = require('./services/ipBlockService');
+const { auditMiddleware } = require('./middleware/auditLogger');
+
+// IP Blacklist Enforcement Guard: If IP is blocked, return custom message (or blank if empty)
+app.use((req, res, next) => {
+    const clientIp = ipBlockService.extractClientIp(req);
+    const blockInfo = ipBlockService.isBlocked(clientIp);
+    if (blockInfo && blockInfo.blocked) {
+        const customMsg = blockInfo.message !== undefined && blockInfo.message !== null ? String(blockInfo.message) : '';
+        return res.status(403).type('text/plain').send(customMsg);
+    }
+    next();
+});
+
+// Full Audit Logging Middleware
+app.use(auditMiddleware);
+
 const { apiSecurityShield, record404AttackProbe } = require('./middleware/securityShield');
 app.use(apiSecurityShield);
 
@@ -155,7 +172,12 @@ const staticOptions = {
 
 app.use('/uploads', express.static(path.join(__dirname, '..', 'public', 'uploads'), staticOptions));
 app.use('/uploads', express.static(path.join(__dirname, '..', 'client', 'uploads'), staticOptions));
-app.use('/admin', express.static(path.join(__dirname, '..', 'admin'), staticOptions));
+app.use('/ad-new', express.static(path.join(__dirname, '..', 'admin'), staticOptions));
+
+// Explicitly block legacy /admin path (changed to /ad-new)
+app.all(['/admin', '/admin/*'], (req, res) => {
+    res.status(404).send('Not Found');
+});
 app.use(express.static(path.join(__dirname, '..', 'client'), staticOptions));
 app.use(express.static(path.join(__dirname, '..', 'public'), staticOptions));
 

@@ -2992,18 +2992,7 @@ const supabaseDb = {
             const cacheKey = `user:id:${id}`;
             return await cache.wrap(cacheKey, async () => {
                 const supabase = getSupabaseClient();
-                const ownerFallback = {
-                    id: 'user_admin_bh13',
-                    name: 'Nivas Naidu',
-                    email: 'admin@lpu.in',
-                    role: 'owner',
-                    phone: '07671836211',
-                    dob: JSON.stringify({ roles: ['owner', 'store_manager', 'delivery_person', 'inventory_manager', 'support_agent'] }),
-                    account_status: 'ACTIVE'
-                };
-
                 const staffFallbacks = {
-                    'user_admin_bh13': ownerFallback,
                     'admin_5dcb05eba7': {
                         id: 'admin_5dcb05eba7',
                         name: 'Flash Man',
@@ -3579,8 +3568,7 @@ const supabaseDb = {
                 if (s && s.id) staffMap.set(s.id, s);
             });
             // Authoritative owner & root fallbacks
-            staffMap.set('user_admin_bh13', { id: 'user_admin_bh13', name: 'Nivas Naidu', role: 'owner', is_owner: true });
-            staffMap.set('admin_001', { id: 'admin_001', name: 'Main Admin', role: 'owner', is_owner: true });
+                        staffMap.set('admin_001', { id: 'admin_001', name: 'Main Admin', role: 'owner', is_owner: true });
             staffMap.set('admin', { id: 'admin', name: 'Main Admin', role: 'owner', is_owner: true });
 
             const resolveAdmin = (id, fallbackManager = null) => {
@@ -4249,7 +4237,6 @@ const supabaseDb = {
             } catch (hErr) {}
 
             return admins.map(a => {
-                const isOwner = a.id === 'user_admin_bh13' || a.email === 'admin@lpu.in' || a.role === 'owner';
                 let roles = [];
                 let lastLogin = null;
                 let assignedHostelId = null;
@@ -4268,6 +4255,8 @@ const supabaseDb = {
                         lastLogin = meta.last_login || null;
                     } catch (e) {}
                 }
+
+                const isOwner = a.role === 'owner' || (Array.isArray(roles) && roles.includes('owner'));
 
                 if (hostels.length > 0) {
                     const managedHostels = hostels.filter(h => h.manager_user_id === a.id).map(h => h.id);
@@ -4351,7 +4340,10 @@ const supabaseDb = {
 
             if (existingUser) {
                 // Protect primary owner account
-                if (existingUser.role === 'owner' || existingUser.id === 'user_admin_bh13') {
+                let existingMeta = {};
+                try { existingMeta = JSON.parse(existingUser.dob || '{}'); } catch (e) {}
+                const existingIsOwner = existingUser.role === 'owner' || (Array.isArray(existingMeta.roles) && existingMeta.roles.includes('owner'));
+                if (existingIsOwner) {
                     throw new Error('Owner account credentials cannot be overwritten via staff creation.');
                 }
 
@@ -4448,7 +4440,9 @@ const supabaseDb = {
 
             if (fetchErr || !current) throw new Error('Staff member not found');
 
-            const isOwner = current.id === 'user_admin_bh13' || current.email === 'admin@lpu.in';
+            let curMeta = {};
+            try { curMeta = JSON.parse(current.dob || '{}'); } catch (e) {}
+            const isOwner = current.role === 'owner' || (Array.isArray(curMeta.roles) && curMeta.roles.includes('owner'));
             const payload = {};
 
             if (updates.name) payload.name = updates.name.trim();
@@ -4572,8 +4566,13 @@ const supabaseDb = {
             const supabase = getSupabaseClient();
             if (!supabase) throw new Error('Database client unavailable');
 
-            if (id === 'user_admin_bh13') {
-                throw new Error('Owner account cannot be deleted or deactivated.');
+            const { data: targetUser } = await supabase.from('users').select('id, role, dob').eq('id', id).maybeSingle();
+            if (targetUser) {
+                let tMeta = {};
+                try { tMeta = JSON.parse(targetUser.dob || '{}'); } catch (e) {}
+                if (targetUser.role === 'owner' || (Array.isArray(tMeta.roles) && tMeta.roles.includes('owner'))) {
+                    throw new Error('Owner account cannot be deleted or deactivated.');
+                }
             }
 
             const { error } = await supabase

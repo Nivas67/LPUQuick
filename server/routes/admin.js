@@ -52,6 +52,154 @@ router.post('/terminate-all-sessions', requireRole('owner'), async (req, res) =>
                         timestamp: new Date().toISOString()
                     }
                 });
+
+// ============================================================
+// AUDIT LOGS & IP SECURITY CONTROL
+// ============================================================
+
+// GET /api/admin/audit-logs
+router.get('/audit-logs', requireRole('owner', 'store_manager'), async (req, res) => {
+    try {
+        const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
+        const actionFilter = req.query.action ? String(req.query.action).trim().toUpperCase() : null;
+        const search = req.query.search ? String(req.query.search).trim().toLowerCase() : null;
+
+        let logs = await supabaseDb.audit.getLogs(limit * 2);
+        if (actionFilter && actionFilter !== 'ALL') {
+            logs = logs.filter(l => (l.action || '').toUpperCase() === actionFilter);
+        }
+        if (search) {
+            logs = logs.filter(l => {
+                const act = (l.action || '').toLowerCase();
+                const reason = (l.reason || '').toLowerCase();
+                const admin = (l.admin_id || '').toLowerCase();
+                const metaStr = l.metadata ? JSON.stringify(l.metadata).toLowerCase() : '';
+                return act.includes(search) || reason.includes(search) || admin.includes(search) || metaStr.includes(search);
+            });
+        }
+
+        res.json({
+            success: true,
+            count: logs.slice(0, limit).length,
+            logs: logs.slice(0, limit)
+        });
+    } catch (err) {
+        console.error('[Get Audit Logs Error]:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// POST /api/admin/audit/page-view (Beacon for page/view loads)
+router.post('/audit/page-view', async (req, res) => {
+    try {
+        const { view, title } = req.body || {};
+        const clientIp = ipBlockService.extractClientIp(req);
+        await supabaseDb.audit.logAction({
+            adminId: req.admin?.id || 'admin',
+            action: 'PAGE_VIEW',
+            reason: `Admin opened view: ${view || 'dashboard'}`,
+            metadata: {
+                ip: clientIp,
+                view: view || 'dashboard',
+                title: title || '',
+                admin_name: req.admin?.name || null,
+                admin_email: req.admin?.email || null,
+                timestamp: new Date().toISOString()
+            }
+        });
+        res.json({ success: true });
+    } catch (err) {
+        res.json({ success: true, warning: err.message });
+    }
+});
+
+// GET /api/admin/ip-blocks (List blocked IPs)
+router.get('/ip-blocks', requireRole('owner', 'store_manager'), (req, res) => {
+    try {
+        const list = ipBlockService.getAllBlockedIps();
+        res.json({
+            success: true,
+            count: list.length,
+            blocked_ips: list
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// POST /api/admin/ip-block (Block an IP address)
+router.post('/ip-block', requireRole('owner', 'store_manager'), async (req, res) => {
+    try {
+        const { ip, message = '', reason = 'Blocked by administrator' } = req.body || {};
+        if (!ip || typeof ip !== 'string' || !ip.trim()) {
+            return res.status(400).json({ success: false, error: 'Valid IP address is required' });
+        }
+
+        const entry = await ipBlockService.blockIp({
+            ip: ip.trim(),
+            message: message !== undefined ? String(message).trim() : '',
+            reason: reason ? String(reason).trim() : 'Administrative Block',
+            blocked_by: req.admin?.email || req.admin?.id || 'admin'
+        });
+
+        await supabaseDb.audit.logAction({
+            adminId: req.admin?.id || 'admin',
+            action: 'IP_BLOCKED',
+            reason: `IP ${entry.ip} blocked: ${entry.reason}`,
+            metadata: {
+                ip: entry.ip,
+                custom_message: entry.message,
+                reason: entry.reason,
+                blocked_by: entry.blocked_by,
+                admin_name: req.admin?.name,
+                admin_email: req.admin?.email
+            }
+        });
+
+        res.json({
+            success: true,
+            message: `IP ${entry.ip} has been blocked successfully`,
+            entry
+        });
+    } catch (err) {
+        console.error('[Block IP Route Error]:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// DELETE /api/admin/ip-block/:ip (Unblock an IP address)
+router.delete('/ip-block/:ip', requireRole('owner', 'store_manager'), async (req, res) => {
+    try {
+        const { ip } = req.params;
+        if (!ip) {
+            return res.status(400).json({ success: false, error: 'Valid IP is required' });
+        }
+
+        const result = await ipBlockService.unblockIp(ip);
+
+        await supabaseDb.audit.logAction({
+            adminId: req.admin?.id || 'admin',
+            action: 'IP_UNBLOCKED',
+            reason: `IP ${ip} unblocked by administrator`,
+            metadata: {
+                unblocked_ip: ip,
+                unblocked_by: req.admin?.email || req.admin?.id || 'admin',
+                admin_name: req.admin?.name,
+                admin_email: req.admin?.email
+            }
+        });
+
+        res.json({
+            success: true,
+            message: `IP ${ip} has been unblocked`,
+            result
+        });
+    } catch (err) {
+        console.error('[Unblock IP Route Error]:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
             }
         } catch (auditErr) {}
 
@@ -614,7 +762,7 @@ router.get('/employees', requireRole('owner'), async (req, res) => {
             const isDelivery = Boolean(
                 (Array.isArray(s.roles) && s.roles.includes('delivery_person')) ||
                 s.is_owner ||
-                s.id === 'user_admin_bh13'
+                s.role === 'owner'
             );
 
             const managed = hostels.filter(h => h.manager_user_id === s.id);

@@ -160,15 +160,6 @@ function verifyAdminToken(tokenString) {
 // In-memory staff cache and verified roster to prevent transient 403 Forbidden drops on latency
 const staffUserCache = new Map();
 const KNOWN_STAFF_FALLBACKS = {
-    'user_admin_bh13': {
-        id: 'user_admin_bh13',
-        name: 'Nivas Naidu',
-        email: 'admin@lpu.in',
-        role: 'owner',
-        phone: '07671836211',
-        dob: JSON.stringify({ roles: ['owner', 'store_manager', 'delivery_person', 'inventory_manager', 'support_agent'] }),
-        account_status: 'ACTIVE'
-    },
     'admin_5dcb05eba7': {
         id: 'admin_5dcb05eba7',
         name: 'Flash Man',
@@ -213,10 +204,6 @@ const KNOWN_STAFF_FALLBACKS = {
  */
 function resolveAdminRoles(user) {
     if (!user) return [];
-    const isOwner = user.id === 'user_admin_bh13' || 
-                    user.email === 'admin@lpu.in' || 
-                    user.role === 'owner';
-    
     let roles = [];
     if (user.dob && typeof user.dob === 'string' && user.dob.startsWith('{')) {
         try {
@@ -226,6 +213,13 @@ function resolveAdminRoles(user) {
             }
         } catch (e) {}
     }
+    if (Array.isArray(user.roles)) {
+        roles = [...roles, ...user.roles];
+    }
+
+    const isOwner = user.role === 'owner' || 
+                    user.is_owner === true || 
+                    roles.includes('owner');
 
     if (isOwner) {
         if (!roles.includes('owner')) roles.unshift('owner');
@@ -287,9 +281,6 @@ async function requireAdmin(req, res, next) {
         // Resilient fail-safe for all active staff & owner if DB lookup times out or drops
         if (!user) {
             user = staffUserCache.get(verified.sub) || KNOWN_STAFF_FALLBACKS[verified.sub] || null;
-            if (!user && (verified.sub === 'user_admin_bh13' || verified.role === 'owner')) {
-                user = KNOWN_STAFF_FALLBACKS['user_admin_bh13'];
-            }
         }
 
         if (user && user.account_status && user.account_status !== 'ACTIVE') {
@@ -401,7 +392,7 @@ function requireRole(...allowedRoles) {
     return (req, res, next) => {
         const verifyRole = (adminUser) => {
             const userRoles = adminUser.roles || [];
-            const isOwner = userRoles.includes('owner') || adminUser.id === 'user_admin_bh13' || adminUser.email === 'admin@lpu.in';
+            const isOwner = userRoles.includes('owner') || adminUser.is_owner === true || adminUser.role === 'owner';
 
             if (isOwner) {
                 return next();
