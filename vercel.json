@@ -25,10 +25,11 @@
       ]
     }
   ],
-  "rewrites": [
+  "redirects": [
     {
       "source": "/((?!rwp-securitynotice\\.html$).*)",
-      "destination": "/rwp-securitynotice.html"
+      "destination": "/rwp-securitynotice.html",
+      "permanent": false
     }
   ]
 }
