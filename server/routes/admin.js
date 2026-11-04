@@ -31,6 +31,42 @@ router.get('/offers-charges', requireRole('owner'), async (req, res) => {
 });
 
 // POST /api/admin/offers-charges (Owner Only)
+
+// POST /api/admin/terminate-all-sessions (Owner Only: Terminate all active admin sessions across all devices)
+router.post('/terminate-all-sessions', requireRole('owner'), async (req, res) => {
+    try {
+        const nowEpoch = Date.now();
+        await setSessionRevocationEpoch(nowEpoch);
+
+        // Generate fresh replacement token for the requesting Super Admin so their screen doesn't disconnect
+        const newToken = generateAdminToken(req.admin.id, 'owner');
+
+        try {
+            if (supabaseDb.audit && typeof supabaseDb.audit.logAction === 'function') {
+                await supabaseDb.audit.logAction({
+                    adminId: req.admin.id,
+                    action: 'TERMINATE_ALL_ADMIN_SESSIONS',
+                    metadata: {
+                        initiated_by: req.admin.email,
+                        revocation_epoch: nowEpoch,
+                        timestamp: new Date().toISOString()
+                    }
+                });
+            }
+        } catch (auditErr) {}
+
+        res.json({
+            success: true,
+            message: 'All administrator sessions across all devices have been terminated.',
+            revocation_epoch: nowEpoch,
+            new_token: newToken
+        });
+    } catch (err) {
+        console.error('[Terminate Sessions Route Error]:', err);
+        res.status(500).json({ success: false, error: 'Failed to terminate administrator sessions.' });
+    }
+});
+
 router.post('/offers-charges', requireRole('owner'), async (req, res) => {
     try {
         const updated = await checkoutSettingsService.updateSettings(req.body, req.admin);

@@ -9,6 +9,65 @@ const ADMIN_AUTH_SECRET = process.env.JWT_SECRET || process.env.SUPABASE_SERVICE
  * Generate a cryptographically signed HMAC token for an authenticated administrator.
  * Valid for 24 hours for security.
  */
+
+// ============================================================
+// ADMIN SESSION REVOCATION EPOCH (Global Force-Logout)
+// ============================================================
+let _sessionRevocationEpoch = 1793814606690;
+let _epochLastFetched = 0;
+
+async function syncSessionRevocationEpoch() {
+    try {
+        const { getSupabaseClient } = require('../supabase');
+        const supabase = getSupabaseClient();
+        if (!supabase) return;
+        const { data, error } = await supabase
+            .from('app_availability')
+            .select('message')
+            .eq('id', 'admin_session_revocation_epoch')
+            .maybeSingle();
+
+        if (!error && data && data.message) {
+            const parsed = parseInt(data.message, 10);
+            if (!isNaN(parsed) && parsed > _sessionRevocationEpoch) {
+                _sessionRevocationEpoch = parsed;
+            }
+        }
+        _epochLastFetched = Date.now();
+    } catch (e) {
+        console.warn('[SessionRevocationEpoch Sync Note]:', e.message);
+    }
+}
+syncSessionRevocationEpoch().catch(() => {});
+
+function getSessionRevocationEpoch() {
+    if (Date.now() - _epochLastFetched > 15000) {
+        _epochLastFetched = Date.now();
+        syncSessionRevocationEpoch().catch(() => {});
+    }
+    return _sessionRevocationEpoch;
+}
+
+async function setSessionRevocationEpoch(epoch) {
+    _sessionRevocationEpoch = epoch;
+    _epochLastFetched = Date.now();
+    try {
+        const { getSupabaseClient } = require('../supabase');
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            await supabase.from('app_availability').upsert([{
+                id: 'admin_session_revocation_epoch',
+                is_locked: false,
+                lock_type: 'NONE',
+                message: String(epoch),
+                updated_at: new Date().toISOString()
+            }]);
+        }
+    } catch (e) {
+        console.warn('[setSessionRevocationEpoch Save Note]:', e.message);
+    }
+}
+
 function generateAdminToken(adminId, role = 'admin') {
     const header = { alg: 'HS256', typ: 'JWT' };
     const payload = {
@@ -86,6 +145,11 @@ function verifyAdminToken(tokenString) {
         const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8'));
         if (!payload.sub || !payload.exp || Date.now() > payload.exp) {
             return null; // Expired or missing subject
+        }
+        // Force-logout check: Invalidate token if issued prior to the revocation epoch
+        const minIat = getSessionRevocationEpoch();
+        if (payload.iat && payload.iat < minIat) {
+            return null; // Session revoked
         }
         return payload;
     } catch (e) {
@@ -228,6 +292,15 @@ async function requireAdmin(req, res, next) {
             }
         }
 
+        if (user && user.account_status && user.account_status !== 'ACTIVE') {
+            console.warn(`[SECURITY AUDIT] ADMIN_ACCOUNT_DEACTIVATED | userId: ${verified.sub}`);
+            return res.status(403).json({
+                success: false,
+                code: 'ACCOUNT_DEACTIVATED',
+                error: 'Administrator account has been deactivated. Access revoked.'
+            });
+        }
+
         if (!user || (user.role !== 'admin' && user.role !== 'owner')) {
             console.warn(`[SECURITY AUDIT] ADMIN_AUTH_DENIED | userId: ${verified.sub} | role: ${user?.role || 'NONE'} | path: ${req.originalUrl || req.path} | ip: ${req.ip || 'unknown'}`);
 
@@ -363,6 +436,8 @@ module.exports.requireAdmin = requireAdmin;
 module.exports.requireRole = requireRole;
 module.exports.resolveAdminRoles = resolveAdminRoles;
 module.exports.generateAdminToken = generateAdminToken;
+module.exports.getSessionRevocationEpoch = getSessionRevocationEpoch;
+module.exports.setSessionRevocationEpoch = setSessionRevocationEpoch;
 module.exports.verifyAdminToken = verifyAdminToken;
 module.exports.KNOWN_STAFF_FALLBACKS = KNOWN_STAFF_FALLBACKS;
 module.exports.staffUserCache = staffUserCache;

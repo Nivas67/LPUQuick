@@ -595,6 +595,7 @@ function handleAdminAuthError(res) {
     if (isHandlingAuthError) return;
     isHandlingAuthError = true;
     console.warn('[Admin Auth] Session invalid or expired (401/403). Prompting re-login.');
+    try { localStorage.removeItem('lpuquick_admin_token'); sessionStorage.removeItem('lpuquick_admin_token'); adminToken = ''; } catch (e) {}
     updateConnectionStatus(false, 'Auth Required');
     showToast('⚠️ Admin session authorization required. Please sign in.', 'error');
     setTimeout(() => {
@@ -15102,3 +15103,31 @@ async function updateFoodOrderStatus(orderId, newStatus) {
     }
 }
 window.updateFoodOrderStatus = updateFoodOrderStatus;
+
+
+async function terminateAllAdminSessions() {
+    if (!confirm('⚠️ FORCE LOGOUT: Are you sure you want to terminate ALL active admin sessions across all devices?\n\nAll logged-in staff members and managers will be immediately signed out and required to re-enter their passwords.')) {
+        return;
+    }
+
+    try {
+        const res = await fetchWithTimeout('/api/admin/terminate-all-sessions', {
+            method: 'POST',
+            headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        if (data.success) {
+            if (data.new_token) {
+                adminToken = data.new_token;
+                localStorage.setItem('lpuquick_admin_token', adminToken);
+                sessionStorage.setItem('lpuquick_admin_token', adminToken);
+            }
+            showToast('✅ All administrator sessions have been successfully terminated!', 'success');
+        } else {
+            alert('Failed to terminate sessions: ' + (data.error || 'Unknown error'));
+        }
+    } catch (err) {
+        alert('Network error terminating sessions: ' + err.message);
+    }
+}
+window.terminateAllAdminSessions = terminateAllAdminSessions;
