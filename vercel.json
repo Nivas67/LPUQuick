@@ -261,6 +261,14 @@
       "destination": "/admin/index.html"
     },
     {
+      "source": "/admin/(.*)",
+      "destination": "/client/index.html"
+    },
+    {
+      "source": "/admin",
+      "destination": "/client/index.html"
+    },
+    {
       "source": "/css/(.*)",
       "destination": "/client/css/$1"
     },
