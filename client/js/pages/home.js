@@ -198,15 +198,17 @@ function classifyProductCategory(p) {
     const cat = (p.category || '').trim().toLowerCase();
     const text = (p.name || '').toLowerCase();
 
-    // 0. High-Priority Food Classification: Cooked hot meals, Maggi & noodles, fresh kitchen items
-    if (p.is_food_product) return 'lpq-food';
-    if (/maggi|magiee|wai wai|yippee|top ramen|pasta|macaroni/i.test(text) || (/noodle/i.test(text) && !/crax/i.test(text)) || /maggi|magiee|noodle|pasta/i.test(subcat)) {
-        return 'lpq-food';
-    }
-    if ((cat.includes('quick') && cat.includes('food')) || cat === "quick's instant food" || cat === "quicks instant food" || cat === 'lpq food' || cat === "quick's lpq food" || cat === "lpu quick food" || cat === "lpu food") return 'lpq-food';
-    if ((subcat.includes('quick') && subcat.includes('food')) || subcat === "quick's instant food" || subcat === "quicks instant food" || subcat === 'cook' || subcat === 'lpq food' || subcat === "quick's lpq food" || subcat === "lpu food") return 'lpq-food';
-    if (subcat.includes('magiee & noodles') || subcat.includes('cooked meals') || subcat.includes('sandwiches & burgers') || subcat.includes('pasta & macaroni') || subcat.includes('hot snacks & fries') || subcat.includes('soups & bowls')) return 'lpq-food';
-    if ((cat === 'instant food' || cat === 'instant' || subcat === 'instant food') && !subcat.includes('namkeen') && !/bhelpuri|namkeen|chips|wafer|biscuit/i.test(text)) return 'lpq-food';
+    // 0. Food Section Strict Isolation: Only items created in Food section / Fresh Kitchen
+    // Packaged noodles and dry groceries strictly stay in snacks/groceries
+    const isFoodSection = Boolean(p.is_food_product) ||
+        cat === "quick's instant food" || cat === "quicks instant food" ||
+        cat === "lpu quick food" || cat === "lpu food" || cat === "cooked food" ||
+        cat === "lpq food" || cat === "quick's lpq food" ||
+        (cat.includes('food') && !cat.includes('snack') && !cat.includes('beverage') && !cat.includes('baby')) ||
+        subcat === 'cooked meals' || subcat === 'sandwiches & burgers' ||
+        subcat === 'hot snacks & fries' || subcat === 'soups & bowls' ||
+        (subcat.includes('quick') && subcat.includes('food'));
+    if (isFoodSection) return 'lpq-food';
 
     // 1. Ground Truth Priority: Check existing database subcategory first
     if (subcat.includes('popcorn')) return 'popcorn';
@@ -215,7 +217,7 @@ function classifyProductCategory(p) {
     if (subcat.includes('biscuit') || subcat.includes('cookie') || subcat.includes('rusk')) return 'biscuits';
     if (subcat.includes('chip') || subcat.includes('wafer') || subcat.includes('crisp') || subcat.includes('nacho')) return 'chips';
     if (subcat.includes('chocolate') || subcat.includes('choco')) return 'chocolates';
-    if (subcat.includes('snack') || subcat.includes('munch')) return 'snacks';
+    if (subcat.includes('snack') || subcat.includes('munch') || subcat.includes('noodle') || subcat.includes('maggi') || subcat.includes('magiee') || subcat.includes('pasta')) return 'snacks';
     if (subcat.includes('cand') || subcat.includes('toffee')) return 'candies';
     if (subcat.includes('drink') || subcat.includes('beverage') || subcat.includes('cold drink') || subcat.includes('soda')) return 'drinks';
     if (subcat.includes('juice')) return 'juices';
@@ -237,7 +239,7 @@ function classifyProductCategory(p) {
     if (/cadbury|dairy milk|silk|snickers|yoga bar|chocolate/i.test(text)) return 'chocolates';
     if (/biscuit|cookie|cookies|wafer|bourbon|bikis|mom's magic|jimjam|hide & seek|hide and seek|milk shakti|treat rich creme|oreo|milano|fab bourbon|dark fantasy/i.test(text)) return 'biscuits';
     if (/chips|mad angles|doritos|lay's|lays|uncle chips/i.test(text)) return 'chips';
-    if (/crax|tedhe medhe|kurkure|curls|cheese balls/i.test(text)) return 'snacks';
+    if (/crax|tedhe medhe|kurkure|curls|cheese balls|maggi|magiee|noodle|pasta|cup noodles|wai wai|yippee/i.test(text)) return 'snacks';
     if (/candy|candies|toffee|lollipop|eclairs|mint|chew|pulse|mentos|alpenliebe/i.test(text)) return 'candies';
     if (/\b(drink|drinks|coke|pepsi|sprite|thums up|fanta|sting|red bull|monster|water|soda|redbull|beverage|cola|dew)\b/i.test(text)) return 'drinks';
     if (/\b(juice|juices|frooti|maaza|real|tropicana|appy|fizz)\b/i.test(text)) return 'juices';
@@ -256,7 +258,7 @@ function buildProductCardsHTML(items, isAboveFold = false, startIndex = 0) {
         const isLowStock = stockLeft > 0 && stockLeft <= 4;
         const isOutOfStock = !p.in_stock || stockLeft <= 0;
         const catTag = classifyProductCategory(p);
-        const isCookedFood = catTag === 'lpq-food' || Boolean(p.is_food_product) || /maggi|magiee|wai wai|yippee|top ramen/i.test(p.name || '') || (/noodle/i.test(p.name || '') && !/crax/i.test(p.name || ''));
+        const isCookedFood = catTag === 'lpq-food' || Boolean(p.is_food_product);
 
         return `
         <div class="product-card-item product-detail-trigger p-2.5 sm:p-3 flex flex-col justify-between cursor-pointer group ${isOutOfStock ? 'opacity-75' : ''}" 

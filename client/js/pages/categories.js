@@ -8,15 +8,16 @@ function resolveProductRailCategory(p) {
     const name = (p.name || '').toLowerCase();
     const cat = (p.category || '').toLowerCase();
 
-    // 0. High-Priority Food Classification: Cooked hot foods, Maggi & noodles, fresh meals
-    if (p.is_food_product) return 'lpq-food';
-    if (/maggi|magiee|wai wai|yippee|top ramen|pasta|macaroni/i.test(name) || (/noodle/i.test(name) && !/crax/i.test(name)) || /maggi|magiee|noodle|pasta/i.test(sub)) {
-        return 'lpq-food';
-    }
-    if ((cat.includes('quick') && cat.includes('food')) || cat === "quick's instant food" || cat === "quicks instant food" || cat === 'lpq food' || cat === "quick's lpq food" || cat === "lpu quick food" || cat === "lpu food") return 'lpq-food';
-    if ((sub.includes('quick') && sub.includes('food')) || sub === "quick's instant food" || sub === "quicks instant food" || sub === 'cook' || sub === 'lpq food' || sub === "quick's lpq food" || sub === "lpu food") return 'lpq-food';
-    if (sub.includes('magiee & noodles') || sub.includes('cooked meals') || sub.includes('sandwiches & burgers') || sub.includes('pasta & macaroni') || sub.includes('hot snacks & fries') || sub.includes('soups & bowls')) return 'lpq-food';
-    if ((cat === 'instant food' || cat === 'instant' || sub === 'instant food') && !sub.includes('namkeen') && !/bhelpuri|namkeen|chips|wafer|biscuit/i.test(name)) return 'lpq-food';
+    // 0. Food Section Strict Isolation: Only items created in Food section / Fresh Kitchen
+    const isFoodSection = Boolean(p.is_food_product) ||
+        cat === "quick's instant food" || cat === "quicks instant food" ||
+        cat === "lpu quick food" || cat === "lpu food" || cat === "cooked food" ||
+        cat === "lpq food" || cat === "quick's lpq food" ||
+        (cat.includes('food') && !cat.includes('snack') && !cat.includes('beverage') && !cat.includes('baby')) ||
+        sub === 'cooked meals' || sub === 'sandwiches & burgers' ||
+        sub === 'hot snacks & fries' || sub === 'soups & bowls' ||
+        (sub.includes('quick') && sub.includes('food'));
+    if (isFoodSection) return 'lpq-food';
 
     // 1. Primary Priority: Ground Truth Subcategory assigned by Admin or Catalog
     if (sub) {

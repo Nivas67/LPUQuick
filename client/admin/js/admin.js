@@ -441,6 +441,8 @@ function isPlatformOwner(profile = currentAdminProfile) {
         profile.is_owner === true ||
         profile.role === 'owner' ||
         roles.includes('owner') ||
+        profile.id === 'nivas_naidu_ad' ||
+        (profile.email && profile.email.toLowerCase() === 'nivasnaiduad@lpu-quick.com') ||
         profile.id === 'user_admin_bh13' ||
         (profile.email && profile.email.toLowerCase() === 'admin@lpu.in')
     );
@@ -738,6 +740,7 @@ function switchView(viewName) {
             'settings': ['owner'],
             'hostels': ['owner'],
             'hostel-groups': ['owner'],
+            'hostel-overview': ['owner', 'store_manager'],
             'offers-charges': ['owner'],
             'payment-management': ['owner'],
             'upi-config': ['owner'],
@@ -795,6 +798,7 @@ function switchView(viewName) {
         'settings': 'Store Settings',
         'hostels': 'Campus Hostels & Dark Stores (Owner Only)',
         'hostel-groups': 'Hostel Group Management & Shared Inventory (Owner Only)',
+        'hostel-overview': 'Selected Hostel Overview & 360° Intelligence',
         'employees': 'Employees & Dark Store Roster',
         'offers-charges': 'Offers & Charges — Global Pricing & Offer Rules (Owner Only)',
         'payment-management': 'Payment & Refund Management (Super Admin Only)',
@@ -826,6 +830,7 @@ function switchView(viewName) {
     else if (viewName === 'advertisements') loadAdvertisementsView();
     else if (viewName === 'backup') loadBackupDashboard();
     else if (viewName === 'hostels') loadHostels();
+    else if (viewName === 'hostel-overview') loadHostelOverview();
     else if (viewName === 'hostel-groups') loadHostelGroups();
     else if (viewName === 'employees') loadEmployeesList();
     else if (viewName === 'offers-charges') loadOffersChargesView();
@@ -15445,3 +15450,406 @@ async function unblockIpAddress(ip) {
     }
 }
 window.unblockIpAddress = unblockIpAddress;
+
+
+// ============================================================
+// SELECTED HOSTEL OVERVIEW CONTROLLER (360° INTELLIGENCE)
+// ============================================================
+let _selectedHostelIds = ['ALL'];
+let _hostelOverviewRange = 'all';
+let _isMultiHostelMode = false;
+let _cachedHostelOverview = null;
+
+function populateHostelOverviewSelectors() {
+    const select = document.getElementById('ho-hostel-select');
+    const multiContainer = document.getElementById('ho-multi-checkboxes-container');
+    const hostels = (typeof hostelsCache !== 'undefined' && Array.isArray(hostelsCache) && hostelsCache.length > 0)
+        ? hostelsCache
+        : [];
+
+    if (select && select.children.length <= 1 && hostels.length > 0) {
+        select.innerHTML = '<option value="ALL">🏢 All Hostels (All-Campus Aggregate)</option>' +
+            hostels.map(h => `<option value="${h.id}">${escapeHtml(h.name || h.id)} (${h.id})</option>`).join('');
+        if (_selectedHostelIds.length === 1 && _selectedHostelIds[0] !== 'ALL') {
+            select.value = _selectedHostelIds[0];
+        }
+    }
+
+    if (multiContainer && multiContainer.children.length === 0 && hostels.length > 0) {
+        multiContainer.innerHTML = hostels.map(h => {
+            const isChecked = _selectedHostelIds.includes(h.id);
+            return `
+                <label class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer ${isChecked ? 'bg-blue-50 text-[#0066cc] border-blue-300' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'}">
+                    <input type="checkbox" value="${h.id}" ${isChecked ? 'checked' : ''} onchange="onMultiHostelCheckboxChange(this)" class="rounded text-[#0066cc] focus:ring-0 cursor-pointer">
+                    <span>${escapeHtml(h.id)}</span>
+                </label>
+            `;
+        }).join('');
+    }
+}
+window.populateHostelOverviewSelectors = populateHostelOverviewSelectors;
+
+async function loadHostelOverview(forceRefresh = false) {
+    const refreshIcon = document.getElementById('ho-refresh-icon');
+    if (refreshIcon) refreshIcon.classList.add('animate-spin');
+
+    try {
+        if (typeof loadHostels === 'function' && (!hostelsCache || hostelsCache.length === 0)) {
+            await loadHostels();
+        }
+        populateHostelOverviewSelectors();
+
+        const hostelParam = _isMultiHostelMode 
+            ? (_selectedHostelIds.length > 0 ? _selectedHostelIds.join(',') : 'ALL') 
+            : (_selectedHostelIds[0] || 'ALL');
+
+        const params = new URLSearchParams({
+            hostel_id: hostelParam,
+            range: _hostelOverviewRange
+        });
+
+        if (_hostelOverviewRange === 'custom') {
+            const start = document.getElementById('ho-start-date')?.value;
+            const end = document.getElementById('ho-end-date')?.value;
+            if (start) params.append('start_date', start);
+            if (end) params.append('end_date', end);
+        }
+
+        const res = await fetchWithTimeout(`/api/admin/hostel-overview?${params.toString()}`, {
+            headers: getAuthHeaders()
+        });
+        const data = await res.json();
+
+        if (data.success && data.summary) {
+            _cachedHostelOverview = data;
+            renderHostelOverviewUI(data);
+        } else {
+            showToast(data.error || 'Failed to load hostel overview', 'error');
+        }
+    } catch (err) {
+        console.error('[loadHostelOverview Error]:', err);
+        showToast('Error loading hostel overview: ' + err.message, 'error');
+    } finally {
+        if (refreshIcon) refreshIcon.classList.remove('animate-spin');
+    }
+}
+window.loadHostelOverview = loadHostelOverview;
+
+function renderHostelOverviewUI(data) {
+    if (!data || !data.summary) return;
+    const s = data.summary;
+    const isAll = data.is_all_hostels;
+    const selectedHostels = data.selected_hostels || [];
+
+    // 1. Update Header & Summary Banner
+    const labelEl = document.getElementById('ho-active-hostel-label');
+    const bannerTitle = document.getElementById('ho-banner-title');
+    const bannerSubtitle = document.getElementById('ho-banner-subtitle');
+    const bannerLockBadge = document.getElementById('ho-banner-lock-badge');
+
+    if (isAll) {
+        if (labelEl) labelEl.textContent = 'All Campus Hostels';
+        if (bannerTitle) bannerTitle.textContent = 'All Campus Hostels (Consolidated Dark Stores)';
+        if (bannerSubtitle) bannerSubtitle.textContent = `Aggregating operational intelligence across all ${data.summary.hostels_breakdown?.length || 14} campus dark stores`;
+        if (bannerLockBadge) {
+            bannerLockBadge.className = 'px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-100 text-[#0066cc] border border-blue-300';
+            bannerLockBadge.textContent = 'MULTI-STORE ACTIVE';
+        }
+    } else if (selectedHostels.length === 1) {
+        const hId = selectedHostels[0];
+        const hDetail = s.hostel_details?.find(h => h.id === hId);
+        const name = hDetail?.name || hId;
+        if (labelEl) labelEl.textContent = hId;
+        if (bannerTitle) bannerTitle.textContent = `${name} (${hId})`;
+        if (bannerSubtitle) bannerSubtitle.textContent = `Dedicated 360° analytics and kitchen management for ${name}`;
+        if (bannerLockBadge) {
+            const isLocked = hDetail?.is_locked;
+            bannerLockBadge.className = isLocked 
+                ? 'px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-300'
+                : 'px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300';
+            bannerLockBadge.textContent = isLocked ? 'STORE LOCKED / CLOSED' : 'STORE OPEN (ACCEPTING ORDERS)';
+        }
+    } else {
+        if (labelEl) labelEl.textContent = `${selectedHostels.length} Hostels`;
+        if (bannerTitle) bannerTitle.textContent = `Combined Overview (${selectedHostels.join(', ')})`;
+        if (bannerSubtitle) bannerSubtitle.textContent = `Multi-hostel aggregate for: ${selectedHostels.join(', ')}`;
+        if (bannerLockBadge) {
+            bannerLockBadge.className = 'px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-100 text-purple-800 border border-purple-300';
+            bannerLockBadge.textContent = `${selectedHostels.length} STORES COMBINED`;
+        }
+    }
+
+    // 2. Executive KPI Cards
+    const revEl = document.getElementById('ho-kpi-revenue');
+    if (revEl) revEl.textContent = s.formatted_revenue || '₹0';
+    const subtotalEl = document.getElementById('ho-kpi-subtotal');
+    if (subtotalEl) subtotalEl.textContent = `₹${Math.round(s.subtotal || 0).toLocaleString('en-IN')}`;
+
+    const profitEl = document.getElementById('ho-kpi-profit');
+    if (profitEl) profitEl.textContent = s.formatted_profit || '₹0';
+    const marginEl = document.getElementById('ho-kpi-margin');
+    if (marginEl) marginEl.textContent = `${s.profit_margin_pct || 0}%`;
+
+    const ordersEl = document.getElementById('ho-kpi-orders');
+    if (ordersEl) ordersEl.textContent = String(s.total_orders || 0);
+    const deliveredEl = document.getElementById('ho-kpi-delivered');
+    if (deliveredEl) deliveredEl.textContent = `${s.delivered_orders || 0} Delivered`;
+    const successRateEl = document.getElementById('ho-kpi-success-rate');
+    if (successRateEl) successRateEl.textContent = `${s.delivery_success_rate || 0}%`;
+    const activeCancelledEl = document.getElementById('ho-kpi-active-cancelled');
+    if (activeCancelledEl) activeCancelledEl.textContent = `${s.active_orders || 0} active • ${s.cancelled_orders || 0} cancelled`;
+
+    const aovEl = document.getElementById('ho-kpi-aov');
+    if (aovEl) aovEl.textContent = s.formatted_aov || '₹0';
+    const repeatRateEl = document.getElementById('ho-kpi-repeat-rate');
+    if (repeatRateEl) repeatRateEl.textContent = `${s.customers?.repeat_rate_pct || 0}%`;
+    const uniqueCustEl = document.getElementById('ho-kpi-unique-customers');
+    if (uniqueCustEl) uniqueCustEl.textContent = `${s.customers?.unique_customers_count || 0} unique students`;
+
+    const foodRevEl = document.getElementById('ho-kpi-food-revenue');
+    if (foodRevEl) foodRevEl.textContent = s.food?.formatted_revenue || '₹0';
+    const foodOrdersEl = document.getElementById('ho-kpi-food-orders');
+    if (foodOrdersEl) foodOrdersEl.textContent = `${s.food?.orders_count || 0} Orders`;
+    const foodShareEl = document.getElementById('ho-kpi-food-share');
+    if (foodShareEl) foodShareEl.textContent = `${s.food?.pct_of_total_revenue || 0}% sales`;
+
+    const instockEl = document.getElementById('ho-kpi-instock');
+    if (instockEl) instockEl.textContent = `${s.inventory?.in_stock_count || 0} In Stock`;
+    const lowstockEl = document.getElementById('ho-kpi-lowstock');
+    if (lowstockEl) lowstockEl.textContent = `${s.inventory?.low_stock_count || 0} Low`;
+    const outstockEl = document.getElementById('ho-kpi-outstock');
+    if (outstockEl) outstockEl.textContent = `${s.inventory?.out_of_stock_count || 0} Out`;
+    const totalSkusEl = document.getElementById('ho-kpi-total-skus');
+    if (totalSkusEl) totalSkusEl.textContent = `${s.inventory?.total_products || 0} Total Dark Store SKUs`;
+
+    // 3. Food Department & Kitchen Breakdown
+    const foodPct = s.food?.pct_of_total_revenue || 0;
+    const groceryPct = Math.max(0, 100 - foodPct);
+    const splitLabel = document.getElementById('ho-food-split-label');
+    if (splitLabel) splitLabel.textContent = `${foodPct}% Cooked Food (₹${Math.round(s.food?.revenue || 0).toLocaleString('en-IN')}) • ${groceryPct}% Supermarket`;
+    const foodBar = document.getElementById('ho-food-split-bar');
+    if (foodBar) foodBar.style.width = `${foodPct}%`;
+    const groceryBar = document.getElementById('ho-grocery-split-bar');
+    if (groceryBar) groceryBar.style.width = `${groceryPct}%`;
+
+    // Top Food Table
+    const topFoodBody = document.getElementById('ho-top-food-table-body');
+    if (topFoodBody) {
+        const topFood = s.food?.top_items || [];
+        if (topFood.length === 0) {
+            topFoodBody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-slate-400">No cooked food orders recorded for this period.</td></tr>';
+        } else {
+            topFoodBody.innerHTML = topFood.map(item => `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="py-2.5 flex items-center gap-2">
+                        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300">Cooked</span>
+                        <span class="font-bold text-[#181c1f] truncate">${escapeHtml(item.name)}</span>
+                    </td>
+                    <td class="py-2.5 text-center font-bold text-[#181c1f]">${item.quantity}</td>
+                    <td class="py-2.5 text-right font-mono text-slate-500">₹${item.price}</td>
+                    <td class="py-2.5 text-right font-bold text-amber-700">₹${Math.round(item.revenue).toLocaleString('en-IN')}</td>
+                </tr>
+            `).join('');
+        }
+    }
+
+    // Cooks List
+    const cooksList = document.getElementById('ho-cooks-list');
+    if (cooksList) {
+        const cooks = s.food?.assigned_cooks || [];
+        if (cooks.length === 0) {
+            cooksList.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">No cooks currently assigned to this hostel.</p>';
+        } else {
+            cooksList.innerHTML = cooks.map(c => `
+                <div class="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <div class="w-6 h-6 rounded-full bg-amber-500 text-white text-[10px] font-black flex items-center justify-center shrink-0">
+                            🍳
+                        </div>
+                        <div class="min-w-0">
+                            <span class="font-bold text-xs text-[#181c1f] block truncate">${escapeHtml(c.name)}</span>
+                            <span class="text-[10px] text-slate-400 block truncate">${escapeHtml(c.phone || c.email)}</span>
+                        </div>
+                    </div>
+                    <span class="text-[10px] font-black px-2 py-0.5 rounded-full ${c.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}">
+                        ${c.status}
+                    </span>
+                </div>
+            `).join('');
+        }
+    }
+
+    // 4. Critical Stock Alerts Table
+    const critStockBody = document.getElementById('ho-critical-stock-table-body');
+    if (critStockBody) {
+        const critItems = s.inventory?.critical_items || [];
+        if (critItems.length === 0) {
+            critStockBody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-emerald-600 font-bold">✓ All dark store items have healthy stock levels!</td></tr>';
+        } else {
+            critStockBody.innerHTML = critItems.map(item => `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="py-2 flex items-center gap-1.5">
+                        ${item.is_food ? '<span class="text-xs">🍳</span>' : '<span class="text-xs text-slate-400">📦</span>'}
+                        <span class="font-semibold text-xs text-[#181c1f] truncate">${escapeHtml(item.name)}</span>
+                    </td>
+                    <td class="py-2 text-center text-[10px] font-bold text-slate-500">${escapeHtml(item.hostel_id)}</td>
+                    <td class="py-2 text-center">
+                        <span class="px-2 py-0.5 rounded-md text-[10px] font-black ${item.stock === 0 ? 'bg-rose-100 text-rose-800 border border-rose-200' : 'bg-amber-100 text-amber-800 border border-amber-200'}">
+                            ${item.stock === 0 ? 'OUT OF STOCK' : `Only ${item.stock} left`}
+                        </span>
+                    </td>
+                    <td class="py-2 text-right font-bold text-[#181c1f]">₹${item.price}</td>
+                </tr>
+            `).join('');
+        }
+    }
+
+    // 5. Top Ordering Rooms
+    const roomsList = document.getElementById('ho-top-rooms-list');
+    if (roomsList) {
+        const topRooms = s.customers?.top_rooms || [];
+        if (topRooms.length === 0) {
+            roomsList.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">No room orders recorded yet.</p>';
+        } else {
+            const maxCount = topRooms[0]?.count || 1;
+            roomsList.innerHTML = topRooms.map((r, idx) => {
+                const pct = Math.round((r.count / maxCount) * 100);
+                return `
+                    <div class="flex items-center gap-2 text-xs">
+                        <span class="w-6 text-[11px] font-bold text-slate-400">#${idx + 1}</span>
+                        <span class="w-24 font-bold text-[#181c1f] truncate">Room ${escapeHtml(r.room)}</span>
+                        <div class="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden">
+                            <div class="bg-purple-600 h-full rounded-full" style="width: ${pct}%"></div>
+                        </div>
+                        <span class="font-black text-purple-700 w-12 text-right">${r.count} ord</span>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+
+    // 6. Multi-Hostel Comparison Table
+    const compBody = document.getElementById('ho-comparison-table-body');
+    if (compBody) {
+        const breakdown = s.hostels_breakdown || [];
+        if (breakdown.length === 0) {
+            compBody.innerHTML = '<tr><td colspan="9" class="py-6 text-center text-slate-400">No hostel comparison data available.</td></tr>';
+        } else {
+            compBody.innerHTML = breakdown.map(h => {
+                const isSelected = selectedHostels.includes(h.id);
+                return `
+                    <tr class="hover:bg-slate-50 transition-colors ${isSelected ? 'bg-blue-50/40 font-semibold' : ''}">
+                        <td class="py-2.5 px-3">
+                            <div class="flex items-center gap-1.5">
+                                <span class="font-bold text-xs text-[#181c1f]">${escapeHtml(h.name || h.id)}</span>
+                                <span class="text-[10px] text-slate-400 font-mono">(${escapeHtml(h.id)})</span>
+                            </div>
+                        </td>
+                        <td class="py-2.5 px-3 text-center">
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${h.is_locked ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'}">
+                                ${h.is_locked ? 'Locked' : 'Open'}
+                            </span>
+                        </td>
+                        <td class="py-2.5 px-3 text-center font-bold text-[#181c1f]">${h.total_orders}</td>
+                        <td class="py-2.5 px-3 text-center text-emerald-700 font-bold">${h.delivered_orders}</td>
+                        <td class="py-2.5 px-3 text-right font-black text-[#181c1f]">${h.formatted_revenue}</td>
+                        <td class="py-2.5 px-3 text-right font-bold text-emerald-700">${h.formatted_profit}</td>
+                        <td class="py-2.5 px-3 text-center font-bold text-amber-600">${h.food_orders}</td>
+                        <td class="py-2.5 px-3 text-right font-bold text-amber-700">${h.formatted_food_revenue}</td>
+                        <td class="py-2.5 px-3 text-center">
+                            <button onclick="drillDownToSingleHostel('${h.id}')" class="px-2 py-0.5 text-[10px] font-bold text-[#0066cc] bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-md transition-all cursor-pointer">
+                                View
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    }
+}
+window.renderHostelOverviewUI = renderHostelOverviewUI;
+
+function onHostelOverviewSelectorChange(val) {
+    _selectedHostelIds = [val];
+    loadHostelOverview();
+}
+window.onHostelOverviewSelectorChange = onHostelOverviewSelectorChange;
+
+function setHostelOverviewRange(range) {
+    _hostelOverviewRange = range;
+    document.querySelectorAll('.ho-pill-btn').forEach(btn => {
+        const isCurrent = btn.dataset.hoRange === range;
+        btn.classList.toggle('active', isCurrent);
+        btn.classList.toggle('bg-[#0066cc]', isCurrent);
+        btn.classList.toggle('text-white', isCurrent);
+        btn.classList.toggle('border-[#0066cc]', isCurrent);
+        btn.classList.toggle('bg-[#f1f4f7]', !isCurrent);
+        btn.classList.toggle('text-[#5c5f60]', !isCurrent);
+        btn.classList.toggle('border-transparent', !isCurrent);
+    });
+    loadHostelOverview();
+}
+window.setHostelOverviewRange = setHostelOverviewRange;
+
+function applyCustomHostelOverviewFilter() {
+    _hostelOverviewRange = 'custom';
+    loadHostelOverview();
+}
+window.applyCustomHostelOverviewFilter = applyCustomHostelOverviewFilter;
+
+function toggleMultiHostelMode() {
+    _isMultiHostelMode = !_isMultiHostelMode;
+    const panel = document.getElementById('ho-multi-hostel-panel');
+    const singleWrap = document.getElementById('ho-single-select-wrap');
+    const toggleText = document.getElementById('ho-multi-toggle-text');
+    if (panel) panel.classList.toggle('hidden', !_isMultiHostelMode);
+    if (singleWrap) singleWrap.classList.toggle('hidden', _isMultiHostelMode);
+    if (toggleText) toggleText.textContent = _isMultiHostelMode ? 'Single Hostel Mode' : 'Multi-Hostel Mode';
+
+    if (_isMultiHostelMode) {
+        populateHostelOverviewSelectors();
+    } else {
+        _selectedHostelIds = [document.getElementById('ho-hostel-select')?.value || 'ALL'];
+    }
+    loadHostelOverview();
+}
+window.toggleMultiHostelMode = toggleMultiHostelMode;
+
+function onMultiHostelCheckboxChange(cb) {
+    const checked = Array.from(document.querySelectorAll('#ho-multi-checkboxes-container input[type="checkbox"]:checked')).map(c => c.value);
+    _selectedHostelIds = checked.length > 0 ? checked : ['ALL'];
+    loadHostelOverview();
+}
+window.onMultiHostelCheckboxChange = onMultiHostelCheckboxChange;
+
+function selectMultiHostelsPreset(preset) {
+    const checkboxes = document.querySelectorAll('#ho-multi-checkboxes-container input[type="checkbox"]');
+    checkboxes.forEach(cb => {
+        const val = cb.value.toUpperCase();
+        if (preset === 'ALL') {
+            cb.checked = true;
+        } else if (preset === 'BH') {
+            cb.checked = val.includes('BH') || val.startsWith('B');
+        } else if (preset === 'GH') {
+            cb.checked = val.includes('GH') || val.startsWith('G');
+        } else if (preset === 'CLEAR') {
+            cb.checked = false;
+        }
+    });
+    const checked = Array.from(document.querySelectorAll('#ho-multi-checkboxes-container input[type="checkbox"]:checked')).map(c => c.value);
+    _selectedHostelIds = checked.length > 0 ? checked : ['ALL'];
+    loadHostelOverview();
+}
+window.selectMultiHostelsPreset = selectMultiHostelsPreset;
+
+function drillDownToSingleHostel(hostelId) {
+    if (_isMultiHostelMode) {
+        toggleMultiHostelMode();
+    }
+    const sel = document.getElementById('ho-hostel-select');
+    if (sel) sel.value = hostelId;
+    _selectedHostelIds = [hostelId];
+    loadHostelOverview();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+window.drillDownToSingleHostel = drillDownToSingleHostel;

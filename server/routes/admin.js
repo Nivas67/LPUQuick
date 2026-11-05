@@ -5,10 +5,12 @@ const path = require('path');
 const supabaseDb = require('../db/supabaseDb');
 const requireAdmin = require('../middleware/adminAuth');
 const { requireRole } = require('../middleware/adminAuth');
+const { setSessionRevocationEpoch, staffUserCache } = require('../middleware/adminAuth');
 const { broadcastClientLockUpdate, broadcastUserBlocked, broadcastUserUnblocked, broadcastAdvertisementsUpdate, broadcastHostelStatusChanged } = require('../realtime');
 const { getRiderStatus, isRiderOnline, setRiderStatus } = require('../services/riderAvailability');
 const cache = require('../cache');
 const checkoutSettingsService = require('../services/checkoutSettingsService');
+const financialEngine = require('../utils/financialEngine');
 
 // All routes in this file require Administrator Authorization
 router.use(requireAdmin);
@@ -1428,6 +1430,436 @@ router.get('/hostels', async (req, res) => {
         });
     } catch (err) {
         console.error('[Admin Hostels Get Error]:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+
+// GET /api/admin/hostel-overview - Comprehensive 360° overview of selected hostel(s)
+
+// POST /api/admin/revoke-all-sessions - Terminate all admin sessions immediately (Owner Only)
+router.post('/revoke-all-sessions', requireRole('owner'), async (req, res) => {
+    try {
+        const newEpoch = Date.now();
+        await setSessionRevocationEpoch(newEpoch);
+        if (staffUserCache && typeof staffUserCache.clear === 'function') {
+            staffUserCache.clear();
+        }
+        res.json({
+            success: true,
+            message: 'All administrator sessions have been successfully terminated. All admins must re-authenticate.',
+            revocation_epoch: newEpoch
+        });
+    } catch (err) {
+        console.error('[Revoke All Sessions Error]:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+router.get('/hostel-overview', requireRole('owner', 'store_manager'), async (req, res) => {
+    try {
+        const isOwner = Boolean(req.admin && req.admin.is_owner);
+        const assignedHostelId = req.admin?.assigned_hostel_id || null;
+
+        let requestedHostelParam = req.query.hostel_id || req.query.hostel_ids || 'ALL';
+        const range = (req.query.range || 'all').toLowerCase();
+        const customStartDate = req.query.start_date || null;
+        const customEndDate = req.query.end_date || null;
+
+        // If not owner, strictly enforce assigned hostel
+        if (!isOwner && assignedHostelId) {
+            requestedHostelParam = assignedHostelId;
+        }
+
+        const allHostels = await supabaseDb.hostels.getAll({ includeInactive: true });
+        const allOrders = await supabaseDb.orders.getAllOrders();
+        const allProducts = await supabaseDb.products.getAll();
+        const allStaff = await supabaseDb.staff.getAllStaff();
+        const hostelLocks = await supabaseDb.availability.getAllHostelLocks();
+
+        // Parse requested hostel IDs
+        let selectedHostelIds = [];
+        if (requestedHostelParam.toUpperCase() === 'ALL') {
+            selectedHostelIds = allHostels.map(h => h.id);
+        } else {
+            selectedHostelIds = requestedHostelParam.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+        }
+
+        // Date range filtering helper
+        const now = new Date();
+        const isOrderInRange = (orderCreatedAt) => {
+            if (!orderCreatedAt) return true;
+            if (range === 'all') return true;
+            const orderDate = new Date(orderCreatedAt);
+            if (isNaN(orderDate.getTime())) return true;
+
+            const orderDateIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(orderDate);
+            const todayIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+
+            if (range === 'today') {
+                return orderDateIST === todayIST;
+            } else if (range === 'yesterday') {
+                const yest = new Date(now.getTime() - 86400000);
+                const yestIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(yest);
+                return orderDateIST === yestIST;
+            } else if (range === '7days') {
+                const diffTime = now.getTime() - orderDate.getTime();
+                return diffTime <= 7 * 86400000;
+            } else if (range === '30days') {
+                const diffTime = now.getTime() - orderDate.getTime();
+                return diffTime <= 30 * 86400000;
+            } else if (range === 'custom') {
+                if (customStartDate && orderDateIST < customStartDate) return false;
+                if (customEndDate && orderDateIST > customEndDate) return false;
+                return true;
+            }
+            return true;
+        };
+
+        // Normalize matching helper
+        const isHostelMatch = (orderHostelId, targetHostelId) => {
+            const h1 = supabaseDb.orders._normalizeHostelId(orderHostelId || '');
+            const h2 = supabaseDb.orders._normalizeHostelId(targetHostelId || '');
+            return h1 === h2;
+        };
+
+        // Filter orders for selected hostels and date range
+        const matchedOrders = allOrders.filter(o => {
+            if (!isOrderInRange(o.created_at)) return false;
+            if (requestedHostelParam.toUpperCase() === 'ALL') return true;
+            return selectedHostelIds.some(targetId => isHostelMatch(o.hostel_id, targetId));
+        });
+
+        // Split delivered vs non-delivered
+        const deliveredOrders = matchedOrders.filter(o => {
+            const s = (o.status || '').toLowerCase();
+            return s === 'delivered' || s === 'completed';
+        });
+
+        const activeOrders = matchedOrders.filter(o => {
+            const s = (o.status || '').toLowerCase();
+            return s !== 'delivered' && s !== 'completed' && s !== 'cancelled' && s !== 'canceled' && s !== 'rejected';
+        });
+
+        const cancelledOrders = matchedOrders.filter(o => {
+            const s = (o.status || '').toLowerCase();
+            return s === 'cancelled' || s === 'canceled' || s === 'rejected';
+        });
+
+        // Financial & profit computations
+        const grossRevenue = deliveredOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+        const subtotalSum = deliveredOrders.reduce((sum, o) => sum + Number(o.subtotal || o.total || 0), 0);
+        const deliveryFeesSum = deliveredOrders.reduce((sum, o) => sum + Number(o.delivery_fee || 0), 0);
+        const platformFeesSum = deliveredOrders.reduce((sum, o) => sum + Number(o.platform_fee || 0), 0);
+
+        // Wholesale cost & profit calculations
+        let totalCostOfGoods = 0;
+        let foodRevenue = 0;
+        let foodCost = 0;
+        let foodOrdersCount = 0;
+        const foodItemsSoldMap = {};
+        const groceryItemsSoldMap = {};
+        const roomFrequencyMap = {};
+        const customerSet = new Set();
+        const repeatCustomerSet = new Set();
+        const customerOrderCounts = {};
+
+        // Helper for identifying cooked food items (strictly items from food department / fresh kitchen)
+        const isCookedFoodItem = (it) => {
+            const name = (it.name || '').toLowerCase();
+            const sub = (it.subcategory || '').toLowerCase();
+            const cat = (it.category || '').toLowerCase();
+            if (Boolean(it.is_food_product) || Boolean(it.is_cooked)) return true;
+            if (cat === "quick's instant food" || cat === "quicks instant food" ||
+                cat === "lpu quick food" || cat === "lpu food" || cat === "cooked food" ||
+                (cat.includes('food') && !cat.includes('snack') && !cat.includes('beverage') && !cat.includes('baby'))) {
+                return true;
+            }
+            if (sub === 'cooked meals' || sub === 'sandwiches & burgers' || 
+                sub === 'hot snacks & fries' || sub === 'soups & bowls' || 
+                (sub.includes('quick') && sub.includes('food'))) {
+                return true;
+            }
+            if (name.includes('(cooked)') || name.includes('cooked fresh')) return true;
+            return false;
+        };
+
+        deliveredOrders.forEach(o => {
+            const items = o.items || o.order_items || [];
+            let orderHasFood = false;
+
+            if (o.customer_phone || o.user_id) {
+                const custKey = o.customer_phone || o.user_id;
+                customerSet.add(custKey);
+                customerOrderCounts[custKey] = (customerOrderCounts[custKey] || 0) + 1;
+                if (customerOrderCounts[custKey] > 1) {
+                    repeatCustomerSet.add(custKey);
+                }
+            }
+
+            // Extract room from address or room_number
+            let room = o.room_number || null;
+            if (!room && o.delivery_address) {
+                const roomMatch = o.delivery_address.match(/room[:\s]*([A-Za-z0-9\-_]+)/i);
+                if (roomMatch) room = roomMatch[1];
+            }
+            if (room) {
+                const cleanRoom = room.trim().toUpperCase();
+                roomFrequencyMap[cleanRoom] = (roomFrequencyMap[cleanRoom] || 0) + 1;
+            }
+
+            items.forEach(it => {
+                const qty = Math.max(1, Number(it.quantity) || 1);
+                const price = Number(it.price !== undefined ? it.price : (it.unit_price || 0)) || 0;
+                const lineTotal = price * qty;
+
+                // Lookup matching product in catalog for cost_price
+                const prod = allProducts.find(p => p.id === it.product_id || p.id === it.id);
+                const costPrice = Number(prod?.cost_price || prod?.cost || 0);
+                const itemCost = costPrice > 0 ? (costPrice * qty) : Math.round(lineTotal * 0.72); // 28% estimated gross margin if cost not set
+                totalCostOfGoods += itemCost;
+
+                const isFood = isCookedFoodItem(it);
+                if (isFood) {
+                    orderHasFood = true;
+                    foodRevenue += lineTotal;
+                    foodCost += itemCost;
+                    const itemName = it.name || prod?.name || 'Cooked Food';
+                    if (!foodItemsSoldMap[itemName]) {
+                        foodItemsSoldMap[itemName] = {
+                            name: itemName,
+                            quantity: 0,
+                            revenue: 0,
+                            image_url: it.image_url || prod?.image_url || null,
+                            price: price,
+                            is_veg: it.is_veg !== 0 && prod?.is_veg !== 0
+                        };
+                    }
+                    foodItemsSoldMap[itemName].quantity += qty;
+                    foodItemsSoldMap[itemName].revenue += lineTotal;
+                } else {
+                    const itemName = it.name || prod?.name || 'Supermarket Item';
+                    if (!groceryItemsSoldMap[itemName]) {
+                        groceryItemsSoldMap[itemName] = {
+                            name: itemName,
+                            quantity: 0,
+                            revenue: 0,
+                            image_url: it.image_url || prod?.image_url || null,
+                            price: price
+                        };
+                    }
+                    groceryItemsSoldMap[itemName].quantity += qty;
+                    groceryItemsSoldMap[itemName].revenue += lineTotal;
+                }
+            });
+
+            if (orderHasFood || o.cook_id || o.cook_name) {
+                foodOrdersCount++;
+            }
+        });
+
+        // In case an order had food tagged at root level but item details weren't parsed
+        matchedOrders.forEach(o => {
+            if (!financialEngine.isDelivered(o.status)) {
+                const items = o.items || o.order_items || [];
+                if (items.some(isCookedFoodItem) || o.cook_id) {
+                    foodOrdersCount++;
+                }
+            }
+        });
+
+        const estimatedProfit = Math.max(0, grossRevenue - totalCostOfGoods);
+        const profitMarginPct = grossRevenue > 0 ? Math.round((estimatedProfit / grossRevenue) * 1000) / 10 : 0;
+        const foodProfit = Math.max(0, foodRevenue - foodCost);
+        const foodProfitMarginPct = foodRevenue > 0 ? Math.round((foodProfit / foodRevenue) * 1000) / 10 : 0;
+        const aov = deliveredOrders.length > 0 ? Math.round(grossRevenue / deliveredOrders.length) : 0;
+        const deliverySuccessRate = matchedOrders.length > 0 ? Math.round((deliveredOrders.length / matchedOrders.length) * 1000) / 10 : 0;
+
+        // Top food & grocery items
+        const topFoodItems = Object.values(foodItemsSoldMap).sort((a, b) => b.quantity - a.quantity).slice(0, 8);
+        const topGroceryItems = Object.values(groceryItemsSoldMap).sort((a, b) => b.quantity - a.quantity).slice(0, 8);
+
+        // Top rooms
+        const topRooms = Object.entries(roomFrequencyMap).map(([room, count]) => ({ room, count })).sort((a, b) => b.count - a.count).slice(0, 10);
+
+        // Assigned cooks & duty status
+        const cooks = allStaff.filter(s => {
+            const roles = Array.isArray(s.roles) ? s.roles : [];
+            const isCookRole = roles.includes('cook') || roles.includes('food_department') || roles.includes('food');
+            if (!isCookRole && !s.is_owner) return false;
+            if (requestedHostelParam.toUpperCase() === 'ALL') return true;
+            return selectedHostelIds.some(targetId => isHostelMatch(s.assigned_hostel_id, targetId));
+        }).map(c => {
+            return {
+                id: c.id,
+                name: c.name || 'Cook',
+                phone: c.phone || '',
+                email: c.email || '',
+                assigned_hostel_id: c.assigned_hostel_id,
+                status: c.account_status || 'ACTIVE'
+            };
+        });
+
+        // Inventory metrics for selected hostels
+        let totalHostelProducts = 0;
+        let inStockCount = 0;
+        let lowStockCount = 0;
+        let outOfStockCount = 0;
+        const criticalItems = [];
+
+        // Aggregate dark store inventory
+        for (const hId of selectedHostelIds) {
+            try {
+                const hostelInv = await supabaseDb.inventory.getHostelInventory(hId);
+                allProducts.forEach(prod => {
+                    const customStock = hostelInv[prod.id];
+                    const stock = customStock !== undefined ? Number(customStock) : (Number(prod.stock_left) || 0);
+                    totalHostelProducts++;
+                    if (stock <= 0) {
+                        outOfStockCount++;
+                        if (criticalItems.length < 10) {
+                            criticalItems.push({
+                                id: prod.id,
+                                name: prod.name,
+                                stock: 0,
+                                price: prod.price,
+                                hostel_id: hId,
+                                is_food: isCookedFoodItem(prod)
+                            });
+                        }
+                    } else if (stock <= 4) {
+                        lowStockCount++;
+                        if (criticalItems.length < 10) {
+                            criticalItems.push({
+                                id: prod.id,
+                                name: prod.name,
+                                stock,
+                                price: prod.price,
+                                hostel_id: hId,
+                                is_food: isCookedFoodItem(prod)
+                            });
+                        }
+                    } else {
+                        inStockCount++;
+                    }
+                });
+            } catch (invErr) { }
+        }
+
+        // Store Lock status for the selected hostels
+        const selectedHostelDetails = allHostels.filter(h => selectedHostelIds.includes(h.id)).map(h => {
+            const lockRecord = hostelLocks?.[h.id] || hostelLocks?.[supabaseDb.orders._normalizeHostelId(h.id)] || null;
+            const isLocked = lockRecord ? (lockRecord.lock_type === 'CLOSED' || lockRecord.lock_type === 'EMERGENCY_LOCK' || lockRecord.lock_type === 'SCHEDULED') : false;
+            return {
+                id: h.id,
+                name: h.name,
+                status: h.status,
+                is_locked: isLocked,
+                lock_type: lockRecord?.lock_type || 'OPEN',
+                lock_message: lockRecord?.message || null,
+                manager_user_id: h.manager_user_id
+            };
+        });
+
+        // Per-hostel breakdown for comparison table
+        const hostelsBreakdown = allHostels.map(h => {
+            const hOrders = matchedOrders.filter(o => isHostelMatch(o.hostel_id, h.id));
+            const hDelivered = hOrders.filter(o => {
+                const s = (o.status || '').toLowerCase();
+                return s === 'delivered' || s === 'completed';
+            });
+            const hRevenue = hDelivered.reduce((sum, o) => sum + Number(o.total || 0), 0);
+            let hFoodOrders = 0;
+            let hFoodRevenue = 0;
+            hDelivered.forEach(o => {
+                const itms = o.items || o.order_items || [];
+                let hasF = false;
+                itms.forEach(it => {
+                    if (isCookedFoodItem(it)) {
+                        hasF = true;
+                        hFoodRevenue += (Number(it.price || it.unit_price || 0) * (Number(it.quantity) || 1));
+                    }
+                });
+                if (hasF || o.cook_id) hFoodOrders++;
+            });
+            const hProfit = Math.round(hRevenue * 0.28);
+            const lockRecord = hostelLocks?.[h.id] || hostelLocks?.[supabaseDb.orders._normalizeHostelId(h.id)] || null;
+            const isLocked = lockRecord ? (lockRecord.lock_type === 'CLOSED' || lockRecord.lock_type === 'EMERGENCY_LOCK' || lockRecord.lock_type === 'SCHEDULED') : false;
+
+            return {
+                id: h.id,
+                name: h.name,
+                status: h.status,
+                is_locked: isLocked,
+                lock_type: lockRecord?.lock_type || 'OPEN',
+                total_orders: hOrders.length,
+                delivered_orders: hDelivered.length,
+                revenue: hRevenue,
+                formatted_revenue: `₹${Math.round(hRevenue).toLocaleString('en-IN')}`,
+                estimated_profit: hProfit,
+                formatted_profit: `₹${Math.round(hProfit).toLocaleString('en-IN')}`,
+                food_orders: hFoodOrders,
+                food_revenue: hFoodRevenue,
+                formatted_food_revenue: `₹${Math.round(hFoodRevenue).toLocaleString('en-IN')}`,
+                is_selected: selectedHostelIds.includes(h.id)
+            };
+        }).sort((a, b) => b.revenue - a.revenue);
+
+        res.json({
+            success: true,
+            selected_hostels: selectedHostelIds,
+            is_all_hostels: requestedHostelParam.toUpperCase() === 'ALL',
+            range,
+            summary: {
+                total_revenue: grossRevenue,
+                formatted_revenue: `₹${Math.round(grossRevenue).toLocaleString('en-IN')}`,
+                subtotal: subtotalSum,
+                delivery_fees: deliveryFeesSum,
+                platform_fees: platformFeesSum,
+                estimated_cost: totalCostOfGoods,
+                estimated_profit: estimatedProfit,
+                formatted_profit: `₹${Math.round(estimatedProfit).toLocaleString('en-IN')}`,
+                profit_margin_pct: profitMarginPct,
+                aov,
+                formatted_aov: `₹${aov}`,
+                total_orders: matchedOrders.length,
+                delivered_orders: deliveredOrders.length,
+                active_orders: activeOrders.length,
+                cancelled_orders: cancelledOrders.length,
+                delivery_success_rate: deliverySuccessRate,
+                food: {
+                    orders_count: foodOrdersCount,
+                    revenue: foodRevenue,
+                    formatted_revenue: `₹${Math.round(foodRevenue).toLocaleString('en-IN')}`,
+                    estimated_profit: foodProfit,
+                    formatted_profit: `₹${Math.round(foodProfit).toLocaleString('en-IN')}`,
+                    profit_margin_pct: foodProfitMarginPct,
+                    pct_of_total_revenue: grossRevenue > 0 ? Math.round((foodRevenue / grossRevenue) * 100) : 0,
+                    top_items: topFoodItems,
+                    assigned_cooks: cooks
+                },
+                grocery: {
+                    top_items: topGroceryItems
+                },
+                inventory: {
+                    total_products: totalHostelProducts,
+                    in_stock_count: inStockCount,
+                    low_stock_count: lowStockCount,
+                    out_of_stock_count: outOfStockCount,
+                    critical_items: criticalItems
+                },
+                customers: {
+                    unique_customers_count: customerSet.size,
+                    repeat_customers_count: repeatCustomerSet.size,
+                    repeat_rate_pct: customerSet.size > 0 ? Math.round((repeatCustomerSet.size / customerSet.size) * 100) : 0,
+                    top_rooms: topRooms
+                },
+                hostel_details: selectedHostelDetails,
+                hostels_breakdown: hostelsBreakdown
+            }
+        });
+    } catch (err) {
+        console.error('[Admin Hostel Overview Error]:', err);
         res.status(500).json({ success: false, error: err.message });
     }
 });

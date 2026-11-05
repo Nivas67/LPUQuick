@@ -186,6 +186,12 @@
                 <span
                     class="text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Owner</span>
             </button>
+            <button onclick="switchView('hostel-overview')" data-view="hostel-overview" data-required-role="owner,store_manager"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+                <span class="material-symbols-outlined text-[#0066cc]">domain_verification</span>
+                <span class="flex-1 font-bold text-[#181c1f]">Selected Hostel Overview</span>
+                <span class="text-[9px] bg-blue-600 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">360°</span>
+            </button>
             <button onclick="openManageBlocksModal()"
                 class="px-3.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 shrink-0"
                 title="Configure Active Blocks & Delivery Points per Hostel">
@@ -2500,7 +2506,463 @@
                 </div>
             </div>
 
-            <!-- ================= VIEW: CAMPUS HOSTELS & HUBS (OWNER ONLY) ================= -->
+            
+            <!-- ================= VIEW: SELECTED HOSTEL OVERVIEW (360° INTELLIGENCE) ================= -->
+            <div id="view-hostel-overview" class="space-y-6 max-w-[1440px] mx-auto hidden pb-16">
+                <!-- Header Banner -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center gap-2.5 flex-wrap">
+                            <h2 class="text-2xl font-black text-[#181c1f] tracking-tight">Selected Hostel Overview</h2>
+                            <span class="text-[10px] bg-blue-100 text-[#0066cc] border border-blue-300 px-2.5 py-0.5 rounded-full font-black flex items-center gap-1">
+                                <span class="material-symbols-outlined text-xs">domain_verification</span> 360° HOSTEL INTELLIGENCE
+                            </span>
+                            <span id="ho-status-live-badge" class="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                                <span id="ho-active-hostel-label">All Hostels</span>
+                            </span>
+                        </div>
+                        <p class="text-xs sm:text-sm text-[#5c5f60] mt-1">
+                            Complete operational overview of selected hostel (or multi-hostel aggregate) including <strong class="text-emerald-700">revenue, profit margins, fresh kitchen food breakdown, dark store stock, and room order density</strong>.
+                        </p>
+                    </div>
+
+                    <!-- Header Action Controls -->
+                    <div class="flex items-center gap-2.5 flex-wrap">
+                        <!-- Multi-Hostel Mode Toggle Button -->
+                        <button id="ho-btn-multi-toggle" onclick="toggleMultiHostelMode()"
+                            class="bg-[#f1f4f7] hover:bg-[#e0e3e6] border border-[#DADCE0] rounded-full px-3.5 py-1.5 text-xs font-bold text-[#3c4043] flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                            title="Toggle multi-hostel selection mode">
+                            <span class="material-symbols-outlined text-sm">checklist</span>
+                            <span id="ho-multi-toggle-text">Multi-Hostel Mode</span>
+                        </button>
+
+                        <!-- Refresh Data Button -->
+                        <button onclick="loadHostelOverview(true)"
+                            class="bg-blue-50 hover:bg-blue-100 text-[#0066cc] border border-blue-300 rounded-full px-3.5 py-1.5 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer">
+                            <span class="material-symbols-outlined text-sm" id="ho-refresh-icon">sync</span>
+                            <span>Refresh Overview</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Interactive Filter & Selection Toolbar -->
+                <div class="glass-panel p-3.5 sm:p-4 border border-[#DADCE0] bg-white rounded-2xl shadow-xs space-y-3">
+                    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                        <!-- Left: Hostel Selector (Single Dropdown or Multi Mode) -->
+                        <div class="flex items-center gap-2.5 flex-wrap">
+                            <div class="flex items-center gap-1.5 shrink-0" id="ho-single-select-wrap">
+                                <span class="text-xs text-[#5c5f60] font-bold flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-[16px] text-[#0066cc]">domain</span>
+                                    <span>Hostel:</span>
+                                </span>
+                                <select id="ho-hostel-select" onchange="onHostelOverviewSelectorChange(this.value)"
+                                    class="border border-[#DADCE0] rounded-xl px-3 py-1.5 text-xs bg-white text-[#262a2d] font-bold focus:border-[#0066cc] outline-hidden cursor-pointer shadow-2xs min-w-[200px]">
+                                    <option value="ALL">🏢 All Hostels (All-Campus Aggregate)</option>
+                                </select>
+                            </div>
+
+                            <!-- Time Range Preset Pills -->
+                            <div class="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5" id="ho-range-pills">
+                                <button onclick="setHostelOverviewRange('all')" data-ho-range="all"
+                                    class="ho-pill-btn active px-3 py-1 rounded-full text-xs font-bold border transition-all whitespace-nowrap bg-[#0066cc] text-white border-[#0066cc] cursor-pointer">
+                                    All Time
+                                </button>
+                                <button onclick="setHostelOverviewRange('today')" data-ho-range="today"
+                                    class="ho-pill-btn px-3 py-1 rounded-full text-xs font-bold border transition-all whitespace-nowrap bg-[#f1f4f7] text-[#5c5f60] border-transparent hover:bg-[#e4e7eb] cursor-pointer">
+                                    Today
+                                </button>
+                                <button onclick="setHostelOverviewRange('yesterday')" data-ho-range="yesterday"
+                                    class="ho-pill-btn px-3 py-1 rounded-full text-xs font-bold border transition-all whitespace-nowrap bg-[#f1f4f7] text-[#5c5f60] border-transparent hover:bg-[#e4e7eb] cursor-pointer">
+                                    Yesterday
+                                </button>
+                                <button onclick="setHostelOverviewRange('7days')" data-ho-range="7days"
+                                    class="ho-pill-btn px-3 py-1 rounded-full text-xs font-bold border transition-all whitespace-nowrap bg-[#f1f4f7] text-[#5c5f60] border-transparent hover:bg-[#e4e7eb] cursor-pointer">
+                                    Last 7 Days
+                                </button>
+                                <button onclick="setHostelOverviewRange('30days')" data-ho-range="30days"
+                                    class="ho-pill-btn px-3 py-1 rounded-full text-xs font-bold border transition-all whitespace-nowrap bg-[#f1f4f7] text-[#5c5f60] border-transparent hover:bg-[#e4e7eb] cursor-pointer">
+                                    Last 30 Days
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Right: Custom Date Filter Form -->
+                        <div class="flex items-center gap-2 flex-wrap text-xs">
+                            <span class="text-[#5c5f60] font-medium hidden sm:inline">Custom Date:</span>
+                            <input type="date" id="ho-start-date"
+                                class="text-xs border border-[#DADCE0] rounded-lg px-2.5 py-1 text-[#262a2d] bg-white outline-hidden focus:border-[#0066cc] font-medium" />
+                            <span class="text-[#5c5f60]">to</span>
+                            <input type="date" id="ho-end-date"
+                                class="text-xs border border-[#DADCE0] rounded-lg px-2.5 py-1 text-[#262a2d] bg-white outline-hidden focus:border-[#0066cc] font-medium" />
+                            <button onclick="applyCustomHostelOverviewFilter()"
+                                class="bg-[#3c4043] hover:bg-[#262a2d] text-white text-xs font-bold px-3 py-1 rounded-lg transition-all active:scale-95 cursor-pointer">
+                                Apply
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Multi-Hostel Selection Checkbox Grid (Visible only in Multi-Hostel Mode) -->
+                    <div id="ho-multi-hostel-panel" class="hidden pt-3 border-t border-[#DADCE0] space-y-2.5">
+                        <div class="flex items-center justify-between flex-wrap gap-2">
+                            <span class="text-xs font-bold text-[#181c1f] flex items-center gap-1.5">
+                                <span class="material-symbols-outlined text-sm text-[#0066cc]">checklist_rtl</span>
+                                <span>Select Hostels to Aggregate & Compare:</span>
+                            </span>
+                            <div class="flex items-center gap-1.5">
+                                <button onclick="selectMultiHostelsPreset('ALL')"
+                                    class="text-[11px] font-bold px-2.5 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer">
+                                    Select All
+                                </button>
+                                <button onclick="selectMultiHostelsPreset('BH')"
+                                    class="text-[11px] font-bold px-2.5 py-0.5 rounded-md bg-blue-50 hover:bg-blue-100 text-[#0066cc] transition-colors cursor-pointer">
+                                    Boys (BH)
+                                </button>
+                                <button onclick="selectMultiHostelsPreset('GH')"
+                                    class="text-[11px] font-bold px-2.5 py-0.5 rounded-md bg-rose-50 hover:bg-rose-100 text-rose-700 transition-colors cursor-pointer">
+                                    Girls (GH)
+                                </button>
+                                <button onclick="selectMultiHostelsPreset('CLEAR')"
+                                    class="text-[11px] font-bold px-2.5 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors cursor-pointer">
+                                    Clear
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-2" id="ho-multi-checkboxes-container">
+                            <!-- Dynamically populated hostel pills with checkboxes -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Selected Hostel Operational Summary Banner -->
+                <div class="glass-panel p-4 border border-[#DADCE0] bg-gradient-to-r from-blue-50/50 via-white to-amber-50/30 rounded-2xl shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3" id="ho-summary-banner">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-[#0066cc] text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0" id="ho-banner-icon">
+                            🏢
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <h3 class="text-base font-black text-[#181c1f]" id="ho-banner-title">All Campus Hostels (Aggregate)</h3>
+                                <span id="ho-banner-lock-badge" class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                    STORE OPEN
+                                </span>
+                            </div>
+                            <p class="text-xs text-[#5c5f60] font-medium mt-0.5" id="ho-banner-subtitle">
+                                Aggregated data across all 14 Dark Stores in LPU Campus
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <button onclick="switchView('client-lock')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 flex items-center gap-1 transition-all shadow-2xs cursor-pointer">
+                            <span class="material-symbols-outlined text-[15px] text-amber-600">lock_clock</span>
+                            <span>Store Lock</span>
+                        </button>
+                        <button onclick="switchView('inventory')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 flex items-center gap-1 transition-all shadow-2xs cursor-pointer">
+                            <span class="material-symbols-outlined text-[15px] text-emerald-600">inventory_2</span>
+                            <span>Inventory</span>
+                        </button>
+                        <button onclick="switchView('orders')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 flex items-center gap-1 transition-all shadow-2xs cursor-pointer">
+                            <span class="material-symbols-outlined text-[15px] text-blue-600">receipt_long</span>
+                            <span>Orders</span>
+                        </button>
+                        <button onclick="switchView('food-dept')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 flex items-center gap-1 transition-all shadow-2xs cursor-pointer">
+                            <span class="material-symbols-outlined text-[15px] text-amber-500">soup_kitchen</span>
+                            <span>Kitchen</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Executive Financial & Operations KPI Grid (6 Top Cards) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
+                    <!-- KPI 1: Gross Sales / Revenue -->
+                    <div class="glass-panel p-4 border border-[#DADCE0] bg-white rounded-2xl shadow-xs flex flex-col justify-between">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-[#5c5f60]">Delivered Sales</span>
+                            <div class="w-7 h-7 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                                <span class="material-symbols-outlined text-[16px]">payments</span>
+                            </div>
+                        </div>
+                        <div>
+                            <span class="text-xl sm:text-2xl font-black text-[#181c1f] tracking-tight block" id="ho-kpi-revenue">₹0</span>
+                            <p class="text-[10px] text-emerald-700 font-bold mt-0.5 flex items-center gap-1">
+                                <span>Subtotal:</span>
+                                <span id="ho-kpi-subtotal">₹0</span>
+                            </p>
+                        </div>
+                        <span class="text-[10px] text-slate-400 mt-2 block">Merchandise & Delivery Paid</span>
+                    </div>
+
+                    <!-- KPI 2: Estimated Net Profit -->
+                    <div class="glass-panel p-4 border border-[#DADCE0] bg-white rounded-2xl shadow-xs flex flex-col justify-between">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-[#5c5f60]">Est. Net Profit</span>
+                            <div class="w-7 h-7 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
+                                <span class="material-symbols-outlined text-[16px]">trending_up</span>
+                            </div>
+                        </div>
+                        <div>
+                            <span class="text-xl sm:text-2xl font-black text-emerald-700 tracking-tight block" id="ho-kpi-profit">₹0</span>
+                            <p class="text-[10px] text-[#5c5f60] font-bold mt-0.5 flex items-center gap-1">
+                                <span>Margin:</span>
+                                <span class="text-emerald-700 font-black" id="ho-kpi-margin">0%</span>
+                            </p>
+                        </div>
+                        <span class="text-[10px] text-slate-400 mt-2 block">Revenue minus wholesale cost</span>
+                    </div>
+
+                    <!-- KPI 3: Orders & Success Rate -->
+                    <div class="glass-panel p-4 border border-[#DADCE0] bg-white rounded-2xl shadow-xs flex flex-col justify-between">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-[#5c5f60]">Orders Pipeline</span>
+                            <div class="w-7 h-7 rounded-xl bg-blue-100 text-[#0066cc] flex items-center justify-center">
+                                <span class="material-symbols-outlined text-[16px]">local_shipping</span>
+                            </div>
+                        </div>
+                        <div>
+                            <span class="text-xl sm:text-2xl font-black text-[#181c1f] tracking-tight block" id="ho-kpi-orders">0</span>
+                            <p class="text-[10px] text-[#0066cc] font-bold mt-0.5 flex items-center gap-1">
+                                <span id="ho-kpi-delivered">0 Delivered</span>
+                                <span>(</span><span id="ho-kpi-success-rate">0%</span><span>)</span>
+                            </p>
+                        </div>
+                        <span class="text-[10px] text-slate-400 mt-2 block" id="ho-kpi-active-cancelled">0 active • 0 cancelled</span>
+                    </div>
+
+                    <!-- KPI 4: Average Order Value (AOV) -->
+                    <div class="glass-panel p-4 border border-[#DADCE0] bg-white rounded-2xl shadow-xs flex flex-col justify-between">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-[#5c5f60]">Avg Order Value</span>
+                            <div class="w-7 h-7 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
+                                <span class="material-symbols-outlined text-[16px]">shopping_basket</span>
+                            </div>
+                        </div>
+                        <div>
+                            <span class="text-xl sm:text-2xl font-black text-[#181c1f] tracking-tight block" id="ho-kpi-aov">₹0</span>
+                            <p class="text-[10px] text-purple-700 font-bold mt-0.5 flex items-center gap-1">
+                                <span>Repeat Rate:</span>
+                                <span class="font-black" id="ho-kpi-repeat-rate">0%</span>
+                            </p>
+                        </div>
+                        <span class="text-[10px] text-slate-400 mt-2 block" id="ho-kpi-unique-customers">0 unique students</span>
+                    </div>
+
+                    <!-- KPI 5: Fresh Kitchen Food Revenue -->
+                    <div class="glass-panel p-4 border border-[#DADCE0] bg-white rounded-2xl shadow-xs flex flex-col justify-between">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-[#5c5f60]">Kitchen Food</span>
+                            <div class="w-7 h-7 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                                <span class="material-symbols-outlined text-[16px]">soup_kitchen</span>
+                            </div>
+                        </div>
+                        <div>
+                            <span class="text-xl sm:text-2xl font-black text-amber-600 tracking-tight block" id="ho-kpi-food-revenue">₹0</span>
+                            <p class="text-[10px] text-amber-800 font-bold mt-0.5 flex items-center gap-1">
+                                <span id="ho-kpi-food-orders">0 Orders</span>
+                                <span>(</span><span id="ho-kpi-food-share">0%</span><span>)</span>
+                            </p>
+                        </div>
+                        <span class="text-[10px] text-slate-400 mt-2 block">Hot Maggie & Cooked Dishes</span>
+                    </div>
+
+                    <!-- KPI 6: Dark Store Stock Health -->
+                    <div class="glass-panel p-4 border border-[#DADCE0] bg-white rounded-2xl shadow-xs flex flex-col justify-between">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-[#5c5f60]">Dark Store Stock</span>
+                            <div class="w-7 h-7 rounded-xl bg-cyan-100 text-cyan-700 flex items-center justify-center">
+                                <span class="material-symbols-outlined text-[16px]">inventory_2</span>
+                            </div>
+                        </div>
+                        <div>
+                            <span class="text-xl sm:text-2xl font-black text-[#181c1f] tracking-tight block" id="ho-kpi-instock">0</span>
+                            <p class="text-[10px] text-[#5c5f60] font-bold mt-0.5 flex items-center gap-1">
+                                <span class="text-amber-600 font-black" id="ho-kpi-lowstock">0 Low</span>
+                                <span>•</span>
+                                <span class="text-rose-600 font-black" id="ho-kpi-outstock">0 Out</span>
+                            </p>
+                        </div>
+                        <span class="text-[10px] text-slate-400 mt-2 block" id="ho-kpi-total-skus">0 active SKUs</span>
+                    </div>
+                </div>
+
+                <!-- Deep Dive Section 1: Fresh Kitchen & Cooked Food Operations -->
+                <div class="glass-panel p-5 border border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-white rounded-3xl shadow-sm space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-9 h-9 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
+                                🍳
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <h3 class="text-base font-black text-[#181c1f]">Fresh Kitchen & Food Department Operations</h3>
+                                    <span class="liquid-badge text-[9px] font-black px-2 py-0.5 bg-amber-500 text-slate-950">
+                                        🔥 COOKED ON ORDER
+                                    </span>
+                                </div>
+                                <p class="text-xs text-[#5c5f60] font-medium">Hot Maggie, noodles & freshly prepared campus meals for selected hostel dark store(s)</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 text-xs">
+                            <div class="text-right">
+                                <span class="text-[10px] text-[#5c5f60] block">Food vs Grocery Split:</span>
+                                <span class="font-black text-[#181c1f]" id="ho-food-split-label">0% Food • 0% Supermarket</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Revenue Split Progress Bar -->
+                    <div class="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden flex">
+                        <div id="ho-food-split-bar" class="bg-gradient-to-r from-amber-500 to-orange-500 h-full transition-all duration-500" style="width: 0%"></div>
+                        <div id="ho-grocery-split-bar" class="bg-gradient-to-r from-blue-500 to-emerald-500 h-full transition-all duration-500" style="width: 100%"></div>
+                    </div>
+
+                    <!-- Two-Column Food Grid: Top Cooked Items & Kitchen Fleet -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 pt-1">
+                        <!-- Top Cooked Food Items Table (2 Cols) -->
+                        <div class="lg:col-span-2 bg-white/80 rounded-2xl p-4 border border-[#DADCE0] shadow-2xs">
+                            <h4 class="text-xs font-black text-[#181c1f] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                <span class="material-symbols-outlined text-sm text-amber-600">restaurant_menu</span>
+                                <span>Top Selling Cooked Items in Selected Hostel(s)</span>
+                            </h4>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left text-xs">
+                                    <thead>
+                                        <tr class="border-b border-[#DADCE0] text-[#5c5f60] text-[11px] font-bold">
+                                            <th class="pb-2">Item</th>
+                                            <th class="pb-2 text-center">Portions Sold</th>
+                                            <th class="pb-2 text-right">Selling Price</th>
+                                            <th class="pb-2 text-right">Total Food Revenue</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="ho-top-food-table-body" class="divide-y divide-slate-100 font-medium">
+                                        <tr>
+                                            <td colspan="4" class="py-6 text-center text-slate-400">Loading food orders...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Kitchen Cook Fleet & Duty Status (1 Col) -->
+                        <div class="bg-white/80 rounded-2xl p-4 border border-[#DADCE0] shadow-2xs flex flex-col justify-between">
+                            <div>
+                                <h4 class="text-xs font-black text-[#181c1f] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                    <span class="material-symbols-outlined text-sm text-amber-600">skillet</span>
+                                    <span>Assigned Cooks & Food Roster</span>
+                                </h4>
+                                <div id="ho-cooks-list" class="space-y-2.5">
+                                    <p class="text-xs text-slate-400 text-center py-4">No cooks assigned</p>
+                                </div>
+                            </div>
+                            <div class="pt-3 border-t border-slate-100 mt-3 flex items-center justify-between text-[11px]">
+                                <span class="text-[#5c5f60]">Kitchen Prep Window:</span>
+                                <span class="font-black text-[#181c1f]">10 - 15 Mins</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Deep Dive Section 2: Dark Store Inventory & Critical Stock Alerts + Room Activity -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    <!-- Left: Critical Stock Alerts Table for this Dark Store -->
+                    <div class="glass-panel p-4 sm:p-5 border border-[#DADCE0] bg-white rounded-3xl shadow-xs space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="w-8 h-8 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center font-bold">
+                                    <span class="material-symbols-outlined text-base">warning</span>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm font-black text-[#181c1f]">Critical Dark Store Replenishment</h3>
+                                    <p class="text-[11px] text-[#5c5f60]">Products with stock ≤ 4 in this hostel dark store</p>
+                                </div>
+                            </div>
+                            <button onclick="switchView('inventory')" class="text-xs font-bold text-[#0066cc] hover:underline flex items-center gap-0.5 cursor-pointer">
+                                Open Inventory <span class="material-symbols-outlined text-xs">arrow_forward</span>
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto max-h-64 overflow-y-auto no-scrollbar">
+                            <table class="w-full text-left text-xs">
+                                <thead>
+                                    <tr class="border-b border-[#DADCE0] text-[#5c5f60] text-[11px] font-bold sticky top-0 bg-white">
+                                        <th class="pb-2">Product Name</th>
+                                        <th class="pb-2 text-center">Hostel</th>
+                                        <th class="pb-2 text-center">Stock Left</th>
+                                        <th class="pb-2 text-right">Price</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ho-critical-stock-table-body" class="divide-y divide-slate-100 font-medium">
+                                    <tr>
+                                        <td colspan="4" class="py-6 text-center text-slate-400">Loading stock alerts...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Right: Student Room Order Density -->
+                    <div class="glass-panel p-4 sm:p-5 border border-[#DADCE0] bg-white rounded-3xl shadow-xs space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
+                                    <span class="material-symbols-outlined text-base">meeting_room</span>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm font-black text-[#181c1f]">Student Room Order Density</h3>
+                                    <p class="text-[11px] text-[#5c5f60]">Top ordering student rooms in selected hostel</p>
+                                </div>
+                            </div>
+                            <span class="text-xs font-bold text-purple-700" id="ho-room-count-badge">Top 10 Rooms</span>
+                        </div>
+                        <div class="overflow-x-auto max-h-64 overflow-y-auto no-scrollbar">
+                            <div id="ho-top-rooms-list" class="space-y-2">
+                                <p class="text-xs text-slate-400 text-center py-6">Loading room activity...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Deep Dive Section 3: Multi-Hostel Comparison Matrix -->
+                <div class="glass-panel p-4 sm:p-5 border border-[#DADCE0] bg-white rounded-3xl shadow-xs space-y-3" id="ho-comparison-card">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                            <h3 class="text-base font-black text-[#181c1f] flex items-center gap-2">
+                                <span class="material-symbols-outlined text-[#0066cc]">leaderboard</span>
+                                <span>Multi-Hostel Performance Comparison Matrix</span>
+                            </h3>
+                            <p class="text-xs text-[#5c5f60] mt-0.5">
+                                Side-by-side comparison of orders, delivered sales, profits, and fresh food demand across campus dark stores.
+                            </p>
+                        </div>
+                        <span class="text-xs font-bold text-[#0066cc] bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full self-start sm:self-auto">
+                            All Campus Dark Stores
+                        </span>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead>
+                                <tr class="border-b border-[#DADCE0] text-[#5c5f60] text-[11px] font-bold">
+                                    <th class="pb-2.5 px-3">Hostel</th>
+                                    <th class="pb-2.5 px-3 text-center">Store Status</th>
+                                    <th class="pb-2.5 px-3 text-center">Total Orders</th>
+                                    <th class="pb-2.5 px-3 text-center">Delivered</th>
+                                    <th class="pb-2.5 px-3 text-right">Gross Sales</th>
+                                    <th class="pb-2.5 px-3 text-right">Est. Profit</th>
+                                    <th class="pb-2.5 px-3 text-center">Food Orders</th>
+                                    <th class="pb-2.5 px-3 text-right">Food Sales</th>
+                                    <th class="pb-2.5 px-3 text-center">Drill Down</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ho-comparison-table-body" class="divide-y divide-slate-100 font-medium">
+                                <tr>
+                                    <td colspan="9" class="py-6 text-center text-slate-400">Loading comparison figures...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+    
+<!-- ================= VIEW: CAMPUS HOSTELS & HUBS (OWNER ONLY) ================= -->
             <div id="view-hostels" class="space-y-6 max-w-[1440px] mx-auto hidden">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>

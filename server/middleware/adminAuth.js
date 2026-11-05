@@ -13,7 +13,7 @@ const ADMIN_AUTH_SECRET = process.env.JWT_SECRET || process.env.SUPABASE_SERVICE
 // ============================================================
 // ADMIN SESSION REVOCATION EPOCH (Global Force-Logout)
 // ============================================================
-let _sessionRevocationEpoch = 1793814606690;
+let _sessionRevocationEpoch = 1793903483486;
 let _epochLastFetched = 0;
 
 async function syncSessionRevocationEpoch() {
@@ -266,21 +266,37 @@ async function requireAdmin(req, res, next) {
         });
     }
 
-    // 3. Database Identity & Role Verification
+    // 3. Database Identity & Role Verification (Strict real-time database lookup)
     try {
         let user = null;
+        let dbLookupSucceeded = false;
         try {
             user = await supabaseDb.users.getUserById(verified.sub);
+            dbLookupSucceeded = true;
             if (user && (user.role === 'admin' || user.role === 'owner')) {
-                staffUserCache.set(user.id, user);
+                staffUserCache.set(user.id, { user, cachedAt: Date.now() });
+            } else {
+                staffUserCache.delete(verified.sub);
             }
         } catch (fetchErr) {
             console.warn('[requireAdmin getUserById Warning]:', fetchErr.message);
         }
 
-        // Resilient fail-safe for all active staff & owner if DB lookup times out or drops
+        // Only fall back to transient cache during true DB network outage (NOT when user does not exist in DB)
+        if (!user && !dbLookupSucceeded) {
+            const cached = staffUserCache.get(verified.sub);
+            if (cached && (Date.now() - (cached.cachedAt || 0) < 30000)) {
+                user = cached.user;
+            }
+        }
+
         if (!user) {
-            user = staffUserCache.get(verified.sub) || KNOWN_STAFF_FALLBACKS[verified.sub] || null;
+            console.warn(`[SECURITY AUDIT] ADMIN_AUTH_TERMINATED: User not found in database | userId: ${verified.sub} | ip: ${req.ip || 'unknown'}`);
+            return res.status(401).json({
+                success: false,
+                code: 'SESSION_INVALID',
+                error: 'Administrator session invalid or user deleted from database. Please sign in again.'
+            });
         }
 
         if (user && user.account_status && user.account_status !== 'ACTIVE') {
@@ -292,9 +308,8 @@ async function requireAdmin(req, res, next) {
             });
         }
 
-        if (!user || (user.role !== 'admin' && user.role !== 'owner')) {
-            console.warn(`[SECURITY AUDIT] ADMIN_AUTH_DENIED | userId: ${verified.sub} | role: ${user?.role || 'NONE'} | path: ${req.originalUrl || req.path} | ip: ${req.ip || 'unknown'}`);
-
+        if (user.role !== 'admin' && user.role !== 'owner') {
+            console.warn(`[SECURITY AUDIT] ADMIN_AUTH_DENIED | userId: ${verified.sub} | role: ${user.role || 'NONE'} | ip: ${req.ip || 'unknown'}`);
             return res.status(403).json({
                 success: false,
                 code: 'FORBIDDEN',

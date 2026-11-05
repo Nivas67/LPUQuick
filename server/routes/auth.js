@@ -373,10 +373,7 @@ router.post('/admin-login', async (req, res) => {
             console.warn('[Admin Login User Lookup Notice]:', dbErr.message);
         }
 
-        // Fail-safe staff fallback for temporary cache
-        if (!user && staffUserCache) {
-            user = staffUserCache.get(trimmedEmail) || null;
-        }
+        // Strict DB check: Never fall back to cached deleted accounts
 
         if (!user || (user.role !== 'admin' && user.role !== 'owner')) {
             console.warn(`[SECURITY AUDIT] ADMIN_LOGIN_FAILED: User not found or not admin | email: ${trimmedEmail} | ip: ${req.ip}`);
