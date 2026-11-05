@@ -4813,7 +4813,7 @@ async function handleProductSubmit(e) {
             if (currentMrp !== init.mrp) payload.mrp = currentMrp;
             if (currentDesc !== (init.description || '')) payload.description = currentDesc;
             if (imageUrl && imageUrl !== (init.image_url || '')) payload.image_url = imageUrl;
-            if (currentCost !== (init.cost_price || 0)) payload.cost_price = currentCost;
+            payload.cost_price = currentCost;
 
             // Only send stock if stock actually changed from what was loaded into modal
             if (stockVal !== init.stock_left) {
