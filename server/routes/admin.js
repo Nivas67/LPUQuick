@@ -366,13 +366,17 @@ router.post('/client-lock', async (req, res) => {
         }, canonicalTarget);
 
         // Audit Logging
-        const auditAction = finalType === 'SCHEDULED' ? 'CLIENT_LOCK_SCHEDULED' : (isLocked ? 'CLIENT_LOCK_ENABLED' : 'CLIENT_LOCK_UPDATED');
+        const auditAction = finalType === 'SCHEDULED' ? 'CLIENT_LOCK_SCHEDULED' : (isLocked ? 'HOSTEL_CLOSED' : 'HOSTEL_LOCK_UPDATED');
+        const reasonText = finalType === 'SCHEDULED'
+            ? `Scheduled store lock for hostel: ${canonicalTarget}`
+            : (isLocked ? `Closed hostel: ${canonicalTarget}${message ? ' (' + message + ')' : ''}` : `Updated lock for hostel: ${canonicalTarget}`);
         await supabaseDb.audit.logAction({
             adminId,
             action: auditAction,
-            reason: message || `Store lock applied for ${canonicalTarget}`,
+            reason: reasonText,
             metadata: { target_hostel: canonicalTarget, lock_type: finalType, start_at: finalStart, end_at: finalEnd, locked_by: adminDisplay }
         });
+        req._auditLogged = true;
 
         // Real-time broadcast to all storefront clients & admin dashboards
         let allHostelLocks = null;
@@ -426,9 +430,11 @@ router.delete('/client-lock', async (req, res) => {
         // Audit Logging
         await supabaseDb.audit.logAction({
             adminId,
-            action: 'CLIENT_LOCK_DISABLED',
-            reason: `Admin manually unlocked ${canonicalTarget} (${adminDisplay})`
+            action: 'HOSTEL_OPENED',
+            reason: `Opened hostel: ${canonicalTarget} (${adminDisplay})`,
+            metadata: { target_hostel: canonicalTarget, unlocked_by: adminDisplay }
         });
+        req._auditLogged = true;
 
         // Real-time broadcast to all storefront clients & admin dashboards
         let allHostelLocks = null;
@@ -1521,10 +1527,11 @@ const handleActivateHostel = async (req, res) => {
         const updated = await supabaseDb.hostels.update(id, { status: 'ACTIVE' });
         await supabaseDb.audit.logAction({
             adminId: req.admin?.id || 'owner',
-            action: 'HOSTEL_ACTIVATED',
-            reason: `Activated hostel ${id}`,
-            metadata: { id }
+            action: 'HOSTEL_OPENED',
+            reason: `Opened hostel: ${id}`,
+            metadata: { id, target_hostel: id }
         });
+        req._auditLogged = true;
         if (typeof broadcastHostelStatusChanged === 'function') {
             broadcastHostelStatusChanged(updated);
         }
@@ -1544,10 +1551,11 @@ const handleDeactivateHostel = async (req, res) => {
         const updated = await supabaseDb.hostels.update(id, { status: 'OFF' });
         await supabaseDb.audit.logAction({
             adminId: req.admin?.id || 'owner',
-            action: 'HOSTEL_DEACTIVATED',
-            reason: `Turned hostel ${id} OFF`,
-            metadata: { id }
+            action: 'HOSTEL_CLOSED',
+            reason: `Closed hostel: ${id}`,
+            metadata: { id, target_hostel: id }
         });
+        req._auditLogged = true;
         if (typeof broadcastHostelStatusChanged === 'function') {
             broadcastHostelStatusChanged(updated);
         }

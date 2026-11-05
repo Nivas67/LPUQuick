@@ -15175,6 +15175,9 @@ function renderAuditLogsTable(logs) {
     }
 
     const actionColors = {
+        'HOSTEL_CLOSED': 'bg-rose-100 text-rose-800 border-rose-300',
+        'HOSTEL_OPENED': 'bg-emerald-100 text-emerald-800 border-emerald-300',
+        'HOSTEL': 'bg-amber-100 text-amber-800 border-amber-300',
         'PRODUCT': 'bg-emerald-100 text-emerald-800 border-emerald-300',
         'STOCK': 'bg-amber-100 text-amber-800 border-amber-300',
         'ORDER': 'bg-blue-100 text-blue-800 border-blue-300',
@@ -15206,6 +15209,17 @@ function renderAuditLogsTable(logs) {
         const badgeClass = getActionClass(l.action);
         const reason = l.reason || l.action || 'Administrative action';
 
+        const targetHostel = meta.target_hostel || meta.hostel_id || (l.action && l.action.includes('HOSTEL') ? (reason.match(/hostel[:\s]+([A-Za-z0-9\-_]+)/i)?.[1] || null) : null);
+        const isClosedHostel = l.action === 'HOSTEL_CLOSED' || reason.toLowerCase().includes('closed hostel');
+        const isOpenedHostel = l.action === 'HOSTEL_OPENED' || reason.toLowerCase().includes('opened hostel');
+
+        const hostelBadge = targetHostel ? `
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black ${isClosedHostel ? 'bg-rose-50 text-rose-700 border border-rose-200' : (isOpenedHostel ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200')} shrink-0">
+                <span class="material-symbols-outlined text-[11px]">${isClosedHostel ? 'lock' : (isOpenedHostel ? 'lock_open' : 'domain')}</span>
+                <span>Hostel: ${escapeHtml(targetHostel)}</span>
+            </span>
+        ` : '';
+
         const blockButton = (ip && ip !== 'N/A' && ip !== '127.0.0.1' && ip !== 'localhost') ? `
             <button onclick="openIpBlockModal('${ip}')" class="px-2.5 py-1 text-[10px] font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg flex items-center gap-1 transition-all cursor-pointer ml-auto" title="Block IP ${ip}">
                 <span class="material-symbols-outlined text-[13px]">block</span>
@@ -15230,12 +15244,16 @@ function renderAuditLogsTable(logs) {
                     </div>
                 </td>
                 <td class="py-3 px-4">
-                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${badgeClass} whitespace-nowrap">
+                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${badgeClass} whitespace-nowrap inline-flex items-center gap-1">
+                        ${isClosedHostel ? '<span class="material-symbols-outlined text-[12px]">lock</span>' : (isOpenedHostel ? '<span class="material-symbols-outlined text-[12px]">lock_open</span>' : '')}
                         ${escapeHtml(l.action || 'ACTION')}
                     </span>
                 </td>
-                <td class="py-3 px-4 text-[#181c1f] max-w-xs break-all">
-                    <span class="font-medium text-xs">${escapeHtml(reason)}</span>
+                <td class="py-3 px-4 text-[#181c1f] max-w-sm">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        ${hostelBadge}
+                        <span class="font-semibold text-xs text-[#181c1f] break-all">${escapeHtml(reason)}</span>
+                    </div>
                 </td>
                 <td class="py-3 px-4 font-mono font-bold text-slate-700 whitespace-nowrap">
                     ${escapeHtml(ip)}

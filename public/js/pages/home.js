@@ -9,14 +9,14 @@ function getHomeHostelDisplayName() {
 const STORE_CATEGORIES = [
     {
         id: 'lpq-food',
-        name: "Quick's LPQ Food",
-        subtitle: "Quick's Instant Food",
+        name: "LPU Quick Food",
+        subtitle: "LPU Food • Cooked Fresh",
         emoji: '🍳',
         img: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=160&auto=format&fit=crop&q=80',
         banner: {
-            title: "Quick's LPQ Food • Fresh Kitchen",
-            subtitle: 'Freshly Prepared Hot Food Delivered in Minutes.',
-            tag: 'FRESH KITCHEN',
+            title: "LPU Quick Food • Fresh Kitchen",
+            subtitle: 'Hot Maggie, Noodles & Fresh Cooked Meals.',
+            tag: 'COOKED FRESH',
             img: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=320&auto=format&fit=crop&q=80',
             bg: 'linear-gradient(135deg, #7c2d12 0%, #c2410c 50%, #ea580c 100%)'
         }
@@ -198,16 +198,15 @@ function classifyProductCategory(p) {
     const cat = (p.category || '').trim().toLowerCase();
     const text = (p.name || '').toLowerCase();
 
-    // 0. STRICT ISOLATION: Quick's Instant Food (Fresh Kitchen)
-    // Freshly prepared hot meals, magiee, cooked dishes — strictly separate from packaged snacks
-    const isSnack = cat.includes('instant snacks') || subcat.includes('instant snacks') || cat.includes('snacks & munchies') || /bhelpuri|namkeen|bhujia|chips|wafer|biscuit|cookie|kurkure|crisp|sev|mixture/i.test(text);
+    // 0. High-Priority Food Classification: Cooked hot meals, Maggi & noodles, fresh kitchen items
     if (p.is_food_product) return 'lpq-food';
-    if (!isSnack) {
-        if ((cat.includes('quick') && cat.includes('food')) || cat === "quick's instant food" || cat === "quicks instant food" || cat === 'lpq food' || cat === "quick's lpq food") return 'lpq-food';
-        if ((subcat.includes('quick') && subcat.includes('food')) || subcat === "quick's instant food" || subcat === "quicks instant food" || subcat === 'cook' || subcat === 'lpq food' || subcat === "quick's lpq food") return 'lpq-food';
-        if ((cat === 'instant food' || cat === 'instant' || subcat === 'instant food') && !subcat.includes('namkeen') && !/bhelpuri|namkeen|chips|wafer|biscuit/i.test(text)) return 'lpq-food';
-        if (subcat.includes('magiee & noodles') || subcat.includes('cooked meals') || subcat.includes('sandwiches & burgers') || subcat.includes('pasta & macaroni') || subcat.includes('hot snacks & fries') || subcat.includes('soups & bowls')) return 'lpq-food';
+    if (/maggi|magiee|wai wai|yippee|top ramen|pasta|macaroni/i.test(text) || (/noodle/i.test(text) && !/crax/i.test(text)) || /maggi|magiee|noodle|pasta/i.test(subcat)) {
+        return 'lpq-food';
     }
+    if ((cat.includes('quick') && cat.includes('food')) || cat === "quick's instant food" || cat === "quicks instant food" || cat === 'lpq food' || cat === "quick's lpq food" || cat === "lpu quick food" || cat === "lpu food") return 'lpq-food';
+    if ((subcat.includes('quick') && subcat.includes('food')) || subcat === "quick's instant food" || subcat === "quicks instant food" || subcat === 'cook' || subcat === 'lpq food' || subcat === "quick's lpq food" || subcat === "lpu food") return 'lpq-food';
+    if (subcat.includes('magiee & noodles') || subcat.includes('cooked meals') || subcat.includes('sandwiches & burgers') || subcat.includes('pasta & macaroni') || subcat.includes('hot snacks & fries') || subcat.includes('soups & bowls')) return 'lpq-food';
+    if ((cat === 'instant food' || cat === 'instant' || subcat === 'instant food') && !subcat.includes('namkeen') && !/bhelpuri|namkeen|chips|wafer|biscuit/i.test(text)) return 'lpq-food';
 
     // 1. Ground Truth Priority: Check existing database subcategory first
     if (subcat.includes('popcorn')) return 'popcorn';
@@ -257,6 +256,7 @@ function buildProductCardsHTML(items, isAboveFold = false, startIndex = 0) {
         const isLowStock = stockLeft > 0 && stockLeft <= 4;
         const isOutOfStock = !p.in_stock || stockLeft <= 0;
         const catTag = classifyProductCategory(p);
+        const isCookedFood = catTag === 'lpq-food' || Boolean(p.is_food_product) || /maggi|magiee|wai wai|yippee|top ramen/i.test(p.name || '') || (/noodle/i.test(p.name || '') && !/crax/i.test(p.name || ''));
 
         return `
         <div class="product-card-item product-detail-trigger p-2.5 sm:p-3 flex flex-col justify-between cursor-pointer group ${isOutOfStock ? 'opacity-75' : ''}" 
@@ -281,8 +281,13 @@ function buildProductCardsHTML(items, isAboveFold = false, startIndex = 0) {
                         <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
                     </button>
 
-                    <!-- Floating Tag: "Bought Earlier" or Discount Badge -->
-                    ${idx === 1 ? `
+                    <!-- Floating Tag: "Cooked Fresh", "Bought Earlier" or Discount Badge -->
+                    ${isCookedFood ? `
+                    <div class="absolute top-2 left-2 z-10 bg-gradient-to-r from-amber-600 to-orange-600 text-white text-[9px] font-black px-2 py-0.5 rounded-md shadow-xs uppercase tracking-wider flex items-center gap-1">
+                        <span>🍳</span>
+                        <span>Cooked Fresh</span>
+                    </div>
+                    ` : (idx === 1 ? `
                     <div class="absolute top-2 left-2 z-10 bg-teal-600 text-white text-[9px] font-black px-2 py-0.5 rounded-md shadow-xs uppercase tracking-wider">
                         Bought Earlier
                     </div>
@@ -290,7 +295,7 @@ function buildProductCardsHTML(items, isAboveFold = false, startIndex = 0) {
                     <div class="liquid-badge absolute top-2 left-2 z-10 text-[9px] font-black px-2 py-0.5 shadow-xs">
                         ${discountPercent}% OFF
                     </div>
-                    ` : '')}
+                    ` : ''))}
 
                     <!-- Delivery ETA badge -->
                     <div class="absolute bottom-2 left-2 z-10 flex items-center gap-1 bg-slate-900/85 dark:bg-slate-800/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md backdrop-blur-xs">
@@ -313,14 +318,22 @@ function buildProductCardsHTML(items, isAboveFold = false, startIndex = 0) {
                          onerror="this.onerror=null; this.src='/logo.png';">
                 </div>
 
-                <!-- Pack Size Pill -->
-                <span class="clay-pill text-[10px] font-semibold text-slate-500 dark:text-slate-400 px-2 py-0.5 inline-block mb-1">
-                    ${p.size || p.unit || '1 pack'}
-                </span>
+                <!-- Pack Size & Cooked Indicator Pill -->
+                <div class="flex items-center gap-1.5 mb-1 flex-wrap">
+                    <span class="clay-pill text-[10px] font-semibold text-slate-500 dark:text-slate-400 px-2 py-0.5 inline-block">
+                        ${p.size || p.unit || '1 pack'}
+                    </span>
+                    ${isCookedFood ? `
+                    <span class="text-[9px] font-black text-amber-600 dark:text-amber-400 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
+                        <span>🍳</span>
+                        <span>Cooked</span>
+                    </span>
+                    ` : ''}
+                </div>
 
                 <!-- Title -->
                 <h3 class="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 line-clamp-2 leading-snug min-h-[34px] group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                    ${p.name}
+                    ${p.name}${isCookedFood && !p.name.toLowerCase().includes('cooked') ? ' <span class="text-amber-600 dark:text-amber-400 font-extrabold text-[10px] sm:text-xs tracking-tight">(Cooked)</span>' : ''}
                 </h3>
 
                 <!-- Rating line (Instamart style) -->
@@ -736,10 +749,13 @@ window.pages.home = async function () {
         return bInStock - aInStock;
     });
 
+    const foodItemsList = sortInStockFirst(allProductsFromApi.filter(p => classifyProductCategory(p) === 'lpq-food'));
+    const instantFoodCards = buildProductCardsHTML(foodItemsList);
+    const highlightedFoodCards = buildProductCardsHTML(foodItemsList);
+    const hasFoodProducts = foodItemsList.length > 0;
     const biscuitCards = buildProductCardsHTML(sortInStockFirst(allProductsFromApi.filter(p => classifyProductCategory(p) === 'biscuits')));
     const chipCards = buildProductCardsHTML(sortInStockFirst(allProductsFromApi.filter(p => classifyProductCategory(p) === 'chips')));
     const chocolateCards = buildProductCardsHTML(sortInStockFirst(allProductsFromApi.filter(p => classifyProductCategory(p) === 'chocolates')));
-    const instantFoodCards = buildProductCardsHTML(sortInStockFirst(allProductsFromApi.filter(p => classifyProductCategory(p) === 'lpq-food')));
     const snackCards = buildProductCardsHTML(sortInStockFirst(allProductsFromApi.filter(p => classifyProductCategory(p) === 'snacks')));
 
     // Prepare promotional carousel banners (support dynamically added admin posters & gradients)
@@ -1158,6 +1174,30 @@ window.pages.home = async function () {
                         </div>
                     </div>
 
+                    <!-- Highlighted LPU Quick Food (Maggi / Cooked Food Section at top of All Section) -->
+                    <div id="home-highlighted-food-section" class="category-food-highlight rounded-2xl p-3 sm:p-4 border-2 border-amber-500/40 bg-gradient-to-br from-amber-500/15 via-orange-500/10 to-emerald-950/20 dark:from-amber-950/40 dark:via-orange-950/30 dark:to-slate-900/40 backdrop-blur-xl shadow-lg space-y-3 transition-all ${hasFoodProducts ? '' : 'hidden'}">
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="flex items-center gap-2.5 min-w-0">
+                                <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-white flex items-center justify-center text-base sm:text-lg shadow-md shrink-0">
+                                    🍳
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <h2 class="text-sm sm:text-base font-black text-slate-900 dark:text-white tracking-tight">LPU Quick Food</h2>
+                                        <span class="liquid-badge text-[9px] font-black px-2 py-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black">🔥 Cooked Fresh</span>
+                                    </div>
+                                    <p class="text-[10px] sm:text-[11px] text-amber-700 dark:text-amber-300 font-semibold truncate">Hot Maggie, noodles & fresh campus meals cooked on order</p>
+                                </div>
+                            </div>
+                            <button type="button" class="text-xs font-black text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-0.5 shrink-0 cursor-pointer home-shelf-link" data-target-cat="lpq-food">
+                                See all <span class="material-symbols-outlined text-xs">arrow_forward</span>
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3" id="home-highlighted-food-grid">
+                            ${highlightedFoodCards}
+                        </div>
+                    </div>
+
                     <!-- Active Category Header Card -->
                     <div class="glass-panel rounded-2xl p-2.5 sm:p-3 px-3 sm:px-4 border border-[var(--glass-border)] flex items-center justify-between shadow-xs">
                         <div class="flex items-center gap-2.5">
@@ -1232,7 +1272,29 @@ window.pages.home = async function () {
         </section>
         ` : ''}
 
-        <!-- Secondary Category Shelf 1: Biscuits -->
+        <!-- Secondary Category Shelf 1: LPU Quick Food -->
+        ${instantFoodCards ? `
+        <section class="category-secondary-shelf space-y-3 pt-4">
+            <div class="flex justify-between items-end">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">🍳</span>
+                    <div>
+                        <h2 class="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                            <span>LPU Quick Food</span>
+                            <span class="liquid-badge text-[9px] font-black px-2 py-0.5 bg-amber-500 text-slate-950 font-black">🔥 Cooked Fresh</span>
+                        </h2>
+                        <p class="text-xs text-amber-700 dark:text-amber-400 font-semibold">Hot & prepared fresh on order</p>
+                    </div>
+                </div>
+                <button type="button" class="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-0.5 cursor-pointer home-shelf-link" data-target-cat="lpq-food">
+                    See all <span class="material-symbols-outlined text-xs">arrow_forward</span>
+                </button>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4">${instantFoodCards}</div>
+        </section>
+        ` : ''}
+
+        <!-- Secondary Category Shelf 2: Biscuits -->
         ${biscuitCards ? `
         <section class="category-secondary-shelf space-y-3 pt-4">
             <div class="flex justify-between items-end">
@@ -1277,20 +1339,7 @@ window.pages.home = async function () {
         </section>
         ` : ''}
 
-        <!-- Secondary Category Shelf 4: Instant Meals -->
-        ${instantFoodCards ? `
-        <section class="category-secondary-shelf space-y-3 pt-4">
-            <div class="flex justify-between items-end">
-                <h2 class="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-                    <span>🍳 Quick's Instant Food</span>
-                </h2>
-                <button type="button" class="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-0.5 cursor-pointer home-shelf-link" data-target-cat="lpq-food">
-                    See all <span class="material-symbols-outlined text-xs">arrow_forward</span>
-                </button>
-            </div>
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4">${instantFoodCards}</div>
-        </section>
-        ` : ''}
+
 
         <!-- Secondary Category Shelf 5: Munchies & Snacks -->
         ${snackCards ? `
@@ -1459,7 +1508,7 @@ window.pageInits.home = function () {
             if (titleEl) titleEl.textContent = `Search: "${currentSearchQuery}"`;
             if (subtitleEl) subtitleEl.textContent = `Found ${visibleCount} snacks in ${getHomeHostelDisplayName()} Campus Hub`;
         } else {
-            if (titleEl) titleEl.textContent = catObj.id === 'all' ? 'All Products' : (catObj.id === 'lpq-food' ? "Quick's Instant Food" : catObj.name);
+            if (titleEl) titleEl.textContent = catObj.id === 'all' ? 'All Products' : (catObj.id === 'lpq-food' ? "LPU Quick Food" : catObj.name);
             if (subtitleEl) {
                 subtitleEl.textContent = catObj.id === 'all'
                     ? `Showing all available products in ${getHomeHostelDisplayName()} Campus Hub`
@@ -1485,7 +1534,7 @@ window.pageInits.home = function () {
                         emptyTitle.textContent = `No vegetarian items in ${catObj.name}.`;
                     } else {
                         if (catObj.id === 'lpq-food') {
-                            emptyTitle.textContent = "No quick's instant food available right now.";
+                            emptyTitle.textContent = "No LPU quick food available right now.";
                         } else {
                             emptyTitle.textContent = `No ${catObj.name.toLowerCase()} available right now.`;
                         }
@@ -1495,6 +1544,16 @@ window.pageInits.home = function () {
             }
         } else {
             if (emptyState) emptyState.classList.add('hidden');
+        }
+
+        // Toggle highlighted food section at top of 'all'
+        const foodHighlightSec = document.getElementById('home-highlighted-food-section');
+        if (foodHighlightSec) {
+            if (currentCategory === 'all' && !query) {
+                foodHighlightSec.classList.remove('hidden');
+            } else {
+                foodHighlightSec.classList.add('hidden');
+            }
         }
 
         // Toggle secondary shelves: only visible when 'all' and no search/veg filter
@@ -1529,7 +1588,7 @@ window.pageInits.home = function () {
         const titleEl = document.getElementById('active-category-title');
         const subtitleEl = document.getElementById('active-category-subtitle');
         if (emojiEl) emojiEl.textContent = catObj.emoji;
-        if (titleEl) titleEl.textContent = catObj.id === 'all' ? 'All Products' : (catObj.id === 'lpq-food' ? "Quick's Instant Food" : catObj.name);
+        if (titleEl) titleEl.textContent = catObj.id === 'all' ? 'All Products' : (catObj.id === 'lpq-food' ? "LPU Quick Food" : catObj.name);
         if (subtitleEl) {
             subtitleEl.textContent = catObj.id === 'all'
                 ? `Showing all available products in ${getHomeHostelDisplayName()} Campus Hub`
