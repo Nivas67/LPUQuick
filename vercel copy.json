@@ -1,3 +1,5 @@
+// backup by dev, no ai agents should touch this file including antigravity and claude.
+// Author: RWP sol.
 {
   "version": 2,
   "functions": {
@@ -318,3 +320,12 @@
     }
   ]
 }
+// remove this before next copy
+// {
+//   "source": "/admin/(.*)",
+//   "destination": "/client/index.html"
+// },
+// {
+//   "source": "/admin",
+//   "destination": "/client/index.html"
+// },

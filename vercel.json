@@ -8,11 +8,29 @@
   },
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/(css|js)/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "no-store, no-cache, must-revalidate, max-age=0"
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/(assets|uploads)/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=2592000, stale-while-revalidate=604800"
+        }
+      ]
+    },
+    {
+      "source": "/ad-new/(css|js)/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate, max-age=0"
         },
         {
           "key": "Pragma",
@@ -23,13 +41,274 @@
           "value": "0"
         }
       ]
+    },
+    {
+      "source": "/(.*)\\.(png|jpg|jpeg|svg|ico|webp|woff2|mp3)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=2592000, stale-while-revalidate=604800"
+        }
+      ]
+    },
+    {
+      "source": "/ad-new",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate, max-age=0"
+        },
+        {
+          "key": "Pragma",
+          "value": "no-cache"
+        },
+        {
+          "key": "Expires",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "source": "/ad-new/:match*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate, max-age=0"
+        },
+        {
+          "key": "Pragma",
+          "value": "no-cache"
+        },
+        {
+          "key": "Expires",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "source": "/(index\\.html)?",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/api/hostels/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/api/hostels",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/api/client/status",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=15, stale-while-revalidate=30"
+        }
+      ]
+    },
+    {
+      "source": "/api/home/banners",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=300, stale-while-revalidate=600"
+        }
+      ]
+    },
+    {
+      "source": "/api/banners",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=300, stale-while-revalidate=600"
+        }
+      ]
+    },
+    {
+      "source": "/api/categories",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=120, stale-while-revalidate=300"
+        }
+      ]
+    },
+    {
+      "source": "/api/categories/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=60, stale-while-revalidate=120"
+        }
+      ]
+    },
+    {
+      "source": "/api/home",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=60, stale-while-revalidate=120"
+        }
+      ]
+    },
+    {
+      "source": "/api/products",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=60, stale-while-revalidate=120"
+        }
+      ]
+    },
+    {
+      "source": "/api/products/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=120, stale-while-revalidate=300"
+        }
+      ]
+    },
+    {
+      "source": "/api/search",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=60, stale-while-revalidate=120"
+        }
+      ]
+    },
+    {
+      "source": "/api/(admin|auth|cart|checkout|orders)/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
     }
   ],
-  "redirects": [
+  "rewrites": [
     {
-      "source": "/((?!rwp-securitynotice\\.html$).*)",
-      "destination": "/rwp-securitynotice.html",
+      "source": "/api/(.*)",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/download/(.*)",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/download",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/downloads/(.*)",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/uploads/(.*)",
+      "destination": "/public/uploads/$1"
+    },
+    {
+      "source": "/ad-new/css/(.*)",
+      "destination": "/admin/css/$1"
+    },
+    {
+      "source": "/ad-new/js/(.*)",
+      "destination": "/admin/js/$1"
+    },
+    {
+      "source": "/ad-new/(.*)\\.(png|jpg|jpeg|svg|ico|webp|woff2|mp3)",
+      "destination": "/admin/$1.$2"
+    },
+    {
+      "source": "/ad-new-preview",
+      "destination": "/public/admin-preview.html"
+    },
+    {
+      "source": "/ad-new/preview",
+      "destination": "/public/admin-preview.html"
+    },
+    {
+      "source": "/ad-new_preview",
+      "destination": "/public/admin-preview.html"
+    },
+    {
+      "source": "/preview-admin",
+      "destination": "/public/admin-preview.html"
+    },
+    {
+      "source": "/ad-new/(.*)",
+      "destination": "/admin/index.html"
+    },
+    {
+      "source": "/ad-new",
+      "destination": "/admin/index.html"
+    },
+    {
+      "source": "/admin",
+      "destination": "/404",
       "permanent": false
+    },
+    {
+      "source": "/admin/:path*",
+      "destination": "/404",
+      "permanent": false
+    },
+    {
+      "source": "/css/(.*)",
+      "destination": "/client/css/$1"
+    },
+    {
+      "source": "/js/(.*)",
+      "destination": "/client/js/$1"
+    },
+    {
+      "source": "/assets/(.*)",
+      "destination": "/client/assets/$1"
+    },
+    {
+      "source": "/favicon.ico",
+      "destination": "/client/favicon.ico"
+    },
+    {
+      "source": "/favicon.png",
+      "destination": "/client/favicon.png"
+    },
+    {
+      "source": "/logo.png",
+      "destination": "/client/logo.png"
+    },
+    {
+      "source": "/sw.js",
+      "destination": "/client/sw.js"
+    },
+    {
+      "source": "/manifest.json",
+      "destination": "/client/manifest.json"
+    },
+    {
+      "source": "/(.*)\\.(png|jpg|jpeg|svg|ico|webp|woff2|mp3|json)",
+      "destination": "/client/$1.$2"
+    },
+    {
+      "source": "/((?!api/|ad-new/).*)",
+      "destination": "/client/index.html"
     }
   ]
 }
