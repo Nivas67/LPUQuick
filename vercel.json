@@ -221,6 +221,14 @@
       "destination": "/api/index.js"
     },
     {
+      "source": "/admin",
+      "destination": "/404"
+    },
+    {
+      "source": "/admin/:path*",
+      "destination": "/404"
+    },
+    {
       "source": "/uploads/(.*)",
       "destination": "/public/uploads/$1"
     },
@@ -259,16 +267,6 @@
     {
       "source": "/ad-new",
       "destination": "/admin/index.html"
-    },
-    {
-      "source": "/admin",
-      "destination": "/404",
-      "permanent": false
-    },
-    {
-      "source": "/admin/:path*",
-      "destination": "/404",
-      "permanent": false
     },
     {
       "source": "/css/(.*)",
