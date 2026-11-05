@@ -203,6 +203,18 @@
       ]
     }
   ],
+  "redirects": [
+    {
+      "source": "/admin",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/admin/:path*",
+      "destination": "/",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
@@ -219,14 +231,6 @@
     {
       "source": "/downloads/(.*)",
       "destination": "/api/index.js"
-    },
-    {
-      "source": "/admin",
-      "destination": "/404"
-    },
-    {
-      "source": "/admin/:path*",
-      "destination": "/404"
     },
     {
       "source": "/uploads/(.*)",
