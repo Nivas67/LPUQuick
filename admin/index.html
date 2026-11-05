@@ -186,10 +186,11 @@
                 <span
                     class="text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Owner</span>
             </button>
-            <button onclick="switchView('hostel-overview')" data-view="hostel-overview" data-required-role="owner,store_manager"
-                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
+            <button onclick="switchView('hostel-overview')" data-view="hostel-overview" data-required-role="owner"
+                class="nav-item owner-only-nav flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full">
                 <span class="material-symbols-outlined text-[#0066cc]">domain_verification</span>
                 <span class="flex-1 font-bold text-[#181c1f]">Selected Hostel Overview</span>
+                <span class="text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Owner</span>
                 <span class="text-[9px] bg-blue-600 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">360°</span>
             </button>
             <button onclick="openManageBlocksModal()"
@@ -2529,6 +2530,14 @@
 
                     <!-- Header Action Controls -->
                     <div class="flex items-center gap-2.5 flex-wrap">
+                        <!-- PIN Lock/Unlock Status & Toggle Button -->
+                        <button id="ho-btn-pin-toggle" onclick="toggleHostelOverviewPinLock()"
+                            class="bg-[#f1f4f7] hover:bg-[#e0e3e6] border border-[#DADCE0] rounded-full px-3.5 py-1.5 text-xs font-bold text-[#3c4043] flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                            title="Owner PIN Lock status">
+                            <span class="material-symbols-outlined text-sm" id="ho-pin-icon">lock</span>
+                            <span id="ho-pin-text">PIN Locked</span>
+                        </button>
+
                         <!-- Multi-Hostel Mode Toggle Button -->
                         <button id="ho-btn-multi-toggle" onclick="toggleMultiHostelMode()"
                             class="bg-[#f1f4f7] hover:bg-[#e0e3e6] border border-[#DADCE0] rounded-full px-3.5 py-1.5 text-xs font-bold text-[#3c4043] flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
@@ -2546,6 +2555,40 @@
                     </div>
                 </div>
 
+                <!-- ================= PIN LOCKED STATE CARD ================= -->
+                <div id="ho-locked-card" class="glass-panel p-8 sm:p-12 border border-[#DADCE0] bg-white rounded-3xl text-center max-w-xl mx-auto shadow-sm space-y-5 my-8">
+                    <div class="w-16 h-16 rounded-3xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center mx-auto shadow-xs">
+                        <span class="material-symbols-outlined text-3xl">lock</span>
+                    </div>
+                    <div class="space-y-1.5">
+                        <div class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300">
+                            <span class="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
+                            <span>PIN Secured • Owner Confidential</span>
+                        </div>
+                        <h3 class="text-xl font-black text-[#181c1f] tracking-tight">Hostel Overview & Profit Intelligence Locked</h3>
+                        <p class="text-xs text-[#5c5f60] max-w-md mx-auto">
+                            Selected Hostel 360° analytics (gross revenue, net profit margins, dark store inventory health, and fresh kitchen food metrics) require your 4-6 digit Financial PIN.
+                        </p>
+                    </div>
+
+                    <form id="form-ho-pin-unlock" onsubmit="submitHostelOverviewPinUnlock(event)" class="space-y-3 max-w-xs mx-auto pt-2">
+                        <div class="relative">
+                            <input type="password" id="input-ho-pin" maxlength="6" pattern="[0-9]*" inputmode="numeric"
+                                placeholder="Enter 4-6 digit PIN"
+                                class="w-full text-center text-lg tracking-[0.35em] font-mono font-black py-2.5 px-4 rounded-xl border border-[#DADCE0] bg-slate-50 focus:bg-white focus:border-[#0066cc] focus:ring-2 focus:ring-blue-100 outline-hidden transition-all">
+                        </div>
+                        <div id="ho-pin-error" class="text-xs font-bold text-rose-600 hidden"></div>
+                        <button type="submit" id="btn-ho-unlock"
+                            class="w-full py-2.5 px-4 rounded-xl bg-[#0066cc] hover:bg-[#0052a3] text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-2 active:scale-98">
+                            <span class="material-symbols-outlined text-sm">lock_open</span>
+                            <span>Unlock 360° Overview</span>
+                        </button>
+                    </form>
+                    <p class="text-[11px] text-[#80868b] font-medium">Auto-locks automatically after 15 minutes of inactivity.</p>
+                </div>
+
+                <!-- ================= UNLOCKED 360° CONTENT CONTAINER ================= -->
+                <div id="ho-content-container" class="space-y-6 hidden">
                 <!-- Interactive Filter & Selection Toolbar -->
                 <div class="glass-panel p-3.5 sm:p-4 border border-[#DADCE0] bg-white rounded-2xl shadow-xs space-y-3">
                     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
@@ -2959,6 +3002,7 @@
                             </tbody>
                         </table>
                     </div>
+                </div>
                 </div>
             </div>
     

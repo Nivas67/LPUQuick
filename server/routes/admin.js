@@ -1456,10 +1456,22 @@ router.post('/revoke-all-sessions', requireRole('owner'), async (req, res) => {
     }
 });
 
-router.get('/hostel-overview', requireRole('owner', 'store_manager'), async (req, res) => {
+router.get('/hostel-overview', requireRole('owner'), async (req, res) => {
     try {
-        const isOwner = Boolean(req.admin && req.admin.is_owner);
-        const assignedHostelId = req.admin?.assigned_hostel_id || null;
+        // Enforce Financial PIN unlock session (same PIN as Financial Intelligence)
+        const financialToken = req.headers['x-financial-token'] || req.headers['authorization']?.replace(/^Bearer\s+/i, '');
+        const { verifyFinancialToken } = require('./financial');
+        const finSession = verifyFinancialToken(financialToken);
+        if (!finSession) {
+            return res.json({
+                success: true,
+                locked: true,
+                message: 'Selected Hostel Overview figures are protected by PIN security. Please unlock with your Financial PIN.'
+            });
+        }
+
+        const isOwner = true;
+        const assignedHostelId = null;
 
         let requestedHostelParam = req.query.hostel_id || req.query.hostel_ids || 'ALL';
         const range = (req.query.range || 'all').toLowerCase();

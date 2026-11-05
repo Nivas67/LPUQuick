@@ -830,7 +830,14 @@ function switchView(viewName) {
     else if (viewName === 'advertisements') loadAdvertisementsView();
     else if (viewName === 'backup') loadBackupDashboard();
     else if (viewName === 'hostels') loadHostels();
-    else if (viewName === 'hostel-overview') loadHostelOverview();
+    else if (viewName === 'hostel-overview') {
+        if (!isPlatformOwner()) {
+            showToast('Access restricted: Selected Hostel Overview is owner-confidential', 'error');
+            switchView('dashboard');
+            return;
+        }
+        loadHostelOverview();
+    }
     else if (viewName === 'hostel-groups') loadHostelGroups();
     else if (viewName === 'employees') loadEmployeesList();
     else if (viewName === 'offers-charges') loadOffersChargesView();
@@ -15490,7 +15497,35 @@ function populateHostelOverviewSelectors() {
 window.populateHostelOverviewSelectors = populateHostelOverviewSelectors;
 
 async function loadHostelOverview(forceRefresh = false) {
+    if (!isPlatformOwner()) {
+        showToast('Access restricted: Selected Hostel Overview is restricted to Platform Owner', 'error');
+        switchView('dashboard');
+        return;
+    }
+
+    const lockedCard = document.getElementById('ho-locked-card');
+    const contentContainer = document.getElementById('ho-content-container');
+    const pinBtn = document.getElementById('ho-btn-pin-toggle');
+    const pinIcon = document.getElementById('ho-pin-icon');
+    const pinText = document.getElementById('ho-pin-text');
     const refreshIcon = document.getElementById('ho-refresh-icon');
+
+    // Update PIN status button display
+    if (financialToken) {
+        if (pinBtn) pinBtn.className = 'bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-full px-3.5 py-1.5 text-xs font-bold text-emerald-800 flex items-center gap-1.5 transition-all shadow-xs cursor-pointer';
+        if (pinIcon) pinIcon.textContent = 'lock_open';
+        if (pinText) pinText.textContent = 'PIN Unlocked';
+    } else {
+        if (pinBtn) pinBtn.className = 'bg-[#f1f4f7] hover:bg-[#e0e3e6] border border-[#DADCE0] rounded-full px-3.5 py-1.5 text-xs font-bold text-[#3c4043] flex items-center gap-1.5 transition-all shadow-xs cursor-pointer';
+        if (pinIcon) pinIcon.textContent = 'lock';
+        if (pinText) pinText.textContent = 'PIN Locked';
+        if (lockedCard) lockedCard.classList.remove('hidden');
+        if (contentContainer) contentContainer.classList.add('hidden');
+        const input = document.getElementById('input-ho-pin');
+        if (input) setTimeout(() => input.focus(), 150);
+        return;
+    }
+
     if (refreshIcon) refreshIcon.classList.add('animate-spin');
 
     try {
@@ -15514,14 +15549,32 @@ async function loadHostelOverview(forceRefresh = false) {
             if (start) params.append('start_date', start);
             if (end) params.append('end_date', end);
         }
+        if (forceRefresh) params.append('_t', Date.now());
 
         const res = await fetchWithTimeout(`/api/admin/hostel-overview?${params.toString()}`, {
-            headers: getAuthHeaders()
+            headers: {
+                ...getAuthHeaders(),
+                ...(financialToken ? { 'X-Financial-Token': financialToken } : {})
+            }
         });
         const data = await res.json();
 
+        if (data.locked) {
+            // Token expired or invalid
+            financialToken = null;
+            try { sessionStorage.removeItem('lpuquick_financial_token'); } catch (e) {}
+            if (lockedCard) lockedCard.classList.remove('hidden');
+            if (contentContainer) contentContainer.classList.add('hidden');
+            if (pinIcon) pinIcon.textContent = 'lock';
+            if (pinText) pinText.textContent = 'PIN Locked';
+            showToast(data.message || 'Hostel Overview is locked. Please enter your Financial PIN.', 'warning');
+            return;
+        }
+
         if (data.success && data.summary) {
             _cachedHostelOverview = data;
+            if (lockedCard) lockedCard.classList.add('hidden');
+            if (contentContainer) contentContainer.classList.remove('hidden');
             renderHostelOverviewUI(data);
         } else {
             showToast(data.error || 'Failed to load hostel overview', 'error');
@@ -15853,3 +15906,69 @@ function drillDownToSingleHostel(hostelId) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 window.drillDownToSingleHostel = drillDownToSingleHostel;
+
+
+// PIN Security Handlers for Selected Hostel Overview
+async function submitHostelOverviewPinUnlock(e) {
+    if (e) e.preventDefault();
+    const pinInput = document.getElementById('input-ho-pin');
+    const pin = pinInput?.value?.trim();
+    const err = document.getElementById('ho-pin-error');
+    const btn = document.getElementById('btn-ho-unlock');
+
+    if (!pin) {
+        if (err) {
+            err.textContent = 'Please enter your 4-6 digit Owner PIN';
+            err.classList.remove('hidden');
+        }
+        return;
+    }
+
+    if (btn) btn.disabled = true;
+    try {
+        const res = await fetch('/api/admin/financial/unlock', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${adminToken}`,
+                'x-admin-token': adminToken
+            },
+            body: JSON.stringify({ pin })
+        });
+        const data = await res.json();
+        if (data.success && data.financial_token) {
+            financialToken = data.financial_token;
+            try { sessionStorage.setItem('lpuquick_financial_token', financialToken); } catch (e) {}
+            if (err) err.classList.add('hidden');
+            if (pinInput) pinInput.value = '';
+            showToast('✓ Selected Hostel Overview unlocked successfully', 'success');
+            checkFinancialStatus();
+            loadHostelOverview(true);
+        } else {
+            if (err) {
+                err.textContent = data.error || 'Incorrect PIN. Please try again.';
+                err.classList.remove('hidden');
+            }
+        }
+    } catch (err2) {
+        if (err) {
+            err.textContent = 'Connection error. Please try again.';
+            err.classList.remove('hidden');
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+window.submitHostelOverviewPinUnlock = submitHostelOverviewPinUnlock;
+
+function toggleHostelOverviewPinLock() {
+    if (financialToken) {
+        lockFinancialData();
+        loadHostelOverview();
+    } else {
+        const input = document.getElementById('input-ho-pin');
+        if (input) input.focus();
+        else openFinancialUnlockModal();
+    }
+}
+window.toggleHostelOverviewPinLock = toggleHostelOverviewPinLock;

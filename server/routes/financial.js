@@ -56,7 +56,9 @@ function verifyFinancialToken(token) {
 
     const [b64Payload, signature] = parts;
     const expectedSig = crypto.createHmac('sha256', FINANCIAL_SECRET).update(Buffer.from(b64Payload, 'base64url').toString('utf8')).digest('hex');
-    if (!crypto.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSig, 'hex'))) {
+    const sigA = Buffer.from(signature, 'hex');
+    const sigB = Buffer.from(expectedSig, 'hex');
+    if (sigA.length !== sigB.length || !crypto.timingSafeEqual(sigA, sigB)) {
         return null;
     }
 
