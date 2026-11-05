@@ -222,13 +222,11 @@
     },
     {
       "source": "/admin",
-      "destination": "/404",
-      "permanent": false
+      "destination": "/404"
     },
     {
       "source": "/admin/:path*",
-      "destination": "/404",
-      "permanent": false
+      "destination": "/404"
     },
     {
       "source": "/uploads/(.*)",
