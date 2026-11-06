@@ -163,18 +163,18 @@ html {
 }
 
 .liquid-orb-1 {
-    width: 420px;
-    height: 420px;
-    background: radial-gradient(circle, rgba(16, 185, 129, 0.24) 0%, rgba(16, 185, 129, 0.02) 70%);
+    width: 440px;
+    height: 440px;
+    background: radial-gradient(circle, rgba(245, 158, 11, 0.25) 0%, rgba(217, 119, 6, 0.03) 70%);
     top: -60px;
     left: -60px;
     animation-duration: 22s;
 }
 
 .liquid-orb-2 {
-    width: 460px;
-    height: 460px;
-    background: radial-gradient(circle, rgba(59, 130, 246, 0.20) 0%, rgba(59, 130, 246, 0.02) 70%);
+    width: 480px;
+    height: 480px;
+    background: radial-gradient(circle, rgba(234, 88, 12, 0.20) 0%, rgba(234, 88, 12, 0.02) 70%);
     top: 35%;
     right: -80px;
     animation-duration: 26s;
@@ -936,236 +936,28 @@ html.dark .add-to-cart-btn:hover {
 
 @media (max-width: 639px) {
     .product-action-slot {
-        min-width: 76px;
-        height: 30px;
+        min-width: 58px;
+        height: 26px;
     }
     .add-to-cart-btn {
-        min-width: 76px;
-        height: 28px;
+        min-width: 58px;
+        height: 26px;
         font-size: 10px;
-        padding: 0 10px;
+        padding: 0 6px;
+        letter-spacing: 0.04em;
     }
     .card-qty-stepper {
-        min-width: 76px;
-        height: 28px;
-        padding: 2px 4px;
+        min-width: 58px;
+        height: 26px;
+        padding: 2px 2px;
     }
     .card-qty-btn {
-        width: 20px;
-        height: 20px;
+        width: 17px;
+        height: 17px;
     }
     .card-qty-val {
-        font-size: 12px;
-        min-width: 16px;
-    }
-}
-
-body.dark .card-qty-stepper,
-html.dark .card-qty-stepper {
-    background: var(--brand-emerald-gradient) !important;
-}
-
-/* Cart Page Quantity Stepper (Tactile Clay) */
-.cart-qty-stepper {
-    background: var(--clay-bg);
-    box-shadow: var(--clay-shadow-sm);
-    border: 1px solid rgba(255, 255, 255, 0.8);
-    color: #0f172a;
-    border-radius: 9999px;
-    padding: 2px 6px;
-}
-
-.cart-qty-stepper button {
-    color: #0f172a;
-    transition: background 0.15s, transform 0.1s;
-}
-
-.cart-qty-stepper button:hover {
-    background: rgba(255, 255, 255, 0.8);
-    transform: scale(1.1);
-}
-
-.cart-qty-stepper .qty-num {
-    color: #0f172a;
-    font-weight: 800;
-}
-
-body.dark .cart-qty-stepper,
-html.dark .cart-qty-stepper {
-    background: var(--clay-bg) !important;
-    box-shadow: var(--clay-shadow-sm) !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
-}
-
-body.dark .cart-qty-stepper button,
-html.dark .cart-qty-stepper button {
-    color: #f8fafc !important;
-}
-
-body.dark .cart-qty-stepper button:hover,
-html.dark .cart-qty-stepper button:hover {
-    background: rgba(255, 255, 255, 0.1) !important;
-}
-
-body.dark .cart-qty-stepper .qty-num,
-html.dark .cart-qty-stepper .qty-num {
-    color: #f8fafc !important;
-}
-
-/* ============================================================
-   BILL DETAILS & TYPOGRAPHY
-   ============================================================ */
-
-.bill-row-label {
-    color: #475569 !important;
-}
-.bill-row-val {
-    color: #0f172a !important;
-    font-weight: 600;
-}
-.bill-strikethrough {
-    color: #94a3b8 !important;
-    text-decoration: line-through;
-}
-.bill-total-label {
-    color: #0f172a !important;
-    font-weight: 700;
-}
-.bill-total-val {
-    color: #059669 !important;
-    font-weight: 800;
-}
-
-body.dark .bill-row-label,
-html.dark .bill-row-label {
-    color: #94a3b8 !important;
-}
-body.dark .bill-row-val,
-html.dark .bill-row-val {
-    color: #f8fafc !important;
-}
-body.dark .bill-strikethrough,
-html.dark .bill-strikethrough {
-    color: #64748b !important;
-}
-body.dark .bill-total-label,
-html.dark .bill-total-label {
-    color: #f8fafc !important;
-}
-body.dark .bill-total-val,
-html.dark .bill-total-val {
-    color: #34d399 !important;
-}
-
-/* ============================================================
-   CHECKOUT SLIDE-TO-CONFIRM (LIQUID GLASS & CLAY THUMB)
-   ============================================================ */
-
-.slider-track {
-    position: relative;
-    width: 100%;
-    height: 58px;
-    background: var(--clay-bg);
-    border: 1px solid rgba(255, 255, 255, 0.8);
-    box-shadow: inset 2px 2px 5px rgba(166, 175, 195, 0.4), inset -2px -2px 5px rgba(255, 255, 255, 0.8);
-    border-radius: 9999px;
-    display: flex;
-    align-items: center;
-    overflow: hidden;
-    touch-action: none !important;
-    user-select: none !important;
-    -webkit-user-select: none !important;
-}
-
-body.dark .slider-track,
-html.dark .slider-track {
-    background: var(--clay-bg) !important;
-    border-color: rgba(255, 255, 255, 0.08) !important;
-    box-shadow: inset 3px 3px 6px rgba(0, 0, 0, 0.6), inset -2px -2px 4px rgba(255, 255, 255, 0.05) !important;
-}
-
-.slider-thumb {
-    position: absolute;
-    left: 4px;
-    width: 50px;
-    height: 50px;
-    background: var(--brand-emerald-gradient);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: grab;
-    box-shadow: var(--clay-emerald-shadow);
-    border: 1.5px solid rgba(255, 255, 255, 0.5);
-    z-index: 2;
-    touch-action: none !important;
-    user-select: none !important;
-    -webkit-user-select: none !important;
-    transition: transform 0.15s ease;
-}
-
-.slider-thumb:active {
-    cursor: grabbing;
-    transform: scale(0.96);
-    box-shadow: var(--clay-emerald-pressed);
-}
-
-.slider-thumb .material-symbols-outlined {
-    color: white;
-    font-size: 24px;
-    pointer-events: none;
-}
-
-.slider-text {
-    width: 100%;
-    text-align: center;
-    font-size: 14px;
-    font-weight: 700;
-    color: #334155;
-    z-index: 1;
-    pointer-events: none;
-    transition: opacity 0.2s;
-    letter-spacing: 0.02em;
-}
-
-body.dark .slider-text,
-html.dark .slider-text {
-    color: #e2e8f0 !important;
-}
-
-.slider-progress {
-    position: absolute;
-    left: 0;
-    top: 0;
-    height: 100%;
-    background: linear-gradient(90deg, rgba(16, 185, 129, 0.25), rgba(16, 185, 129, 0.45));
-    width: 0;
-    border-radius: 9999px;
-    z-index: 0;
-}
-
-/* ============================================================
-   FROSTED GLASS MODALS & BOTTOM SHEETS
-   ============================================================ */
-
-.modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(15, 23, 42, 0.55);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    z-index: 9999;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    animation: fadeIn 0.2s ease-out;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-@media (min-width: 640px) {
-    .modal-overlay {
-        align-items: center;
-        padding-bottom: 0;
+        font-size: 11px;
+        min-width: 13px;
     }
 }
 
@@ -1350,15 +1142,7 @@ html.dark #category-rail-container {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
 }
 
-@media (max-width: 639px) {
-    #category-rail-container {
-        position: relative !important;
-        top: auto !important;
-        max-height: none !important;
-        border-radius: 1.25rem;
-        padding: 0.35rem 0.15rem 0.5rem 0.15rem;
-    }
-}
+
 
 .vertical-category-rail {
     display: flex;
@@ -1899,4 +1683,968 @@ body.is-installed-app #settings-install-row,
 body.is-installed-app #btn-header-install-app,
 body.is-installed-app [data-install-trigger] {
     display: none !important;
+}
+
+
+
+
+
+/* ============================================================
+   LPUQuick Product Grid System & Strict Alignment
+   Consistent 12-14px horizontal, 12-16px vertical gaps, balanced cards
+   ============================================================ */
+.product-card-item {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.product-card-item.hidden,
+.product-card-item[hidden],
+.product-card-item[style*="display: none"],
+[hidden] {
+    display: none !important;
+}
+
+.product-card-item .card-pedestal {
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.product-card-item .card-pedestal img {
+    object-fit: contain !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 88% !important;
+    max-height: 88% !important;
+    margin: auto !important;
+    display: block !important;
+    backface-visibility: hidden !important;
+    transform: translateZ(0) !important;
+}
+
+
+/* === LPUQuick Diwali Festive Theme Engine === */
+:root {
+    --diwali-gold: #f59e0b;
+    --diwali-gold-light: #fbbf24;
+    --diwali-diya: #ea580c;
+    --diwali-border: rgba(245, 158, 11, 0.35);
+    --diwali-glow: 0 0 16px rgba(245, 158, 11, 0.45);
+}
+
+body.dark {
+    background-color: #080a12 !important;
+    background-image: 
+        radial-gradient(at 10% 10%, rgba(245, 158, 11, 0.14) 0px, transparent 50%),
+        radial-gradient(at 90% 15%, rgba(234, 88, 12, 0.12) 0px, transparent 50%),
+        radial-gradient(at 50% 85%, rgba(168, 85, 247, 0.09) 0px, transparent 50%),
+        radial-gradient(at 20% 90%, rgba(16, 185, 129, 0.09) 0px, transparent 50%) !important;
+}
+
+body.dark .product-card-item {
+    border-color: rgba(245, 158, 11, 0.18) !important;
+    background: rgba(15, 20, 32, 0.78) !important;
+}
+
+body.dark .product-card-item:hover {
+    border-color: rgba(245, 158, 11, 0.55) !important;
+    box-shadow: 0 12px 30px -4px rgba(245, 158, 11, 0.22), 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+}
+
+body.dark .category-rail-item.active .category-rail-indicator {
+    background: linear-gradient(180deg, #f59e0b, #ea580c) !important;
+    box-shadow: 0 0 14px rgba(245, 158, 11, 0.95) !important;
+}
+
+body.dark .category-rail-item.active .category-rail-icon-box {
+    border-color: rgba(245, 158, 11, 0.6) !important;
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.35) !important;
+}
+
+.diwali-badge-glow {
+    background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%) !important;
+    color: #ffffff !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
+}
+
+.diwali-gold-text {
+    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #ea580c 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+nav.liquid-dock-pill {
+    border: 1px solid rgba(245, 158, 11, 0.3) !important;
+    box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.7), 0 0 20px rgba(245, 158, 11, 0.15) !important;
+}
+
+/* ============================================================
+   LPUQuick Mobile Full-Width Catalog & Zero-Void Layout
+   On mobile (<640px): Category rail is a sleek horizontal scrollable bar
+   Products take 100% width with perfect 2-column spacing
+   ============================================================ */
+@media (max-width: 639px) {
+    #shop-catalog-split-row {
+        flex-direction: column !important;
+        gap: 0.75rem !important;
+    }
+
+    #category-rail-container {
+        width: 100% !important;
+        min-width: 100% !important;
+        position: sticky !important;
+        top: 3.75rem !important;
+        z-index: 30 !important;
+        background: rgba(12, 17, 29, 0.94) !important;
+        backdrop-filter: blur(20px) !important;
+        -webkit-backdrop-filter: blur(20px) !important;
+        border: 1px solid rgba(245, 158, 11, 0.35) !important;
+        border-radius: 1.25rem !important;
+        padding: 0.4rem 0.5rem !important;
+        box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.6), 0 0 16px rgba(245, 158, 11, 0.12) !important;
+        max-height: none !important;
+        overflow-y: visible !important;
+    }
+
+    .vertical-category-rail {
+        flex-direction: row !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        gap: 0.5rem !important;
+        padding: 0.15rem 0.2rem !important;
+        width: 100% !important;
+        white-space: nowrap !important;
+        -webkit-overflow-scrolling: touch !important;
+        touch-action: pan-x !important;
+    }
+
+    .vertical-category-rail::-webkit-scrollbar {
+        display: none !important;
+    }
+
+    .category-rail-item {
+        flex-direction: column !important;
+        align-items: center !important;
+        flex-shrink: 0 !important;
+        width: 58px !important;
+        min-width: 58px !important;
+        padding: 0.25rem 0.15rem !important;
+        border-radius: 0.85rem !important;
+    }
+
+    .category-rail-icon-box {
+        width: 2.5rem !important;
+        height: 2.5rem !important;
+        border-radius: 12px !important;
+    }
+
+    .category-rail-label {
+        font-size: 0.55rem !important;
+        line-height: 1.1 !important;
+        max-width: 56px !important;
+        margin-top: 2px !important;
+        text-align: center !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    .category-rail-indicator {
+        bottom: 0 !important;
+        top: auto !important;
+        right: 50% !important;
+        transform: translateX(50%) !important;
+        width: 16px !important;
+        height: 3px !important;
+        border-radius: 9999px !important;
+    }
+
+    /* Hide the vertical terminal and top button on mobile since rail is horizontal */
+    #rail-bottom-terminal,
+    .vertical-category-rail > div.border-t {
+        display: none !important;
+    }
+
+    /* Product grid takes 100% full width */
+    #home-main-products-grid,
+    #home-remaining-products-grid {
+        width: 100% !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 0.75rem !important;
+    }
+
+    .product-card-item {
+        width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+        padding: 0.55rem !important;
+        border-radius: 1rem !important;
+    }
+
+    .product-card-item .card-pedestal {
+        height: 104px !important;
+        border-radius: 0.85rem !important;
+        margin-bottom: 0.4rem !important;
+        padding: 0.35rem !important;
+    }
+}
+
+/* ============================================================
+   LPUQuick Full Diwali Festive Theme Engine (Pure CSS, 60fps)
+   Luxurious, Premium Festive Overlay: Diyas, Fairy Lights,
+   Celestial Fireworks, Golden Rangoli, Amber/Purple/Pink Glow
+   ============================================================ */
+:root {
+    --diwali-gold: #f59e0b;
+    --diwali-gold-light: #fbbf24;
+    --diwali-gold-bright: #fde047;
+    --diwali-marigold: #ea580c;
+    --diwali-saffron: #f97316;
+    --diwali-purple: #9333ea;
+    --diwali-violet: #a855f7;
+    --diwali-pink: #ec4899;
+    --diwali-rose: #f43f5e;
+    --diwali-emerald: #10b981;
+    --diwali-cyan: #06b6d4;
+    --diwali-glow: 0 0 18px rgba(245, 158, 11, 0.45);
+}
+
+body.dark {
+    background-color: #060813 !important;
+    background-image: 
+        radial-gradient(at 10% 8%, rgba(245, 158, 11, 0.18) 0px, transparent 50%),
+        radial-gradient(at 90% 12%, rgba(234, 88, 12, 0.16) 0px, transparent 50%),
+        radial-gradient(at 85% 65%, rgba(147, 51, 234, 0.14) 0px, transparent 55%),
+        radial-gradient(at 15% 85%, rgba(236, 72, 153, 0.12) 0px, transparent 50%) !important;
+}
+
+body:not(.dark) {
+    background-color: #fdfbf7 !important;
+    background-image: 
+        radial-gradient(at 10% 8%, rgba(245, 158, 11, 0.08) 0px, transparent 50%),
+        radial-gradient(at 90% 12%, rgba(234, 88, 12, 0.07) 0px, transparent 50%),
+        radial-gradient(at 85% 65%, rgba(147, 51, 234, 0.05) 0px, transparent 55%),
+        radial-gradient(at 15% 85%, rgba(236, 72, 153, 0.05) 0px, transparent 50%) !important;
+}
+
+/* Ambient Liquid 4-Orb Symphony (Warm Festive Glow) */
+.liquid-orb-1 {
+    width: 480px;
+    height: 480px;
+    background: radial-gradient(circle, rgba(245, 158, 11, 0.28) 0%, rgba(217, 119, 6, 0.02) 70%) !important;
+    top: -60px;
+    left: -60px;
+}
+
+.liquid-orb-2 {
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(234, 88, 12, 0.24) 0%, rgba(234, 88, 12, 0.02) 70%) !important;
+    top: 30%;
+    right: -80px;
+}
+
+.liquid-orb-3 {
+    width: 420px;
+    height: 420px;
+    background: radial-gradient(circle, rgba(147, 51, 234, 0.20) 0%, rgba(147, 51, 234, 0.02) 70%) !important;
+    bottom: 10%;
+    left: 20%;
+}
+
+.liquid-orb-4 {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.5;
+    will-change: transform;
+    animation: liquidDrift 28s ease-in-out infinite alternate;
+    width: 380px;
+    height: 380px;
+    background: radial-gradient(circle, rgba(236, 72, 153, 0.18) 0%, rgba(236, 72, 153, 0.02) 70%);
+    top: 60%;
+    right: 15%;
+    animation-delay: -15s;
+}
+
+/* ============================================================
+   1. DIWALI FAIRY LIGHTS STRAND (Top Edge of Screen & Borders)
+   ============================================================ */
+.diwali-top-fairy-string {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 14px;
+    z-index: 60;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.fairy-light-wire {
+    position: absolute;
+    top: 1px;
+    left: -20px;
+    right: -20px;
+    height: 6px;
+    border-bottom: 1.5px solid rgba(217, 119, 6, 0.55);
+    border-radius: 50%;
+    filter: drop-shadow(0 1px 2px rgba(245, 158, 11, 0.3));
+}
+
+.fairy-bulbs-track {
+    display: flex;
+    justify-content: space-around;
+    align-items: flex-start;
+    padding: 0 4px;
+    position: relative;
+    z-index: 2;
+}
+
+.fairy-bulb {
+    width: 6px;
+    height: 9px;
+    border-radius: 50% 50% 45% 45%;
+    display: inline-block;
+    position: relative;
+    will-change: opacity, transform, filter;
+}
+
+.fairy-bulb::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: 1.5px;
+    width: 3px;
+    height: 2px;
+    background: #78350f;
+    border-radius: 1px;
+}
+
+.bulb-gold {
+    background: #fde047;
+    box-shadow: 0 0 6px #f59e0b, 0 0 14px #fbbf24;
+    animation: fairyTwinkleA 2.2s ease-in-out infinite alternate;
+}
+
+.bulb-ruby {
+    background: #fb7185;
+    box-shadow: 0 0 6px #f43f5e, 0 0 14px #e11d48;
+    animation: fairyTwinkleB 2.8s ease-in-out infinite alternate;
+    animation-delay: 0.3s;
+}
+
+.bulb-emerald {
+    background: #6ee7b7;
+    box-shadow: 0 0 6px #10b981, 0 0 14px #059669;
+    animation: fairyTwinkleC 2.5s ease-in-out infinite alternate;
+    animation-delay: 0.6s;
+}
+
+.bulb-violet {
+    background: #d8b4fe;
+    box-shadow: 0 0 6px #a855f7, 0 0 14px #7c3aed;
+    animation: fairyTwinkleA 3s ease-in-out infinite alternate;
+    animation-delay: 0.9s;
+}
+
+.bulb-saffron {
+    background: #fdba74;
+    box-shadow: 0 0 6px #f97316, 0 0 14px #ea580c;
+    animation: fairyTwinkleB 2.4s ease-in-out infinite alternate;
+    animation-delay: 1.2s;
+}
+
+.bulb-cyan {
+    background: #67e8f9;
+    box-shadow: 0 0 6px #06b6d4, 0 0 14px #0891b2;
+    animation: fairyTwinkleC 2.7s ease-in-out infinite alternate;
+    animation-delay: 1.5s;
+}
+
+.bulb-pink {
+    background: #f472b6;
+    box-shadow: 0 0 6px #ec4899, 0 0 14px #db2777;
+    animation: fairyTwinkleA 2.9s ease-in-out infinite alternate;
+    animation-delay: 1.8s;
+}
+
+@keyframes fairyTwinkleA {
+    0% { opacity: 0.65; transform: scale(0.92); filter: brightness(0.9); }
+    100% { opacity: 1; transform: scale(1.08); filter: brightness(1.3); }
+}
+
+@keyframes fairyTwinkleB {
+    0% { opacity: 0.6; transform: scale(0.9); filter: brightness(0.85); }
+    100% { opacity: 1; transform: scale(1.1); filter: brightness(1.35); }
+}
+
+@keyframes fairyTwinkleC {
+    0% { opacity: 0.7; transform: scale(0.95); filter: brightness(0.95); }
+    100% { opacity: 1; transform: scale(1.05); filter: brightness(1.25); }
+}
+
+/* ============================================================
+   2. SUBTLE CELESTIAL FIREWORKS (Pure CSS, GPU Composited)
+   ============================================================ */
+.diwali-firework-burst {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0;
+    will-change: transform, opacity;
+}
+
+.diwali-fw-1 {
+    top: 16%;
+    left: 20%;
+    animation: fireworkBurstGold 11s cubic-bezier(0.12, 0.8, 0.32, 1) infinite;
+    animation-delay: 0.5s;
+}
+
+.diwali-fw-2 {
+    top: 26%;
+    right: 18%;
+    animation: fireworkBurstPurple 13s cubic-bezier(0.12, 0.8, 0.32, 1) infinite;
+    animation-delay: 3.5s;
+}
+
+.diwali-fw-3 {
+    top: 48%;
+    left: 12%;
+    animation: fireworkBurstRose 12s cubic-bezier(0.12, 0.8, 0.32, 1) infinite;
+    animation-delay: 6.5s;
+}
+
+.diwali-fw-4 {
+    top: 68%;
+    right: 15%;
+    animation: fireworkBurstAmber 14s cubic-bezier(0.12, 0.8, 0.32, 1) infinite;
+    animation-delay: 9.5s;
+}
+
+@keyframes fireworkBurstGold {
+    0% { opacity: 0; transform: scale(0.1); box-shadow: 0 0 0 0 #fbbf24; }
+    12% {
+        opacity: 0.85;
+        transform: scale(1);
+        box-shadow: 
+            0 -45px 8px 1px #fbbf24,
+            32px -32px 8px 1px #fde047,
+            45px 0 8px 1px #f59e0b,
+            32px 32px 8px 1px #fbbf24,
+            0 45px 8px 1px #fde047,
+            -32px 32px 8px 1px #f59e0b,
+            -45px 0 8px 1px #fbbf24,
+            -32px -32px 8px 1px #fde047,
+            0 -22px 4px 0 #ffffff,
+            22px 0 4px 0 #ffffff,
+            0 22px 4px 0 #ffffff,
+            -22px 0 4px 0 #ffffff;
+    }
+    30% {
+        opacity: 0.35;
+        transform: scale(1.35);
+        box-shadow: 
+            0 -60px 12px 0 transparent,
+            42px -42px 12px 0 transparent,
+            60px 0 12px 0 transparent,
+            42px 42px 12px 0 transparent,
+            0 60px 12px 0 transparent,
+            -42px 42px 12px 0 transparent,
+            -60px 0 12px 0 transparent,
+            -42px -42px 12px 0 transparent;
+    }
+    45%, 100% { opacity: 0; transform: scale(1.5); box-shadow: none; }
+}
+
+@keyframes fireworkBurstPurple {
+    0% { opacity: 0; transform: scale(0.1); box-shadow: 0 0 0 0 #c084fc; }
+    12% {
+        opacity: 0.85;
+        transform: scale(1);
+        box-shadow: 
+            0 -45px 8px 1px #c084fc,
+            32px -32px 8px 1px #e879f9,
+            45px 0 8px 1px #a855f7,
+            32px 32px 8px 1px #c084fc,
+            0 45px 8px 1px #e879f9,
+            -32px 32px 8px 1px #a855f7,
+            -45px 0 8px 1px #c084fc,
+            -32px -32px 8px 1px #e879f9,
+            0 -22px 4px 0 #ffffff,
+            22px 0 4px 0 #ffffff,
+            0 22px 4px 0 #ffffff,
+            -22px 0 4px 0 #ffffff;
+    }
+    30% {
+        opacity: 0.35;
+        transform: scale(1.35);
+        box-shadow: 
+            0 -60px 12px 0 transparent,
+            42px -42px 12px 0 transparent,
+            60px 0 12px 0 transparent,
+            42px 42px 12px 0 transparent,
+            0 60px 12px 0 transparent,
+            -42px 42px 12px 0 transparent,
+            -60px 0 12px 0 transparent,
+            -42px -42px 12px 0 transparent;
+    }
+    45%, 100% { opacity: 0; transform: scale(1.5); box-shadow: none; }
+}
+
+@keyframes fireworkBurstRose {
+    0% { opacity: 0; transform: scale(0.1); box-shadow: 0 0 0 0 #fb7185; }
+    12% {
+        opacity: 0.85;
+        transform: scale(1);
+        box-shadow: 
+            0 -45px 8px 1px #fb7185,
+            32px -32px 8px 1px #f43f5e,
+            45px 0 8px 1px #fda4af,
+            32px 32px 8px 1px #fb7185,
+            0 45px 8px 1px #f43f5e,
+            -32px 32px 8px 1px #fda4af,
+            -45px 0 8px 1px #fb7185,
+            -32px -32px 8px 1px #f43f5e,
+            0 -22px 4px 0 #ffffff,
+            22px 0 4px 0 #ffffff,
+            0 22px 4px 0 #ffffff,
+            -22px 0 4px 0 #ffffff;
+    }
+    30% {
+        opacity: 0.35;
+        transform: scale(1.35);
+        box-shadow: 
+            0 -60px 12px 0 transparent,
+            42px -42px 12px 0 transparent,
+            60px 0 12px 0 transparent,
+            42px 42px 12px 0 transparent,
+            0 60px 12px 0 transparent,
+            -42px 42px 12px 0 transparent,
+            -60px 0 12px 0 transparent,
+            -42px -42px 12px 0 transparent;
+    }
+    45%, 100% { opacity: 0; transform: scale(1.5); box-shadow: none; }
+}
+
+@keyframes fireworkBurstAmber {
+    0% { opacity: 0; transform: scale(0.1); box-shadow: 0 0 0 0 #f97316; }
+    12% {
+        opacity: 0.85;
+        transform: scale(1);
+        box-shadow: 
+            0 -45px 8px 1px #f97316,
+            32px -32px 8px 1px #fb923c,
+            45px 0 8px 1px #ea580c,
+            32px 32px 8px 1px #f97316,
+            0 45px 8px 1px #fb923c,
+            -32px 32px 8px 1px #ea580c,
+            -45px 0 8px 1px #f97316,
+            -32px -32px 8px 1px #fb923c,
+            0 -22px 4px 0 #ffffff,
+            22px 0 4px 0 #ffffff,
+            0 22px 4px 0 #ffffff,
+            -22px 0 4px 0 #ffffff;
+    }
+    30% {
+        opacity: 0.35;
+        transform: scale(1.35);
+        box-shadow: 
+            0 -60px 12px 0 transparent,
+            42px -42px 12px 0 transparent,
+            60px 0 12px 0 transparent,
+            42px 42px 12px 0 transparent,
+            0 60px 12px 0 transparent,
+            -42px 42px 12px 0 transparent,
+            -60px 0 12px 0 transparent,
+            -42px -42px 12px 0 transparent;
+    }
+    45%, 100% { opacity: 0; transform: scale(1.5); box-shadow: none; }
+}
+
+/* ============================================================
+   3. STAR SPARKLES FIELD & FLOATING GOLDEN EMBERS
+   ============================================================ */
+.diwali-sparkle-field {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.diwali-star {
+    position: absolute;
+    font-size: 11px;
+    line-height: 1;
+    pointer-events: none;
+    user-select: none;
+    will-change: opacity, transform;
+    animation: starTwinkle 3.2s ease-in-out infinite alternate;
+}
+
+.star-1  { top: 8%;  left: 14%; color: #fbbf24; animation-delay: 0.2s; }
+.star-2  { top: 12%; right: 24%; color: #fde047; animation-delay: 1.1s; }
+.star-3  { top: 22%; left: 32%; color: #f472b6; animation-delay: 0.7s; }
+.star-4  { top: 28%; right: 10%; color: #c084fc; animation-delay: 1.9s; }
+.star-5  { top: 38%; left: 8%;  color: #fb923c; animation-delay: 0.4s; }
+.star-6  { top: 44%; right: 35%; color: #fbbf24; animation-delay: 2.3s; }
+.star-7  { top: 54%; left: 22%; color: #fde047; animation-delay: 1.4s; }
+.star-8  { top: 62%; right: 18%; color: #e879f9; animation-delay: 0.8s; }
+.star-9  { top: 72%; left: 12%; color: #f43f5e; animation-delay: 2.1s; }
+.star-10 { top: 78%; right: 28%; color: #fbbf24; animation-delay: 1.6s; }
+.star-11 { top: 88%; left: 40%; color: #fdba74; animation-delay: 0.3s; }
+.star-12 { top: 92%; right: 12%; color: #c084fc; animation-delay: 2.5s; }
+.star-13 { top: 18%; left: 80%; color: #fde047; animation-delay: 1.7s; }
+.star-14 { top: 50%; left: 60%; color: #f472b6; animation-delay: 0.9s; }
+.star-15 { top: 68%; left: 45%; color: #fbbf24; animation-delay: 2.2s; }
+.star-16 { top: 84%; left: 85%; color: #f97316; animation-delay: 1.3s; }
+
+@keyframes starTwinkle {
+    0% { opacity: 0.15; transform: scale(0.8) rotate(0deg); }
+    50% { opacity: 0.95; transform: scale(1.25) rotate(45deg); filter: drop-shadow(0 0 6px currentColor); }
+    100% { opacity: 0.25; transform: scale(0.9) rotate(90deg); }
+}
+
+.diwali-embers-field {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.diwali-ember {
+    position: absolute;
+    bottom: -10px;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: #fde047;
+    box-shadow: 0 0 6px #f59e0b, 0 0 12px #ea580c;
+    pointer-events: none;
+    will-change: transform, opacity;
+    animation: emberRise 14s linear infinite;
+}
+
+.ember-1 { left: 12%; animation-duration: 13s; animation-delay: 0s; }
+.ember-2 { left: 25%; animation-duration: 16s; animation-delay: 2.5s; width: 4px; height: 4px; }
+.ember-3 { left: 38%; animation-duration: 14s; animation-delay: 5s; }
+.ember-4 { left: 52%; animation-duration: 18s; animation-delay: 1.5s; width: 2.5px; height: 2.5px; }
+.ember-5 { left: 67%; animation-duration: 15s; animation-delay: 7s; }
+.ember-6 { left: 78%; animation-duration: 17s; animation-delay: 3.5s; width: 3.5px; height: 3.5px; }
+.ember-7 { left: 88%; animation-duration: 14s; animation-delay: 6s; }
+.ember-8 { left: 95%; animation-duration: 19s; animation-delay: 8s; }
+
+@keyframes emberRise {
+    0% { opacity: 0; transform: translateY(0) translateX(0) scale(0.8); }
+    15% { opacity: 0.85; }
+    50% { opacity: 0.7; transform: translateY(-50vh) translateX(18px) scale(1.1); }
+    85% { opacity: 0.35; transform: translateY(-85vh) translateX(-14px) scale(0.9); }
+    100% { opacity: 0; transform: translateY(-105vh) translateX(22px) scale(0.6); }
+}
+
+/* ============================================================
+   4. SACRED GOLDEN RANGOLI MANDALA BACKGROUND WATERMARK
+   ============================================================ */
+.diwali-rangoli-mandala {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 520px;
+    height: 520px;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    opacity: 0.12;
+    animation: rangoliSpin 120s linear infinite;
+    mask-image: radial-gradient(circle, black 40%, transparent 75%);
+    -webkit-mask-image: radial-gradient(circle, black 40%, transparent 75%);
+}
+
+@keyframes rangoliSpin {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* ============================================================
+   5. DIWALI TORAN BANNER & ANIMATED GLOWING DIYAS
+   ============================================================ */
+.diwali-top-toran {
+    background: linear-gradient(90deg, #7c2d12 0%, #b45309 25%, #ea580c 50%, #b45309 75%, #7c2d12 100%) !important;
+    border-bottom: 1.5px solid rgba(251, 191, 36, 0.45) !important;
+    box-shadow: 0 4px 16px rgba(245, 158, 11, 0.35), inset 0 1px 0 rgba(253, 224, 71, 0.4) !important;
+}
+
+.diwali-ribbon-text {
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6), 0 0 12px rgba(251, 191, 36, 0.5);
+}
+
+.diwali-live-diya {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.85));
+    animation: diyaBreath 3.5s ease-in-out infinite alternate;
+}
+
+@keyframes diyaBreath {
+    0% { transform: scale(0.96) translateY(0); filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.7)); }
+    100% { transform: scale(1.05) translateY(-1px); filter: drop-shadow(0 0 14px rgba(251, 191, 36, 0.95)); }
+}
+
+.diya-flame-flicker {
+    transform-origin: 14px 10px;
+    animation: flameDance 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes flameDance {
+    0% { transform: scale(1) rotate(-1deg); }
+    25% { transform: scale(1.08, 0.94) rotate(1.5deg); }
+    50% { transform: scale(0.95, 1.06) rotate(-1deg); }
+    75% { transform: scale(1.05, 1.02) rotate(2deg); }
+    100% { transform: scale(1) rotate(-1.5deg); }
+}
+
+/* ============================================================
+   6. SUBTLE GLOWING EFFECTS ON BUTTONS, BORDERS & CAPSULES
+   ============================================================ */
+/* Header Capsule Perimeter Glow */
+.dynamic-island-nav {
+    border: 1.5px solid rgba(245, 158, 11, 0.32) !important;
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.45), 0 0 18px rgba(245, 158, 11, 0.15) !important;
+}
+
+body.dark .dynamic-island-nav {
+    border-color: rgba(245, 158, 11, 0.38) !important;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7), 0 0 24px rgba(245, 158, 11, 0.22) !important;
+}
+
+/* Product Card Festive Golden Border & Aura */
+body.dark .product-card-item {
+    background: rgba(14, 18, 30, 0.82) !important;
+    border: 1px solid rgba(245, 158, 11, 0.22) !important;
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.55), inset 0 1px 1px rgba(251, 191, 36, 0.15) !important;
+}
+
+body.dark .product-card-item:hover {
+    border-color: rgba(245, 158, 11, 0.6) !important;
+    box-shadow: 0 12px 32px -4px rgba(245, 158, 11, 0.28), 0 4px 14px rgba(0, 0, 0, 0.6), inset 0 1px 2px rgba(251, 191, 36, 0.3) !important;
+    transform: translateY(-2px) !important;
+}
+
+/* Festive Buttons Glow */
+.add-to-cart-btn {
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3), 0 0 10px rgba(245, 158, 11, 0.2) !important;
+}
+
+.add-to-cart-btn:hover {
+    box-shadow: 0 4px 16px rgba(245, 158, 11, 0.4), 0 0 14px rgba(16, 185, 129, 0.5) !important;
+}
+
+.clay-btn-primary {
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35), 0 0 12px rgba(245, 158, 11, 0.25) !important;
+}
+
+.clay-btn-primary:hover {
+    box-shadow: 0 6px 20px rgba(245, 158, 11, 0.45), 0 0 18px rgba(16, 185, 129, 0.5) !important;
+}
+
+/* Floating Bottom Navigation Festive Diwali Rim */
+nav.liquid-dock-pill {
+    border: 1.5px solid rgba(245, 158, 11, 0.38) !important;
+    box-shadow: 0 -4px 32px rgba(0, 0, 0, 0.8), 0 0 26px rgba(245, 158, 11, 0.22) !important;
+    backdrop-filter: blur(24px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
+}
+
+/* Active Category Pill Glowing Diya Flame */
+body.dark .category-rail-item.active .category-rail-indicator {
+    background: linear-gradient(180deg, #f59e0b, #ea580c) !important;
+    box-shadow: 0 0 14px rgba(245, 158, 11, 0.95) !important;
+}
+
+body.dark .category-rail-item.active .category-rail-icon-box {
+    border: 1.5px solid rgba(245, 158, 11, 0.7) !important;
+    box-shadow: 0 0 14px rgba(245, 158, 11, 0.45) !important;
+    background: rgba(245, 158, 11, 0.18) !important;
+}
+
+/* Festive Liquid Badges */
+.diwali-badge-glow {
+    background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%) !important;
+    color: #ffffff !important;
+    font-weight: 900 !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 2px 10px rgba(245, 158, 11, 0.45);
+}
+
+
+/* ============================================================
+   EXACT REFERENCE MATCH: SCREEN 1 & SCREEN 2 DIWALI STYLING
+   ============================================================ */
+
+/* Grand Happy Diwali Hero Banner */
+.diwali-grand-banner {
+    background: radial-gradient(circle at 50% 30%, rgba(88, 28, 135, 0.55) 0%, rgba(20, 9, 40, 0.95) 75%), #0c061a !important;
+    border: 1.5px solid rgba(245, 158, 11, 0.55) !important;
+    box-shadow: 0 10px 35px -5px rgba(0, 0, 0, 0.85), 0 0 25px rgba(245, 158, 11, 0.3), inset 0 1px 1px rgba(251, 191, 36, 0.4) !important;
+}
+
+.diwali-calligraphy-title {
+    font-family: 'Brush Script MT', 'Playfair Display', 'Outfit', cursive, serif !important;
+    background: linear-gradient(135deg, #ffffff 0%, #fef08a 35%, #fbbf24 65%, #ea580c 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    filter: drop-shadow(0 0 14px rgba(245, 158, 11, 0.9)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7));
+    letter-spacing: 0.03em;
+    font-style: italic;
+}
+
+.banner-fairy-lights {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.diwali-bulb-glow {
+    filter: drop-shadow(0 0 6px #fde047) drop-shadow(0 0 10px #f59e0b);
+    animation: fairyTwinkleA 2.2s ease-in-out infinite alternate;
+}
+
+.banner-firework {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0;
+}
+
+.banner-fw-1 {
+    top: 25%;
+    left: 20%;
+    animation: fireworkBurstGold 9s infinite;
+}
+
+.banner-fw-2 {
+    top: 30%;
+    right: 22%;
+    animation: fireworkBurstPurple 10s infinite;
+    animation-delay: 3s;
+}
+
+/* Store Closed Restock Card (Screen 1 Reference Match) */
+.diwali-store-closed-card {
+    background: linear-gradient(145deg, #1a0b32 0%, #0d0519 100%) !important;
+    border: 2px solid rgba(245, 158, 11, 0.85) !important;
+    box-shadow: 0 0 35px rgba(245, 158, 11, 0.45), inset 0 0 30px rgba(245, 158, 11, 0.18), 0 20px 40px rgba(0, 0, 0, 0.9) !important;
+}
+
+/* Ornate Traditional Indian Corner Filigree Brackets */
+.diwali-filigree {
+    position: absolute;
+    width: 44px;
+    height: 44px;
+    pointer-events: none;
+    border: 2px solid #f59e0b;
+    opacity: 0.85;
+}
+
+.diwali-filigree-tl {
+    top: 8px;
+    left: 8px;
+    border-right: none;
+    border-bottom: none;
+    border-top-left-radius: 18px;
+    box-shadow: inset 4px 4px 8px rgba(245, 158, 11, 0.4);
+}
+
+.diwali-filigree-tr {
+    top: 8px;
+    right: 8px;
+    border-left: none;
+    border-bottom: none;
+    border-top-right-radius: 18px;
+    box-shadow: inset -4px 4px 8px rgba(245, 158, 11, 0.4);
+}
+
+.diwali-filigree-bl {
+    bottom: 8px;
+    left: 8px;
+    border-right: none;
+    border-top: none;
+    border-bottom-left-radius: 18px;
+    box-shadow: inset 4px -4px 8px rgba(245, 158, 11, 0.4);
+}
+
+.diwali-filigree-br {
+    bottom: 8px;
+    right: 8px;
+    border-left: none;
+    border-top: none;
+    border-bottom-right-radius: 18px;
+    box-shadow: inset -4px -4px 8px rgba(245, 158, 11, 0.4);
+}
+
+.closed-firework {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.closed-fw-left {
+    top: 45%;
+    left: 8%;
+    animation: fireworkBurstGold 8s infinite;
+}
+
+.closed-fw-right {
+    top: 45%;
+    right: 8%;
+    animation: fireworkBurstAmber 9s infinite;
+    animation-delay: 2s;
+}
+
+/* Search Bar Glowing Border */
+#mobile-search,
+#desktop-search {
+    background: rgba(22, 11, 42, 0.75) !important;
+    border: 1.5px solid rgba(245, 158, 11, 0.45) !important;
+    box-shadow: 0 0 16px rgba(245, 158, 11, 0.2), inset 0 1px 1px rgba(251, 191, 36, 0.15) !important;
+}
+
+#mobile-search:focus,
+#desktop-search:focus {
+    border-color: #f59e0b !important;
+    box-shadow: 0 0 24px rgba(245, 158, 11, 0.5) !important;
+}
+
+/* Category Promo Banner Glowing Border */
+#category-promo-banner {
+    border: 1.5px solid rgba(245, 158, 11, 0.6) !important;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7), 0 0 22px rgba(245, 158, 11, 0.35) !important;
+}
+
+/* Floating Bottom Dock Glowing Golden Rim (Exact Match to Reference) */
+nav.liquid-dock-pill {
+    border: 2px solid #f59e0b !important;
+    box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.85), 0 0 25px rgba(245, 158, 11, 0.55), inset 0 1px 2px rgba(253, 224, 71, 0.5) !important;
+    background: rgba(13, 7, 24, 0.94) !important;
+    backdrop-filter: blur(24px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(200%) !important;
+}
+
+/* Outer Screen Frame Golden Aura (For Mobile Preview & Container) */
+.mobile-phone-frame {
+    box-shadow: 0 0 0 2px #f59e0b, 0 0 35px rgba(245, 158, 11, 0.6), 0 25px 60px rgba(0, 0, 0, 0.9) !important;
 }

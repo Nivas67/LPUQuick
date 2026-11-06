@@ -248,116 +248,134 @@ function classifyProductCategory(p) {
     return 'others';
 }
 
+function isProductInStock(p) {
+    if (!p) return false;
+    const stockVal = p.stock_left !== undefined && p.stock_left !== null ? Number(p.stock_left) : Number(p.stock ?? 0);
+    return Boolean(p.in_stock && stockVal > 0);
+}
+window.isProductInStock = isProductInStock;
+
 function buildProductCardsHTML(items, isAboveFold = false, startIndex = 0) {
     if (!items || items.length === 0) return '';
+
     return items.map((p, idx) => {
-        const overallIndex = startIndex + idx;
-        const discountPercent = p.mrp && p.mrp > p.price ? Math.round(((p.mrp - p.price) / p.mrp) * 100) : 0;
+        const stockLeft = p.stock_left !== undefined && p.stock_left !== null ? Number(p.stock_left) : Number(p.stock ?? 0);
+        const isOutOfStock = Boolean(!p.in_stock || stockLeft <= 0);
+        const isLowStock = !isOutOfStock && stockLeft > 0 && stockLeft <= 5;
+        const discountPercent = (p.mrp && p.mrp > p.price) ? Math.round(((p.mrp - p.price) / p.mrp) * 100) : 0;
         const isLcpCandidate = isAboveFold && idx === 0;
-        const stockLeft = p.stock_left !== undefined && p.stock_left !== null ? Number(p.stock_left) : 0;
-        const isLowStock = stockLeft > 0 && stockLeft <= 4;
-        const isOutOfStock = !p.in_stock || stockLeft <= 0;
+        const overallIndex = startIndex + idx;
         const catTag = classifyProductCategory(p);
         const isCookedFood = catTag === 'lpq-food' || Boolean(p.is_food_product);
 
         return `
-        <div class="product-card-item product-detail-trigger p-2.5 sm:p-3 flex flex-col justify-between cursor-pointer group ${isOutOfStock ? 'opacity-75' : ''}" 
+        <div class="product-card-item product-detail-trigger p-2 sm:p-2.5 md:p-3 flex flex-col justify-between h-full w-full min-w-0 cursor-pointer group select-none ${isOutOfStock ? 'opacity-75' : ''}" 
              data-product-id="${p.id}" 
              data-category="${catTag}" 
              data-out-of-stock="${isOutOfStock}"
              data-initial-index="${overallIndex}"
              data-veg="${p.is_veg !== 0 ? '1' : '0'}"
              data-price="${p.price}">
-            <div>
+            <div class="flex flex-col w-full">
                 <!-- 3D Recessed Pedestal with Packshot Display -->
-                <div class="card-pedestal h-36 sm:h-40 rounded-2xl relative overflow-hidden flex items-center justify-center p-2.5 mb-2.5 border border-[var(--glass-border)]">
+                <div class="card-pedestal h-[104px] sm:h-[118px] md:h-[136px] rounded-xl sm:rounded-2xl relative overflow-hidden flex items-center justify-center p-2 mb-1.5 sm:mb-2 border border-[var(--glass-border)] shrink-0">
                     <!-- Veg indicator (🟢 green dot inside square) -->
-                    <div class="absolute bottom-2 right-2 z-10 bg-white/95 dark:bg-slate-900/90 p-0.5 rounded-md shadow-xs border border-emerald-600/40">
-                        <span class="w-3.5 h-3.5 border ${p.is_veg !== 0 ? 'border-emerald-600' : 'border-rose-600'} rounded-xs flex items-center justify-center p-[1px]">
+                    <div class="absolute bottom-1 right-1 sm:bottom-1.5 sm:right-1.5 z-10 bg-white/95 dark:bg-slate-900/90 p-0.5 rounded-md shadow-xs border border-emerald-600/40">
+                        <span class="w-3 h-3 sm:w-3.5 sm:h-3.5 border ${p.is_veg !== 0 ? 'border-emerald-600' : 'border-rose-600'} rounded-xs flex items-center justify-center p-[1px]">
                             <span class="w-1.5 h-1.5 rounded-full ${p.is_veg !== 0 ? 'bg-emerald-600' : 'bg-rose-600'}"></span>
                         </span>
                     </div>
 
                     <!-- Wishlist Heart Outline -->
-                    <button type="button" class="wishlist-btn absolute top-2 right-2 z-10 w-7 h-7 rounded-full bg-white/85 dark:bg-slate-900/85 backdrop-blur-xs flex items-center justify-center text-slate-400 hover:text-rose-500 transition-colors shadow-xs" title="Save to favorites" onclick="event.stopPropagation(); this.classList.toggle('text-rose-500');">
-                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                    <button type="button" class="wishlist-btn absolute top-1 right-1 sm:top-1.5 sm:right-1.5 z-10 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white/85 dark:bg-slate-900/85 backdrop-blur-xs flex items-center justify-center text-slate-400 hover:text-rose-500 transition-colors shadow-xs" title="Save to favorites" onclick="event.stopPropagation(); this.classList.toggle('text-rose-500');">
+                        <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
                     </button>
 
-                    <!-- Floating Tag: "Cooked Fresh", "Bought Earlier" or Discount Badge -->
-                    ${isCookedFood ? `
-                    <div class="absolute top-2 left-2 z-10 bg-gradient-to-r from-amber-600 to-orange-600 text-white text-[9px] font-black px-2 py-0.5 rounded-md shadow-xs uppercase tracking-wider flex items-center gap-1">
+                    <!-- TOP-LEFT BADGE: Clean Single Slot with Strict Precedence (Fixes 'Out of Stock LIER' overlap) -->
+                    ${isOutOfStock ? `
+                    <div class="stock-badge absolute top-1 left-1 sm:top-1.5 sm:left-1.5 z-10 text-[7.5px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow-xs bg-rose-600 text-white" data-id="${p.id}">
+                        Out of Stock
+                    </div>
+                    ` : (isLowStock ? `
+                    <div class="stock-badge absolute top-1 left-1 sm:top-1.5 sm:left-1.5 z-10 text-[7.5px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow-xs bg-amber-500 text-white flex items-center gap-0.5" data-id="${p.id}">
+                        Only ${stockLeft} left
+                    </div>
+                    ` : (isCookedFood ? `
+                    <div class="absolute top-1 left-1 sm:top-1.5 sm:left-1.5 z-10 bg-gradient-to-r from-amber-600 to-orange-600 text-white text-[7.5px] sm:text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs uppercase tracking-wider flex items-center gap-0.5 sm:gap-1">
                         <span>🍳</span>
-                        <span>Cooked Fresh</span>
+                        <span>Cooked</span>
                     </div>
                     ` : (idx === 1 ? `
-                    <div class="absolute top-2 left-2 z-10 bg-teal-600 text-white text-[9px] font-black px-2 py-0.5 rounded-md shadow-xs uppercase tracking-wider">
+                    <div class="absolute top-1 left-1 sm:top-1.5 sm:left-1.5 z-10 bg-teal-600 text-white text-[7.5px] sm:text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs uppercase tracking-wider">
                         Bought Earlier
                     </div>
                     ` : (discountPercent > 0 ? `
-                    <div class="liquid-badge absolute top-2 left-2 z-10 text-[9px] font-black px-2 py-0.5 shadow-xs">
-                        ${discountPercent}% OFF
+                    <div class="diwali-badge-glow absolute top-1 left-1 sm:top-1.5 sm:left-1.5 z-10 text-[7.5px] sm:text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs flex items-center gap-0.5">
+                        <span>🪔</span>
+                        <span>${discountPercent}% OFF</span>
                     </div>
-                    ` : ''))}
+                    ` : ''))))}
 
                     <!-- Delivery ETA badge -->
-                    <div class="absolute bottom-2 left-2 z-10 flex items-center gap-1 bg-slate-900/85 dark:bg-slate-800/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md backdrop-blur-xs">
-                        <svg class="w-2.5 h-2.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    <div class="absolute bottom-1 left-1 sm:bottom-1.5 sm:left-1.5 z-10 flex items-center gap-0.5 bg-slate-900/85 dark:bg-slate-800/90 text-white text-[7.5px] sm:text-[9px] font-bold px-1 sm:px-1.5 py-0.5 rounded-md backdrop-blur-xs">
+                        <svg class="w-2 h-2 sm:w-2.5 sm:h-2.5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                         <span>8m</span>
                     </div>
 
-                    <!-- Stock Status Badge -->
-                    <div class="stock-badge absolute top-2 left-2 z-10 text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm ${isOutOfStock ? 'bg-rose-600 text-white block' : (isLowStock ? 'bg-amber-500 text-white flex items-center gap-0.5' : 'hidden')}" data-id="${p.id}" style="${(!isOutOfStock && !isLowStock) ? 'display: none;' : ''}">
-                        ${isOutOfStock ? 'Out of Stock' : (isLowStock ? `Only ${stockLeft} left` : '')}
-                    </div>
-
-                    <img class="object-contain w-full h-full group-hover:scale-105 transition-transform duration-300" 
+                    <img class="object-contain w-full h-full max-h-[88%] max-w-[88%] group-hover:scale-105 transition-transform duration-300 pointer-events-none" 
                          src="${p.image_url}" 
                          alt="${p.name}" 
-                         width="150" 
-                         height="150" 
+                         width="140" 
+                         height="140" 
                          ${isLcpCandidate ? 'fetchpriority="high"' : 'loading="lazy"'} 
                          decoding="async" 
                          onerror="this.onerror=null; this.src='/logo.png';">
                 </div>
 
                 <!-- Pack Size & Cooked Indicator Pill -->
-                <div class="flex items-center gap-1.5 mb-1 flex-wrap">
-                    <span class="clay-pill text-[10px] font-semibold text-slate-500 dark:text-slate-400 px-2 py-0.5 inline-block">
+                <div class="flex items-center gap-1 mb-0.5 sm:mb-1 h-3.5 sm:h-4 overflow-hidden">
+                    <span class="clay-pill text-[8.5px] sm:text-[9.5px] font-semibold text-slate-500 dark:text-slate-400 px-1.5 py-0.2 inline-block truncate max-w-[85px] sm:max-w-none">
                         ${p.size || p.unit || '1 pack'}
                     </span>
                     ${isCookedFood ? `
-                    <span class="text-[9px] font-black text-amber-600 dark:text-amber-400 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
+                    <span class="text-[7.5px] sm:text-[8.5px] font-black text-amber-500 dark:text-amber-400 bg-amber-500/15 border border-amber-500/30 px-1 py-0.2 rounded flex items-center gap-0.5 shrink-0">
                         <span>🍳</span>
                         <span>Cooked</span>
                     </span>
                     ` : ''}
                 </div>
 
-                <!-- Title -->
-                <h3 class="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 line-clamp-2 leading-snug min-h-[34px] group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                    ${p.name}${isCookedFood && !p.name.toLowerCase().includes('cooked') ? ' <span class="text-amber-600 dark:text-amber-400 font-extrabold text-[10px] sm:text-xs tracking-tight">(Cooked)</span>' : ''}
+                <!-- Title (Balanced 2-line container) -->
+                <h3 class="font-bold text-[11px] sm:text-xs md:text-sm text-slate-900 dark:text-slate-100 line-clamp-2 leading-tight min-h-[28px] sm:min-h-[32px] group-hover:text-amber-500 dark:group-hover:text-amber-400 transition-colors overflow-hidden">
+                    ${p.name}${isCookedFood && !p.name.toLowerCase().includes('cooked') ? ' <span class="text-amber-500 dark:text-amber-400 font-extrabold text-[9px] sm:text-xs tracking-tight">(Cooked)</span>' : ''}
                 </h3>
 
                 <!-- Rating line (Instamart style) -->
-                <div class="flex items-center gap-1 mt-1 text-[10px] text-slate-500 dark:text-slate-400 font-semibold">
+                <div class="flex items-center gap-1 mt-0.5 text-[8.5px] sm:text-[9.5px] text-slate-500 dark:text-slate-400 font-semibold h-3 sm:h-3.5">
                     <span class="text-amber-500 font-bold">★ 4.8</span>
                     <span>(40k+)</span>
                 </div>
             </div>
 
-            <!-- Bottom Price & Tactile Action Slot -->
-            <div class="mt-2 sm:mt-2.5 pt-2 border-t border-[var(--glass-border)] flex items-center justify-between gap-1.5">
-                <div class="flex flex-col min-w-0">
-                    <div class="flex items-baseline gap-1">
-                        <span class="text-xs sm:text-base font-black text-slate-900 dark:text-white tracking-tight">₹${p.price}</span>
-                        ${p.mrp && p.mrp > p.price ? `<span class="text-[9px] sm:text-[10px] text-slate-400 line-through">₹${p.mrp}</span>` : ''}
+            <!-- Bottom Price & Action Slot (Perfect Level Horizontal Baseline) -->
+            <div class="mt-auto pt-1.5 sm:pt-2 border-t border-[var(--glass-border)] flex items-center justify-between gap-1 w-full">
+                <div class="flex flex-col min-w-0 justify-center leading-none">
+                    <div class="flex items-baseline gap-1 leading-none">
+                        <span class="text-xs sm:text-sm md:text-base font-black text-slate-900 dark:text-white tracking-tight">₹${p.price}</span>
+                        ${p.mrp && p.mrp > p.price ? `<span class="text-[8px] sm:text-[9px] md:text-[10px] text-slate-400 line-through leading-none">₹${p.mrp}</span>` : ''}
                     </div>
-                    ${discountPercent > 0 ? `<span class="text-[8px] sm:text-[9px] font-bold text-cyan-600 dark:text-cyan-400">${discountPercent}% OFF on MRP</span>` : ''}
+                    <div class="h-2.5 sm:h-3 flex items-center mt-0.5">
+                        ${discountPercent > 0 ? `
+                        <span class="text-[8px] sm:text-[8.5px] font-extrabold text-amber-500 dark:text-amber-400 leading-none truncate">${discountPercent}% OFF</span>
+                        ` : `
+                        <span class="text-[8px] sm:text-[8.5px] opacity-0 select-none leading-none">&nbsp;</span>
+                        `}
+                    </div>
                 </div>
 
-                <div class="product-action-slot" data-id="${p.id}" data-out-of-stock="${isOutOfStock}" data-stock-left="${stockLeft}">
+                <div class="product-action-slot shrink-0" data-id="${p.id}" data-out-of-stock="${isOutOfStock}" data-stock-left="${stockLeft}">
                     ${isOutOfStock ? `
-                    <span class="clay-pill text-[9px] sm:text-[10px] font-bold text-slate-400 px-2 sm:px-3 py-1 cursor-not-allowed select-none">
+                    <span class="clay-pill text-[8.5px] sm:text-[10px] font-bold text-slate-400 px-2 sm:px-2.5 py-1 rounded-lg cursor-not-allowed select-none flex items-center justify-center">
                         Out
                     </span>
                     ` : `
@@ -365,7 +383,8 @@ function buildProductCardsHTML(items, isAboveFold = false, startIndex = 0) {
                     `}
                 </div>
             </div>
-        </div>`;
+        </div>
+        `;
     }).join('');
 }
 
@@ -728,7 +747,7 @@ window.pages.home = async function () {
 
     const address = getHomeHostelDisplayName();
 
-    const isProductInStock = (p) => Boolean(p.in_stock && Number(p.stock_left) > 0);
+    // isProductInStock declared at top-level
 
     // Order products: In-Stock items first, followed by Out-of-Stock items so all items are searchable
     const sortedCatalogProducts = [...allProductsFromApi].sort((a, b) => {
@@ -829,7 +848,7 @@ window.pages.home = async function () {
     }).join('');
 
     return `
-<div class="min-h-screen pb-32">
+<div class="min-h-screen pb-52 sm:pb-40 pb-[calc(13rem+env(safe-area-inset-bottom,24px))]">
     <!-- Sticky Mobile Web Smart App Banner (Industry standard for mobile web) -->
     <div id="home-mobile-smart-banner" onclick="window.showInstallPrompt()" class="btn-install-app sm:hidden w-full bg-slate-900 text-white px-3.5 py-2 border-b border-emerald-500/30 flex items-center justify-between gap-2 shadow-lg z-50 cursor-pointer">
         <div class="flex items-center gap-2.5 min-w-0">
@@ -851,6 +870,47 @@ window.pages.home = async function () {
                 <svg class="w-4 h-4 text-slate-400 hover:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
         </div>
+    </div>
+
+    <!-- Shubh Diwali Festive Announcement Ribbon (GPU accelerated, ultra light) -->
+    <div id="diwali-top-ribbon" class="diwali-top-toran w-full text-white text-[10px] sm:text-xs font-black py-1.5 px-3 text-center flex items-center justify-center gap-2 sm:gap-3.5 shadow-md uppercase tracking-wider select-none relative z-40">
+        <span class="diwali-live-diya" aria-hidden="true">
+            <svg viewBox="0 0 28 28" class="w-4 h-4 sm:w-5 sm:h-5">
+                <defs>
+                    <linearGradient id="diyaPotGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#b45309"/>
+                        <stop offset="60%" stop-color="#78350f"/>
+                        <stop offset="100%" stop-color="#451a03"/>
+                    </linearGradient>
+                    <linearGradient id="diyaRimGrad" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stop-color="#f59e0b"/>
+                        <stop offset="50%" stop-color="#fde047"/>
+                        <stop offset="100%" stop-color="#ea580c"/>
+                    </linearGradient>
+                    <linearGradient id="diyaFlameGrad" x1="0" y1="1" x2="0" y2="0">
+                        <stop offset="0%" stop-color="#ea580c"/>
+                        <stop offset="45%" stop-color="#f59e0b"/>
+                        <stop offset="85%" stop-color="#fde047"/>
+                        <stop offset="100%" stop-color="#ffffff"/>
+                    </linearGradient>
+                </defs>
+                <path d="M3 15C3 21 8 24 14 24C20 24 25 21 25 15C25 14 23 13 20 13C14 13 8 13 3 15Z" fill="url(#diyaPotGrad)"/>
+                <ellipse cx="14" cy="14" rx="9" ry="2.8" fill="url(#diyaRimGrad)"/>
+                <ellipse cx="14" cy="14" rx="6.5" ry="1.6" fill="#451a03"/>
+                <path class="diya-flame-flicker" d="M14 2C12.5 5.5 11 7.5 12 10C12.8 11.8 15.2 11.8 16 10C17 7.5 15.5 5.5 14 2Z" fill="url(#diyaFlameGrad)"/>
+                <ellipse class="diya-flame-core" cx="14" cy="9.5" rx="1.2" ry="2" fill="#ffffff" opacity="0.9"/>
+            </svg>
+        </span>
+        <span class="diwali-ribbon-text tracking-wider">🪔 SHUBH DEEPAWALI • 8-MIN EXPRESS DELIVERY • FESTIVE OFFERS ACTIVE 🪔</span>
+        <span class="diwali-live-diya" aria-hidden="true">
+            <svg viewBox="0 0 28 28" class="w-4 h-4 sm:w-5 sm:h-5">
+                <path d="M3 15C3 21 8 24 14 24C20 24 25 21 25 15C25 14 23 13 20 13C14 13 8 13 3 15Z" fill="url(#diyaPotGrad)"/>
+                <ellipse cx="14" cy="14" rx="9" ry="2.8" fill="url(#diyaRimGrad)"/>
+                <ellipse cx="14" cy="14" rx="6.5" ry="1.6" fill="#451a03"/>
+                <path class="diya-flame-flicker" d="M14 2C12.5 5.5 11 7.5 12 10C12.8 11.8 15.2 11.8 16 10C17 7.5 15.5 5.5 14 2Z" fill="url(#diyaFlameGrad)"/>
+                <ellipse class="diya-flame-core" cx="14" cy="9.5" rx="1.2" ry="2" fill="#ffffff" opacity="0.9"/>
+            </svg>
+        </span>
     </div>
 
     <!-- Floating Dynamic Island Header (Next-Gen Translucent Capsule) -->
@@ -1017,6 +1077,95 @@ window.pages.home = async function () {
             </div>
         </section>
 
+                <!-- Grand Happy Diwali Festive Showcase Banner (Visual Match to Reference Screen 2) -->
+        <section class="w-full pt-1" id="diwali-grand-hero-section">
+            <div id="diwali-grand-hero-banner" class="diwali-grand-banner relative w-full overflow-hidden rounded-3xl p-3 sm:p-5 my-1 text-center select-none shadow-2xl border border-amber-500/40">
+                <!-- Ambient fireworks in the banner background -->
+                <div class="banner-firework banner-fw-1" aria-hidden="true"></div>
+                <div class="banner-firework banner-fw-2" aria-hidden="true"></div>
+
+                <!-- Hanging Golden Fairy Lights Strand across banner top -->
+                <div class="banner-fairy-lights" aria-hidden="true">
+                    <svg viewBox="0 0 400 24" preserveAspectRatio="none" class="w-full h-5">
+                        <path d="M0 4 Q 25 14, 50 4 Q 75 14, 100 4 Q 125 14, 150 4 Q 175 14, 200 4 Q 225 14, 250 4 Q 275 14, 300 4 Q 325 14, 350 4 Q 375 14, 400 4" stroke="#d97706" stroke-width="1.2" fill="none"/>
+                        <circle cx="25" cy="14" r="3" fill="#fde047" class="diwali-bulb-glow"/>
+                        <circle cx="75" cy="14" r="3" fill="#fde047" class="diwali-bulb-glow"/>
+                        <circle cx="125" cy="14" r="3" fill="#fde047" class="diwali-bulb-glow"/>
+                        <circle cx="175" cy="14" r="3" fill="#fde047" class="diwali-bulb-glow"/>
+                        <circle cx="225" cy="14" r="3" fill="#fde047" class="diwali-bulb-glow"/>
+                        <circle cx="275" cy="14" r="3" fill="#fde047" class="diwali-bulb-glow"/>
+                        <circle cx="325" cy="14" r="3" fill="#fde047" class="diwali-bulb-glow"/>
+                        <circle cx="375" cy="14" r="3" fill="#fde047" class="diwali-bulb-glow"/>
+                    </svg>
+                </div>
+
+                <!-- Festive Center Row: Gift Box - Diya - "Happy Diwali" - Diya - Gift Box -->
+                <div class="relative z-10 flex items-center justify-between gap-1 sm:gap-3 max-w-lg mx-auto pt-1 pb-1">
+                    <!-- Left 3D Gift Box -->
+                    <div class="diwali-gift-box shrink-0 select-none">
+                        <svg viewBox="0 0 36 36" class="w-8 h-8 sm:w-10 sm:h-10 drop-shadow-[0_4px_10px_rgba(234,88,12,0.5)]">
+                            <rect x="5" y="13" width="26" height="18" rx="3" fill="url(#giftBoxGrad)"/>
+                            <rect x="15.5" y="13" width="5" height="18" fill="url(#giftRibbonGrad)"/>
+                            <rect x="5" y="20" width="26" height="4" fill="url(#giftRibbonGrad)"/>
+                            <rect x="3" y="10" width="30" height="5" rx="2" fill="url(#giftLidGrad)"/>
+                            <rect x="15.5" y="10" width="5" height="5" fill="url(#giftRibbonGrad)"/>
+                            <path d="M14 10 C10 4, 13 3, 17 9 C17 9, 15 10, 14 10 Z" fill="url(#giftRibbonGrad)"/>
+                            <path d="M22 10 C26 4, 23 3, 19 9 C19 9, 21 10, 22 10 Z" fill="url(#giftRibbonGrad)"/>
+                            <circle cx="18" cy="9.5" r="2.2" fill="#fef08a"/>
+                        </svg>
+                    </div>
+
+                    <!-- Left Glowing Diya on Rangoli -->
+                    <div class="diwali-hero-diya shrink-0">
+                        <svg viewBox="0 0 36 36" class="w-7 h-7 sm:w-9 sm:h-9">
+                            <ellipse cx="18" cy="27" rx="14" ry="4" fill="url(#baseRangoliGrad)" opacity="0.8"/>
+                            <path d="M6 21 C6 27, 11 29, 18 29 C25 29, 30 27, 30 21 C30 20, 28 19, 25 19 C18 19, 11 19, 6 21 Z" fill="url(#diyaPotGrad)"/>
+                            <ellipse cx="18" cy="20" rx="10" ry="3" fill="url(#diyaRimGrad)"/>
+                            <ellipse cx="18" cy="20" rx="7" ry="1.6" fill="#451a03"/>
+                            <path class="diya-flame-flicker" d="M18 5 C16 9, 14 11.5, 15.5 14.5 C16.5 16.5, 19.5 16.5, 20.5 14.5 C22 11.5, 20 9, 18 5 Z" fill="url(#diyaFlameGrad)"/>
+                            <ellipse class="diya-flame-core" cx="18" cy="14" rx="1.5" ry="2.5" fill="#ffffff" opacity="0.95"/>
+                        </svg>
+                    </div>
+
+                    <!-- Center Glowing Calligraphy: "Happy Diwali" -->
+                    <div class="flex-1 min-w-0 px-1">
+                        <div class="diwali-calligraphy-wrap">
+                            <span class="diwali-calligraphy-sub tracking-widest text-[9px] sm:text-xs uppercase font-extrabold text-amber-300">✨ Festival of Lights ✨</span>
+                            <h1 class="diwali-calligraphy-title text-2xl sm:text-4xl md:text-5xl font-black tracking-wide leading-tight">
+                                Happy Diwali
+                            </h1>
+                        </div>
+                    </div>
+
+                    <!-- Right Glowing Diya on Rangoli -->
+                    <div class="diwali-hero-diya shrink-0">
+                        <svg viewBox="0 0 36 36" class="w-7 h-7 sm:w-9 sm:h-9">
+                            <ellipse cx="18" cy="27" rx="14" ry="4" fill="url(#baseRangoliGrad)" opacity="0.8"/>
+                            <path d="M6 21 C6 27, 11 29, 18 29 C25 29, 30 27, 30 21 C30 20, 28 19, 25 19 C18 19, 11 19, 6 21 Z" fill="url(#diyaPotGrad)"/>
+                            <ellipse cx="18" cy="20" rx="10" ry="3" fill="url(#diyaRimGrad)"/>
+                            <ellipse cx="18" cy="20" rx="7" ry="1.6" fill="#451a03"/>
+                            <path class="diya-flame-flicker" d="M18 5 C16 9, 14 11.5, 15.5 14.5 C16.5 16.5, 19.5 16.5, 20.5 14.5 C22 11.5, 20 9, 18 5 Z" fill="url(#diyaFlameGrad)"/>
+                            <ellipse class="diya-flame-core" cx="18" cy="14" rx="1.5" ry="2.5" fill="#ffffff" opacity="0.95"/>
+                        </svg>
+                    </div>
+
+                    <!-- Right 3D Gift Box -->
+                    <div class="diwali-gift-box shrink-0 select-none">
+                        <svg viewBox="0 0 36 36" class="w-8 h-8 sm:w-10 sm:h-10 drop-shadow-[0_4px_10px_rgba(234,88,12,0.5)]">
+                            <rect x="5" y="13" width="26" height="18" rx="3" fill="url(#giftBoxGrad)"/>
+                            <rect x="15.5" y="13" width="5" height="18" fill="url(#giftRibbonGrad)"/>
+                            <rect x="5" y="20" width="26" height="4" fill="url(#giftRibbonGrad)"/>
+                            <rect x="3" y="10" width="30" height="5" rx="2" fill="url(#giftLidGrad)"/>
+                            <rect x="15.5" y="10" width="5" height="5" fill="url(#giftRibbonGrad)"/>
+                            <path d="M14 10 C10 4, 13 3, 17 9 C17 9, 15 10, 14 10 Z" fill="url(#giftRibbonGrad)"/>
+                            <path d="M22 10 C26 4, 23 3, 19 9 C19 9, 21 10, 22 10 Z" fill="url(#giftRibbonGrad)"/>
+                            <circle cx="18" cy="9.5" r="2.2" fill="#fef08a"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- Mobile Search Capsule (Relocated to sit directly on top of Filters & Sort) -->
         <section class="md:hidden relative w-full pt-1 z-30" id="mobile-search-container">
             <div class="relative flex items-center">
@@ -1161,10 +1310,10 @@ window.pages.home = async function () {
                         <div class="space-y-1 z-10 max-w-[65%]">
                             <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/15 backdrop-blur-md text-[9px] font-black tracking-wider uppercase">
                                 <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-                                <span id="promo-badge-text">CAMPUS FAVORITE</span>
+                                <span id="promo-badge-text">🪔 DIWALI SPECIAL</span>
                             </div>
-                            <h3 class="text-sm sm:text-base font-black tracking-tight" id="promo-title">Campus Supermart</h3>
-                            <p class="text-[11px] sm:text-xs text-emerald-200 line-clamp-1 font-medium" id="promo-subtitle">50+ fresh snacks & daily essentials.</p>
+                            <h3 class="text-sm sm:text-base font-black tracking-tight text-white" id="promo-title">Diwali Sweets & Fresh Snacks</h3>
+                            <p class="text-[11px] sm:text-xs text-amber-200/90 line-clamp-1 font-medium" id="promo-subtitle">Celebrate with hot cooked maggie & festive treats in 8 mins.</p>
                             <div class="pt-1">
                                 <a href="#home-main-products-grid" class="inline-block px-3.5 py-1 rounded-full bg-white text-slate-900 text-[11px] sm:text-xs font-black hover:bg-slate-100 transition-transform active:scale-95 shadow-xs cursor-pointer" id="promo-shop-now-btn">
                                     Shop now
@@ -1172,7 +1321,18 @@ window.pages.home = async function () {
                             </div>
                         </div>
                         <div class="relative w-24 h-18 sm:w-32 sm:h-22 shrink-0 flex items-center justify-center">
-                            <img src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=320&auto=format&fit=crop&q=80" alt="Featured" class="max-h-full max-w-full object-contain drop-shadow-xl" id="promo-image">
+                                                        <img src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=320&auto=format&fit=crop&q=80" alt="Featured" class="max-h-full max-w-full object-contain drop-shadow-xl" id="promo-image">
+                            <!-- Glowing Diya on Rangoli Base (Exact Visual Match to Screen 2) -->
+                            <div class="absolute -bottom-1 -left-2 sm:-left-3 z-20 pointer-events-none drop-shadow-[0_0_12px_rgba(245,158,11,0.95)]">
+                                <svg viewBox="0 0 36 36" class="w-8 h-8 sm:w-10 sm:h-10">
+                                    <ellipse cx="18" cy="27" rx="14" ry="4" fill="url(#baseRangoliGrad)" opacity="0.85"/>
+                                    <path d="M6 21 C6 27, 11 29, 18 29 C25 29, 30 27, 30 21 C30 20, 28 19, 25 19 C18 19, 11 19, 6 21 Z" fill="url(#diyaPotGrad)"/>
+                                    <ellipse cx="18" cy="20" rx="10" ry="3" fill="url(#diyaRimGrad)"/>
+                                    <ellipse cx="18" cy="20" rx="7" ry="1.6" fill="#451a03"/>
+                                    <path class="diya-flame-flicker" d="M18 5 C16 9, 14 11.5, 15.5 14.5 C16.5 16.5, 19.5 16.5, 20.5 14.5 C22 11.5, 20 9, 18 5 Z" fill="url(#diyaFlameGrad)"/>
+                                    <ellipse class="diya-flame-core" cx="18" cy="14" rx="1.5" ry="2.5" fill="#ffffff" opacity="0.95"/>
+                                </svg>
+                            </div>
                         </div>
                     </div>
 
@@ -1195,7 +1355,7 @@ window.pages.home = async function () {
                                 See all <span class="material-symbols-outlined text-xs">arrow_forward</span>
                             </button>
                         </div>
-                        <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3" id="home-highlighted-food-grid">
+                        <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-x-3 gap-y-3.5 sm:gap-x-3.5 sm:gap-y-4" id="home-highlighted-food-grid">
                             ${highlightedFoodCards}
                         </div>
                     </div>
@@ -1215,7 +1375,7 @@ window.pages.home = async function () {
                     </div>
 
                     <!-- In-Stock Product Grid beside Category Rail -->
-                    <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3.5" id="home-main-products-grid">
+                    <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-x-3 gap-y-3.5 sm:gap-x-3.5 sm:gap-y-4" id="home-main-products-grid">
                         ${besideRailProductCards || `
                         <div class="col-span-full py-12 text-center flex flex-col items-center justify-center glass-card rounded-3xl p-6">
                             <span class="material-symbols-outlined text-4xl text-emerald mb-2">storefront</span>
@@ -1243,7 +1403,7 @@ window.pages.home = async function () {
 
             <!-- Products Beyond the Category Rail: Full-Width 2-Column Grid (Image 2 UX with Zero Empty Space) -->
             <div id="home-remaining-products-section" class="w-full pt-1 sm:pt-2 ${initialRemainingProducts.length > 0 ? '' : 'hidden'}">
-                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4" id="home-remaining-products-grid">
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-3 gap-y-3.5 sm:gap-x-3.5 sm:gap-y-4" id="home-remaining-products-grid">
                     ${remainingProductCards}
                 </div>
             </div>
@@ -1292,7 +1452,7 @@ window.pages.home = async function () {
                     See all <span class="material-symbols-outlined text-xs">arrow_forward</span>
                 </button>
             </div>
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4">${instantFoodCards}</div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-3 gap-y-3.5 sm:gap-x-3.5 sm:gap-y-4">${instantFoodCards}</div>
         </section>
         ` : ''}
 
@@ -1307,7 +1467,7 @@ window.pages.home = async function () {
                     See all <span class="material-symbols-outlined text-xs">arrow_forward</span>
                 </button>
             </div>
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4">${biscuitCards}</div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-3 gap-y-3.5 sm:gap-x-3.5 sm:gap-y-4">${biscuitCards}</div>
         </section>
         ` : ''}
 
@@ -1322,7 +1482,7 @@ window.pages.home = async function () {
                     See all <span class="material-symbols-outlined text-xs">arrow_forward</span>
                 </button>
             </div>
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4">${chipCards}</div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-3 gap-y-3.5 sm:gap-x-3.5 sm:gap-y-4">${chipCards}</div>
         </section>
         ` : ''}
 
@@ -1337,7 +1497,7 @@ window.pages.home = async function () {
                     See all <span class="material-symbols-outlined text-xs">arrow_forward</span>
                 </button>
             </div>
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4">${chocolateCards}</div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-3 gap-y-3.5 sm:gap-x-3.5 sm:gap-y-4">${chocolateCards}</div>
         </section>
         ` : ''}
 
@@ -1354,7 +1514,7 @@ window.pages.home = async function () {
                     See all <span class="material-symbols-outlined text-xs">arrow_forward</span>
                 </button>
             </div>
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4">${snackCards}</div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-3 gap-y-3.5 sm:gap-x-3.5 sm:gap-y-4">${snackCards}</div>
         </section>
         ` : ''}
     </main>
@@ -1421,14 +1581,16 @@ window.pageInits.home = function () {
 
             if (matchesCategory && matchesSearch && matchesVeg) {
                 card.classList.remove('hidden');
+                card.style.removeProperty('display');
                 visibleCount++;
             } else {
                 card.classList.add('hidden');
+                card.style.setProperty('display', 'none', 'important');
             }
         });
 
         // Filter out visible cards
-        const visibleCards = allCards.filter(c => !c.classList.contains('hidden'));
+        const visibleCards = allCards.filter(c => !c.classList.contains('hidden') && c.style.display !== 'none');
 
         // Priority 1: In-Stock items ALWAYS come first, Out-of-Stock items ALWAYS come last!
         // Priority 2: Secondary sort based on user's selected sort option
@@ -1489,8 +1651,10 @@ window.pageInits.home = function () {
             if (remainingSection) {
                 if (remainingCards.length > 0) {
                     remainingSection.classList.remove('hidden');
+                    remainingSection.style.removeProperty('display');
                 } else {
                     remainingSection.classList.add('hidden');
+                    remainingSection.style.setProperty('display', 'none', 'important');
                 }
             }
         }
@@ -1528,6 +1692,7 @@ window.pageInits.home = function () {
         if (visibleCount === 0) {
             if (emptyState) {
                 emptyState.classList.remove('hidden');
+                emptyState.style.removeProperty('display');
                 if (emptyEmoji) emptyEmoji.textContent = query ? '🔍' : catObj.emoji;
                 if (emptyTitle) {
                     if (query) {
@@ -1545,7 +1710,10 @@ window.pageInits.home = function () {
                 if (emptyDesc) emptyDesc.textContent = query ? 'Try searching another snack like chips, magiee, chocolates, or cold drinks.' : 'Check another category or turn off Veg Only.';
             }
         } else {
-            if (emptyState) emptyState.classList.add('hidden');
+            if (emptyState) {
+                emptyState.classList.add('hidden');
+                emptyState.style.setProperty('display', 'none', 'important');
+            }
         }
 
         // Toggle highlighted food section at top of 'all'
@@ -1553,8 +1721,10 @@ window.pageInits.home = function () {
         if (foodHighlightSec) {
             if (currentCategory === 'all' && !query) {
                 foodHighlightSec.classList.remove('hidden');
+                foodHighlightSec.style.removeProperty('display');
             } else {
                 foodHighlightSec.classList.add('hidden');
+                foodHighlightSec.style.setProperty('display', 'none', 'important');
             }
         }
 
@@ -1563,8 +1733,10 @@ window.pageInits.home = function () {
         shelves.forEach(s => {
             if (currentCategory === 'all' && !query && !isVegOnly) {
                 s.classList.remove('hidden');
+                s.style.removeProperty('display');
             } else {
                 s.classList.add('hidden');
+                s.style.setProperty('display', 'none', 'important');
             }
         });
     }

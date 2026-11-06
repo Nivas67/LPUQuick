@@ -1980,56 +1980,86 @@ window.renderStoreClosedBannerOrOverlay = function () {
         if (homeHeroContainer) {
             const hasCountdown = Boolean(avail.remaining_seconds || targetEnd);
             const closedCardHtml = `
-                <div id="store-closed-hero-card" class="relative overflow-hidden rounded-3xl bg-[#1a1d20] text-white p-6 sm:p-8 shadow-2xl border border-white/10 my-4 animate-fade-in">
-                    <!-- Ambient glow -->
-                    <div class="absolute -top-24 -left-24 w-72 h-72 bg-red-600/10 rounded-full blur-3xl pointer-events-none"></div>
-                    <div class="absolute -bottom-24 -right-24 w-72 h-72 bg-amber-600/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div id="store-closed-hero-card" class="diwali-store-closed-card relative overflow-hidden rounded-3xl p-5 sm:p-8 shadow-2xl my-3 sm:my-4 animate-fade-in text-white text-center">
+                    <!-- Indian Golden Filigree Toran Arches in all 4 Corners -->
+                    <div class="diwali-filigree diwali-filigree-tl" aria-hidden="true"></div>
+                    <div class="diwali-filigree diwali-filigree-tr" aria-hidden="true"></div>
+                    <div class="diwali-filigree diwali-filigree-bl" aria-hidden="true"></div>
+                    <div class="diwali-filigree diwali-filigree-br" aria-hidden="true"></div>
 
-                    <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
-                        
-                        <!-- Left Column: Dynamic Typography & Live Countdown -->
-                        <div class="flex-1 space-y-3 text-left">
-                            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-white/10 text-white/90 border border-white/10">
-                                <span class="w-2 h-2 rounded-full bg-[#ea4335] animate-ping"></span>
-                                <span>Temporary Store Restock</span>
-                            </div>
+                    <!-- Golden Fireworks Sparkles left and right -->
+                    <div class="closed-firework closed-fw-left" aria-hidden="true"></div>
+                    <div class="closed-firework closed-fw-right" aria-hidden="true"></div>
 
-                            <h1 class="text-2xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight" id="client-closed-headline">
-                                ${reopenHeadline}
-                            </h1>
+                    <div class="relative z-10 flex flex-col items-center max-w-lg mx-auto space-y-3">
+                        <!-- Badge -->
+                        <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-[10.5px] sm:text-xs font-black uppercase tracking-wider bg-black/50 text-amber-300 border border-amber-500/60 shadow-md">
+                            <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+                            <span>TEMPORARY STORE RESTOCK</span>
+                        </div>
 
-                            <p class="text-sm sm:text-base text-[#a0a5aa] font-medium leading-relaxed max-w-xl">
-                                ${secondaryText}
-                            </p>
+                        <!-- Reopen Headline -->
+                        <h1 class="text-2xl sm:text-4xl font-black text-white tracking-tight leading-tight" id="client-closed-headline">
+                            ${reopenHeadline}
+                        </h1>
 
-                            <!-- Live Ticking Countdown -->
-                            <div id="client-countdown-wrapper" class="pt-2">
-                                <div class="inline-flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-white/10 border border-white/15 text-white font-mono text-sm shadow-inner">
-                                    <span class="material-symbols-outlined text-base text-[#ea4335] animate-pulse">timer</span>
-                                    <span class="text-xs font-semibold text-white/80">Time remaining:</span>
-                                    <span class="font-bold text-white font-mono text-base tracking-widest" id="client-countdown-display">00:00:00</span>
-                                </div>
+                        <!-- Subtitle -->
+                        <p class="text-xs sm:text-sm text-amber-200/90 font-bold uppercase tracking-wider" id="client-closed-subtitle">
+                            ${secondaryText || 'RESTOCKING MY LOVELY CUSTOMER'}
+                        </p>
+
+                        <!-- Live Ticking Countdown Capsule with Neon Amber Border -->
+                        <div id="client-countdown-wrapper" class="pt-0.5">
+                            <div class="inline-flex items-center gap-2.5 px-4 sm:px-5 py-1.5 sm:py-2 rounded-2xl bg-black/60 border-2 border-amber-500/75 text-white font-mono text-xs sm:text-sm shadow-[0_0_15px_rgba(245,158,11,0.35)]">
+                                <span class="material-symbols-outlined text-base text-amber-400 animate-pulse">timer</span>
+                                <span class="text-xs font-bold text-amber-200">Time remaining:</span>
+                                <span class="font-black text-white font-mono text-sm sm:text-base tracking-widest" id="client-countdown-display">00:00:00</span>
                             </div>
                         </div>
 
-                        <!-- Right Column: Hanging Red CLOSED Sign (Visual Reference Match) -->
-                        <div class="shrink-0 flex flex-col items-center select-none pt-2 sm:pt-0">
-                            <!-- Top Chains / Strings -->
-                            <div class="flex justify-between w-36 px-4 mb-[-2px] relative z-0">
-                                <div class="w-[2px] h-8 bg-gradient-to-b from-[#80868b] to-[#5f6368] shadow-sm"></div>
-                                <div class="w-[2px] h-8 bg-gradient-to-b from-[#80868b] to-[#5f6368] shadow-sm"></div>
+                        <!-- Hanging Red Signboard on Golden Chains (Visual Match to Screen 1) -->
+                        <div class="pt-2 select-none flex flex-col items-center">
+                            <!-- Top Golden Chains -->
+                            <div class="flex justify-between w-28 px-3 mb-[-3px] relative z-0">
+                                <div class="w-[3px] h-8 bg-gradient-to-b from-amber-300 via-amber-500 to-amber-700 shadow-md"></div>
+                                <div class="w-[3px] h-8 bg-gradient-to-b from-amber-300 via-amber-500 to-amber-700 shadow-md"></div>
                             </div>
 
-                            <!-- Red Board -->
-                            <div class="relative z-10 w-44 sm:w-48 bg-gradient-to-b from-[#d93025] to-[#b3261e] border-2 border-[#ff8a80] rounded-2xl p-4 text-center shadow-[0_15px_35px_rgba(0,0,0,0.6)] transform hover:rotate-1 transition-transform duration-300">
-                                <div class="absolute top-2 left-3 w-2.5 h-2.5 rounded-full bg-[#3c4043] border border-white/40 shadow-inner"></div>
-                                <div class="absolute top-2 right-3 w-2.5 h-2.5 rounded-full bg-[#3c4043] border border-white/40 shadow-inner"></div>
-                                
-                                <p class="text-[11px] font-extrabold uppercase tracking-widest text-white/90 drop-shadow-sm">Sorry, we are</p>
-                                <h2 class="text-3xl font-black uppercase tracking-wider text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)] mt-0.5">CLOSED</h2>
+                            <!-- Red & Gold Board -->
+                            <div class="relative z-10 w-44 sm:w-52 bg-gradient-to-b from-[#dc2626] to-[#991b1b] border-2 border-amber-400 rounded-3xl p-3.5 text-center shadow-[0_12px_32px_rgba(0,0,0,0.7),0_0_20px_rgba(239,68,68,0.4)] transform hover:rotate-1 transition-transform duration-300">
+                                <div class="absolute top-2 left-3 w-2 h-2 rounded-full bg-amber-300 shadow-inner"></div>
+                                <div class="absolute top-2 right-3 w-2 h-2 rounded-full bg-amber-300 shadow-inner"></div>
+                                <p class="text-[9.5px] font-black uppercase tracking-widest text-amber-200">SORRY, WE ARE</p>
+                                <h2 class="text-2xl sm:text-3xl font-black uppercase tracking-wider text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)] mt-0.5">CLOSED</h2>
                             </div>
                         </div>
 
+                        <!-- Bottom Traditional Glowing Diyas on Rangoli Base (Left & Right) -->
+                        <div class="w-full flex justify-between items-end pt-2 px-3 sm:px-6">
+                            <!-- Left Diya -->
+                            <div class="diwali-bottom-diya flex flex-col items-center">
+                                <svg viewBox="0 0 36 36" class="w-9 h-9 sm:w-11 sm:h-11 drop-shadow-[0_0_14px_rgba(245,158,11,0.9)]">
+                                    <ellipse cx="18" cy="27" rx="14" ry="4" fill="url(#baseRangoliGrad)"/>
+                                    <path d="M6 21 C6 27, 11 29, 18 29 C25 29, 30 27, 30 21 C30 20, 28 19, 25 19 C18 19, 11 19, 6 21 Z" fill="url(#diyaPotGrad)"/>
+                                    <ellipse cx="18" cy="20" rx="10" ry="3" fill="url(#diyaRimGrad)"/>
+                                    <ellipse cx="18" cy="20" rx="7" ry="1.6" fill="#451a03"/>
+                                    <path class="diya-flame-flicker" d="M18 5 C16 9, 14 11.5, 15.5 14.5 C16.5 16.5, 19.5 16.5, 20.5 14.5 C22 11.5, 20 9, 18 5 Z" fill="url(#diyaFlameGrad)"/>
+                                    <ellipse class="diya-flame-core" cx="18" cy="14" rx="1.5" ry="2.5" fill="#ffffff" opacity="0.95"/>
+                                </svg>
+                            </div>
+
+                            <!-- Right Diya -->
+                            <div class="diwali-bottom-diya flex flex-col items-center">
+                                <svg viewBox="0 0 36 36" class="w-9 h-9 sm:w-11 sm:h-11 drop-shadow-[0_0_14px_rgba(245,158,11,0.9)]">
+                                    <ellipse cx="18" cy="27" rx="14" ry="4" fill="url(#baseRangoliGrad)"/>
+                                    <path d="M6 21 C6 27, 11 29, 18 29 C25 29, 30 27, 30 21 C30 20, 28 19, 25 19 C18 19, 11 19, 6 21 Z" fill="url(#diyaPotGrad)"/>
+                                    <ellipse cx="18" cy="20" rx="10" ry="3" fill="url(#diyaRimGrad)"/>
+                                    <ellipse cx="18" cy="20" rx="7" ry="1.6" fill="#451a03"/>
+                                    <path class="diya-flame-flicker" d="M18 5 C16 9, 14 11.5, 15.5 14.5 C16.5 16.5, 19.5 16.5, 20.5 14.5 C22 11.5, 20 9, 18 5 Z" fill="url(#diyaFlameGrad)"/>
+                                    <ellipse class="diya-flame-core" cx="18" cy="14" rx="1.5" ry="2.5" fill="#ffffff" opacity="0.95"/>
+                                </svg>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;

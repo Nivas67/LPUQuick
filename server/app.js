@@ -89,7 +89,7 @@ app.use(cors({
         if (allowedOrigins.some(o => origin === o || origin.endsWith('.lpuquick.com') || origin.endsWith('.vercel.app'))) {
             return callback(null, true);
         }
-        if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+        if (/^https?:\/\/(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/.test(origin)) {
             return callback(null, true);
         }
         callback(null, false);
@@ -162,7 +162,9 @@ const staticOptions = {
     setHeaders: (res, filePath) => {
         if (filePath.endsWith('.html') || filePath.match(/\.(css|js)$/)) {
             // HTML, JS, and CSS files revalidate immediately for SPA code updates
-            res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
         } else if (filePath.match(/\.(png|jpg|jpeg|svg|webp|woff2?)$/)) {
             // Static media assets cached with stale revalidation
             res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
@@ -262,6 +264,13 @@ app.all('/api/*', (req, res) => {
         error: 'API endpoint not found',
         code: 'NOT_FOUND'
     });
+});
+
+// Mobile phone simulator for Admin Dashboard
+// Mobile phone simulator for Customer Storefront
+app.get(['/mobile', '/mobile-preview', '/phone', '/preview'], (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.sendFile(path.join(__dirname, '..', 'public', 'mobile-preview.html'));
 });
 
 // Mobile phone simulator for Admin Dashboard
