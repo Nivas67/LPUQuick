@@ -714,9 +714,13 @@ window.pages.home = async function () {
         console.warn('Home data load warning:', e);
     }
 
-    const allProductsFromApi = (data?.all_products && data.all_products.length > 0)
+    let allProductsFromApi = (data?.all_products && data.all_products.length > 0)
         ? data.all_products
         : ((productsRes?.products && productsRes.products.length > 0) ? productsRes.products : (data?.products || []));
+
+    if ((!allProductsFromApi || allProductsFromApi.length === 0) && window.__cachedProducts && window.__cachedProducts.size > 0) {
+        allProductsFromApi = Array.from(window.__cachedProducts.values());
+    }
 
     const inStockProducts = allProductsFromApi.filter(p => {
         return Boolean(p.in_stock && Number(p.stock_left) > 0);
@@ -928,7 +932,7 @@ window.pages.home = async function () {
             </a>
 
             <!-- Address Trigger Pill -->
-            <button type="button" class="address-selector-trigger clay-pill px-3 py-1 text-xs font-bold flex items-center gap-1.5 cursor-pointer active:scale-95 transition-transform" id="btn-header-address">
+            <button type="button" onclick="window.openAddressModal()" class="address-selector-trigger clay-pill px-3 py-1 text-xs font-bold flex items-center gap-1.5 cursor-pointer active:scale-95 transition-transform" id="btn-header-address">
                 <span class="w-2 h-2 rounded-full bg-emerald animate-pulse"></span>
                 <span class="text-slate-800 dark:text-slate-200">Deliver to <strong>${address}</strong></span>
                 <span class="liquid-badge text-[9px] font-black px-1.5 py-0.2">3m</span>

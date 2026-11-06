@@ -13,28 +13,28 @@ if (typeof window.renderBottomNav !== 'function') {
 
         return `
     <!-- Floating Liquid Glass Bottom Navigation Dock -->
-    <div class="fixed bottom-3 inset-x-0 z-40 px-4 sm:hidden pointer-events-none flex justify-center">
+    <div class="fixed bottom-3 inset-x-0 z-40 px-4 sm:hidden pointer-events-none flex justify-center" id="global-bottom-nav-dock">
         <nav class="pointer-events-auto liquid-dock-pill h-14 max-w-md w-full px-3 flex justify-around items-center rounded-full shadow-2xl">
-            <a class="${isHome ? 'clay-pill flex flex-col items-center justify-center text-emerald dark:text-emerald-400 px-3.5 py-1 cursor-pointer font-bold' : 'flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer'}" href="#/" title="Home">
+            <a class="${isHome ? 'clay-pill flex flex-col items-center justify-center text-emerald dark:text-emerald-400 px-3.5 py-1 cursor-pointer font-bold bottom-nav-item active' : 'flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer bottom-nav-item'}" href="#/" title="Home" data-route="home">
                 <span class="material-symbols-outlined text-xl"${isHome ? ' style="font-variation-settings: \'FILL\' 1;"' : ''}>home</span>
                 <span class="text-[10px] ${isHome ? 'mt-0.5 font-bold' : 'font-semibold mt-0.5'}">Home</span>
             </a>
-            <a class="${isCategories ? 'clay-pill flex flex-col items-center justify-center text-emerald dark:text-emerald-400 px-3.5 py-1 cursor-pointer font-bold' : 'flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer'}" href="#/categories" title="Categories">
+            <a class="${isCategories ? 'clay-pill flex flex-col items-center justify-center text-emerald dark:text-emerald-400 px-3.5 py-1 cursor-pointer font-bold bottom-nav-item active' : 'flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer bottom-nav-item'}" href="#/categories" title="Categories" data-route="categories">
                 <span class="material-symbols-outlined text-xl"${isCategories ? ' style="font-variation-settings: \'FILL\' 1;"' : ''}>category</span>
                 <span class="text-[10px] ${isCategories ? 'mt-0.5 font-bold' : 'font-semibold mt-0.5'}">Categories</span>
             </a>
-            <a class="${isCart ? 'clay-pill flex flex-col items-center justify-center text-emerald dark:text-emerald-400 px-3.5 py-1 cursor-pointer font-bold relative' : 'flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer relative'}" href="#/cart" title="Cart" id="bottom-nav-cart-btn">
+            <a class="${isCart ? 'clay-pill flex flex-col items-center justify-center text-emerald dark:text-emerald-400 px-3.5 py-1 cursor-pointer font-bold relative bottom-nav-item active' : 'flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer relative bottom-nav-item'}" href="#/cart" title="Cart" id="bottom-nav-cart-btn" data-route="cart">
                 <div class="relative flex items-center justify-center">
                     <span class="material-symbols-outlined text-xl"${isCart ? ' style="font-variation-settings: \'FILL\' 1;"' : ''}>shopping_cart</span>
                     <span id="bottom-nav-cart-count" class="global-cart-count-badge absolute -top-1.5 -right-2.5 bg-emerald text-white text-[9px] font-black min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center shadow-xs ring-2 ring-white dark:ring-slate-900 hidden">0</span>
                 </div>
                 <span class="text-[10px] ${isCart ? 'mt-0.5 font-bold' : 'font-semibold mt-0.5'}">Cart</span>
             </a>
-            <a class="${isOrders ? 'clay-pill flex flex-col items-center justify-center text-emerald dark:text-emerald-400 px-3.5 py-1 cursor-pointer font-bold' : 'flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer'}" href="#/orders" title="Orders">
+            <a class="${isOrders ? 'clay-pill flex flex-col items-center justify-center text-emerald dark:text-emerald-400 px-3.5 py-1 cursor-pointer font-bold bottom-nav-item active' : 'flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer bottom-nav-item'}" href="#/orders" title="Orders" data-route="orders">
                 <span class="material-symbols-outlined text-xl"${isOrders ? ' style="font-variation-settings: \'FILL\' 1;"' : ''}>receipt_long</span>
                 <span class="text-[10px] ${isOrders ? 'mt-0.5 font-bold' : 'font-semibold mt-0.5'}">Orders</span>
             </a>
-            <a class="${isProfile ? 'clay-pill flex flex-col items-center justify-center text-emerald dark:text-emerald-400 px-3.5 py-1 cursor-pointer font-bold' : 'flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer'}" href="#/settings" title="Profile">
+            <a class="${isProfile ? 'clay-pill flex flex-col items-center justify-center text-emerald dark:text-emerald-400 px-3.5 py-1 cursor-pointer font-bold bottom-nav-item active' : 'flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer bottom-nav-item'}" href="#/settings" title="Profile" data-route="settings">
                 <span class="material-symbols-outlined text-xl"${isProfile ? ' style="font-variation-settings: \'FILL\' 1;"' : ''}>account_circle</span>
                 <span class="text-[10px] ${isProfile ? 'mt-0.5 font-bold' : 'font-semibold mt-0.5'}">Profile</span>
             </a>
@@ -42,6 +42,49 @@ if (typeof window.renderBottomNav !== 'function') {
     </div>`;
     };
 }
+
+// Instant 0ms Visual Synchronizer for Bottom Nav Dock
+window.syncBottomNavVisualActive = function (activeTab) {
+    const norm = String(activeTab || '').toLowerCase().trim();
+    const tabName = (norm === '/' || norm === 'home' || !norm) ? 'home'
+        : (norm.includes('categor') ? 'categories'
+        : (norm.includes('cart') ? 'cart'
+        : (norm.includes('order') ? 'orders'
+        : (norm.includes('setting') || norm.includes('profile') ? 'settings' : norm))));
+
+    document.querySelectorAll('nav.liquid-dock-pill').forEach(nav => {
+        nav.querySelectorAll('a.bottom-nav-item').forEach(a => {
+            const route = (a.getAttribute('data-route') || '').toLowerCase();
+            const isMatch = (route === tabName) || (tabName === 'home' && (!route || route === 'home')) || (tabName === 'settings' && (route === 'settings' || route === 'profile'));
+            const icon = a.querySelector('.material-symbols-outlined');
+            const label = a.querySelector('span:not(.material-symbols-outlined):not(.global-cart-count-badge)');
+
+            if (isMatch) {
+                if (a.id === 'bottom-nav-cart-btn') {
+                    a.className = 'clay-pill flex flex-col items-center justify-center text-emerald dark:text-emerald-400 px-3.5 py-1 cursor-pointer font-bold relative bottom-nav-item active';
+                } else {
+                    a.className = 'clay-pill flex flex-col items-center justify-center text-emerald dark:text-emerald-400 px-3.5 py-1 cursor-pointer font-bold bottom-nav-item active';
+                }
+                if (icon) icon.style.fontVariationSettings = "'FILL' 1";
+                if (label) {
+                    label.classList.remove('font-semibold');
+                    label.classList.add('font-bold');
+                }
+            } else {
+                if (a.id === 'bottom-nav-cart-btn') {
+                    a.className = 'flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer relative bottom-nav-item';
+                } else {
+                    a.className = 'flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-3 py-1 hover:text-emerald transition-colors cursor-pointer bottom-nav-item';
+                }
+                if (icon) icon.style.fontVariationSettings = "'FILL' 0";
+                if (label) {
+                    label.classList.remove('font-bold');
+                    label.classList.add('font-semibold');
+                }
+            }
+        });
+    });
+};
 
 // Persistent Student Session Management (Permanent Login — Never auto-logout once logged in)
 // The student will remain securely logged in until they explicitly click "Log Out"
@@ -342,15 +385,30 @@ window.hasUserConfiguredAddress = function () {
 };
 
 // Global Address Selection Modal (Multi-Hostel Live Selection, Block A/B, Room No, Phone)
-window.openAddressModal = async function (isMandatorySetup = false, onComplete = null) {
+window.openAddressModal = function (isMandatorySetup = false, onComplete = null) {
     const existing = document.getElementById('address-modal');
     if (existing) existing.remove();
 
-    // Fetch live active hostels from Edge CDN / Database with real-time freshness
-    let liveHostels = [];
-    try {
-        liveHostels = (await window.api?.getActiveHostels?.(true)) || [];
-    } catch (e) { }
+    // Instant 0ms Synchronous Active Hostels Lookup from in-memory cache or local storage
+    let liveHostels = window.__activeHostelsCache;
+    if (!Array.isArray(liveHostels) || liveHostels.length === 0) {
+        try {
+            const stored = localStorage.getItem('lpuquick_active_hostels');
+            if (stored) liveHostels = JSON.parse(stored);
+        } catch (e) { }
+    }
+    if (!Array.isArray(liveHostels) || liveHostels.length === 0) {
+        liveHostels = [
+            { id: 'BH-13', name: 'Boys Hostel 13', status: 'ACTIVE' },
+            { id: 'BH-12', name: 'Boys Hostel 12', status: 'ACTIVE' },
+            { id: 'GH12', name: 'Girls Hostel 12', status: 'ACTIVE' },
+            { id: 'GH 11', name: 'Girls Hostel 11', status: 'ACTIVE' },
+            { id: 'GH-1', name: 'Girls Hostel 1', status: 'ACTIVE' },
+            { id: 'GH-2', name: 'Girls Hostel 2', status: 'ACTIVE' },
+            { id: 'GH-3', name: 'Girls Hostel 3', status: 'ACTIVE' },
+            { id: 'GH-4', name: 'Girls Hostel 4', status: 'ACTIVE' }
+        ];
+    }
 
     // Robust hostel normalization helper: strips spaces, hyphens, underscores and handles prefixes
     function normalizeHostelKey(str) {
@@ -405,15 +463,20 @@ window.openAddressModal = async function (isMandatorySetup = false, onComplete =
         }
     });
 
-    // Fallback: If no active hostels found, default BH-13 as live
+    // Fallback: If no active hostels found, default BH-13 & GH-12 as live
     if (activeKeySet.size === 0) {
         activeKeySet.add('BH13');
         liveHostelMap.set('BH13', { id: 'BH-13', name: 'Boys Hostel 13', status: 'ACTIVE' });
+        activeKeySet.add('GH12');
+        liveHostelMap.set('GH12', { id: 'GH12', name: 'Girls Hostel 12', status: 'ACTIVE' });
     }
 
-    // Standard Campus Hostels
+    // Complete standard campus hostels across all LPU corridors
     const defaultHostels = [
-        'BH13', 'BH1', 'BH2', 'BH3', 'BH4', 'BH5', 'BH6', 'BH7', 'BH8', 'BH9', 'BH10', 'BH11', 'BH12', 'BH14', 'BH15', 'BH16', 'GH1', 'GH2', 'GH3', 'GH4', 'GH5', 'GH6', 'UniMall'
+        'BH13', 'BH12', 'GH12', 'GH11', 'GH1', 'GH2', 'GH3', 'GH4',
+        'BH1', 'BH2', 'BH3', 'BH4', 'BH5', 'BH6', 'BH7', 'BH8', 'BH9', 'BH10', 'BH14', 'BH15', 'BH16',
+        'GH5', 'GH6', 'GH7', 'GH8', 'GH9', 'GH10', 'GH13', 'GH14',
+        'UniMall'
     ];
 
     // Combine custom active hostels from admin with default locations
@@ -1837,8 +1900,40 @@ function initGlobalEventDelegation() {
             if (id && typeof window.openProductModal === 'function') {
                 window.openProductModal(id);
             }
+            return;
+        }
+
+        // 5. Address Selector Modal Trigger (0ms immediate response)
+        const addrTrigger = e.target.closest('.address-selector-trigger, #btn-header-address');
+        if (addrTrigger) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof window.openAddressModal === 'function') {
+                window.openAddressModal();
+            }
+            return;
+        }
+
+        // 6. Bottom Navigation Dock Click — 0ms Visual Pill Feedback
+        const navItem = e.target.closest('nav.liquid-dock-pill a');
+        if (navItem) {
+            const route = (navItem.getAttribute('data-route') || navItem.getAttribute('href') || '').replace(/^#\/?/, '') || 'home';
+            if (typeof window.syncBottomNavVisualActive === 'function') {
+                window.syncBottomNavVisualActive(route);
+            }
         }
     });
+
+    // Instant Mobile Touch Response for Bottom Navigation
+    document.addEventListener('touchstart', (e) => {
+        const navItem = e.target.closest('nav.liquid-dock-pill a');
+        if (navItem) {
+            const route = (navItem.getAttribute('data-route') || navItem.getAttribute('href') || '').replace(/^#\/?/, '') || 'home';
+            if (typeof window.syncBottomNavVisualActive === 'function') {
+                window.syncBottomNavVisualActive(route);
+            }
+        }
+    }, { passive: true });
 }
 initGlobalEventDelegation();
 
@@ -2353,6 +2448,9 @@ async function router() {
     }
 
     const pageName = getPageName(path);
+    if (typeof window.syncBottomNavVisualActive === 'function') {
+        window.syncBottomNavVisualActive(pageName);
+    }
     const appRoot = document.getElementById('app');
 
     if (!appRoot) return;
@@ -2385,8 +2483,12 @@ async function router() {
                         </div>
                         <h1 class="font-headline-md text-xl font-bold text-on-surface">Unable to load page</h1>
                         <p class="text-xs text-slate-500 mt-1 mb-4">A temporary error occurred while opening this page.</p>
-                        <a href="#/" class="inline-block bg-emerald text-white px-5 py-2 rounded-full text-xs font-semibold">Back to Home</a>
+                        <div class="flex items-center justify-center gap-3">
+                            <button type="button" onclick="if (typeof router === 'function') router();" class="inline-block bg-emerald text-white px-5 py-2 rounded-full text-xs font-bold cursor-pointer active:scale-95 transition-transform shadow-md">Retry</button>
+                            <a href="#/" class="inline-block bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 px-5 py-2 rounded-full text-xs font-semibold">Back to Home</a>
+                        </div>
                     </div>
+                    ${typeof window.renderBottomNav === 'function' ? window.renderBottomNav(pageName) : ''}
                 `;
                 return;
             }

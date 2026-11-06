@@ -313,7 +313,20 @@ const api = {
 
     // Active Hostels with Short-Term SWR Cache
     async getActiveHostels(forceRefresh = false) {
-        if (!forceRefresh && window.__activeHostelsCache && Array.isArray(window.__activeHostelsCache) && (Date.now() - (window.__activeHostelsCacheTime || 0) < 3000)) {
+        if (!forceRefresh && window.__activeHostelsCache && Array.isArray(window.__activeHostelsCache) && window.__activeHostelsCache.length > 0) {
+            return window.__activeHostelsCache;
+        }
+        if (window.__activeHostelsCache && Array.isArray(window.__activeHostelsCache) && window.__activeHostelsCache.length > 0) {
+            fetch(`${API_BASE}/hostels/active?_t=${Date.now()}`)
+                .then(r => r.json())
+                .then(data => {
+                    const list = (data && Array.isArray(data.hostels)) ? data.hostels : [];
+                    if (list.length > 0) {
+                        window.__activeHostelsCache = list;
+                        window.__activeHostelsCacheTime = Date.now();
+                        try { localStorage.setItem('lpuquick_active_hostels', JSON.stringify(list)); } catch (e) { }
+                    }
+                }).catch(() => {});
             return window.__activeHostelsCache;
         }
         try {
@@ -322,10 +335,12 @@ const api = {
             const list = (data && Array.isArray(data.hostels)) ? data.hostels : [];
             window.__activeHostelsCache = list;
             window.__activeHostelsCacheTime = Date.now();
+            try { localStorage.setItem('lpuquick_active_hostels', JSON.stringify(list)); } catch (e) { }
             return list;
         } catch (e) {
             return window.__activeHostelsCache || [
-                { id: 'BH-13', name: 'Boys Hostel 13', status: 'ACTIVE' }
+                { id: 'BH-13', name: 'Boys Hostel 13', status: 'ACTIVE' },
+                { id: 'GH12', name: 'Girls Hostel 12', status: 'ACTIVE' }
             ];
         }
     },
@@ -346,7 +361,7 @@ const api = {
         const homeCacheKey = `${uid}:${targetHostel}`;
 
         // 1. Instant 0ms Memory Cache if fresh (< 45s)
-        if (homeFeedCache && homeFeedCacheUserId === homeCacheKey && (now - homeFeedCacheTime < 45000)) {
+        if (homeFeedCache && (now - homeFeedCacheTime < 45000)) {
             return homeFeedCache;
         }
 
@@ -365,7 +380,7 @@ const api = {
         };
 
         // 2. If stale cache exists, return it immediately (0ms) and revalidate silently in background
-        if (homeFeedCache && homeFeedCacheUserId === homeCacheKey) {
+        if (homeFeedCache) {
             fetch(url)
                 .then(res => res.json())
                 .then(async data => {
@@ -556,7 +571,20 @@ const api = {
     async getCart(userId, hostelId = null) {
         const hid = hostelId || window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
         const now = Date.now();
-        if (cartMemoryCache && Array.isArray(cartMemoryCache.items) && (now - cartMemoryCacheTime < 4000) && (window.__lastCartHostel === hid)) {
+        if (cartMemoryCache && Array.isArray(cartMemoryCache.items)) {
+            // SWR: return in-memory cart at 0ms, revalidate in background if > 2.5s
+            if (now - cartMemoryCacheTime >= 2500 || window.__lastCartHostel !== hid) {
+                const queryParam = hid ? `?hostel_id=${encodeURIComponent(hid)}` : '';
+                fetch(`${API_BASE}/cart/${userId}${queryParam}`, {
+                    headers: { 'x-hostel-id': hid }
+                }).then(r => r.ok ? r.json() : null).then(data => {
+                    if (data && Array.isArray(data.items)) {
+                        cartMemoryCache = data;
+                        cartMemoryCacheTime = Date.now();
+                        window.__lastCartHostel = hid;
+                    }
+                }).catch(() => {});
+            }
             return cartMemoryCache;
         }
         try {
@@ -839,24 +867,52 @@ const api = {
 
     // Orders (Instant 0ms SWR Memory Cache)
     async getOrders(userId, force = false) {
+        if (!userId) return { active: [], past: [] };
         if (!force && ordersMemoryCache && (Date.now() - ordersMemoryCacheTime < 8000)) {
             return ordersMemoryCache;
         }
-        const res = await fetch(`${API_BASE}/orders/${userId}`);
-        const data = await res.json();
-        ordersMemoryCache = data;
-        ordersMemoryCacheTime = Date.now();
-        return data;
+        if (ordersMemoryCache && !force) {
+            fetch(`${API_BASE}/orders/${userId}`).then(r => r.json()).then(data => {
+                if (data) {
+                    ordersMemoryCache = data;
+                    ordersMemoryCacheTime = Date.now();
+                }
+            }).catch(() => {});
+            return ordersMemoryCache;
+        }
+        try {
+            const res = await fetch(`${API_BASE}/orders/${userId}`);
+            const data = await res.json();
+            ordersMemoryCache = data;
+            ordersMemoryCacheTime = Date.now();
+            return data;
+        } catch (e) {
+            return ordersMemoryCache || { active: [], past: [] };
+        }
     },
     async getActiveOrder(userId, force = false) {
+        if (!userId) return { active: null };
         if (!force && activeOrderMemoryCache && (Date.now() - activeOrderMemoryCacheTime < 8000)) {
             return activeOrderMemoryCache;
         }
-        const res = await fetch(`${API_BASE}/orders/${userId}/active`);
-        const data = await res.json();
-        activeOrderMemoryCache = data;
-        activeOrderMemoryCacheTime = Date.now();
-        return data;
+        if (activeOrderMemoryCache && !force) {
+            fetch(`${API_BASE}/orders/${userId}/active`).then(r => r.json()).then(data => {
+                if (data) {
+                    activeOrderMemoryCache = data;
+                    activeOrderMemoryCacheTime = Date.now();
+                }
+            }).catch(() => {});
+            return activeOrderMemoryCache;
+        }
+        try {
+            const res = await fetch(`${API_BASE}/orders/${userId}/active`);
+            const data = await res.json();
+            activeOrderMemoryCache = data;
+            activeOrderMemoryCacheTime = Date.now();
+            return data;
+        } catch (e) {
+            return activeOrderMemoryCache || { active: null };
+        }
     },
     async getOrderDetail(orderId) {
         const res = await fetch(`${API_BASE}/orders/detail/${orderId}`);

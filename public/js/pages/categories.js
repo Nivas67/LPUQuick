@@ -182,7 +182,7 @@ window.pages.categories = async function () {
                 <h1 class="text-xs sm:text-sm font-black text-slate-900 dark:text-white truncate leading-tight tracking-tight" id="cat-header-title">
                     Bakery & Biscuits
                 </h1>
-                <button type="button" class="address-selector-trigger flex items-center text-[10px] text-slate-500 dark:text-slate-400 hover:text-emerald transition-colors text-left truncate cursor-pointer">
+                <button type="button" onclick="window.openAddressModal()" class="address-selector-trigger flex items-center text-[10px] text-slate-500 dark:text-slate-400 hover:text-emerald transition-colors text-left truncate cursor-pointer">
                     <span>Delivering to Home: <strong class="text-slate-800 dark:text-slate-200 font-bold">${address}</strong></span>
                     <span class="material-symbols-outlined text-[13px] text-emerald ml-0.5">expand_more</span>
                 </button>
@@ -496,6 +496,9 @@ window.pageInits.categories = async function () {
         });
     }
 
+    // Immediately render category rail (0ms instantaneous)
+    renderRail();
+
     // Filter & Render Products in the 2-Column Grid
     function filterAndRenderProducts() {
         if (!productsGrid) return;
@@ -672,6 +675,12 @@ window.pageInits.categories = async function () {
         try {
             if (window.__cachedProducts && window.__cachedProducts.size > 0) {
                 allProducts = Array.from(window.__cachedProducts.values());
+                renderRail();
+                filterAndRenderProducts();
+                return;
+            }
+            if (window.homeFeedCache && Array.isArray(window.homeFeedCache.all_products) && window.homeFeedCache.all_products.length > 0) {
+                allProducts = window.homeFeedCache.all_products;
                 renderRail();
                 filterAndRenderProducts();
                 return;

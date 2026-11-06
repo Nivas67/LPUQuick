@@ -126,15 +126,21 @@ window.pages.cart = async function () {
 
     const items = cartData.items || [];
 
-    // Dynamic Settings from Owner/Admin
-    let checkoutSettings = window.latestCheckoutSettings || null;
-    try {
-        const settingsRes = await fetch('/api/checkout/settings', { cache: 'no-store' }).then(r => r.json()).catch(() => null);
-        if (settingsRes && settingsRes.success && settingsRes.settings) {
-            checkoutSettings = settingsRes.settings;
-            window.latestCheckoutSettings = checkoutSettings;
+    // Dynamic Settings from Owner/Admin (Instant 0ms with background revalidation)
+    let checkoutSettings = window.latestCheckoutSettings;
+    if (!checkoutSettings) {
+        try {
+            const stored = localStorage.getItem('lpuquick_checkout_settings');
+            if (stored) checkoutSettings = JSON.parse(stored);
+        } catch (e) { }
+    }
+    // Revalidate in background without blocking UI
+    fetch('/api/checkout/settings').then(r => r.json()).then(res => {
+        if (res && res.success && res.settings) {
+            window.latestCheckoutSettings = res.settings;
+            try { localStorage.setItem('lpuquick_checkout_settings', JSON.stringify(res.settings)); } catch (e) { }
         }
-    } catch (e) { }
+    }).catch(() => {});
 
     checkoutSettings = checkoutSettings || {
         offers_enabled: true,
