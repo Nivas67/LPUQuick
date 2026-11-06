@@ -27,6 +27,7 @@ function checkCartHasFood(items) {
 }
 
 
+window.calculateCartCharges = calculateCartCharges;
 function calculateCartCharges(cartSubtotal, settings) {
     const s = settings || window.latestCheckoutSettings || {
         offers_enabled: true,
@@ -148,6 +149,37 @@ window.pages.cart = async function () {
         handling_fee_enabled: true,
         min_cart_value: 35
     };
+
+        // Real-time synchronization with local cartState & cached products
+    if (window.cartState && typeof window.cartState === 'object') {
+        items.forEach(it => {
+            if (it.product_id && window.cartState[it.product_id] && window.cartState[it.product_id].quantity !== undefined) {
+                it.quantity = Number(window.cartState[it.product_id].quantity);
+            }
+        });
+        // Add any optimistic items present in cartState but not yet in backend response
+        Object.entries(window.cartState).forEach(([pid, cItem]) => {
+            if (cItem && cItem.quantity > 0 && !items.some(it => it.product_id === pid)) {
+                const cached = window.__cachedProducts?.get(pid);
+                if (cached) {
+                    items.push({
+                        id: cItem.cart_id || `temp_${pid}`,
+                        cart_id: cItem.cart_id || `temp_${pid}`,
+                        product_id: pid,
+                        quantity: cItem.quantity,
+                        name: cached.name || 'Item',
+                        price: Number(cached.price) || 0,
+                        mrp: Number(cached.mrp) || Number(cached.price) || 0,
+                        image_url: cached.image_url || '',
+                        in_stock: cached.in_stock !== false,
+                        stock_left: cached.stock_left !== undefined ? Number(cached.stock_left) : 10,
+                        unit: cached.unit || 'piece',
+                        size: cached.size || ''
+                    });
+                }
+            }
+        });
+    }
 
     // Accurate MRP, Subtotal & Quantity calculations
     const totalQuantity = items.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
@@ -367,12 +399,10 @@ window.pages.cart = async function () {
                 </div>
                 
                 <div class="space-y-2.5 text-xs">
-                    ${mrpDiscount > 0 ? `
-                    <div class="flex justify-between items-center text-slate-600 dark:text-slate-400 font-medium">
+                    <div id="bill-total-mrp-row" class="flex justify-between items-center text-slate-600 dark:text-slate-400 font-medium ${mrpDiscount > 0 ? '' : 'hidden'}">
                         <span>Total MRP Value</span>
-                        <span class="line-through text-slate-400">₹${totalMrp}</span>
+                        <span class="line-through text-slate-400" id="bill-total-mrp-val">₹${totalMrp}</span>
                     </div>
-                    ` : ''}
 
                     <div id="bill-mrp-discount-row" class="flex justify-between items-center text-emerald-700 dark:text-emerald-400 font-bold ${mrpDiscount > 0 ? '' : 'hidden'}">
                         <span>Product Discount</span>
@@ -557,250 +587,281 @@ window.pageInits.cart = function () {
     }
 
     function updateCartDOMBill() {
-        const rows = document.querySelectorAll('.cart-row');
-        if (rows.length === 0) {
-            if (window.router) window.router();
-            return;
-        }
-
-        let totalQty = 0;
-        let subtotal = 0;
-        let totalMrp = 0;
-
-        rows.forEach(r => {
-            const pid = r.dataset.productId;
-            const qtyNum = r.querySelector('.qty-num');
-            const qty = parseInt(qtyNum?.textContent || '0') || 0;
-            if (qty <= 0) return;
-            totalQty += qty;
-
-            const cached = window.__cachedProducts?.get(pid);
-            const price = Number(r.dataset.price) || Number(cached?.price) || 0;
-            const mrp = Number(r.dataset.mrp) || Number(cached?.mrp) || price;
-
-            subtotal += price * qty;
-            totalMrp += mrp * qty;
-
-            const itemPriceTotalEl = r.querySelector('.item-price-total');
-            if (itemPriceTotalEl) itemPriceTotalEl.textContent = `₹${price * qty}`;
-            const itemPriceMultiEl = r.querySelector('.item-price-multi');
-            if (itemPriceMultiEl) {
-                itemPriceMultiEl.textContent = qty > 1 ? `(₹${price} × ${qty})` : '';
+        try {
+            const rows = document.querySelectorAll('.cart-row');
+            if (rows.length === 0) {
+                if (window.router) window.router();
+                return;
             }
-            const itemMrpTotalEl = r.querySelector('.item-mrp-total');
-            if (itemMrpTotalEl) itemMrpTotalEl.textContent = `₹${mrp * qty}`;
-        });
 
-        if (totalQty === 0) {
-            if (window.router) window.router();
-            return;
-        }
+            let totalQty = 0;
+            let subtotal = 0;
+            let totalMrp = 0;
+            const currentItems = [];
 
-        const mrpDiscount = Math.max(0, totalMrp - subtotal);
-        const charges = calculateCartCharges(subtotal, window.latestCheckoutSettings);
-        const exactTotal = charges.total;
-        const totalSavings = mrpDiscount + charges.discount + (charges.isFreeDel ? (charges.baseDelivery > 0 ? charges.baseDelivery : 25) : 0);
-        const isMinOrderMet = charges.isMinMet;
-        const minOrderShortfall = charges.minShortfall;
+            rows.forEach(r => {
+                const pid = r.dataset.productId;
+                const qtyNum = r.querySelector('.qty-num');
+                const qty = parseInt(qtyNum?.textContent || '0') || 0;
+                if (qty <= 0) return;
+                totalQty += qty;
 
-        // Header subtitle
-        const cartSubtitle = document.getElementById('cart-header-subtitle');
-        if (cartSubtitle) {
-            const hasFoodNow = checkCartHasFood(cart?.items || []);
+                const cached = window.__cachedProducts?.get(pid);
+                const price = Number(r.dataset.price) || Number(cached?.price) || 0;
+                const mrp = Number(r.dataset.mrp) || Number(cached?.mrp) || price;
+
+                subtotal += price * qty;
+                totalMrp += mrp * qty;
+
+                currentItems.push({
+                    product_id: pid,
+                    id: pid,
+                    quantity: qty,
+                    price: price,
+                    mrp: mrp,
+                    name: cached?.name || r.querySelector('h4')?.textContent || 'Item',
+                    category: cached?.category || '',
+                    subcategory: cached?.subcategory || '',
+                    is_food_product: cached?.is_food_product || false
+                });
+
+                const itemPriceTotalEl = r.querySelector('.item-price-total');
+                if (itemPriceTotalEl) itemPriceTotalEl.textContent = `₹${price * qty}`;
+                const itemPriceMultiEl = r.querySelector('.item-price-multi');
+                if (itemPriceMultiEl) {
+                    itemPriceMultiEl.textContent = qty > 1 ? `(₹${price} × ${qty})` : '';
+                }
+                const itemMrpTotalEl = r.querySelector('.item-mrp-total');
+                if (itemMrpTotalEl) itemMrpTotalEl.textContent = `₹${mrp * qty}`;
+            });
+
+            if (totalQty === 0) {
+                if (window.router) window.router();
+                return;
+            }
+
+            const mrpDiscount = Math.max(0, totalMrp - subtotal);
+            const charges = calculateCartCharges(subtotal, window.latestCheckoutSettings);
+            const exactTotal = charges.total;
+            const totalSavings = mrpDiscount + charges.discount + (charges.isFreeDel ? (charges.baseDelivery > 0 ? charges.baseDelivery : 25) : 0);
+            const isMinOrderMet = charges.isMinMet;
+            const minOrderShortfall = charges.minShortfall;
+
+            const hasFoodNow = checkCartHasFood(currentItems);
             const etaText = hasFoodNow ? '11 mins' : '5 mins';
-            cartSubtitle.textContent = `${totalQty} ${totalQty === 1 ? 'item' : 'items'} · Delivering to ${window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus')} (${etaText})`;
-        }
 
-        // Dynamic Banners
-        const minOrderWrap = document.getElementById('cart-min-order-banner-wrap');
-        if (minOrderWrap) {
-            if (!isMinOrderMet && subtotal > 0) {
-                minOrderWrap.innerHTML = `
-                <div class="glass-panel rounded-2xl p-3.5 flex items-center justify-between text-xs border border-amber-500/40 bg-amber-500/10 shadow-sm backdrop-blur-xl">
-                    <div class="flex items-center gap-2.5 font-bold text-amber-700 dark:text-amber-300">
-                        <span class="material-symbols-outlined text-lg text-amber-500 animate-bounce">shopping_bag</span>
-                        <div>
-                            <p class="font-black text-xs">Minimum Order Value is ₹${charges.minCart}</p>
-                            <p class="text-[11px] text-amber-600/90 dark:text-amber-400 font-medium">Add items worth ₹${minOrderShortfall} more to place your hostel order.</p>
+            // 1. Header subtitle
+            const cartSubtitle = document.getElementById('cart-header-subtitle');
+            if (cartSubtitle) {
+                cartSubtitle.textContent = `${totalQty} ${totalQty === 1 ? 'item' : 'items'} · Delivering to ${window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus')} (${etaText})`;
+            }
+
+            // 2. Minimum Order Value Banner
+            const minOrderWrap = document.getElementById('cart-min-order-banner-wrap');
+            if (minOrderWrap) {
+                if (!isMinOrderMet && subtotal > 0) {
+                    minOrderWrap.innerHTML = `
+                    <div class="glass-panel rounded-2xl p-3.5 flex items-center justify-between text-xs border border-amber-500/40 bg-amber-500/10 shadow-sm backdrop-blur-xl">
+                        <div class="flex items-center gap-2.5 font-bold text-amber-700 dark:text-amber-300">
+                            <span class="material-symbols-outlined text-lg text-amber-500 animate-bounce">shopping_bag</span>
+                            <div>
+                                <p class="font-black text-xs">Minimum Order Value is ₹${charges.minCart}</p>
+                                <p class="text-[11px] text-amber-600/90 dark:text-amber-400 font-medium">Add items worth ₹${minOrderShortfall} more to place your hostel order.</p>
+                            </div>
                         </div>
-                    </div>
-                    <a href="#/" class="clay-btn clay-btn-primary px-3 py-1.5 text-[11px] font-black rounded-xl text-white shrink-0 shadow-sm">
-                        + Add Items
-                    </a>
-                </div>`;
-            } else {
-                minOrderWrap.innerHTML = '';
-            }
-        }
-
-        const offerWrap = document.getElementById('cart-offer-banner-wrap');
-        if (offerWrap) {
-            if (charges.isOfferActive && charges.meetsMinOrder && charges.discount > 0) {
-                offerWrap.innerHTML = `
-                <div class="glass-panel rounded-2xl p-3.5 flex items-center justify-between text-xs border border-emerald-500/30 bg-emerald-500/10 shadow-sm backdrop-blur-xl">
-                    <div class="flex items-center gap-2 font-bold text-emerald-700 dark:text-emerald-300">
-                        <span class="material-symbols-outlined text-base">verified</span>
-                        <span>${charges.offerLabel} Applied</span>
-                    </div>
-                    <span class="text-[11px] font-black text-emerald-700 dark:text-emerald-300 liquid-badge px-2.5 py-0.5">Extra ₹${charges.discount} OFF</span>
-                </div>`;
-            } else if (charges.isOfferActive && !charges.meetsMinOrder && subtotal > 0) {
-                offerWrap.innerHTML = `
-                <div class="glass-panel rounded-2xl p-3.5 flex items-center justify-between text-xs border border-amber-500/30 bg-amber-500/10 shadow-sm backdrop-blur-xl">
-                    <div class="flex items-center gap-2 font-bold text-amber-700 dark:text-amber-300">
-                        <span class="material-symbols-outlined text-base">local_offer</span>
-                        <span>Add ₹${charges.minOrderVal - subtotal} more to get ${charges.offerLabel} on your order</span>
-                    </div>
-                    <a href="#/" class="text-[11px] font-black text-amber-700 dark:text-amber-400 underline">Add Items</a>
-                </div>`;
-            } else {
-                offerWrap.innerHTML = '';
-            }
-        }
-
-        const deliveryWrap = document.getElementById('cart-delivery-banner-wrap');
-        if (deliveryWrap) {
-            if (charges.isFreeDel) {
-                deliveryWrap.innerHTML = `
-                <div class="glass-panel card-pedestal rounded-2xl p-3.5 flex items-center justify-between text-xs shadow-xs border border-[var(--glass-border)]">
-                    <div class="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-200">
-                        <span class="material-symbols-outlined text-base text-emerald">electric_bolt</span>
-                        <span>Free ${charges && checkCartHasFood(cart?.items || []) ? '11-Min' : '5-Min'} Campus Room Delivery Guaranteed</span>
-                    </div>
-                    <span class="text-[11px] font-black text-emerald-700 dark:text-emerald-400 liquid-badge px-2 py-0.5">Saved ₹${charges.baseDelivery > 0 ? charges.baseDelivery : 25}</span>
-                </div>`;
-            } else {
-                deliveryWrap.innerHTML = `
-                <div class="glass-panel card-pedestal rounded-2xl p-3.5 flex items-center justify-between text-xs shadow-xs border border-[var(--glass-border)]">
-                    <div class="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-200">
-                        <span class="material-symbols-outlined text-base text-emerald">electric_bolt</span>
-                        <span>${charges && checkCartHasFood(cart?.items || []) ? '11-Min' : '5-Min'} Campus Room Delivery: ₹${charges.delivery}</span>
-                    </div>
-                </div>`;
-            }
-        }
-
-        // Bill details
-        const mrpRow = document.getElementById('bill-mrp-discount-row');
-        const mrpVal = document.getElementById('bill-mrp-discount-val');
-        if (mrpRow && mrpVal) {
-            if (mrpDiscount > 0) {
-                mrpRow.classList.remove('hidden');
-                mrpVal.textContent = `-₹${mrpDiscount}`;
-            } else {
-                mrpRow.classList.add('hidden');
-            }
-        }
-
-        const billSubtotal = document.getElementById('bill-subtotal-val');
-        if (billSubtotal) billSubtotal.textContent = `₹${subtotal}`;
-
-        const discountRow = document.getElementById('bill-discount-row');
-        const billDiscount = document.getElementById('bill-discount-val');
-        const billDiscountLabel = document.getElementById('bill-discount-label');
-        if (discountRow && billDiscount) {
-            if (charges.discount > 0) {
-                discountRow.classList.remove('hidden');
-                if (billDiscountLabel) billDiscountLabel.textContent = charges.offerLabel;
-                billDiscount.textContent = `-₹${charges.discount}`;
-            } else {
-                discountRow.classList.add('hidden');
-            }
-        }
-
-        const deliveryValWrap = document.getElementById('bill-delivery-val-wrap');
-        if (deliveryValWrap) {
-            if (charges.isFreeDel) {
-                deliveryValWrap.innerHTML = `
-                    <span class="line-through text-[11px] text-slate-400" id="bill-delivery-strike">₹${charges.baseDelivery > 0 ? charges.baseDelivery : 25}</span>
-                    <span class="font-black text-emerald-600 dark:text-emerald-400" id="bill-delivery-val">FREE</span>
-                `;
-            } else {
-                deliveryValWrap.innerHTML = `
-                    <span class="font-black text-slate-900 dark:text-white" id="bill-delivery-val">₹${charges.delivery}</span>
-                `;
-            }
-        }
-
-        const handlingVal = document.getElementById('bill-handling-val');
-        if (handlingVal) {
-            handlingVal.innerHTML = charges.handling > 0 ? `₹${charges.handling}` : '<span class="text-emerald-600 font-bold">FREE</span>';
-        }
-
-        const billTopaySubtitle = document.getElementById('bill-topay-subtitle');
-        if (billTopaySubtitle) {
-            billTopaySubtitle.textContent = charges.isFreeDel ? 'Free campus delivery included' : 'Fast room delivery';
-        }
-
-        const billTotal = document.getElementById('bill-total-val');
-        if (billTotal) billTotal.textContent = `₹${exactTotal}`;
-        const billSavings = document.getElementById('bill-savings-val');
-        if (billSavings) billSavings.textContent = `Total Real Savings: ₹${totalSavings}`;
-
-        // Proceed buttons in Action Container
-        const actionContainer = document.getElementById('cart-checkout-action-container');
-        if (actionContainer && !window.__isUserBlocked) {
-            if (!isMinOrderMet) {
-                actionContainer.innerHTML = `
-                    <button disabled class="w-full clay-card text-slate-400 dark:text-slate-500 rounded-2xl py-4 font-bold text-xs text-center cursor-not-allowed flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-700 opacity-90 shadow-none" id="proceed-to-checkout-btn">
-                        <span class="material-symbols-outlined text-sm">lock</span>
-                        <span>Min Order Value ₹${charges.minCart} (Add ₹${minOrderShortfall} more)</span>
-                    </button>
-                `;
-            } else {
-                actionContainer.innerHTML = `
-                    <a href="#/checkout" id="proceed-to-checkout-btn" class="clay-btn clay-btn-primary w-full py-4 rounded-2xl font-black text-xs sm:text-sm text-center flex items-center justify-center gap-2 shadow-2xl tracking-wide uppercase active:scale-95 transition-transform">
-                        <span>Proceed to Checkout (₹${exactTotal})</span>
-                        <span class="material-symbols-outlined text-base">arrow_forward</span>
-                    </a>
-                `;
-                const btn = document.getElementById('proceed-to-checkout-btn');
-                if (btn) {
-                    btn.onclick = (e) => {
-                        if (!window.isUserLoggedIn()) {
-                            e.preventDefault();
-                            localStorage.setItem('lpuquick_redirect', '#/checkout');
-                            window.location.hash = '#/signin';
-                        }
-                    };
+                        <a href="#/" class="clay-btn clay-btn-primary px-3 py-1.5 text-[11px] font-black rounded-xl text-white shrink-0 shadow-sm">
+                            + Add Items
+                        </a>
+                    </div>`;
+                } else {
+                    minOrderWrap.innerHTML = '';
                 }
             }
-        }
 
-        // Mobile Checkout Capsule Container
-        const mobileContainer = document.getElementById('cart-mobile-checkout-container');
-        if (mobileContainer && !window.__isUserBlocked) {
-            if (!isMinOrderMet) {
-                mobileContainer.innerHTML = `
-                    <div class="lg:hidden fixed bottom-16 inset-x-3 z-30 pointer-events-none flex justify-center">
-                        <div class="pointer-events-auto liquid-dock-pill max-w-md w-full p-3 px-4 flex items-center justify-between gap-3 rounded-3xl shadow-2xl border border-amber-500/40">
-                            <div>
-                                <span class="text-[10px] font-bold text-amber-500">Min Order ₹${charges.minCart}</span>
-                                <p class="text-xs font-black text-slate-900 dark:text-white leading-tight mt-0.5" id="mobile-min-order-val">Add ₹${minOrderShortfall} more</p>
-                            </div>
-                            <a href="#/" class="clay-btn clay-btn-primary px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md active:scale-95 transition-transform">
-                                <span>Add Items</span>
-                                <span class="material-symbols-outlined text-sm">add</span>
-                            </a>
+            // 3. Campus Bulk / Special Offer Banner
+            const offerWrap = document.getElementById('cart-offer-banner-wrap');
+            if (offerWrap) {
+                if (charges.isOfferActive && charges.meetsMinOrder && charges.discount > 0) {
+                    offerWrap.innerHTML = `
+                    <div class="glass-panel rounded-2xl p-3.5 flex items-center justify-between text-xs border border-emerald-500/30 bg-emerald-500/10 shadow-sm backdrop-blur-xl">
+                        <div class="flex items-center gap-2 font-bold text-emerald-700 dark:text-emerald-300">
+                            <span class="material-symbols-outlined text-base">verified</span>
+                            <span>${charges.offerLabel} Applied</span>
                         </div>
-                    </div>
-                `;
-            } else {
-                mobileContainer.innerHTML = `
-                    <div class="lg:hidden fixed bottom-16 inset-x-3 z-30 pointer-events-none flex justify-center">
-                        <div class="pointer-events-auto liquid-dock-pill max-w-md w-full p-3.5 px-4 flex items-center justify-between gap-3 rounded-3xl shadow-2xl">
-                            <div>
-                                <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400" id="mobile-cart-qty-val">${totalQty} ${totalQty === 1 ? 'item' : 'items'}</span>
-                                <p class="text-lg font-black text-slate-900 dark:text-white leading-none mt-0.5" id="mobile-cart-total-val">₹${exactTotal}</p>
-                            </div>
-                            <a href="#/checkout" class="clay-btn clay-btn-primary px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md active:scale-95 transition-transform">
-                                <span>Proceed</span>
-                                <span class="material-symbols-outlined text-sm">arrow_forward</span>
-                            </a>
+                        <span class="text-[11px] font-black text-emerald-700 dark:text-emerald-300 liquid-badge px-2.5 py-0.5">Extra ₹${charges.discount} OFF</span>
+                    </div>`;
+                } else if (charges.isOfferActive && !charges.meetsMinOrder && subtotal > 0) {
+                    offerWrap.innerHTML = `
+                    <div class="glass-panel rounded-2xl p-3.5 flex items-center justify-between text-xs border border-amber-500/30 bg-amber-500/10 shadow-sm backdrop-blur-xl">
+                        <div class="flex items-center gap-2 font-bold text-amber-700 dark:text-amber-300">
+                            <span class="material-symbols-outlined text-base">local_offer</span>
+                            <span>Add ₹${Math.max(0, charges.minOrderVal - subtotal)} more to get ${charges.offerLabel} on your order</span>
                         </div>
-                    </div>
-                `;
+                        <a href="#/" class="text-[11px] font-black text-amber-700 dark:text-amber-400 underline">Add Items</a>
+                    </div>`;
+                } else {
+                    offerWrap.innerHTML = '';
+                }
             }
+
+            // 4. Delivery Banner
+            const deliveryWrap = document.getElementById('cart-delivery-banner-wrap');
+            if (deliveryWrap) {
+                if (charges.isFreeDel) {
+                    deliveryWrap.innerHTML = `
+                    <div class="glass-panel card-pedestal rounded-2xl p-3.5 flex items-center justify-between text-xs shadow-xs border border-[var(--glass-border)]">
+                        <div class="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-200">
+                            <span class="material-symbols-outlined text-base text-emerald">electric_bolt</span>
+                            <span>Free ${hasFoodNow ? '11-Min' : '5-Min'} Campus Room Delivery Guaranteed</span>
+                        </div>
+                        <span class="text-[11px] font-black text-emerald-700 dark:text-emerald-400 liquid-badge px-2 py-0.5">Saved ₹${charges.baseDelivery > 0 ? charges.baseDelivery : 25}</span>
+                    </div>`;
+                } else {
+                    deliveryWrap.innerHTML = `
+                    <div class="glass-panel card-pedestal rounded-2xl p-3.5 flex items-center justify-between text-xs shadow-xs border border-[var(--glass-border)]">
+                        <div class="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-200">
+                            <span class="material-symbols-outlined text-base text-emerald">electric_bolt</span>
+                            <span>${hasFoodNow ? '11-Min' : '5-Min'} Campus Room Delivery: ₹${charges.delivery}</span>
+                        </div>
+                    </div>`;
+                }
+            }
+
+            // 5. Bill Details Section
+            const totalMrpRow = document.getElementById('bill-total-mrp-row');
+            const totalMrpVal = document.getElementById('bill-total-mrp-val');
+            if (totalMrpRow && totalMrpVal) {
+                if (mrpDiscount > 0) {
+                    totalMrpRow.classList.remove('hidden');
+                    totalMrpVal.textContent = `₹${totalMrp}`;
+                } else {
+                    totalMrpRow.classList.add('hidden');
+                }
+            }
+
+            const mrpRow = document.getElementById('bill-mrp-discount-row');
+            const mrpVal = document.getElementById('bill-mrp-discount-val');
+            if (mrpRow && mrpVal) {
+                if (mrpDiscount > 0) {
+                    mrpRow.classList.remove('hidden');
+                    mrpVal.textContent = `-₹${mrpDiscount}`;
+                } else {
+                    mrpRow.classList.add('hidden');
+                }
+            }
+
+            const billSubtotal = document.getElementById('bill-subtotal-val');
+            if (billSubtotal) billSubtotal.textContent = `₹${subtotal}`;
+
+            const discountRow = document.getElementById('bill-discount-row');
+            const billDiscount = document.getElementById('bill-discount-val');
+            const billDiscountLabel = document.getElementById('bill-discount-label');
+            if (discountRow && billDiscount) {
+                if (charges.discount > 0) {
+                    discountRow.classList.remove('hidden');
+                    if (billDiscountLabel) billDiscountLabel.textContent = charges.offerLabel;
+                    billDiscount.textContent = `-₹${charges.discount}`;
+                } else {
+                    discountRow.classList.add('hidden');
+                }
+            }
+
+            const deliveryValWrap = document.getElementById('bill-delivery-val-wrap');
+            if (deliveryValWrap) {
+                if (charges.isFreeDel) {
+                    deliveryValWrap.innerHTML = `
+                        <span class="line-through text-[11px] text-slate-400" id="bill-delivery-strike">₹${charges.baseDelivery > 0 ? charges.baseDelivery : 25}</span>
+                        <span class="font-black text-emerald-600 dark:text-emerald-400" id="bill-delivery-val">FREE</span>
+                    `;
+                } else {
+                    deliveryValWrap.innerHTML = `
+                        <span class="font-black text-slate-900 dark:text-white" id="bill-delivery-val">₹${charges.delivery}</span>
+                    `;
+                }
+            }
+
+            const handlingVal = document.getElementById('bill-handling-val');
+            if (handlingVal) {
+                handlingVal.innerHTML = charges.handling > 0 ? `₹${charges.handling}` : '<span class="text-emerald-600 font-bold">FREE</span>';
+            }
+
+            const billTopaySubtitle = document.getElementById('bill-topay-subtitle');
+            if (billTopaySubtitle) {
+                billTopaySubtitle.textContent = charges.isFreeDel ? 'Free campus delivery included' : 'Fast room delivery';
+            }
+
+            const billTotal = document.getElementById('bill-total-val');
+            if (billTotal) billTotal.textContent = `₹${exactTotal}`;
+            const billSavings = document.getElementById('bill-savings-val');
+            if (billSavings) billSavings.textContent = `Total Real Savings: ₹${totalSavings}`;
+
+            // 6. Action Container: Proceed Button State
+            const actionContainer = document.getElementById('cart-checkout-action-container');
+            if (actionContainer && !window.__isUserBlocked) {
+                if (!isMinOrderMet) {
+                    actionContainer.innerHTML = `
+                        <button disabled class="w-full clay-card text-slate-400 dark:text-slate-500 rounded-2xl py-4 font-bold text-xs text-center cursor-not-allowed flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-700 opacity-90 shadow-none" id="proceed-to-checkout-btn">
+                            <span class="material-symbols-outlined text-sm">lock</span>
+                            <span>Min Order Value ₹${charges.minCart} (Add ₹${minOrderShortfall} more)</span>
+                        </button>
+                    `;
+                } else {
+                    actionContainer.innerHTML = `
+                        <a href="#/checkout" id="proceed-to-checkout-btn" class="clay-btn clay-btn-primary w-full py-4 rounded-2xl font-black text-xs sm:text-sm text-center flex items-center justify-center gap-2 shadow-2xl tracking-wide uppercase active:scale-95 transition-transform cursor-pointer">
+                            <span>Proceed to Checkout (₹${exactTotal})</span>
+                            <span class="material-symbols-outlined text-base">arrow_forward</span>
+                        </a>
+                    `;
+                    const btn = document.getElementById('proceed-to-checkout-btn');
+                    if (btn) {
+                        btn.onclick = (e) => {
+                            if (!window.isUserLoggedIn()) {
+                                e.preventDefault();
+                                localStorage.setItem('lpuquick_redirect', '#/checkout');
+                                window.location.hash = '#/signin';
+                            }
+                        };
+                    }
+                }
+            }
+
+            // 7. Mobile Checkout Capsule Container
+            const mobileContainer = document.getElementById('cart-mobile-checkout-container');
+            if (mobileContainer && !window.__isUserBlocked) {
+                if (!isMinOrderMet) {
+                    mobileContainer.innerHTML = `
+                        <div class="lg:hidden fixed bottom-16 inset-x-3 z-30 pointer-events-none flex justify-center">
+                            <div class="pointer-events-auto liquid-dock-pill max-w-md w-full p-3 px-4 flex items-center justify-between gap-3 rounded-3xl shadow-2xl border border-amber-500/40">
+                                <div>
+                                    <span class="text-[10px] font-bold text-amber-500">Min Order ₹${charges.minCart}</span>
+                                    <p class="text-xs font-black text-slate-900 dark:text-white leading-tight mt-0.5" id="mobile-min-order-val">Add ₹${minOrderShortfall} more</p>
+                                </div>
+                                <a href="#/" class="clay-btn clay-btn-primary px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md active:scale-95 transition-transform">
+                                    <span>Add Items</span>
+                                    <span class="material-symbols-outlined text-sm">add</span>
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    mobileContainer.innerHTML = `
+                        <div class="lg:hidden fixed bottom-16 inset-x-3 z-30 pointer-events-none flex justify-center">
+                            <div class="pointer-events-auto liquid-dock-pill max-w-md w-full p-3.5 px-4 flex items-center justify-between gap-3 rounded-3xl shadow-2xl">
+                                <div>
+                                    <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400" id="mobile-cart-qty-val">${totalQty} ${totalQty === 1 ? 'item' : 'items'}</span>
+                                    <p class="text-lg font-black text-slate-900 dark:text-white leading-none mt-0.5" id="mobile-cart-total-val">₹${exactTotal}</p>
+                                </div>
+                                <a href="#/checkout" class="clay-btn clay-btn-primary px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md active:scale-95 transition-transform cursor-pointer">
+                                    <span>Proceed</span>
+                                    <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        } catch (domErr) {
+            console.error('[Cart DOM Bill Update Error]:', domErr);
         }
     }
 

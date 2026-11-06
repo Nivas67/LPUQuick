@@ -62,6 +62,37 @@ window.pages.checkout = async function () {
     const items = cartData.items || [];
     const p = cartData.pricing || { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 };
 
+        // Real-time synchronization with local cartState & cached products
+    if (window.cartState && typeof window.cartState === 'object') {
+        items.forEach(it => {
+            if (it.product_id && window.cartState[it.product_id] && window.cartState[it.product_id].quantity !== undefined) {
+                it.quantity = Number(window.cartState[it.product_id].quantity);
+            }
+        });
+        // Add any optimistic items present in cartState but not yet in backend response
+        Object.entries(window.cartState).forEach(([pid, cItem]) => {
+            if (cItem && cItem.quantity > 0 && !items.some(it => it.product_id === pid)) {
+                const cached = window.__cachedProducts?.get(pid);
+                if (cached) {
+                    items.push({
+                        id: cItem.cart_id || `temp_${pid}`,
+                        cart_id: cItem.cart_id || `temp_${pid}`,
+                        product_id: pid,
+                        quantity: cItem.quantity,
+                        name: cached.name || 'Item',
+                        price: Number(cached.price) || 0,
+                        mrp: Number(cached.mrp) || Number(cached.price) || 0,
+                        image_url: cached.image_url || '',
+                        in_stock: cached.in_stock !== false,
+                        stock_left: cached.stock_left !== undefined ? Number(cached.stock_left) : 10,
+                        unit: cached.unit || 'piece',
+                        size: cached.size || ''
+                    });
+                }
+            }
+        });
+    }
+
     // Accurate MRP, Subtotal & Quantity calculations
     const totalQuantity = items.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
     const hasFoodOrder = checkCartHasFood(items);
@@ -186,7 +217,7 @@ window.pages.checkout = async function () {
         const isMaxStockReached = (Number(item.quantity) || 1) >= stockLeft && stockLeft > 0;
 
         return `
-        <div class="flex items-center justify-between py-3 border-b border-[var(--glass-border)] text-xs cart-checkout-row" data-cart-id="${item.cart_id}" data-product-id="${item.product_id}" data-stock-left="${stockLeft}">
+        <div class="flex items-center justify-between py-3 border-b border-[var(--glass-border)] text-xs cart-checkout-row" data-cart-id="${item.cart_id}" data-product-id="${item.product_id}" data-price="${itemPrice}" data-mrp="${itemMrp}" data-stock-left="${stockLeft}">
             <div class="flex items-center gap-3 min-w-0">
                 <div class="w-12 h-12 rounded-xl bg-slate-100/90 dark:bg-slate-800/90 p-1 shrink-0 flex items-center justify-center border border-[var(--glass-border)] shadow-inner">
                     <img class="w-full h-full object-contain" src="${item.image_url}" alt="${item.name}" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=100'">
@@ -210,7 +241,7 @@ window.pages.checkout = async function () {
                         <span class="material-symbols-outlined text-xs">add</span>
                     </button>
                 </div>
-                <span class="font-black text-slate-900 dark:text-white text-xs w-12 text-right">₹${item.quantity * itemPrice}</span>
+                <span class="font-black text-slate-900 dark:text-white text-xs w-12 text-right checkout-item-total-price">₹${item.quantity * itemPrice}</span>
             </div>
         </div>
     `}).join('');
@@ -556,15 +587,176 @@ window.pages.checkout = async function () {
 window.pageInits.checkout = function () {
     const userId = window.getEffectiveUserId();
 
-    // Quantity buttons inside checkout summary
+    function updateCheckoutDOMBill() {
+        try {
+            const rows = document.querySelectorAll('.cart-checkout-row');
+            if (rows.length === 0) {
+                window.location.hash = '#/cart';
+                return;
+            }
+
+            let subtotal = 0;
+            let totalMrp = 0;
+            let totalQty = 0;
+            const currentItems = [];
+
+            rows.forEach(r => {
+                const pid = r.dataset.productId;
+                const qtyNum = r.querySelector('.qty-num');
+                const qty = parseInt(qtyNum?.textContent || '0') || 0;
+                if (qty <= 0) return;
+                totalQty += qty;
+
+                const cached = window.__cachedProducts?.get(pid);
+                const price = Number(r.dataset.price) || Number(cached?.price) || 0;
+                const mrp = Number(r.dataset.mrp) || Number(cached?.mrp) || price;
+
+                subtotal += price * qty;
+                totalMrp += mrp * qty;
+
+                currentItems.push({
+                    product_id: pid,
+                    quantity: qty,
+                    price,
+                    mrp,
+                    category: cached?.category || '',
+                    subcategory: cached?.subcategory || '',
+                    is_food_product: cached?.is_food_product || false
+                });
+
+                const priceEl = r.querySelector('.checkout-item-total-price');
+                if (priceEl) priceEl.textContent = `₹${price * qty}`;
+            });
+
+            if (totalQty === 0) {
+                window.location.hash = '#/cart';
+                return;
+            }
+
+            const mrpDiscount = Math.max(0, totalMrp - subtotal);
+            const cfg = window.latestCheckoutSettings || {};
+            let isOfferActive = Boolean(cfg.offers_enabled !== false);
+            const minOfferVal = Number(cfg.minimum_order_value) || 250;
+            const meetsOfferMin = subtotal >= minOfferVal;
+
+            let globalDiscount = 0;
+            let offerLabel = '';
+            if (isOfferActive && meetsOfferMin && subtotal > 0) {
+                if (cfg.offer_type === 'percentage') {
+                    const raw = Math.round(subtotal * (Number(cfg.offer_value || 0) / 100));
+                    const maxD = Number(cfg.maximum_discount) || 0;
+                    globalDiscount = maxD > 0 ? Math.min(raw, maxD) : raw;
+                    offerLabel = `${cfg.offer_value}% OFF`;
+                } else if (cfg.offer_type === 'fixed') {
+                    globalDiscount = Math.min(subtotal, Number(cfg.offer_value) || 0);
+                    offerLabel = `₹${cfg.offer_value} OFF`;
+                }
+            }
+
+            const baseDelivery = Math.max(0, Number(cfg.delivery_fee) || 0);
+            let deliveryFee = 0;
+            let isFreeDelivery = false;
+            if (rows.length > 0) {
+                if (baseDelivery <= 0) {
+                    deliveryFee = 0;
+                    isFreeDelivery = true;
+                } else {
+                    const meetsFreeThreshold = cfg.free_delivery_enabled && subtotal >= (Number(cfg.free_delivery_threshold) || 0);
+                    const meetsFreeOffer = isOfferActive && cfg.offer_type === 'free_delivery' && meetsOfferMin;
+                    if (meetsFreeThreshold || meetsFreeOffer) {
+                        deliveryFee = 0;
+                        isFreeDelivery = true;
+                    } else {
+                        deliveryFee = baseDelivery;
+                        isFreeDelivery = false;
+                    }
+                }
+            }
+
+            const handlingFee = (rows.length > 0 && cfg.handling_fee_enabled !== false) ? (Number(cfg.handling_fee) !== undefined && !isNaN(Number(cfg.handling_fee)) ? Number(cfg.handling_fee) : 3) : 0;
+            const minCartVal = Number(cfg.min_cart_value) || 35;
+            const isMinMet = subtotal >= minCartVal;
+            const minShortfall = Math.max(0, minCartVal - subtotal);
+            const exactTotal = Math.max(0, subtotal - globalDiscount + deliveryFee + handlingFee);
+            const deliverySavings = isFreeDelivery ? (baseDelivery > 0 ? baseDelivery : 25) : 0;
+            const totalSavings = mrpDiscount + globalDiscount + deliverySavings;
+
+            window.cartTotalCache = exactTotal;
+            window.cartSubtotalCache = subtotal;
+            window.cartMinOrderCache = minCartVal;
+
+            // DOM Updates
+            const totalMrpRow = document.getElementById('checkout-total-mrp-row');
+            const totalMrpVal = document.getElementById('checkout-total-mrp-val');
+            if (totalMrpRow && totalMrpVal) {
+                if (mrpDiscount > 0) {
+                    totalMrpRow.classList.remove('hidden');
+                    totalMrpVal.textContent = `₹${totalMrp}`;
+                } else {
+                    totalMrpRow.classList.add('hidden');
+                }
+            }
+
+            const mrpDiscRow = document.getElementById('checkout-mrp-discount-row');
+            const mrpDiscVal = document.getElementById('checkout-mrp-discount-val');
+            if (mrpDiscRow && mrpDiscVal) {
+                if (mrpDiscount > 0) {
+                    mrpDiscRow.classList.remove('hidden');
+                    mrpDiscVal.textContent = `-₹${mrpDiscount}`;
+                } else {
+                    mrpDiscRow.classList.add('hidden');
+                }
+            }
+
+            const subtotalEl = document.getElementById('checkout-subtotal-val');
+            if (subtotalEl) subtotalEl.textContent = `₹${subtotal}`;
+
+            const offerRow = document.getElementById('checkout-offer-row');
+            const offerVal = document.getElementById('checkout-offer-val');
+            const offerLabelEl = document.getElementById('checkout-offer-label');
+            if (offerRow && offerVal) {
+                if (globalDiscount > 0) {
+                    offerRow.classList.remove('hidden');
+                    if (offerLabelEl) offerLabelEl.textContent = `Offer (${offerLabel})`;
+                    offerVal.textContent = `-₹${globalDiscount}`;
+                } else {
+                    offerRow.classList.add('hidden');
+                }
+            }
+
+            const handlingEl = document.getElementById('checkout-handling-val');
+            if (handlingEl) handlingEl.textContent = `₹${handlingFee}`;
+
+            const totalEl = document.getElementById('checkout-total-val');
+            if (totalEl) totalEl.textContent = `₹${exactTotal}`;
+
+            const tapBtn = document.getElementById('tap-to-pay-btn');
+            if (tapBtn && !tapBtn.disabled) {
+                tapBtn.innerHTML = `<span class="material-symbols-outlined text-base">bolt</span> <span>⚡ 1-Tap Quick Place (₹${exactTotal})</span>`;
+            }
+
+            const sliderText = document.getElementById('pay-slider-text');
+            if (sliderText) sliderText.textContent = `Slide to Pay ₹${exactTotal}`;
+
+            const savingsVal = document.getElementById('checkout-savings-val');
+            if (savingsVal) savingsVal.textContent = `Total Savings: ₹${totalSavings} applied`;
+
+        } catch (err) {
+            console.error('[Checkout DOM Update Error]:', err);
+        }
+    }
+
+    // Instant Responsive Quantity Steppers (0ms UI Response)
     document.querySelectorAll('.checkout-qty-inc').forEach(btn => {
-        btn.onclick = async (e) => {
+        btn.onclick = (e) => {
             e.stopPropagation();
             const row = btn.closest('.cart-checkout-row');
             const cartId = btn.dataset.id || row?.dataset?.cartId;
+            const productId = btn.dataset.productId || row?.dataset?.productId;
             const rawStock = btn.dataset.stockLeft ?? row?.dataset?.stockLeft;
-            const stockLeft = (rawStock !== undefined && rawStock !== '' && rawStock !== null) ? Number(rawStock) : 0;
-            const curQty = parseInt(btn.dataset.qty) || 1;
+            const stockLeft = (rawStock !== undefined && rawStock !== '' && rawStock !== null) ? Number(rawStock) : 10;
+            const qtyNum = row?.querySelector('.qty-num');
+            const curQty = parseInt(qtyNum?.textContent || btn.dataset.qty) || 1;
 
             if (curQty >= stockLeft) {
                 btn.classList.add('opacity-40', 'cursor-not-allowed');
@@ -577,43 +769,66 @@ window.pageInits.checkout = function () {
             }
 
             const nextQty = curQty + 1;
+            if (qtyNum) qtyNum.textContent = nextQty;
+            btn.dataset.qty = nextQty;
+            const decBtn = row?.querySelector('.checkout-qty-dec');
+            if (decBtn) decBtn.dataset.qty = nextQty;
+
+            if (nextQty >= stockLeft) {
+                btn.classList.add('opacity-40', 'cursor-not-allowed');
+                btn.setAttribute('title', `Max stock limit (${stockLeft})`);
+                btn.disabled = true;
+            }
+
+            updateCheckoutDOMBill();
             if (productId) {
                 window.setOptimisticCartQuantity(productId, nextQty, stockLeft);
-                if (window.router) window.router();
             } else if (cartId) {
-                await window.api.updateCartItem(cartId, nextQty, userId);
-                if (window.router) window.router();
+                window.api.updateCartItem(cartId, nextQty, userId).catch(console.warn);
             }
         };
     });
 
     document.querySelectorAll('.checkout-qty-dec').forEach(btn => {
-        btn.onclick = async (e) => {
+        btn.onclick = (e) => {
             e.stopPropagation();
             const row = btn.closest('.cart-checkout-row');
             const cartId = btn.dataset.id || row?.dataset?.cartId;
+            const productId = btn.dataset.productId || row?.dataset?.productId;
             const rawStock = btn.dataset.stockLeft ?? row?.dataset?.stockLeft;
-            const stockLeft = (rawStock !== undefined && rawStock !== '' && rawStock !== null) ? Number(rawStock) : 0;
-            const curQty = parseInt(btn.dataset.qty) || 1;
+            const stockLeft = (rawStock !== undefined && rawStock !== '' && rawStock !== null) ? Number(rawStock) : 10;
+            const qtyNum = row?.querySelector('.qty-num');
+            const curQty = parseInt(qtyNum?.textContent || btn.dataset.qty) || 1;
 
             if (curQty <= 1) {
+                if (row) row.remove();
+                updateCheckoutDOMBill();
                 if (productId) {
                     window.setOptimisticCartQuantity(productId, 0, stockLeft);
                 } else if (cartId) {
-                    await window.api.removeCartItem(cartId);
+                    window.api.removeCartItem(cartId).catch(console.warn);
                 }
                 if (typeof window.showClientToast === 'function') {
-                    window.showClientToast('Item removed from cart', 'info', 'delete');
+                    window.showClientToast('Item removed from order', 'info', 'delete');
                 }
-                if (window.router) window.router();
             } else {
                 const nextQty = curQty - 1;
+                if (qtyNum) qtyNum.textContent = nextQty;
+                btn.dataset.qty = nextQty;
+                const incBtn = row?.querySelector('.checkout-qty-inc');
+                if (incBtn) {
+                    incBtn.dataset.qty = nextQty;
+                    if (nextQty < stockLeft) {
+                        incBtn.classList.remove('opacity-40', 'cursor-not-allowed');
+                        incBtn.setAttribute('title', 'Add one more');
+                        incBtn.disabled = false;
+                    }
+                }
+                updateCheckoutDOMBill();
                 if (productId) {
                     window.setOptimisticCartQuantity(productId, nextQty, stockLeft);
-                    if (window.router) window.router();
                 } else if (cartId) {
-                    await window.api.updateCartItem(cartId, nextQty, userId);
-                    if (window.router) window.router();
+                    window.api.updateCartItem(cartId, nextQty, userId).catch(console.warn);
                 }
             }
         };
@@ -628,8 +843,6 @@ window.pageInits.checkout = function () {
             }
         };
     });
-
-    let isSubmitting = false;
 
     async function executeOrderPlacement() {
         if (isSubmitting) return;

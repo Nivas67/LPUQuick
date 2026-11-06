@@ -148,26 +148,64 @@ window.setOptimisticCartQuantity = function(productId, targetQty, maxStock = 50,
         const totalMrp = list.reduce((sum, it) => sum + ((Number(it.mrp) || Number(it.price) || 0) * (Number(it.quantity) || 1)), 0);
         const subtotal = list.reduce((sum, it) => sum + ((Number(it.price) || 0) * (Number(it.quantity) || 1)), 0);
         const mrpDiscount = Math.max(0, totalMrp - subtotal);
-        const hasDiscount = subtotal >= 350;
-        const discount5 = hasDiscount ? Math.round(subtotal * 0.05) : 0;
-        const platform_fee = list.length > 0 ? 3 : 0;
-        const total = Math.max(0, subtotal - discount5 + platform_fee);
+        const s = window.latestCheckoutSettings || {};
+        let isOfferActive = Boolean(s.offers_enabled !== false);
+        const minOrderVal = Number(s.minimum_order_value) || 250;
+        const meetsMinOrder = subtotal >= minOrderVal;
+        let discount = 0;
+        if (isOfferActive && meetsMinOrder && subtotal > 0) {
+            if (s.offer_type === 'percentage') {
+                const raw = Math.round(subtotal * (Number(s.offer_value || 0) / 100));
+                const maxD = Number(s.maximum_discount) || 0;
+                discount = maxD > 0 ? Math.min(raw, maxD) : raw;
+            } else if (s.offer_type === 'fixed') {
+                discount = Math.min(subtotal, Number(s.offer_value) || 0);
+            }
+        }
+        const handling = (s.handling_fee_enabled !== false && list.length > 0) ? (Number(s.handling_fee) !== undefined && !isNaN(Number(s.handling_fee)) ? Number(s.handling_fee) : 3) : 0;
+        const baseDelivery = Math.max(0, Number(s.delivery_fee) || 0);
+        let delivery = 0;
+        let isFreeDelivery = false;
+        if (list.length > 0) {
+            if (baseDelivery <= 0) {
+                delivery = 0;
+                isFreeDelivery = true;
+            } else {
+                const meetsFreeThreshold = s.free_delivery_enabled && subtotal >= (Number(s.free_delivery_threshold) || 0);
+                const meetsFreeOffer = isOfferActive && s.offer_type === 'free_delivery' && meetsMinOrder;
+                if (meetsFreeThreshold || meetsFreeOffer) {
+                    delivery = 0;
+                    isFreeDelivery = true;
+                } else {
+                    delivery = baseDelivery;
+                }
+            }
+        }
+        const total = Math.max(0, subtotal - discount + delivery + handling);
+        const min_order_value = Number(s.min_cart_value) || 35;
+        const is_min_order_met = subtotal >= min_order_value;
+        const min_order_shortfall = Math.max(0, min_order_value - subtotal);
+        const deliverySavings = isFreeDelivery ? (baseDelivery > 0 ? baseDelivery : 25) : 0;
+        const total_savings = mrpDiscount + discount + deliverySavings;
+
         cartMemoryCache.item_count = totalQuantity;
         cartMemoryCache.total_items = totalQuantity;
         cartMemoryCache.pricing = {
             subtotal,
             total_mrp: totalMrp,
             mrp_discount: mrpDiscount,
-            discount5,
-            bulk_discount: discount5,
-            delivery_fee: 0,
-            platform_fee,
+            discount5: discount,
+            bulk_discount: discount,
+            global_discount: discount,
+            delivery_fee: delivery,
+            platform_fee: handling,
+            handling_fee: handling,
             tax: 0,
             total,
-            total_savings: mrpDiscount + discount5 + (subtotal > 0 ? 25 : 0),
-            min_order_value: 35,
-            is_min_order_met: subtotal >= 35,
-            min_order_shortfall: Math.max(0, 35 - subtotal),
+            total_savings,
+            min_order_value,
+            is_min_order_met,
+            min_order_shortfall,
             item_count: totalQuantity,
             total_items: totalQuantity
         };
