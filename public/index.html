@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover">
     <title>LPUQuick — Calm Commerce</title>
-    
-    
+
+
     <!-- Favicon & App Icons -->
     <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="shortcut icon" type="image/png" href="/favicon.png">
@@ -30,7 +32,7 @@
 
     <!-- Immediate Theme Initializer (Zero Flash) -->
     <script>
-        (function() {
+        (function () {
             try {
                 const theme = localStorage.getItem('lpuquick_theme');
                 if (theme === 'dark') {
@@ -38,14 +40,14 @@
                 } else {
                     document.documentElement.classList.remove('dark');
                 }
-            } catch(e) {}
+            } catch (e) { }
         })();
     </script>
-    
-    
+
+
     <!-- Immediate In-App & Standalone Initializer (Zero Flash of Install UI on App) -->
     <script>
-        (function() {
+        (function () {
             try {
                 var search = window.location.search || '';
                 var isAppParam = search.indexOf('app=android') !== -1 || search.indexOf('source=pwa') !== -1 || search.indexOf('standalone=true') !== -1;
@@ -58,13 +60,13 @@
                     localStorage.setItem('lpuquick_is_installed_app', 'true');
                     document.documentElement.classList.add('is-installed-app');
                 }
-            } catch(e) {}
+            } catch (e) { }
         })();
     </script>
 
     <!-- Hard Client Storage & Cache Purge (Preserving Auth & Address) -->
     <script>
-        (function() {
+        (function () {
             const PURGE_TAG = 'LPUQUICK_TURBO_PURGE_2026_10_03_V10';
             if (localStorage.getItem('LPUQUICK_PURGE_KEY') !== PURGE_TAG) {
                 try {
@@ -93,7 +95,7 @@
                     if (addr) localStorage.setItem('lpuquick_address', addr);
                     if (addrDetail) localStorage.setItem('lpuquick_address_detail', addrDetail);
                     if (hostelId) localStorage.setItem('lpuquick_hostel_id', hostelId);
-                } catch(e){}
+                } catch (e) { }
                 localStorage.setItem('LPUQUICK_PURGE_KEY', PURGE_TAG);
             }
         })();
@@ -107,10 +109,13 @@
     <link rel="dns-prefetch" href="https://accounts.google.com">
 
     <!-- Google Fonts: Plus Jakarta Sans, Outfit & Inter with font-display: swap -->
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Outfit:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Outfit:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
     <!-- Google Material Symbols Outlined with font-display: block (no raw text fallback flash) -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" />
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" />
 
     <!-- Google Identity Services (GSI) -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -202,9 +207,11 @@
     </script>
 
     <!-- Core Custom Styles -->
-    <link rel="stylesheet" href="/css/styles.css?v=20261106_modal_v14">
+    <link rel="stylesheet" href="/css/styles.css?v=20261106_blocks_order_v15">
 </head>
-<body class="bg-background text-on-surface font-sans antialiased selection:bg-emerald/20 selection:text-primary relative min-h-screen">
+
+<body
+    class="bg-background text-on-surface font-sans antialiased selection:bg-emerald/20 selection:text-primary relative min-h-screen">
     <!-- Ambient Liquid Glass Backdrop (Smooth, GPU Accelerated, 60fps) -->
     <div class="ambient-liquid-backdrop" id="ambient-canvas" aria-hidden="true">
         <div class="liquid-orb liquid-orb-1"></div>
@@ -253,24 +260,32 @@
         <!-- Sacred Golden Rangoli Mandala Background Watermark -->
         <div class="diwali-rangoli-mandala">
             <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full opacity-60">
-                <circle cx="100" cy="100" r="90" stroke="url(#mandalaGold)" stroke-width="0.8" stroke-dasharray="3 3"/>
-                <circle cx="100" cy="100" r="75" stroke="url(#mandalaGold)" stroke-width="0.6"/>
-                <circle cx="100" cy="100" r="60" stroke="url(#mandalaGold)" stroke-width="0.8" stroke-dasharray="4 2"/>
-                <circle cx="100" cy="100" r="40" stroke="url(#mandalaGold)" stroke-width="0.6"/>
-                <circle cx="100" cy="100" r="20" stroke="url(#mandalaGold)" stroke-width="0.8"/>
-                <path d="M100 20 C90 50 90 70 100 80 C110 70 110 50 100 20Z" stroke="url(#mandalaGold)" stroke-width="0.7"/>
-                <path d="M100 180 C90 150 90 130 100 120 C110 130 110 150 100 180Z" stroke="url(#mandalaGold)" stroke-width="0.7"/>
-                <path d="M20 100 C50 90 70 90 80 100 C70 110 50 110 20 100Z" stroke="url(#mandalaGold)" stroke-width="0.7"/>
-                <path d="M180 100 C150 90 130 90 120 100 C130 110 150 110 180 100Z" stroke="url(#mandalaGold)" stroke-width="0.7"/>
-                <path d="M43 43 C65 65 79 79 86 86 C79 93 65 107 43 43Z" stroke="url(#mandalaGold)" stroke-width="0.5"/>
-                <path d="M157 43 C135 65 121 79 114 86 C121 93 135 107 157 43Z" stroke="url(#mandalaGold)" stroke-width="0.5"/>
-                <path d="M43 157 C65 135 79 121 86 114 C79 107 65 93 43 157Z" stroke="url(#mandalaGold)" stroke-width="0.5"/>
-                <path d="M157 157 C135 135 121 121 114 114 C121 107 135 93 157 157Z" stroke="url(#mandalaGold)" stroke-width="0.5"/>
+                <circle cx="100" cy="100" r="90" stroke="url(#mandalaGold)" stroke-width="0.8" stroke-dasharray="3 3" />
+                <circle cx="100" cy="100" r="75" stroke="url(#mandalaGold)" stroke-width="0.6" />
+                <circle cx="100" cy="100" r="60" stroke="url(#mandalaGold)" stroke-width="0.8" stroke-dasharray="4 2" />
+                <circle cx="100" cy="100" r="40" stroke="url(#mandalaGold)" stroke-width="0.6" />
+                <circle cx="100" cy="100" r="20" stroke="url(#mandalaGold)" stroke-width="0.8" />
+                <path d="M100 20 C90 50 90 70 100 80 C110 70 110 50 100 20Z" stroke="url(#mandalaGold)"
+                    stroke-width="0.7" />
+                <path d="M100 180 C90 150 90 130 100 120 C110 130 110 150 100 180Z" stroke="url(#mandalaGold)"
+                    stroke-width="0.7" />
+                <path d="M20 100 C50 90 70 90 80 100 C70 110 50 110 20 100Z" stroke="url(#mandalaGold)"
+                    stroke-width="0.7" />
+                <path d="M180 100 C150 90 130 90 120 100 C130 110 150 110 180 100Z" stroke="url(#mandalaGold)"
+                    stroke-width="0.7" />
+                <path d="M43 43 C65 65 79 79 86 86 C79 93 65 107 43 43Z" stroke="url(#mandalaGold)"
+                    stroke-width="0.5" />
+                <path d="M157 43 C135 65 121 79 114 86 C121 93 135 107 157 43Z" stroke="url(#mandalaGold)"
+                    stroke-width="0.5" />
+                <path d="M43 157 C65 135 79 121 86 114 C79 107 65 93 43 157Z" stroke="url(#mandalaGold)"
+                    stroke-width="0.5" />
+                <path d="M157 157 C135 135 121 121 114 114 C121 107 135 93 157 157Z" stroke="url(#mandalaGold)"
+                    stroke-width="0.5" />
                 <defs>
                     <linearGradient id="mandalaGold" x1="0" y1="0" x2="200" y2="200">
-                        <stop offset="0%" stop-color="#f59e0b"/>
-                        <stop offset="50%" stop-color="#fbbf24"/>
-                        <stop offset="100%" stop-color="#ea580c"/>
+                        <stop offset="0%" stop-color="#f59e0b" />
+                        <stop offset="50%" stop-color="#fbbf24" />
+                        <stop offset="100%" stop-color="#ea580c" />
                     </linearGradient>
                 </defs>
             </svg>
@@ -309,49 +324,50 @@
     </div>
 
     <!-- SPA Root Container -->
-        <!-- Global Shared SVG Gradients for Diwali Theme (Pure Vector, 0 Layout Overhead) -->
-    <svg class="hidden" width="0" height="0" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden;">
+    <!-- Global Shared SVG Gradients for Diwali Theme (Pure Vector, 0 Layout Overhead) -->
+    <svg class="hidden" width="0" height="0" aria-hidden="true"
+        style="position:absolute;width:0;height:0;overflow:hidden;">
         <defs>
             <linearGradient id="mandalaGold" x1="0" y1="0" x2="200" y2="200">
-                <stop offset="0%" stop-color="#f59e0b"/>
-                <stop offset="50%" stop-color="#fbbf24"/>
-                <stop offset="100%" stop-color="#ea580c"/>
+                <stop offset="0%" stop-color="#f59e0b" />
+                <stop offset="50%" stop-color="#fbbf24" />
+                <stop offset="100%" stop-color="#ea580c" />
             </linearGradient>
             <linearGradient id="diyaPotGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#b45309"/>
-                <stop offset="50%" stop-color="#78350f"/>
-                <stop offset="100%" stop-color="#451a03"/>
+                <stop offset="0%" stop-color="#b45309" />
+                <stop offset="50%" stop-color="#78350f" />
+                <stop offset="100%" stop-color="#451a03" />
             </linearGradient>
             <linearGradient id="diyaRimGrad" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stop-color="#f59e0b"/>
-                <stop offset="50%" stop-color="#fde047"/>
-                <stop offset="100%" stop-color="#ea580c"/>
+                <stop offset="0%" stop-color="#f59e0b" />
+                <stop offset="50%" stop-color="#fde047" />
+                <stop offset="100%" stop-color="#ea580c" />
             </linearGradient>
             <linearGradient id="diyaFlameGrad" x1="0" y1="1" x2="0" y2="0">
-                <stop offset="0%" stop-color="#ea580c"/>
-                <stop offset="40%" stop-color="#f59e0b"/>
-                <stop offset="80%" stop-color="#fde047"/>
-                <stop offset="100%" stop-color="#ffffff"/>
+                <stop offset="0%" stop-color="#ea580c" />
+                <stop offset="40%" stop-color="#f59e0b" />
+                <stop offset="80%" stop-color="#fde047" />
+                <stop offset="100%" stop-color="#ffffff" />
             </linearGradient>
             <linearGradient id="baseRangoliGrad" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#ea580c"/>
-                <stop offset="50%" stop-color="#f59e0b"/>
-                <stop offset="100%" stop-color="#9333ea"/>
+                <stop offset="0%" stop-color="#ea580c" />
+                <stop offset="50%" stop-color="#f59e0b" />
+                <stop offset="100%" stop-color="#9333ea" />
             </linearGradient>
             <linearGradient id="giftBoxGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#ef4444"/>
-                <stop offset="50%" stop-color="#dc2626"/>
-                <stop offset="100%" stop-color="#991b1b"/>
+                <stop offset="0%" stop-color="#ef4444" />
+                <stop offset="50%" stop-color="#dc2626" />
+                <stop offset="100%" stop-color="#991b1b" />
             </linearGradient>
             <linearGradient id="giftLidGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#f87171"/>
-                <stop offset="100%" stop-color="#dc2626"/>
+                <stop offset="0%" stop-color="#f87171" />
+                <stop offset="100%" stop-color="#dc2626" />
             </linearGradient>
             <linearGradient id="giftRibbonGrad" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stop-color="#fef08a"/>
-                <stop offset="40%" stop-color="#facc15"/>
-                <stop offset="70%" stop-color="#eab308"/>
-                <stop offset="100%" stop-color="#ca8a04"/>
+                <stop offset="0%" stop-color="#fef08a" />
+                <stop offset="40%" stop-color="#facc15" />
+                <stop offset="70%" stop-color="#eab308" />
+                <stop offset="100%" stop-color="#ca8a04" />
             </linearGradient>
         </defs>
     </svg>
@@ -359,24 +375,31 @@
     <div id="app" class="relative z-10"></div>
 
     <!-- Global Floating Live Delivery Bar (Liquid Glass & Clay Styling) -->
-    <div id="global-live-delivery-bar" class="fixed bottom-24 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 hidden transition-all duration-300">
-        <a href="#/orders" class="p-3 rounded-2xl border border-white/60 dark:border-white/10 shadow-xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl flex items-center justify-between gap-3 text-xs hover:border-emerald-500/50 transition-all active:scale-[0.98]">
+    <div id="global-live-delivery-bar"
+        class="fixed bottom-24 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 hidden transition-all duration-300">
+        <a href="#/orders"
+            class="p-3 rounded-2xl border border-white/60 dark:border-white/10 shadow-xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl flex items-center justify-between gap-3 text-xs hover:border-emerald-500/50 transition-all active:scale-[0.98]">
             <div class="flex items-center gap-3 min-w-0">
-                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 text-white flex items-center justify-center font-bold flex-shrink-0 shadow-md border border-white/40">
+                <div
+                    class="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 text-white flex items-center justify-center font-bold flex-shrink-0 shadow-md border border-white/40">
                     <span class="material-symbols-outlined text-base">directions_walk</span>
                 </div>
                 <div class="truncate">
                     <div class="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
                         <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                         <span id="global-delivery-status">Out for Delivery</span>
-                        <span class="text-[10px] text-emerald-700 dark:text-emerald-400 font-extrabold bg-emerald-50/80 dark:bg-emerald-950/60 border border-emerald-300/60 dark:border-emerald-700/60 px-2 py-0.5 rounded-full" id="global-delivery-eta">1 min</span>
+                        <span
+                            class="text-[10px] text-emerald-700 dark:text-emerald-400 font-extrabold bg-emerald-50/80 dark:bg-emerald-950/60 border border-emerald-300/60 dark:border-emerald-700/60 px-2 py-0.5 rounded-full"
+                            id="global-delivery-eta">1 min</span>
                     </div>
-                    <p class="text-[11px] text-slate-600 dark:text-slate-400 truncate mt-0.5" id="global-delivery-subtitle">
+                    <p class="text-[11px] text-slate-600 dark:text-slate-400 truncate mt-0.5"
+                        id="global-delivery-subtitle">
                         Campus runner walking to your room door
                     </p>
                 </div>
             </div>
-            <div class="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold text-xs flex-shrink-0 clay-pill px-2.5 py-1">
+            <div
+                class="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold text-xs flex-shrink-0 clay-pill px-2.5 py-1">
                 <span>Track</span>
                 <span class="material-symbols-outlined text-sm">arrow_forward</span>
             </div>
@@ -384,10 +407,13 @@
     </div>
 
     <!-- Global Floating Quick-Commerce View Cart Bar (Liquid Glass & Clay Styling) -->
-    <div id="global-floating-cart-bar" class="fixed bottom-24 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 hidden transition-all duration-300 transform translate-y-12 opacity-0 pointer-events-none">
-        <a href="#/cart" id="floating-cart-inner" class="w-full bg-gradient-to-r from-emerald-600/95 via-emerald-600/95 to-teal-700/95 text-white rounded-2xl py-3 px-4 shadow-2xl backdrop-blur-xl flex items-center justify-between gap-3 border border-white/30 active:scale-[0.98] transition-all group cursor-pointer">
+    <div id="global-floating-cart-bar"
+        class="fixed bottom-24 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 hidden transition-all duration-300 transform translate-y-12 opacity-0 pointer-events-none">
+        <a href="#/cart" id="floating-cart-inner"
+            class="w-full bg-gradient-to-r from-emerald-600/95 via-emerald-600/95 to-teal-700/95 text-white rounded-2xl py-3 px-4 shadow-2xl backdrop-blur-xl flex items-center justify-between gap-3 border border-white/30 active:scale-[0.98] transition-all group cursor-pointer">
             <!-- Left: Stacked Overlapping Product Images (up to 3 items) -->
-            <div id="floating-cart-thumbnails" class="flex items-center -space-x-2.5 mr-1 overflow-visible flex-shrink-0">
+            <div id="floating-cart-thumbnails"
+                class="flex items-center -space-x-2.5 mr-1 overflow-visible flex-shrink-0">
                 <!-- Dynamically populated up to 3 thumbnails -->
             </div>
 
@@ -400,22 +426,25 @@
             </div>
 
             <!-- Right: Action Button / Chevron -->
-            <div class="flex items-center gap-1 font-bold text-xs bg-white/20 hover:bg-white/30 px-3.5 py-1.5 rounded-full text-white shadow-sm border border-white/30 transition-all">
+            <div
+                class="flex items-center gap-1 font-bold text-xs bg-white/20 hover:bg-white/30 px-3.5 py-1.5 rounded-full text-white shadow-sm border border-white/30 transition-all">
                 <span>Checkout</span>
-                <span class="material-symbols-outlined text-base group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
+                <span
+                    class="material-symbols-outlined text-base group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
             </div>
         </a>
     </div>
 
     <!-- Client Live Notifications Container -->
-    <div id="client-toast-container" class="fixed top-4 right-4 sm:right-6 z-50 flex flex-col gap-2 max-w-sm w-[90%] pointer-events-none"></div>
+    <div id="client-toast-container"
+        class="fixed top-4 right-4 sm:right-6 z-50 flex flex-col gap-2 max-w-sm w-[90%] pointer-events-none"></div>
 
     <!-- Core App State & Router Setup with Immediate Session Hydration -->
     <script>
         window.pages = window.pages || {};
         window.pageInits = window.pageInits || {};
         window.GOOGLE_CLIENT_ID = '632433440395-4ph6ghe311niied8h423ki98slbse8d2.apps.googleusercontent.com';
-        
+
         // Permanent User Session Hydration (User stays logged in until explicit Sign Out)
         (function hydrateUserSession() {
             try {
@@ -428,7 +457,7 @@
                         window.CURRENT_USER_NAME = savedUser.name || 'LPU Student';
                         window.CURRENT_USER_EMAIL = savedUser.email || '';
                         window.CURRENT_USER_PICTURE = savedUser.picture || '';
-                        
+
                         // Respect user's selected theme
                         const currentTheme = localStorage.getItem('lpuquick_theme');
                         if (currentTheme === 'dark') {
@@ -445,12 +474,12 @@
                     window.CURRENT_USER_EMAIL = null;
                     window.CURRENT_USER_PICTURE = null;
                 }
-            } catch(e) {
+            } catch (e) {
                 console.warn('[Hydrate Session Warning]:', e);
             }
         })();
 
-        window.isUserLoggedIn = function() {
+        window.isUserLoggedIn = function () {
             if (Boolean(window.CURRENT_USER_ID)) return true;
             try {
                 const savedUserStr = localStorage.getItem('lpuquick_user');
@@ -464,31 +493,32 @@
                     window.CURRENT_USER_PICTURE = savedUser.picture || '';
                     return true;
                 }
-            } catch(e) {}
+            } catch (e) { }
             return false;
         };
     </script>
 
     <!-- API Client -->
-    <script defer src="/js/api.js?v=20261106_modal_v14"></script>
+    <script defer src="/js/api.js?v=20261106_blocks_order_v15"></script>
 
     <!-- Page Templates -->
-    <script defer src="/js/pages/signin.js?v=20261106_modal_v14"></script>
-    <script defer src="/js/pages/home.js?v=20261106_modal_v14"></script>
-    <script defer src="/js/pages/categories.js?v=20261106_modal_v14"></script>
-    <script defer src="/js/pages/cart.js?v=20261106_modal_v14"></script>
-    <script defer src="/js/pages/checkout.js?v=20261106_modal_v14"></script>
-    <script defer src="/js/pages/flowassist.js?v=20261106_modal_v14"></script>
-    <script defer src="/js/pages/orders.js?v=20261106_modal_v14"></script>
-    <script defer src="/js/pages/settings.js?v=20261106_modal_v14"></script>
-    <script defer src="/js/pages/blocked.js?v=20261106_modal_v14"></script>
-    <script defer src="/js/pages/rider_earnings.js?v=20261106_modal_v14"></script>
+    <script defer src="/js/pages/signin.js?v=20261106_blocks_order_v15"></script>
+    <script defer src="/js/pages/home.js?v=20261106_blocks_order_v15"></script>
+    <script defer src="/js/pages/categories.js?v=20261106_blocks_order_v15"></script>
+    <script defer src="/js/pages/cart.js?v=20261106_blocks_order_v15"></script>
+    <script defer src="/js/pages/checkout.js?v=20261106_blocks_order_v15"></script>
+    <script defer src="/js/pages/flowassist.js?v=20261106_blocks_order_v15"></script>
+    <script defer src="/js/pages/orders.js?v=20261106_blocks_order_v15"></script>
+    <script defer src="/js/pages/settings.js?v=20261106_blocks_order_v15"></script>
+    <script defer src="/js/pages/blocked.js?v=20261106_blocks_order_v15"></script>
+    <script defer src="/js/pages/rider_earnings.js?v=20261106_blocks_order_v15"></script>
 
     <!-- PWA Install Engine for Android & Apple iOS -->
-    <script defer src="/js/pwa-install.js?v=20261106_modal_v14"></script>
+    <script defer src="/js/pwa-install.js?v=20261106_blocks_order_v15"></script>
 
     <!-- App Router & Real-Time Sync Hub -->
-    <script defer src="/js/app.js?v=20261106_modal_v14"></script>
+    <script defer src="/js/app.js?v=20261106_blocks_order_v15"></script>
 
 </body>
+
 </html>

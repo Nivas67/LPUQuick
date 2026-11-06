@@ -311,13 +311,19 @@ const api = {
         return res.json();
     },
 
-    // Active Hostels with Short-Term SWR Cache
+    // Active Hostels with Intelligent SWR Memory Cache (0ms Instant Lookups + Live Sync)
     async getActiveHostels(forceRefresh = false) {
-        if (!forceRefresh && window.__activeHostelsCache && Array.isArray(window.__activeHostelsCache) && window.__activeHostelsCache.length > 0) {
+        const now = Date.now();
+        const cacheAge = now - (window.__activeHostelsCacheTime || 0);
+
+        // 1. Instant Cache Hit (Fresh within 10s)
+        if (!forceRefresh && window.__activeHostelsCache && Array.isArray(window.__activeHostelsCache) && window.__activeHostelsCache.length > 0 && cacheAge < 10000) {
             return window.__activeHostelsCache;
         }
-        if (window.__activeHostelsCache && Array.isArray(window.__activeHostelsCache) && window.__activeHostelsCache.length > 0) {
-            fetch(`${API_BASE}/hostels/active?_t=${Date.now()}`)
+
+        // 2. SWR: If we have cache older than 10s, return immediately but revalidate in background
+        if (!forceRefresh && window.__activeHostelsCache && Array.isArray(window.__activeHostelsCache) && window.__activeHostelsCache.length > 0) {
+            fetch(`${API_BASE}/hostels/active?_t=${now}`)
                 .then(r => r.json())
                 .then(data => {
                     const list = (data && Array.isArray(data.hostels)) ? data.hostels : [];
@@ -325,22 +331,32 @@ const api = {
                         window.__activeHostelsCache = list;
                         window.__activeHostelsCacheTime = Date.now();
                         try { localStorage.setItem('lpuquick_active_hostels', JSON.stringify(list)); } catch (e) { }
+                        window.dispatchEvent(new CustomEvent('lpuquick:hostels_updated', { detail: list }));
                     }
                 }).catch(() => {});
             return window.__activeHostelsCache;
         }
+
+        // 3. Fresh Network Fetch (cold start or explicit forceRefresh)
         try {
-            const res = await fetch(`${API_BASE}/hostels/active?_t=${Date.now()}`);
+            const res = await fetch(`${API_BASE}/hostels/active?_t=${now}`);
             const data = await res.json();
             const list = (data && Array.isArray(data.hostels)) ? data.hostels : [];
-            window.__activeHostelsCache = list;
-            window.__activeHostelsCacheTime = Date.now();
-            try { localStorage.setItem('lpuquick_active_hostels', JSON.stringify(list)); } catch (e) { }
-            return list;
+            if (list.length > 0) {
+                window.__activeHostelsCache = list;
+                window.__activeHostelsCacheTime = Date.now();
+                try { localStorage.setItem('lpuquick_active_hostels', JSON.stringify(list)); } catch (e) { }
+                window.dispatchEvent(new CustomEvent('lpuquick:hostels_updated', { detail: list }));
+                return list;
+            }
+            return window.__activeHostelsCache || list;
         } catch (e) {
             return window.__activeHostelsCache || [
-                { id: 'BH-13', name: 'Boys Hostel 13', status: 'ACTIVE' },
-                { id: 'GH12', name: 'Girls Hostel 12', status: 'ACTIVE' }
+                { id: 'BH-13', name: 'Boys Hostel 13', status: 'ACTIVE', blocks: ['Block A', 'Block B', 'Hostel Main Gate'] },
+                { id: 'GH12', name: 'Girls Hostel 12', status: 'ACTIVE', blocks: ['Block A', 'Block B', 'Block C', 'Hostel Main Gate'] },
+                { id: 'GH 11', name: 'Girls Hostel 11', status: 'ACTIVE', blocks: ['Block A', 'Block B', 'Hostel Main Gate'] },
+                { id: 'BH-12', name: 'Boys Hostel 12', status: 'ACTIVE', blocks: ['Block A', 'Block B'] },
+                { id: 'GH-1', name: 'Girls Hostel 1', status: 'ACTIVE', blocks: ['Block A'] }
             ];
         }
     },

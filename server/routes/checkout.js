@@ -139,7 +139,7 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
         console.warn('[Checkout Guard Warning]:', guardErr.message);
     }
 
-    // Strict Address Check: Must be non-empty and explicitly contain a room number
+    // Strict Address Check: Must be non-empty and explicitly contain a room number or designated Gate drop point
     if (!deliveryAddress || typeof deliveryAddress !== 'string' || deliveryAddress.trim().length < 5 || 
         deliveryAddress.includes('Please set') || 
         deliveryAddress.includes('Room null') || 
@@ -147,7 +147,8 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
         return res.status(400).json({ error: 'Hostel delivery address is required. Please set your hostel room number before placing an order.' });
     }
 
-    const hasRoomNumber = /Room\s*[a-zA-Z0-9\-]+/i.test(deliveryAddress) || /Flat\s*[a-zA-Z0-9\-]+/i.test(deliveryAddress);
+    const isMainGateDrop = /(gate|main\s*gate)/i.test(deliveryAddress) || /(gate|main\s*gate)/i.test(req.body.hostel_id || '');
+    const hasRoomNumber = isMainGateDrop || /Room\s*[a-zA-Z0-9\-]+/i.test(deliveryAddress) || /Flat\s*[a-zA-Z0-9\-]+/i.test(deliveryAddress);
     if (!hasRoomNumber) {
         return res.status(400).json({ error: 'Valid hostel room number is required (e.g., BH13 (Block A), Room 304).' });
     }

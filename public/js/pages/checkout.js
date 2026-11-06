@@ -62,7 +62,7 @@ window.pages.checkout = async function () {
     const items = cartData.items || [];
     const p = cartData.pricing || { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 };
 
-        // Real-time synchronization with local cartState & cached products
+    // Real-time synchronization with local cartState & cached products
     if (window.cartState && typeof window.cartState === 'object') {
         items.forEach(it => {
             if (it.product_id && window.cartState[it.product_id] && window.cartState[it.product_id].quantity !== undefined) {
@@ -116,7 +116,7 @@ window.pages.checkout = async function () {
             window.latestCheckoutSettings = res.settings;
             try { localStorage.setItem('lpuquick_checkout_settings', JSON.stringify(res.settings)); } catch (e) { }
         }
-    }).catch(() => {});
+    }).catch(() => { });
 
     checkoutSettings = checkoutSettings || {
         offers_enabled: false,
@@ -270,7 +270,7 @@ window.pages.checkout = async function () {
         </div>
     </header>
 
-    <main class="px-3 sm:px-6 max-w-2xl mx-auto pt-5 space-y-4" id="checkout-main-container">
+    <main class="px-3 sm:px-6 max-w-2xl mx-auto pt-5 space-y-4 pb-44 sm:pb-24" id="checkout-main-container">
         <!-- Pre-Order Section -->
         <div id="checkout-form-section" class="space-y-4 transition-all duration-200">
             
@@ -525,9 +525,9 @@ window.pages.checkout = async function () {
                 </div>
                 
                 <div class="mt-3.5 flex flex-col gap-2">
-                    <button type="button" class="clay-btn clay-btn-primary w-full py-4 px-4 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer shadow-xl active:scale-95 transition-all tracking-wide uppercase" id="tap-to-pay-btn">
-                        <span class="material-symbols-outlined text-base">bolt</span>
-                        <span>⚡ 1-Tap Quick Place (₹${exactTotal})</span>
+                    <button type="button" class="clay-btn clay-btn-primary w-full py-4 px-4 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer shadow-xl active:scale-95 transition-all tracking-wide uppercase select-none" id="tap-to-pay-btn" style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;">
+                        <span class="material-symbols-outlined text-base pointer-events-none">bolt</span>
+                        <span class="pointer-events-none">⚡ 1-Tap Quick Place (₹${exactTotal})</span>
                     </button>
                     <div class="flex items-center justify-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
                         <span class="material-symbols-outlined text-xs text-emerald">verified</span>
@@ -592,6 +592,9 @@ window.pages.checkout = async function () {
 
 window.pageInits.checkout = function () {
     const userId = window.getEffectiveUserId();
+    let isSubmitting = false;
+    let confirmed = false;
+    let resetSliderUI = null;
 
     function updateCheckoutDOMBill() {
         try {
@@ -851,6 +854,7 @@ window.pageInits.checkout = function () {
     });
 
     async function executeOrderPlacement() {
+
         if (isSubmitting) return;
         isSubmitting = true;
 
@@ -923,7 +927,8 @@ window.pageInits.checkout = function () {
             }
         } catch (e) { }
 
-        const fullAddress = `[${savedHostel}] ${savedHostel} (${savedBlock}), Room ${savedRoom}`;
+        const roomPart = (!savedRoom && isMainGate) ? '' : `, Room ${savedRoom || 'Main Gate'}`;
+        const fullAddress = `[${savedHostel}] ${savedHostel} (${savedBlock})${roomPart}`;
         const selectedMethod = 'Cash on Delivery';
 
         const tapBtn = document.getElementById('tap-to-pay-btn');
@@ -974,17 +979,45 @@ window.pageInits.checkout = function () {
             }
             if (tapBtn) {
                 tapBtn.disabled = false;
-                tapBtn.innerHTML = `<span class="material-symbols-outlined text-base">bolt</span> <span>⚡ 1-Tap Quick Place (₹${window.cartTotalCache || 0})</span>`;
+                tapBtn.innerHTML = `<span class="material-symbols-outlined text-base pointer-events-none">bolt</span> <span class="pointer-events-none">⚡ 1-Tap Quick Place (₹${window.cartTotalCache || 0})</span>`;
             }
+            if (typeof resetSliderUI === 'function') {
+                resetSliderUI();
+            } else {
+                const sliderTextEl = document.getElementById('pay-slider-text');
+                if (sliderTextEl) {
+                    sliderTextEl.textContent = `Slide to Confirm Order ₹${window.cartTotalCache || ''}`;
+                    sliderTextEl.style.color = '';
+                }
+                const sliderThumbEl = document.getElementById('pay-slider-thumb');
+                if (sliderThumbEl) {
+                    sliderThumbEl.style.cursor = 'grab';
+                    const icon = sliderThumbEl.querySelector('.material-symbols-outlined');
+                    if (icon) icon.textContent = 'arrow_forward';
+                }
+            }
+            confirmed = false;
             isSubmitting = false;
         }
     }
 
+    // Expose globally for instant zero-latency touch and delegated triggers
+    window.executeOrderPlacement = executeOrderPlacement;
+
     const tapToPayBtn = document.getElementById('tap-to-pay-btn');
     if (tapToPayBtn) {
-        tapToPayBtn.onclick = () => {
+        const handleTap = (e) => {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
             executeOrderPlacement();
         };
+        tapToPayBtn.onclick = handleTap;
+        tapToPayBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            handleTap(e);
+        }, { passive: false });
     }
 
     // Interactive Slider Logic with Robust Pointer Events (100% Laptop & Mobile Support)
@@ -998,7 +1031,22 @@ window.pageInits.checkout = function () {
         let startPointerX = 0;
         let startOffset = 0;
         let currentOffset = 0;
-        let confirmed = false;
+        confirmed = false;
+
+        resetSliderUI = function () {
+            confirmed = false;
+            isDragging = false;
+            setSliderPosition(0, true);
+            if (sliderText) {
+                sliderText.textContent = `Slide to Confirm Order ₹${window.cartTotalCache || ''}`;
+                sliderText.style.color = '';
+            }
+            if (sliderThumb) {
+                sliderThumb.style.cursor = 'grab';
+                const icon = sliderThumb.querySelector('.material-symbols-outlined');
+                if (icon) icon.textContent = 'arrow_forward';
+            }
+        };
 
         function getMaxDrag() {
             const trackRect = sliderTrack.getBoundingClientRect();

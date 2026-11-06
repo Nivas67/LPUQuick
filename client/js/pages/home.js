@@ -3,7 +3,13 @@ window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
 function getHomeHostelDisplayName() {
-    return window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus');
+    const hostel = window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus');
+    const block = window.currentBlock || localStorage.getItem('lpuquick_block');
+    if (block && hostel !== 'Campus') {
+        const shortBlock = block.replace(/^Hostel\s*/i, '');
+        return `${hostel} • ${shortBlock}`;
+    }
+    return hostel;
 }
 
 const STORE_CATEGORIES = [

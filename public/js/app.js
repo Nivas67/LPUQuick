@@ -5,6 +5,10 @@ window.pageInits = window.pageInits || {};
 if (typeof window.renderBottomNav !== 'function') {
     window.renderBottomNav = function (activeTab = 'home') {
         const norm = String(activeTab || '').toLowerCase().trim();
+        if (norm === 'checkout') {
+            return '';
+        }
+
         const isHome = norm === 'home' || norm === '/' || norm === '';
         const isCategories = norm === 'categories' || norm === 'category';
         const isCart = norm === 'cart';
@@ -46,6 +50,14 @@ if (typeof window.renderBottomNav !== 'function') {
 // Instant 0ms Visual Synchronizer for Bottom Nav Dock
 window.syncBottomNavVisualActive = function (activeTab) {
     const norm = String(activeTab || '').toLowerCase().trim();
+    const dock = document.getElementById('global-bottom-nav-dock');
+    if (norm === 'checkout' || norm.includes('checkout')) {
+        if (dock) dock.classList.add('hidden');
+        return;
+    } else {
+        if (dock) dock.classList.remove('hidden');
+    }
+
     const tabName = (norm === '/' || norm === 'home' || !norm) ? 'home'
         : (norm.includes('categor') ? 'categories'
         : (norm.includes('cart') ? 'cart'
@@ -376,18 +388,38 @@ function getPageName(path) {
     return routes[path] || 'home';
 }
 
-// Address Configuration State Helper
+// Address Configuration State Helper (Accepts both room drops and designated Gate drop points)
 window.hasUserConfiguredAddress = function () {
     const isConfigured = localStorage.getItem('lpuquick_address_configured') === 'true';
+    const block = (localStorage.getItem('lpuquick_block') || window.currentBlock || '').toLowerCase();
+    const isGate = block.includes('gate');
     const room = (localStorage.getItem('lpuquick_room') || '').replace(/\D/g, '');
     const phone = (localStorage.getItem('lpuquick_phone') || '').replace(/\D/g, '');
-    return isConfigured && room.length > 0 && phone.length === 10;
+    const hasValidLocation = isGate || room.length > 0;
+    return isConfigured && hasValidLocation && phone.length === 10;
 };
 
-// Global Address Selection Modal (Multi-Hostel Live Selection, Block A/B, Room No, Phone)
+// Global Address Selection Modal (Multi-Hostel Live Selection, Dynamic Blocks from Admin, Room No, Phone)
 window.openAddressModal = function (isMandatorySetup = false, onComplete = null) {
+    let resendInterval = null;
+    let onHostelsLiveUpdateHandler = null;
+
     const existing = document.getElementById('address-modal');
     if (existing) existing.remove();
+
+    function parseBlocks(raw) {
+        if (Array.isArray(raw) && raw.length > 0) {
+            return raw.map(b => String(b).trim()).filter(Boolean);
+        }
+        if (typeof raw === 'string' && raw.trim().length > 0) {
+            try {
+                const p = JSON.parse(raw);
+                if (Array.isArray(p) && p.length > 0) return p.map(b => String(b).trim()).filter(Boolean);
+            } catch (e) {}
+            return raw.split(',').map(b => b.trim()).filter(Boolean);
+        }
+        return ['Block A', 'Block B'];
+    }
 
     // Instant 0ms Synchronous Active Hostels Lookup from in-memory cache or local storage
     let liveHostels = window.__activeHostelsCache;
@@ -399,14 +431,14 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
     }
     if (!Array.isArray(liveHostels) || liveHostels.length === 0) {
         liveHostels = [
-            { id: 'BH-13', name: 'Boys Hostel 13', status: 'ACTIVE' },
-            { id: 'BH-12', name: 'Boys Hostel 12', status: 'ACTIVE' },
-            { id: 'GH12', name: 'Girls Hostel 12', status: 'ACTIVE' },
-            { id: 'GH 11', name: 'Girls Hostel 11', status: 'ACTIVE' },
-            { id: 'GH-1', name: 'Girls Hostel 1', status: 'ACTIVE' },
-            { id: 'GH-2', name: 'Girls Hostel 2', status: 'ACTIVE' },
-            { id: 'GH-3', name: 'Girls Hostel 3', status: 'ACTIVE' },
-            { id: 'GH-4', name: 'Girls Hostel 4', status: 'ACTIVE' }
+            { id: 'BH-13', name: 'Boys Hostel 13', status: 'ACTIVE', blocks: ['Block A', 'Block B', 'Hostel Main Gate'] },
+            { id: 'GH12', name: 'Girls Hostel 12', status: 'ACTIVE', blocks: ['Block A', 'Block B', 'Block C', 'Hostel Main Gate'] },
+            { id: 'GH 11', name: 'Girls Hostel 11', status: 'ACTIVE', blocks: ['Block A', 'Block B', 'Hostel Main Gate'] },
+            { id: 'BH-12', name: 'Boys Hostel 12', status: 'ACTIVE', blocks: ['Block A', 'Block B'] },
+            { id: 'GH-1', name: 'Girls Hostel 1', status: 'ACTIVE', blocks: ['Block A'] },
+            { id: 'GH-2', name: 'Girls Hostel 2', status: 'ACTIVE', blocks: ['Block A'] },
+            { id: 'GH-3', name: 'Girls Hostel 3', status: 'ACTIVE', blocks: ['Block A'] },
+            { id: 'GH-4', name: 'Girls Hostel 4', status: 'ACTIVE', blocks: ['Block A'] }
         ];
     }
 
@@ -420,114 +452,122 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
 
     const activeKeySet = new Set();
     const liveHostelMap = new Map();
+    let allLocations = [];
 
-    (liveHostels || []).forEach(h => {
-        if (!h || h.status === 'OFF') return;
-        const idClean = normalizeHostelKey(h.id);
-        const nameClean = normalizeHostelKey(h.name);
-        if (idClean) {
-            activeKeySet.add(idClean);
-            liveHostelMap.set(idClean, h);
-        }
-        if (nameClean) {
-            activeKeySet.add(nameClean);
-            if (!liveHostelMap.has(nameClean)) liveHostelMap.set(nameClean, h);
-        }
-        const numMatch = (h.id || '').match(/\d+/);
-        if (numMatch) {
-            const num = numMatch[0];
-            const isBH = (h.id || '').toUpperCase().includes('BH') || (h.name || '').toUpperCase().includes('BOYS');
-            const isGH = (h.id || '').toUpperCase().includes('GH') || (h.name || '').toUpperCase().includes('GIRLS');
-            if (isBH) {
-                activeKeySet.add('BH' + num);
-                if (!liveHostelMap.has('BH' + num)) liveHostelMap.set('BH' + num, h);
-            }
-            if (isGH) {
-                activeKeySet.add('GH' + num);
-                if (!liveHostelMap.has('GH' + num)) liveHostelMap.set('GH' + num, h);
-            }
-        }
-        const nameNumMatch = (h.name || '').match(/\d+/);
-        if (nameNumMatch) {
-            const num = nameNumMatch[0];
-            const isBH = (h.name || '').toUpperCase().includes('BOYS') || (h.name || '').toUpperCase().includes('BH');
-            const isGH = (h.name || '').toUpperCase().includes('GIRLS') || (h.name || '').toUpperCase().includes('GH');
-            if (isBH) {
-                activeKeySet.add('BH' + num);
-                if (!liveHostelMap.has('BH' + num)) liveHostelMap.set('BH' + num, h);
-            }
-            if (isGH) {
-                activeKeySet.add('GH' + num);
-                if (!liveHostelMap.has('GH' + num)) liveHostelMap.set('GH' + num, h);
-            }
-        }
-    });
+    function populateLocations() {
+        activeKeySet.clear();
+        liveHostelMap.clear();
 
-    // Fallback: If no active hostels found, default BH-13 & GH-12 as live
-    if (activeKeySet.size === 0) {
-        activeKeySet.add('BH13');
-        liveHostelMap.set('BH13', { id: 'BH-13', name: 'Boys Hostel 13', status: 'ACTIVE' });
-        activeKeySet.add('GH12');
-        liveHostelMap.set('GH12', { id: 'GH12', name: 'Girls Hostel 12', status: 'ACTIVE' });
+        (liveHostels || []).forEach(h => {
+            if (!h || h.status === 'OFF') return;
+            const idClean = normalizeHostelKey(h.id);
+            const nameClean = normalizeHostelKey(h.name);
+            if (idClean) {
+                activeKeySet.add(idClean);
+                liveHostelMap.set(idClean, h);
+            }
+            if (nameClean) {
+                activeKeySet.add(nameClean);
+                if (!liveHostelMap.has(nameClean)) liveHostelMap.set(nameClean, h);
+            }
+            const numMatch = (h.id || '').match(/\d+/);
+            if (numMatch) {
+                const num = numMatch[0];
+                const isBH = (h.id || '').toUpperCase().includes('BH') || (h.name || '').toUpperCase().includes('BOYS');
+                const isGH = (h.id || '').toUpperCase().includes('GH') || (h.name || '').toUpperCase().includes('GIRLS');
+                if (isBH) {
+                    activeKeySet.add('BH' + num);
+                    if (!liveHostelMap.has('BH' + num)) liveHostelMap.set('BH' + num, h);
+                }
+                if (isGH) {
+                    activeKeySet.add('GH' + num);
+                    if (!liveHostelMap.has('GH' + num)) liveHostelMap.set('GH' + num, h);
+                }
+            }
+            const nameNumMatch = (h.name || '').match(/\d+/);
+            if (nameNumMatch) {
+                const num = nameNumMatch[0];
+                const isBH = (h.name || '').toUpperCase().includes('BOYS') || (h.name || '').toUpperCase().includes('BH');
+                const isGH = (h.name || '').toUpperCase().includes('GIRLS') || (h.name || '').toUpperCase().includes('GH');
+                if (isBH) {
+                    activeKeySet.add('BH' + num);
+                    if (!liveHostelMap.has('BH' + num)) liveHostelMap.set('BH' + num, h);
+                }
+                if (isGH) {
+                    activeKeySet.add('GH' + num);
+                    if (!liveHostelMap.has('GH' + num)) liveHostelMap.set('GH' + num, h);
+                }
+            }
+        });
+
+        // Fallback: If no active hostels found, default BH-13 & GH-12 as live
+        if (activeKeySet.size === 0) {
+            activeKeySet.add('BH13');
+            liveHostelMap.set('BH13', { id: 'BH-13', name: 'Boys Hostel 13', status: 'ACTIVE', blocks: ['Block A', 'Block B', 'Hostel Main Gate'] });
+            activeKeySet.add('GH12');
+            liveHostelMap.set('GH12', { id: 'GH12', name: 'Girls Hostel 12', status: 'ACTIVE', blocks: ['Block A', 'Block B', 'Block C', 'Hostel Main Gate'] });
+        }
+
+        // Complete standard campus hostels across all LPU corridors
+        const defaultHostels = [
+            'BH13', 'BH12', 'GH12', 'GH11', 'GH1', 'GH2', 'GH3', 'GH4',
+            'BH1', 'BH2', 'BH3', 'BH4', 'BH5', 'BH6', 'BH7', 'BH8', 'BH9', 'BH10', 'BH14', 'BH15', 'BH16',
+            'GH5', 'GH6', 'GH7', 'GH8', 'GH9', 'GH10', 'GH13', 'GH14',
+            'UniMall'
+        ];
+
+        // Combine custom active hostels from admin with default locations
+        const knownKeys = new Set(defaultHostels.map(normalizeHostelKey));
+        (liveHostels || []).forEach(h => {
+            if (!h || h.status === 'OFF') return;
+            const k = normalizeHostelKey(h.id);
+            if (k && !knownKeys.has(k)) {
+                defaultHostels.push(h.id);
+                knownKeys.add(k);
+            }
+        });
+
+        allLocations = defaultHostels.map(loc => {
+            const cleanKey = normalizeHostelKey(loc);
+            const isActive = activeKeySet.has(cleanKey);
+            const matchedLive = liveHostelMap.get(cleanKey);
+            const canonId = matchedLive ? matchedLive.id : (loc.startsWith('BH') || loc.startsWith('GH') ? loc.replace(/^([A-Z]+)(\d+)/, '$1-$2') : loc);
+            const blocks = (matchedLive && matchedLive.blocks)
+                ? parseBlocks(matchedLive.blocks)
+                : ['Block A', 'Block B'];
+            return {
+                id: canonId,
+                name: loc,
+                displayName: matchedLive?.name || loc,
+                active: isActive,
+                blocks: blocks,
+                tag: isActive ? 'Live 3m' : 'Coming Soon'
+            };
+        });
+
+        // Active hostels go to the top ("GOES UP ON THE IMAGE")
+        allLocations.sort((a, b) => {
+            if (a.active && !b.active) return -1;
+            if (!a.active && b.active) return 1;
+            return 0;
+        });
     }
 
-    // Complete standard campus hostels across all LPU corridors
-    const defaultHostels = [
-        'BH13', 'BH12', 'GH12', 'GH11', 'GH1', 'GH2', 'GH3', 'GH4',
-        'BH1', 'BH2', 'BH3', 'BH4', 'BH5', 'BH6', 'BH7', 'BH8', 'BH9', 'BH10', 'BH14', 'BH15', 'BH16',
-        'GH5', 'GH6', 'GH7', 'GH8', 'GH9', 'GH10', 'GH13', 'GH14',
-        'UniMall'
-    ];
-
-    // Combine custom active hostels from admin with default locations
-    const knownKeys = new Set(defaultHostels.map(normalizeHostelKey));
-    (liveHostels || []).forEach(h => {
-        if (!h || h.status === 'OFF') return;
-        const k = normalizeHostelKey(h.id);
-        if (k && !knownKeys.has(k)) {
-            defaultHostels.push(h.id);
-            knownKeys.add(k);
-        }
-    });
-
-    const allLocations = defaultHostels.map(loc => {
-        const cleanKey = normalizeHostelKey(loc);
-        const isActive = activeKeySet.has(cleanKey);
-        const matchedLive = liveHostelMap.get(cleanKey);
-        const canonId = matchedLive ? matchedLive.id : (loc.startsWith('BH') || loc.startsWith('GH') ? loc.replace(/^([A-Z]+)(\d+)/, '$1-$2') : loc);
-        const blocks = (matchedLive && Array.isArray(matchedLive.blocks) && matchedLive.blocks.length > 0)
-            ? matchedLive.blocks
-            : ['Block A', 'Block B'];
-        return {
-            id: canonId,
-            name: loc,
-            displayName: matchedLive?.name || loc,
-            active: isActive,
-            blocks: blocks,
-            tag: isActive ? 'Live 3m' : 'Coming Soon'
-        };
-    });
+    populateLocations();
 
     function getHostelBlocks(hostelKeyOrId) {
         if (!hostelKeyOrId) return ['Block A', 'Block B'];
         const clean = normalizeHostelKey(hostelKeyOrId);
         const found = allLocations.find(h => normalizeHostelKey(h.id) === clean || normalizeHostelKey(h.name) === clean);
-        if (found && Array.isArray(found.blocks) && found.blocks.length > 0) {
-            return found.blocks;
+        if (found && found.blocks && found.blocks.length > 0) {
+            return parseBlocks(found.blocks);
         }
         const matched = liveHostelMap.get(clean);
-        if (matched && Array.isArray(matched.blocks) && matched.blocks.length > 0) {
-            return matched.blocks;
+        if (matched && matched.blocks && matched.blocks.length > 0) {
+            return parseBlocks(matched.blocks);
         }
         return ['Block A', 'Block B'];
     }
-
-    // Active hostels go to the top ("GOES UP ON THE IMAGE")
-    allLocations.sort((a, b) => {
-        if (a.active && !b.active) return -1;
-        if (!a.active && b.active) return 1;
-        return 0;
-    });
 
     let selectedHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id');
     if (!selectedHostel) {
@@ -720,6 +760,9 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
     `;
 
     const closeModal = () => {
+        if (onHostelsLiveUpdateHandler) {
+            window.removeEventListener('lpuquick:hostels_updated', onHostelsLiveUpdateHandler);
+        }
         if (resendInterval) clearInterval(resendInterval);
         modal.remove();
         if (typeof onComplete === 'function') {
@@ -752,70 +795,92 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
     }
 
     // Active hostel click handler
-    modal.querySelectorAll('.hostel-pick-btn').forEach(btn => {
-        btn.onclick = () => {
-            const isActive = btn.dataset.active === 'true';
-            const chosenName = btn.dataset.hostel;
-            const chosenId = btn.dataset.hostelId || chosenName;
+    function bindHostelClickHandlers() {
+        modal.querySelectorAll('.hostel-pick-btn').forEach(btn => {
+            btn.onclick = () => {
+                const isActive = btn.dataset.active === 'true';
+                const chosenName = btn.dataset.hostel;
+                const chosenId = btn.dataset.hostelId || chosenName;
 
-            if (!isActive) {
-                const alertBox = modal.querySelector('#blocked-hostel-alert');
-                const alertMsg = modal.querySelector('#blocked-hostel-msg');
-                if (alertBox && alertMsg) {
-                    alertBox.classList.remove('hidden');
-                    alertMsg.textContent = `${chosenName} is opening soon! Express delivery is currently active at ${liveDisplayNames}.`;
-                }
-                return;
-            }
-
-            const alertBox = modal.querySelector('#blocked-hostel-alert');
-            if (alertBox) alertBox.classList.add('hidden');
-
-            if (chosenId) {
-                selectedHostel = chosenId;
-
-                modal.querySelectorAll('.hostel-pick-btn').forEach(b => {
-                    b.classList.remove('clay-pill', 'text-emerald-600', 'dark:text-emerald-400', 'border-emerald-500/40', 'bg-emerald-500/15');
-                    if (b.dataset.active === 'true') {
-                        b.classList.add('clay-card', 'text-slate-700', 'dark:text-slate-300');
-                    } else {
-                        b.classList.add('clay-card', 'text-slate-400', 'dark:text-slate-500', 'opacity-60');
+                if (!isActive) {
+                    const alertBox = modal.querySelector('#blocked-hostel-alert');
+                    const alertMsg = modal.querySelector('#blocked-hostel-msg');
+                    if (alertBox && alertMsg) {
+                        alertBox.classList.remove('hidden');
+                        alertMsg.textContent = `${chosenName} is opening soon! Express delivery is currently active at ${allLocations.filter(h => h.active).map(h => h.name).join(', ') || 'BH13'}.`;
                     }
-                });
-                btn.classList.add('clay-pill', 'text-emerald-600', 'dark:text-emerald-400', 'border-emerald-500/40', 'bg-emerald-500/15');
-                btn.classList.remove('clay-card');
-
-                const hLabel = modal.querySelector('#selected-hostel-active-label');
-                if (hLabel) hLabel.textContent = `${selectedHostel} Selected`;
-
-                // Update blocks dynamically for newly picked hostel
-                renderBlockButtons(selectedHostel);
-
-                // INSTANT PERSISTENCE: Save immediately to state and storage
-                window.currentHostelId = selectedHostel;
-                window.currentAddress = selectedHostel.replace('-', '');
-                localStorage.setItem('lpuquick_hostel_id', selectedHostel);
-                localStorage.setItem('lpuquick_address', window.currentAddress);
-
-                const currentRoomVal = (modal.querySelector('#room-input')?.value || savedRoom || '').trim().replace(/\D/g, '');
-                if (currentRoomVal) {
-                    window.currentRoom = currentRoomVal;
-                    localStorage.setItem('lpuquick_room', currentRoomVal);
-                    window.currentAddressDetail = `${selectedHostel} (${selectedBlock}), Room ${currentRoomVal}`;
-                    localStorage.setItem('lpuquick_address_detail', window.currentAddressDetail);
-                }
-                localStorage.setItem('lpuquick_address_configured', 'true');
-
-                if (window.api && typeof window.api.clearProductsCache === 'function') {
-                    window.api.clearProductsCache();
+                    return;
                 }
 
-                if (typeof window.syncStoreAvailability === 'function') {
-                    window.syncStoreAvailability(selectedHostel);
+                const alertBox = modal.querySelector('#blocked-hostel-alert');
+                if (alertBox) alertBox.classList.add('hidden');
+
+                if (chosenId) {
+                    selectedHostel = chosenId;
+
+                    modal.querySelectorAll('.hostel-pick-btn').forEach(b => {
+                        b.classList.remove('clay-pill', 'text-emerald-600', 'dark:text-emerald-400', 'border-emerald-500/40', 'bg-emerald-500/15');
+                        if (b.dataset.active === 'true') {
+                            b.classList.add('clay-card', 'text-slate-700', 'dark:text-slate-300');
+                        } else {
+                            b.classList.add('clay-card', 'text-slate-400', 'dark:text-slate-500', 'opacity-60');
+                        }
+                    });
+                    btn.classList.add('clay-pill', 'text-emerald-600', 'dark:text-emerald-400', 'border-emerald-500/40', 'bg-emerald-500/15');
+                    btn.classList.remove('clay-card');
+
+                    const hLabel = modal.querySelector('#selected-hostel-active-label');
+                    if (hLabel) hLabel.textContent = `${selectedHostel} Selected`;
+
+                    // Update blocks dynamically for newly picked hostel
+                    renderBlockButtons(selectedHostel);
+
+                    // INSTANT PERSISTENCE: Save immediately to state and storage
+                    window.currentHostelId = selectedHostel;
+                    window.currentAddress = selectedHostel.replace('-', '');
+                    localStorage.setItem('lpuquick_hostel_id', selectedHostel);
+                    localStorage.setItem('lpuquick_address', window.currentAddress);
+
+                    const currentRoomVal = (modal.querySelector('#room-input')?.value || savedRoom || '').trim().replace(/\D/g, '');
+                    if (currentRoomVal) {
+                        window.currentRoom = currentRoomVal;
+                        localStorage.setItem('lpuquick_room', currentRoomVal);
+                        window.currentAddressDetail = `${selectedHostel} (${selectedBlock}), Room ${currentRoomVal}`;
+                        localStorage.setItem('lpuquick_address_detail', window.currentAddressDetail);
+                    }
+                    localStorage.setItem('lpuquick_address_configured', 'true');
+
+                    if (window.api && typeof window.api.clearProductsCache === 'function') {
+                        window.api.clearProductsCache();
+                    }
+
+                    if (typeof window.syncStoreAvailability === 'function') {
+                        window.syncStoreAvailability(selectedHostel);
+                    }
                 }
-            }
-        };
-    });
+            };
+        });
+    }
+
+    function renderHostelsGrid() {
+        const grid = modal.querySelector('#hostels-container');
+        if (!grid) return;
+        grid.innerHTML = allLocations.map(h => {
+            const isSelected = h.active && (normalizeHostelKey(h.id) === normalizeHostelKey(selectedHostel) || normalizeHostelKey(h.name) === normalizeHostelKey(selectedHostel));
+            const activeClass = h.active
+                ? (isSelected ? 'clay-pill text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 bg-emerald-500/15' : 'clay-card text-slate-700 dark:text-slate-300 hover:border-emerald')
+                : 'clay-card text-slate-400 dark:text-slate-500 opacity-60 hover:border-amber-400/50';
+            return `
+                <button type="button" class="p-2 rounded-xl text-xs font-bold transition-all relative flex flex-col items-center justify-center gap-1 hostel-pick-btn cursor-pointer ${activeClass}" data-hostel="${h.name}" data-hostel-id="${h.id}" data-active="${h.active ? 'true' : 'false'}">
+                    <span>${h.name}</span>
+                    <span class="${h.active ? 'bg-emerald text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'} text-[8px] px-1.5 py-0.2 rounded-full font-black">${h.active ? 'Live' : 'Soon'}</span>
+                </button>
+            `;
+        }).join('');
+        bindHostelClickHandlers();
+    }
+
+    bindHostelClickHandlers();
 
     // Dynamic Block Renderer for Selected Hostel
     function renderBlockButtons(hostelId) {
@@ -824,7 +889,7 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
 
         const blocks = getHostelBlocks(hostelId);
         const countBadge = modal.querySelector('#block-count-badge');
-        if (countBadge) countBadge.textContent = `${blocks.length} Options`;
+        if (countBadge) countBadge.textContent = `${blocks.length} Option${blocks.length === 1 ? '' : 's'}`;
 
         // If currently selected block is not in this hostel's blocks, default to first block
         if (!blocks.includes(selectedBlock)) {
@@ -844,7 +909,8 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
 
         blockContainer.innerHTML = blocks.map((block, idx) => {
             const isSelected = selectedBlock === block;
-            const isGate = block.toLowerCase().includes('gate');
+            const blockStr = String(block || '').trim();
+            const isGate = blockStr.toLowerCase().includes('gate');
             const icon = isGate ? 'sensor_door' : 'apartment';
             const isOddLast = (blocks.length % 2 === 1) && (idx === blocks.length - 1) && blocks.length > 2;
             const colSpanClass = isOddLast ? 'col-span-2 sm:col-span-1' : '';
@@ -853,9 +919,9 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
                 : 'clay-card text-slate-700 dark:text-slate-300 hover:border-emerald-500/50';
 
             return `
-                <button type="button" class="py-2.5 px-3 rounded-xl text-xs font-bold transition-transform active:scale-95 block-btn flex items-center justify-center gap-1.5 cursor-pointer ${colSpanClass} ${activeClass}" data-block="${block}">
-                    <span class="material-symbols-outlined text-sm">${icon}</span>
-                    <span>${block}</span>
+                <button type="button" class="py-2.5 px-3 rounded-xl text-xs font-bold transition-transform active:scale-95 block-btn flex items-center justify-center gap-1.5 cursor-pointer ${colSpanClass} ${activeClass}" data-block="${blockStr}">
+                    <span class="material-symbols-outlined text-sm pointer-events-none">${icon}</span>
+                    <span class="pointer-events-none">${blockStr}</span>
                 </button>
             `;
         }).join('');
@@ -913,6 +979,27 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
     // Initial render of blocks
     renderBlockButtons(selectedHostel);
 
+    // Live SWR Revalidation to sync updated blocks & hostels from Admin immediately
+    const onHostelsSync = (incomingList) => {
+        if (!Array.isArray(incomingList) || incomingList.length === 0) return;
+        if (!document.getElementById('address-modal')) return;
+        liveHostels = incomingList;
+        populateLocations();
+        renderHostelsGrid();
+        renderBlockButtons(selectedHostel);
+    };
+
+    if (window.api && typeof window.api.getActiveHostels === 'function') {
+        window.api.getActiveHostels(true).then(list => {
+            onHostelsSync(list);
+        }).catch(() => {});
+    }
+
+    onHostelsLiveUpdateHandler = (e) => {
+        if (e.detail) onHostelsSync(e.detail);
+    };
+    window.addEventListener('lpuquick:hostels_updated', onHostelsLiveUpdateHandler);
+
     // Disabled hostels click handler
     modal.querySelectorAll('.hostel-disabled-btn').forEach(btn => {
         btn.onclick = () => {
@@ -951,6 +1038,13 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
         localStorage.setItem('lpuquick_address_configured', 'true');
         localStorage.setItem('lpuquick_address_detail', window.currentAddressDetail);
 
+        // Update home address display pill if on home page
+        const headerAddr = document.querySelector('#btn-header-address strong');
+        if (headerAddr) {
+            const shortBlock = selectedBlock.replace(/^Hostel\s*/i, '');
+            headerAddr.textContent = `${window.currentAddress} • ${shortBlock}`;
+        }
+
         // Sync with backend profile
         if (window.isUserLoggedIn() && window.api?.updateAddress) {
             window.api.updateAddress(window.CURRENT_USER_ID, selectedHostel, selectedBlock, room, phone);
@@ -964,6 +1058,9 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
             window.api.clearProductsCache();
         }
 
+        if (onHostelsLiveUpdateHandler) {
+            window.removeEventListener('lpuquick:hostels_updated', onHostelsLiveUpdateHandler);
+        }
         if (resendInterval) clearInterval(resendInterval);
         modal.remove();
 
@@ -979,7 +1076,6 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
     }
 
     // OTP Timer & Screen Flow
-    let resendInterval = null;
     function startResendTimer() {
         if (resendInterval) clearInterval(resendInterval);
         let left = 30;
@@ -1921,17 +2017,40 @@ function initGlobalEventDelegation() {
             if (typeof window.syncBottomNavVisualActive === 'function') {
                 window.syncBottomNavVisualActive(route);
             }
+            return;
+        }
+
+        // 7. 1-Tap Place Order Button Global Delegated Handler
+        const tapToPayBtn = e.target.closest('#tap-to-pay-btn');
+        if (tapToPayBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof window.executeOrderPlacement === 'function') {
+                window.executeOrderPlacement();
+            }
+            return;
         }
     });
 
-    // Instant Mobile Touch Response for Bottom Navigation
+    // Instant Mobile Touch Response for Place Order Button and Bottom Navigation
     document.addEventListener('touchstart', (e) => {
+        const tapToPayBtn = e.target.closest('#tap-to-pay-btn');
+        if (tapToPayBtn) {
+            tapToPayBtn.classList.add('scale-95');
+        }
         const navItem = e.target.closest('nav.liquid-dock-pill a');
         if (navItem) {
             const route = (navItem.getAttribute('data-route') || navItem.getAttribute('href') || '').replace(/^#\/?/, '') || 'home';
             if (typeof window.syncBottomNavVisualActive === 'function') {
                 window.syncBottomNavVisualActive(route);
             }
+        }
+    }, { passive: true });
+
+    document.addEventListener('touchend', (e) => {
+        const tapToPayBtn = e.target.closest('#tap-to-pay-btn');
+        if (tapToPayBtn) {
+            tapToPayBtn.classList.remove('scale-95');
         }
     }, { passive: true });
 }
@@ -3553,6 +3672,11 @@ function bootstrapApp() {
     checkAndConnectGlobalOrderTracking();
     initPullToRefresh();
     handlePostReloadToast();
+
+    // Instant proactive sync of live hostels & admin-configured blocks
+    if (window.api && typeof window.api.getActiveHostels === 'function') {
+        window.api.getActiveHostels(true).catch(() => {});
+    }
 }
 
 if (document.readyState === 'complete' || document.readyState === 'interactive') {

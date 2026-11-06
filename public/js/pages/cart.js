@@ -305,7 +305,7 @@ window.pages.cart = async function () {
         </div>
     </header>
 
-    <main class="px-3 sm:px-6 max-w-5xl mx-auto pt-5 grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6">
+    <main class="px-3 sm:px-6 max-w-5xl mx-auto pt-5 grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6 pb-36 sm:pb-20">
         <!-- Left: Cart Items & Campus Perks -->
         <div class="lg:col-span-2 space-y-3.5">
             <!-- Dynamic Minimum Order Value Alert -->
