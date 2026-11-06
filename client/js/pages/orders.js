@@ -435,8 +435,8 @@ window.pages.orders = async function () {
 
     const userId = window.CURRENT_USER_ID || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : null);
     const [ordersDataRes, activeDataRes] = await Promise.allSettled([
-        window.api.getOrders(userId, false),
-        window.api.getActiveOrder(userId, false)
+        (typeof window.api?.getOrders === 'function' ? window.api.getOrders(userId, false) : Promise.resolve({ active: [], past: [] })),
+        (typeof window.api?.getActiveOrder === 'function' ? window.api.getActiveOrder(userId, false) : Promise.resolve({ active: null }))
     ]);
 
     const ordersData = (ordersDataRes.status === 'fulfilled' && ordersDataRes.value) ? ordersDataRes.value : { active: [], past: [] };

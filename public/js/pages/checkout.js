@@ -291,7 +291,7 @@ window.pages.checkout = async function () {
                     <span class="material-symbols-outlined text-xs">arrow_forward</span>
                 </a>
             </div>
-            ` : !window.hasUserConfiguredAddress() ? `
+            ` : !(typeof window.hasUserConfiguredAddress === 'function' ? window.hasUserConfiguredAddress() : Boolean(localStorage.getItem('lpuquick_room'))) ? `
             <!-- Room Address & Mobile Required Banner -->
             <div class="glass-panel rounded-2xl p-4 flex items-center justify-between text-xs border border-rose-500/40 bg-rose-500/10 shadow-sm backdrop-blur-xl">
                 <div class="flex items-center gap-3">
@@ -508,7 +508,7 @@ window.pages.checkout = async function () {
                         <span>Add Items Worth ₹${minOrderShortfall} More</span>
                     </a>
                 </div>
-                ` : (!window.hasUserConfiguredAddress() ? `
+                ` : (!(typeof window.hasUserConfiguredAddress === 'function' ? window.hasUserConfiguredAddress() : Boolean(localStorage.getItem('lpuquick_room'))) ? `
                 <button type="button" onclick="window.openAddressModal(true, () => { if (typeof window.router === 'function') window.router(); })" class="clay-btn clay-btn-primary w-full py-4 px-5 rounded-2xl text-white font-black text-xs sm:text-sm shadow-xl flex items-center justify-center gap-2 cursor-pointer transition-all">
                     <span class="material-symbols-outlined text-base">home_pin</span>
                     <span>Set Hostel Room Address to Complete Order (₹${exactTotal})</span>

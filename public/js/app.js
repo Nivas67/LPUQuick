@@ -564,7 +564,7 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
 
     const modal = document.createElement('div');
     modal.id = 'address-modal';
-    modal.className = 'modal-overlay';
+    modal.className = 'modal-overlay fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md';
     modal.innerHTML = `
         <div class="glass-panel p-6 space-y-4 max-w-sm w-full rounded-3xl max-h-[88vh] overflow-y-auto border border-[var(--glass-border)] shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200" onclick="event.stopPropagation()">
             <!-- Screen 1: Address Details Form -->
@@ -1211,7 +1211,7 @@ window.openCampusHelpModal = function (orderId = null) {
 
     const modal = document.createElement('div');
     modal.id = 'campus-help-modal';
-    modal.className = 'modal-overlay';
+    modal.className = 'modal-overlay fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md';
     modal.innerHTML = `
         <div class="glass-panel p-5 sm:p-6 space-y-4 max-w-md w-full rounded-3xl max-h-[90vh] overflow-y-auto border border-[var(--glass-border)] shadow-2xl backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-200 text-slate-900 dark:text-white mx-3 sm:mx-auto" onclick="event.stopPropagation()">
             <!-- Modal Header -->
@@ -1367,7 +1367,7 @@ window.openCouponsModal = function () {
 
     const modal = document.createElement('div');
     modal.id = 'coupons-modal';
-    modal.className = 'modal-overlay';
+    modal.className = 'modal-overlay fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md';
     modal.innerHTML = `
         <div class="glass-panel p-5 sm:p-6 space-y-4 max-w-md w-full rounded-3xl max-h-[90vh] overflow-y-auto border border-[var(--glass-border)] shadow-2xl backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-200 text-slate-900 dark:text-white mx-3 sm:mx-auto" onclick="event.stopPropagation()">
             <!-- Header -->
@@ -1441,7 +1441,7 @@ window.openProductModal = async function (productId) {
     const modal = document.createElement('div');
     modal.id = 'product-modal';
     modal.dataset.productId = productId;
-    modal.className = 'modal-overlay';
+    modal.className = 'modal-overlay fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md';
     modal.innerHTML = `
         <div class="modal-content p-6 flex items-center justify-center min-h-[300px]" onclick="event.stopPropagation()">
             <span class="material-symbols-outlined text-emerald text-3xl animate-spin">progress_activity</span>
