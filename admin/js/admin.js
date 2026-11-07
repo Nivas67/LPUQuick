@@ -1919,6 +1919,16 @@ function setProductStatusFilter(status) {
     filterProducts();
 }
 
+function getAdminAssignedHostelsNormSet() {
+    if (!currentAdminProfile || isPlatformOwner(currentAdminProfile)) return null;
+    const list = (currentAdminProfile.assigned_hostels && currentAdminProfile.assigned_hostels.length > 0)
+        ? currentAdminProfile.assigned_hostels
+        : (currentAdminProfile.assigned_hostel_id ? [currentAdminProfile.assigned_hostel_id] : []);
+    if (list.length === 0) return new Set();
+    return new Set(list.map(h => (h || '').toUpperCase().replace(/[^A-Z0-9]/g, '')));
+}
+window.getAdminAssignedHostelsNormSet = getAdminAssignedHostelsNormSet;
+
 function filterProducts() {
     const isOwner = isPlatformOwner();
     document.querySelectorAll('.owner-only-col').forEach(el => {
@@ -1927,12 +1937,22 @@ function filterProducts() {
 
     const query = (document.getElementById('product-search-input')?.value || '').toLowerCase();
     const prodHostel = (typeof getActiveAdminHostelFilter === 'function') ? getActiveAdminHostelFilter('products') : null;
+    const allowedSet = getAdminAssignedHostelsNormSet();
+
     let filtered = productsCache.filter(p => {
         if (p.deleted) return false;
         const matchesQuery = p.name.toLowerCase().includes(query) || p.category.toLowerCase().includes(query);
         if (!matchesQuery) return false;
+
+        const pHostelNorm = (p.hostel_id || 'BH-13').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+        // Non-owners must NEVER see products from unassigned hostels (e.g. BH-13)
+        if (allowedSet && !allowedSet.has(pHostelNorm)) {
+            return false;
+        }
+
         if (prodHostel && prodHostel !== 'ALL') {
-            return (p.hostel_id || 'BH-13').toLowerCase().replace('-', '') === prodHostel.toLowerCase().replace('-', '');
+            return pHostelNorm === prodHostel.toUpperCase().replace(/[^A-Z0-9]/g, '');
         }
         return true;
     });
@@ -2046,12 +2066,18 @@ async function loadInventory(force = true) {
 function updateInventoryKpiTiles() {
     if (!Array.isArray(productsCache)) return;
 
+    const allowedSet = getAdminAssignedHostelsNormSet();
     let totalVal = 0;
     let totalUnits = 0;
     let inStockSkus = 0;
     let stockAlerts = 0;
+    let totalSkus = 0;
 
     for (const p of productsCache) {
+        if (p.deleted) continue;
+        const pHostelNorm = (p.hostel_id || 'BH-13').toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (allowedSet && !allowedSet.has(pHostelNorm)) continue;
+        totalSkus++;
         const stock = p.stock_left !== undefined ? Math.max(0, Number(p.stock_left)) : (p.in_stock ? (p.stock_left || 0) : 0);
         const price = Number(p.price) || 0;
         totalVal += (stock * price);
@@ -2067,7 +2093,7 @@ function updateInventoryKpiTiles() {
 
     if (valEl) valEl.textContent = '₹' + Math.round(totalVal).toLocaleString('en-IN');
     if (unitsEl) unitsEl.textContent = totalUnits.toLocaleString('en-IN');
-    if (skusEl) skusEl.textContent = productsCache.length.toLocaleString('en-IN');
+    if (skusEl) skusEl.textContent = totalSkus.toLocaleString('en-IN');
     if (alertsEl) alertsEl.textContent = stockAlerts.toLocaleString('en-IN');
 }
 
@@ -2075,11 +2101,21 @@ function filterInventory() {
     updateInventoryKpiTiles();
     const query = (document.getElementById('inventory-search-input')?.value || '').toLowerCase();
     const invHostel = (typeof getActiveAdminHostelFilter === 'function') ? getActiveAdminHostelFilter('inventory') : null;
+    const allowedSet = getAdminAssignedHostelsNormSet();
+
     const filtered = productsCache.filter(p => {
         const matchesQuery = p.name.toLowerCase().includes(query) || p.category.toLowerCase().includes(query);
         if (!matchesQuery) return false;
+
+        const pHostelNorm = (p.hostel_id || 'BH-13').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+        // Non-owners must NEVER see inventory from unassigned hostels (e.g. BH-13)
+        if (allowedSet && !allowedSet.has(pHostelNorm)) {
+            return false;
+        }
+
         if (invHostel && invHostel !== 'ALL') {
-            return (p.hostel_id || 'BH-13').toLowerCase().replace('-', '') === invHostel.toLowerCase().replace('-', '');
+            return pHostelNorm === invHostel.toUpperCase().replace(/[^A-Z0-9]/g, '');
         }
         return true;
     });

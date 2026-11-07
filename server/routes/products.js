@@ -209,9 +209,19 @@ router.get('/', async (req, res) => {
         const isAdmin = Boolean(verifiedAdmin);
 
         let hostelId = req.query.hostel_id || req.query.hostel || '';
+        let isNonOwnerAdmin = false;
+        let nonOwnerNormSet = null;
         
+        const isOwnerAdmin = verifiedAdmin && (
+            verifiedAdmin.role === 'owner' ||
+            verifiedAdmin.is_owner ||
+            verifiedAdmin.sub === 'nivas_naidu_ad' ||
+            (Array.isArray(verifiedAdmin.roles) && verifiedAdmin.roles.includes('owner'))
+        );
+
         // If an authenticated admin has assigned hostel(s) (Store Manager / Staff), strictly scope to their assigned hostel
-        if (verifiedAdmin && verifiedAdmin.role !== 'owner' && !verifiedAdmin.is_owner && !(Array.isArray(verifiedAdmin.roles) && verifiedAdmin.roles.includes('owner'))) {
+        if (verifiedAdmin && !isOwnerAdmin) {
+            isNonOwnerAdmin = true;
             let cached = staffUserCache && staffUserCache.get(verifiedAdmin.sub);
             let user = cached?.user || cached || (KNOWN_STAFF_FALLBACKS && KNOWN_STAFF_FALLBACKS[verifiedAdmin.sub]);
             if (!user) {
@@ -237,11 +247,12 @@ router.get('/', async (req, res) => {
                 assignedHostels.unshift(user.assigned_hostel_id);
             }
 
+            nonOwnerNormSet = new Set(assignedHostels.map(h => (h || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '')));
+
             const reqHostel = (req.query.hostel_id || req.query.hostel || '').trim().toUpperCase();
             if (reqHostel && reqHostel !== 'ALL' && reqHostel !== 'all') {
                 const normReq = reqHostel.replace(/[^A-Z0-9]/g, '');
-                const hasMatch = assignedHostels.some(h => (h || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '') === normReq);
-                if (!hasMatch) {
+                if (!nonOwnerNormSet.has(normReq)) {
                     return res.status(403).json({ success: false, code: 'FORBIDDEN', error: 'Forbidden: You do not have access to view or manage products for this hostel.' });
                 }
                 hostelId = reqHostel;
@@ -261,7 +272,9 @@ router.get('/', async (req, res) => {
         } else {
             res.setHeader('Cache-Control', 'no-cache, no-store');
         }
-        const cacheKey = `products:list:${hostelId || 'all'}:${includeInactive}:${category}:${subcategory}:${sort}`;
+        const cacheKey = isNonOwnerAdmin
+            ? `products:list:user_${verifiedAdmin.sub}:${hostelId || 'all'}:${includeInactive}:${category}:${subcategory}:${sort}`
+            : `products:list:${hostelId || 'all'}:${includeInactive}:${category}:${subcategory}:${sort}`;
 
         if (forceFresh) {
             cache.delete(cacheKey);
@@ -319,6 +332,18 @@ router.get('/', async (req, res) => {
         let sanitizedList = rawList;
         if (!isOwner || (hostelId && hostelId !== 'all' && hostelId !== 'ALL')) {
             sanitizedList = sanitizedList.filter(p => !p.deleted);
+        }
+
+        // Strict non-owner isolation: never expose products or stock from unassigned hostels (e.g. BH-13)
+        if (isNonOwnerAdmin && nonOwnerNormSet) {
+            sanitizedList = sanitizedList.filter(p => {
+                const pHostel = (p.hostel_id || 'BH-13').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+                return nonOwnerNormSet.has(pHostel);
+            });
+            if (hostelId && hostelId !== 'ALL' && hostelId !== 'all') {
+                const normTarget = hostelId.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+                sanitizedList = sanitizedList.filter(p => (p.hostel_id || 'BH-13').trim().toUpperCase().replace(/[^A-Z0-9]/g, '') === normTarget);
+            }
         }
 
         const filteredList = canViewCost
