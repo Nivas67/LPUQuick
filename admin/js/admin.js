@@ -543,7 +543,7 @@ function applyAdminRolePermissions(profile) {
         }
     });
 
-    // Multi-Hostel Restrictions: Lock dropdowns for Store Managers with assigned hostel
+    // Multi-Hostel Restrictions: Populate and set appropriate filters for Store Managers
     if (typeof populateHostelDropdowns === 'function') {
         populateHostelDropdowns();
     }
@@ -551,19 +551,33 @@ function applyAdminRolePermissions(profile) {
         ? profile.assigned_hostels
         : (profile.assigned_hostel_id ? [profile.assigned_hostel_id] : []);
     if (!isOwner) {
-        const assigned = myAssignedHostels[0] || profile.assigned_hostel_id;
-        if (assigned) {
+        if (myAssignedHostels.length === 1) {
+            const single = myAssignedHostels[0];
             ['products-hostel-filter', 'inventory-hostel-filter', 'orders-hostel-filter', 'dr-hostel-filter', 'lock-hostel-filter'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) {
-                    el.value = assigned;
+                    el.value = single;
                     el.disabled = true;
                 }
             });
             if (typeof activeAdminHostelFilter !== 'undefined') {
-                activeAdminHostelFilter.orders = assigned;
-                activeAdminHostelFilter.products = assigned;
-                activeAdminHostelFilter.inventory = assigned;
+                activeAdminHostelFilter.orders = single;
+                activeAdminHostelFilter.products = single;
+                activeAdminHostelFilter.inventory = single;
+            }
+        } else if (myAssignedHostels.length > 1) {
+            // Enable selector so admin can view all assigned hostels or pick a specific one
+            ['products-hostel-filter', 'inventory-hostel-filter', 'orders-hostel-filter', 'dr-hostel-filter', 'lock-hostel-filter'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.disabled = false;
+                    el.value = 'ALL';
+                }
+            });
+            if (typeof activeAdminHostelFilter !== 'undefined') {
+                activeAdminHostelFilter.orders = 'ALL';
+                activeAdminHostelFilter.products = 'ALL';
+                activeAdminHostelFilter.inventory = 'ALL';
             }
         }
     }
@@ -7633,7 +7647,6 @@ function getActiveAdminHostelFilter(view = 'products') {
         ? currentAdminProfile.assigned_hostels
         : (currentAdminProfile?.assigned_hostel_id ? [currentAdminProfile.assigned_hostel_id] : []);
 
-    // If logged in admin is assigned to exactly 1 hostel, lock to that single hostel
     if (!isOwner && assignedHostels.length === 1) {
         return assignedHostels[0];
     }
@@ -7641,11 +7654,11 @@ function getActiveAdminHostelFilter(view = 'products') {
     const val = activeAdminHostelFilter[view] || 'ALL';
     if (val && val !== 'ALL') {
         if (!isOwner && assignedHostels.length > 1) {
-            return assignedHostels.includes(val) ? val : assignedHostels[0];
+            return assignedHostels.includes(val) ? val : 'ALL';
         }
         return val;
     }
-    return null;
+    return 'ALL';
 }
 
 function populateHostelDropdowns() {
@@ -7690,15 +7703,37 @@ function populateHostelDropdowns() {
 
         if (!isOwner && myHostels.length > 0) {
             select.innerHTML = '';
-            const singleId = myHostels[0];
-            const matched = hostelsCache.find(h => h.id === singleId || (h.id && singleId && h.id.replace(/[^A-Z0-9]/g, '') === singleId.replace(/[^A-Z0-9]/g, '')));
-            const opt = document.createElement('option');
-            opt.value = singleId;
-            opt.textContent = `🏢 ${matched?.name || singleId} (${singleId})`;
-            select.appendChild(opt);
-            select.value = singleId;
-            select.disabled = true;
-            if (cfg.view) activeAdminHostelFilter[cfg.view] = singleId;
+            if (myHostels.length > 1) {
+                if (cfg.allowAll) {
+                    const allOpt = document.createElement('option');
+                    allOpt.value = 'ALL';
+                    allOpt.textContent = '🏢 All My Assigned Hostels';
+                    select.appendChild(allOpt);
+                }
+                myHostels.forEach(hId => {
+                    const matched = hostelsCache.find(h => h.id === hId || (h.id && hId && h.id.replace(/[^A-Z0-9]/g, '') === hId.replace(/[^A-Z0-9]/g, '')));
+                    const opt = document.createElement('option');
+                    opt.value = hId;
+                    opt.textContent = `🏢 ${matched?.name || hId} (${hId})`;
+                    select.appendChild(opt);
+                });
+                select.disabled = false;
+                if (currentVal && (currentVal === 'ALL' || myHostels.includes(currentVal))) {
+                    select.value = currentVal;
+                } else {
+                    select.value = cfg.allowAll ? 'ALL' : myHostels[0];
+                }
+            } else {
+                const singleId = myHostels[0];
+                const matched = hostelsCache.find(h => h.id === singleId || (h.id && singleId && h.id.replace(/[^A-Z0-9]/g, '') === singleId.replace(/[^A-Z0-9]/g, '')));
+                const opt = document.createElement('option');
+                opt.value = singleId;
+                opt.textContent = `🏢 ${matched?.name || singleId} (${singleId})`;
+                select.appendChild(opt);
+                select.value = singleId;
+                select.disabled = true;
+            }
+            if (cfg.view) activeAdminHostelFilter[cfg.view] = select.value;
         } else {
             select.disabled = false;
             if (currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
@@ -7768,11 +7803,14 @@ function renderDashboardHostelCards() {
     }
 
     const isOwner = isPlatformOwner(currentAdminProfile);
-    const assignedHostel = currentAdminProfile?.assigned_hostel_id;
+    const assignedHostels = (currentAdminProfile?.assigned_hostels && currentAdminProfile.assigned_hostels.length > 0)
+        ? currentAdminProfile.assigned_hostels
+        : (currentAdminProfile?.assigned_hostel_id ? [currentAdminProfile.assigned_hostel_id] : []);
+
     let list = hostelsCache;
-    if (!isOwner && assignedHostel) {
-        const normAssigned = assignedHostel.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-        list = hostelsCache.filter(h => h.id && h.id.trim().toUpperCase().replace(/[^A-Z0-9]/g, '') === normAssigned);
+    if (!isOwner && assignedHostels.length > 0) {
+        const allowedSet = new Set(assignedHostels.map(x => x.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')));
+        list = hostelsCache.filter(h => h.id && allowedSet.has(h.id.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')));
     }
 
     grid.innerHTML = list.map(h => {

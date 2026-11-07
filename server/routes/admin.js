@@ -1395,11 +1395,11 @@ router.get('/hostels', async (req, res) => {
 
         let hostels = await supabaseDb.hostels.getAll({ includeInactive: true });
         if (!isOwner) {
-            if (assignedHostelId) {
-                const normAssigned = assignedHostelId.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-                hostels = hostels.filter(h => h.id && h.id.trim().toUpperCase().replace(/[^A-Z0-9]/g, '') === normAssigned);
-            } else if (req.admin?.assigned_hostels && req.admin.assigned_hostels.length > 0) {
-                const allowedSet = new Set(req.admin.assigned_hostels.map(x => x.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')));
+            const allowedHostels = (req.admin?.assigned_hostels && req.admin.assigned_hostels.length > 0)
+                ? req.admin.assigned_hostels
+                : (assignedHostelId ? [assignedHostelId] : []);
+            if (allowedHostels.length > 0) {
+                const allowedSet = new Set(allowedHostels.map(x => x.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')));
                 hostels = hostels.filter(h => h.id && allowedSet.has(h.id.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')));
             } else {
                 hostels = [];

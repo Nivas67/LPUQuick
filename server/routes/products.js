@@ -220,22 +220,34 @@ router.get('/', async (req, res) => {
                     if (user) staffUserCache.set(user.id, { user, cachedAt: Date.now() });
                 } catch (e) {}
             }
-            let assignedHostel = user?.assigned_hostel_id || null;
+            let assignedHostels = (user?.assigned_hostels && Array.isArray(user.assigned_hostels) && user.assigned_hostels.length > 0)
+                ? [...user.assigned_hostels]
+                : (user?.assigned_hostel_id ? [user.assigned_hostel_id] : []);
             if (user?.dob && typeof user.dob === 'string' && user.dob.startsWith('{')) {
                 try {
                     const parsed = JSON.parse(user.dob);
-                    if (parsed.assigned_hostel_id) assignedHostel = parsed.assigned_hostel_id;
-                    else if (Array.isArray(parsed.assigned_hostels) && parsed.assigned_hostels.length > 0) assignedHostel = parsed.assigned_hostels[0];
+                    if (Array.isArray(parsed.assigned_hostels) && parsed.assigned_hostels.length > 0) {
+                        assignedHostels = [...parsed.assigned_hostels];
+                    } else if (parsed.assigned_hostel_id && !assignedHostels.includes(parsed.assigned_hostel_id)) {
+                        assignedHostels.push(parsed.assigned_hostel_id);
+                    }
                 } catch(e) {}
             }
-            if (!assignedHostel && user?.assigned_hostels && user.assigned_hostels.length > 0) {
-                assignedHostel = user.assigned_hostels[0];
+            if (user?.assigned_hostel_id && !assignedHostels.includes(user.assigned_hostel_id)) {
+                assignedHostels.unshift(user.assigned_hostel_id);
             }
+
             const reqHostel = (req.query.hostel_id || req.query.hostel || '').trim().toUpperCase();
-            if (reqHostel && assignedHostel && reqHostel.replace(/[^A-Z0-9]/g, '') !== assignedHostel.replace(/[^A-Z0-9]/g, '')) {
-                return res.status(403).json({ success: false, code: 'FORBIDDEN', error: 'Forbidden: You do not have access to view or manage products for this hostel.' });
+            if (reqHostel && reqHostel !== 'ALL' && reqHostel !== 'all') {
+                const normReq = reqHostel.replace(/[^A-Z0-9]/g, '');
+                const hasMatch = assignedHostels.some(h => (h || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '') === normReq);
+                if (!hasMatch) {
+                    return res.status(403).json({ success: false, code: 'FORBIDDEN', error: 'Forbidden: You do not have access to view or manage products for this hostel.' });
+                }
+                hostelId = reqHostel;
+            } else {
+                hostelId = assignedHostels.length === 1 ? assignedHostels[0] : (reqHostel || 'ALL');
             }
-            hostelId = assignedHostel || reqHostel;
         }
 
         const includeInactive = req.query.includeInactive === 'true';

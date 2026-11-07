@@ -83,9 +83,9 @@
       "Block C",
       "Hostel Main Gate"
     ],
-    "manager_user_id": "admin_60082a0696",
+    "manager_user_id": "admin_cfc0b1b7c3",
     "created_at": "2026-10-05T15:23:27.304Z",
-    "updated_at": "2026-11-04T15:36:23.197Z"
+    "updated_at": "2026-11-07T19:13:07.940Z"
   },
   {
     "id": "BH-1",
@@ -107,9 +107,9 @@
       "Block A",
       "Block B"
     ],
-    "manager_user_id": "admin_d61b0cf68e",
+    "manager_user_id": "admin_cfc0b1b7c3",
     "created_at": "2026-10-08T19:03:16.025Z",
-    "updated_at": "2026-10-29T08:20:31.786Z"
+    "updated_at": "2026-11-07T19:13:09.567Z"
   },
   {
     "id": "GH 11",
@@ -120,9 +120,9 @@
       "Block B",
       "Hostel Main Gate"
     ],
-    "manager_user_id": null,
+    "manager_user_id": "admin_cfc0b1b7c3",
     "created_at": "2026-11-01T17:59:14.550Z",
-    "updated_at": "2026-11-04T15:36:22.731Z"
+    "updated_at": "2026-11-07T19:13:07.551Z"
   },
   {
     "id": "GH-1",
@@ -133,7 +133,7 @@
     ],
     "manager_user_id": "admin_cfc0b1b7c3",
     "created_at": "2026-11-03T17:24:11.584Z",
-    "updated_at": "2026-11-04T15:36:21.845Z"
+    "updated_at": "2026-11-07T19:13:07.084Z"
   },
   {
     "id": "GH-2",
@@ -142,9 +142,9 @@
     "blocks": [
       "Block A"
     ],
-    "manager_user_id": null,
+    "manager_user_id": "admin_cfc0b1b7c3",
     "created_at": "2026-11-03T17:24:37.216Z",
-    "updated_at": "2026-11-04T15:36:23.701Z"
+    "updated_at": "2026-11-07T19:13:08.334Z"
   },
   {
     "id": "GH-3",
@@ -153,9 +153,9 @@
     "blocks": [
       "Block A"
     ],
-    "manager_user_id": null,
+    "manager_user_id": "admin_cfc0b1b7c3",
     "created_at": "2026-11-03T17:24:59.321Z",
-    "updated_at": "2026-11-04T15:36:25.032Z"
+    "updated_at": "2026-11-07T19:13:08.745Z"
   },
   {
     "id": "GH-4",
@@ -164,8 +164,8 @@
     "blocks": [
       "Block A"
     ],
-    "manager_user_id": null,
+    "manager_user_id": "admin_cfc0b1b7c3",
     "created_at": "2026-11-03T17:25:19.723Z",
-    "updated_at": "2026-11-04T15:36:25.875Z"
+    "updated_at": "2026-11-07T19:13:09.172Z"
   }
 ]

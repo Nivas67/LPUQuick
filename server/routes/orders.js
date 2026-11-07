@@ -364,16 +364,26 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
         let hostelId = req.query.hostel_id || req.query.hostel || null;
 
         // Store Managers / Staff strict hostel scoping
+        let isAllAssigned = false;
         if (!isOwner) {
             const reqHostel = req.query.hostel_id || req.query.hostel;
-            if (reqHostel && reqHostel !== 'all') {
+            if (reqHostel && reqHostel !== 'all' && reqHostel !== 'ALL') {
                 if (req.admin?.canAccessHostel && req.admin.canAccessHostel(reqHostel)) {
                     hostelId = reqHostel;
                 } else {
                     return res.status(403).json({ success: false, code: 'FORBIDDEN', error: 'Forbidden: You do not have access to view orders for this hostel.' });
                 }
             } else {
-                hostelId = req.admin?.assigned_hostel_id || (req.admin?.assigned_hostels && req.admin.assigned_hostels[0]);
+                // If 'all' or omitted, query and return orders for ALL of the admin's assigned hostels!
+                const assignedList = req.admin?.assigned_hostels || [];
+                if (assignedList.length === 1) {
+                    hostelId = assignedList[0];
+                } else if (assignedList.length > 1) {
+                    isAllAssigned = true;
+                    hostelId = 'ALL';
+                } else {
+                    hostelId = req.admin?.assigned_hostel_id || null;
+                }
             }
             if (!hostelId) {
                 return res.status(403).json({ success: false, code: 'FORBIDDEN', error: 'Forbidden: No hostel assigned to your administrator account.' });
@@ -381,7 +391,7 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
         }
 
         const forceFresh = req.query.force === 'true' || Boolean(req.query._t);
-        const cacheKey = `orders:admin:all:${hostelId || 'all'}`;
+        const cacheKey = `orders:admin:all:${isOwner ? (hostelId || 'all') : (isAllAssigned ? ('user_' + req.admin.id) : hostelId)}`;
         if (forceFresh) {
             cache.delete(cacheKey);
         }
@@ -394,7 +404,7 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
                 .from('orders')
                 .select('id, user_id, status, subtotal, delivery_fee, platform_fee, tax, total, payment_method, payment_status, rider_name, rider_lat, rider_lng, delivery_address, created_at, customer_name, customer_phone, customer_email, hostel_id');
 
-            if (hostelId && hostelId !== 'all') {
+            if (hostelId && hostelId !== 'all' && hostelId !== 'ALL') {
                 try {
                     query = query.eq('hostel_id', hostelId);
                 } catch (e) {}
@@ -567,7 +577,7 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
             }
 
             // Filter by target hostel if specified, or by admin's assigned hostels
-            if (hostelId && hostelId !== 'all') {
+            if (hostelId && hostelId !== 'all' && hostelId !== 'ALL') {
                 const normTarget = normalizeHostelId(hostelId);
                 enriched = enriched.filter(o => matchHostel(o.hostel_id, normTarget));
             } else if (!isOwner && req.admin?.canAccessHostel) {
@@ -606,16 +616,18 @@ router.get('/admin/analytics', requireAdmin, async (req, res) => {
         let hostelId = req.query.hostel_id || req.query.hostel || null;
         if (!isOwner) {
             const reqHostel = req.query.hostel_id || req.query.hostel;
-            if (reqHostel && reqHostel !== 'all') {
+            if (reqHostel && reqHostel !== 'all' && reqHostel !== 'ALL') {
                 if (req.admin?.canAccessHostel && !req.admin.canAccessHostel(reqHostel)) {
                     return res.status(403).json({ success: false, code: 'FORBIDDEN', error: 'Forbidden: Access denied to analytics for this hostel.' });
                 }
                 hostelId = reqHostel;
             } else {
-                hostelId = req.admin?.assigned_hostel_id || (req.admin?.assigned_hostels && req.admin.assigned_hostels[0]);
-            }
-            if (!hostelId) {
-                return res.status(403).json({ success: false, code: 'FORBIDDEN', error: 'Forbidden: No hostel assigned.' });
+                const assignedList = req.admin?.assigned_hostels || [];
+                if (assignedList.length === 1) {
+                    hostelId = assignedList[0];
+                } else {
+                    hostelId = 'ALL';
+                }
             }
         }
         const cleanHostel = (hostelId && hostelId !== 'all') ? hostelId : null;

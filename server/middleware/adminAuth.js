@@ -175,7 +175,7 @@ const KNOWN_STAFF_FALLBACKS = {
         name: 'Anvitha',
         email: 'anvitha@lpuquick.in',
         phone: '8688874548',
-        dob: JSON.stringify({ roles: ['store_manager', 'inventory_manager', 'delivery_person', 'cook', 'food_department'], assigned_hostel_id: 'GH-1', assigned_hostels: ['GH-1'], permissions: { can_manage_grocery_inventory: true } }),
+        dob: JSON.stringify({ roles: ['store_manager', 'inventory_manager', 'delivery_person', 'cook', 'food_department'], assigned_hostel_id: 'GH-1', assigned_hostels: ['GH-1', 'GH 11', 'GH12', 'GH-2', 'GH-3', 'GH-4', 'GH-6'], permissions: { can_manage_grocery_inventory: true } }),
         role: 'admin',
         account_status: 'ACTIVE'
     },
