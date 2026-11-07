@@ -1,5 +1,5 @@
-// LPUQuick High-Performance Ultra-Fast Service Worker (V2026.10.03-V13)
-const CACHE_NAME = 'lpuquick-pwa-v24-blocks-order';
+// LPUQuick High-Performance Ultra-Fast Service Worker (V2026.11.07-V17)
+const CACHE_NAME = 'lpuquick-pwa-v26-edgeless-logo';
 const API_CACHE_NAME = 'lpuquick-api-cache-v2';
 
 const STATIC_ASSETS = [

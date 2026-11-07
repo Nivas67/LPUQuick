@@ -862,7 +862,7 @@ window.pages.home = async function () {
     <!-- Sticky Mobile Web Smart App Banner (Industry standard for mobile web) -->
     <div id="home-mobile-smart-banner" onclick="window.showInstallPrompt()" class="btn-install-app sm:hidden w-full bg-slate-900 text-white px-3.5 py-2 border-b border-emerald-500/30 flex items-center justify-between gap-2 shadow-lg z-50 cursor-pointer">
         <div class="flex items-center gap-2.5 min-w-0">
-            <img src="/logo.png" class="w-8 h-8 rounded-xl object-contain shadow-xs border border-white/20 shrink-0" alt="LPUQuick">
+            <img src="/logo.png" class="w-8 h-8 rounded-xl object-cover shadow-xs border border-white/20 shrink-0" alt="LPUQuick">
             <div class="truncate">
                 <p class="text-[11px] font-black text-white leading-tight flex items-center gap-1.5">
                     <span>LPUQuick Mobile App</span>
@@ -928,8 +928,8 @@ window.pages.home = async function () {
         <!-- Brand + Location Capsule -->
         <div class="flex items-center gap-2 sm:gap-3 shrink-0">
             <a href="#/" class="flex items-center gap-2 hover:scale-105 active:scale-95 transition-transform">
-                <div class="w-8 h-8 rounded-xl clay-btn-primary flex items-center justify-center shadow-sm">
-                    <img src="/logo.png" alt="LPUQuick" class="w-5 h-5 object-contain">
+                <div class="w-8 h-8 rounded-xl overflow-hidden flex items-center justify-center shadow-sm border border-emerald-500/20 shrink-0">
+                    <img src="/logo.png" alt="LPUQuick" class="w-full h-full object-cover">
                 </div>
                 <div class="hidden sm:flex flex-col">
                     <span class="brand-title text-base font-black tracking-tight leading-none text-emerald-700 dark:text-emerald-400">LPUQuick</span>

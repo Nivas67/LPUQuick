@@ -225,7 +225,7 @@
 
                 <!-- Header -->
                 <div class="flex items-center gap-3">
-                    <img src="/logo.png" alt="LPUQuick" class="w-12 h-12 rounded-2xl shadow-md border border-emerald/20 flex-shrink-0">
+                    <img src="/logo.png" alt="LPUQuick" class="w-12 h-12 rounded-2xl shadow-md border border-emerald/20 flex-shrink-0 object-cover">
                     <div>
                         <h3 class="font-bold text-base text-slate-900 dark:text-white">Install LPUQuick on iPhone</h3>
                         <p class="text-xs text-emerald font-semibold">⚡ Instant 3-Min Campus Delivery App</p>
@@ -357,7 +357,7 @@
 
                 <!-- Header Cluster -->
                 <div class="flex items-center gap-3.5 pr-8">
-                    <img src="/logo.png" alt="LPUQuick" style="width: 52px; height: 52px; min-width: 52px; min-height: 52px; object-fit: contain;" class="rounded-2xl shadow-lg border border-emerald-500/30 flex-shrink-0">
+                    <img src="/logo.png" alt="LPUQuick" style="width: 52px; height: 52px; min-width: 52px; min-height: 52px; object-fit: cover;" class="rounded-2xl shadow-lg border border-emerald-500/30 flex-shrink-0">
                     <div class="min-w-0">
                         <div class="flex items-center gap-2">
                             <h3 class="font-black text-base sm:text-lg text-slate-900 dark:text-white truncate">LPUQuick Mobile App</h3>
@@ -494,7 +494,7 @@
                 </button>
 
                 <div class="flex items-center gap-3 pr-8">
-                    <img src="/logo.png" alt="LPUQuick" style="width: 52px; height: 52px; min-width: 52px; min-height: 52px; object-fit: contain;" class="rounded-2xl shadow-md border border-emerald-500/30 flex-shrink-0">
+                    <img src="/logo.png" alt="LPUQuick" style="width: 52px; height: 52px; min-width: 52px; min-height: 52px; object-fit: cover;" class="rounded-2xl shadow-md border border-emerald-500/30 flex-shrink-0">
                     <div class="min-w-0">
                         <h3 class="font-black text-base text-slate-900 dark:text-white truncate">Install LPUQuick Real App</h3>
                         <p class="text-xs text-emerald-600 dark:text-emerald-400 font-bold">⚡ Official Android & Desktop Application</p>
@@ -558,7 +558,7 @@
         <div id="pwa-floating-install-banner" class="fixed bottom-[74px] sm:bottom-6 left-1/2 -translate-x-1/2 w-[94%] max-w-md z-40 animate-slide-up transition-all duration-300">
             <div class="glass-card p-3 sm:p-3.5 rounded-2xl border-2 border-emerald-500/60 shadow-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl flex items-center justify-between gap-3 text-xs">
                 <div class="flex items-center gap-2.5 min-w-0">
-                    <img src="/logo.png" alt="LPUQuick" class="w-10 h-10 rounded-xl shadow-md border border-emerald-500/30 flex-shrink-0 object-contain">
+                    <img src="/logo.png" alt="LPUQuick" class="w-10 h-10 rounded-xl shadow-md border border-emerald-500/30 flex-shrink-0 object-cover">
                     <div class="truncate">
                         <div class="flex items-center gap-1.5 font-black text-slate-900 dark:text-white">
                             <span class="text-xs">Install LPUQuick Real App</span>

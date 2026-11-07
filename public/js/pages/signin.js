@@ -15,8 +15,7 @@ window.pages.signin = async function() {
         <div class="text-center space-y-3">
             <a href="#/" class="inline-flex flex-col items-center justify-center gap-2 group">
                 <div class="glass-panel card-pedestal w-16 h-16 rounded-3xl flex items-center justify-center shadow-2xl group-hover:scale-105 active:scale-95 transition-transform relative overflow-hidden border border-[var(--glass-border)]">
-                    <div class="absolute inset-0 bg-emerald-500/15 rounded-3xl animate-pulse pointer-events-none"></div>
-                    <img src="/logo.png" alt="LPUQuick" class="w-10 h-10 object-contain">
+                    <img src="/logo.png" alt="LPUQuick" class="w-full h-full object-cover rounded-3xl">
                 </div>
                 <div class="text-center">
                     <span class="text-2xl font-black tracking-tight text-slate-900 dark:text-white">LPUQuick</span>
