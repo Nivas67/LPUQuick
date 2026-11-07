@@ -1,5 +1,5 @@
-// LPUQuick High-Performance Ultra-Fast Service Worker (V2026.11.07-V17)
-const CACHE_NAME = 'lpuquick-pwa-v26-edgeless-logo';
+// LPUQuick High-Performance Ultra-Fast Service Worker (V2026.11.07-V18)
+const CACHE_NAME = 'lpuquick-pwa-v27-live-activity';
 const API_CACHE_NAME = 'lpuquick-api-cache-v2';
 
 const STATIC_ASSETS = [
@@ -9,6 +9,7 @@ const STATIC_ASSETS = [
     '/favicon.png',
     '/logo.png',
     '/logo.svg',
+    '/runner.svg',
     '/icon-192.png',
     '/icon-512.png',
     '/apple-touch-icon.png',
@@ -206,19 +207,22 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
     const notificationData = event.notification.data || {};
-    const targetUrl = notificationData.url || '/admin#orders';
+    const targetUrl = notificationData.url || '/#/orders';
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-            // If admin window already open, focus it and notify of order
+            // If customer app or admin window already open, focus it and navigate
             for (const client of windowClients) {
-                if (client.url.includes('/admin') && 'focus' in client) {
-                    if (notificationData.orderId) {
+                if ('focus' in client) {
+                    if (notificationData.orderId && client.url.includes('/admin')) {
                         client.postMessage({
                             type: 'NAVIGATE_ORDER',
                             orderId: notificationData.orderId,
                             action: notificationData.action || 'open'
                         });
+                    }
+                    if (client.navigate) {
+                        client.navigate(targetUrl);
                     }
                     return client.focus();
                 }

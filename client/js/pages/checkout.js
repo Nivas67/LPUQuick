@@ -952,6 +952,9 @@ window.pageInits.checkout = function () {
                 if (typeof window.triggerActiveOrderPoll === 'function') {
                     window.triggerActiveOrderPoll();
                 }
+                if (typeof window.updateLiveSystemNotification === 'function') {
+                    window.updateLiveSystemNotification(order.id, 'Order Placed', 'Arriving in 5 minutes', 'Runner dispatched · Running to your room');
+                }
                 // Reveal order success view
                 const formSec = document.getElementById('checkout-form-section');
                 const successSec = document.getElementById('order-success-section');

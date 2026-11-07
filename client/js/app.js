@@ -3461,43 +3461,108 @@ async function checkAndConnectGlobalOrderTracking() {
     }
 }
 
-function updateGlobalDeliveryBar(status, riderName) {
-    const bar = document.getElementById('global-live-delivery-bar');
-    const statusEl = document.getElementById('global-delivery-status');
-    const etaEl = document.getElementById('global-delivery-eta');
-    const subEl = document.getElementById('global-delivery-subtitle');
-    const hostelShort = window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus');
+function updateLiveSystemNotification(orderId, status, etaTitle, subtitleText) {
+    try {
+        if (!('Notification' in window)) return;
+        
+        // Ask permission non-intrusively if not already decided
+        if (Notification.permission === 'default') {
+            Notification.requestPermission().catch(() => {});
+        }
 
-    if (!bar || !statusEl || !etaEl || !subEl) return;
+        if (Notification.permission === 'granted') {
+            const isDelivered = (status || '').toLowerCase().includes('deliver');
 
-    statusEl.textContent = status;
+            const payload = {
+                title: etaTitle || 'Arriving shortly',
+                body: (subtitleText || 'LPUQuick Campus Delivery') + ' • LPUQuick',
+                icon: '/logo.png',
+                badge: '/favicon.png',
+                tag: 'lpuquick-live-order',
+                renotify: isDelivered,
+                silent: !isDelivered,
+                data: {
+                    url: '/#/orders',
+                    orderId: orderId || ''
+                }
+            };
 
-    if (status === 'Order Placed') {
-        etaEl.textContent = '3 mins';
-        subEl.textContent = `${hostelShort} Dark Store is verifying your snacks`;
-    } else if (status === 'Order Confirmed') {
-        etaEl.textContent = '3 mins';
-        subEl.textContent = `Confirmed by ${hostelShort} Hub · Packing shortly`;
-    } else if (status === 'Preparing') {
-        etaEl.textContent = '2 mins';
-        subEl.textContent = `Staff is packing your bag at ${hostelShort} Hub`;
-    } else if (status === 'Out for Delivery') {
-        etaEl.textContent = '1 min';
-        subEl.textContent = `🚶‍♂️ ${riderName} is walking to ${hostelShort} (Block A)`;
-    } else if (status === 'Delivered') {
-        etaEl.textContent = 'Arrived ✓';
-        subEl.textContent = `🎉 Delivered to ${hostelShort}! Enjoy your snacks!`;
-        setTimeout(() => {
-            bar.classList.add('hidden');
-        }, 8000);
-    } else if (status === 'Cancelled' || status === 'cancelled') {
-        etaEl.textContent = 'Cancelled ✕';
-        subEl.textContent = '❌ Order was cancelled by Admin';
-        setTimeout(() => {
-            bar.classList.add('hidden');
-        }, 4000);
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.ready.then(reg => {
+                    if (reg && reg.showNotification) {
+                        reg.showNotification(payload.title, payload).catch(() => {});
+                    }
+                }).catch(() => {});
+            } else {
+                try {
+                    new Notification(payload.title, payload);
+                } catch (e) {}
+            }
+        }
+    } catch (err) {
+        console.warn('[Live Notification Sync Warning]:', err);
     }
 }
+
+function updateGlobalDeliveryBar(status, riderName) {
+    const bar = document.getElementById('global-live-delivery-bar');
+    const etaEl = document.getElementById('global-delivery-eta');
+    const subEl = document.getElementById('global-delivery-subtitle');
+    const fillEl = document.getElementById('global-delivery-progress-fill');
+    const pinEl = document.getElementById('global-delivery-runner-pin');
+    const hostelShort = window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Hostel');
+
+    if (!bar) return;
+
+    let etaText = 'Arriving in 3 minutes';
+    let subText = 'Order on the way · Running to your room';
+    let progressPercent = 35;
+
+    const s = (status || '').toLowerCase().trim();
+
+    if (s.includes('place') || s === 'pending') {
+        etaText = 'Arriving in 5 minutes';
+        subText = `${hostelShort} Hub verified your order`;
+        progressPercent = 25;
+    } else if (s.includes('confirm') || s === 'accepted') {
+        etaText = 'Arriving in 4 minutes';
+        subText = `Order Confirmed · Runner ${riderName} assigned`;
+        progressPercent = 45;
+    } else if (s.includes('prepar') || s.includes('pack')) {
+        etaText = 'Arriving in 3 minutes';
+        subText = `Staff packing your bag at ${hostelShort} Hub`;
+        progressPercent = 65;
+    } else if (s.includes('out') || s.includes('route') || s.includes('dispatch')) {
+        etaText = 'Arriving in 1-2 minutes';
+        subText = `🏃 ${riderName} is running to your room (${hostelShort})!`;
+        progressPercent = 88;
+    } else if (s.includes('deliver')) {
+        etaText = 'Arrived at your Room! ✓';
+        subText = `🎉 Order delivered to ${hostelShort}! Enjoy your snacks.`;
+        progressPercent = 100;
+        setTimeout(() => {
+            bar.classList.add('hidden');
+        }, 12000);
+    } else if (s.includes('cancel')) {
+        etaText = 'Order Cancelled ✕';
+        subText = '❌ Order was cancelled by Admin';
+        progressPercent = 0;
+        setTimeout(() => {
+            bar.classList.add('hidden');
+        }, 5000);
+    }
+
+    if (etaEl) etaEl.textContent = etaText;
+    if (subEl) subEl.textContent = subText;
+    if (fillEl) fillEl.style.width = `${progressPercent}%`;
+    if (pinEl) pinEl.style.left = `calc(${progressPercent}% - 10px)`;
+
+    // Live Device Notification Sync (Tray Notification)
+    updateLiveSystemNotification(currentTrackedOrderId, status, etaText, subText);
+}
+
+window.updateLiveSystemNotification = updateLiveSystemNotification;
+window.updateGlobalDeliveryBar = updateGlobalDeliveryBar;
 
 window.router = router;
 window.navigate = navigate;

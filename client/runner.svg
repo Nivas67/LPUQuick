@@ -1,0 +1,47 @@
+<svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full drop-shadow-md select-none">
+  <!-- Speed Lines -->
+  <path d="M8 44 H24" stroke="#10B981" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
+  <path d="M4 56 H20" stroke="#F59E0B" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+  <path d="M10 68 H26" stroke="#10B981" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+  <circle cx="18" cy="38" r="1.5" fill="#FCD34D" opacity="0.8"/>
+  <circle cx="12" cy="62" r="1.2" fill="#34D399" opacity="0.8"/>
+
+  <!-- Runner Group -->
+  <g class="runner-motion">
+    <!-- Back Arm -->
+    <path d="M44 42 L32 50 L24 46" stroke="#047857" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    
+    <!-- Back Leg (sprinting back) -->
+    <path d="M50 62 L36 74 L22 79" stroke="#065F46" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Back Sneaker -->
+    <path d="M22 79 L16 80" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+    <path d="M16 81 L22 81" stroke="#F59E0B" stroke-width="1.5" stroke-linecap="round"/>
+
+    <!-- LPUQuick Delivery Backpack -->
+    <rect x="30" y="36" width="16" height="20" rx="4" fill="#059669" stroke="#10B981" stroke-width="1.2"/>
+    <rect x="33" y="40" width="10" height="6" rx="1.5" fill="#F59E0B"/>
+    <text x="38" y="44.5" font-size="4" font-weight="900" fill="#FFFFFF" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif">LPU</text>
+
+    <!-- Torso (green jersey) -->
+    <path d="M44 38 L58 42 L54 64 L44 62 Z" fill="#10B981"/>
+    
+    <!-- Front Leg (forward knee drive) -->
+    <path d="M54 62 L66 69 L64 85" stroke="#10B981" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Front Sneaker -->
+    <path d="M64 85 L74 87" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round"/>
+    <path d="M64 87 L74 87" stroke="#F59E0B" stroke-width="1.5" stroke-linecap="round"/>
+
+    <!-- Head & Athletic Cap -->
+    <circle cx="58" cy="27" r="7" fill="#FBBF24"/>
+    <path d="M52 23 C54 18, 65 18, 66 23 L73 24 L71 27 L52 25 Z" fill="#047857"/>
+    <circle cx="62" cy="27" r="1" fill="#1F2937"/>
+    
+    <!-- Front Arm with Delivery Bag -->
+    <path d="M54 42 L65 49 L76 43" stroke="#10B981" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Fast Delivery Bag in hand -->
+    <path d="M74 43 L82 43 L80 54 L72 54 Z" fill="#F59E0B"/>
+    <path d="M75 43 C75 39, 81 39, 81 43" stroke="#78350F" stroke-width="1.2" fill="none"/>
+    <text x="76.5" y="50" font-size="3.8" font-weight="900" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif">⚡</text>
+  </g>
+</svg>
+

@@ -374,34 +374,62 @@
 
     <div id="app" class="relative z-10"></div>
 
-    <!-- Global Floating Live Delivery Bar (Liquid Glass & Clay Styling) -->
+    <!-- Global Floating Live Delivery Notification Bar (Blinkit-Style Live Activity) -->
     <div id="global-live-delivery-bar"
-        class="fixed bottom-24 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 hidden transition-all duration-300">
+        class="fixed bottom-24 left-1/2 -translate-x-1/2 w-[94%] max-w-md z-40 hidden transition-all duration-300 transform translate-y-0 select-none">
         <a href="#/orders"
-            class="p-3 rounded-2xl border border-white/60 dark:border-white/10 shadow-xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl flex items-center justify-between gap-3 text-xs hover:border-emerald-500/50 transition-all active:scale-[0.98]">
-            <div class="flex items-center gap-3 min-w-0">
-                <div
-                    class="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 text-white flex items-center justify-center font-bold flex-shrink-0 shadow-md border border-white/40">
-                    <span class="material-symbols-outlined text-base">directions_walk</span>
+            class="p-3.5 sm:p-4 rounded-3xl border border-slate-200/90 dark:border-white/10 shadow-[0_12px_36px_rgba(0,0,0,0.18)] bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl flex items-center justify-between gap-3 text-xs hover:border-emerald-500/50 transition-all active:scale-[0.98] group">
+            
+            <!-- Left & Middle: Notification Metadata + Large Title + Subtitle + Progress Bar -->
+            <div class="flex-1 min-w-0 pr-1">
+                <!-- Top Brand Header: LPUQuick • now • 🔔 -->
+                <div class="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 dark:text-slate-400">
+                    <img src="/logo.png" class="w-4 h-4 rounded-full object-cover shrink-0 border border-emerald-500/30" alt="LPUQuick">
+                    <span class="text-slate-900 dark:text-white font-extrabold tracking-tight">LPUQuick</span>
+                    <span class="text-slate-400">•</span>
+                    <span>now</span>
+                    <span class="text-slate-400">•</span>
+                    <span class="material-symbols-outlined text-[13px] text-amber-500 animate-pulse">notifications_active</span>
                 </div>
-                <div class="truncate">
-                    <div class="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span id="global-delivery-status">Out for Delivery</span>
-                        <span
-                            class="text-[10px] text-emerald-700 dark:text-emerald-400 font-extrabold bg-emerald-50/80 dark:bg-emerald-950/60 border border-emerald-300/60 dark:border-emerald-700/60 px-2 py-0.5 rounded-full"
-                            id="global-delivery-eta">1 min</span>
+
+                <!-- Big Headline: Arriving in 3 minutes -->
+                <h3 class="text-sm sm:text-base font-black tracking-tight text-slate-900 dark:text-white mt-1 leading-snug"
+                    id="global-delivery-eta">Arriving in 3 minutes</h3>
+
+                <!-- Subtitle: Order on the way / Runner running to your room -->
+                <p class="text-[11px] font-semibold text-slate-600 dark:text-slate-300 mt-0.5 truncate"
+                    id="global-delivery-subtitle">
+                    Order on the way · Running to your room
+                </p>
+
+                <!-- Live Animated Progress Bar with Runner (Blinkit Style) -->
+                <div class="mt-2.5 w-full pr-1">
+                    <div class="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full relative overflow-visible flex items-center">
+                        <!-- Progress Fill Line -->
+                        <div id="global-delivery-progress-fill"
+                            class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-700"
+                            style="width: 75%;"></div>
+
+                        <!-- Runner Moving Pin at Progress Tip -->
+                        <div id="global-delivery-runner-pin"
+                            class="absolute -top-2 transition-all duration-700 flex items-center justify-center pointer-events-none"
+                            style="left: calc(75% - 10px);">
+                            <div class="w-5 h-5 rounded-full bg-emerald-500 text-white shadow-md flex items-center justify-center border border-white">
+                                <span class="material-symbols-outlined text-[12px] animate-bounce">directions_run</span>
+                            </div>
+                        </div>
+
+                        <!-- Finish Door / Room Drop Point -->
+                        <div class="absolute right-0 -top-1.5 w-4 h-4 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-[10px] text-slate-600 dark:text-slate-300">meeting_room</span>
+                        </div>
                     </div>
-                    <p class="text-[11px] text-slate-600 dark:text-slate-400 truncate mt-0.5"
-                        id="global-delivery-subtitle">
-                        Campus runner walking to your room door
-                    </p>
                 </div>
             </div>
-            <div
-                class="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold text-xs flex-shrink-0 clay-pill px-2.5 py-1">
-                <span>Track</span>
-                <span class="material-symbols-outlined text-sm">arrow_forward</span>
+
+            <!-- Right: Campus Runner Illustration (Instead of scooter, runner sprinting to room!) -->
+            <div class="w-16 h-16 sm:w-20 sm:h-20 shrink-0 flex items-center justify-center relative">
+                <img src="/runner.svg" alt="Campus Runner Running to Room" class="w-full h-full object-contain group-hover:scale-105 transition-transform" />
             </div>
         </a>
     </div>
