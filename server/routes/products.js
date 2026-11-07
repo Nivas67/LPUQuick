@@ -210,37 +210,32 @@ router.get('/', async (req, res) => {
 
         let hostelId = req.query.hostel_id || req.query.hostel || '';
         
-        // If an authenticated admin has assigned hostel(s) (Store Manager / Staff), scope to their hostels
+        // If an authenticated admin has assigned hostel(s) (Store Manager / Staff), strictly scope to their assigned hostel
         if (verifiedAdmin && verifiedAdmin.role !== 'owner' && !verifiedAdmin.is_owner && !(Array.isArray(verifiedAdmin.roles) && verifiedAdmin.roles.includes('owner'))) {
-            let user = (staffUserCache && staffUserCache.get(verifiedAdmin.sub)) || (KNOWN_STAFF_FALLBACKS && KNOWN_STAFF_FALLBACKS[verifiedAdmin.sub]);
+            let cached = staffUserCache && staffUserCache.get(verifiedAdmin.sub);
+            let user = cached?.user || cached || (KNOWN_STAFF_FALLBACKS && KNOWN_STAFF_FALLBACKS[verifiedAdmin.sub]);
             if (!user) {
                 try {
                     user = await supabaseDb.users.getUserById(verifiedAdmin.sub);
-                    if (user) staffUserCache.set(user.id, user);
+                    if (user) staffUserCache.set(user.id, { user, cachedAt: Date.now() });
                 } catch (e) {}
             }
-            let allowedHostels = [];
+            let assignedHostel = user?.assigned_hostel_id || null;
             if (user?.dob && typeof user.dob === 'string' && user.dob.startsWith('{')) {
                 try {
                     const parsed = JSON.parse(user.dob);
-                    if (Array.isArray(parsed.assigned_hostels)) {
-                        allowedHostels = parsed.assigned_hostels.map(h => String(h).trim().toUpperCase()).filter(Boolean);
-                    }
-                    if (parsed.assigned_hostel_id && !allowedHostels.includes(parsed.assigned_hostel_id.toUpperCase())) {
-                        allowedHostels.unshift(parsed.assigned_hostel_id.toUpperCase());
-                    }
-                } catch (e) {}
+                    if (parsed.assigned_hostel_id) assignedHostel = parsed.assigned_hostel_id;
+                    else if (Array.isArray(parsed.assigned_hostels) && parsed.assigned_hostels.length > 0) assignedHostel = parsed.assigned_hostels[0];
+                } catch(e) {}
             }
-            if (allowedHostels.length === 0 && user?.assigned_hostel_id) {
-                allowedHostels = [user.assigned_hostel_id.toUpperCase()];
+            if (!assignedHostel && user?.assigned_hostels && user.assigned_hostels.length > 0) {
+                assignedHostel = user.assigned_hostels[0];
             }
-
-            const reqHostel = (req.query.hostel_id || req.query.hostel || '').toUpperCase().trim();
-            if (reqHostel && allowedHostels.some(h => h.replace(/[^A-Z0-9]/g, '') === reqHostel.replace(/[^A-Z0-9]/g, ''))) {
-                hostelId = reqHostel;
-            } else if (allowedHostels.length > 0) {
-                hostelId = allowedHostels[0];
+            const reqHostel = (req.query.hostel_id || req.query.hostel || '').trim().toUpperCase();
+            if (reqHostel && assignedHostel && reqHostel.replace(/[^A-Z0-9]/g, '') !== assignedHostel.replace(/[^A-Z0-9]/g, '')) {
+                return res.status(403).json({ success: false, code: 'FORBIDDEN', error: 'Forbidden: You do not have access to view or manage products for this hostel.' });
             }
+            hostelId = assignedHostel || reqHostel;
         }
 
         const includeInactive = req.query.includeInactive === 'true';

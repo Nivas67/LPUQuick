@@ -237,9 +237,12 @@ router.post('/offers-charges', requireRole('owner'), async (req, res) => {
 
 // GET /api/admin/verify (Cryptographic & Database-validated admin session verification)
 router.get('/verify', (req, res) => {
+    const { generateAdminToken } = require('../middleware/adminAuth');
+    const freshToken = generateAdminToken(req.admin.id, req.admin.role);
     res.json({
         success: true,
         authenticated: true,
+        token: freshToken,
         admin: {
             id: req.admin.id,
             name: req.admin.name,
@@ -1391,10 +1394,16 @@ router.get('/hostels', async (req, res) => {
         const assignedHostelId = req.admin?.assigned_hostel_id;
 
         let hostels = await supabaseDb.hostels.getAll({ includeInactive: true });
-        if (!isOwner && assignedHostelId) {
-            hostels = hostels.filter(h => h.id === assignedHostelId);
-        } else if (!isOwner && !assignedHostelId) {
-            hostels = [];
+        if (!isOwner) {
+            if (assignedHostelId) {
+                const normAssigned = assignedHostelId.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+                hostels = hostels.filter(h => h.id && h.id.trim().toUpperCase().replace(/[^A-Z0-9]/g, '') === normAssigned);
+            } else if (req.admin?.assigned_hostels && req.admin.assigned_hostels.length > 0) {
+                const allowedSet = new Set(req.admin.assigned_hostels.map(x => x.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')));
+                hostels = hostels.filter(h => h.id && allowedSet.has(h.id.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')));
+            } else {
+                hostels = [];
+            }
         }
 
         // Enrich with Manager profile info
@@ -2035,13 +2044,8 @@ const handleAssignManager = async (req, res) => {
             if (user.dob && typeof user.dob === 'string' && user.dob.startsWith('{')) {
                 meta = JSON.parse(user.dob);
             }
-            if (!Array.isArray(meta.assigned_hostels)) {
-                meta.assigned_hostels = meta.assigned_hostel_id ? [meta.assigned_hostel_id] : [];
-            }
-            if (!meta.assigned_hostels.includes(id)) {
-                meta.assigned_hostels.push(id);
-            }
-            meta.assigned_hostel_id = meta.assigned_hostels[0] || id;
+            meta.assigned_hostel_id = id;
+            meta.assigned_hostels = [id];
             if (!meta.roles) meta.roles = ['store_manager'];
             else if (!meta.roles.includes('store_manager')) meta.roles.push('store_manager');
 

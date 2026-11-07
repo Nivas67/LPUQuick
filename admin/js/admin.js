@@ -550,14 +550,22 @@ function applyAdminRolePermissions(profile) {
     const myAssignedHostels = (profile.assigned_hostels && profile.assigned_hostels.length > 0)
         ? profile.assigned_hostels
         : (profile.assigned_hostel_id ? [profile.assigned_hostel_id] : []);
-    if (!isOwner && myAssignedHostels.length === 1) {
-        ['products-hostel-filter', 'inventory-hostel-filter', 'orders-hostel-filter'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.value = myAssignedHostels[0];
-                el.disabled = true;
+    if (!isOwner) {
+        const assigned = myAssignedHostels[0] || profile.assigned_hostel_id;
+        if (assigned) {
+            ['products-hostel-filter', 'inventory-hostel-filter', 'orders-hostel-filter', 'dr-hostel-filter', 'lock-hostel-filter'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.value = assigned;
+                    el.disabled = true;
+                }
+            });
+            if (typeof activeAdminHostelFilter !== 'undefined') {
+                activeAdminHostelFilter.orders = assigned;
+                activeAdminHostelFilter.products = assigned;
+                activeAdminHostelFilter.inventory = assigned;
             }
-        });
+        }
     }
 
     // Pick appropriate starting view if current activeView is disallowed
@@ -600,19 +608,49 @@ function getAuthHeaders(extra = {}) {
 let isHandlingAuthError = false;
 function handleAdminAuthError(res) {
     if (isHandlingAuthError) return;
+    // CRITICAL: HTTP 403 Forbidden is a permission refusal for a sub-resource, NOT session death!
+    // Never clear credentials or force logout on 403!
+    if (res && res.status === 403) {
+        console.warn('[Admin Auth] Access forbidden (403) for requested endpoint. Session preserved.');
+        showToast('⚠️ You do not have permission to access this section.', 'warning');
+        return;
+    }
     isHandlingAuthError = true;
-    console.warn('[Admin Auth] Session invalid or expired (401/403). Prompting re-login.');
-    try { localStorage.removeItem('lpuquick_admin_token'); sessionStorage.removeItem('lpuquick_admin_token'); adminToken = ''; } catch (e) {}
-    updateConnectionStatus(false, 'Auth Required');
-    showToast('⚠️ Admin session authorization required. Please sign in.', 'error');
-    setTimeout(() => {
-        showLoginModal();
-        const errBox = document.getElementById('login-error-box');
-        const errTxt = document.getElementById('login-error-text');
-        if (errBox) errBox.classList.remove('hidden');
-        if (errTxt) errTxt.textContent = 'Session authorization expired. Please enter password to reconnect live orders.';
-        isHandlingAuthError = false;
-    }, 400);
+    console.warn('[Admin Auth] Session invalid or expired (401). Verifying session before action...');
+
+    // Resilient verification: Check with server before wiping token to prevent logout on transient spikes
+    const currentToken = localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token') || adminToken;
+    if (currentToken) {
+        fetch('/api/admin/verify', {
+            headers: { 'Authorization': `Bearer ${currentToken}`, 'x-admin-token': currentToken }
+        }).then(vRes => {
+            if (vRes.ok) {
+                console.info('[Admin Auth] Session re-verified successfully. Token preserved.');
+                isHandlingAuthError = false;
+                return;
+            }
+            performLogout();
+        }).catch(() => {
+            console.warn('[Admin Auth] Transient network disconnect. Session preserved.');
+            isHandlingAuthError = false;
+        });
+    } else {
+        performLogout();
+    }
+
+    function performLogout() {
+        try { localStorage.removeItem('lpuquick_admin_token'); sessionStorage.removeItem('lpuquick_admin_token'); adminToken = ''; } catch (e) {}
+        updateConnectionStatus(false, 'Auth Required');
+        showToast('⚠️ Admin session authorization required. Please sign in.', 'error');
+        setTimeout(() => {
+            showLoginModal();
+            const errBox = document.getElementById('login-error-box');
+            const errTxt = document.getElementById('login-error-text');
+            if (errBox) errBox.classList.remove('hidden');
+            if (errTxt) errTxt.textContent = 'Session authorization expired. Please enter password to reconnect live orders.';
+            isHandlingAuthError = false;
+        }, 400);
+    }
 }
 
 // Resilient fetch wrapper with timeout prevention and auth error detection
@@ -622,7 +660,7 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
     try {
         const res = await fetch(url, { ...options, signal: controller.signal });
         clearTimeout(timer);
-        if (res.status === 401 || res.status === 403) {
+        if (res.status === 401) {
             handleAdminAuthError(res);
         }
         return res;
@@ -982,14 +1020,14 @@ async function loadDashboard() {
 
         if (analyticsRes.status === 'fulfilled' && analyticsRes.value.ok) {
             analyticsData = await analyticsRes.value.json().catch(() => ({}));
-        } else if (analyticsRes.status === 'fulfilled' && (analyticsRes.value.status === 401 || analyticsRes.value.status === 403)) {
+        } else if (analyticsRes.status === 'fulfilled' && analyticsRes.value.status === 401) {
             handleAdminAuthError(analyticsRes.value);
             return;
         }
 
         if (ordersRes.status === 'fulfilled' && ordersRes.value.ok) {
             ordersData = await ordersRes.value.json().catch(() => ({}));
-        } else if (ordersRes.status === 'fulfilled' && (ordersRes.value.status === 401 || ordersRes.value.status === 403)) {
+        } else if (ordersRes.status === 'fulfilled' && ordersRes.value.status === 401) {
             handleAdminAuthError(ordersRes.value);
             return;
         }
@@ -2270,7 +2308,7 @@ async function loadOrders() {
                 updateDailyRevenue();
                 updateKpiCountersFromCache();
             }
-        } else if (res.status === 401 || res.status === 403) {
+        } else if (res.status === 401) {
             handleAdminAuthError(res);
             return;
         }
@@ -5723,7 +5761,7 @@ async function syncOrdersLive() {
         const res = await fetch(`/api/orders/admin/all${hostelParam}`, {
             headers: getAuthHeaders()
         });
-        if (res.status === 401 || res.status === 403) {
+        if (res.status === 401) {
             handleAdminAuthError(res);
             return;
         }
@@ -7652,37 +7690,15 @@ function populateHostelDropdowns() {
 
         if (!isOwner && myHostels.length > 0) {
             select.innerHTML = '';
-            if (myHostels.length > 1) {
-                if (cfg.allowAll) {
-                    const allOpt = document.createElement('option');
-                    allOpt.value = 'ALL';
-                    allOpt.textContent = '🏢 All My Assigned Hostels';
-                    select.appendChild(allOpt);
-                }
-                myHostels.forEach(hId => {
-                    const matched = hostelsCache.find(h => h.id === hId || (h.id && hId && h.id.replace(/[^A-Z0-9]/g, '') === hId.replace(/[^A-Z0-9]/g, '')));
-                    const opt = document.createElement('option');
-                    opt.value = hId;
-                    opt.textContent = `🏢 ${matched?.name || hId} (${hId})`;
-                    select.appendChild(opt);
-                });
-                select.disabled = false;
-                if (currentVal && (currentVal === 'ALL' || myHostels.includes(currentVal))) {
-                    select.value = currentVal;
-                } else {
-                    select.value = cfg.allowAll ? 'ALL' : myHostels[0];
-                }
-            } else {
-                const singleId = myHostels[0];
-                const matched = hostelsCache.find(h => h.id === singleId || (h.id && singleId && h.id.replace(/[^A-Z0-9]/g, '') === singleId.replace(/[^A-Z0-9]/g, '')));
-                const opt = document.createElement('option');
-                opt.value = singleId;
-                opt.textContent = `🏢 ${matched?.name || singleId} (${singleId})`;
-                select.appendChild(opt);
-                select.value = singleId;
-                select.disabled = true;
-            }
-            if (cfg.view) activeAdminHostelFilter[cfg.view] = select.value;
+            const singleId = myHostels[0];
+            const matched = hostelsCache.find(h => h.id === singleId || (h.id && singleId && h.id.replace(/[^A-Z0-9]/g, '') === singleId.replace(/[^A-Z0-9]/g, '')));
+            const opt = document.createElement('option');
+            opt.value = singleId;
+            opt.textContent = `🏢 ${matched?.name || singleId} (${singleId})`;
+            select.appendChild(opt);
+            select.value = singleId;
+            select.disabled = true;
+            if (cfg.view) activeAdminHostelFilter[cfg.view] = singleId;
         } else {
             select.disabled = false;
             if (currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
@@ -7751,7 +7767,15 @@ function renderDashboardHostelCards() {
         return;
     }
 
-    grid.innerHTML = hostelsCache.map(h => {
+    const isOwner = isPlatformOwner(currentAdminProfile);
+    const assignedHostel = currentAdminProfile?.assigned_hostel_id;
+    let list = hostelsCache;
+    if (!isOwner && assignedHostel) {
+        const normAssigned = assignedHostel.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+        list = hostelsCache.filter(h => h.id && h.id.trim().toUpperCase().replace(/[^A-Z0-9]/g, '') === normAssigned);
+    }
+
+    grid.innerHTML = list.map(h => {
         const hid = h.id;
         const norm = hid.toLowerCase().replace('-', '');
         const hostelOrders = (ordersCache || []).filter(o => (o.hostel_id || 'BH-13').toLowerCase().replace('-', '') === norm);
@@ -7817,7 +7841,7 @@ function filterProductsByHostel(hostelId) {
 async function loadHostels() {
     try {
         const res = await fetchWithTimeout('/api/admin/hostels', { headers: getAuthHeaders() }, 7000);
-        if (res.status === 401 || res.status === 403) {
+        if (res.status === 401) {
             handleAdminAuthError(res);
             return;
         }
@@ -8316,7 +8340,13 @@ async function initAdminAuth() {
         });
         const data = await res.json();
         if (data.success && data.authenticated && data.admin) {
-            adminToken = savedToken;
+            adminToken = data.token || savedToken;
+            try {
+                localStorage.setItem('lpuquick_admin_token', adminToken);
+                sessionStorage.setItem('lpuquick_admin_token', adminToken);
+                localStorage.setItem('lpuquick_admin_profile', JSON.stringify(data.admin));
+            } catch (e) {}
+            currentAdminProfile = data.admin;
             hideLoginModal();
             if (typeof loadHostels === 'function') {
                 loadHostels().catch(() => { });
@@ -8324,11 +8354,20 @@ async function initAdminAuth() {
             const initialView = applyAdminRolePermissions(data.admin);
             switchView(initialView);
             initRealtimeWebSocket();
-        } else {
+        } else if (res.status === 401) {
             logoutAdmin();
         }
     } catch (err) {
-        showLoginModal();
+        console.warn('[Admin InitAuth Network Warning]:', err);
+        // On network timeout / offline: maintain persistent login!
+        adminToken = savedToken;
+        hideLoginModal();
+        let cachedProf = null;
+        try { cachedProf = JSON.parse(localStorage.getItem('lpuquick_admin_profile')); } catch(e) {}
+        if (cachedProf) {
+            currentAdminProfile = cachedProf;
+            applyAdminRolePermissions(cachedProf);
+        }
     }
 }
 initAdminAuth();

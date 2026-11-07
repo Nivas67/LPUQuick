@@ -2993,6 +2993,70 @@ const supabaseDb = {
             return await cache.wrap(cacheKey, async () => {
                 const supabase = getSupabaseClient();
                 const staffFallbacks = {
+                    'nivas_naidu_ad': {
+                        id: 'nivas_naidu_ad',
+                        name: 'Nivas Naidu',
+                        email: 'nivasnaiduad@lpu-quick.com',
+                        phone: '07671836211',
+                        dob: JSON.stringify({ roles: ['owner', 'store_manager', 'inventory_manager', 'delivery_person', 'cook', 'food_department'], assigned_hostel_id: null, assigned_hostels: [] }),
+                        role: 'admin',
+                        is_owner: true,
+                        account_status: 'ACTIVE'
+                    },
+                    'admin_cfc0b1b7c3': {
+                        id: 'admin_cfc0b1b7c3',
+                        name: 'Anvitha',
+                        email: 'anvitha@lpuquick.in',
+                        phone: '8688874548',
+                        dob: JSON.stringify({ roles: ['store_manager', 'inventory_manager', 'delivery_person', 'cook', 'food_department'], assigned_hostel_id: 'GH-1', assigned_hostels: ['GH-1'], permissions: { can_manage_grocery_inventory: true } }),
+                        role: 'admin',
+                        account_status: 'ACTIVE'
+                    },
+                    'admin_60082a0696': {
+                        id: 'admin_60082a0696',
+                        name: 'Sathwika Reddy',
+                        email: 'sathwika@lpuquick.in',
+                        phone: '8125983706',
+                        dob: JSON.stringify({ roles: ['delivery_person', 'cook', 'food_department'], assigned_hostel_id: 'GH12', assigned_hostels: ['GH12'] }),
+                        role: 'admin',
+                        account_status: 'ACTIVE'
+                    },
+                    'admin_4a30214501': {
+                        id: 'admin_4a30214501',
+                        name: 'Balu',
+                        email: 'balu@lpuquick.in',
+                        phone: '9849849788',
+                        dob: JSON.stringify({ roles: ['delivery_person'], assigned_hostel_id: 'BH-13', assigned_hostels: ['BH-13'] }),
+                        role: 'admin',
+                        account_status: 'ACTIVE'
+                    },
+                    'user_9629c2c6': {
+                        id: 'user_9629c2c6',
+                        name: 'Siva',
+                        email: 'siva@lpuquick.in',
+                        phone: '7981484066',
+                        dob: JSON.stringify({ roles: ['delivery_person', 'cook', 'food_department'], assigned_hostel_id: 'BH-13', assigned_hostels: ['BH-13'] }),
+                        role: 'admin',
+                        account_status: 'ACTIVE'
+                    },
+                    'admin_48404d761b': {
+                        id: 'admin_48404d761b',
+                        name: 'Harsha',
+                        email: 'harsha@lpu.in',
+                        phone: '8498895666',
+                        dob: JSON.stringify({ roles: ['delivery_person'], assigned_hostel_id: 'BH-13', assigned_hostels: ['BH-13'] }),
+                        role: 'admin',
+                        account_status: 'ACTIVE'
+                    },
+                    'admin_6d489b061e': {
+                        id: 'admin_6d489b061e',
+                        name: 'Dharshana',
+                        email: 'dharshna@lpuquick.in',
+                        phone: '9698913785',
+                        dob: JSON.stringify({ roles: ['delivery_person', 'cook', 'food_department'], assigned_hostel_id: 'GH-1', assigned_hostels: ['GH-1'] }),
+                        role: 'admin',
+                        account_status: 'ACTIVE'
+                    },
                     'admin_5dcb05eba7': {
                         id: 'admin_5dcb05eba7',
                         name: 'Flash Man',

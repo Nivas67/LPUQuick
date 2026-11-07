@@ -363,17 +363,20 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
         const isOwner = Boolean(req.admin && req.admin.is_owner);
         let hostelId = req.query.hostel_id || req.query.hostel || null;
 
-        // Store Managers / Group Admins hostel scoping
+        // Store Managers / Staff strict hostel scoping
         if (!isOwner) {
             const reqHostel = req.query.hostel_id || req.query.hostel;
-            if (reqHostel && reqHostel !== 'all' && req.admin?.canAccessHostel) {
-                if (req.admin.canAccessHostel(reqHostel)) {
+            if (reqHostel && reqHostel !== 'all') {
+                if (req.admin?.canAccessHostel && req.admin.canAccessHostel(reqHostel)) {
                     hostelId = reqHostel;
                 } else {
                     return res.status(403).json({ success: false, code: 'FORBIDDEN', error: 'Forbidden: You do not have access to view orders for this hostel.' });
                 }
-            } else if (req.admin?.assigned_hostel_id && (!req.admin.assigned_hostels || req.admin.assigned_hostels.length <= 1)) {
-                hostelId = req.admin.assigned_hostel_id;
+            } else {
+                hostelId = req.admin?.assigned_hostel_id || (req.admin?.assigned_hostels && req.admin.assigned_hostels[0]);
+            }
+            if (!hostelId) {
+                return res.status(403).json({ success: false, code: 'FORBIDDEN', error: 'Forbidden: No hostel assigned to your administrator account.' });
             }
         }
 
@@ -583,7 +586,12 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
         res.json({ orders: resultOrders, hostel_id: hostelId || 'all' });
     } catch (err) {
         console.error('[Admin Orders Error]:', err.message);
-        res.json({ orders: fallbackOrdersCache, isFallback: true });
+        let safeOrders = fallbackOrdersCache || [];
+        if (!isOwner && hostelId) {
+            const normTarget = normalizeHostelId(hostelId);
+            safeOrders = safeOrders.filter(o => matchHostel(extractHostelId(o), normTarget));
+        }
+        res.json({ orders: safeOrders, isFallback: true });
     }
 });
 
@@ -596,8 +604,19 @@ router.get('/admin/analytics', requireAdmin, async (req, res) => {
 
         const isOwner = Boolean(req.admin && req.admin.is_owner);
         let hostelId = req.query.hostel_id || req.query.hostel || null;
-        if (!isOwner && req.admin?.assigned_hostel_id) {
-            hostelId = req.admin.assigned_hostel_id;
+        if (!isOwner) {
+            const reqHostel = req.query.hostel_id || req.query.hostel;
+            if (reqHostel && reqHostel !== 'all') {
+                if (req.admin?.canAccessHostel && !req.admin.canAccessHostel(reqHostel)) {
+                    return res.status(403).json({ success: false, code: 'FORBIDDEN', error: 'Forbidden: Access denied to analytics for this hostel.' });
+                }
+                hostelId = reqHostel;
+            } else {
+                hostelId = req.admin?.assigned_hostel_id || (req.admin?.assigned_hostels && req.admin.assigned_hostels[0]);
+            }
+            if (!hostelId) {
+                return res.status(403).json({ success: false, code: 'FORBIDDEN', error: 'Forbidden: No hostel assigned.' });
+            }
         }
         const cleanHostel = (hostelId && hostelId !== 'all') ? hostelId : null;
         const cacheKey = `analytics:admin:summary:${cleanHostel || 'all'}`;

@@ -418,39 +418,35 @@ router.post('/admin-login', async (req, res) => {
             if (user.dob && typeof user.dob === 'string' && user.dob.startsWith('{')) {
                 try {
                     const parsedDob = JSON.parse(user.dob);
-                    if (parsedDob.assigned_hostel_id) assignedHostelId = parsedDob.assigned_hostel_id;
+                    if (parsedDob.assigned_hostel_id) assignedHostelId = String(parsedDob.assigned_hostel_id).trim().toUpperCase();
                     if (Array.isArray(parsedDob.assigned_hostels)) {
                         explicitHostels = parsedDob.assigned_hostels.map(h => String(h).trim().toUpperCase()).filter(Boolean);
                     }
                 } catch (e) {}
             }
 
-            if (explicitHostels.length > 0) {
+            if (!assignedHostelId && explicitHostels.length > 0) {
+                assignedHostelId = explicitHostels[0];
+            }
+
+            // Strictly scope store manager to their assigned hostel
+            if (assignedHostelId) {
+                assignedHostels = [assignedHostelId];
+                if (explicitHostels.length > 1 && explicitHostels.includes(assignedHostelId)) {
+                    assignedHostels = explicitHostels;
+                }
+            } else if (explicitHostels.length > 0) {
                 assignedHostels = explicitHostels;
-                if (!assignedHostelId) assignedHostelId = explicitHostels[0];
+                assignedHostelId = explicitHostels[0];
             } else {
-                let managedHostels = [];
                 try {
                     const hostels = await supabaseDb.hostels.getAll({ includeInactive: true });
-                    managedHostels = (hostels || []).filter(h => h.manager_user_id === user.id).map(h => h.id);
-                    if (!assignedHostelId && managedHostels.length > 0) {
-                        assignedHostelId = managedHostels[0];
+                    const managed = (hostels || []).filter(h => h.manager_user_id === user.id).map(h => h.id.toUpperCase());
+                    if (managed.length > 0) {
+                        assignedHostelId = managed[0];
+                        assignedHostels = [assignedHostelId];
                     }
                 } catch (hErr) {}
-
-                let groupHostels = [];
-                try {
-                    const hostelGroupService = require('../services/hostelGroupService');
-                    groupHostels = hostelGroupService.getAdminAssignedHostels(user.id);
-                } catch (gErr) {}
-
-                const allHostels = new Set(groupHostels);
-                managedHostels.forEach(h => allHostels.add(h));
-                if (assignedHostelId) allHostels.add(assignedHostelId);
-                assignedHostels = Array.from(allHostels);
-                if (!assignedHostelId && assignedHostels.length > 0) {
-                    assignedHostelId = assignedHostels[0];
-                }
             }
         }
 
