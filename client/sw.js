@@ -1,5 +1,5 @@
-// LPUQuick High-Performance Ultra-Fast Service Worker (V2026.11.07-V18)
-const CACHE_NAME = 'lpuquick-pwa-v27-live-activity';
+// LPUQuick High-Performance Ultra-Fast Service Worker (V2026.11.07-V19)
+const CACHE_NAME = 'lpuquick-pwa-v28-animated-notifications';
 const API_CACHE_NAME = 'lpuquick-api-cache-v2';
 
 const STATIC_ASSETS = [
@@ -10,6 +10,11 @@ const STATIC_ASSETS = [
     '/logo.png',
     '/logo.svg',
     '/runner.svg',
+    '/img/notif_running.gif',
+    '/img/notif_preparing.gif',
+    '/img/notif_confirmed.gif',
+    '/img/notif_placed.gif',
+    '/img/notif_delivered.gif',
     '/icon-192.png',
     '/icon-512.png',
     '/apple-touch-icon.png',

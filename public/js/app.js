@@ -3461,6 +3461,15 @@ async function checkAndConnectGlobalOrderTracking() {
     }
 }
 
+function getNotificationBannerGif(status) {
+    const s = (status || '').toLowerCase().trim();
+    if (s.includes('deliver')) return '/img/notif_delivered.gif';
+    if (s.includes('out') || s.includes('route') || s.includes('dispatch')) return '/img/notif_running.gif';
+    if (s.includes('prepar') || s.includes('pack')) return '/img/notif_preparing.gif';
+    if (s.includes('confirm') || s === 'accepted') return '/img/notif_confirmed.gif';
+    return '/img/notif_placed.gif';
+}
+
 function updateLiveSystemNotification(orderId, status, etaTitle, subtitleText) {
     try {
         if (!('Notification' in window)) return;
@@ -3472,12 +3481,15 @@ function updateLiveSystemNotification(orderId, status, etaTitle, subtitleText) {
 
         if (Notification.permission === 'granted') {
             const isDelivered = (status || '').toLowerCase().includes('deliver');
+            const bannerGif = getNotificationBannerGif(status);
+            const bannerUrl = (window.location.origin || '') + bannerGif;
 
             const payload = {
                 title: etaTitle || 'Arriving shortly',
                 body: (subtitleText || 'LPUQuick Campus Delivery') + ' • LPUQuick',
                 icon: '/logo.png',
                 badge: '/favicon.png',
+                image: bannerUrl,
                 tag: 'lpuquick-live-order',
                 renotify: isDelivered,
                 silent: !isDelivered,
@@ -3510,6 +3522,7 @@ function updateGlobalDeliveryBar(status, riderName) {
     const subEl = document.getElementById('global-delivery-subtitle');
     const fillEl = document.getElementById('global-delivery-progress-fill');
     const pinEl = document.getElementById('global-delivery-runner-pin');
+    const runnerImg = document.getElementById('global-delivery-runner-img');
     const hostelShort = window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Hostel');
 
     if (!bar) return;
@@ -3557,7 +3570,13 @@ function updateGlobalDeliveryBar(status, riderName) {
     if (fillEl) fillEl.style.width = `${progressPercent}%`;
     if (pinEl) pinEl.style.left = `calc(${progressPercent}% - 10px)`;
 
-    // Live Device Notification Sync (Tray Notification)
+    const bannerGif = getNotificationBannerGif(status);
+    if (runnerImg && runnerImg.getAttribute('data-src') !== bannerGif) {
+        runnerImg.setAttribute('data-src', bannerGif);
+        runnerImg.src = bannerGif;
+    }
+
+    // Live Device Notification Sync (Tray Notification with Animated Banner)
     updateLiveSystemNotification(currentTrackedOrderId, status, etaText, subText);
 }
 
