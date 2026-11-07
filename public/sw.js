@@ -1,5 +1,5 @@
-// LPUQuick High-Performance Ultra-Fast Service Worker (V2026.11.07-V19)
-const CACHE_NAME = 'lpuquick-pwa-v28-animated-notifications';
+// LPUQuick High-Performance Ultra-Fast Service Worker (V2026.11.07-V30)
+const CACHE_NAME = 'lpuquick-pwa-v30-pixel-perfect-notifications';
 const API_CACHE_NAME = 'lpuquick-api-cache-v2';
 
 const STATIC_ASSETS = [
@@ -10,9 +10,13 @@ const STATIC_ASSETS = [
     '/logo.png',
     '/logo.svg',
     '/runner.svg',
-    '/img/notif_running.gif',
-    '/img/notif_preparing.gif',
     '/img/notif_confirmed.gif',
+    '/img/notif_preparing.gif',
+    '/img/notif_out_for_delivery.gif',
+    '/img/notif_near_room.gif',
+    '/img/notif_arrived.gif',
+    '/img/notif_store_open.gif',
+    '/img/notif_running.gif',
     '/img/notif_placed.gif',
     '/img/notif_delivered.gif',
     '/icon-192.png',
@@ -195,9 +199,10 @@ self.addEventListener('push', (event) => {
         body: payload.body,
         icon: payload.icon || '/icon-192.png',
         badge: payload.badge || '/favicon.png',
+        image: payload.image || undefined,
         tag: payload.tag || 'lpuquick-notification',
-        renotify: true,
-        data: payload.data || { url: '/admin#orders' },
+        renotify: payload.renotify !== undefined ? payload.renotify : true,
+        data: payload.data || { url: '/#/orders' },
         vibrate: [200, 100, 200, 100, 200],
         actions: payload.actions || [
             { action: 'open', title: 'Open Hub' }
@@ -213,6 +218,15 @@ self.addEventListener('notificationclick', (event) => {
     event.notification.close();
     const notificationData = event.notification.data || {};
     const targetUrl = notificationData.url || '/#/orders';
+
+    // Track click for broadcast campaigns
+    if (notificationData.campaignId) {
+        fetch('/api/notifications/track-click', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ campaignId: notificationData.campaignId })
+        }).catch(() => {});
+    }
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {

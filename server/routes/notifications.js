@@ -33,6 +33,52 @@ router.post('/subscribe', (req, res) => {
     }
 });
 
+// POST /api/notifications/customer-subscribe
+router.post('/customer-subscribe', (req, res) => {
+    const { subscription, userId, userName, hostelId } = req.body;
+    if (!subscription || !subscription.endpoint) {
+        return res.status(400).json({ success: false, error: 'Valid push subscription object required' });
+    }
+
+    try {
+        const ok = pushService.saveCustomerSubscription(subscription, {
+            userId,
+            userName,
+            hostelId
+        });
+        res.json({ success: ok, message: 'Customer device registered for live alerts' });
+    } catch (err) {
+        console.error('[Customer Subscribe Error]:', err.message);
+        res.status(500).json({ success: false, error: 'Failed to register customer device.' });
+    }
+});
+
+// POST /api/notifications/track-click
+router.post('/track-click', (req, res) => {
+    const { campaignId } = req.body;
+    if (!campaignId) return res.json({ success: false });
+
+    try {
+        const broadcastService = require('../services/broadcastNotificationService');
+        const ok = broadcastService.trackClick(campaignId);
+        res.json({ success: ok });
+    } catch (err) {
+        res.json({ success: false });
+    }
+});
+
+// GET /api/notifications/customer-feed
+router.get('/customer-feed', (req, res) => {
+    const { hostelId } = req.query;
+    try {
+        const broadcastService = require('../services/broadcastNotificationService');
+        const feed = broadcastService.getCustomerFeed(hostelId);
+        res.json({ success: true, announcements: feed });
+    } catch (err) {
+        res.status(500).json({ success: false, error: 'Failed to fetch customer feed.' });
+    }
+});
+
 // POST /api/notifications/unsubscribe
 router.post('/unsubscribe', (req, res) => {
     const { endpoint } = req.body;

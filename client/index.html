@@ -374,46 +374,61 @@
 
     <div id="app" class="relative z-10"></div>
 
-    <!-- Global Floating Live Delivery Notification Bar (Blinkit-Style Live Activity) -->
+    <!-- Global Floating Live Delivery Notification Bar (Blinkit / Swiggy-Style Live Activity) -->
     <div id="global-live-delivery-bar"
         class="fixed bottom-24 left-1/2 -translate-x-1/2 w-[94%] max-w-md z-40 hidden transition-all duration-300 transform translate-y-0 select-none">
         <a href="#/orders"
-            class="p-3.5 sm:p-4 rounded-3xl border border-slate-200/90 dark:border-white/10 shadow-[0_12px_36px_rgba(0,0,0,0.18)] bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl flex items-center justify-between gap-3 text-xs hover:border-emerald-500/50 transition-all active:scale-[0.98] group">
+            class="p-3 sm:p-3.5 rounded-3xl border border-slate-200/90 dark:border-white/10 shadow-[0_12px_36px_rgba(0,0,0,0.18)] bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl flex items-center justify-between gap-3 text-xs hover:border-emerald-500/50 transition-all active:scale-[0.98] group">
             
             <!-- Left & Middle: Notification Metadata + Large Title + Subtitle + Progress Bar -->
             <div class="flex-1 min-w-0 pr-1">
-                <!-- Top Brand Header: LPUQuick • now • 🔔 -->
-                <div class="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 dark:text-slate-400">
-                    <img src="/logo.png" class="w-4 h-4 rounded-full object-cover shrink-0 border border-emerald-500/30" alt="LPUQuick">
-                    <span class="text-slate-900 dark:text-white font-extrabold tracking-tight">LPUQuick</span>
-                    <span class="text-slate-400">•</span>
-                    <span>now</span>
-                    <span class="text-slate-400">•</span>
-                    <span class="material-symbols-outlined text-[13px] text-amber-500 animate-pulse">notifications_active</span>
+                <!-- Top Brand Header: LPUQuick • now • 🔔 and 🟢 LIVE Badge (Reference Design) -->
+                <div class="flex items-center justify-between gap-1.5 mb-0.5">
+                    <div class="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 dark:text-slate-400">
+                        <img src="/logo.png" class="w-4 h-4 rounded-full object-cover shrink-0 border border-emerald-500/30" alt="LPUQuick">
+                        <span class="text-slate-900 dark:text-white font-extrabold tracking-tight">LPUQuick</span>
+                        <span class="text-slate-400">•</span>
+                        <span>now</span>
+                        <span class="text-slate-400">•</span>
+                        <span class="material-symbols-outlined text-[13px] text-amber-500 animate-pulse">notifications_active</span>
+                    </div>
+
+                    <!-- 🟢 LIVE Pill Badge -->
+                    <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/40 text-[9.5px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                        <span>LIVE</span>
+                    </div>
                 </div>
 
-                <!-- Big Headline: Arriving in 3 minutes -->
-                <h3 class="text-sm sm:text-base font-black tracking-tight text-slate-900 dark:text-white mt-1 leading-snug"
-                    id="global-delivery-eta">Arriving in 3 minutes</h3>
+                <!-- Big Headline: Arriving in 1-2 minutes! 🚀 -->
+                <h3 class="text-sm sm:text-base font-black tracking-tight text-slate-900 dark:text-white mt-0.5 leading-snug"
+                    id="global-delivery-eta">Arriving in 1-2 minutes! 🚀</h3>
 
-                <!-- Subtitle: Order on the way / Runner running to your room -->
+                <!-- Subtitle: Stage description / runner running to your room -->
                 <p class="text-[11px] font-semibold text-slate-600 dark:text-slate-300 mt-0.5 truncate"
                     id="global-delivery-subtitle">
-                    Order on the way · Running to your room
+                    Nivas Naidu is running to your room (BH13)
                 </p>
 
+                <!-- Room Badge Chip -->
+                <div class="mt-1 flex items-center gap-1.5">
+                    <span id="global-delivery-room-chip" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                        <span id="global-delivery-room-text">ROOM BH13</span>
+                    </span>
+                </div>
+
                 <!-- Live Animated Progress Bar with Runner (Blinkit Style) -->
-                <div class="mt-2.5 w-full pr-1">
+                <div class="mt-2 w-full pr-1">
                     <div class="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full relative overflow-visible flex items-center">
                         <!-- Progress Fill Line -->
                         <div id="global-delivery-progress-fill"
                             class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-700"
-                            style="width: 75%;"></div>
+                            style="width: 88%;"></div>
 
                         <!-- Runner Moving Pin at Progress Tip -->
                         <div id="global-delivery-runner-pin"
                             class="absolute -top-2 transition-all duration-700 flex items-center justify-center pointer-events-none"
-                            style="left: calc(75% - 10px);">
+                            style="left: calc(88% - 10px);">
                             <div class="w-5 h-5 rounded-full bg-emerald-500 text-white shadow-md flex items-center justify-center border border-white">
                                 <span class="material-symbols-outlined text-[12px] animate-bounce">directions_run</span>
                             </div>
@@ -427,9 +442,9 @@
                 </div>
             </div>
 
-            <!-- Right: Campus Runner Animated Illustration (Instead of scooter, runner sprinting to room!) -->
-            <div class="w-20 h-16 sm:w-24 sm:h-20 shrink-0 flex items-center justify-center relative">
-                <img id="global-delivery-runner-img" src="/img/notif_running.gif" alt="Campus Runner Running to Room" class="w-full h-full object-contain group-hover:scale-105 transition-transform" />
+            <!-- Right: Campus Runner Animated Illustration (Matches Reference BigPicture Frame) -->
+            <div class="w-24 h-18 sm:w-28 sm:h-20 shrink-0 flex items-center justify-center relative overflow-hidden rounded-2xl border border-slate-200/80 dark:border-white/10 bg-slate-50 dark:bg-slate-800/60 shadow-sm">
+                <img id="global-delivery-runner-img" src="/img/notif_near_room.gif" alt="Campus Runner Running to Room" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
             </div>
         </a>
     </div>
@@ -466,6 +481,43 @@
     <!-- Client Live Notifications Container -->
     <div id="client-toast-container"
         class="fixed top-4 right-4 sm:right-6 z-50 flex flex-col gap-2 max-w-sm w-[90%] pointer-events-none"></div>
+
+    <!-- Customer In-App Notification Center Modal -->
+    <div id="modal-customer-notifications" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 select-none">
+        <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200 dark:border-white/10 space-y-4 animate-fade-in text-slate-900 dark:text-white max-h-[85vh] flex flex-col">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-xl">notifications_active</span>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-black text-slate-900 dark:text-white">Campus Notifications</h3>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400">Store alerts, offers & hostel announcements</p>
+                    </div>
+                </div>
+                <button type="button" onclick="window.closeCustomerNotificationsModal()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center justify-center transition-all cursor-pointer">
+                    <span class="material-symbols-outlined text-lg">close</span>
+                </button>
+            </div>
+
+            <!-- List Container -->
+            <div id="customer-announcements-list" class="flex-1 overflow-y-auto space-y-3 no-scrollbar py-1">
+                <div class="text-center py-8 text-slate-400">
+                    <span class="material-symbols-outlined text-3xl animate-spin mb-1">progress_activity</span>
+                    <p class="text-xs">Loading campus updates...</p>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="border-t border-slate-100 dark:border-white/10 pt-3 flex items-center justify-between text-[11px] text-slate-400">
+                <span>LPUQuick Live Campus Feed</span>
+                <button type="button" onclick="window.requestNotificationPermissionFromCenter()" class="text-emerald-600 dark:text-emerald-400 font-bold hover:underline cursor-pointer">
+                    Enable Device Push 🔔
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- Core App State & Router Setup with Immediate Session Hydration -->
     <script>

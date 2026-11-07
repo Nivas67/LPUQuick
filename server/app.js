@@ -217,6 +217,7 @@ app.get('/api/realtime/config', (req, res) => {
 
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/admin/broadcast-notifications', require('./routes/broadcastNotifications'));
 app.use('/api/admin/hostel-groups', require('./routes/hostelGroups'));
 app.use('/api/admin/backup', require('./routes/backup'));
 app.use('/api/admin/financial', require('./routes/financial'));

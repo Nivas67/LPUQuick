@@ -525,7 +525,7 @@ function applyAdminRolePermissions(profile) {
     document.querySelectorAll('#desktop-nav .nav-item, .nav-item, .owner-only-nav, [data-required-role]').forEach(btn => {
         const req = btn.dataset?.requiredRole || '';
         const view = btn.dataset?.view || '';
-        const isOwnerOnly = (btn.classList.contains('owner-only-nav') || req === 'owner' || view === 'hostel-groups' || view === 'employees' || view === 'staff' || view === 'hostels' || view === 'daily-revenue' || view === 'backup' || view === 'advertisements' || view === 'offers-charges') && view !== 'food-dept';
+        const isOwnerOnly = (btn.classList.contains('owner-only-nav') || req === 'owner' || view === 'hostel-groups' || view === 'employees' || view === 'staff' || view === 'hostels' || view === 'daily-revenue' || view === 'backup' || view === 'advertisements' || view === 'offers-charges' || view === 'customer-notifications') && view !== 'food-dept';
 
         if (isOwnerOnly && !isOwner) {
             btn.classList.add('hidden');
@@ -574,9 +574,14 @@ function applyAdminRolePermissions(profile) {
     return initialView;
 }
 
+function getAdminAuthToken() {
+    return localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token') || (typeof adminToken !== 'undefined' ? adminToken : '');
+}
+window.getAdminAuthToken = getAdminAuthToken;
+
 // Headers for protected API calls
 function getAuthHeaders(extra = {}) {
-    const token = localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token') || adminToken;
+    const token = getAdminAuthToken();
     const headers = {
         'Content-Type': 'application/json',
         'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -743,6 +748,7 @@ function switchView(viewName) {
             'hostel-overview': ['owner', 'store_manager'],
             'offers-charges': ['owner'],
             'payment-management': ['owner'],
+            'customer-notifications': ['owner'],
             'upi-config': ['owner'],
             'food-dept': ['owner', 'store_manager', 'cook', 'food_department', 'food']
         };
@@ -802,6 +808,7 @@ function switchView(viewName) {
         'employees': 'Employees & Dark Store Roster',
         'offers-charges': 'Offers & Charges — Global Pricing & Offer Rules (Owner Only)',
         'payment-management': 'Payment & Refund Management (Super Admin Only)',
+        'customer-notifications': 'Customer Broadcast & Push Notifications (Super Admin Only)',
         'upi-config': 'UPI Gateway & Merchant Configuration (Super Admin Only)',
         'food-dept': 'Food Department & Kitchen Operations'
     };
@@ -842,6 +849,7 @@ function switchView(viewName) {
     else if (viewName === 'employees') loadEmployeesList();
     else if (viewName === 'offers-charges') loadOffersChargesView();
     else if (viewName === 'payment-management') loadPaymentManagementView();
+    else if (viewName === 'customer-notifications') loadBroadcastNotificationsData();
     else if (viewName === 'upi-config') loadUpiConfigView();
     else if (viewName === 'food-dept') loadFoodDeptAdmin();
 
@@ -15972,3 +15980,684 @@ function toggleHostelOverviewPinLock() {
     }
 }
 window.toggleHostelOverviewPinLock = toggleHostelOverviewPinLock;
+
+
+// ============================================================
+// CUSTOMER BROADCAST NOTIFICATION SYSTEM (SUPER ADMIN ONLY)
+// ============================================================
+window.broadcastState = {
+    campaigns: [],
+    stats: {},
+    activeFilter: 'all',
+    isLoading: false
+};
+
+const BROADCAST_TEMPLATES = {
+    store_open: {
+        title: "🟢 LPUQuick Store is Now Open! 🛒",
+        body: "Your campus dark store is open for fast delivery. Order late-night snacks, chilled drinks & Maggi directly to your hostel room in 10 minutes!",
+        category: "store_status",
+        imageUrl: "/img/notif_store_open.gif",
+        actionText: "ORDER NOW 🛒",
+        actionUrl: "/#/"
+    },
+    store_close: {
+        title: "🌙 Store Restocking · Reopening Soon",
+        body: "LPUQuick dark store is currently restocking fresh snacks and daily essentials. You can still browse and add your favourites to cart!",
+        category: "store_status",
+        imageUrl: "/img/notif_store_open.gif",
+        actionText: "BROWSE MENU",
+        actionUrl: "/#/"
+    },
+    special_offer: {
+        title: "⚡ Flash Sale: Flat 20% Off Tonight!",
+        body: "Late night study hunger? Grab chips, beverages, chocolates & noodles at flat 20% off. Use promo code QUICK20 at checkout!",
+        category: "special_offer",
+        imageUrl: "/img/notif_near_room.gif",
+        actionText: "CLAIM OFFER ⚡",
+        actionUrl: "/#/"
+    },
+    festival: {
+        title: "🪔 Happy Diwali! Special Festive Combos 🎉",
+        body: "Wishing all campus hostellers joy, prosperity and good vibes! Special Diwali gift snack packs & festive treats now delivering in 10 mins.",
+        category: "festival",
+        imageUrl: "/img/notif_store_open.gif",
+        actionText: "VIEW FESTIVE DROP",
+        actionUrl: "/#/categories"
+    },
+    campus_notice: {
+        title: "📢 Campus Hub Operational Update",
+        body: "All delivery runner routes across campus hostels are running at peak speed today. Average delivery time: 8-10 minutes.",
+        category: "announcement",
+        imageUrl: "",
+        actionText: "TRACK LIVE 📍",
+        actionUrl: "/#/orders"
+    }
+};
+
+async function loadBroadcastNotificationsData() {
+    if (window.broadcastState.isLoading) return;
+    window.broadcastState.isLoading = true;
+
+    try {
+        const token = getAdminAuthToken();
+        const res = await fetch('/api/admin/broadcast-notifications', {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'x-admin-token': token
+            }
+        });
+
+        if (res.status === 403) {
+            showToast('Access Denied: Super Admin authorization required for broadcasts', 'error');
+            switchView('dashboard');
+            return;
+        }
+
+        const data = await res.json();
+        if (!data.success) {
+            showToast(data.error || 'Failed to fetch broadcast data', 'error');
+            return;
+        }
+
+        window.broadcastState.campaigns = data.campaigns || [];
+        window.broadcastState.stats = data.stats || {};
+
+        renderBroadcastStats(data.stats);
+        renderBroadcastHistoryTable();
+        updateBroadcastLivePreview();
+
+    } catch (err) {
+        console.error('[Broadcast Load Error]:', err);
+        showToast('Failed to connect to broadcast notification service', 'error');
+    } finally {
+        window.broadcastState.isLoading = false;
+    }
+}
+
+function renderBroadcastStats(stats) {
+    if (!stats) return;
+
+    const subEl = document.getElementById('broadcast-stat-subscribers');
+    const campEl = document.getElementById('broadcast-stat-total-campaigns');
+    const delivEl = document.getElementById('broadcast-stat-delivered');
+    const ctrEl = document.getElementById('broadcast-stat-ctr');
+    const clicksEl = document.getElementById('broadcast-stat-clicks');
+
+    if (subEl) subEl.textContent = Number(stats.totalSubscribers || 0).toLocaleString();
+    if (campEl) campEl.textContent = Number(stats.totalCampaigns || 0).toLocaleString();
+    if (delivEl) delivEl.textContent = Number(stats.totalDelivered || 0).toLocaleString();
+    if (ctrEl) ctrEl.textContent = stats.clickThroughRate || '0.0%';
+    if (clicksEl) clicksEl.textContent = Number(stats.totalClicks || 0).toLocaleString();
+
+    // Update target count badge
+    const hostelSelect = document.getElementById('broadcast-target-hostel');
+    if (hostelSelect) onTargetHostelChange(hostelSelect);
+}
+
+function renderBroadcastHistoryTable() {
+    const tbody = document.getElementById('broadcast-history-table-body');
+    if (!tbody) return;
+
+    const filter = window.broadcastState.activeFilter || 'all';
+    let list = window.broadcastState.campaigns || [];
+
+    if (filter !== 'all') {
+        list = list.filter(c => c.category === filter);
+    }
+
+    if (list.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center py-8 text-slate-400">
+                    <span class="material-symbols-outlined text-3xl mb-1 text-slate-300">notifications_off</span>
+                    <p class="text-xs">No broadcast campaigns found for this filter.</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    const categoryBadges = {
+        store_status: '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">🏪 Store Status</span>',
+        special_offer: '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">🏷️ Offer</span>',
+        festival: '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-300">🪔 Festive</span>',
+        announcement: '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-300">📣 Notice</span>',
+        general: '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300">✨ General</span>'
+    };
+
+    const statusBadges = {
+        sent: '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">✓ Delivered</span>',
+        scheduled: '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">🕒 Scheduled</span>',
+        pending: '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">⏳ Sending</span>'
+    };
+
+    tbody.innerHTML = list.map(c => {
+        const catBadge = categoryBadges[c.category] || categoryBadges.general;
+        const statBadge = statusBadges[c.status] || statusBadges.sent;
+        const targetLabel = c.targetHostelName || (c.targetHostel === 'all' ? 'All Hostels' : c.targetHostel);
+        const timingStr = c.sentAt ? new Date(c.sentAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : (c.scheduledAt ? `Scheduled: ${new Date(c.scheduledAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}` : 'Recent');
+
+        const delivered = c.stats?.deliveredCount || 0;
+        const total = c.stats?.sentCount || delivered;
+        const clicks = c.stats?.clickedCount || 0;
+        const ctr = delivered > 0 ? ((clicks / delivered) * 100).toFixed(1) + '%' : '0.0%';
+
+        return `
+            <tr class="hover:bg-slate-50 transition-colors">
+                <td class="py-3 px-3">
+                    <div class="font-bold text-slate-900 line-clamp-1 max-w-[260px]">${escapeHtml(c.title)}</div>
+                    <div class="text-[11px] text-slate-500 line-clamp-1 max-w-[280px]">${escapeHtml(c.body)}</div>
+                </td>
+                <td class="py-3 px-3 whitespace-nowrap">${catBadge}</td>
+                <td class="py-3 px-3 whitespace-nowrap">
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-slate-100 text-slate-800">
+                        📍 ${escapeHtml(targetLabel)}
+                    </span>
+                </td>
+                <td class="py-3 px-3 whitespace-nowrap text-slate-500 text-[11px]">${timingStr}</td>
+                <td class="py-3 px-3 whitespace-nowrap">${statBadge}</td>
+                <td class="py-3 px-3 whitespace-nowrap">
+                    <div class="font-bold text-slate-800">${delivered} / ${total}</div>
+                    <div class="text-[10px] text-emerald-600 font-semibold">devices</div>
+                </td>
+                <td class="py-3 px-3 whitespace-nowrap">
+                    <div class="font-bold text-amber-700">${clicks} clicks</div>
+                    <div class="text-[10px] text-slate-400 font-medium">${ctr} CTR</div>
+                </td>
+                <td class="py-3 px-3 whitespace-nowrap text-right">
+                    <div class="flex items-center justify-end gap-1.5">
+                        <button type="button" onclick="resendBroadcastCampaign('${c.id}')"
+                            class="p-1.5 hover:bg-emerald-50 text-emerald-700 rounded-lg transition-all" title="Reuse / Resend Campaign">
+                            <span class="material-symbols-outlined text-base">replay</span>
+                        </button>
+                        <button type="button" onclick="deleteBroadcastCampaign('${c.id}')"
+                            class="p-1.5 hover:bg-rose-50 text-rose-600 rounded-lg transition-all" title="Delete Campaign">
+                            <span class="material-symbols-outlined text-base">delete</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function applyBroadcastTemplate(key) {
+    const tmpl = BROADCAST_TEMPLATES[key];
+    if (!tmpl) return;
+
+    const titleEl = document.getElementById('broadcast-title');
+    const bodyEl = document.getElementById('broadcast-body');
+    const catEl = document.getElementById('broadcast-category');
+    const imgEl = document.getElementById('broadcast-image-url');
+    const actTextEl = document.getElementById('broadcast-action-text');
+    const actUrlEl = document.getElementById('broadcast-action-url');
+
+    if (titleEl) titleEl.value = tmpl.title;
+    if (bodyEl) bodyEl.value = tmpl.body;
+    if (catEl) catEl.value = tmpl.category;
+    if (imgEl) imgEl.value = tmpl.imageUrl;
+    if (actTextEl) actTextEl.value = tmpl.actionText;
+    if (actUrlEl) actUrlEl.value = tmpl.actionUrl;
+
+    updateBroadcastLivePreview();
+    showToast(`✓ Applied ${key.replace('_', ' ')} template`, 'success');
+}
+
+function setBroadcastImage(url) {
+    const imgEl = document.getElementById('broadcast-image-url');
+    if (imgEl) {
+        imgEl.value = url;
+        updateBroadcastLivePreview();
+    }
+}
+
+async function handleBroadcastBannerUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        showToast('Please select a valid image (PNG, JPG, WEBP, or GIF)', 'error');
+        return;
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+        showToast('Image size must be less than 8MB', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('btn-upload-broadcast-banner');
+    const originalContent = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="inline-block animate-spin mr-1">⟳</span><span>Uploading...</span>';
+    }
+
+    try {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const base64Data = e.target.result;
+                const token = getAdminAuthToken();
+
+                const res = await fetch('/api/admin/broadcast-notifications/upload-banner', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                        'x-admin-token': token
+                    },
+                    body: JSON.stringify({
+                        image_data: base64Data,
+                        fileName: file.name
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success && data.url) {
+                    const urlInput = document.getElementById('broadcast-image-url');
+                    if (urlInput) {
+                        urlInput.value = data.url;
+                    }
+                    updateBroadcastLivePreview();
+                    showToast('✓ Banner uploaded successfully!', 'success');
+                } else {
+                    throw new Error(data.error || 'Failed to upload image');
+                }
+            } catch (postErr) {
+                console.error('[Banner Upload Error]:', postErr);
+                showToast(postErr.message || 'Error uploading banner image', 'error');
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalContent;
+                }
+            }
+        };
+        reader.readAsDataURL(file);
+    } catch (err) {
+        console.error('[Upload Reader Error]:', err);
+        showToast(err.message || 'Error reading banner image', 'error');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        }
+    }
+}
+window.handleBroadcastBannerUpload = handleBroadcastBannerUpload;
+
+function updateBroadcastLivePreview() {
+    const title = (document.getElementById('broadcast-title')?.value || '').trim();
+    const body = (document.getElementById('broadcast-body')?.value || '').trim();
+    const category = document.getElementById('broadcast-category')?.value || 'store_status';
+    const imageUrl = (document.getElementById('broadcast-image-url')?.value || '').trim();
+    const actionText = (document.getElementById('broadcast-action-text')?.value || '').trim();
+    const targetHostel = document.getElementById('broadcast-target-hostel')?.value || 'all';
+
+    // Character counters
+    const titleCountEl = document.getElementById('title-char-count');
+    const bodyCountEl = document.getElementById('body-char-count');
+    if (titleCountEl) titleCountEl.textContent = `${title.length}/60`;
+    if (bodyCountEl) bodyCountEl.textContent = `${body.length}/240`;
+
+    // Preview elements
+    const pTitle = document.getElementById('preview-title-display');
+    const pBody = document.getElementById('preview-body-display');
+    const pBannerBox = document.getElementById('preview-banner-container');
+    const pBannerImg = document.getElementById('preview-banner-img');
+    const pActionBtn = document.getElementById('preview-action-btn');
+    const pCatBadge = document.getElementById('preview-category-badge');
+    const pAudience = document.getElementById('preview-audience-tag');
+
+    if (pTitle) {
+        pTitle.textContent = title || '🟢 LPUQuick Store is Now Open! 🛒';
+    }
+    if (pBody) {
+        pBody.textContent = body || 'Order late-night snacks, chilled drinks & Maggi to your room in 10 mins!';
+    }
+
+    if (pCatBadge) {
+        const catMap = {
+            store_status: 'STORE',
+            special_offer: 'OFFER',
+            festival: 'FESTIVE',
+            announcement: 'NOTICE',
+            general: 'LIVE'
+        };
+        pCatBadge.textContent = catMap[category] || 'LIVE';
+    }
+
+    if (pBannerBox && pBannerImg) {
+        if (imageUrl) {
+            pBannerImg.src = imageUrl;
+            pBannerBox.classList.remove('hidden');
+        } else {
+            pBannerBox.classList.add('hidden');
+        }
+    }
+
+    if (pActionBtn) {
+        if (actionText) {
+            pActionBtn.innerHTML = `<span>${escapeHtml(actionText)}</span>`;
+            pActionBtn.classList.remove('hidden');
+        } else {
+            pActionBtn.classList.add('hidden');
+        }
+    }
+
+    if (pAudience) {
+        const targetName = targetHostel === 'all' ? 'All Hostels' : targetHostel;
+        pAudience.textContent = `📍 Target: ${targetName}`;
+    }
+
+    // Update simulator clock
+    const clockEl = document.getElementById('preview-clock-display');
+    if (clockEl) {
+        const d = new Date();
+        const hrs = String(d.getHours() % 12 || 12);
+        const mins = String(d.getMinutes()).padStart(2, '0');
+        clockEl.textContent = `${hrs}:${mins}`;
+    }
+}
+
+function onTargetHostelChange(selectEl) {
+    const val = selectEl.value;
+    const badge = document.getElementById('composer-target-count-badge');
+    const counts = window.broadcastState.stats?.hostelCounts || {};
+
+    if (badge) {
+        if (val === 'all') {
+            const total = window.broadcastState.stats?.totalSubscribers || 0;
+            badge.textContent = `👥 ${total} Devices (All Hostels)`;
+        } else {
+            const hClean = val.toUpperCase().replace('-', '');
+            const count = counts[hClean] || 0;
+            badge.textContent = `📍 ${count} Devices in ${val}`;
+        }
+    }
+    updateBroadcastLivePreview();
+}
+
+function toggleBroadcastSchedulePicker(show) {
+    const container = document.getElementById('schedule-picker-container');
+    if (container) {
+        container.classList.toggle('hidden', !show);
+        if (show) {
+            const dtInput = document.getElementById('broadcast-schedule-datetime');
+            if (dtInput && !dtInput.value) {
+                // Default to 1 hour from now
+                const d = new Date(Date.now() + 3600000);
+                const isoStr = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+                dtInput.value = isoStr;
+            }
+        }
+    }
+}
+
+function clearBroadcastForm() {
+    const titleEl = document.getElementById('broadcast-title');
+    const bodyEl = document.getElementById('broadcast-body');
+    const imgEl = document.getElementById('broadcast-image-url');
+    const actTextEl = document.getElementById('broadcast-action-text');
+    const actUrlEl = document.getElementById('broadcast-action-url');
+    const catEl = document.getElementById('broadcast-category');
+
+    if (titleEl) titleEl.value = '';
+    if (bodyEl) bodyEl.value = '';
+    if (imgEl) imgEl.value = '';
+    if (actTextEl) actTextEl.value = '';
+    if (actUrlEl) actUrlEl.value = '/#/';
+    if (catEl) catEl.value = 'store_status';
+
+    toggleBroadcastSchedulePicker(false);
+    const radioNow = document.querySelector('input[name="broadcast_timing"][value="now"]');
+    if (radioNow) radioNow.checked = true;
+
+    updateBroadcastLivePreview();
+}
+
+function openBroadcastConfirmModal() {
+    const title = (document.getElementById('broadcast-title')?.value || '').trim();
+    const body = (document.getElementById('broadcast-body')?.value || '').trim();
+    const targetHostel = document.getElementById('broadcast-target-hostel')?.value || 'all';
+    const category = document.getElementById('broadcast-category')?.value || 'store_status';
+    const isScheduled = document.querySelector('input[name="broadcast_timing"]:checked')?.value === 'schedule';
+
+    if (!title || title.length < 3) {
+        showToast('Please enter a notification title (minimum 3 characters)', 'warning');
+        document.getElementById('broadcast-title')?.focus();
+        return;
+    }
+    if (!body || body.length < 3) {
+        showToast('Please enter a notification description', 'warning');
+        document.getElementById('broadcast-body')?.focus();
+        return;
+    }
+
+    if (isScheduled) {
+        const dtVal = document.getElementById('broadcast-schedule-datetime')?.value;
+        if (!dtVal || new Date(dtVal) <= new Date()) {
+            showToast('Please select a valid future time for scheduling', 'warning');
+            return;
+        }
+    }
+
+    const modal = document.getElementById('modal-broadcast-confirm');
+    const targetName = targetHostel === 'all' ? 'All Campus Hostels (Universal)' : targetHostel;
+
+    document.getElementById('confirm-modal-target').textContent = targetName;
+    document.getElementById('confirm-modal-category').textContent = category.replace('_', ' ').toUpperCase();
+    document.getElementById('confirm-modal-title').textContent = title;
+    document.getElementById('confirm-modal-body').textContent = body;
+
+    const timingEl = document.getElementById('confirm-modal-timing');
+    if (timingEl) {
+        if (isScheduled) {
+            const dtVal = document.getElementById('broadcast-schedule-datetime')?.value;
+            timingEl.textContent = `🕒 Scheduled for ${new Date(dtVal).toLocaleString()}`;
+        } else {
+            timingEl.textContent = '⚡ Immediately (Real-Time)';
+        }
+    }
+
+    if (modal) modal.classList.remove('hidden');
+}
+
+function closeBroadcastConfirmModal() {
+    const modal = document.getElementById('modal-broadcast-confirm');
+    if (modal) modal.classList.add('hidden');
+}
+
+async function confirmAndDispatchBroadcast() {
+    const submitBtn = document.getElementById('btn-confirm-broadcast-submit');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span><span>Dispatching...</span>';
+    }
+
+    try {
+        const title = (document.getElementById('broadcast-title')?.value || '').trim();
+        const body = (document.getElementById('broadcast-body')?.value || '').trim();
+        const targetHostel = document.getElementById('broadcast-target-hostel')?.value || 'all';
+        const targetHostelName = targetHostel === 'all' ? 'All Hostels' : targetHostel;
+        const category = document.getElementById('broadcast-category')?.value || 'store_status';
+        const imageUrl = (document.getElementById('broadcast-image-url')?.value || '').trim();
+        const actionText = (document.getElementById('broadcast-action-text')?.value || '').trim();
+        const actionUrl = (document.getElementById('broadcast-action-url')?.value || '/#/').trim();
+        const isScheduled = document.querySelector('input[name="broadcast_timing"]:checked')?.value === 'schedule';
+
+        const token = getAdminAuthToken();
+        const endpoint = isScheduled ? '/api/admin/broadcast-notifications/schedule' : '/api/admin/broadcast-notifications/send';
+
+        const payload = {
+            title,
+            body,
+            targetHostel,
+            targetHostelName,
+            category,
+            imageUrl,
+            actionText,
+            actionUrl
+        };
+
+        if (isScheduled) {
+            payload.scheduledAt = document.getElementById('broadcast-schedule-datetime')?.value;
+        }
+
+        const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'x-admin-token': token
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to dispatch broadcast');
+        }
+
+        closeBroadcastConfirmModal();
+        clearBroadcastForm();
+
+        const successMsg = isScheduled
+            ? `🕒 Broadcast scheduled successfully!`
+            : `🚀 Broadcast dispatched to ${data.campaign?.stats?.deliveredCount || 0} student device(s)!`;
+
+        showToast(successMsg, 'success');
+        await loadBroadcastNotificationsData();
+
+    } catch (err) {
+        console.error('[Dispatch Broadcast Error]:', err);
+        showToast(err.message || 'Error broadcasting notification', 'error');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<span class="material-symbols-outlined text-sm">send</span><span>Confirm & Broadcast</span>';
+        }
+    }
+}
+
+async function sendBroadcastTestPush() {
+    try {
+        const title = (document.getElementById('broadcast-title')?.value || '').trim() || '🟢 LPUQuick Store is Now Open! 🛒';
+        const body = (document.getElementById('broadcast-body')?.value || '').trim() || 'Your campus dark store is open for fast delivery. Order late-night snacks directly to your hostel room in 10 minutes!';
+        const imageUrl = (document.getElementById('broadcast-image-url')?.value || '').trim() || '/img/notif_store_open.gif';
+        const actionText = (document.getElementById('broadcast-action-text')?.value || '').trim() || 'ORDER NOW 🛒';
+        const actionUrl = (document.getElementById('broadcast-action-url')?.value || '/#/').trim();
+
+        const token = getAdminAuthToken();
+        showToast('📡 Sending test push to your phone...', 'info');
+
+        const res = await fetch('/api/admin/broadcast-notifications/test', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'x-admin-token': token
+            },
+            body: JSON.stringify({
+                title,
+                body,
+                imageUrl,
+                actionText,
+                actionUrl
+            })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+            showToast(`🔔 Test push received on your device (${data.result?.delivered || 1} delivered)!`, 'success');
+        } else {
+            showToast(data.error || 'Please ensure your browser has granted notification permission in admin portal', 'warning');
+        }
+    } catch (e) {
+        console.error(e);
+        showToast('Failed to dispatch test notification', 'error');
+    }
+}
+
+async function deleteBroadcastCampaign(campaignId) {
+    if (!confirm('Are you sure you want to remove this campaign record from history?')) return;
+
+    try {
+        const token = getAdminAuthToken();
+        const res = await fetch(`/api/admin/broadcast-notifications/${campaignId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'x-admin-token': token
+            }
+        });
+
+        const data = await res.json();
+        if (data.success) {
+            showToast('✓ Campaign removed from history', 'success');
+            await loadBroadcastNotificationsData();
+        } else {
+            showToast(data.error || 'Failed to remove campaign', 'error');
+        }
+    } catch (err) {
+        showToast('Error removing campaign', 'error');
+    }
+}
+
+function resendBroadcastCampaign(campaignId) {
+    const camp = window.broadcastState.campaigns.find(c => c.id === campaignId);
+    if (!camp) return;
+
+    const titleEl = document.getElementById('broadcast-title');
+    const bodyEl = document.getElementById('broadcast-body');
+    const catEl = document.getElementById('broadcast-category');
+    const imgEl = document.getElementById('broadcast-image-url');
+    const actTextEl = document.getElementById('broadcast-action-text');
+    const actUrlEl = document.getElementById('broadcast-action-url');
+    const targetEl = document.getElementById('broadcast-target-hostel');
+
+    if (titleEl) titleEl.value = camp.title;
+    if (bodyEl) bodyEl.value = camp.body;
+    if (catEl) catEl.value = camp.category || 'general';
+    if (imgEl) imgEl.value = camp.imageUrl || '';
+    if (actTextEl) actTextEl.value = camp.actionText || '';
+    if (actUrlEl) actUrlEl.value = camp.actionUrl || '/#/';
+    if (targetEl && camp.targetHostel) targetEl.value = camp.targetHostel;
+
+    updateBroadcastLivePreview();
+
+    const composerSec = document.getElementById('broadcast-title');
+    if (composerSec) {
+        composerSec.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        composerSec.focus();
+    }
+    showToast('✓ Loaded campaign into composer. Review and tap Broadcast to send.', 'info');
+}
+
+function filterCampaignHistory(filterKey) {
+    window.broadcastState.activeFilter = filterKey;
+    document.querySelectorAll('.camp-filter-btn').forEach(btn => {
+        const isActive = btn.dataset.filter === filterKey;
+        btn.classList.toggle('active', isActive);
+        btn.classList.toggle('bg-slate-900', isActive);
+        btn.classList.toggle('text-white', isActive);
+        btn.classList.toggle('bg-slate-100', !isActive);
+        btn.classList.toggle('text-slate-700', !isActive);
+    });
+    renderBroadcastHistoryTable();
+}
+
+window.loadBroadcastNotificationsData = loadBroadcastNotificationsData;
+window.applyBroadcastTemplate = applyBroadcastTemplate;
+window.setBroadcastImage = setBroadcastImage;
+window.updateBroadcastLivePreview = updateBroadcastLivePreview;
+window.onTargetHostelChange = onTargetHostelChange;
+window.toggleBroadcastSchedulePicker = toggleBroadcastSchedulePicker;
+window.clearBroadcastForm = clearBroadcastForm;
+window.openBroadcastConfirmModal = openBroadcastConfirmModal;
+window.closeBroadcastConfirmModal = closeBroadcastConfirmModal;
+window.confirmAndDispatchBroadcast = confirmAndDispatchBroadcast;
+window.sendBroadcastTestPush = sendBroadcastTestPush;
+window.deleteBroadcastCampaign = deleteBroadcastCampaign;
+window.resendBroadcastCampaign = resendBroadcastCampaign;
+window.filterCampaignHistory = filterCampaignHistory;

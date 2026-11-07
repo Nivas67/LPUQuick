@@ -88,7 +88,9 @@ class PushNotificationService {
             keys: subscription.keys || {},
             adminId: adminInfo.adminId || null,
             adminName: adminInfo.adminName || 'Admin',
+            hostelId: adminInfo.hostelId ? String(adminInfo.hostelId).toUpperCase().trim() : null,
             roles: Array.isArray(adminInfo.roles) ? adminInfo.roles : ['delivery_person'],
+            userType: adminInfo.userType || 'admin',
             updatedAt: new Date().toISOString()
         };
 
@@ -105,6 +107,68 @@ class PushNotificationService {
         persistSubscriptions();
         console.log(`[Push Service] Subscription registered for admin: ${entry.adminName} (${entry.adminId}) | Total subs: ${subscriptions.length}`);
         return true;
+    }
+
+    saveCustomerSubscription(subscription, customerInfo = {}) {
+        if (!subscription || !subscription.endpoint) return false;
+
+        const existingIndex = subscriptions.findIndex(s => s.endpoint === subscription.endpoint);
+        const entry = {
+            endpoint: subscription.endpoint,
+            keys: subscription.keys || {},
+            userId: customerInfo.userId || null,
+            userName: customerInfo.userName || 'Student',
+            hostelId: customerInfo.hostelId ? String(customerInfo.hostelId).toUpperCase().trim() : 'BH-13',
+            userType: 'customer',
+            roles: ['customer'],
+            updatedAt: new Date().toISOString()
+        };
+
+        if (existingIndex >= 0) {
+            subscriptions[existingIndex] = {
+                ...subscriptions[existingIndex],
+                ...entry
+            };
+        } else {
+            entry.createdAt = new Date().toISOString();
+            subscriptions.push(entry);
+        }
+
+        persistSubscriptions();
+        console.log(`[Push Service] Customer subscription registered: ${entry.userName} (${entry.hostelId}) | Total subs: ${subscriptions.length}`);
+        return true;
+    }
+
+    getSubscriptions() {
+        return [...subscriptions];
+    }
+
+    async broadcastToAudience({ targetHostel = 'all', payload }) {
+        const cleanTarget = (targetHostel || 'all').toUpperCase().replace(/[\s-]/g, '');
+        const targets = subscriptions.filter(s => {
+            if (cleanTarget === 'ALL') return true;
+            if (s.hostelId) {
+                const subHostel = String(s.hostelId).toUpperCase().replace(/[\s-]/g, '');
+                if (subHostel === cleanTarget) return true;
+            }
+            if (s.roles && (s.roles.includes('owner') || s.roles.includes('store_manager'))) {
+                return true;
+            }
+            return false;
+        });
+
+        if (targets.length === 0) return { delivered: 0, failed: 0, total: 0 };
+
+        let delivered = 0;
+        let failed = 0;
+
+        await Promise.all(targets.map(async sub => {
+            const ok = await this.sendPush(sub, payload);
+            if (ok) delivered++;
+            else failed++;
+        }));
+
+        return { delivered, failed, total: targets.length };
     }
 
     removeSubscription(endpoint) {

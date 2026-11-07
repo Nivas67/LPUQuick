@@ -1,33 +1,65 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Quick's LPQ Food — Dedicated Cook Terminal &amp; Kitchen Display</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; }
-        .font-mono { font-family: 'JetBrains Mono', monospace; }
-        .glass-card { background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(12px); border: 1px solid rgba(226, 232, 240, 0.8); }
-        .ticket-pulse { animation: ticketGlow 2s infinite; }
-        @keyframes ticketGlow { 0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); } 50% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); } }
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+
+        .ticket-pulse {
+            animation: ticketGlow 2s infinite;
+        }
+
+        @keyframes ticketGlow {
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+            }
+
+            50% {
+                box-shadow: 0 0 0 8px rgba(245, 158, 11, 0);
+            }
+        }
     </style>
 </head>
+
 <body class="bg-[#f8fafc] text-slate-800 min-h-screen flex flex-col">
 
     <!-- Top Cook Bar -->
     <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 py-3 shadow-xs">
         <div class="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center text-xl shadow-sm font-black">
+                <div
+                    class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center text-xl shadow-sm font-black">
                     🍳
                 </div>
                 <div>
                     <div class="flex items-center gap-2">
                         <h1 class="font-black text-base sm:text-lg text-slate-900 leading-tight">Quick's LPQ Food</h1>
-                        <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">COOK KDS TERMINAL</span>
+                        <span
+                            class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">COOK
+                            KDS TERMINAL</span>
                     </div>
                     <p class="text-xs text-slate-500">Live Kitchen Display System • Real-Time Order Dispatch</p>
                 </div>
@@ -35,24 +67,29 @@
 
             <div class="flex items-center gap-2 flex-wrap">
                 <!-- Cook Duty Status Toggle -->
-                <button type="button" id="btn-duty-toggle" onclick="toggleDutyStatus()" class="px-3 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer">
+                <button type="button" id="btn-duty-toggle" onclick="toggleDutyStatus()"
+                    class="px-3 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer">
                     <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                     <span id="duty-status-text">🟢 Cook: On Duty</span>
                 </button>
 
                 <!-- Audio Alerts Toggle -->
-                <button type="button" id="btn-sound-toggle" onclick="toggleKitchenSound()" class="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer">
+                <button type="button" id="btn-sound-toggle" onclick="toggleKitchenSound()"
+                    class="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer">
                     <span class="material-symbols-outlined text-sm text-amber-600">volume_up</span>
                     <span id="sound-status-text">Chime: ON</span>
                 </button>
 
                 <!-- Refresh -->
-                <button type="button" onclick="loadKitchenOrders()" class="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600" title="Refresh Live Orders">
+                <button type="button" onclick="loadKitchenOrders()"
+                    class="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600"
+                    title="Refresh Live Orders">
                     <span class="material-symbols-outlined text-base">refresh</span>
                 </button>
 
                 <!-- Admin Link -->
-                <a href="/admin#food-dept" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition-all flex items-center gap-1">
+                <a href="/admin#food-dept"
+                    class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition-all flex items-center gap-1">
                     <span class="material-symbols-outlined text-sm">dashboard</span>
                     <span class="hidden sm:inline">Admin Console</span>
                 </a>
@@ -62,18 +99,20 @@
 
     <!-- Main Workspace -->
     <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-5">
-        
+
         <!-- Metrics Bento Row -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div class="glass-card p-4 rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50/70 to-white">
                 <p class="text-[10px] font-black uppercase text-amber-800 tracking-wider">New / Pending Orders</p>
                 <p class="text-2xl font-black text-amber-700 mt-1" id="stat-pending">0</p>
             </div>
-            <div class="glass-card p-4 rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50/70 to-white">
+            <div
+                class="glass-card p-4 rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50/70 to-white">
                 <p class="text-[10px] font-black uppercase text-orange-800 tracking-wider">Cooking Right Now</p>
                 <p class="text-2xl font-black text-orange-600 mt-1" id="stat-preparing">0</p>
             </div>
-            <div class="glass-card p-4 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/70 to-white">
+            <div
+                class="glass-card p-4 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/70 to-white">
                 <p class="text-[10px] font-black uppercase text-emerald-800 tracking-wider">Ready for Pickup</p>
                 <p class="text-2xl font-black text-emerald-700 mt-1" id="stat-ready">0</p>
             </div>
@@ -86,16 +125,19 @@
         <!-- Navigation Tabs: Active vs Completed Orders -->
         <div class="flex items-center justify-between border-b border-slate-200 pb-2">
             <div class="flex items-center gap-2">
-                <button type="button" onclick="switchCookTab('active')" id="tab-btn-active" class="px-4 py-2 rounded-xl text-xs font-black transition-all bg-amber-500 text-white shadow-xs cursor-pointer flex items-center gap-1.5">
+                <button type="button" onclick="switchCookTab('active')" id="tab-btn-active"
+                    class="px-4 py-2 rounded-xl text-xs font-black transition-all bg-amber-500 text-white shadow-xs cursor-pointer flex items-center gap-1.5">
                     <span>🍳 Live Kitchen Queue</span>
                     <span id="tab-count-active" class="bg-white/20 px-1.5 py-0.2 rounded-full text-[10px]">0</span>
                 </button>
-                <button type="button" onclick="switchCookTab('completed')" id="tab-btn-completed" class="px-4 py-2 rounded-xl text-xs font-black transition-all bg-slate-100 hover:bg-slate-200 text-slate-600 cursor-pointer flex items-center gap-1.5">
+                <button type="button" onclick="switchCookTab('completed')" id="tab-btn-completed"
+                    class="px-4 py-2 rounded-xl text-xs font-black transition-all bg-slate-100 hover:bg-slate-200 text-slate-600 cursor-pointer flex items-center gap-1.5">
                     <span>📋 Previous &amp; Completed</span>
                     <span id="tab-count-completed" class="bg-slate-200 px-1.5 py-0.2 rounded-full text-[10px]">0</span>
                 </button>
             </div>
-            <span class="text-xs text-slate-500 hidden sm:inline" id="last-sync-text">Auto-Syncing in Real Time...</span>
+            <span class="text-xs text-slate-500 hidden sm:inline" id="last-sync-text">Auto-Syncing in Real
+                Time...</span>
         </div>
 
         <!-- Orders Grid -->
@@ -109,24 +151,32 @@
     </main>
 
     <!-- Reject Order Modal -->
-    <div id="modal-reject-order" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div id="modal-reject-order"
+        class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-3xl max-w-md w-full p-5 space-y-4 shadow-2xl border border-slate-200">
             <div class="flex items-center gap-3 text-rose-600">
                 <span class="material-symbols-outlined text-2xl">cancel</span>
                 <h3 class="font-black text-base text-slate-900">Reject Food Order</h3>
             </div>
-            <p class="text-xs text-slate-600">Please provide a reason for rejecting this order so the student and store admin are notified immediately:</p>
+            <p class="text-xs text-slate-600">Please provide a reason for rejecting this order so the student and store
+                admin are notified immediately:</p>
             <input type="hidden" id="reject-order-id">
-            <select id="reject-reason-preset" onchange="handleRejectPresetChange()" class="w-full text-xs p-2.5 rounded-xl border border-slate-300 font-medium bg-white">
+            <select id="reject-reason-preset" onchange="handleRejectPresetChange()"
+                class="w-full text-xs p-2.5 rounded-xl border border-slate-300 font-medium bg-white">
                 <option value="Out of ingredients / kitchen prep items">Out of ingredients / kitchen prep items</option>
-                <option value="Kitchen overloaded / prep delay > 45 mins">Kitchen overloaded / prep delay > 45 mins</option>
+                <option value="Kitchen overloaded / prep delay > 45 mins">Kitchen overloaded / prep delay > 45 mins
+                </option>
                 <option value="Kitchen closing / shift completed">Kitchen closing / shift completed</option>
                 <option value="other">Other reason...</option>
             </select>
-            <input type="text" id="reject-reason-custom" placeholder="Type custom rejection reason..." class="w-full text-xs p-2.5 rounded-xl border border-slate-300 font-medium hidden">
+            <input type="text" id="reject-reason-custom" placeholder="Type custom rejection reason..."
+                class="w-full text-xs p-2.5 rounded-xl border border-slate-300 font-medium hidden">
             <div class="flex justify-end gap-2 pt-2">
-                <button type="button" onclick="closeRejectModal()" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100">Cancel</button>
-                <button type="button" onclick="confirmRejectOrder()" class="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs">Confirm Rejection</button>
+                <button type="button" onclick="closeRejectModal()"
+                    class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100">Cancel</button>
+                <button type="button" onclick="confirmRejectOrder()"
+                    class="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs">Confirm
+                    Rejection</button>
             </div>
         </div>
     </div>
@@ -145,7 +195,7 @@
             try {
                 if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 if (audioCtx.state === 'suspended') audioCtx.resume();
-                
+
                 const now = audioCtx.currentTime;
                 // Dual tone kitchen bell
                 const osc1 = audioCtx.createOscillator();
@@ -171,7 +221,7 @@
                 gain2.connect(audioCtx.destination);
                 osc2.start(now + 0.18);
                 osc2.stop(now + 0.8);
-            } catch (e) {}
+            } catch (e) { }
         }
 
         function toggleKitchenSound() {
@@ -221,7 +271,7 @@
                 const res = await fetch('/api/food/orders', { headers });
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 const data = await res.json();
-                
+
                 if (data.success && Array.isArray(data.orders)) {
                     // Detect new incoming orders for audio alert
                     const prevCount = cachedOrders.filter(o => o.status === 'Order Placed').length;
@@ -452,12 +502,12 @@
                         if (msg.type === 'food_order_placed' || msg.type === 'food_order_status_update' || msg.type === 'order_placed') {
                             loadKitchenOrders();
                         }
-                    } catch (e) {}
+                    } catch (e) { }
                 };
                 ws.onclose = () => {
                     setTimeout(connectLiveWebSocket, 4000);
                 };
-            } catch (e) {}
+            } catch (e) { }
         }
 
         // Initial Load & Polling
@@ -466,4 +516,5 @@
         setInterval(loadKitchenOrders, 5000);
     </script>
 </body>
+
 </html>

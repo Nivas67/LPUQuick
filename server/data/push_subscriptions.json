@@ -1,19 +1,18 @@
 [
   {
-    "endpoint": "https://wns2-pn1p.notify.windows.com/w/?token=BQYAAACHg2qgaP9LDbg1fcfP5Roi7z%2boWyaDB3KYWsPQJfeuIFW18mw3s0VB%2fu6ZYLUv2ZVdtF1oHT6emCZP6%2fGAsBj13aI%2fne7NE7AAxfjvAQULMQcvDkwr6Ns19CnXJmYSPTBSLPZ8jiOo6iU5%2byYrk8yi7dmGqMqEY106E7n25bv7cCBtEcPtfA44hmS9wQD955KypnGPxvUQBQH9oTQSNwI3XkVxmEJxBftXYEMscv3KK8%2fVKZSLqX5WNrcswHAWV8Lk%2f%2bet8nNq7ek59r%2flZsdelnIt3eiwrBwfL2pQ%2bc%2fRyeA5riXowrZpAKn%2fPYMTzvE%3d",
+    "endpoint": "https://wns2-pn1p.notify.windows.com/w/?token=BQYAAADvqyAYthA%2fMuE599%2fizvPBlCiY%2bVdhQ6%2fKXB9lQ%2fEQzay2XW7x07pJtf7sv56WhpS0m4kyjKfRRenvzeZIvedp3FU9t3oYLYXiNDeD2biaeVBgtlSyg69QqotSdiPrdQjha1yAKfa9ZgQ7DdLyBSH0K9D5tv%2f%2fsfBzWO7xqKkfrjVISMhyMLKcRGQGgxDVgrsa8TXJnlupcemKaU5xkJ5ClZvwaK%2bpPhe2uB5P59oEGcUEV59SQkjF5OABng%2btHcpHEVRyMLyG3eVJ%2fDbTTIqSJXkJk8yqM%2fcGX8WnLlCW08Vu4%2bsfyf0341td5aT0PmiJ73T3Lymo0DOfaRnbrWNS",
     "keys": {
-      "p256dh": "BP8rd5ZWqSvZXKJhrr76UVU8ICVgYvNFxyI-BsDWSDNFn6eJ9g8RivnTQY-s7W0N61xk049smvCyMbSqtwTvNJA",
-      "auth": "FT4Yr_Q8GCCmdg7GWwOf-Q"
+      "p256dh": "BL7JVshUZelHox_mQ54TG59whghBV_eCsb7AYjTn4Ba1XOebunP4NF8OlzxbtxwESCAr7RdPJB4i9uMoPM-85Ds",
+      "auth": "7Eu2sUOWJuJEd1hhAyZnnw"
     },
-    "adminId": "user_admin_bh13",
-    "adminName": "Nivas Naidu",
+    "userId": "user_vup6g0ej",
+    "userName": "Nivas Naidu",
+    "hostelId": "BH-13",
+    "userType": "customer",
     "roles": [
-      "owner",
-      "store_manager",
-      "inventory_manager",
-      "delivery_person"
+      "customer"
     ],
-    "updatedAt": "2026-10-01T05:05:10.047Z",
-    "createdAt": "2026-10-01T05:05:10.047Z"
+    "updatedAt": "2026-11-07T08:07:22.591Z",
+    "createdAt": "2026-11-07T08:07:22.591Z"
   }
 ]

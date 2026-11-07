@@ -993,6 +993,16 @@ window.pages.home = async function () {
                 </div>
             </button>
 
+            <!-- Campus Announcements & Notifications Shortcut -->
+            <button type="button" 
+                    id="btn-header-notifications" 
+                    onclick="window.openCustomerNotificationsModal()" 
+                    class="clay-pill w-8 h-8 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-emerald transition-transform active:scale-95 relative cursor-pointer" 
+                    title="Campus Announcements & Offers">
+                <span class="material-symbols-outlined text-base text-amber-500">notifications</span>
+                <span id="header-notif-badge" class="absolute -top-1 -right-1 bg-rose-500 text-white text-[8px] font-black min-w-[14px] h-[14px] px-0.5 rounded-full flex items-center justify-center hidden border border-white dark:border-slate-900">0</span>
+            </button>
+
             <!-- Orders Shortcut -->
             <a href="#/orders" class="clay-pill w-8 h-8 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-emerald transition-transform active:scale-95" title="My Orders">
                 <span class="material-symbols-outlined text-base">receipt_long</span>

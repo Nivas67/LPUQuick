@@ -2068,8 +2068,21 @@ window.syncStoreAvailability = async function (hostelId) {
     try {
         const targetHostel = hostelId || window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
         const data = await window.api.getClientStatus(targetHostel);
+        const wasLocked = window.__storeAvailability ? Boolean(window.__storeAvailability.is_locked) : (localStorage.getItem('lpuquick_was_store_locked') === 'true');
+        const nowLocked = Boolean(data && data.is_locked);
+
         window.__storeAvailability = data;
         renderStoreClosedBannerOrOverlay();
+
+        if (wasLocked && !nowLocked) {
+            localStorage.removeItem('lpuquick_was_store_locked');
+            if (typeof window.showStoreOpenedNotification === 'function') {
+                window.showStoreOpenedNotification(targetHostel);
+            }
+        } else if (nowLocked) {
+            localStorage.setItem('lpuquick_was_store_locked', 'true');
+        }
+
         return data;
     } catch (e) {
         console.warn('[Store Availability Sync Error]:', e);
@@ -2248,6 +2261,14 @@ window.renderStoreClosedBannerOrOverlay = function () {
                             </div>
                         </div>
 
+                        <!-- Notify Me When Store Opens Button -->
+                        <div class="pt-2">
+                            <button id="btn-notify-store-open" onclick="handleNotifyStoreOpenTap(this)" class="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-emerald-600/90 hover:bg-emerald-600 text-white font-extrabold text-xs shadow-lg border border-emerald-400/60 active:scale-95 transition-all cursor-pointer">
+                                <span class="material-symbols-outlined text-sm text-emerald-200">notifications_active</span>
+                                <span>Notify Me When Store Opens</span>
+                            </button>
+                        </div>
+
                         <!-- Bottom Traditional Glowing Diyas on Rangoli Base (Left & Right) -->
                         <div class="w-full flex justify-between items-end pt-2 px-3 sm:px-6">
                             <!-- Left Diya -->
@@ -2356,6 +2377,9 @@ function startClientCountdown(seconds, endAt) {
         if (diff <= 0) {
             clearInterval(window.__clientLockTicker);
             window.__clientLockTicker = null;
+            if (typeof window.showStoreOpenedNotification === 'function') {
+                window.showStoreOpenedNotification(window.currentHostelId);
+            }
             if (typeof window.syncStoreAvailability === 'function') {
                 window.syncStoreAvailability();
             }
@@ -3444,7 +3468,7 @@ async function checkAndConnectGlobalOrderTracking() {
         }
 
         currentTrackedOrderId = active.id;
-        updateGlobalDeliveryBar(active.status, active.rider_name || 'Alex');
+        updateGlobalDeliveryBar(active.status, active.rider_name || 'Nivas Naidu', active.delivery_address);
 
         // Only show floating bar when not already on dedicated tracking pages
         const currentPath = getCurrentRoute();
@@ -3461,16 +3485,143 @@ async function checkAndConnectGlobalOrderTracking() {
     }
 }
 
-function getNotificationBannerGif(status) {
+function getNotificationStageDetails(status, riderName, addressStr) {
     const s = (status || '').toLowerCase().trim();
-    if (s.includes('deliver')) return '/img/notif_delivered.gif';
-    if (s.includes('out') || s.includes('route') || s.includes('dispatch')) return '/img/notif_running.gif';
-    if (s.includes('prepar') || s.includes('pack')) return '/img/notif_preparing.gif';
-    if (s.includes('confirm') || s === 'accepted') return '/img/notif_confirmed.gif';
-    return '/img/notif_placed.gif';
+    const rider = riderName || 'Nivas Naidu';
+
+    // Extract clean hostel & room for badge and notification text
+    let roomBadge = 'ROOM BH13';
+    let hostelShort = 'BH13';
+    try {
+        const fullAddr = addressStr || window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'BH13');
+        const matchRoom = fullAddr.match(/room\s*[:#-]?\s*([a-zA-Z0-9_-]+)/i);
+        const matchHostel = fullAddr.match(/(?:BH|GH)[\s-]*\d+/i);
+        if (matchHostel) hostelShort = matchHostel[0].replace(/[\s-]/g, '').toUpperCase();
+        if (matchRoom) {
+            roomBadge = `${hostelShort} · Room ${matchRoom[1]}`;
+        } else {
+            roomBadge = `ROOM ${hostelShort}`;
+        }
+    } catch (e) {
+        roomBadge = 'ROOM BH13';
+    }
+
+    // Stage 1: 🟢 ORDER CONFIRMED
+    if (s.includes('place') || s === 'pending') {
+        return {
+            stageIndex: 0,
+            stageName: 'ORDER CONFIRMED',
+            title: 'Order Confirmed • Arriving in 8-10 mins',
+            subtitle: "Your order is confirmed! We're getting it ready.",
+            cardSubtitle: `${hostelShort} Hub verified your order · Preparing soon`,
+            gif: '/img/notif_confirmed.gif',
+            progress: 25,
+            eta: 'Arriving in 8-10 mins',
+            roomBadge: roomBadge
+        };
+    }
+    if (s.includes('confirm') || s === 'accepted') {
+        return {
+            stageIndex: 0,
+            stageName: 'ORDER CONFIRMED',
+            title: 'Order Confirmed • Arriving in 8-10 mins',
+            subtitle: "Your order is confirmed! We're getting it ready.",
+            cardSubtitle: `Order Confirmed · Runner ${rider} assigned`,
+            gif: '/img/notif_confirmed.gif',
+            progress: 35,
+            eta: 'Arriving in 8-10 mins',
+            roomBadge: roomBadge
+        };
+    }
+
+    // Stage 2: 🟡 PREPARING
+    if (s.includes('prepar') || s.includes('pack')) {
+        return {
+            stageIndex: 1,
+            stageName: 'PREPARING',
+            title: 'Preparing • Arriving in 5-6 mins',
+            subtitle: "Your favourites are getting ready!",
+            cardSubtitle: `Staff packing your bag at ${hostelShort} Hub`,
+            gif: '/img/notif_preparing.gif',
+            progress: 55,
+            eta: 'Arriving in 5-6 mins',
+            roomBadge: roomBadge
+        };
+    }
+
+    // Stage 4: 🏃 NEAR YOUR ROOM (Reference Image exact match: Arriving in 1-2 minutes! 🚀)
+    if (s.includes('near') || s.includes('reach') || s.includes('arriving')) {
+        return {
+            stageIndex: 3,
+            stageName: 'NEAR YOUR ROOM',
+            title: 'Arriving in 1-2 minutes! 🚀',
+            subtitle: "Almost there! Your order will reach you shortly.",
+            cardSubtitle: `🏃 ${rider} is running to your room (${hostelShort})!`,
+            gif: '/img/notif_near_room.gif',
+            progress: 88,
+            eta: 'Arriving in 1-2 minutes! 🚀',
+            roomBadge: roomBadge
+        };
+    }
+
+    // Stage 3: 🛵 OUT FOR DELIVERY
+    if (s.includes('out') || s.includes('route') || s.includes('dispatch')) {
+        return {
+            stageIndex: 2,
+            stageName: 'OUT FOR DELIVERY',
+            title: 'Out for Delivery • Arriving in 3-4 mins 🛵',
+            subtitle: "Your LPUQuick delivery partner is on the way!",
+            cardSubtitle: `🛵 ${rider} is on the way to ${hostelShort}!`,
+            gif: '/img/notif_out_for_delivery.gif',
+            progress: 75,
+            eta: 'Arriving in 3-4 mins 🛵',
+            roomBadge: roomBadge
+        };
+    }
+
+    // Stage 5: 🎉 ARRIVED AT YOUR ROOM
+    if (s.includes('deliver') || s.includes('arrived')) {
+        return {
+            stageIndex: 4,
+            stageName: 'ARRIVED AT YOUR ROOM',
+            title: 'Your LPUQuick delivery has arrived! 🎉',
+            subtitle: "Your LPUQuick delivery has arrived! Enjoy!",
+            cardSubtitle: `🎉 Delivered to ${roomBadge}! Enjoy your order.`,
+            gif: '/img/notif_arrived.gif',
+            progress: 100,
+            eta: 'Arrived at your Room! ✓',
+            roomBadge: roomBadge
+        };
+    }
+
+    if (s.includes('cancel')) {
+        return {
+            stageIndex: -1,
+            stageName: 'CANCELLED',
+            title: 'Order Cancelled ✕',
+            subtitle: "Order was cancelled",
+            cardSubtitle: '❌ Order was cancelled by Admin',
+            gif: '/img/notif_confirmed.gif',
+            progress: 0,
+            eta: 'Order Cancelled ✕',
+            roomBadge: roomBadge
+        };
+    }
+
+    return {
+        stageIndex: 0,
+        stageName: 'ORDER CONFIRMED',
+        title: 'Order Confirmed • Arriving in 8-10 mins',
+        subtitle: "Your order is confirmed! We're getting it ready.",
+        cardSubtitle: `${hostelShort} Hub verified your order`,
+        gif: '/img/notif_confirmed.gif',
+        progress: 25,
+        eta: 'Arriving in 8-10 mins',
+        roomBadge: roomBadge
+    };
 }
 
-function updateLiveSystemNotification(orderId, status, etaTitle, subtitleText) {
+function updateLiveSystemNotification(orderId, stageInfo) {
     try {
         if (!('Notification' in window)) return;
         
@@ -3479,24 +3630,29 @@ function updateLiveSystemNotification(orderId, status, etaTitle, subtitleText) {
             Notification.requestPermission().catch(() => {});
         }
 
-        if (Notification.permission === 'granted') {
-            const isDelivered = (status || '').toLowerCase().includes('deliver');
-            const bannerGif = getNotificationBannerGif(status);
-            const bannerUrl = (window.location.origin || '') + bannerGif;
+        if (Notification.permission === 'granted' && stageInfo && stageInfo.stageIndex >= 0) {
+            const isDelivered = stageInfo.stageIndex === 4;
+            const isNearRoom = stageInfo.stageIndex === 3;
+            const bannerUrl = (window.location.origin || '') + stageInfo.gif + '?v=' + stageInfo.stageIndex;
 
             const payload = {
-                title: etaTitle || 'Arriving shortly',
-                body: (subtitleText || 'LPUQuick Campus Delivery') + ' • LPUQuick',
-                icon: '/logo.png',
+                title: stageInfo.title,
+                body: `${stageInfo.subtitle} • Delivering to ${stageInfo.roomBadge}`,
+                icon: '/icon-192.png',
                 badge: '/favicon.png',
                 image: bannerUrl,
                 tag: 'lpuquick-live-order',
-                renotify: isDelivered,
-                silent: !isDelivered,
+                renotify: isDelivered || isNearRoom,
+                silent: !isDelivered && !isNearRoom,
                 data: {
                     url: '/#/orders',
-                    orderId: orderId || ''
-                }
+                    orderId: orderId || '',
+                    stageIndex: stageInfo.stageIndex
+                },
+                actions: [
+                    { action: 'track', title: '📍 Track Live' },
+                    { action: 'help', title: '💬 Delivery Help' }
+                ]
             };
 
             if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
@@ -3516,70 +3672,126 @@ function updateLiveSystemNotification(orderId, status, etaTitle, subtitleText) {
     }
 }
 
-function updateGlobalDeliveryBar(status, riderName) {
+function updateGlobalDeliveryBar(status, riderName, addressStr) {
     const bar = document.getElementById('global-live-delivery-bar');
     const etaEl = document.getElementById('global-delivery-eta');
     const subEl = document.getElementById('global-delivery-subtitle');
     const fillEl = document.getElementById('global-delivery-progress-fill');
     const pinEl = document.getElementById('global-delivery-runner-pin');
     const runnerImg = document.getElementById('global-delivery-runner-img');
-    const hostelShort = window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Hostel');
+    const roomTextEl = document.getElementById('global-delivery-room-text');
 
     if (!bar) return;
 
-    let etaText = 'Arriving in 3 minutes';
-    let subText = 'Order on the way · Running to your room';
-    let progressPercent = 35;
+    const stage = getNotificationStageDetails(status, riderName, addressStr);
 
-    const s = (status || '').toLowerCase().trim();
-
-    if (s.includes('place') || s === 'pending') {
-        etaText = 'Arriving in 5 minutes';
-        subText = `${hostelShort} Hub verified your order`;
-        progressPercent = 25;
-    } else if (s.includes('confirm') || s === 'accepted') {
-        etaText = 'Arriving in 4 minutes';
-        subText = `Order Confirmed · Runner ${riderName} assigned`;
-        progressPercent = 45;
-    } else if (s.includes('prepar') || s.includes('pack')) {
-        etaText = 'Arriving in 3 minutes';
-        subText = `Staff packing your bag at ${hostelShort} Hub`;
-        progressPercent = 65;
-    } else if (s.includes('out') || s.includes('route') || s.includes('dispatch')) {
-        etaText = 'Arriving in 1-2 minutes';
-        subText = `🏃 ${riderName} is running to your room (${hostelShort})!`;
-        progressPercent = 88;
-    } else if (s.includes('deliver')) {
-        etaText = 'Arrived at your Room! ✓';
-        subText = `🎉 Order delivered to ${hostelShort}! Enjoy your snacks.`;
-        progressPercent = 100;
-        setTimeout(() => {
-            bar.classList.add('hidden');
-        }, 12000);
-    } else if (s.includes('cancel')) {
-        etaText = 'Order Cancelled ✕';
-        subText = '❌ Order was cancelled by Admin';
-        progressPercent = 0;
-        setTimeout(() => {
-            bar.classList.add('hidden');
-        }, 5000);
+    if (stage.stageIndex === -1) {
+        if (etaEl) etaEl.textContent = stage.eta;
+        if (subEl) subEl.textContent = stage.cardSubtitle;
+        if (fillEl) fillEl.style.width = '0%';
+        setTimeout(() => { bar.classList.add('hidden'); }, 5000);
+        return;
     }
 
-    if (etaEl) etaEl.textContent = etaText;
-    if (subEl) subEl.textContent = subText;
-    if (fillEl) fillEl.style.width = `${progressPercent}%`;
-    if (pinEl) pinEl.style.left = `calc(${progressPercent}% - 10px)`;
+    if (stage.stageIndex === 4) {
+        setTimeout(() => { bar.classList.add('hidden'); }, 12000);
+    }
 
-    const bannerGif = getNotificationBannerGif(status);
-    if (runnerImg && runnerImg.getAttribute('data-src') !== bannerGif) {
-        runnerImg.setAttribute('data-src', bannerGif);
-        runnerImg.src = bannerGif;
+    if (etaEl) etaEl.textContent = stage.eta;
+    if (subEl) subEl.textContent = stage.cardSubtitle;
+    if (roomTextEl) roomTextEl.textContent = stage.roomBadge;
+    if (fillEl) fillEl.style.width = `${stage.progress}%`;
+    if (pinEl) pinEl.style.left = `calc(${stage.progress}% - 10px)`;
+
+    if (runnerImg && runnerImg.getAttribute('data-src') !== stage.gif) {
+        runnerImg.setAttribute('data-src', stage.gif);
+        runnerImg.src = stage.gif;
     }
 
     // Live Device Notification Sync (Tray Notification with Animated Banner)
-    updateLiveSystemNotification(currentTrackedOrderId, status, etaText, subText);
+    updateLiveSystemNotification(currentTrackedOrderId, stage);
 }
 
+function showStoreOpenedNotification(hostelName) {
+    try {
+        if (!('Notification' in window)) return;
+
+        if (Notification.permission === 'default') {
+            Notification.requestPermission().catch(() => {});
+            return;
+        }
+
+        if (Notification.permission !== 'granted') return;
+
+        const rawHostel = hostelName || window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH13';
+        const cleanHostel = rawHostel.replace('-', '').toUpperCase();
+        const bannerUrl = (window.location.origin || '') + '/img/notif_store_open.gif?v=' + Date.now();
+
+        const payload = {
+            title: "🟢 We're Open! Order Your Campus Favourites 🛒",
+            body: `LPUQuick is now open for ${cleanHostel}! Fast 10-minute delivery to your room.`,
+            icon: '/icon-192.png',
+            badge: '/favicon.png',
+            image: bannerUrl,
+            tag: 'lpuquick-store-open',
+            renotify: true,
+            silent: false,
+            data: {
+                url: '/#/',
+                type: 'STORE_OPEN'
+            },
+            actions: [
+                { action: 'order', title: '🛒 Order Now' },
+                { action: 'view', title: 'View Menu' }
+            ]
+        };
+
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.ready.then(reg => {
+                if (reg && reg.showNotification) {
+                    reg.showNotification(payload.title, payload).catch(() => {});
+                }
+            }).catch(() => {});
+        } else {
+            try {
+                new Notification(payload.title, payload);
+            } catch (e) {}
+        }
+
+        if (typeof window.showClientToast === 'function') {
+            window.showClientToast(`🎉 Store is now open for ${cleanHostel}! Order snacks & essentials now.`, 'success', 'store');
+        }
+    } catch (e) {
+        console.warn('[Store Open Notification Error]:', e);
+    }
+}
+
+window.handleNotifyStoreOpenTap = async function (btn) {
+    try {
+        if ('Notification' in window) {
+            const perm = await Notification.requestPermission();
+            if (perm === 'granted') {
+                localStorage.setItem('lpuquick_notify_store_open', 'true');
+                if (btn) {
+                    btn.innerHTML = `<span class="material-symbols-outlined text-sm text-white">check_circle</span><span>We'll Notify You When Open!</span>`;
+                    btn.classList.add('bg-emerald-700', 'cursor-default');
+                }
+                if (typeof window.showClientToast === 'function') {
+                    window.showClientToast("🔔 You'll receive a live notification the moment the store opens!", "success", "notifications");
+                }
+                return;
+            }
+        }
+        if (typeof window.showClientToast === 'function') {
+            window.showClientToast("Please allow notifications in browser settings to get store alerts.", "warning", "notifications_off");
+        }
+    } catch (e) {
+        console.warn(e);
+    }
+};
+
+window.showStoreOpenedNotification = showStoreOpenedNotification;
+window.getNotificationStageDetails = getNotificationStageDetails;
 window.updateLiveSystemNotification = updateLiveSystemNotification;
 window.updateGlobalDeliveryBar = updateGlobalDeliveryBar;
 
@@ -3891,3 +4103,170 @@ window.addEventListener('online', () => {
 })();
 
 
+
+
+// ============================================================
+// Customer In-App Notification Center & Push Registration
+// ============================================================
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
+async function registerCustomerPushSubscription() {
+    try {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+        const reg = await navigator.serviceWorker.ready;
+        let sub = await reg.pushManager.getSubscription();
+
+        if (!sub) {
+            const res = await fetch('/api/notifications/vapid-public-key');
+            const data = await res.json();
+            if (!data.success || !data.publicKey) return;
+
+            const convertedKey = urlBase64ToUint8Array(data.publicKey);
+            sub = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: convertedKey
+            });
+        }
+
+        if (sub) {
+            const userId = window.CURRENT_USER_ID || localStorage.getItem('lpuquick_user_id') || 'guest_student';
+            const userName = window.CURRENT_USER_NAME || 'Student';
+            const hostelId = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
+
+            await fetch('/api/notifications/customer-subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    subscription: sub,
+                    userId,
+                    userName,
+                    hostelId
+                })
+            });
+        }
+    } catch (e) {
+        console.warn('[Customer Push Registration Note]:', e);
+    }
+}
+
+window.openCustomerNotificationsModal = async function () {
+    const modal = document.getElementById('modal-customer-notifications');
+    const listEl = document.getElementById('customer-announcements-list');
+    if (modal) modal.classList.remove('hidden');
+
+    try {
+        const targetHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
+        const res = await fetch(`/api/notifications/customer-feed?hostelId=${encodeURIComponent(targetHostel)}`);
+        const data = await res.json();
+        const items = data.announcements || [];
+
+        if (!listEl) return;
+
+        if (items.length === 0) {
+            listEl.innerHTML = `
+                <div class="text-center py-8 text-slate-400">
+                    <span class="material-symbols-outlined text-3xl mb-1 text-slate-300">notifications_none</span>
+                    <p class="text-xs">No new notifications right now. Check back soon!</p>
+                </div>
+            `;
+            return;
+        }
+
+        listEl.innerHTML = items.map(item => {
+            const timeAgo = formatTimeAgo(item.sentAt || item.createdAt);
+            const imageHtml = item.imageUrl ? `
+                <div class="mt-2 rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 aspect-[2.4/1]">
+                    <img src="${item.imageUrl}" class="w-full h-full object-cover" alt="Announcement" />
+                </div>
+            ` : '';
+            const actionHtml = item.actionText ? `
+                <div class="mt-2.5 pt-1">
+                    <a href="${item.actionUrl || '/#/'}" onclick="window.closeCustomerNotificationsModal()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black uppercase tracking-wider transition-all shadow-xs">
+                        <span>${item.actionText}</span>
+                        <span class="material-symbols-outlined text-xs">arrow_forward</span>
+                    </a>
+                </div>
+            ` : '';
+
+            return `
+                <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-white/10 text-left space-y-1">
+                    <div class="flex items-center justify-between text-[10.5px]">
+                        <span class="font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">${item.category ? item.category.replace('_', ' ') : 'Announcement'}</span>
+                        <span class="text-slate-400">${timeAgo}</span>
+                    </div>
+                    <h4 class="text-xs font-black text-slate-900 dark:text-white">${escapeHtml(item.title)}</h4>
+                    <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">${escapeHtml(item.body)}</p>
+                    ${imageHtml}
+                    ${actionHtml}
+                </div>
+            `;
+        }).join('');
+
+        // Clear badge
+        const badge = document.getElementById('header-notif-badge');
+        if (badge) badge.classList.add('hidden');
+
+    } catch (err) {
+        if (listEl) {
+            listEl.innerHTML = `
+                <div class="text-center py-6 text-slate-400">
+                    <p class="text-xs">Failed to load campus feed. Please try again.</p>
+                </div>
+            `;
+        }
+    }
+};
+
+window.closeCustomerNotificationsModal = function () {
+    const modal = document.getElementById('modal-customer-notifications');
+    if (modal) modal.classList.add('hidden');
+};
+
+window.requestNotificationPermissionFromCenter = async function () {
+    try {
+        if ('Notification' in window) {
+            const perm = await Notification.requestPermission();
+            if (perm === 'granted') {
+                await registerCustomerPushSubscription();
+                if (typeof window.showClientToast === 'function') {
+                    window.showClientToast("🔔 Device push enabled! You'll receive real-time campus alerts.", "success", "notifications");
+                }
+            } else {
+                if (typeof window.showClientToast === 'function') {
+                    window.showClientToast("Please allow notifications in browser permissions.", "warning", "notifications_off");
+                }
+            }
+        }
+    } catch (e) {
+        console.warn(e);
+    }
+};
+
+function formatTimeAgo(dateStr) {
+    if (!dateStr) return 'Recently';
+    const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return `${Math.floor(diff / 86400)}d ago`;
+}
+
+// Automatically check and register device push on app startup if permitted
+if (typeof window !== 'undefined') {
+    setTimeout(() => {
+        if ('Notification' in window && Notification.permission === 'granted') {
+            registerCustomerPushSubscription().catch(() => {});
+        }
+    }, 3000);
+}
