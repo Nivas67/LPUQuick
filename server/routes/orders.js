@@ -780,7 +780,8 @@ router.get('/admin/detail/:orderId', requireAdmin, async (req, res) => {
         // Enforce store manager hostel isolation
         if (!req.admin.is_owner && req.admin.assigned_hostel_id) {
             const hId = extractHostelId(order);
-            if (!matchHostel(hId, req.admin.assigned_hostel_id)) {
+            const canAccess = req.admin.canAccessHostel ? req.admin.canAccessHostel(hId) : matchHostel(hId, req.admin.assigned_hostel_id);
+            if (!canAccess) {
                 return res.status(403).json({ error: 'Forbidden: You do not have access to orders from other hostels.' });
             }
         }
@@ -2564,6 +2565,21 @@ router.get('/:userId/active', async (req, res) => {
 
             if (error || !data || data.length === 0) return null;
             const o = data[0];
+            const fullOrder = await supabaseDb.orders.getOrderById(o.id);
+            if (fullOrder) {
+                const meta = fullOrder.delivery_assignment || supabaseDb.orders.parseDeliveryMeta(fullOrder.rider_name);
+                const foodOrderService = require('../services/foodOrderService');
+                const foodMeta = foodOrderService.loadFoodMeta();
+                const isFood = Boolean((foodMeta && foodMeta[o.id]) || fullOrder.is_food_order === true || fullOrder.is_food_order === 'true');
+                return {
+                    ...fullOrder,
+                    is_food_order: isFood,
+                    estimated_delivery_mins: isFood ? 11 : 5,
+                    rider_name: supabaseDb.orders.formatRiderDisplayName(fullOrder.rider_name, 'Alex'),
+                    rider_phone: meta.phone || '7671836211',
+                    delivery_assignment: meta
+                };
+            }
             const meta = supabaseDb.orders.parseDeliveryMeta(o.rider_name);
             const foodOrderService = require('../services/foodOrderService');
             const foodMeta = foodOrderService.loadFoodMeta();

@@ -1842,11 +1842,12 @@ const supabaseDb = {
 
                     // 3. Insert line items
                     formattedItems = items.map(item => {
-                        const matched = stockUpdates.find(s => s.productId === item.product_id);
+                        const resolvedProdId = item.product_id || item.productId || item.id || null;
+                        const matched = stockUpdates.find(s => s.productId === resolvedProdId || s.productId === item.product_id);
                         return {
                             id: `oi_${uuidv4().replace(/-/g, '').slice(0, 16)}`,
                             order_id: orderId,
-                            product_id: item.product_id || null,
+                            product_id: resolvedProdId,
                             quantity: matched ? matched.quantity : (Number(item.quantity) || 1),
                             unit_price: matched ? matched.sellingPrice : (Number(item.price || item.unit_price) || 0)
                         };
@@ -1882,14 +1883,19 @@ const supabaseDb = {
 
                 // 3b. Record immutable financial pricing snapshot for future orders
                 const itemSnapshots = items.map(item => {
-                    const matched = stockUpdates.find(s => s.productId === item.product_id);
+                    const resolvedProdId = item.product_id || item.productId || item.id || null;
+                    const matched = stockUpdates.find(s => s.productId === resolvedProdId || s.productId === item.product_id);
                     return {
-                        product_id: item.product_id,
+                        product_id: resolvedProdId,
                         product_name: matched ? matched.name : (item.name || 'Campus Item'),
+                        name: matched ? matched.name : (item.name || 'Campus Item'),
                         quantity: matched ? matched.quantity : (Number(item.quantity) || 1),
                         admin_cost: matched ? matched.costPrice : (Number(item.cost_price) || 0),
                         mrp: matched ? matched.mrp : (Number(item.mrp) || 0),
-                        selling_price: matched ? matched.sellingPrice : (Number(item.price || item.unit_price) || 0)
+                        selling_price: matched ? matched.sellingPrice : (Number(item.price || item.unit_price) || 0),
+                        price: matched ? matched.sellingPrice : (Number(item.price || item.unit_price) || 0),
+                        unit_price: matched ? matched.sellingPrice : (Number(item.price || item.unit_price) || 0),
+                        image_url: item.image_url || matched?.image_url || ''
                     };
                 });
 
@@ -2048,22 +2054,55 @@ const supabaseDb = {
             const humanRiderName = this.formatRiderDisplayName(order.rider_name, 'Alex');
 
             const hId = this._extractHostelId(order);
+
+            // Fetch immutable order financial and items snapshot for complete historical consistency
+            const snapshot = this.getOrderSnapshot(orderId);
+            const snapItems = Array.isArray(snapshot?.items) ? snapshot.items : [];
+
+            let rawItems = (items && items.length > 0) ? items : [];
+            if (rawItems.length === 0 && snapItems.length > 0) {
+                rawItems = snapItems.map((si, idx) => ({
+                    id: `snap_${idx}_${orderId}`,
+                    order_id: orderId,
+                    product_id: si.product_id,
+                    quantity: si.quantity || 1,
+                    unit_price: si.selling_price || si.price || si.unit_price || 0,
+                    name: si.name || si.product_name || 'Campus Item',
+                    image_url: si.image_url || '',
+                    products: {
+                        name: si.name || si.product_name,
+                        image_url: si.image_url,
+                        price: si.selling_price || si.price || si.unit_price
+                    }
+                }));
+            }
+
+            const enrichedItems = rawItems.map((it, idx) => {
+                const snap = snapItems.find(s => s.product_id && it.product_id && s.product_id === it.product_id) || snapItems[idx];
+                const resolvedName = it.products?.name || snap?.name || snap?.product_name || it.name || 'Campus Item';
+                const resolvedImage = it.products?.image_url || snap?.image_url || it.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60';
+                const resolvedPrice = Number(it.unit_price || it.products?.price || snap?.selling_price || snap?.price || snap?.unit_price || 0);
+                const resolvedQty = Number(it.quantity || snap?.quantity || 1);
+
+                return {
+                    id: it.id || `item_${idx}`,
+                    order_id: it.order_id || orderId,
+                    product_id: it.product_id || snap?.product_id || null,
+                    quantity: resolvedQty,
+                    price: resolvedPrice,
+                    unit_price: resolvedPrice,
+                    name: resolvedName,
+                    image_url: resolvedImage,
+                    products: it.products || (snap ? { name: resolvedName, image_url: resolvedImage, price: resolvedPrice } : null)
+                };
+            });
+
             return {
                 ...order,
                 hostel_id: hId,
                 rider_name: humanRiderName,
                 delivery_assignment: deliveryMeta,
-                items: (items || []).map(it => ({
-                    id: it.id,
-                    order_id: it.order_id,
-                    product_id: it.product_id,
-                    quantity: Number(it.quantity) || 1,
-                    price: Number(it.unit_price || it.products?.price || 0),
-                    unit_price: Number(it.unit_price || it.products?.price || 0),
-                    name: it.products?.name || it.name || 'Campus Item',
-                    image_url: it.products?.image_url || it.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60',
-                    products: it.products || null
-                }))
+                items: enrichedItems
             };
         },
 
@@ -2086,17 +2125,45 @@ const supabaseDb = {
                 const deliveryMeta = this.parseDeliveryMeta(o.rider_name);
                 const humanRiderName = this.formatRiderDisplayName(o.rider_name, 'Alex');
 
-                const formattedItems = (o.order_items || []).map(it => ({
-                    id: it.id,
-                    order_id: it.order_id,
-                    product_id: it.product_id,
-                    quantity: Number(it.quantity) || 1,
-                    price: Number(it.unit_price || it.products?.price || 0),
-                    unit_price: Number(it.unit_price || it.products?.price || 0),
-                    name: it.products?.name || it.name || 'Campus Item',
-                    image_url: it.products?.image_url || it.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60',
-                    products: it.products || null
-                }));
+                const snap = this.getOrderSnapshot(o.id);
+                const snapItems = Array.isArray(snap?.items) ? snap.items : [];
+                let rawOI = (o.order_items && o.order_items.length > 0) ? o.order_items : [];
+                if (rawOI.length === 0 && snapItems.length > 0) {
+                    rawOI = snapItems.map((si, idx) => ({
+                        id: `snap_${idx}_${o.id}`,
+                        order_id: o.id,
+                        product_id: si.product_id,
+                        quantity: si.quantity || 1,
+                        unit_price: si.selling_price || si.price || si.unit_price || 0,
+                        name: si.name || si.product_name || 'Campus Item',
+                        image_url: si.image_url || '',
+                        products: {
+                            name: si.name || si.product_name,
+                            image_url: si.image_url,
+                            price: si.selling_price || si.price || si.unit_price
+                        }
+                    }));
+                }
+
+                const formattedItems = rawOI.map((it, idx) => {
+                    const snapItem = snapItems.find(s => s.product_id && it.product_id && s.product_id === it.product_id) || snapItems[idx];
+                    const resolvedName = it.products?.name || snapItem?.name || snapItem?.product_name || it.name || 'Campus Item';
+                    const resolvedImage = it.products?.image_url || snapItem?.image_url || it.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60';
+                    const resolvedPrice = Number(it.unit_price || it.products?.price || snapItem?.selling_price || snapItem?.price || snapItem?.unit_price || 0);
+                    const resolvedQty = Number(it.quantity || snapItem?.quantity || 1);
+
+                    return {
+                        id: it.id || `item_${idx}`,
+                        order_id: it.order_id || o.id,
+                        product_id: it.product_id || snapItem?.product_id || null,
+                        quantity: resolvedQty,
+                        price: resolvedPrice,
+                        unit_price: resolvedPrice,
+                        name: resolvedName,
+                        image_url: resolvedImage,
+                        products: it.products || (snapItem ? { name: resolvedName, image_url: resolvedImage, price: resolvedPrice } : null)
+                    };
+                });
                 const itemNames = formattedItems.map(it => `${it.name} (x${it.quantity})`).join(', ');
                 const hId = this._extractHostelId(o);
                 const full = {
@@ -2204,17 +2271,45 @@ const supabaseDb = {
                 const humanRiderName = this.formatRiderDisplayName(o.rider_name, 'Unassigned');
                 const hId = this._extractHostelId(o);
 
-                const formattedItems = (o.order_items || []).map(it => ({
-                    id: it.id,
-                    order_id: it.order_id,
-                    product_id: it.product_id,
-                    quantity: Number(it.quantity) || 1,
-                    price: Number(it.unit_price || it.products?.price || 0),
-                    unit_price: Number(it.unit_price || it.products?.price || 0),
-                    name: it.products?.name || it.name || 'Campus Item',
-                    image_url: it.products?.image_url || it.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60',
-                    products: it.products || null
-                }));
+                const snap = this.getOrderSnapshot(o.id);
+                const snapItems = Array.isArray(snap?.items) ? snap.items : [];
+                let rawOI = (o.order_items && o.order_items.length > 0) ? o.order_items : [];
+                if (rawOI.length === 0 && snapItems.length > 0) {
+                    rawOI = snapItems.map((si, idx) => ({
+                        id: `snap_${idx}_${o.id}`,
+                        order_id: o.id,
+                        product_id: si.product_id,
+                        quantity: si.quantity || 1,
+                        unit_price: si.selling_price || si.price || si.unit_price || 0,
+                        name: si.name || si.product_name || 'Campus Item',
+                        image_url: si.image_url || '',
+                        products: {
+                            name: si.name || si.product_name,
+                            image_url: si.image_url,
+                            price: si.selling_price || si.price || si.unit_price
+                        }
+                    }));
+                }
+
+                const formattedItems = rawOI.map((it, idx) => {
+                    const snapItem = snapItems.find(s => s.product_id && it.product_id && s.product_id === it.product_id) || snapItems[idx];
+                    const resolvedName = it.products?.name || snapItem?.name || snapItem?.product_name || it.name || 'Campus Item';
+                    const resolvedImage = it.products?.image_url || snapItem?.image_url || it.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60';
+                    const resolvedPrice = Number(it.unit_price || it.products?.price || snapItem?.selling_price || snapItem?.price || snapItem?.unit_price || 0);
+                    const resolvedQty = Number(it.quantity || snapItem?.quantity || 1);
+
+                    return {
+                        id: it.id || `item_${idx}`,
+                        order_id: it.order_id || o.id,
+                        product_id: it.product_id || snapItem?.product_id || null,
+                        quantity: resolvedQty,
+                        price: resolvedPrice,
+                        unit_price: resolvedPrice,
+                        name: resolvedName,
+                        image_url: resolvedImage,
+                        products: it.products || (snapItem ? { name: resolvedName, image_url: resolvedImage, price: resolvedPrice } : null)
+                    };
+                });
                 const itemNames = formattedItems.map(it => `${it.name} (x${it.quantity})`).join(', ');
                 return {
                     ...o,

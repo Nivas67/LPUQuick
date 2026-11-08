@@ -490,26 +490,79 @@ window.pages.orders = async function () {
         const statusBadgeClass = isCancelled
             ? 'bg-rose-500/10 text-rose-500 border border-rose-500/25'
             : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25';
+        const orderItems = Array.isArray(o.items) ? o.items : [];
         return `
-        <div class="glass-panel card-pedestal rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row justify-between sm:items-center gap-3.5 hover:translate-y-[-2px] transition-all shadow-md">
-            <div class="space-y-1.5">
-                <div class="flex items-center gap-2">
-                    <span class="font-black text-xs sm:text-sm text-slate-900 dark:text-white tracking-tight">Order #${String(o.id || '').replace('order_', '').toUpperCase()}</span>
-                    <span class="text-[10px] ${statusBadgeClass} font-bold px-2.5 py-0.5 rounded-full capitalize">${o.status}</span>
+        <div class="glass-panel card-pedestal rounded-2xl p-4 sm:p-5 flex flex-col gap-3.5 hover:translate-y-[-2px] transition-all shadow-md">
+            <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3.5">
+                <div class="space-y-1.5">
+                    <div class="flex items-center gap-2">
+                        <span class="font-black text-xs sm:text-sm text-slate-900 dark:text-white tracking-tight">Order #${String(o.id || '').replace('order_', '').toUpperCase()}</span>
+                        <span class="text-[10px] ${statusBadgeClass} font-bold px-2.5 py-0.5 rounded-full capitalize">${o.status}</span>
+                    </div>
+                    <p class="text-xs text-slate-600 dark:text-slate-300 font-medium line-clamp-1">${o.item_names || 'Campus Groceries & Essentials'}</p>
+                    <p class="text-[11px] text-slate-400 font-medium">${new Date(o.created_at || Date.now()).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
-                <p class="text-xs text-slate-600 dark:text-slate-300 font-medium line-clamp-1">${o.item_names || 'Campus Groceries & Essentials'}</p>
-                <p class="text-[11px] text-slate-400 font-medium">${new Date(o.created_at || Date.now()).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                <div class="flex items-center justify-between sm:justify-end gap-3.5 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-[var(--glass-border)]">
+                    <div class="text-right">
+                        <span class="text-[10px] text-slate-400 uppercase tracking-wider block font-semibold">Total Paid</span>
+                        <span class="font-black text-sm sm:text-base text-slate-900 dark:text-white">₹${o.total}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="window.togglePastOrderSummary('${o.id}')" class="clay-btn text-xs font-bold px-3 py-2 rounded-xl text-slate-700 dark:text-slate-300 hover:text-emerald transition-transform active:scale-95 cursor-pointer flex items-center gap-1" title="View Ordered Items">
+                            <span class="material-symbols-outlined text-xs">receipt_long</span>
+                            <span>Items</span>
+                        </button>
+                        <button data-order-id="${o.id}" class="clay-btn text-xs font-bold px-4 py-2 rounded-xl text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 transition-transform active:scale-95 reorder-btn cursor-pointer flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-xs">replay</span>
+                            <span>Reorder</span>
+                        </button>
+                    </div>
+                </div>
             </div>
-            <div class="flex items-center justify-between sm:justify-end gap-3.5 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-[var(--glass-border)]">
-                <div class="text-right">
-                    <span class="text-[10px] text-slate-400 uppercase tracking-wider block font-semibold">Total Paid</span>
-                    <span class="font-black text-sm sm:text-base text-slate-900 dark:text-white">₹${o.total}</span>
+
+            <!-- Expandable Past Order Summary -->
+            <div id="past-summary-${o.id}" class="hidden pt-3 border-t border-[var(--glass-border)] space-y-3 text-xs animate-fade-in">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Ordered Products</span>
+                    <span class="text-[10px] text-slate-400">${orderItems.length} item(s)</span>
                 </div>
-                <div class="flex items-center gap-2">
-                    <button data-order-id="${o.id}" class="clay-btn text-xs font-bold px-4 py-2 rounded-xl text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 transition-transform active:scale-95 reorder-btn cursor-pointer flex items-center gap-1.5">
-                        <span class="material-symbols-outlined text-xs">replay</span>
-                        <span>Reorder</span>
-                    </button>
+                <div class="space-y-2">
+                    ${orderItems.map(it => `
+                        <div class="flex items-center justify-between p-2 rounded-xl bg-slate-50/60 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800/50">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <img src="${it.image_url || it.products?.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'}" class="w-8 h-8 rounded-lg object-cover bg-white shrink-0 border border-slate-200 dark:border-slate-700" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'">
+                                <div class="min-w-0">
+                                    <p class="font-bold text-xs text-slate-900 dark:text-white truncate">${it.name || 'Campus Item'}</p>
+                                    <p class="text-[10px] text-slate-500 dark:text-slate-400 font-medium">₹${it.unit_price || it.price || 0} × ${it.quantity || 1}</p>
+                                </div>
+                            </div>
+                            <span class="font-black text-xs text-slate-900 dark:text-white shrink-0 ml-2">₹${(it.quantity || 1) * (it.unit_price || it.price || 0)}</span>
+                        </div>
+                    `).join('') || `
+                        <p class="text-xs text-slate-500 italic p-2">${o.item_names || 'Campus items in record'}</p>
+                    `}
+                </div>
+                <div class="p-3 rounded-xl bg-slate-50/80 dark:bg-slate-900/60 border border-[var(--glass-border)] space-y-1 text-xs">
+                    <div class="flex justify-between text-slate-500">
+                        <span>Items Subtotal</span>
+                        <span class="font-bold text-slate-800 dark:text-slate-200">₹${o.subtotal || o.total || 0}</span>
+                    </div>
+                    <div class="flex justify-between text-slate-500">
+                        <span>Handling Fee</span>
+                        <span class="font-bold text-slate-800 dark:text-slate-200">₹${o.platform_fee !== undefined ? o.platform_fee : 1}</span>
+                    </div>
+                    <div class="flex justify-between text-slate-500">
+                        <span>Delivery Fee</span>
+                        <span class="font-bold ${o.delivery_fee > 0 ? 'text-slate-800 dark:text-slate-200' : 'text-emerald-600'}">${o.delivery_fee > 0 ? '₹' + o.delivery_fee : 'FREE'}</span>
+                    </div>
+                    <div class="pt-1.5 border-t border-slate-200 dark:border-slate-800 flex justify-between font-black text-slate-900 dark:text-white">
+                        <span>Total Paid</span>
+                        <span class="text-emerald-700 dark:text-emerald-400">₹${o.total}</span>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between text-[11px] text-slate-500 px-1">
+                    <span>Payment: <strong>${o.payment_method || 'Cash on Delivery'}</strong></span>
+                    <span class="font-bold capitalize text-emerald-600">${o.payment_status || 'Completed'}</span>
                 </div>
             </div>
         </div>
@@ -683,6 +736,83 @@ window.pages.orders = async function () {
                             <span class="${initialTracking.step >= 3 ? 'text-emerald-500 dark:text-emerald-400 font-black' : 'text-slate-400 dark:text-slate-500 font-medium'}" id="step-packed">Packed 📦</span>
                             <span class="${initialTracking.step >= 4 ? 'text-emerald-500 dark:text-emerald-400 font-black' : 'text-slate-400 dark:text-slate-500 font-medium'}" id="step-enroute">En Route 🚶</span>
                             <span class="${initialTracking.step >= 5 ? 'text-emerald-500 dark:text-emerald-400 font-black' : 'text-slate-400 dark:text-slate-500 font-medium'}" id="step-delivered">Delivered 🏁</span>
+                        </div>
+                    </div>
+
+                    <!-- Complete Dynamic Order Summary Section in Live Tracking -->
+                    <div class="mt-4 pt-4 border-t border-[var(--glass-border)] space-y-3" id="tracking-order-summary-card">
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-xs sm:text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5 uppercase tracking-wider">
+                                <span class="material-symbols-outlined text-emerald-600 text-base">receipt_long</span>
+                                <span>Order Summary</span>
+                            </h4>
+                            <span class="clay-pill px-2.5 py-0.5 text-[10px] font-black text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500/20">
+                                ${(activeOrder.items || []).length} Item(s)
+                            </span>
+                        </div>
+
+                        <!-- Ordered Items List -->
+                        <div class="space-y-2 max-h-56 overflow-y-auto no-scrollbar">
+                            ${(activeOrder.items || []).map(it => `
+                                <div class="flex items-center justify-between p-2 rounded-xl bg-slate-50/70 dark:bg-slate-900/60 border border-[var(--glass-border)]">
+                                    <div class="flex items-center gap-2.5 min-w-0">
+                                        <img src="${it.image_url || it.products?.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'}" 
+                                             class="w-9 h-9 rounded-lg object-cover bg-white shrink-0 border border-slate-200 dark:border-slate-800" 
+                                             onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'" 
+                                             alt="${it.name || 'Campus Item'}">
+                                        <div class="min-w-0">
+                                            <p class="font-bold text-xs text-slate-900 dark:text-white truncate">${it.name || 'Campus Item'}</p>
+                                            <p class="text-[10px] text-slate-500 dark:text-slate-400 font-medium">₹${it.unit_price || it.price || 0} × ${it.quantity || 1}</p>
+                                        </div>
+                                    </div>
+                                    <span class="font-black text-xs text-slate-900 dark:text-white shrink-0 ml-2">₹${(it.quantity || 1) * (it.unit_price || it.price || 0)}</span>
+                                </div>
+                            `).join('') || `
+                                <div class="p-3 text-center text-xs text-slate-500 italic bg-slate-50/50 rounded-xl">
+                                    ${activeOrder.delivery_address || 'Campus items in record'}
+                                </div>
+                            `}
+                        </div>
+
+                        <!-- Financial Calculation Breakdown -->
+                        <div class="p-3.5 rounded-2xl bg-slate-50/90 dark:bg-slate-900/80 border border-[var(--glass-border)] space-y-1.5 text-xs">
+                            <div class="flex justify-between text-slate-600 dark:text-slate-400 font-medium">
+                                <span>Subtotal</span>
+                                <span class="font-bold text-slate-900 dark:text-white">₹${activeOrder.subtotal || activeOrder.total || 0}</span>
+                            </div>
+                            <div class="flex justify-between text-slate-600 dark:text-slate-400 font-medium">
+                                <span>Handling Fee</span>
+                                <span class="font-bold text-slate-900 dark:text-white">₹${activeOrder.platform_fee !== undefined ? activeOrder.platform_fee : 1}</span>
+                            </div>
+                            ${(activeOrder.delivery_fee !== undefined && activeOrder.delivery_fee > 0) ? `
+                            <div class="flex justify-between text-slate-600 dark:text-slate-400 font-medium">
+                                <span>Delivery Fee</span>
+                                <span class="font-bold text-slate-900 dark:text-white">₹${activeOrder.delivery_fee}</span>
+                            </div>` : `
+                            <div class="flex justify-between text-slate-600 dark:text-slate-400 font-medium">
+                                <span>Delivery Fee</span>
+                                <span class="font-bold text-emerald-600 dark:text-emerald-400 uppercase text-[10px]">FREE (0-Min Dark Store)</span>
+                            </div>`}
+                            ${(activeOrder.discount !== undefined && activeOrder.discount > 0) ? `
+                            <div class="flex justify-between text-emerald-600 font-medium">
+                                <span>Discount Applied</span>
+                                <span class="font-bold">-₹${activeOrder.discount}</span>
+                            </div>` : ''}
+                            <div class="pt-2 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center font-black">
+                                <span class="text-xs uppercase tracking-wider text-slate-900 dark:text-white">Total Amount</span>
+                                <span class="text-sm sm:text-base text-emerald-700 dark:text-emerald-400">₹${activeOrder.total}</span>
+                            </div>
+                        </div>
+
+                        <!-- Payment & Fulfillment Status Badges -->
+                        <div class="flex items-center justify-between text-[11px] font-semibold text-slate-600 dark:text-slate-400 pt-1">
+                            <span class="flex items-center gap-1">
+                                <span class="material-symbols-outlined text-sm">payments</span>
+                                <span>${activeOrder.payment_method || 'Cash on Delivery'}</span>
+                            </span>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold ${['paid', 'completed'].includes((activeOrder.payment_status || '').toLowerCase()) ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
+                                ${((activeOrder.payment_status || 'Pending').toUpperCase())}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -975,5 +1105,13 @@ window.executeCancelActiveOrder = async function (orderId) {
 // Order deletion is strictly restricted to the Admin Console only
 window.promptDeleteOrder = function () {
     console.warn('[Security] Order deletion is strictly restricted to the Admin Console.');
+};
+
+window.togglePastOrderSummary = function (orderId) {
+    if (!orderId) return;
+    const el = document.getElementById(`past-summary-${orderId}`);
+    if (el) {
+        el.classList.toggle('hidden');
+    }
 };
 

@@ -391,6 +391,13 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
                 status: initialStatus,
                 total,
                 item_summary: orderItems.map(i => `${i.name} (x${i.quantity})`).join(', '),
+                items: orderItems.map(i => ({
+                    product_id: i.product_id,
+                    name: i.name,
+                    quantity: i.quantity,
+                    price: i.price,
+                    image_url: i.image_url || ''
+                })),
                 delivery_address: normalizedDeliveryAddress,
                 payment_method: method,
                 created_at: new Date().toISOString()

@@ -1,3 +1,9 @@
+// Universal Admin Authentication Token Resolver
+function getAdminAuthToken() {
+    return localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token') || (typeof adminToken !== 'undefined' ? adminToken : '');
+}
+window.getAdminAuthToken = getAdminAuthToken;
+
 // Universal HTML Escaping Utility for XSS Prevention
 function escapeHtml(str) {
     if (str === null || str === undefined) return '';
@@ -1920,7 +1926,8 @@ function setProductStatusFilter(status) {
 }
 
 function getAdminAssignedHostelsNormSet() {
-    if (!currentAdminProfile || isPlatformOwner(currentAdminProfile)) return null;
+    if (isPlatformOwner(currentAdminProfile)) return null;
+    if (!currentAdminProfile) return new Set();
     const list = (currentAdminProfile.assigned_hostels && currentAdminProfile.assigned_hostels.length > 0)
         ? currentAdminProfile.assigned_hostels
         : (currentAdminProfile.assigned_hostel_id ? [currentAdminProfile.assigned_hostel_id] : []);
@@ -6384,18 +6391,20 @@ function handleRealtimeInventoryUpdate(data) {
 function handleRealtimeNewOrder(order) {
     if (!order || !order.id) return;
 
-    // Strict Dark-Store Hostel Isolation: Store Managers ONLY receive orders for their assigned hostel
-    const assignedHostel = (!currentAdminProfile?.is_owner && currentAdminProfile?.assigned_hostel_id)
-        ? currentAdminProfile.assigned_hostel_id
-        : (typeof getActiveAdminHostelFilter === 'function' ? getActiveAdminHostelFilter('orders') : null);
-
-    if (assignedHostel && assignedHostel !== 'all' && assignedHostel !== 'ALL') {
-        const orderHostel = order.hostel_id || (order.delivery_address && (order.delivery_address.match(/\[(BH|GH)[-\s]?(\d+)\]/i) || order.delivery_address.match(/(BH|GH)[-\s]?(\d+)/i))?.[0]) || 'BH-13';
-        const normOrder = String(orderHostel).toUpperCase().replace(/[^A-Z0-9]/g, '');
-        const normAssigned = String(assignedHostel).toUpperCase().replace(/[^A-Z0-9]/g, '');
-        if (normOrder !== normAssigned) {
-            // This order belongs to a different hostel store! Do not show to this store manager!
-            return;
+    // Strict Dark-Store Hostel Isolation: Store Managers ONLY receive orders for their assigned hostel(s)
+    const isOwner = isPlatformOwner(currentAdminProfile);
+    if (!isOwner) {
+        const myHostels = (currentAdminProfile?.assigned_hostels && currentAdminProfile.assigned_hostels.length > 0)
+            ? currentAdminProfile.assigned_hostels
+            : (currentAdminProfile?.assigned_hostel_id ? [currentAdminProfile.assigned_hostel_id] : []);
+        if (myHostels.length > 0) {
+            const orderHostel = order.hostel_id || (order.delivery_address && (order.delivery_address.match(/\[(BH|GH)[-\s]?(\d+)\]/i) || order.delivery_address.match(/(BH|GH)[-\s]?(\d+)/i))?.[0]) || 'BH-13';
+            const normOrder = String(orderHostel).toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const allowedSet = new Set(myHostels.map(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '')));
+            if (!allowedSet.has(normOrder)) {
+                // This order belongs to a different hostel store! Do not show to this store manager!
+                return;
+            }
         }
     }
 
@@ -6414,6 +6423,9 @@ function handleRealtimeNewOrder(order) {
 
     // 2. Show Animated Toast Notification
     showOrderToast(order);
+
+    // 2b. Record Admin Order Notification in History & Native Browser Push
+    recordAdminOrderNotification(order);
 
     // 3. Prepend to local orders cache
     ordersCache = ordersCache.filter(o => o.id !== order.id);
@@ -6579,6 +6591,192 @@ function dismissToast(toastId) {
         toastEl.remove();
     }, 400);
 }
+
+// ============================================================
+// ADMIN INSTANT ORDER NOTIFICATIONS & HISTORY
+// ============================================================
+function getStoredAdminNotifications() {
+    try {
+        const raw = localStorage.getItem('lpuquick_admin_notifications');
+        return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function saveStoredAdminNotifications(list) {
+    try {
+        localStorage.setItem('lpuquick_admin_notifications', JSON.stringify(list.slice(0, 50)));
+    } catch (e) {}
+}
+
+function recordAdminOrderNotification(order) {
+    if (!order || !order.id) return;
+    const notifs = getStoredAdminNotifications();
+    const orderNumber = (order.id || '').replace('order_', '').toUpperCase();
+    const orderHostel = order.hostel_id || (order.delivery_address && (order.delivery_address.match(/\[(BH|GH)[-\s]?(\d+)\]/i) || order.delivery_address.match(/(BH|GH)[-\s]?(\d+)/i))?.[0]) || 'Campus';
+    const roomMatch = order.delivery_address ? (order.delivery_address.match(/Room\s*([a-zA-Z0-9\-]+)/i) || order.delivery_address.match(/Flat\s*([a-zA-Z0-9\-]+)/i)) : null;
+    const roomNumber = roomMatch ? roomMatch[1] : '';
+
+    const newNotif = {
+        id: `notif_${order.id}`,
+        order_id: order.id,
+        order_number: orderNumber,
+        customer_name: order.customer_name || 'Student',
+        customer_phone: order.customer_phone || '',
+        hostel: orderHostel,
+        room: roomNumber,
+        total: order.total || 0,
+        item_summary: order.item_summary || (Array.isArray(order.items) ? order.items.map(i => `${i.name} (x${i.quantity})`).join(', ') : 'Campus items'),
+        timestamp: Date.now(),
+        read: false
+    };
+
+    // Prepend without duplicate order IDs
+    const filtered = notifs.filter(n => n.order_id !== order.id);
+    filtered.unshift(newNotif);
+    saveStoredAdminNotifications(filtered);
+
+    // Update UI badge and panel
+    updateAdminNotificationsUI();
+
+    // Trigger Native Browser Web Notification if permission granted
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        try {
+            const notifTitle = `⚡ New Order #${orderNumber} (₹${order.total})`;
+            const notifBody = `${order.customer_name || 'Student'} • ${orderHostel} ${roomNumber ? 'Rm ' + roomNumber : ''}\n${newNotif.item_summary}`;
+            const n = new Notification(notifTitle, {
+                body: notifBody,
+                icon: '/img/logo.png',
+                badge: '/img/logo.png',
+                tag: order.id,
+                renotify: true
+            });
+            n.onclick = () => {
+                window.focus();
+                switchView('orders');
+                openOrderDrawer(order.id);
+                n.close();
+            };
+        } catch (nErr) {
+            console.warn('[Native Browser Notif Warning]:', nErr.message);
+        }
+    }
+}
+
+function updateAdminNotificationsUI() {
+    const notifs = getStoredAdminNotifications();
+    const unreadCount = notifs.filter(n => !n.read).length;
+
+    const badgeEl = document.getElementById('admin-notifs-badge');
+    if (badgeEl) {
+        if (unreadCount > 0) {
+            badgeEl.textContent = unreadCount > 99 ? '99+' : unreadCount;
+            badgeEl.classList.remove('hidden');
+            badgeEl.classList.add('flex');
+        } else {
+            badgeEl.classList.add('hidden');
+            badgeEl.classList.remove('flex');
+        }
+    }
+
+    const panelCountEl = document.getElementById('admin-notifs-panel-count');
+    if (panelCountEl) {
+        panelCountEl.textContent = `${unreadCount} new`;
+    }
+
+    renderAdminNotificationsList(notifs);
+}
+
+function renderAdminNotificationsList(notifs = getStoredAdminNotifications()) {
+    const listEl = document.getElementById('admin-notifs-list');
+    if (!listEl) return;
+
+    if (!notifs || notifs.length === 0) {
+        listEl.innerHTML = `
+            <div class="p-6 text-center text-[#5c5f60] text-xs font-medium" id="admin-notifs-empty">
+                🔔 No new order notifications. When students place orders in your assigned hostels, alerts will chime and display here instantly.
+            </div>
+        `;
+        return;
+    }
+
+    listEl.innerHTML = notifs.map(n => {
+        const timeAgo = formatTimeAgo(n.timestamp);
+        const unreadClass = !n.read ? 'bg-emerald-50/60 border-l-4 border-l-emerald-600 font-semibold' : 'hover:bg-slate-50';
+        return `
+            <div onclick="openNotificationOrder('${n.order_id}')" class="p-3.5 transition-all cursor-pointer ${unreadClass} flex flex-col gap-1.5">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full ${!n.read ? 'bg-emerald-600 animate-pulse' : 'bg-slate-300'}"></span>
+                        <span class="font-bold text-xs text-[#181c1f]">#${n.order_number}</span>
+                        <span class="px-1.5 py-0.2 rounded text-[10px] font-extrabold bg-blue-50 text-[#0066cc] border border-blue-200">${escapeHtml(n.hostel)}</span>
+                    </div>
+                    <span class="font-black text-xs text-[#137333]">₹${n.total}</span>
+                </div>
+                <div class="text-[11px] text-[#5c5f60] flex items-center justify-between">
+                    <span>${escapeHtml(n.customer_name)}${n.room ? ' • Room ' + escapeHtml(n.room) : ''}</span>
+                    <span class="text-[10px] text-slate-400 font-medium">${timeAgo}</span>
+                </div>
+                <p class="text-[10px] text-slate-500 line-clamp-1 italic">🛍️ ${escapeHtml(n.item_summary)}</p>
+            </div>
+        `;
+    }).join('');
+}
+
+function formatTimeAgo(timestamp) {
+    if (!timestamp) return 'Just now';
+    const diffSec = Math.floor((Date.now() - timestamp) / 1000);
+    if (diffSec < 60) return 'Just now';
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}h ago`;
+    return new Date(timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+function toggleAdminNotificationsPanel() {
+    const panel = document.getElementById('admin-notifs-panel');
+    if (!panel) return;
+    const isHidden = panel.classList.contains('hidden');
+    panel.classList.toggle('hidden', !isHidden);
+    if (isHidden) {
+        updateAdminNotificationsUI();
+    }
+}
+window.toggleAdminNotificationsPanel = toggleAdminNotificationsPanel;
+
+// Close notifications panel on outside click
+document.addEventListener('click', (e) => {
+    const wrap = document.getElementById('admin-notifs-wrap');
+    const panel = document.getElementById('admin-notifs-panel');
+    if (wrap && panel && !wrap.contains(e.target) && !panel.classList.contains('hidden')) {
+        panel.classList.add('hidden');
+    }
+});
+
+function markAllAdminNotificationsRead() {
+    const notifs = getStoredAdminNotifications();
+    const updated = notifs.map(n => ({ ...n, read: true }));
+    saveStoredAdminNotifications(updated);
+    updateAdminNotificationsUI();
+    showToast('All notifications marked as read', 'info');
+}
+window.markAllAdminNotificationsRead = markAllAdminNotificationsRead;
+
+function openNotificationOrder(orderId) {
+    const notifs = getStoredAdminNotifications();
+    const updated = notifs.map(n => n.order_id === orderId ? { ...n, read: true } : n);
+    saveStoredAdminNotifications(updated);
+    updateAdminNotificationsUI();
+
+    const panel = document.getElementById('admin-notifs-panel');
+    if (panel) panel.classList.add('hidden');
+
+    switchView('orders');
+    openOrderDrawer(orderId);
+}
+window.openNotificationOrder = openNotificationOrder;
 
 // ================= 10. AUTHENTICATION (STITCH SIGN IN) =================
 function showLoginModal() {
@@ -8447,6 +8645,7 @@ async function initAdminAuth() {
 initAdminAuth();
 updateSoundUI();
 checkPushStatus();
+updateAdminNotificationsUI();
 
 // Periodic background sync fallback (every 10 seconds when authenticated & visible)
 setInterval(() => {

@@ -351,6 +351,35 @@
                     <span>Test Sound</span>
                 </button>
 
+                <!-- Real-Time Admin Order Notification Bell & Drawer Panel -->
+                <div class="relative inline-block" id="admin-notifs-wrap">
+                    <button id="btn-admin-notifs-bell" onclick="toggleAdminNotificationsPanel()"
+                        class="relative bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-bold items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer flex"
+                        title="Order Notifications">
+                        <span class="material-symbols-outlined text-[18px]">notifications</span>
+                        <span class="hidden xl:inline text-xs">Alerts</span>
+                        <span id="admin-notifs-badge" class="hidden bg-rose-600 text-white text-[10px] font-black rounded-full min-w-[18px] h-[18px] px-1 items-center justify-center animate-pulse">0</span>
+                    </button>
+                    <!-- Notifications Dropdown Panel -->
+                    <div id="admin-notifs-panel" class="hidden absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-3xl shadow-2xl border border-[#DADCE0] z-50 overflow-hidden text-left animate-fade-in">
+                        <div class="p-3.5 border-b border-[#DADCE0] flex items-center justify-between bg-[#f8fafc]">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-emerald-600 text-lg">notifications_active</span>
+                                <span class="font-black text-xs text-[#181c1f]">Live Order Alerts</span>
+                                <span id="admin-notifs-panel-count" class="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">0 new</span>
+                            </div>
+                            <button type="button" onclick="markAllAdminNotificationsRead()" class="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 hover:underline cursor-pointer">
+                                Mark all as read
+                            </button>
+                        </div>
+                        <div id="admin-notifs-list" class="max-h-80 overflow-y-auto divide-y divide-[#f1f4f7] text-xs">
+                            <div class="p-6 text-center text-[#5c5f60] text-xs font-medium" id="admin-notifs-empty">
+                                🔔 No new order notifications. When students place orders in your assigned hostels, alerts will chime and display here instantly.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Web Push Notification Toggle Button (Desktop / Tablet) -->
                 <button id="btn-push-toggle" onclick="togglePushNotifications()"
                     class="hidden md:inline-flex bg-blue-50 hover:bg-blue-100 text-[#1a73e8] border border-blue-200 px-3 py-1.5 rounded-full text-xs font-bold items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer"
@@ -7983,7 +8012,7 @@
     <div id="partner-modal-container"></div>
 
     <!-- Application Script Reference -->
-    <script src="/ad-new/js/admin.js?v=20261108_product_scope_v4"></script>
+    <script src="/ad-new/js/admin.js?v=20261109_notif_v1"></script>
 
     <!-- Food Order Full Receipt Details Modal -->
     <div id="modal-food-order-details"
