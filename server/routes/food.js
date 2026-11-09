@@ -216,7 +216,7 @@ router.get('/orders', requireAdmin, async (req, res) => {
                     })),
                     total_amount: order.total || foodItems.reduce((s, i) => s + (i.price * i.quantity), 0),
                     payment_status: order.payment_status || 'pending',
-                    payment_method: order.payment_method || 'Cash on Delivery',
+                    payment_method: order.payment_method || 'Pay on Delivery',
                     order_date: order.created_at || new Date().toISOString(),
                     order_time_formatted: formattedDate,
                     status: order.status || 'Order Placed',

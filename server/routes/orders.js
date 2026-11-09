@@ -514,7 +514,7 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
                     platform_fee: order.platform_fee || 0,
                     tax: order.tax || 0,
                     total: order.total || 0,
-                    payment_method: order.payment_method || 'Cash on Delivery',
+                    payment_method: order.payment_method || 'Pay on Delivery',
                     payment_status: order.payment_status || 'pending',
                     rider_name: deliveryInfo.assigned_to_name || (deliveryInfo.is_claimed ? 'Assigned Rider' : 'Unassigned'),
                     delivery_assignment: deliveryInfo,

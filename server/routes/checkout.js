@@ -284,7 +284,10 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
         const orderId = customOrderId || `order_${uuidv4().slice(0, 8)}`;
         const initialStatus = 'Order Placed';
         const rider = 'Alex';
-        const method = paymentMethod || 'Cash on Delivery';
+        let method = paymentMethod || 'Pay on Delivery';
+        if (/^cash(\s*on\s*delivery)?$/i.test(method) || /^cod$/i.test(method)) {
+            method = 'Pay on Delivery';
+        }
         let address = deliveryAddress.trim();
         if (!address.toUpperCase().startsWith(`[${targetHostelId}]`)) {
             address = `[${targetHostelId}] ${address.replace(/^\[(BH|GH)[-\s]?\d+\]\s*/i, '')}`;

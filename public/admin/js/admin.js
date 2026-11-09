@@ -1,3 +1,13 @@
+
+function formatAdminPaymentDisplay(method) {
+    if (!method) return 'Pay on Delivery';
+    const s = String(method).trim();
+    if (/cash\s*on\s*delivery/i.test(s) || /^cod$/i.test(s) || /^cash$/i.test(s) || /^pod$/i.test(s)) {
+        return 'Pay on Delivery';
+    }
+    return s;
+}
+window.formatAdminPaymentDisplay = formatAdminPaymentDisplay;
 // Universal Admin Authentication Token Resolver
 function getAdminAuthToken() {
     return localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token') || (typeof adminToken !== 'undefined' ? adminToken : '');
@@ -3468,7 +3478,7 @@ function filterOrders() {
 
     const cashCount = ordersCache.filter(o => {
         const pm = (o.payment_method || '').toLowerCase();
-        return (pm.includes('cash') || pm.includes('cod')) && !pm.includes('both');
+        return (pm.includes('cash') || pm.includes('cod') || pm.includes('pay on delivery') || pm.includes('pod')) && !pm.includes('both');
     }).length;
 
     const bothCount = ordersCache.filter(o => {
@@ -3753,7 +3763,7 @@ function filterOrders() {
             </td>
             <td class="p-4 text-[#5c5f60]">${escapeHtml(o.delivery_address || 'Not provided')}</td>
             <td class="p-4 font-bold text-[#137333]">₹${o.total}</td>
-            <td class="p-4 text-[#5c5f60]">${o.payment_method || 'COD'}</td>
+            <td class="p-4 text-[#5c5f60]">${formatAdminPaymentDisplay(o.payment_method)}</td>
             <td class="p-4" id="order-status-pill-${o.id}">${getStatusPill(o.status, isFoodOrder)}</td>
             <td class="p-4">${dispatchBadgeHtml}</td>
             <td class="p-4 text-right">${actionButtonsHtml}</td>
@@ -3820,7 +3830,7 @@ async function openOrderDrawer(orderId) {
             document.getElementById('drawer-cust-email').textContent = cachedOrder.customer_email && cachedOrder.customer_email.trim() ? cachedOrder.customer_email : 'Not provided';
         }
         document.getElementById('drawer-cust-address').textContent = cachedOrder.delivery_address && cachedOrder.delivery_address.trim() ? cachedOrder.delivery_address : 'Not provided';
-        document.getElementById('drawer-payment-method').textContent = cachedOrder.payment_method || 'Cash on Delivery';
+        document.getElementById('drawer-payment-method').textContent = formatAdminPaymentDisplay(cachedOrder.payment_method);
         document.getElementById('drawer-order-total').textContent = `₹${cachedOrder.total || 0}`;
         document.getElementById('drawer-status-select').value = cachedOrder.status;
 
@@ -3881,7 +3891,7 @@ async function openOrderDrawer(orderId) {
             document.getElementById('drawer-cust-email').textContent = o.customer_email && o.customer_email.trim() ? o.customer_email : 'Not provided';
         }
         document.getElementById('drawer-cust-address').textContent = o.delivery_address && o.delivery_address.trim() ? o.delivery_address : 'Not provided';
-        document.getElementById('drawer-payment-method').textContent = o.payment_method || 'Cash on Delivery';
+        document.getElementById('drawer-payment-method').textContent = formatAdminPaymentDisplay(o.payment_method);
         document.getElementById('drawer-order-total').textContent = `₹${o.total}`;
         document.getElementById('drawer-status-select').value = o.status;
 
@@ -4180,7 +4190,7 @@ async function applyDrawerStatusUpdate() {
     const previousPaymentMethod = o ? o.payment_method : null;
     const previousPaymentStatus = o ? o.payment_status : null;
 
-    let finalPaymentMethod = o?.payment_method || 'Cash on Delivery';
+    let finalPaymentMethod = formatAdminPaymentDisplay(o?.payment_method);
     let splitMeta = null;
 
     // Auto-resolve payment mode if marking as Delivered
@@ -15081,7 +15091,7 @@ function openFoodOrderDetailModal(orderId) {
     const payBadge = document.getElementById('modal-fod-payment-badge');
     if (payBadge) {
         const isPaid = (order.payment_status || '').toLowerCase() === 'paid';
-        payBadge.textContent = (order.payment_method || 'Cash on Delivery') + (isPaid ? ' (PAID)' : ' (Pending)');
+        payBadge.textContent = formatAdminPaymentDisplay(order.payment_method) + (isPaid ? ' (PAID)' : ' (Pending)');
         payBadge.className = isPaid ? 'font-black text-emerald-700' : 'font-bold text-amber-700';
     }
 

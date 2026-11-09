@@ -2,6 +2,15 @@
 window.pages = window.pages || {};
 window.pageInits = window.pageInits || {};
 
+function formatCustomerPaymentMethod(pm) {
+    if (!pm) return 'Pay on Delivery';
+    const s = String(pm).trim();
+    if (/cash\s*on\s*delivery/i.test(s) || /^cod$/i.test(s) || /^cash$/i.test(s)) {
+        return 'Pay on Delivery';
+    }
+    return s;
+}
+
 function formatClientRiderInfo(raw) {
     let name = 'Alex';
     let phone = '7671836211';
@@ -344,7 +353,7 @@ window.applyOrderStatusUI = function (newStatus, riderName, targetOrderId, rider
                                         <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${statusBadgeClass}">${o.status}</span>
                                     </div>
                                     <p class="text-xs text-slate-500 dark:text-slate-400 font-medium line-clamp-1">${o.item_names || 'Campus Groceries & Essentials'}</p>
-                                    <p class="text-[11px] text-slate-400">Total: ₹${o.total} · ${o.payment_method || 'Cash'}</p>
+                                    <p class="text-[11px] text-slate-400">Total: ₹${o.total} · ${formatCustomerPaymentMethod(o.payment_method)}</p>
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <button type="button" class="reorder-btn clay-pill px-4 py-2 text-xs font-black text-emerald dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95" data-order-id="${o.id}">
@@ -561,7 +570,7 @@ window.pages.orders = async function () {
                     </div>
                 </div>
                 <div class="flex items-center justify-between text-[11px] text-slate-500 px-1">
-                    <span>Payment: <strong>${o.payment_method || 'Cash on Delivery'}</strong></span>
+                    <span>Payment: <strong>${formatCustomerPaymentMethod(o.payment_method)}</strong></span>
                     <span class="font-bold capitalize text-emerald-600">${o.payment_status || 'Completed'}</span>
                 </div>
             </div>
@@ -710,7 +719,7 @@ window.pages.orders = async function () {
                                 <span class="material-symbols-outlined text-base text-emerald">${initialTracking.icon}</span>
                                 <span>${initialTracking.msg}</span>
                             </p>
-                            <h3 class="font-black text-sm sm:text-base text-slate-900 dark:text-white tracking-tight" id="tracking-order-title">Order #${activeOrder.id.replace('order_', '').toUpperCase()} · Total ₹<span id="tracking-active-total">${activeOrder.total}</span> (${activeOrder.payment_method || 'Cash on Delivery'})</h3>
+                            <h3 class="font-black text-sm sm:text-base text-slate-900 dark:text-white tracking-tight" id="tracking-order-title">Order #${activeOrder.id.replace('order_', '').toUpperCase()} · Total ₹<span id="tracking-active-total">${activeOrder.total}</span> (${formatCustomerPaymentMethod(activeOrder.payment_method)})</h3>
                         </div>
                         <div class="flex items-center gap-3 clay-card p-2.5 px-3.5 rounded-2xl shadow-sm">
                             <div class="w-9 h-9 rounded-xl bg-emerald text-white flex items-center justify-center font-black text-sm shadow-md" id="rider-avatar">
@@ -808,7 +817,7 @@ window.pages.orders = async function () {
                         <div class="flex items-center justify-between text-[11px] font-semibold text-slate-600 dark:text-slate-400 pt-1">
                             <span class="flex items-center gap-1">
                                 <span class="material-symbols-outlined text-sm">payments</span>
-                                <span>${activeOrder.payment_method || 'Cash on Delivery'}</span>
+                                <span>${formatCustomerPaymentMethod(activeOrder.payment_method)}</span>
                             </span>
                             <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold ${['paid', 'completed'].includes((activeOrder.payment_status || '').toLowerCase()) ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
                                 ${((activeOrder.payment_status || 'Pending').toUpperCase())}

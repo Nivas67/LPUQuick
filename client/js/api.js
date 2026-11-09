@@ -779,7 +779,7 @@ const api = {
     },
 
     // Checkout with resilient timeout to prevent UI hang on weak campus networks
-    async checkout(userId, paymentMethod = 'Cash on Delivery', deliveryAddress = '', extraData = {}) {
+    async checkout(userId, paymentMethod = 'Pay on Delivery', deliveryAddress = '', extraData = {}) {
         const savedPhone = extraData.phone || localStorage.getItem('lpuquick_phone') || '';
         const savedName = extraData.name || window.CURRENT_USER_NAME || (JSON.parse(localStorage.getItem('lpuquick_user') || '{}').name) || 'LPU Student';
         const savedEmail = extraData.email || window.CURRENT_USER_EMAIL || (JSON.parse(localStorage.getItem('lpuquick_user') || '{}').email) || '';

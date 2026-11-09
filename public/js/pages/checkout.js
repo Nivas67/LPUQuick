@@ -439,16 +439,16 @@ window.pages.checkout = async function () {
             <div class="glass-panel card-pedestal rounded-3xl p-5 sm:p-6 shadow-xl border border-[var(--glass-border)] space-y-3.5">
                 <div class="flex items-center justify-between">
                     <h3 class="font-black text-xs sm:text-sm text-slate-900 dark:text-white tracking-tight">Payment Method</h3>
-                    <span class="liquid-badge text-[10px] text-emerald-800 dark:text-emerald-300 font-black px-2.5 py-0.5">Cash on Delivery Active</span>
+                    <span class="liquid-badge text-[10px] text-emerald-800 dark:text-emerald-300 font-black px-2.5 py-0.5">Pay on Delivery Active</span>
                 </div>
                 
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" id="payment-options">
-                    <!-- 1. Cash on Delivery (ACTIVE) -->
+                    <!-- 1. Pay on Delivery (ACTIVE) -->
                     <label class="flex items-center gap-3 p-4 rounded-2xl border-2 border-emerald-500 bg-emerald-500/10 cursor-pointer payment-option-label relative shadow-md" data-method="cod">
                         <input type="radio" name="paymentMethod" value="cod" checked class="text-emerald focus:ring-emerald">
                         <div>
-                            <p class="font-black text-xs text-slate-900 dark:text-white">Cash on Delivery</p>
-                            <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Pay at ${savedHostel} room door</p>
+                            <p class="font-black text-xs text-slate-900 dark:text-white">Pay on Delivery</p>
+                            <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Pay at ${savedHostel} room door (Cash / UPI)</p>
                         </div>
                     </label>
 
@@ -567,7 +567,7 @@ window.pages.checkout = async function () {
                     </div>
                     <div class="flex justify-between items-center">
                         <span class="text-slate-500 dark:text-slate-400 font-medium">Payment</span>
-                        <span class="font-bold text-slate-800 dark:text-slate-200" id="success-order-payment">Cash on Delivery</span>
+                        <span class="font-bold text-slate-800 dark:text-slate-200" id="success-order-payment">Pay on Delivery</span>
                     </div>
                     <div class="flex justify-between items-start pt-2 border-t border-[var(--glass-border)]">
                         <span class="text-slate-500 dark:text-slate-400 font-medium">Destination</span>
@@ -848,7 +848,7 @@ window.pageInits.checkout = function () {
         trigger.onclick = () => {
             const title = trigger.dataset.title || 'Online Payment';
             if (typeof window.showClientToast === 'function') {
-                window.showClientToast(`⏳ ${title} is onboarding. Please use Cash on Delivery.`, 'info', 'account_balance_wallet');
+                window.showClientToast(`⏳ ${title} is onboarding. Please use Pay on Delivery.`, 'info', 'account_balance_wallet');
             }
         };
     });
@@ -929,7 +929,7 @@ window.pageInits.checkout = function () {
 
         const roomPart = (!savedRoom && isMainGate) ? '' : `, Room ${savedRoom || 'Main Gate'}`;
         const fullAddress = `[${savedHostel}] ${savedHostel} (${savedBlock})${roomPart}`;
-        const selectedMethod = 'Cash on Delivery';
+        const selectedMethod = 'Pay on Delivery';
 
         const tapBtn = document.getElementById('tap-to-pay-btn');
         if (tapBtn) {

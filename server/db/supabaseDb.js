@@ -1789,7 +1789,7 @@ const supabaseDb = {
                     platform_fee: Number(orderPayload.platform_fee) || 0,
                     tax: Number(orderPayload.tax) || 0,
                     total: Number(orderPayload.total) || 0,
-                    payment_method: orderPayload.payment_method || 'Cash on Delivery',
+                    payment_method: orderPayload.payment_method || 'Pay on Delivery',
                     payment_status: orderPayload.payment_status || 'pending',
                     rider_name: orderPayload.rider_name || 'Alex',
                     rider_lat: orderPayload.rider_lat || 31.2560,

@@ -236,7 +236,7 @@ async function handleNewFoodOrder({ orderId, orderPayload, foodItems, instructio
         food_items: pureFoodItems,
         total_amount: orderPayload?.total || pureFoodItems.reduce((s, i) => s + i.line_total, 0),
         payment_status: orderPayload?.payment_status || 'pending',
-        payment_method: orderPayload?.payment_method || 'Cash on Delivery',
+        payment_method: orderPayload?.payment_method || 'Pay on Delivery',
         order_date: nowIso,
         order_time_formatted: formattedDate,
         status: 'Order Placed',
