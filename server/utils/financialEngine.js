@@ -522,18 +522,45 @@ function calculateDayWiseFinancials(orders = [], items = [], snapshotsMap = {}, 
         dayEntry.cost = Math.round((dayEntry.cost + ordCost) * 100) / 100;
         dayEntry.profit = Math.round((dayEntry.profit + ordProfit) * 100) / 100;
 
-        // Classify payment method: UPI vs Cash
+        // Classify payment method: UPI vs Cash vs Both (Split)
         const rawPM = (ord.payment_method || '').toLowerCase().trim();
-        const isUPI = rawPM.includes('upi') || rawPM.includes('qr') || rawPM.includes('online') || rawPM.includes('card') || rawPM.includes('net banking') || rawPM.includes('wallet');
-        const isCash = rawPM.includes('cash') || rawPM.includes('cod');
-        const paymentType = isUPI ? 'UPI' : (isCash ? 'Cash' : (rawPM ? 'UPI' : 'UPI')); // Default to UPI
+        const isBoth = rawPM.includes('both');
+        let ordCashRevenue = 0;
+        let ordUpiRevenue = 0;
+        let paymentType = 'Cash';
 
-        if (paymentType === 'UPI') {
-            dayEntry.upi_revenue = Math.round((dayEntry.upi_revenue + ordRevenue) * 100) / 100;
-            dayEntry.upi_count += 1;
-        } else {
-            dayEntry.cash_revenue = Math.round((dayEntry.cash_revenue + ordRevenue) * 100) / 100;
+        if (isBoth) {
+            // Parse split mode: e.g. "Both (Cash: ₹20, UPI: ₹32)"
+            const cashMatch = rawPM.match(/cash[:\s]*₹?\s*(\d+(?:\.\d+)?)/i);
+            const upiMatch = rawPM.match(/upi[:\s]*₹?\s*(\d+(?:\.\d+)?)/i);
+            const parsedCash = cashMatch ? parseFloat(cashMatch[1]) : 0;
+            const parsedUpi = upiMatch ? parseFloat(upiMatch[1]) : 0;
+            if (parsedCash > 0 || parsedUpi > 0) {
+                ordCashRevenue = parsedCash;
+                ordUpiRevenue = parsedUpi;
+            } else {
+                ordCashRevenue = Math.round((ordRevenue / 2) * 100) / 100;
+                ordUpiRevenue = Math.round((ordRevenue - ordCashRevenue) * 100) / 100;
+            }
+            dayEntry.cash_revenue = Math.round((dayEntry.cash_revenue + ordCashRevenue) * 100) / 100;
+            dayEntry.upi_revenue = Math.round((dayEntry.upi_revenue + ordUpiRevenue) * 100) / 100;
             dayEntry.cash_count += 1;
+            dayEntry.upi_count += 1;
+            paymentType = 'Both';
+        } else {
+            const isCash = rawPM.includes('cash') || rawPM.includes('cod') || rawPM.includes('pay on delivery') || rawPM.includes('pod');
+            const isUPI = rawPM.includes('upi') || rawPM.includes('qr') || rawPM.includes('online') || rawPM.includes('card') || rawPM.includes('net banking') || rawPM.includes('wallet');
+            paymentType = (isCash && !isUPI) ? 'Cash' : (isUPI ? 'UPI' : (isCash ? 'Cash' : 'Cash'));
+
+            if (paymentType === 'Cash') {
+                ordCashRevenue = ordRevenue;
+                dayEntry.cash_revenue = Math.round((dayEntry.cash_revenue + ordRevenue) * 100) / 100;
+                dayEntry.cash_count += 1;
+            } else {
+                ordUpiRevenue = ordRevenue;
+                dayEntry.upi_revenue = Math.round((dayEntry.upi_revenue + ordRevenue) * 100) / 100;
+                dayEntry.upi_count += 1;
+            }
         }
 
         dayEntry.orders.push({
@@ -541,7 +568,7 @@ function calculateDayWiseFinancials(orders = [], items = [], snapshotsMap = {}, 
             customer_name: ord.customer_name || 'Student',
             customer_phone: ord.customer_phone || '',
             delivery_address: ord.delivery_address || 'Campus Room',
-            payment_method: ord.payment_method || 'UPI',
+            payment_method: ord.payment_method || (paymentType === 'UPI' ? 'UPI' : 'Cash'),
             payment_type: paymentType,
             created_at: ord.created_at,
             time_ist: formatTimeIST(ord.created_at),

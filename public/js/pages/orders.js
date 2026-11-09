@@ -5,7 +5,10 @@ window.pageInits = window.pageInits || {};
 function formatCustomerPaymentMethod(pm) {
     if (!pm) return 'Pay on Delivery';
     const s = String(pm).trim();
-    if (/cash\s*on\s*delivery/i.test(s) || /^cod$/i.test(s) || /^cash$/i.test(s)) {
+    if (/^cash$/i.test(s)) return 'Cash';
+    if (/^upi$/i.test(s)) return 'UPI';
+    if (/^both/i.test(s)) return s;
+    if (/cash\s*on\s*delivery/i.test(s) || /^cod$/i.test(s) || /^pod$/i.test(s) || /pay\s*on\s*delivery/i.test(s)) {
         return 'Pay on Delivery';
     }
     return s;

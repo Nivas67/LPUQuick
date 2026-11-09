@@ -2,7 +2,10 @@
 function formatAdminPaymentDisplay(method) {
     if (!method) return 'Pay on Delivery';
     const s = String(method).trim();
-    if (/cash\s*on\s*delivery/i.test(s) || /^cod$/i.test(s) || /^cash$/i.test(s) || /^pod$/i.test(s)) {
+    if (/^cash$/i.test(s)) return 'Cash';
+    if (/^upi$/i.test(s)) return 'UPI';
+    if (/^both/i.test(s)) return s;
+    if (/cash\s*on\s*delivery/i.test(s) || /^cod$/i.test(s) || /^pod$/i.test(s) || /pay\s*on\s*delivery/i.test(s)) {
         return 'Pay on Delivery';
     }
     return s;
@@ -3602,7 +3605,7 @@ function filterOrders() {
     } else if (currentOrderFilter === 'cash') {
         filtered = filtered.filter(o => {
             const pm = (o.payment_method || '').toLowerCase();
-            return (pm.includes('cash') || pm.includes('cod')) && !pm.includes('both');
+            return (pm.includes('cash') || pm.includes('cod') || pm.includes('pay on delivery') || pm.includes('pod')) && !pm.includes('both');
         });
     } else if (currentOrderFilter === 'both') {
         filtered = filtered.filter(o => {
