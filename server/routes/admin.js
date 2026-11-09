@@ -11,9 +11,48 @@ const { getRiderStatus, isRiderOnline, setRiderStatus } = require('../services/r
 const cache = require('../cache');
 const checkoutSettingsService = require('../services/checkoutSettingsService');
 const financialEngine = require('../utils/financialEngine');
+const adminNotificationService = require('../services/adminNotificationService');
 
 // All routes in this file require Administrator Authorization
 router.use(requireAdmin);
+
+// ============================================================
+// ADMIN ORDER NOTIFICATIONS & PERSISTENT ALERTS
+// ============================================================
+
+// GET /api/admin/notifications
+router.get('/notifications', async (req, res) => {
+    try {
+        const notifs = adminNotificationService.getNotificationsForAdmin(req.admin);
+        const unreadCount = notifs.filter(n => !n.read).length;
+        res.json({
+            success: true,
+            count: notifs.length,
+            unread_count: unreadCount,
+            notifications: notifs
+        });
+    } catch (err) {
+        console.error('[Admin Notifications Error]:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// POST /api/admin/notifications/mark-read
+router.post('/notifications/mark-read', async (req, res) => {
+    try {
+        const { order_id, id, all } = req.body || {};
+        const adminId = req.admin?.id;
+        if (all === true) {
+            adminNotificationService.markAllRead(adminId);
+        } else if (order_id || id) {
+            adminNotificationService.markOneRead(adminId, order_id || id);
+        }
+        res.json({ success: true, message: 'Notifications marked as read' });
+    } catch (err) {
+        console.error('[Admin Notifications Mark-Read Error]:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
 
 // ============================================================
 // OWNER-ONLY: OFFERS & CHARGES CONTROL

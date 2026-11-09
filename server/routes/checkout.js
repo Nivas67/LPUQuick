@@ -406,14 +406,28 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
             console.error('[WS Broadcast Warning]:', e.message);
         }
 
-        // 3. Trigger background Web Push to all delivery runners & managers (wakes up closed devices)
+        // 3. Save persistent Admin Order Notification for closed-browser review
+        try {
+            const adminNotificationService = require('../services/adminNotificationService');
+            adminNotificationService.saveOrderNotification(
+                createdOrder || { id: orderId, total, delivery_address: normalizedDeliveryAddress, hostel_id: orderPayload.hostel_id, room, customer_name: customerName },
+                orderItems
+            );
+        } catch (notifErr) {
+            console.warn('[Admin Notification Persistence Warning]:', notifErr.message);
+        }
+
+        // 3b. Trigger background Web Push to delivery runners & managers (wakes up closed devices/screens)
         try {
             const pushService = require('../notifications/pushService');
             pushService.notifyNewOrder({
                 id: orderId,
                 total,
-                delivery_address: address,
-                customer_name: customerName
+                delivery_address: normalizedDeliveryAddress || address,
+                hostel_id: orderPayload.hostel_id,
+                room,
+                customer_name: customerName,
+                items: orderItems
             }).catch(pErr => console.warn('[Push Service New Order Note]:', pErr.message));
         } catch (pushErr) {}
 

@@ -1,9 +1,10 @@
 {
   "GH-12": {
     "prod_78de005c": {
-      "stock_left": 1,
-      "in_stock": true,
-      "updated_at": "2026-11-02T16:45:09.047Z"
+      "stock_left": 0,
+      "in_stock": false,
+      "deleted": false,
+      "updated_at": "2026-11-03T04:34:12.413Z"
     },
     "prod_7c8bc35c": {
       "stock_left": 5,
@@ -11,9 +12,9 @@
       "updated_at": "2026-11-02T16:45:09.047Z"
     },
     "prod_a4ffe8c3": {
-      "stock_left": 5,
+      "stock_left": 3,
       "in_stock": true,
-      "updated_at": "2026-11-02T16:45:09.047Z"
+      "updated_at": "2026-11-08T17:50:15.400Z"
     },
     "prod_89c837bb": {
       "stock_left": 5,
@@ -21,14 +22,15 @@
       "updated_at": "2026-11-02T16:45:09.047Z"
     },
     "prod_451b63c9": {
-      "stock_left": 3,
+      "stock_left": 2,
       "in_stock": true,
-      "updated_at": "2026-11-02T16:45:09.047Z"
+      "deleted": false,
+      "updated_at": "2026-11-07T13:02:39.660Z"
     },
     "prod_58182926": {
-      "stock_left": 3,
+      "stock_left": 2,
       "in_stock": true,
-      "updated_at": "2026-11-02T16:45:09.047Z"
+      "updated_at": "2026-11-07T20:08:28.756Z"
     },
     "prod_3e933d45": {
       "stock_left": 4,
@@ -38,12 +40,113 @@
     "prod_a39e304b": {
       "stock_left": 3,
       "in_stock": true,
-      "updated_at": "2026-11-02T16:45:09.047Z"
+      "deleted": false,
+      "updated_at": "2026-11-06T06:33:45.857Z"
     },
     "prod_17b61956": {
       "stock_left": 5,
       "in_stock": true,
       "updated_at": "2026-11-02T16:45:09.047Z"
+    },
+    "prod_7f3d5059": {
+      "stock_left": 3,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-02T16:58:09.587Z"
+    },
+    "prod_e581ce64": {
+      "stock_left": 1,
+      "in_stock": true,
+      "updated_at": "2026-11-08T17:42:36.221Z"
+    },
+    "prod_d9e7ad12": {
+      "stock_left": 4,
+      "in_stock": true,
+      "updated_at": "2026-11-03T17:59:44.461Z"
+    },
+    "prod_41968603": {
+      "stock_left": 0,
+      "in_stock": false,
+      "deleted": false,
+      "updated_at": "2026-11-07T13:01:18.530Z"
+    },
+    "prod_66755a4a": {
+      "stock_left": 7,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-02T17:00:05.430Z"
+    },
+    "prod_96a8da93": {
+      "stock_left": 7,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-02T17:00:31.770Z"
+    },
+    "prod_5790f788": {
+      "stock_left": 47,
+      "in_stock": true,
+      "updated_at": "2026-11-03T18:31:56.244Z"
+    },
+    "prod_07da9b3d": {
+      "stock_left": 4,
+      "in_stock": true,
+      "updated_at": "2026-11-03T18:22:47.671Z"
+    },
+    "prod_ef08a55c": {
+      "stock_left": 3,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-07T13:00:13.052Z"
+    },
+    "prod_947325e4": {
+      "stock_left": 34,
+      "in_stock": true,
+      "updated_at": "2026-11-08T17:42:36.221Z"
+    },
+    "prod_e4b66387": {
+      "stock_left": 5,
+      "in_stock": true,
+      "updated_at": "2026-11-03T17:59:44.461Z"
+    },
+    "prod_eef74719": {
+      "stock_left": 0,
+      "in_stock": false,
+      "deleted": false,
+      "updated_at": "2026-11-04T09:48:57.536Z"
+    },
+    "prod_fc2436f7": {
+      "stock_left": 5,
+      "in_stock": true,
+      "updated_at": "2026-11-08T18:02:53.678Z"
+    },
+    "prod_647506f3": {
+      "stock_left": 5,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-07T18:11:22.839Z"
+    },
+    "prod_db41fad9": {
+      "stock_left": 3,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-09T06:04:15.538Z"
+    },
+    "prod_a66b46a8": {
+      "stock_left": 6,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-03T14:44:42.553Z"
+    },
+    "prod_9c4d54be": {
+      "stock_left": 6,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-09T06:04:14.694Z"
+    },
+    "prod_a39158cc": {
+      "stock_left": 3,
+      "in_stock": true,
+      "updated_at": "2026-11-08T18:18:26.679Z"
     }
   },
   "BH-13": {
@@ -459,9 +562,10 @@
   },
   "group_hg_1793562267675_9cyiv": {
     "prod_78de005c": {
-      "stock_left": 1,
-      "in_stock": true,
-      "updated_at": "2026-11-02T16:45:09.047Z"
+      "stock_left": 0,
+      "in_stock": false,
+      "deleted": false,
+      "updated_at": "2026-11-03T04:34:12.413Z"
     },
     "prod_7c8bc35c": {
       "stock_left": 5,
@@ -469,9 +573,9 @@
       "updated_at": "2026-11-02T16:45:09.047Z"
     },
     "prod_a4ffe8c3": {
-      "stock_left": 5,
+      "stock_left": 3,
       "in_stock": true,
-      "updated_at": "2026-11-02T16:45:09.047Z"
+      "updated_at": "2026-11-08T17:50:15.400Z"
     },
     "prod_89c837bb": {
       "stock_left": 5,
@@ -479,14 +583,15 @@
       "updated_at": "2026-11-02T16:45:09.047Z"
     },
     "prod_451b63c9": {
-      "stock_left": 3,
+      "stock_left": 2,
       "in_stock": true,
-      "updated_at": "2026-11-02T16:45:09.047Z"
+      "deleted": false,
+      "updated_at": "2026-11-07T13:02:39.660Z"
     },
     "prod_58182926": {
-      "stock_left": 3,
+      "stock_left": 2,
       "in_stock": true,
-      "updated_at": "2026-11-02T16:45:09.047Z"
+      "updated_at": "2026-11-07T20:08:28.756Z"
     },
     "prod_3e933d45": {
       "stock_left": 4,
@@ -496,19 +601,121 @@
     "prod_a39e304b": {
       "stock_left": 3,
       "in_stock": true,
-      "updated_at": "2026-11-02T16:45:09.047Z"
+      "deleted": false,
+      "updated_at": "2026-11-06T06:33:45.857Z"
     },
     "prod_17b61956": {
       "stock_left": 5,
       "in_stock": true,
       "updated_at": "2026-11-02T16:45:09.047Z"
+    },
+    "prod_7f3d5059": {
+      "stock_left": 3,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-02T16:58:09.587Z"
+    },
+    "prod_e581ce64": {
+      "stock_left": 1,
+      "in_stock": true,
+      "updated_at": "2026-11-08T17:42:36.221Z"
+    },
+    "prod_d9e7ad12": {
+      "stock_left": 4,
+      "in_stock": true,
+      "updated_at": "2026-11-03T17:59:44.461Z"
+    },
+    "prod_41968603": {
+      "stock_left": 0,
+      "in_stock": false,
+      "deleted": false,
+      "updated_at": "2026-11-07T13:01:18.530Z"
+    },
+    "prod_66755a4a": {
+      "stock_left": 7,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-02T17:00:05.430Z"
+    },
+    "prod_96a8da93": {
+      "stock_left": 7,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-02T17:00:31.770Z"
+    },
+    "prod_5790f788": {
+      "stock_left": 47,
+      "in_stock": true,
+      "updated_at": "2026-11-03T18:31:56.244Z"
+    },
+    "prod_07da9b3d": {
+      "stock_left": 4,
+      "in_stock": true,
+      "updated_at": "2026-11-03T18:22:47.671Z"
+    },
+    "prod_ef08a55c": {
+      "stock_left": 3,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-07T13:00:13.052Z"
+    },
+    "prod_947325e4": {
+      "stock_left": 34,
+      "in_stock": true,
+      "updated_at": "2026-11-08T17:42:36.221Z"
+    },
+    "prod_e4b66387": {
+      "stock_left": 5,
+      "in_stock": true,
+      "updated_at": "2026-11-03T17:59:44.461Z"
+    },
+    "prod_eef74719": {
+      "stock_left": 0,
+      "in_stock": false,
+      "deleted": false,
+      "updated_at": "2026-11-04T09:48:57.536Z"
+    },
+    "prod_fc2436f7": {
+      "stock_left": 5,
+      "in_stock": true,
+      "updated_at": "2026-11-08T18:02:53.678Z"
+    },
+    "prod_647506f3": {
+      "stock_left": 5,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-07T18:11:22.839Z"
+    },
+    "prod_db41fad9": {
+      "stock_left": 3,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-09T06:04:15.538Z"
+    },
+    "prod_a66b46a8": {
+      "stock_left": 6,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-03T14:44:42.553Z"
+    },
+    "prod_9c4d54be": {
+      "stock_left": 6,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-09T06:04:14.694Z"
+    },
+    "prod_a39158cc": {
+      "stock_left": 3,
+      "in_stock": true,
+      "updated_at": "2026-11-08T18:18:26.679Z"
     }
   },
   "GH-11": {
     "prod_78de005c": {
-      "stock_left": 1,
-      "in_stock": true,
-      "updated_at": "2026-11-02T16:45:09.047Z"
+      "stock_left": 0,
+      "in_stock": false,
+      "deleted": false,
+      "updated_at": "2026-11-03T04:34:12.413Z"
     },
     "prod_7c8bc35c": {
       "stock_left": 5,
@@ -516,9 +723,9 @@
       "updated_at": "2026-11-02T16:45:09.047Z"
     },
     "prod_a4ffe8c3": {
-      "stock_left": 5,
+      "stock_left": 3,
       "in_stock": true,
-      "updated_at": "2026-11-02T16:45:09.047Z"
+      "updated_at": "2026-11-08T17:50:15.400Z"
     },
     "prod_89c837bb": {
       "stock_left": 5,
@@ -526,14 +733,15 @@
       "updated_at": "2026-11-02T16:45:09.047Z"
     },
     "prod_451b63c9": {
-      "stock_left": 3,
+      "stock_left": 2,
       "in_stock": true,
-      "updated_at": "2026-11-02T16:45:09.047Z"
+      "deleted": false,
+      "updated_at": "2026-11-07T13:02:39.660Z"
     },
     "prod_58182926": {
-      "stock_left": 3,
+      "stock_left": 2,
       "in_stock": true,
-      "updated_at": "2026-11-02T16:45:09.047Z"
+      "updated_at": "2026-11-07T20:08:28.756Z"
     },
     "prod_3e933d45": {
       "stock_left": 4,
@@ -543,12 +751,713 @@
     "prod_a39e304b": {
       "stock_left": 3,
       "in_stock": true,
-      "updated_at": "2026-11-02T16:45:09.047Z"
+      "deleted": false,
+      "updated_at": "2026-11-06T06:33:45.857Z"
     },
     "prod_17b61956": {
       "stock_left": 5,
       "in_stock": true,
       "updated_at": "2026-11-02T16:45:09.047Z"
+    },
+    "prod_7f3d5059": {
+      "stock_left": 3,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-02T16:58:09.587Z"
+    },
+    "prod_e581ce64": {
+      "stock_left": 1,
+      "in_stock": true,
+      "updated_at": "2026-11-08T17:42:36.221Z"
+    },
+    "prod_d9e7ad12": {
+      "stock_left": 4,
+      "in_stock": true,
+      "updated_at": "2026-11-03T17:59:44.461Z"
+    },
+    "prod_41968603": {
+      "stock_left": 0,
+      "in_stock": false,
+      "deleted": false,
+      "updated_at": "2026-11-07T13:01:18.530Z"
+    },
+    "prod_66755a4a": {
+      "stock_left": 7,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-02T17:00:05.430Z"
+    },
+    "prod_96a8da93": {
+      "stock_left": 7,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-02T17:00:31.770Z"
+    },
+    "prod_5790f788": {
+      "stock_left": 47,
+      "in_stock": true,
+      "updated_at": "2026-11-03T18:31:56.244Z"
+    },
+    "prod_07da9b3d": {
+      "stock_left": 4,
+      "in_stock": true,
+      "updated_at": "2026-11-03T18:22:47.671Z"
+    },
+    "prod_ef08a55c": {
+      "stock_left": 3,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-07T13:00:13.052Z"
+    },
+    "prod_947325e4": {
+      "stock_left": 34,
+      "in_stock": true,
+      "updated_at": "2026-11-08T17:42:36.221Z"
+    },
+    "prod_e4b66387": {
+      "stock_left": 5,
+      "in_stock": true,
+      "updated_at": "2026-11-03T17:59:44.461Z"
+    },
+    "prod_eef74719": {
+      "stock_left": 0,
+      "in_stock": false,
+      "deleted": false,
+      "updated_at": "2026-11-04T09:48:57.536Z"
+    },
+    "prod_fc2436f7": {
+      "stock_left": 5,
+      "in_stock": true,
+      "updated_at": "2026-11-08T18:02:53.678Z"
+    },
+    "prod_647506f3": {
+      "stock_left": 5,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-07T18:11:22.839Z"
+    },
+    "prod_db41fad9": {
+      "stock_left": 3,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-09T06:04:15.538Z"
+    },
+    "prod_a66b46a8": {
+      "stock_left": 6,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-03T14:44:42.553Z"
+    },
+    "prod_9c4d54be": {
+      "stock_left": 6,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-09T06:04:14.694Z"
+    },
+    "prod_a39158cc": {
+      "stock_left": 3,
+      "in_stock": true,
+      "updated_at": "2026-11-08T18:18:26.679Z"
+    }
+  },
+  "GH-1": {
+    "prod_78de005c": {
+      "stock_left": 0,
+      "in_stock": false,
+      "deleted": false,
+      "updated_at": "2026-11-03T04:34:12.413Z"
+    },
+    "prod_7c8bc35c": {
+      "stock_left": 5,
+      "in_stock": true,
+      "updated_at": "2026-11-02T16:45:09.047Z"
+    },
+    "prod_a4ffe8c3": {
+      "stock_left": 3,
+      "in_stock": true,
+      "updated_at": "2026-11-08T17:50:15.400Z"
+    },
+    "prod_89c837bb": {
+      "stock_left": 5,
+      "in_stock": true,
+      "updated_at": "2026-11-02T16:45:09.047Z"
+    },
+    "prod_451b63c9": {
+      "stock_left": 2,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-07T13:02:39.660Z"
+    },
+    "prod_58182926": {
+      "stock_left": 2,
+      "in_stock": true,
+      "updated_at": "2026-11-07T20:08:28.756Z"
+    },
+    "prod_3e933d45": {
+      "stock_left": 4,
+      "in_stock": true,
+      "updated_at": "2026-11-02T16:45:09.047Z"
+    },
+    "prod_a39e304b": {
+      "stock_left": 3,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-06T06:33:45.857Z"
+    },
+    "prod_17b61956": {
+      "stock_left": 5,
+      "in_stock": true,
+      "updated_at": "2026-11-02T16:45:09.047Z"
+    },
+    "prod_7f3d5059": {
+      "stock_left": 3,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-02T16:58:09.587Z"
+    },
+    "prod_e581ce64": {
+      "stock_left": 1,
+      "in_stock": true,
+      "updated_at": "2026-11-08T17:42:36.221Z"
+    },
+    "prod_d9e7ad12": {
+      "stock_left": 4,
+      "in_stock": true,
+      "updated_at": "2026-11-03T17:59:44.461Z"
+    },
+    "prod_41968603": {
+      "stock_left": 0,
+      "in_stock": false,
+      "deleted": false,
+      "updated_at": "2026-11-07T13:01:18.530Z"
+    },
+    "prod_66755a4a": {
+      "stock_left": 7,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-02T17:00:05.430Z"
+    },
+    "prod_96a8da93": {
+      "stock_left": 7,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-02T17:00:31.770Z"
+    },
+    "prod_5790f788": {
+      "stock_left": 47,
+      "in_stock": true,
+      "updated_at": "2026-11-03T18:31:56.244Z"
+    },
+    "prod_07da9b3d": {
+      "stock_left": 4,
+      "in_stock": true,
+      "updated_at": "2026-11-03T18:22:47.671Z"
+    },
+    "prod_ef08a55c": {
+      "stock_left": 3,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-07T13:00:13.052Z"
+    },
+    "prod_947325e4": {
+      "stock_left": 34,
+      "in_stock": true,
+      "updated_at": "2026-11-08T17:42:36.221Z"
+    },
+    "prod_e4b66387": {
+      "stock_left": 5,
+      "in_stock": true,
+      "updated_at": "2026-11-03T17:59:44.461Z"
+    },
+    "prod_eef74719": {
+      "stock_left": 0,
+      "in_stock": false,
+      "deleted": false,
+      "updated_at": "2026-11-04T09:48:57.536Z"
+    },
+    "prod_fc2436f7": {
+      "stock_left": 5,
+      "in_stock": true,
+      "updated_at": "2026-11-08T18:02:53.678Z"
+    },
+    "prod_647506f3": {
+      "stock_left": 5,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-07T18:11:22.839Z"
+    },
+    "prod_db41fad9": {
+      "stock_left": 3,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-09T06:04:15.538Z"
+    },
+    "prod_a66b46a8": {
+      "stock_left": 6,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-03T14:44:42.553Z"
+    },
+    "prod_9c4d54be": {
+      "stock_left": 6,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-09T06:04:14.694Z"
+    },
+    "prod_a39158cc": {
+      "stock_left": 3,
+      "in_stock": true,
+      "updated_at": "2026-11-08T18:18:26.679Z"
+    }
+  },
+  "GH-2": {
+    "prod_78de005c": {
+      "stock_left": 0,
+      "in_stock": false,
+      "deleted": false,
+      "updated_at": "2026-11-03T04:34:12.413Z"
+    },
+    "prod_7c8bc35c": {
+      "stock_left": 5,
+      "in_stock": true,
+      "updated_at": "2026-11-02T16:45:09.047Z"
+    },
+    "prod_a4ffe8c3": {
+      "stock_left": 3,
+      "in_stock": true,
+      "updated_at": "2026-11-08T17:50:15.400Z"
+    },
+    "prod_89c837bb": {
+      "stock_left": 5,
+      "in_stock": true,
+      "updated_at": "2026-11-02T16:45:09.047Z"
+    },
+    "prod_451b63c9": {
+      "stock_left": 2,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-07T13:02:39.660Z"
+    },
+    "prod_58182926": {
+      "stock_left": 2,
+      "in_stock": true,
+      "updated_at": "2026-11-07T20:08:28.756Z"
+    },
+    "prod_3e933d45": {
+      "stock_left": 4,
+      "in_stock": true,
+      "updated_at": "2026-11-02T16:45:09.047Z"
+    },
+    "prod_a39e304b": {
+      "stock_left": 3,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-06T06:33:45.857Z"
+    },
+    "prod_17b61956": {
+      "stock_left": 5,
+      "in_stock": true,
+      "updated_at": "2026-11-02T16:45:09.047Z"
+    },
+    "prod_7f3d5059": {
+      "stock_left": 3,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-02T16:58:09.587Z"
+    },
+    "prod_e581ce64": {
+      "stock_left": 1,
+      "in_stock": true,
+      "updated_at": "2026-11-08T17:42:36.221Z"
+    },
+    "prod_d9e7ad12": {
+      "stock_left": 4,
+      "in_stock": true,
+      "updated_at": "2026-11-03T17:59:44.461Z"
+    },
+    "prod_41968603": {
+      "stock_left": 0,
+      "in_stock": false,
+      "deleted": false,
+      "updated_at": "2026-11-07T13:01:18.530Z"
+    },
+    "prod_66755a4a": {
+      "stock_left": 7,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-02T17:00:05.430Z"
+    },
+    "prod_96a8da93": {
+      "stock_left": 7,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-02T17:00:31.770Z"
+    },
+    "prod_5790f788": {
+      "stock_left": 47,
+      "in_stock": true,
+      "updated_at": "2026-11-03T18:31:56.244Z"
+    },
+    "prod_07da9b3d": {
+      "stock_left": 4,
+      "in_stock": true,
+      "updated_at": "2026-11-03T18:22:47.671Z"
+    },
+    "prod_ef08a55c": {
+      "stock_left": 3,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-07T13:00:13.052Z"
+    },
+    "prod_947325e4": {
+      "stock_left": 34,
+      "in_stock": true,
+      "updated_at": "2026-11-08T17:42:36.221Z"
+    },
+    "prod_e4b66387": {
+      "stock_left": 5,
+      "in_stock": true,
+      "updated_at": "2026-11-03T17:59:44.461Z"
+    },
+    "prod_eef74719": {
+      "stock_left": 0,
+      "in_stock": false,
+      "deleted": false,
+      "updated_at": "2026-11-04T09:48:57.536Z"
+    },
+    "prod_fc2436f7": {
+      "stock_left": 5,
+      "in_stock": true,
+      "updated_at": "2026-11-08T18:02:53.678Z"
+    },
+    "prod_647506f3": {
+      "stock_left": 5,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-07T18:11:22.839Z"
+    },
+    "prod_db41fad9": {
+      "stock_left": 3,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-09T06:04:15.538Z"
+    },
+    "prod_a66b46a8": {
+      "stock_left": 6,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-03T14:44:42.553Z"
+    },
+    "prod_9c4d54be": {
+      "stock_left": 6,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-09T06:04:14.694Z"
+    },
+    "prod_a39158cc": {
+      "stock_left": 3,
+      "in_stock": true,
+      "updated_at": "2026-11-08T18:18:26.679Z"
+    }
+  },
+  "GH-3": {
+    "prod_78de005c": {
+      "stock_left": 0,
+      "in_stock": false,
+      "deleted": false,
+      "updated_at": "2026-11-03T04:34:12.413Z"
+    },
+    "prod_7c8bc35c": {
+      "stock_left": 5,
+      "in_stock": true,
+      "updated_at": "2026-11-02T16:45:09.047Z"
+    },
+    "prod_a4ffe8c3": {
+      "stock_left": 3,
+      "in_stock": true,
+      "updated_at": "2026-11-08T17:50:15.400Z"
+    },
+    "prod_89c837bb": {
+      "stock_left": 5,
+      "in_stock": true,
+      "updated_at": "2026-11-02T16:45:09.047Z"
+    },
+    "prod_451b63c9": {
+      "stock_left": 2,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-07T13:02:39.660Z"
+    },
+    "prod_58182926": {
+      "stock_left": 2,
+      "in_stock": true,
+      "updated_at": "2026-11-07T20:08:28.756Z"
+    },
+    "prod_3e933d45": {
+      "stock_left": 4,
+      "in_stock": true,
+      "updated_at": "2026-11-02T16:45:09.047Z"
+    },
+    "prod_a39e304b": {
+      "stock_left": 3,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-06T06:33:45.857Z"
+    },
+    "prod_17b61956": {
+      "stock_left": 5,
+      "in_stock": true,
+      "updated_at": "2026-11-02T16:45:09.047Z"
+    },
+    "prod_7f3d5059": {
+      "stock_left": 3,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-02T16:58:09.587Z"
+    },
+    "prod_e581ce64": {
+      "stock_left": 1,
+      "in_stock": true,
+      "updated_at": "2026-11-08T17:42:36.221Z"
+    },
+    "prod_d9e7ad12": {
+      "stock_left": 4,
+      "in_stock": true,
+      "updated_at": "2026-11-03T17:59:44.461Z"
+    },
+    "prod_41968603": {
+      "stock_left": 0,
+      "in_stock": false,
+      "deleted": false,
+      "updated_at": "2026-11-07T13:01:18.530Z"
+    },
+    "prod_66755a4a": {
+      "stock_left": 7,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-02T17:00:05.430Z"
+    },
+    "prod_96a8da93": {
+      "stock_left": 7,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-02T17:00:31.770Z"
+    },
+    "prod_5790f788": {
+      "stock_left": 47,
+      "in_stock": true,
+      "updated_at": "2026-11-03T18:31:56.244Z"
+    },
+    "prod_07da9b3d": {
+      "stock_left": 4,
+      "in_stock": true,
+      "updated_at": "2026-11-03T18:22:47.671Z"
+    },
+    "prod_ef08a55c": {
+      "stock_left": 3,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-07T13:00:13.052Z"
+    },
+    "prod_947325e4": {
+      "stock_left": 34,
+      "in_stock": true,
+      "updated_at": "2026-11-08T17:42:36.221Z"
+    },
+    "prod_e4b66387": {
+      "stock_left": 5,
+      "in_stock": true,
+      "updated_at": "2026-11-03T17:59:44.461Z"
+    },
+    "prod_eef74719": {
+      "stock_left": 0,
+      "in_stock": false,
+      "deleted": false,
+      "updated_at": "2026-11-04T09:48:57.536Z"
+    },
+    "prod_fc2436f7": {
+      "stock_left": 5,
+      "in_stock": true,
+      "updated_at": "2026-11-08T18:02:53.678Z"
+    },
+    "prod_647506f3": {
+      "stock_left": 5,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-07T18:11:22.839Z"
+    },
+    "prod_db41fad9": {
+      "stock_left": 3,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-09T06:04:15.538Z"
+    },
+    "prod_a66b46a8": {
+      "stock_left": 6,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-03T14:44:42.553Z"
+    },
+    "prod_9c4d54be": {
+      "stock_left": 6,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-09T06:04:14.694Z"
+    },
+    "prod_a39158cc": {
+      "stock_left": 3,
+      "in_stock": true,
+      "updated_at": "2026-11-08T18:18:26.679Z"
+    }
+  },
+  "GH-4": {
+    "prod_78de005c": {
+      "stock_left": 0,
+      "in_stock": false,
+      "deleted": false,
+      "updated_at": "2026-11-03T04:34:12.413Z"
+    },
+    "prod_7c8bc35c": {
+      "stock_left": 5,
+      "in_stock": true,
+      "updated_at": "2026-11-02T16:45:09.047Z"
+    },
+    "prod_a4ffe8c3": {
+      "stock_left": 3,
+      "in_stock": true,
+      "updated_at": "2026-11-08T17:50:15.400Z"
+    },
+    "prod_89c837bb": {
+      "stock_left": 5,
+      "in_stock": true,
+      "updated_at": "2026-11-02T16:45:09.047Z"
+    },
+    "prod_451b63c9": {
+      "stock_left": 2,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-07T13:02:39.660Z"
+    },
+    "prod_58182926": {
+      "stock_left": 2,
+      "in_stock": true,
+      "updated_at": "2026-11-07T20:08:28.756Z"
+    },
+    "prod_3e933d45": {
+      "stock_left": 4,
+      "in_stock": true,
+      "updated_at": "2026-11-02T16:45:09.047Z"
+    },
+    "prod_a39e304b": {
+      "stock_left": 3,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-06T06:33:45.857Z"
+    },
+    "prod_17b61956": {
+      "stock_left": 5,
+      "in_stock": true,
+      "updated_at": "2026-11-02T16:45:09.047Z"
+    },
+    "prod_7f3d5059": {
+      "stock_left": 3,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-02T16:58:09.587Z"
+    },
+    "prod_e581ce64": {
+      "stock_left": 1,
+      "in_stock": true,
+      "updated_at": "2026-11-08T17:42:36.221Z"
+    },
+    "prod_d9e7ad12": {
+      "stock_left": 4,
+      "in_stock": true,
+      "updated_at": "2026-11-03T17:59:44.461Z"
+    },
+    "prod_41968603": {
+      "stock_left": 0,
+      "in_stock": false,
+      "deleted": false,
+      "updated_at": "2026-11-07T13:01:18.530Z"
+    },
+    "prod_66755a4a": {
+      "stock_left": 7,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-02T17:00:05.430Z"
+    },
+    "prod_96a8da93": {
+      "stock_left": 7,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-02T17:00:31.770Z"
+    },
+    "prod_5790f788": {
+      "stock_left": 47,
+      "in_stock": true,
+      "updated_at": "2026-11-03T18:31:56.244Z"
+    },
+    "prod_07da9b3d": {
+      "stock_left": 4,
+      "in_stock": true,
+      "updated_at": "2026-11-03T18:22:47.671Z"
+    },
+    "prod_ef08a55c": {
+      "stock_left": 3,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-07T13:00:13.052Z"
+    },
+    "prod_947325e4": {
+      "stock_left": 34,
+      "in_stock": true,
+      "updated_at": "2026-11-08T17:42:36.221Z"
+    },
+    "prod_e4b66387": {
+      "stock_left": 5,
+      "in_stock": true,
+      "updated_at": "2026-11-03T17:59:44.461Z"
+    },
+    "prod_eef74719": {
+      "stock_left": 0,
+      "in_stock": false,
+      "deleted": false,
+      "updated_at": "2026-11-04T09:48:57.536Z"
+    },
+    "prod_fc2436f7": {
+      "stock_left": 5,
+      "in_stock": true,
+      "updated_at": "2026-11-08T18:02:53.678Z"
+    },
+    "prod_647506f3": {
+      "stock_left": 5,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-07T18:11:22.839Z"
+    },
+    "prod_db41fad9": {
+      "stock_left": 3,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-09T06:04:15.538Z"
+    },
+    "prod_a66b46a8": {
+      "stock_left": 6,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-03T14:44:42.553Z"
+    },
+    "prod_9c4d54be": {
+      "stock_left": 6,
+      "in_stock": true,
+      "deleted": false,
+      "updated_at": "2026-11-09T06:04:14.694Z"
+    },
+    "prod_a39158cc": {
+      "stock_left": 3,
+      "in_stock": true,
+      "updated_at": "2026-11-08T18:18:26.679Z"
     }
   }
 }

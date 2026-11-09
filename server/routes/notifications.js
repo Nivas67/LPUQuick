@@ -15,7 +15,7 @@ router.get('/vapid-public-key', (req, res) => {
 
 // POST /api/notifications/subscribe
 router.post('/subscribe', (req, res) => {
-    const { subscription, adminId, adminName, roles } = req.body;
+    const { subscription, adminId, adminName, roles, assigned_hostels, hostelId, is_owner } = req.body;
     if (!subscription || !subscription.endpoint) {
         return res.status(400).json({ success: false, error: 'Valid push subscription object required' });
     }
@@ -24,7 +24,10 @@ router.post('/subscribe', (req, res) => {
         const ok = pushService.saveSubscription(subscription, {
             adminId,
             adminName,
-            roles: Array.isArray(roles) ? roles : ['delivery_person']
+            roles: Array.isArray(roles) ? roles : ['delivery_person'],
+            assigned_hostels: Array.isArray(assigned_hostels) ? assigned_hostels : (hostelId ? [hostelId] : []),
+            hostelId: hostelId || (Array.isArray(assigned_hostels) && assigned_hostels[0]) || null,
+            is_owner: Boolean(is_owner)
         });
         res.json({ success: ok, message: 'Push subscription registered successfully' });
     } catch (err) {

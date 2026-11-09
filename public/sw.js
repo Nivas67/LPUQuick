@@ -184,7 +184,7 @@ self.addEventListener('push', (event) => {
         icon: '/icon-192.png',
         badge: '/favicon.png',
         tag: 'lpuquick-alert-' + Date.now(),
-        data: { url: '/admin#orders' }
+        data: { url: '/ad-new/#orders' }
     };
 
     if (event.data) {
@@ -202,8 +202,9 @@ self.addEventListener('push', (event) => {
         image: payload.image || undefined,
         tag: payload.tag || 'lpuquick-notification',
         renotify: payload.renotify !== undefined ? payload.renotify : true,
-        data: payload.data || { url: '/#/orders' },
-        vibrate: [200, 100, 200, 100, 200],
+        requireInteraction: payload.requireInteraction !== undefined ? payload.requireInteraction : true,
+        data: payload.data || { url: '/ad-new/#orders' },
+        vibrate: payload.vibrate || [300, 100, 300, 100, 400],
         actions: payload.actions || [
             { action: 'open', title: 'Open Hub' }
         ]
@@ -217,7 +218,7 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
     const notificationData = event.notification.data || {};
-    const targetUrl = notificationData.url || '/#/orders';
+    const targetUrl = notificationData.url || '/ad-new/#orders';
 
     // Track click for broadcast campaigns
     if (notificationData.campaignId) {
@@ -233,7 +234,7 @@ self.addEventListener('notificationclick', (event) => {
             // If customer app or admin window already open, focus it and navigate
             for (const client of windowClients) {
                 if ('focus' in client) {
-                    if (notificationData.orderId && client.url.includes('/admin')) {
+                    if (notificationData.orderId && (client.url.includes('/admin') || client.url.includes('/ad-new'))) {
                         client.postMessage({
                             type: 'NAVIGATE_ORDER',
                             orderId: notificationData.orderId,

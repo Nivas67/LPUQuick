@@ -83,12 +83,18 @@ class PushNotificationService {
         if (!subscription || !subscription.endpoint) return false;
 
         const existingIndex = subscriptions.findIndex(s => s.endpoint === subscription.endpoint);
+        const assignedHostels = Array.isArray(adminInfo.assigned_hostels) && adminInfo.assigned_hostels.length > 0
+            ? adminInfo.assigned_hostels
+            : (adminInfo.hostelId ? [adminInfo.hostelId] : []);
+
         const entry = {
             endpoint: subscription.endpoint,
             keys: subscription.keys || {},
             adminId: adminInfo.adminId || null,
             adminName: adminInfo.adminName || 'Admin',
             hostelId: adminInfo.hostelId ? String(adminInfo.hostelId).toUpperCase().trim() : null,
+            assigned_hostels: assignedHostels,
+            is_owner: Boolean(adminInfo.is_owner),
             roles: Array.isArray(adminInfo.roles) ? adminInfo.roles : ['delivery_person'],
             userType: adminInfo.userType || 'admin',
             updatedAt: new Date().toISOString()
@@ -250,26 +256,70 @@ class PushNotificationService {
     // High-level operational triggers:
 
     async notifyNewOrder(order) {
+        if (!order || !order.id) return { delivered: 0, total: 0 };
         const orderShortId = (order.id || '').replace('order_', '').slice(0, 8).toUpperCase();
+        const rawHostel = order.hostel_id || (order.delivery_address && (order.delivery_address.match(/\[(BH|GH)[-\s]?(\d+)\]/i) || order.delivery_address.match(/(BH|GH)[-\s]?(\d+)/i))?.[0]) || 'BH-13';
+        const normHostel = String(rawHostel).toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const displayHostel = rawHostel.toUpperCase().trim();
+
+        const roomStr = order.room ? `Room ${order.room}` : ((order.delivery_address && order.delivery_address.match(/Room\s*([A-Za-z0-9\-]+)/i)?.[0]) || '');
+        const custStr = order.customer_name || 'Customer';
+        let itemsStr = '';
+        if (Array.isArray(order.items) && order.items.length > 0) {
+            itemsStr = order.items.map(i => `${i.name || i.product_name || 'Item'} × ${i.quantity || 1}`).join(', ');
+        } else if (order.item_summary) {
+            itemsStr = order.item_summary;
+        }
+
         const payload = {
-            title: `🛵 New Order #${orderShortId} Placed!`,
-            body: `₹${order.total || 0} • ${order.delivery_address || 'Campus Hostels'} • Tap to accept delivery!`,
+            title: `🛍️ New Order #${orderShortId} • ${displayHostel}`,
+            body: `₹${order.total || 0} • ${custStr}${roomStr ? ' • ' + roomStr : ''}${itemsStr ? '\n' + itemsStr : ''}`,
             icon: '/icon-192.png',
             badge: '/favicon.png',
             tag: `order-new-${order.id}`,
+            requireInteraction: true,
+            renotify: true,
+            vibrate: [300, 100, 300, 100, 400],
             data: {
-                url: '/admin#orders',
+                url: `/ad-new/#orders?orderId=${encodeURIComponent(order.id)}`,
                 orderId: order.id,
+                hostel: displayHostel,
                 action: 'new_order'
             },
             actions: [
-                { action: 'claim', title: '⚡ Accept Delivery' },
-                { action: 'view', title: 'View Order' }
+                { action: 'view', title: '👀 View Order' }
             ]
         };
 
-        // Send to all delivery runners, store managers, and owner
-        return this.sendToRoles(['delivery_person', 'store_manager', 'owner'], payload);
+        // Filter push recipients: strictly respect dark store hostel assignments for all admin roles
+        const targetRoles = ['delivery_person', 'store_manager', 'owner', 'admin', 'inventory_manager', 'food_department', 'cook'];
+        const targets = subscriptions.filter(s => {
+            if (s.userType !== 'admin') return false;
+            if (!s.roles || !Array.isArray(s.roles)) return false;
+            const hasRole = targetRoles.some(r => s.roles.includes(r) || s.roles.includes('owner'));
+            if (!hasRole) return false;
+
+            // Platform Owner / Super Admin receives push for ALL hostels
+            if (s.is_owner || s.roles.includes('owner')) return true;
+
+            // Store Managers / Delivery Partners only receive push for their assigned hostels
+            const myHostels = Array.isArray(s.assigned_hostels) && s.assigned_hostels.length > 0
+                ? s.assigned_hostels
+                : (s.hostelId ? [s.hostelId] : []);
+            if (myHostels.length === 0) return false;
+
+            const myHostelsNorm = myHostels.map(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, ''));
+            return myHostelsNorm.includes(normHostel) || myHostelsNorm.includes('ALL');
+        });
+
+        if (targets.length === 0) return { delivered: 0, total: 0 };
+
+        let delivered = 0;
+        await Promise.all(targets.map(async sub => {
+            const ok = await this.sendPush(sub, payload);
+            if (ok) delivered++;
+        }));
+        return { delivered, total: targets.length };
     }
 
     async notifyOrderClaimed(orderId, adminName, excludeAdminId = null) {

@@ -2550,7 +2550,7 @@ async function enablePushNotifications() {
         }
         pushSubscription = sub;
 
-        // 3. Register with server
+        // 3. Register with server (with hostel permissions for targeted push)
         await fetch('/api/notifications/subscribe', {
             method: 'POST',
             headers: getAuthHeaders(),
@@ -2558,6 +2558,9 @@ async function enablePushNotifications() {
                 subscription: sub.toJSON(),
                 adminId: currentAdminProfile?.id || null,
                 adminName: currentAdminProfile?.name || 'Admin',
+                assigned_hostels: currentAdminProfile?.assigned_hostels || (currentAdminProfile?.assigned_hostel_id ? [currentAdminProfile.assigned_hostel_id] : []),
+                hostelId: currentAdminProfile?.assigned_hostel_id || null,
+                is_owner: isPlatformOwner(currentAdminProfile),
                 roles: currentAdminProfile?.roles || ['delivery_person']
             })
         });
@@ -6755,12 +6758,51 @@ document.addEventListener('click', (e) => {
     }
 });
 
+async function syncAdminNotificationsFromServer() {
+    const token = getAdminAuthToken();
+    if (!token) return;
+    try {
+        const res = await fetchWithTimeout('/api/admin/notifications', {
+            headers: getAuthHeaders()
+        }, 6000);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.success && Array.isArray(data.notifications)) {
+                // Merge with existing local store
+                const existing = getStoredAdminNotifications();
+                const existingMap = new Map(existing.map(n => [n.order_id, n]));
+                data.notifications.forEach(n => {
+                    if (!existingMap.has(n.order_id)) {
+                        existingMap.set(n.order_id, n);
+                    } else {
+                        // Keep read status synced
+                        const item = existingMap.get(n.order_id);
+                        if (n.read) item.read = true;
+                    }
+                });
+                const merged = Array.from(existingMap.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                saveStoredAdminNotifications(merged);
+                updateAdminNotificationsUI();
+            }
+        }
+    } catch (e) {
+        console.warn('[Sync Admin Notifications Note]:', e.message);
+    }
+}
+window.syncAdminNotificationsFromServer = syncAdminNotificationsFromServer;
+
 function markAllAdminNotificationsRead() {
     const notifs = getStoredAdminNotifications();
     const updated = notifs.map(n => ({ ...n, read: true }));
     saveStoredAdminNotifications(updated);
     updateAdminNotificationsUI();
     showToast('All notifications marked as read', 'info');
+
+    fetch('/api/admin/notifications/mark-read', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ all: true })
+    }).catch(() => {});
 }
 window.markAllAdminNotificationsRead = markAllAdminNotificationsRead;
 
@@ -6773,10 +6815,36 @@ function openNotificationOrder(orderId) {
     const panel = document.getElementById('admin-notifs-panel');
     if (panel) panel.classList.add('hidden');
 
+    fetch('/api/admin/notifications/mark-read', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ order_id: orderId })
+    }).catch(() => {});
+
     switchView('orders');
     openOrderDrawer(orderId);
 }
 window.openNotificationOrder = openNotificationOrder;
+
+function checkAutoOpenOrderFromUrl() {
+    try {
+        let orderId = null;
+        if (window.location.search) {
+            orderId = new URLSearchParams(window.location.search).get('orderId');
+        }
+        if (!orderId && window.location.hash.includes('orderId=')) {
+            const queryPart = window.location.hash.split('?')[1];
+            if (queryPart) {
+                orderId = new URLSearchParams(queryPart).get('orderId');
+            }
+        }
+        if (orderId) {
+            switchView('orders');
+            setTimeout(() => openOrderDrawer(orderId), 500);
+        }
+    } catch (e) {}
+}
+window.checkAutoOpenOrderFromUrl = checkAutoOpenOrderFromUrl;
 
 // ================= 10. AUTHENTICATION (STITCH SIGN IN) =================
 function showLoginModal() {
@@ -6861,6 +6929,8 @@ async function handleAdminLogin(e) {
             const initialView = applyAdminRolePermissions(data.admin);
             switchView(initialView);
             initRealtimeWebSocket();
+            syncAdminNotificationsFromServer().catch(() => {});
+            checkAutoOpenOrderFromUrl();
         } else {
             if (errorText) errorText.textContent = data.error || 'Invalid admin credentials';
             if (errorBox) errorBox.classList.remove('hidden');
@@ -8654,7 +8724,16 @@ setInterval(() => {
     else if (activeView === 'orders') syncOrdersLive();
     else if (activeView === 'inventory') loadInventory();
     else if (activeView === 'products') loadProducts();
+    syncAdminNotificationsFromServer().catch(() => {});
 }, 10000);
+
+if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && adminToken) {
+            syncAdminNotificationsFromServer().catch(() => {});
+        }
+    });
+}
 
 // ==========================================
 // FINANCIAL INTELLIGENCE & PIN SECURITY CONTROLLER
