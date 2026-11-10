@@ -20,11 +20,40 @@ try {
 // Security Middleware & Response Headers
 app.disable('x-powered-by');
 
+// 1. Production HTTPS-Everywhere Enforcer (Req 6)
+if (process.env.NODE_ENV === 'production') {
+    app.use((req, res, next) => {
+        const proto = req.headers['x-forwarded-proto'];
+        if (proto && proto.toLowerCase() !== 'https') {
+            return res.redirect(301, `https://${req.headers.host}${req.url}`);
+        }
+        next();
+    });
+}
+
+// 2. Cookie Parsing Middleware (Req 10)
 app.use((req, res, next) => {
-    // High-Security Headers
+    req.cookies = {};
+    const cookieHeader = req.headers.cookie;
+    if (cookieHeader) {
+        cookieHeader.split(';').forEach(c => {
+            const parts = c.split('=');
+            if (parts.length >= 2) {
+                req.cookies[parts[0].trim()] = decodeURIComponent(parts.slice(1).join('=').trim());
+            }
+        });
+    }
+    next();
+});
+
+app.use((req, res, next) => {
+    // High-Security Headers (Req 16)
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('X-DNS-Prefetch-Control', 'off');
+    res.setHeader('X-Download-Options', 'noopen');
+    res.setHeader('Origin-Agent-Cluster', '?1');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
     res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
@@ -72,7 +101,7 @@ app.use(compression({
     }
 }));
 
-// Strict CORS: Allow recognized origins, mobile webviews, server-to-server, and local development
+// Strict CORS: Allow recognized origins, mobile webviews, server-to-server, and local development (Req 13)
 const allowedOrigins = [
     process.env.APP_URL,
     process.env.PUBLIC_APP_URL,
@@ -80,13 +109,17 @@ const allowedOrigins = [
     'http://127.0.0.1:3000',
     'http://localhost:5173',
     'https://lpuquick.com',
-    'https://www.lpuquick.com'
+    'https://www.lpuquick.com',
+    'https://lpuquick.vercel.app'
 ].filter(Boolean);
 
 app.use(cors({
     origin: (origin, callback) => {
         if (!origin) return callback(null, true);
-        if (allowedOrigins.some(o => origin === o || origin.endsWith('.lpuquick.com') || origin.endsWith('.vercel.app'))) {
+        if (allowedOrigins.some(o => origin === o || origin.endsWith('.lpuquick.com'))) {
+            return callback(null, true);
+        }
+        if (/^https:\/\/lpuquick(-[a-zA-Z0-9-]+)?\.vercel\.app$/.test(origin)) {
             return callback(null, true);
         }
         if (/^https?:\/\/(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/.test(origin)) {
@@ -98,6 +131,58 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-token', 'x-admin-key', 'x-user-id', 'x-user-phone', 'x-hostel-id', 'x-gateway-signature', 'x-gateway-event', 'x-financial-token']
 }));
+
+// CSRF Protection Middleware for state-changing requests (Req 11)
+app.use((req, res, next) => {
+    const isMutation = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method);
+    if (!isMutation) return next();
+
+    // Webhooks with signature verification or payment callbacks are exempt
+    if (req.path.includes('/webhook') || req.headers['x-gateway-signature']) {
+        return next();
+    }
+
+    const origin = req.headers.origin;
+    const referer = req.headers.referer;
+
+    if (origin) {
+        let originHost = '';
+        try {
+            originHost = new URL(origin).host;
+        } catch (e) {
+            return res.status(403).json({ error: 'Invalid origin header', code: 'FORBIDDEN_CSRF' });
+        }
+
+        const isAllowedOrigin = allowedOrigins.some(o => {
+            try { return new URL(o).host === originHost; } catch { return false; }
+        }) || originHost.endsWith('.lpuquick.com') || /^lpuquick(-[a-zA-Z0-9-]+)?\.vercel\.app$/.test(originHost) ||
+        /^(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/.test(originHost);
+
+        if (!isAllowedOrigin && originHost !== req.headers.host) {
+            console.warn(`[SECURITY AUDIT] CSRF_BLOCKED: Origin ${origin} does not match host ${req.headers.host} on ${req.method} ${req.path}`);
+            return res.status(403).json({ error: 'Cross-site request blocked.', code: 'FORBIDDEN_CSRF' });
+        }
+    } else if (referer) {
+        let refererHost = '';
+        try {
+            refererHost = new URL(referer).host;
+        } catch (e) {
+            return res.status(403).json({ error: 'Invalid referer header', code: 'FORBIDDEN_CSRF' });
+        }
+
+        const isAllowedReferer = allowedOrigins.some(o => {
+            try { return new URL(o).host === refererHost; } catch { return false; }
+        }) || refererHost.endsWith('.lpuquick.com') || /^lpuquick(-[a-zA-Z0-9-]+)?\.vercel\.app$/.test(refererHost) ||
+        /^(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/.test(refererHost);
+
+        if (!isAllowedReferer && refererHost !== req.headers.host) {
+            console.warn(`[SECURITY AUDIT] CSRF_BLOCKED: Referer ${referer} does not match host ${req.headers.host} on ${req.method} ${req.path}`);
+            return res.status(403).json({ error: 'Cross-site request blocked.', code: 'FORBIDDEN_CSRF' });
+        }
+    }
+
+    next();
+});
 
 app.use(express.json({
     limit: '10mb',

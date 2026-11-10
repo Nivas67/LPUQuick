@@ -5,6 +5,7 @@ const requireAdmin = require('../middleware/adminAuth');
 const { getSupabaseClient } = require('../supabase');
 const financialEngine = require('../utils/financialEngine');
 const supabaseDb = require('../db/supabaseDb');
+const { verifyPassword } = require('../services/securityService');
 
 const FALLBACK_FINANCIAL_SECRET = Buffer.from('bHB1cXVpY2tfZmluYW5jaWFsX3Bpbl9zZWN1cmVfc2VjcmV0XzIwMjY=', 'base64').toString('utf8');
 const FINANCIAL_SECRET = process.env.JWT_SECRET || process.env.ADMIN_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || FALLBACK_FINANCIAL_SECRET;
@@ -203,8 +204,11 @@ router.post('/setup-pin', requireAdmin, requireOwner, async (req, res) => {
             }
             if (!isCurrentValid && admin_password) {
                 const ownerUser = await supabaseDb.users.getByIdentifier(req.admin?.email || 'admin@lpu.in');
-                if (ownerUser && (ownerUser.password_hash === admin_password || ownerUser.password_hash === `hash_${admin_password}` || (process.env.ADMIN_PASSWORD && admin_password === process.env.ADMIN_PASSWORD))) {
-                    isCurrentValid = true;
+                if (ownerUser) {
+                    const passCheck = verifyPassword(admin_password, ownerUser.password_hash);
+                    if (passCheck.isValid || (process.env.ADMIN_PASSWORD && admin_password === process.env.ADMIN_PASSWORD)) {
+                        isCurrentValid = true;
+                    }
                 }
             }
             if (!isCurrentValid) {

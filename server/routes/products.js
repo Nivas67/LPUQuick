@@ -39,27 +39,24 @@ function isAdminToken(tokenString) {
 }
 
 const { getSupabaseClient } = require('../supabase');
+const { validateBase64Image, sanitizeFileName } = require('../services/securityService');
 
 /**
  * Uploads a base64 image data URL directly to Supabase Object Storage ('products' bucket)
- * and returns the permanent public CDN URL.
+ * and returns the permanent public CDN URL. Validates magic bytes, mime type, and 5MB max size.
  */
 async function uploadBase64ToSupabaseStorage(base64Data, preferredName = null) {
     if (!base64Data || typeof base64Data !== 'string') return base64Data;
     if (!base64Data.startsWith('data:image/')) return base64Data;
 
-    const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-    if (!matches || matches.length !== 3) return base64Data;
+    const validation = validateBase64Image(base64Data);
+    if (!validation.valid) {
+        throw new Error(validation.error);
+    }
 
-    const mimeType = matches[1];
-    const buffer = Buffer.from(matches[2], 'base64');
-    let ext = 'jpg';
-    if (mimeType.includes('png')) ext = 'png';
-    else if (mimeType.includes('webp')) ext = 'webp';
-    else if (mimeType.includes('gif')) ext = 'gif';
-    else if (mimeType.includes('svg')) ext = 'svg';
-
-    const cleanFileName = preferredName ? `${preferredName}_${Date.now()}.${ext}` : `prod_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
+    const { buffer, mimeType, ext } = validation;
+    const cleanPrefix = sanitizeFileName(preferredName);
+    const cleanFileName = cleanPrefix ? `${cleanPrefix}_${Date.now()}.${ext}` : `prod_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
 
     // 1. Mirror directly to local uploads directory for immediate zero-latency serving
     try {
@@ -107,7 +104,11 @@ router.post('/admin/upload-image', requireAdmin, async (req, res) => {
         }
 
         if (image_data.startsWith('data:image/')) {
-            const prefix = filename ? filename.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_') : null;
+            const validation = validateBase64Image(image_data);
+            if (!validation.valid) {
+                return res.status(400).json({ success: false, error: validation.error });
+            }
+            const prefix = sanitizeFileName(filename ? filename.replace(/\.[^/.]+$/, '') : null);
             const publicUrl = await uploadBase64ToSupabaseStorage(image_data, prefix);
             console.log(`[Product Photo Upload] ✅ Saved photo to Supabase Storage: ${publicUrl}`);
             return res.json({ success: true, image_url: publicUrl });

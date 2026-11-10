@@ -4507,11 +4507,12 @@ const supabaseDb = {
                 }
 
                 // Seamlessly promote student to admin or update existing staff permissions
+                const { hashPassword } = require('../services/securityService');
                 const updatePayload = {
                     name: name.trim(),
                     email: cleanEmail,
                     phone: cleanPhone,
-                    password_hash: `hash_${password}`,
+                    password_hash: hashPassword(password),
                     role: 'admin',
                     dob: dobMeta,
                     account_status: 'ACTIVE'
@@ -4546,13 +4547,14 @@ const supabaseDb = {
             }
 
             // 2. Fresh new administrator record
+            const { hashPassword } = require('../services/securityService');
             const staffId = `admin_${uuidv4().replace(/-/g, '').slice(0, 10)}`;
             const record = {
                 id: staffId,
                 name: name.trim(),
                 email: cleanEmail,
                 phone: cleanPhone,
-                password_hash: `hash_${password}`,
+                password_hash: hashPassword(password),
                 role: 'admin',
                 dob: dobMeta,
                 account_status: 'ACTIVE'
@@ -4606,7 +4608,10 @@ const supabaseDb = {
 
             if (updates.name) payload.name = updates.name.trim();
             if (updates.phone !== undefined) payload.phone = updates.phone ? updates.phone.trim() : null;
-            if (updates.password) payload.password_hash = `hash_${updates.password}`;
+            if (updates.password) {
+                const { hashPassword } = require('../services/securityService');
+                payload.password_hash = hashPassword(updates.password);
+            }
             if (updates.account_status && !isOwner) payload.account_status = updates.account_status;
 
             let finalHostel = null;

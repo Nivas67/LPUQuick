@@ -3,6 +3,7 @@ const router = express.Router();
 const { requireAdmin, requireRole } = require('../middleware/adminAuth');
 const broadcastService = require('../services/broadcastNotificationService');
 const pushService = require('../notifications/pushService');
+const { validateBase64Image, sanitizeFileName } = require('../services/securityService');
 
 // All endpoints in this router STRICTLY REQUIRE SUPER ADMIN (OWNER) ROLE
 router.use(requireAdmin);
@@ -186,7 +187,7 @@ router.delete('/:id', (req, res) => {
 });
 
 // POST /api/admin/broadcast-notifications/upload-banner
-// Upload banner image directly from Super Admin device
+// Upload banner image directly from Super Admin device with strict file-type & magic-byte validation
 router.post('/upload-banner', async (req, res) => {
     try {
         const { image_data, fileName } = req.body;
@@ -194,21 +195,17 @@ router.post('/upload-banner', async (req, res) => {
             return res.status(400).json({ success: false, error: 'No image data provided.' });
         }
 
-        const matches = image_data.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
-        let buffer;
-        let ext = 'jpg';
-
-        if (matches && matches.length === 3) {
-            const mime = matches[1];
-            if (mime.includes('png')) ext = 'png';
-            else if (mime.includes('gif')) ext = 'gif';
-            else if (mime.includes('webp')) ext = 'webp';
-            buffer = Buffer.from(matches[2], 'base64');
-        } else {
-            buffer = Buffer.from(image_data, 'base64');
+        const validation = validateBase64Image(image_data);
+        if (!validation.valid) {
+            return res.status(400).json({ success: false, error: validation.error });
         }
 
-        const safeFileName = `broadcast_banner_${Date.now()}_${Math.random().toString(36).substring(2, 6)}.${ext}`;
+        const { buffer, ext, mimeType } = validation;
+        const cleanPrefix = sanitizeFileName(fileName ? fileName.replace(/\.[^/.]+$/, '') : null);
+        const safeFileName = cleanPrefix
+            ? `broadcast_${cleanPrefix}_${Date.now()}.${ext}`
+            : `broadcast_banner_${Date.now()}_${Math.random().toString(36).substring(2, 6)}.${ext}`;
+
         const fs = require('fs');
         const path = require('path');
 
@@ -229,7 +226,7 @@ router.post('/upload-banner', async (req, res) => {
                 const { error: uploadErr } = await supabase.storage
                     .from('products')
                     .upload(safeFileName, buffer, {
-                        contentType: `image/${ext}`,
+                        contentType: mimeType,
                         upsert: true
                     });
 

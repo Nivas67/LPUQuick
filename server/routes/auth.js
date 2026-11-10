@@ -5,36 +5,13 @@ const { v4: uuidv4 } = require('uuid');
 const supabaseDb = require('../db/supabaseDb');
 const { getSupabaseClient } = require('../supabase');
 const { generateAdminToken, verifyAdminToken, resolveAdminRoles, staffUserCache, KNOWN_STAFF_FALLBACKS } = require('../middleware/adminAuth');
-
-// Cryptographic PBKDF2 password hashing & constant-time verification
-function hashPassword(password) {
-    const salt = crypto.randomBytes(16).toString('hex');
-    const hash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
-    return `pbkdf2$${salt}$${hash}`;
-}
-
-function verifyPassword(password, storedHash) {
-    if (!storedHash || typeof storedHash !== 'string') return false;
-    // Disallow password signin if user signed up via Google OAuth
-    if (storedHash === 'google_oauth') return false;
-
-    // Check PBKDF2 format
-    if (storedHash.startsWith('pbkdf2$')) {
-        const parts = storedHash.split('$');
-        if (parts.length !== 3) return false;
-        const salt = parts[1];
-        const hash = parts[2];
-        const checkHash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
-        try {
-            return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(checkHash, 'hex'));
-        } catch {
-            return false;
-        }
-    }
-
-    // Backwards-compatibility for existing accounts during migration
-    return storedHash === password || storedHash === `hash_${password}`;
-}
+const {
+    checkLoginRateLimit,
+    recordFailedLogin,
+    recordSuccessfulLogin,
+    hashPassword,
+    verifyPassword
+} = require('../services/securityService');
 
 // POST /api/auth/signin
 router.post('/signin', async (req, res) => {
@@ -46,11 +23,22 @@ router.post('/signin', async (req, res) => {
 
     const trimmedEmail = email.trim().toLowerCase();
 
+    // 1. Rate limiting check: 5 attempts -> 15 min lock
+    const rateCheck = checkLoginRateLimit(trimmedEmail, req.ip);
+    if (rateCheck.locked) {
+        return res.status(429).json({
+            success: false,
+            code: 'LOGIN_RATE_LIMITED',
+            error: rateCheck.error,
+            retry_after: rateCheck.remainingSeconds
+        });
+    }
+
     try {
         let user = await supabaseDb.users.getByIdentifier(trimmedEmail);
 
         if (!user) {
-            // Auto-register new student with secure PBKDF2 hash
+            // Auto-register new student with secure Bcrypt hash
             const id = `user_${uuidv4().slice(0, 8)}`;
             const rawName = trimmedEmail.split('@')[0].replace(/[._]/g, ' ');
             const displayName = rawName.charAt(0).toUpperCase() + rawName.slice(1) || 'LPU Student';
@@ -63,6 +51,8 @@ router.post('/signin', async (req, res) => {
                 password_hash: hashPassword(password),
                 role: 'student'
             });
+
+            recordSuccessfulLogin(trimmedEmail, req.ip);
 
             return res.json({
                 success: true,
@@ -83,13 +73,18 @@ router.post('/signin', async (req, res) => {
             return res.status(401).json({ error: 'This account is linked with Google Sign-In. Please click "Continue with Google" to sign in.' });
         }
 
-        // Verify password using secure constant-time check
-        if (!verifyPassword(password, user.password_hash)) {
-            return res.status(401).json({ error: 'Incorrect password. Please check and try again.' });
+        // Verify password using secure constant-time / bcrypt check
+        const verifyRes = verifyPassword(password, user.password_hash);
+        if (!verifyRes.isValid) {
+            recordFailedLogin(trimmedEmail, req.ip);
+            return res.status(401).json({ error: 'Invalid email or password. Please check and try again.' });
         }
 
-        // Seamless auto-upgrade of legacy password hash to PBKDF2-SHA512
-        if (user.password_hash && !user.password_hash.startsWith('pbkdf2$')) {
+        // Login successful: reset rate limit tracking
+        recordSuccessfulLogin(trimmedEmail, req.ip);
+
+        // Seamless auto-upgrade of legacy password hash to Bcrypt
+        if (verifyRes.needsUpgrade) {
             try {
                 const supabase = getSupabaseClient();
                 if (supabase) {
@@ -364,6 +359,17 @@ router.post('/admin-login', async (req, res) => {
 
     const trimmedEmail = email.trim().toLowerCase();
 
+    // 1. Rate Limit Check: Limit login attempts. After 5 incorrect attempts, lock for 15 minutes
+    const rateCheck = checkLoginRateLimit(trimmedEmail, req.ip);
+    if (rateCheck.locked) {
+        return res.status(429).json({
+            success: false,
+            code: 'LOGIN_RATE_LIMITED',
+            error: rateCheck.error,
+            retry_after: rateCheck.remainingSeconds
+        });
+    }
+
     try {
         // Look up user in database with isolated error guard
         let user = null;
@@ -373,14 +379,17 @@ router.post('/admin-login', async (req, res) => {
             console.warn('[Admin Login User Lookup Notice]:', dbErr.message);
         }
 
-        // Strict DB check: Never fall back to cached deleted accounts
-
+        // Generic error message: Avoid revealing whether email or password is incorrect
         if (!user || (user.role !== 'admin' && user.role !== 'owner')) {
-            console.warn(`[SECURITY AUDIT] ADMIN_LOGIN_FAILED: User not found or not admin | email: ${trimmedEmail} | ip: ${req.ip}`);
-            return res.status(403).json({
+            const failRes = recordFailedLogin(trimmedEmail, req.ip);
+            console.warn(`[SECURITY AUDIT] ADMIN_LOGIN_FAILED: User not found or not admin | email: ${trimmedEmail} | ip: ${req.ip} | attempt: ${failRes.attempts}`);
+            if (failRes.attempts >= 3) {
+                console.warn(`[SECURITY AUDIT] SUSPICIOUS_LOGIN_ALERT: ${failRes.attempts} failed login attempts for admin target ${trimmedEmail} from IP ${req.ip}`);
+            }
+            return res.status(401).json({
                 success: false,
-                code: 'FORBIDDEN',
-                error: 'Access denied. Valid administrator credentials required.'
+                code: 'INVALID_CREDENTIALS',
+                error: 'Invalid administrator email or password.'
             });
         }
 
@@ -392,19 +401,38 @@ router.post('/admin-login', async (req, res) => {
             });
         }
 
-        // Verify password against stored hash or secure environment ADMIN_PASSWORD
-        const isPasswordCorrect = (user.password_hash && (
-            user.password_hash === password ||
-            user.password_hash === `hash_${password}`
-        )) || (process.env.ADMIN_PASSWORD && password === process.env.ADMIN_PASSWORD);
+        // Verify password against stored hash (Bcrypt / legacy) or secure environment ADMIN_PASSWORD
+        const verifyRes = verifyPassword(password, user.password_hash);
+        const isEnvMatch = process.env.ADMIN_PASSWORD && password === process.env.ADMIN_PASSWORD;
+        const isPasswordCorrect = verifyRes.isValid || isEnvMatch;
 
         if (!isPasswordCorrect) {
-            console.warn(`[SECURITY AUDIT] ADMIN_LOGIN_FAILED: Incorrect password | email: ${trimmedEmail} | ip: ${req.ip}`);
+            const failRes = recordFailedLogin(trimmedEmail, req.ip);
+            console.warn(`[SECURITY AUDIT] ADMIN_LOGIN_FAILED: Incorrect password | email: ${trimmedEmail} | ip: ${req.ip} | attempt: ${failRes.attempts}`);
+            if (failRes.attempts >= 3) {
+                console.warn(`[SECURITY AUDIT] SUSPICIOUS_LOGIN_ALERT: ${failRes.attempts} failed login attempts for admin target ${trimmedEmail} from IP ${req.ip}`);
+            }
             return res.status(401).json({
                 success: false,
                 code: 'INVALID_CREDENTIALS',
-                error: 'Incorrect administrator password.'
+                error: 'Invalid administrator email or password.'
             });
+        }
+
+        // Success: Clear failed attempts
+        recordSuccessfulLogin(trimmedEmail, req.ip);
+
+        // Seamless auto-upgrade of legacy admin password hash to Bcrypt
+        if (verifyRes.needsUpgrade) {
+            try {
+                const supabase = getSupabaseClient();
+                if (supabase) {
+                    const newHash = hashPassword(password);
+                    supabase.from('users').update({ password_hash: newHash }).eq('id', user.id).then(() => {
+                        console.log(`[SECURITY] Auto-upgraded password hash to Bcrypt for admin ${user.email}`);
+                    });
+                }
+            } catch (upErr) {}
         }
 
         const roles = resolveAdminRoles(user);
@@ -459,6 +487,16 @@ router.post('/admin-login', async (req, res) => {
 
         // Generate cryptographically signed HMAC admin session token
         const token = generateAdminToken(user.id, 'admin');
+
+        // Set HttpOnly, Secure, SameSite=Strict cookie for enhanced session protection (Req 10)
+        try {
+            res.cookie('lpuquick_admin_token', token, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production' || req.secure,
+                sameSite: 'strict',
+                maxAge: 7 * 24 * 60 * 60 * 1000
+            });
+        } catch (cErr) {}
 
         // Audit log administrator login
         try {
@@ -704,11 +742,23 @@ router.post('/verify-otp', async (req, res) => {
 
     const record = otpStore.get(cleanPhone);
 
+    // Strict validation: Reject unrequested / forged phone OTP checks
     if (!record) {
-        return res.json({
-            success: true,
-            verified: true,
-            message: 'Phone verified successfully.'
+        return res.status(400).json({
+            success: false,
+            error: 'No active OTP verification code found for this phone number. Please request an OTP first.',
+            code: 'NO_ACTIVE_OTP'
+        });
+    }
+
+    // Check Lockout
+    if (record.lockedUntil && Date.now() < record.lockedUntil) {
+        const remainingSec = Math.ceil((record.lockedUntil - Date.now()) / 1000);
+        return res.status(429).json({
+            success: false,
+            error: `Too many failed attempts. Verification is locked for ${Math.ceil(remainingSec / 60)} more minute(s).`,
+            code: 'OTP_LOCKED',
+            retry_after: remainingSec
         });
     }
 
@@ -725,11 +775,12 @@ router.post('/verify-otp', async (req, res) => {
     // Check Failed Attempts
     record.attempts = (record.attempts || 0) + 1;
     if (record.attempts > 5) {
-        otpStore.delete(cleanPhone);
+        record.lockedUntil = Date.now() + (15 * 60 * 1000); // 15-minute lock
         return res.status(429).json({
             success: false,
-            error: 'Too many incorrect attempts. For security, please request a new OTP code.',
-            code: 'MAX_ATTEMPTS_EXCEEDED'
+            error: 'Too many incorrect attempts. For security, verification is locked for 15 minutes.',
+            code: 'MAX_ATTEMPTS_EXCEEDED',
+            retry_after: 900
         });
     }
 

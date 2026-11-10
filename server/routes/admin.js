@@ -12,6 +12,7 @@ const cache = require('../cache');
 const checkoutSettingsService = require('../services/checkoutSettingsService');
 const financialEngine = require('../utils/financialEngine');
 const adminNotificationService = require('../services/adminNotificationService');
+const { validateBase64Image, sanitizeFileName } = require('../services/securityService');
 
 // All routes in this file require Administrator Authorization
 router.use(requireAdmin);
@@ -1051,17 +1052,15 @@ async function savePosterImageIfBase64(imageUrl, posterId = 'poster') {
     if (!imageUrl.startsWith('data:image/')) return imageUrl;
 
     try {
-        const matches = imageUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-        if (!matches || matches.length !== 3) return imageUrl;
+        const validation = validateBase64Image(imageUrl);
+        if (!validation.valid) {
+            console.warn('[Poster Image Security Warning]:', validation.error);
+            return imageUrl;
+        }
 
-        const mimeType = matches[1];
-        const buffer = Buffer.from(matches[2], 'base64');
-        let ext = 'jpg';
-        if (mimeType.includes('png')) ext = 'png';
-        else if (mimeType.includes('webp')) ext = 'webp';
-        else if (mimeType.includes('gif')) ext = 'gif';
-
-        const fileName = `banner_${posterId}_${Date.now()}.${ext}`;
+        const { buffer, ext, mimeType } = validation;
+        const cleanPosterId = sanitizeFileName(posterId) || 'poster';
+        const fileName = `banner_${cleanPosterId}_${Date.now()}.${ext}`;
 
         // Save locally to public/uploads & client/uploads if available
         try {

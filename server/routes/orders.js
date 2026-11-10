@@ -2496,6 +2496,41 @@ router.get('/detail/:orderId', async (req, res) => {
     try {
         const order = await supabaseDb.orders.getOrderById(orderId);
         if (!order) return res.status(404).json({ error: 'Order not found' });
+
+        // Authorization Guard: Admin or Verified Order Owner
+        const authHeader = req.headers['authorization'] || req.headers['x-admin-token'] || req.cookies?.['lpuquick_admin_token'] || '';
+        let isAdmin = false;
+        if (authHeader) {
+            const cleanToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+            isAdmin = Boolean(verifyAdminToken(cleanToken));
+        }
+
+        const reqUserId = (req.headers['x-user-id'] || req.query?.userId || '').trim();
+        const reqPhone = (req.headers['x-user-phone'] || req.query?.phone || '').replace(/\D/g, '').slice(-10);
+        const orderPhone = (order.customer_phone || '').replace(/\D/g, '').slice(-10);
+
+        const isOwner = (reqUserId && (reqUserId === order.user_id || reqUserId === order.guest_id || reqUserId === `user_phone_${orderPhone}`)) ||
+                        (reqPhone && orderPhone && reqPhone === orderPhone);
+
+        // If neither admin nor verified owner, mask sensitive customer PII to protect privacy
+        if (!isAdmin && !isOwner) {
+            const safeOrder = {
+                id: order.id,
+                status: order.status,
+                created_at: order.created_at,
+                total: order.total,
+                subtotal: order.subtotal,
+                delivery_fee: order.delivery_fee,
+                handling_fee: order.handling_fee,
+                items: order.items,
+                estimated_delivery_mins: order.estimated_delivery_mins,
+                rider_name: order.rider_name ? (typeof order.rider_name === 'string' && order.rider_name.startsWith('{') ? (JSON.parse(order.rider_name).name || 'Alex') : order.rider_name) : 'Alex',
+                customer_phone: order.customer_phone ? String(order.customer_phone).slice(0, 3) + '****' + String(order.customer_phone).slice(-3) : null,
+                delivery_address: order.delivery_address ? order.delivery_address.replace(/Room\s*([a-zA-Z0-9]+)/i, 'Room ***') : null
+            };
+            return res.json(safeOrder);
+        }
+
         res.json(order);
     } catch (err) {
         console.error('[Order Detail Error]:', err.message);
@@ -2506,6 +2541,20 @@ router.get('/detail/:orderId', async (req, res) => {
 // GET /api/orders/:userId (User orders)
 router.get('/:userId', async (req, res) => {
     const { userId } = req.params;
+
+    // Authorization Guard: Prevent cross-user IDOR snooping
+    const authHeader = req.headers['authorization'] || req.headers['x-admin-token'] || req.cookies?.['lpuquick_admin_token'] || '';
+    let isAdmin = false;
+    if (authHeader) {
+        const cleanToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+        isAdmin = Boolean(verifyAdminToken(cleanToken));
+    }
+    const reqUserId = (req.headers['x-user-id'] || req.query?.requesting_user_id || '').trim();
+    if (reqUserId && reqUserId !== userId && !isAdmin) {
+        console.warn(`[SECURITY AUDIT] IDOR_PREVENTED: User ${reqUserId} attempted to access orders of ${userId}`);
+        return res.status(403).json({ success: false, error: 'Unauthorized to view orders for this user.' });
+    }
+
     try {
         let { active, past } = await supabaseDb.orders.getOrdersByUser(userId);
         if (Array.isArray(fallbackOrdersCache) && fallbackOrdersCache.length > 0) {
@@ -2630,10 +2679,39 @@ router.post('/:orderId/status', requireAdmin, async (req, res) => {
 // POST /api/orders/:orderId/cancel (Cancel order)
 router.post('/:orderId/cancel', async (req, res) => {
     const { orderId } = req.params;
-    const { reason } = req.body;
+    const { reason, userId, userPhone } = req.body;
 
     try {
-        const result = await supabaseDb.orders.cancelOrder(orderId, reason || 'User requested cancellation', 'customer');
+        const order = await supabaseDb.orders.getOrderById(orderId);
+        if (!order) {
+            return res.status(404).json({ success: false, error: 'Order not found.' });
+        }
+
+        // Authorization Guard: Admin or Verified Order Owner
+        const authHeader = req.headers['authorization'] || req.headers['x-admin-token'] || req.cookies?.['lpuquick_admin_token'] || '';
+        let isAdmin = false;
+        if (authHeader) {
+            const cleanToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+            isAdmin = Boolean(verifyAdminToken(cleanToken));
+        }
+
+        const reqUserId = (req.headers['x-user-id'] || userId || req.query?.userId || '').trim();
+        const reqPhone = (req.headers['x-user-phone'] || userPhone || req.body?.phone || '').replace(/\D/g, '').slice(-10);
+        const orderPhone = (order.customer_phone || '').replace(/\D/g, '').slice(-10);
+
+        const isOwner = (reqUserId && (reqUserId === order.user_id || reqUserId === order.guest_id || reqUserId === `user_phone_${orderPhone}`)) ||
+                        (reqPhone && orderPhone && reqPhone === orderPhone);
+
+        if (!isAdmin && !isOwner) {
+            console.warn(`[SECURITY AUDIT] UNAUTHORIZED_ORDER_CANCEL_ATTEMPT: orderId=${orderId} | reqUserId=${reqUserId} | orderUserId=${order.user_id} | ip=${req.ip}`);
+            return res.status(403).json({
+                success: false,
+                code: 'FORBIDDEN',
+                error: 'You do not have permission to cancel this order.'
+            });
+        }
+
+        const result = await supabaseDb.orders.cancelOrder(orderId, reason || 'User requested cancellation', isAdmin ? 'admin' : 'customer');
         try {
             const foodOrderService = require('../services/foodOrderService');
             foodOrderService.cancelFoodOrder(orderId, reason || 'User requested cancellation');
@@ -2715,13 +2793,42 @@ router.post('/:orderId/reorder', async (req, res) => {
 // POST /api/orders/:orderId/change-address (Update active order delivery address)
 router.post('/:orderId/change-address', async (req, res) => {
     const { orderId } = req.params;
-    const { newAddress } = req.body;
+    const { newAddress, userId, userPhone } = req.body;
 
     if (!newAddress) {
         return res.status(400).json({ error: 'newAddress is required' });
     }
 
     try {
+        const order = await supabaseDb.orders.getOrderById(orderId);
+        if (!order) {
+            return res.status(404).json({ error: 'Order not found' });
+        }
+
+        // Authorization Guard: Admin or Verified Order Owner
+        const authHeader = req.headers['authorization'] || req.headers['x-admin-token'] || req.cookies?.['lpuquick_admin_token'] || '';
+        let isAdmin = false;
+        if (authHeader) {
+            const cleanToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+            isAdmin = Boolean(verifyAdminToken(cleanToken));
+        }
+
+        const reqUserId = (req.headers['x-user-id'] || userId || req.query?.userId || '').trim();
+        const reqPhone = (req.headers['x-user-phone'] || userPhone || req.body?.phone || '').replace(/\D/g, '').slice(-10);
+        const orderPhone = (order.customer_phone || '').replace(/\D/g, '').slice(-10);
+
+        const isOwner = (reqUserId && (reqUserId === order.user_id || reqUserId === order.guest_id || reqUserId === `user_phone_${orderPhone}`)) ||
+                        (reqPhone && orderPhone && reqPhone === orderPhone);
+
+        if (!isAdmin && !isOwner) {
+            console.warn(`[SECURITY AUDIT] UNAUTHORIZED_ADDRESS_CHANGE_ATTEMPT: orderId=${orderId} | ip=${req.ip}`);
+            return res.status(403).json({
+                success: false,
+                code: 'FORBIDDEN',
+                error: 'You do not have permission to update the delivery address for this order.'
+            });
+        }
+
         const supabase = getSupabaseClient();
         const { data, error } = await supabase
             .from('orders')

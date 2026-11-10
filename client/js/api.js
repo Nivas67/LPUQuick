@@ -887,8 +887,11 @@ const api = {
         if (!force && ordersMemoryCache && (Date.now() - ordersMemoryCacheTime < 8000)) {
             return ordersMemoryCache;
         }
+        const authHeaders = { 'x-user-id': userId };
+        const userToken = (typeof localStorage !== 'undefined' && localStorage.getItem('lpuquick_token')) || '';
+        if (userToken) authHeaders['Authorization'] = `Bearer ${userToken}`;
         if (ordersMemoryCache && !force) {
-            fetch(`${API_BASE}/orders/${userId}`).then(r => r.json()).then(data => {
+            fetch(`${API_BASE}/orders/${userId}`, { headers: authHeaders }).then(r => r.json()).then(data => {
                 if (data) {
                     ordersMemoryCache = data;
                     ordersMemoryCacheTime = Date.now();
@@ -897,7 +900,7 @@ const api = {
             return ordersMemoryCache;
         }
         try {
-            const res = await fetch(`${API_BASE}/orders/${userId}`);
+            const res = await fetch(`${API_BASE}/orders/${userId}`, { headers: authHeaders });
             const data = await res.json();
             ordersMemoryCache = data;
             ordersMemoryCacheTime = Date.now();
@@ -911,8 +914,11 @@ const api = {
         if (!force && activeOrderMemoryCache && (Date.now() - activeOrderMemoryCacheTime < 8000)) {
             return activeOrderMemoryCache;
         }
+        const authHeaders = { 'x-user-id': userId };
+        const userToken = (typeof localStorage !== 'undefined' && localStorage.getItem('lpuquick_token')) || '';
+        if (userToken) authHeaders['Authorization'] = `Bearer ${userToken}`;
         if (activeOrderMemoryCache && !force) {
-            fetch(`${API_BASE}/orders/${userId}/active`).then(r => r.json()).then(data => {
+            fetch(`${API_BASE}/orders/${userId}/active`, { headers: authHeaders }).then(r => r.json()).then(data => {
                 if (data) {
                     activeOrderMemoryCache = data;
                     activeOrderMemoryCacheTime = Date.now();
@@ -921,7 +927,7 @@ const api = {
             return activeOrderMemoryCache;
         }
         try {
-            const res = await fetch(`${API_BASE}/orders/${userId}/active`);
+            const res = await fetch(`${API_BASE}/orders/${userId}/active`, { headers: authHeaders });
             const data = await res.json();
             activeOrderMemoryCache = data;
             activeOrderMemoryCacheTime = Date.now();
@@ -931,7 +937,17 @@ const api = {
         }
     },
     async getOrderDetail(orderId) {
-        const res = await fetch(`${API_BASE}/orders/detail/${orderId}`);
+        const headers = {};
+        const userId = (typeof window !== 'undefined' && window.CURRENT_USER_ID) || (typeof window !== 'undefined' && typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : '');
+        if (userId) headers['x-user-id'] = userId;
+        const userPhone = (typeof window !== 'undefined' && window.CURRENT_USER_PHONE) || '';
+        if (userPhone) headers['x-user-phone'] = userPhone;
+        const adminToken = (typeof localStorage !== 'undefined' && (localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token'))) || '';
+        if (adminToken) {
+            headers['Authorization'] = `Bearer ${adminToken}`;
+            headers['x-admin-token'] = adminToken;
+        }
+        const res = await fetch(`${API_BASE}/orders/detail/${orderId}`, { headers });
         return res.json();
     },
     async reorder(orderId, userId = (window.isUserLoggedIn() ? window.CURRENT_USER_ID : window.getEffectiveUserId())) {
@@ -948,10 +964,20 @@ const api = {
     },
 
     async cancelOrder(orderId, reason = '') {
+        const headers = { 'Content-Type': 'application/json' };
+        const userId = (typeof window !== 'undefined' && window.CURRENT_USER_ID) || (typeof window !== 'undefined' && typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : '');
+        if (userId) headers['x-user-id'] = userId;
+        const userPhone = (typeof window !== 'undefined' && window.CURRENT_USER_PHONE) || '';
+        if (userPhone) headers['x-user-phone'] = userPhone;
+        const adminToken = (typeof localStorage !== 'undefined' && (localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token'))) || '';
+        if (adminToken) {
+            headers['Authorization'] = `Bearer ${adminToken}`;
+            headers['x-admin-token'] = adminToken;
+        }
         const res = await fetch(`${API_BASE}/orders/${orderId}/cancel`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reason })
+            headers,
+            body: JSON.stringify({ reason, userId, userPhone })
         });
         return res.json();
     },
