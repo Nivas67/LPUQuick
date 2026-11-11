@@ -5,14 +5,14 @@
       "p256dh": "BL7JVshUZelHox_mQ54TG59whghBV_eCsb7AYjTn4Ba1XOebunP4NF8OlzxbtxwESCAr7RdPJB4i9uMoPM-85Ds",
       "auth": "7Eu2sUOWJuJEd1hhAyZnnw"
     },
-    "userId": "user_vup6g0ej",
-    "userName": "Nivas Naidu",
+    "userId": "guest_student",
+    "userName": "Student",
     "hostelId": "BH-13",
     "userType": "customer",
     "roles": [
       "customer"
     ],
-    "updatedAt": "2026-11-10T06:54:34.088Z",
+    "updatedAt": "2026-11-11T18:11:46.821Z",
     "createdAt": "2026-11-07T08:07:22.591Z"
   }
 ]
