@@ -391,12 +391,12 @@ function getPageName(path) {
 // Address Configuration State Helper (Accepts both room drops and designated Gate drop points)
 window.hasUserConfiguredAddress = function () {
     const isConfigured = localStorage.getItem('lpuquick_address_configured') === 'true';
+    const hostel = localStorage.getItem('lpuquick_hostel_id') || window.currentHostelId;
     const block = (localStorage.getItem('lpuquick_block') || window.currentBlock || '').toLowerCase();
     const isGate = block.includes('gate');
     const room = (localStorage.getItem('lpuquick_room') || '').replace(/\D/g, '');
-    const phone = (localStorage.getItem('lpuquick_phone') || '').replace(/\D/g, '');
     const hasValidLocation = isGate || room.length > 0;
-    return isConfigured && hasValidLocation && phone.length === 10;
+    return Boolean(isConfigured && hostel && hasValidLocation);
 };
 
 // Global Address Selection Modal (Multi-Hostel Live Selection, Dynamic Blocks from Admin, Room No, Phone)
@@ -616,12 +616,12 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
                             <span class="material-symbols-outlined text-base">location_on</span>
                         </div>
                         <div>
-                            <h3 class="font-black text-xs sm:text-sm text-slate-900 dark:text-white tracking-tight">${isMandatorySetup ? 'Delivery Address Required' : 'Select Delivery Location'}</h3>
+                            <h3 class="font-black text-xs sm:text-sm text-slate-900 dark:text-white tracking-tight">${isMandatorySetup ? 'Select Delivery Address' : 'Select Delivery Location'}</h3>
                             <p class="text-[10px] text-slate-400 font-medium">LPU Campus 3-Min Delivery</p>
                         </div>
                     </div>
                     ${isMandatorySetup ? `
-                    <span class="liquid-badge text-[10px] font-bold px-2.5 py-0.5">Step 2</span>
+                    <span class="liquid-badge text-[10px] font-bold px-2.5 py-0.5 text-emerald-600 dark:text-emerald-400">Required</span>
                     ` : `
                     <button type="button" id="close-address-modal-btn" class="clay-pill w-8 h-8 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center justify-center transition-transform active:scale-95 cursor-pointer">
                         <span class="material-symbols-outlined text-base">close</span>
@@ -677,7 +677,7 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
                 <!-- Contact Phone Number -->
                 <div class="space-y-1.5">
                     <div class="flex justify-between items-center">
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300" for="phone-input">Mobile Phone Number <span class="text-rose-500">*</span></label>
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300" for="phone-input">Mobile Phone Number <span class="text-slate-400 font-normal">(Optional for browsing, required at checkout)</span></label>
                         <span class="text-[10px] text-slate-400 font-medium flex items-center gap-0.5">
                             <span class="material-symbols-outlined text-xs">phone</span> Delivery Updates
                         </span>
@@ -834,29 +834,6 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
 
                     // Update blocks dynamically for newly picked hostel
                     renderBlockButtons(selectedHostel);
-
-                    // INSTANT PERSISTENCE: Save immediately to state and storage
-                    window.currentHostelId = selectedHostel;
-                    window.currentAddress = selectedHostel.replace('-', '');
-                    localStorage.setItem('lpuquick_hostel_id', selectedHostel);
-                    localStorage.setItem('lpuquick_address', window.currentAddress);
-
-                    const currentRoomVal = (modal.querySelector('#room-input')?.value || savedRoom || '').trim().replace(/\D/g, '');
-                    if (currentRoomVal) {
-                        window.currentRoom = currentRoomVal;
-                        localStorage.setItem('lpuquick_room', currentRoomVal);
-                        window.currentAddressDetail = `${selectedHostel} (${selectedBlock}), Room ${currentRoomVal}`;
-                        localStorage.setItem('lpuquick_address_detail', window.currentAddressDetail);
-                    }
-                    localStorage.setItem('lpuquick_address_configured', 'true');
-
-                    if (window.api && typeof window.api.clearProductsCache === 'function') {
-                        window.api.clearProductsCache();
-                    }
-
-                    if (typeof window.syncStoreAvailability === 'function') {
-                        window.syncStoreAvailability(selectedHostel);
-                    }
                 }
             };
         });
@@ -1282,10 +1259,19 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
             }
 
             const cleanPhone = (phone || '').replace(/\D/g, '');
-            if (!cleanPhone || cleanPhone.length !== 10) {
+            const isCheckout = typeof window.location !== 'undefined' && window.location.hash.includes('checkout');
+            if (isCheckout && (!cleanPhone || cleanPhone.length !== 10)) {
                 if (alertBox && alertMsg) {
                     alertBox.classList.remove('hidden');
-                    alertMsg.textContent = 'Mobile Number is strictly mandatory! Please enter a valid 10-digit phone number (e.g. 9876543210).';
+                    alertMsg.textContent = 'Mobile Number is strictly mandatory for checkout! Please enter a valid 10-digit phone number.';
+                }
+                modal.querySelector('#phone-input')?.focus();
+                return;
+            }
+            if (cleanPhone && cleanPhone.length !== 10) {
+                if (alertBox && alertMsg) {
+                    alertBox.classList.remove('hidden');
+                    alertMsg.textContent = 'Please enter a valid 10-digit mobile number (e.g. 9876543210).';
                 }
                 modal.querySelector('#phone-input')?.focus();
                 return;
@@ -2522,6 +2508,26 @@ let currentNavAbortController = null;
 let lastActiveRoute = null;
 const routeScrollPositions = new Map();
 
+// Mandatory Initial Address Selection Guard
+function checkInitialAddressSelection() {
+    if (typeof window.hasUserConfiguredAddress === 'function' && !window.hasUserConfiguredAddress()) {
+        const path = typeof getCurrentRoute === 'function' ? getCurrentRoute() : '/';
+        if (path === '/blocked') return;
+        if (document.getElementById('address-modal')) return;
+
+        setTimeout(() => {
+            if (typeof window.hasUserConfiguredAddress === 'function' && !window.hasUserConfiguredAddress()) {
+                if (!document.getElementById('address-modal') && typeof window.openAddressModal === 'function') {
+                    window.openAddressModal(true, () => {
+                        if (typeof router === 'function') router();
+                    });
+                }
+            }
+        }, 120);
+    }
+}
+window.checkInitialAddressSelection = checkInitialAddressSelection;
+
 async function router() {
     const rawHash = window.location.hash || '';
 
@@ -2689,6 +2695,9 @@ async function router() {
 
             // Check active order delivery bar
             checkAndConnectGlobalOrderTracking();
+
+            // Mandatory Initial Address Selection on Route Change
+            checkInitialAddressSelection();
         } else {
             appRoot.innerHTML = `
                 <div class="text-center pt-32 px-4">
@@ -3973,6 +3982,9 @@ function bootstrapApp() {
     if (window.api && typeof window.api.getActiveHostels === 'function') {
         window.api.getActiveHostels(true).catch(() => {});
     }
+
+    // Mandatory Initial Address Selection on App Bootstrap
+    checkInitialAddressSelection();
 }
 
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
