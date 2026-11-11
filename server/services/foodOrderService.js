@@ -97,39 +97,38 @@ function saveFoodMeta(meta) {
 /**
  * Strict Food Product Identifier:
  * Specifically for freshly prepared food items under "Quick's Instant Food".
- * Explicitly DOES NOT match packaged snacks or "Quick's Instant Snacks".
+ * Explicitly DOES NOT match packaged snacks, noodles, or "Quick's Instant Snacks".
  */
 function isFoodProduct(item) {
     if (!item) return false;
-    const cat = (item.category || '').trim().toLowerCase();
-    const sub = (item.subcategory || '').trim().toLowerCase();
+    const cat = (item.category || item.product_category || '').trim().toLowerCase();
+    const sub = (item.subcategory || item.product_subcategory || '').trim().toLowerCase();
     const name = (item.name || item.product_name || '').trim().toLowerCase();
 
-    // STRICT EXCLUSION: Never mix Quick's Instant Snacks or packaged snack products
-    if (cat.includes('instant snacks') || sub.includes('instant snacks') || cat.includes('snacks & munchies')) {
+    // STRICT EXCLUSION: Never mix standard packaged snacks, biscuits, noodles, or grocery items
+    if (cat === 'snacks & beverages' || cat === 'grocery' || cat.includes('snacks & munchies') || cat.includes('instant snacks')) {
         return false;
     }
-    if (/bhelpuri|namkeen|bhujia|chips|wafer|biscuit|cookie|kurkure|crisp|sev|mixture/i.test(name)) {
-        return false;
-    }
-    if (cat === 'snacks & beverages' && !sub.includes('instant food') && !sub.includes('cook') && !sub.includes('magiee & noodles') && !sub.includes('cooked meals') && !sub.includes('sandwiches & burgers') && !sub.includes('pasta & macaroni') && !sub.includes('hot snacks & fries') && !sub.includes('soups & bowls')) {
+    if (/bhelpuri|namkeen|bhujia|chips|wafer|biscuit|cookie|kurkure|crisp|sev|mixture|top ramen|yippee|cup noodles|crax|cadbury|kitkat|snickers|munch|parle|britannia|oreo|lays|lay's|bingo|haldiram|doritos/i.test(name)) {
         return false;
     }
 
     // Direct Category Match for Quick's Instant Food
-    if (cat === "quick's instant food" || cat === "quicks instant food" || cat === "instant food") {
+    if (cat === "quick's instant food" || cat === "quicks instant food") {
         return true;
     }
-    if (sub === "quick's instant food" || sub === "quicks instant food" || sub === "instant food" || sub === "cook") {
+    if (cat === 'instant food' && cat !== 'snacks & beverages' && cat !== 'grocery') {
         return true;
     }
-    if (sub.includes('maggi') || sub.includes('magiee') || sub.includes('noodle') || sub.includes('cooked meals') || sub.includes('sandwiches & burgers') || sub.includes('pasta & macaroni') || sub.includes('hot snacks & fries') || sub.includes('soups & bowls')) {
+    if (sub === "quick's instant food" || sub === "quicks instant food" || sub === "kitchen food") {
         return true;
     }
 
-    // Fresh Prepared Kitchen keywords
-    if (/maggi|magiee|noodle|cooked meal|hot meal|thali|paratha|sandwich|fresh pasta|fresh burger|chai|coffee|soup|chowmein|macroni/i.test(name)) {
-        return true;
+    // Fresh Prepared Kitchen items explicitly categorized under food
+    if (cat.includes('food') && !cat.includes('snacks') && !cat.includes('grocery')) {
+        if (/fresh|cooked|prepared|hot meal|thali|paratha|sandwich|burger|pasta/i.test(name)) {
+            return true;
+        }
     }
 
     return false;
@@ -296,7 +295,12 @@ async function updateFoodOrderStatus(orderId, status, updatedBy = 'Cook', reason
         k.toLowerCase() === `order_${cleanId}`.toLowerCase() ||
         cleanId === `order_${k}` ||
         cleanId.toLowerCase() === `order_${k}`.toLowerCase()
-    ) || (cleanId.startsWith('order_') ? cleanId : `order_${cleanId}`);
+    );
+
+    // If order was not registered in foodMeta (not a kitchen food order), do not create phantom entries!
+    if (!foodKey) {
+        return null;
+    }
 
     const current = foodMeta[foodKey] || {};
     const nowIso = new Date().toISOString();

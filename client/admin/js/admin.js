@@ -15353,22 +15353,33 @@ window.renderFoodOrdersAdmin = renderFoodOrdersAdmin;
 // ============================================================
 function isOrderFoodDept(o) {
     if (!o) return false;
-    if (o.is_food_order === true || o.is_food_order === 'true') return true;
-    if (Number(o.estimated_delivery_mins) === 11) return true;
-    if (o.cook_id || o.cook_name) return true;
-    const rawAddr = (o.delivery_address || '').toLowerCase();
-    if (rawAddr.includes('kitchen') || rawAddr.includes("quick's instant food")) return true;
-    const summary = (o.item_summary || o.item_names || '').toLowerCase();
-    if (/maggi|magiee|noodle|cooked meal|hot meal|pazzta|passta|thali|paratha|sandwich|fresh pasta|fresh burger|quick's instant food|quicks instant food/i.test(summary)) return true;
     const items = o.items || o.order_items || o.food_items || [];
+    
+    // Check if order consists exclusively of standard packaged snacks/groceries
+    const hasOnlyPackagedItems = Array.isArray(items) && items.length > 0 && items.every(it => {
+        const c = (it.category || '').toLowerCase();
+        const n = (it.name || it.product_name || '').toLowerCase();
+        if (c === 'snacks & beverages' || c === 'grocery' || c.includes('instant snacks') || c.includes('snacks & munchies')) return true;
+        return /top ramen|yippee|cup noodles|crax|hide & seek|parle|britannia|lays|lay's|chips|biscuit|namkeen|wafer|kurkure/i.test(n);
+    });
+    if (hasOnlyPackagedItems) return false;
+
+    // Direct check: Any item from Quick's Instant Food category?
     if (Array.isArray(items) && items.some(it => {
         const c = (it.category || '').toLowerCase();
         const sc = (it.subcategory || '').toLowerCase();
-        const n = (it.name || it.product_name || '').toLowerCase();
-        return c.includes('instant food') || sc.includes('instant food') || sc.includes('maggi') || sc.includes('magiee') || sc.includes('cook') || /maggi|magiee|cooked meal|pazzta|passta|thali/i.test(n) || c === "quick's instant food";
+        return c === "quick's instant food" || c === "quicks instant food" || sc === "quick's instant food" || sc === "quicks instant food";
     })) return true;
+
+    // Backend flagged as food order with verified kitchen address or food items
+    if (o.is_food_order === true || o.is_food_order === 'true') {
+        const rawAddr = (o.delivery_address || '').toLowerCase();
+        if (rawAddr.includes('kitchen') || rawAddr.includes("quick's instant food")) return true;
+        if (Array.isArray(o.food_items) && o.food_items.length > 0) return true;
+    }
+
     if (typeof foodOrdersCache !== 'undefined' && Array.isArray(foodOrdersCache)) {
-        if (foodOrdersCache.some(fo => fo.order_id === o.id || fo.order_id === o.id?.replace(/^order_/, ''))) return true;
+        if (foodOrdersCache.some(fo => (fo.order_id === o.id || fo.order_id === o.id?.replace(/^order_/, '')) && Array.isArray(fo.food_items) && fo.food_items.length > 0)) return true;
     }
     return false;
 }
@@ -15412,8 +15423,9 @@ async function fetchFoodDeptProducts() {
             const c = (p.category || '').toLowerCase();
             const sc = (p.subcategory || '').toLowerCase();
             const n = (p.name || '').toLowerCase();
-            if (c.includes('instant snacks') || sc.includes('instant snacks') || c.includes('snacks & munchies')) return false;
-            return c.includes('food') || sc.includes('food') || sc.includes('maggi') || sc.includes('magiee') || sc.includes('cook') || /maggi|magiee|cooked meal|pazzta|passta|instant food/i.test(n) || c === "quick's instant food";
+            if (c === 'snacks & beverages' || c === 'grocery' || c.includes('instant snacks') || c.includes('snacks & munchies')) return false;
+            if (/bhelpuri|namkeen|bhujia|chips|wafer|biscuit|cookie|kurkure|crisp|sev|mixture|top ramen|yippee|cup noodles|crax|parle|britannia|oreo|lays|lay's/i.test(n)) return false;
+            return c === "quick's instant food" || c === "quicks instant food" || sc === "quick's instant food" || sc === "quicks instant food" || (c.includes('food') && !c.includes('snacks') && !c.includes('grocery'));
         });
         renderFoodDeptProducts(foodProductsCache);
     } else {

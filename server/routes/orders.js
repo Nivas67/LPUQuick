@@ -498,8 +498,9 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
                 const hId = extractHostelId(order);
                 const meta = (foodMeta && (foodMeta[order.id] || foodMeta[order.id?.replace(/^order_/, '')])) || null;
                 const dbFoodItems = foodOrdersMap.get(order.id) || [];
-                const isFood = Boolean(meta || dbFoodItems.length > 0 || order.is_food_order === true || order.is_food_order === 'true' || (order.delivery_address && order.delivery_address.toLowerCase().includes("quick's instant food")));
-                const resolvedFoodItems = (meta && meta.food_items && meta.food_items.length > 0) ? meta.food_items : dbFoodItems;
+                const hasGenuineFoodMeta = Boolean(meta && Array.isArray(meta.food_items) && meta.food_items.length > 0);
+                const isFood = Boolean(hasGenuineFoodMeta || dbFoodItems.length > 0 || (order.is_food_order === true && order.delivery_address && order.delivery_address.toLowerCase().includes("quick's instant food")));
+                const resolvedFoodItems = hasGenuineFoodMeta ? meta.food_items : dbFoodItems;
                 const itemSummary = resolvedFoodItems.length > 0
                     ? resolvedFoodItems.map(i => `${i.name} (x${i.quantity})`).join(', ')
                     : (order.delivery_address || 'Campus items');
@@ -540,6 +541,7 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
             const existingIds = new Set(enriched.map(o => String(o.id)));
             if (foodMeta) {
                 for (const [metaId, m] of Object.entries(foodMeta)) {
+                    if (!m || !Array.isArray(m.food_items) || m.food_items.length === 0) continue;
                     const oid = m.order_id || metaId;
                     if (!existingIds.has(oid)) {
                         enriched.unshift({
@@ -2439,7 +2441,8 @@ router.get('/', requireAdmin, async (req, res) => {
             const meta = (foodMeta && (foodMeta[o.id] || foodMeta[o.id?.replace(/^order_/, '')])) || null;
             const items = Array.isArray(o.items) ? o.items : [];
             const hasFoodItem = items.some(it => foodOrderService.isFoodProduct(it));
-            const isFood = Boolean(meta || o.is_food_order === true || o.is_food_order === 'true' || hasFoodItem);
+            const hasGenuineFoodMeta = Boolean(meta && Array.isArray(meta.food_items) && meta.food_items.length > 0);
+            const isFood = Boolean(hasGenuineFoodMeta || hasFoodItem || (o.is_food_order === true && o.delivery_address && o.delivery_address.toLowerCase().includes("quick's instant food")));
             return {
                 ...o,
                 is_food_order: isFood,
@@ -2454,6 +2457,7 @@ router.get('/', requireAdmin, async (req, res) => {
         const existingIds = new Set(enriched.map(o => String(o.id)));
         if (foodMeta) {
             for (const [metaId, m] of Object.entries(foodMeta)) {
+                if (!m || !Array.isArray(m.food_items) || m.food_items.length === 0) continue;
                 const oid = m.order_id || metaId;
                 if (!existingIds.has(oid)) {
                     enriched.unshift({
@@ -2576,7 +2580,8 @@ router.get('/:userId', async (req, res) => {
         const foodOrderService = require('../services/foodOrderService');
         const foodMeta = foodOrderService.loadFoodMeta();
         const enrichOrder = o => {
-            const isFood = Boolean((foodMeta && foodMeta[o.id]) || o.is_food_order === true || o.is_food_order === 'true');
+            const hasFoodItems = Boolean(foodMeta && foodMeta[o.id] && Array.isArray(foodMeta[o.id].food_items) && foodMeta[o.id].food_items.length > 0);
+            const isFood = Boolean(hasFoodItems || (o.is_food_order === true && o.delivery_address && o.delivery_address.toLowerCase().includes("quick's instant food")));
             return {
                 ...o,
                 is_food_order: isFood,
@@ -2619,7 +2624,8 @@ router.get('/:userId/active', async (req, res) => {
                 const meta = fullOrder.delivery_assignment || supabaseDb.orders.parseDeliveryMeta(fullOrder.rider_name);
                 const foodOrderService = require('../services/foodOrderService');
                 const foodMeta = foodOrderService.loadFoodMeta();
-                const isFood = Boolean((foodMeta && foodMeta[o.id]) || fullOrder.is_food_order === true || fullOrder.is_food_order === 'true');
+                const hasFoodItems = Boolean(foodMeta && foodMeta[o.id] && Array.isArray(foodMeta[o.id].food_items) && foodMeta[o.id].food_items.length > 0);
+                const isFood = Boolean(hasFoodItems || (fullOrder.is_food_order === true && fullOrder.delivery_address && fullOrder.delivery_address.toLowerCase().includes("quick's instant food")));
                 return {
                     ...fullOrder,
                     is_food_order: isFood,
@@ -2632,7 +2638,8 @@ router.get('/:userId/active', async (req, res) => {
             const meta = supabaseDb.orders.parseDeliveryMeta(o.rider_name);
             const foodOrderService = require('../services/foodOrderService');
             const foodMeta = foodOrderService.loadFoodMeta();
-            const isFood = Boolean((foodMeta && foodMeta[o.id]) || o.is_food_order === true || o.is_food_order === 'true');
+            const hasFoodItems = Boolean(foodMeta && foodMeta[o.id] && Array.isArray(foodMeta[o.id].food_items) && foodMeta[o.id].food_items.length > 0);
+            const isFood = Boolean(hasFoodItems || (o.is_food_order === true && o.delivery_address && o.delivery_address.toLowerCase().includes("quick's instant food")));
             return {
                 ...o,
                 is_food_order: isFood,

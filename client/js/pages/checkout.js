@@ -7,12 +7,26 @@ function isQuickInstantFoodProduct(p) {
     const cat = (p.category || p.product_category || '').trim().toLowerCase();
     const sub = (p.subcategory || p.product_subcategory || '').trim().toLowerCase();
     const name = (p.name || p.product_name || '').toLowerCase();
-    if (cat.includes('instant snacks') || sub.includes('instant snacks') || cat.includes('snacks & munchies')) return false;
+
+    // STRICT EXCLUSIONS: Packaged dark store goods are NEVER kitchen food orders
+    if (cat === 'snacks & beverages' || cat === 'grocery' || cat.includes('snacks & munchies') || cat.includes('instant snacks')) {
+        return false;
+    }
+    if (/bhelpuri|namkeen|bhujia|chips|wafer|biscuit|cookie|kurkure|crisp|sev|mixture|top ramen|yippee|cup noodles|crax|cadbury|kitkat|snickers|munch|parle|britannia|oreo|lays|lay's|bingo|haldiram|doritos/i.test(name)) {
+        return false;
+    }
+
+    // Direct Category Match for Quick's Instant Food kitchen department
     if (cat === "quick's instant food" || cat === "quicks instant food") return true;
-    if (sub === "quick's instant food" || sub === "quicks instant food" || sub === 'cook') return true;
-    if ((cat === 'instant food' || cat === 'instant' || sub === 'instant food') && !sub.includes('namkeen') && !/bhelpuri|namkeen|chips|wafer|biscuit/i.test(name)) return true;
-    if (sub.includes('magiee & noodles') || sub.includes('cooked meals') || sub.includes('sandwiches & burgers') || sub.includes('pasta & macaroni') || sub.includes('hot snacks & fries') || sub.includes('soups & bowls')) return true;
-    if (/magiee|cooked meal|hot meal|thali|paratha|sandwich|fresh pasta|fresh burger|chai|coffee|soup|chowmein|macroni/i.test(name)) return true;
+    if (cat === 'instant food' && cat !== 'snacks & beverages' && cat !== 'grocery') return true;
+    if (sub === "quick's instant food" || sub === "quicks instant food" || sub === 'kitchen food') return true;
+
+    // Freshly cooked kitchen food explicitly under food categories
+    if (cat.includes('food') && !cat.includes('snacks') && !cat.includes('grocery')) {
+        if (/fresh|cooked|prepared|hot meal|thali|paratha|sandwich|burger|pasta/i.test(name)) {
+            return true;
+        }
+    }
     return false;
 }
 
