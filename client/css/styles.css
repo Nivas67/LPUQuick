@@ -962,6 +962,92 @@ html.dark .add-to-cart-btn:hover {
 }
 
 /* ============================================================
+   CHECKOUT SLIDE-TO-CONFIRM (TACTILE LIQUID GLASS & CLAY THUMB)
+   ============================================================ */
+.slider-track {
+    position: relative;
+    width: 100%;
+    height: 58px;
+    background: var(--clay-bg, rgba(255, 255, 255, 0.7));
+    border: 1.5px solid rgba(245, 158, 11, 0.4);
+    box-shadow: inset 2px 2px 6px rgba(0, 0, 0, 0.2), inset -2px -2px 6px rgba(255, 255, 255, 0.1);
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    touch-action: none !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    cursor: pointer;
+}
+
+body.dark .slider-track,
+html.dark .slider-track {
+    background: rgba(22, 11, 42, 0.85) !important;
+    border-color: rgba(245, 158, 11, 0.45) !important;
+    box-shadow: inset 3px 3px 8px rgba(0, 0, 0, 0.7), inset -2px -2px 6px rgba(255, 255, 255, 0.05) !important;
+}
+
+.slider-thumb {
+    position: absolute;
+    left: 4px;
+    width: 50px;
+    height: 50px;
+    background: var(--brand-emerald-gradient, linear-gradient(135deg, #10b981 0%, #059669 100%));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.45), inset 0 2px 2px rgba(255, 255, 255, 0.6);
+    border: 1.5px solid rgba(255, 255, 255, 0.6);
+    z-index: 2;
+    touch-action: none !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    transition: transform 0.15s ease;
+}
+
+.slider-thumb:active {
+    cursor: grabbing;
+    transform: scale(0.96);
+}
+
+.slider-thumb .material-symbols-outlined {
+    color: white;
+    font-size: 24px;
+    pointer-events: none;
+}
+
+.slider-text {
+    width: 100%;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 800;
+    color: #1e293b;
+    z-index: 1;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    letter-spacing: 0.02em;
+}
+
+body.dark .slider-text,
+html.dark .slider-text {
+    color: #f8fafc !important;
+}
+
+.slider-progress {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background: linear-gradient(90deg, rgba(16, 185, 129, 0.35), rgba(16, 185, 129, 0.65));
+    width: 0;
+    border-radius: 9999px;
+    z-index: 0;
+}
+
+/* ============================================================
    MODAL OVERLAY & POPUP SYSTEM (0ms Instant Display)
    ============================================================ */
 .modal-overlay {
