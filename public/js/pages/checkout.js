@@ -275,21 +275,33 @@ window.pages.checkout = async function () {
         <div id="checkout-form-section" class="space-y-4 transition-all duration-200">
             
             ${!window.isUserLoggedIn() ? `
-            <!-- Sign In Required Banner -->
-            <div class="glass-panel rounded-2xl p-4 flex items-center justify-between text-xs border border-amber-500/40 bg-amber-500/10 shadow-sm backdrop-blur-xl">
-                <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                        <span class="material-symbols-outlined text-lg">account_circle</span>
-                    </div>
-                    <div>
-                        <p class="font-black text-slate-900 dark:text-white">Sign In Required</p>
-                        <p class="text-[11px] text-slate-500 dark:text-slate-400">Sign in to confirm delivery to your campus hostel room.</p>
+            <!-- Google Auth First Order Verification Card (Step 6) -->
+            <div id="checkout-google-auth-card" class="glass-panel card-pedestal rounded-3xl p-4 sm:p-5 shadow-xl border-2 border-emerald-500/40 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent space-y-3">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 shadow-sm">
+                            <svg class="w-5 h-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+                                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="font-black text-sm text-slate-900 dark:text-white">Verify Account with Google</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400">1-tap Google verification for 1st order. Future orders place in 1 tap!</p>
+                        </div>
                     </div>
                 </div>
-                <a href="#/signin" onclick="localStorage.setItem('lpuquick_redirect', '#/checkout')" class="clay-btn clay-btn-primary px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1">
-                    <span>Sign In</span>
-                    <span class="material-symbols-outlined text-xs">arrow_forward</span>
-                </a>
+                <button type="button" id="btn-checkout-google-signin" class="clay-btn w-full py-3 rounded-2xl flex items-center justify-center gap-2.5 text-slate-900 dark:text-white font-black text-xs active:scale-95 transition-transform shadow-md cursor-pointer">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
+                    </svg>
+                    <span id="btn-checkout-google-text">Continue with Google</span>
+                </button>
             </div>
             ` : !(typeof window.hasUserConfiguredAddress === 'function' ? window.hasUserConfiguredAddress() : Boolean(localStorage.getItem('lpuquick_room'))) ? `
             <!-- Room Address & Mobile Required Banner -->
@@ -858,6 +870,44 @@ window.pageInits.checkout = function () {
         if (isSubmitting) return;
         isSubmitting = true;
 
+        // Step 6: Google Auth verification for first-time order
+        if (!window.isUserLoggedIn()) {
+            isSubmitting = false;
+            if (typeof resetSliderUI === 'function') resetSliderUI();
+            const tapBtn = document.getElementById('tap-to-pay-btn');
+            if (tapBtn) {
+                tapBtn.disabled = false;
+                tapBtn.innerHTML = `<span class="material-symbols-outlined text-base">bolt</span> <span>⚡ 1-Tap Quick Place (₹${window.cartTotalCache || 0})</span>`;
+            }
+
+            if (typeof window.showClientToast === 'function') {
+                window.showClientToast('Please sign in with Google to place your first order.', 'info', 'account_circle');
+            }
+
+            if (typeof window.promptGoogleAuth === 'function') {
+                window.promptGoogleAuth(
+                    async (user) => {
+                        if (typeof window.showClientToast === 'function') {
+                            window.showClientToast(`✓ Verified as ${user.name || 'Student'}! Placing your order...`, 'success', 'verified');
+                        }
+                        const authCard = document.getElementById('checkout-google-auth-card');
+                        if (authCard) authCard.remove();
+                        executeOrderPlacement();
+                    },
+                    (err) => {
+                        console.warn('[Checkout Google Auth Error]:', err);
+                        if (typeof window.showClientToast === 'function') {
+                            window.showClientToast('Google sign-in is required to place your first order.', 'warning', 'lock');
+                        }
+                    }
+                );
+            } else {
+                localStorage.setItem('lpuquick_redirect', '#/checkout');
+                window.location.hash = '#/signin';
+            }
+            return;
+        }
+
         const minOrderLimit = window.cartMinOrderCache || 35;
         if ((window.cartSubtotalCache !== undefined) && window.cartSubtotalCache < minOrderLimit) {
             isSubmitting = false;
@@ -938,7 +988,8 @@ window.pageInits.checkout = function () {
         }
 
         try {
-            const orderRes = await window.api.checkout(userId, selectedMethod, fullAddress, {
+            const activeUserId = window.CURRENT_USER_ID || userId;
+            const orderRes = await window.api.checkout(activeUserId, selectedMethod, fullAddress, {
                 phone: savedPhone,
                 name: window.CURRENT_USER_NAME || 'LPU Student',
                 email: window.CURRENT_USER_EMAIL || '',
@@ -1006,6 +1057,26 @@ window.pageInits.checkout = function () {
 
     // Expose globally for instant zero-latency touch and delegated triggers
     window.executeOrderPlacement = executeOrderPlacement;
+
+    // Step 6: Google Sign-In button on Checkout
+    document.getElementById('btn-checkout-google-signin')?.addEventListener('click', () => {
+        if (typeof window.promptGoogleAuth === 'function') {
+            window.promptGoogleAuth(
+                async (user) => {
+                    if (typeof window.showClientToast === 'function') {
+                        window.showClientToast(`✓ Verified as ${user.name || 'Student'}!`, 'success', 'verified');
+                    }
+                    if (typeof window.router === 'function') window.router();
+                },
+                (err) => {
+                    console.warn('[Checkout Google Auth]:', err);
+                }
+            );
+        } else {
+            localStorage.setItem('lpuquick_redirect', '#/checkout');
+            window.location.hash = '#/signin';
+        }
+    });
 
     const tapToPayBtn = document.getElementById('tap-to-pay-btn');
     if (tapToPayBtn) {

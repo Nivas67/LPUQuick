@@ -583,12 +583,8 @@ window.pageInits.cart = function () {
 
     const proceedBtn = document.getElementById('proceed-to-checkout-btn');
     if (proceedBtn) {
-        proceedBtn.onclick = (e) => {
-            if (!window.isUserLoggedIn()) {
-                e.preventDefault();
-                localStorage.setItem('lpuquick_redirect', '#/checkout');
-                window.location.hash = '#/signin';
-            }
+        proceedBtn.onclick = () => {
+            // Smoothly proceed to checkout page (Step 5)
         };
     }
 
@@ -820,12 +816,8 @@ window.pageInits.cart = function () {
                     `;
                     const btn = document.getElementById('proceed-to-checkout-btn');
                     if (btn) {
-                        btn.onclick = (e) => {
-                            if (!window.isUserLoggedIn()) {
-                                e.preventDefault();
-                                localStorage.setItem('lpuquick_redirect', '#/checkout');
-                                window.location.hash = '#/signin';
-                            }
+                        btn.onclick = () => {
+                            // Smoothly proceed to checkout page (Step 5)
                         };
                     }
                 }

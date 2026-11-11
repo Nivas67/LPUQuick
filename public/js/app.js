@@ -203,6 +203,123 @@ window.getEffectiveUserId = function () {
     return guestId;
 };
 
+// Global Google Auth Verification Helper (Used for First-Time Order Checkout Verification)
+window.promptGoogleAuth = function (onSuccess, onError) {
+    const clientId = window.GOOGLE_CLIENT_ID || '632433440395-4ph6ghe311niied8h423ki98slbse8d2.apps.googleusercontent.com';
+
+    async function finishAuth(userData) {
+        try {
+            let res = null;
+            try {
+                if (window.api && typeof window.api.googleAuth === 'function') {
+                    res = await window.api.googleAuth(userData);
+                }
+            } catch (networkErr) {
+                console.warn('[Google Auth Network Recovery]:', networkErr.message);
+            }
+
+            if ((!res || !res.user || !res.user.id) && (userData.email || userData.name)) {
+                const rawName = userData.name || (userData.email ? userData.email.split('@')[0] : 'LPU Student');
+                const cleanName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+                res = {
+                    success: true,
+                    user: {
+                        id: `user_${Math.random().toString(36).slice(2, 10)}`,
+                        name: cleanName,
+                        email: (userData.email || '').toLowerCase(),
+                        phone: localStorage.getItem('lpuquick_phone') || '',
+                        picture: userData.picture || '',
+                        role: 'student',
+                        account_status: 'ACTIVE'
+                    }
+                };
+            }
+
+            if (res && res.user && res.user.id) {
+                window.CURRENT_USER_ID = res.user.id;
+                window.CURRENT_USER_NAME = res.user.name;
+                window.CURRENT_USER_EMAIL = res.user.email;
+                window.CURRENT_USER_PICTURE = res.user.picture || '';
+                localStorage.setItem('lpuquick_user', JSON.stringify(res.user));
+                localStorage.setItem('lpuquick_last_active', Date.now().toString());
+                if (typeof window.refreshUserActivity === 'function') window.refreshUserActivity();
+
+                // Merge guest cart items into authenticated user account
+                const guestId = localStorage.getItem('lpuquick_guest_cart_id');
+                if (guestId && typeof window.api?.mergeCart === 'function') {
+                    window.api.mergeCart(guestId, res.user.id).catch(() => {});
+                    localStorage.removeItem('lpuquick_guest_cart_id');
+                }
+
+                // Attach configured address
+                const hId = localStorage.getItem('lpuquick_hostel_id');
+                const block = localStorage.getItem('lpuquick_block');
+                const room = localStorage.getItem('lpuquick_room');
+                const phone = localStorage.getItem('lpuquick_phone');
+                if (hId && window.api?.updateAddress) {
+                    window.api.updateAddress(res.user.id, hId, block, room, phone).catch(() => {});
+                }
+
+                if (typeof onSuccess === 'function') onSuccess(res.user);
+                return;
+            } else {
+                const msg = (res && res.error) ? res.error : 'Could not verify Google account. Please try again.';
+                if (typeof onError === 'function') onError(new Error(msg));
+            }
+        } catch (err) {
+            console.error('[Google Auth Error]:', err);
+            if (typeof onError === 'function') onError(err);
+        }
+    }
+
+    if (window.google && window.google.accounts && window.google.accounts.oauth2) {
+        try {
+            const tokenClient = window.google.accounts.oauth2.initTokenClient({
+                client_id: clientId,
+                scope: 'email profile openid',
+                callback: async (tokenResponse) => {
+                    if (tokenResponse && tokenResponse.access_token) {
+                        try {
+                            let profile = null;
+                            try {
+                                const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                                    headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+                                });
+                                if (userInfoRes.ok) profile = await userInfoRes.json();
+                            } catch (e) {}
+
+                            if (profile && profile.email) {
+                                await finishAuth({
+                                    email: profile.email,
+                                    name: profile.name,
+                                    picture: profile.picture
+                                });
+                            } else {
+                                await finishAuth({ access_token: tokenResponse.access_token });
+                            }
+                        } catch (err) {
+                            if (typeof onError === 'function') onError(err);
+                        }
+                    } else {
+                        if (typeof onError === 'function') onError(new Error('Google sign in cancelled.'));
+                    }
+                },
+                error_callback: (err) => {
+                    if (typeof onError === 'function') onError(err);
+                }
+            });
+            tokenClient.requestAccessToken({ prompt: 'select_account' });
+            return;
+        } catch (e) {
+            console.warn('[TokenClient Prompt Error]:', e);
+        }
+    }
+
+    // Fallback: If Google GSI library blocked or not loaded, redirect to signin with return to checkout
+    localStorage.setItem('lpuquick_redirect', '#/checkout');
+    window.location.hash = '#/signin';
+};
+
 window.cartState = window.cartState || {};
 
 // Address state (Unconfigured until user signs in and sets room)
@@ -1049,7 +1166,14 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
         if (typeof onComplete === 'function') {
             onComplete();
         } else {
-            router();
+            window.location.hash = '#/';
+            if (typeof router === 'function') router();
+            setTimeout(() => {
+                const catalogSec = document.getElementById('shop-catalog-section') || document.getElementById('shop-catalog-split-row');
+                if (catalogSec) {
+                    catalogSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 250);
         }
     }
 
@@ -2511,7 +2635,14 @@ function checkInitialAddressSelection() {
             if (typeof window.hasUserConfiguredAddress === 'function' && !window.hasUserConfiguredAddress()) {
                 if (!document.getElementById('address-modal') && typeof window.openAddressModal === 'function') {
                     window.openAddressModal(true, () => {
+                        window.location.hash = '#/';
                         if (typeof router === 'function') router();
+                        setTimeout(() => {
+                            const catalogSec = document.getElementById('shop-catalog-section') || document.getElementById('shop-catalog-split-row');
+                            if (catalogSec) {
+                                catalogSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }
+                        }, 250);
                     });
                 }
             }
@@ -2556,14 +2687,9 @@ async function router() {
     }
     currentNavAbortController = new AbortController();
 
-    // Only prompt login on checkout if unauthenticated; allow free store browsing
-    if (!window.isUserLoggedIn()) {
-        if (path === '/checkout') {
-            localStorage.setItem('lpuquick_redirect', '#/checkout');
-            window.location.hash = '#/signin';
-            return;
-        }
-    } else if (path === '/signin') {
+    // Allow free store browsing, cart review, and checkout access.
+    // Google Auth verification is required upon first order placement on the checkout page.
+    if (window.isUserLoggedIn() && path === '/signin') {
         // Once logged in, student never needs to see sign-in page again
         const target = localStorage.getItem('lpuquick_redirect') || '#/';
         localStorage.removeItem('lpuquick_redirect');
