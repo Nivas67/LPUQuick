@@ -601,9 +601,20 @@ const localDb = {
             return orders.map(o => this.getOrderById(o.id));
         },
 
-        updateStatus(orderId, status) {
+        updateStatus(orderId, status, options = {}) {
             const db = getLocalDb();
-            db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(status, orderId);
+            const updates = ['status = ?'];
+            const params = [status];
+            if (options && options.payment_method) {
+                updates.push('payment_method = ?');
+                params.push(options.payment_method);
+            }
+            if (options && options.payment_status) {
+                updates.push('payment_status = ?');
+                params.push(options.payment_status);
+            }
+            params.push(orderId);
+            db.prepare(`UPDATE orders SET ${updates.join(', ')} WHERE id = ?`).run(...params);
             return this.getOrderById(orderId);
         },
 

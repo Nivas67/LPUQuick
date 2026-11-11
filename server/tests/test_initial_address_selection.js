@@ -55,8 +55,9 @@ function hasUserConfiguredAddress(storage, win) {
     const block = (storage.getItem('lpuquick_block') || win.currentBlock || '').toLowerCase();
     const isGate = block.includes('gate');
     const room = (storage.getItem('lpuquick_room') || '').replace(/\D/g, '');
+    const phone = (storage.getItem('lpuquick_phone') || '').replace(/\D/g, '');
     const hasValidLocation = isGate || room.length > 0;
-    return Boolean(isConfigured && hostel && hasValidLocation);
+    return Boolean(isConfigured && hostel && hasValidLocation && phone.length === 10);
 }
 
 // State A: First time visitor (empty localStorage)
@@ -67,7 +68,7 @@ assert.strictEqual(
 );
 console.log('✅ [PASS] Fresh visitor correctly identified as having NO configured address');
 
-// State B: User configures room drop
+// State B: User configures room drop without phone (must NOT be configured because phone is mandatory)
 mockLocalStorage.setItem('lpuquick_address_configured', 'true');
 mockLocalStorage.setItem('lpuquick_hostel_id', 'GH12');
 mockLocalStorage.setItem('lpuquick_block', 'Block B');
@@ -76,25 +77,44 @@ mockLocalStorage.setItem('lpuquick_address_detail', 'GH12 (Block B), Room 205');
 
 assert.strictEqual(
     hasUserConfiguredAddress(mockLocalStorage, mockWindow),
-    true,
-    'User with confirmed room drop must be identified as configured'
+    false,
+    'User without mandatory 10-digit phone must NOT be identified as configured'
 );
-console.log('✅ [PASS] User with confirmed room drop correctly identified as configured');
+console.log('✅ [PASS] User without phone correctly blocked from being identified as configured');
 
-// State C: User configures Gate drop point
+// State C: User configures room drop WITH mandatory 10-digit phone
+mockLocalStorage.setItem('lpuquick_phone', '9876543210');
+assert.strictEqual(
+    hasUserConfiguredAddress(mockLocalStorage, mockWindow),
+    true,
+    'User with confirmed room drop and valid phone must be identified as configured'
+);
+console.log('✅ [PASS] User with confirmed room drop and valid phone correctly identified as configured');
+
+// State D: User configures Gate drop point WITH mandatory phone
 mockLocalStorage.clear();
 mockLocalStorage.setItem('lpuquick_address_configured', 'true');
 mockLocalStorage.setItem('lpuquick_hostel_id', 'BH-13');
 mockLocalStorage.setItem('lpuquick_block', 'Hostel Main Gate');
 mockLocalStorage.setItem('lpuquick_room', '');
+mockLocalStorage.setItem('lpuquick_phone', '9876543210');
 mockLocalStorage.setItem('lpuquick_address_detail', 'BH-13 (Hostel Main Gate)');
 
 assert.strictEqual(
     hasUserConfiguredAddress(mockLocalStorage, mockWindow),
     true,
-    'User with confirmed Gate drop point must be identified as configured'
+    'User with confirmed Gate drop point and valid phone must be identified as configured'
 );
-console.log('✅ [PASS] User with confirmed Gate drop point correctly identified as configured');
+console.log('✅ [PASS] User with confirmed Gate drop point and valid phone correctly identified as configured');
+
+// State E: User enters invalid phone length (e.g. 8 digits)
+mockLocalStorage.setItem('lpuquick_phone', '12345678');
+assert.strictEqual(
+    hasUserConfiguredAddress(mockLocalStorage, mockWindow),
+    false,
+    'User with invalid phone length must NOT be identified as configured'
+);
+console.log('✅ [PASS] User with invalid phone length correctly rejected');
 
 // 3. Verify checkInitialAddressSelection presence in app.js
 assert(
@@ -117,6 +137,21 @@ assert(
     'Modal backdrop click-to-close is strictly disabled in mandatory mode'
 );
 console.log('✅ [PASS] Modal mandatory mode enforces selection without bypass');
+
+// 5. Verify Phone Number is strictly mandatory in address modal
+assert(
+    clientAppJs.includes('Mobile Phone Number <span class="text-rose-500 font-extrabold">*</span>'),
+    'Phone input label must have mandatory asterisk (*)'
+);
+assert(
+    clientAppJs.includes('!cleanPhone || cleanPhone.length !== 10'),
+    'Phone validation must strictly enforce non-empty 10-digit number'
+);
+assert(
+    clientAppJs.includes('Mobile Number is strictly mandatory!'),
+    'Phone validation alert message must inform user that mobile number is strictly mandatory'
+);
+console.log('✅ [PASS] Mobile Phone Number strictly mandatory validation verified in modal');
 
 console.log('\n====================================================');
 console.log('🎉 ALL INITIAL ADDRESS SELECTION TESTS PASSED!');

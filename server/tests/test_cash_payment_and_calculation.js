@@ -30,6 +30,13 @@ adminFiles.forEach(file => {
     assert.strictEqual(fn('COD'), 'Pay on Delivery');
     assert.strictEqual(fn('POD'), 'Pay on Delivery');
     assert.strictEqual(fn(null), 'Pay on Delivery');
+    // When order is Delivered / Completed:
+    assert.strictEqual(fn('Pay on Delivery', 'Delivered'), 'Cash');
+    assert.strictEqual(fn('Cash on Delivery', 'Delivered'), 'Cash');
+    assert.strictEqual(fn('COD', 'Delivered'), 'Cash');
+    assert.strictEqual(fn(null, 'Delivered'), 'Cash');
+    assert.strictEqual(fn('Cash', 'Delivered'), 'Cash');
+    assert.strictEqual(fn('UPI', 'Delivered'), 'UPI');
 });
 console.log('✓ formatAdminPaymentDisplay verified in all 3 admin locations!');
 

@@ -388,15 +388,16 @@ function getPageName(path) {
     return routes[path] || 'home';
 }
 
-// Address Configuration State Helper (Accepts both room drops and designated Gate drop points)
+// Address Configuration State Helper (Accepts both room drops and designated Gate drop points, requires 10-digit phone)
 window.hasUserConfiguredAddress = function () {
     const isConfigured = localStorage.getItem('lpuquick_address_configured') === 'true';
     const hostel = localStorage.getItem('lpuquick_hostel_id') || window.currentHostelId;
     const block = (localStorage.getItem('lpuquick_block') || window.currentBlock || '').toLowerCase();
     const isGate = block.includes('gate');
     const room = (localStorage.getItem('lpuquick_room') || '').replace(/\D/g, '');
+    const phone = (localStorage.getItem('lpuquick_phone') || '').replace(/\D/g, '');
     const hasValidLocation = isGate || room.length > 0;
-    return Boolean(isConfigured && hostel && hasValidLocation);
+    return Boolean(isConfigured && hostel && hasValidLocation && phone.length === 10);
 };
 
 // Global Address Selection Modal (Multi-Hostel Live Selection, Dynamic Blocks from Admin, Room No, Phone)
@@ -677,7 +678,7 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
                 <!-- Contact Phone Number -->
                 <div class="space-y-1.5">
                     <div class="flex justify-between items-center">
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300" for="phone-input">Mobile Phone Number <span class="text-slate-400 font-normal">(Optional for browsing, required at checkout)</span></label>
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300" for="phone-input">Mobile Phone Number <span class="text-rose-500 font-extrabold">*</span></label>
                         <span class="text-[10px] text-slate-400 font-medium flex items-center gap-0.5">
                             <span class="material-symbols-outlined text-xs">phone</span> Delivery Updates
                         </span>
@@ -1259,19 +1260,10 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
             }
 
             const cleanPhone = (phone || '').replace(/\D/g, '');
-            const isCheckout = typeof window.location !== 'undefined' && window.location.hash.includes('checkout');
-            if (isCheckout && (!cleanPhone || cleanPhone.length !== 10)) {
+            if (!cleanPhone || cleanPhone.length !== 10) {
                 if (alertBox && alertMsg) {
                     alertBox.classList.remove('hidden');
-                    alertMsg.textContent = 'Mobile Number is strictly mandatory for checkout! Please enter a valid 10-digit phone number.';
-                }
-                modal.querySelector('#phone-input')?.focus();
-                return;
-            }
-            if (cleanPhone && cleanPhone.length !== 10) {
-                if (alertBox && alertMsg) {
-                    alertBox.classList.remove('hidden');
-                    alertMsg.textContent = 'Please enter a valid 10-digit mobile number (e.g. 9876543210).';
+                    alertMsg.textContent = 'Mobile Number is strictly mandatory! Please enter a valid 10-digit phone number (e.g. 9876543210).';
                 }
                 modal.querySelector('#phone-input')?.focus();
                 return;

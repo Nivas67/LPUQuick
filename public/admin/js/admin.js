@@ -1,11 +1,15 @@
 
-function formatAdminPaymentDisplay(method) {
-    if (!method) return 'Pay on Delivery';
-    const s = String(method).trim();
+function formatAdminPaymentDisplay(method, status) {
+    const s = method ? String(method).trim() : '';
+    const st = status ? String(status).trim().toLowerCase() : '';
+    const isDone = st === 'delivered' || st === 'completed';
+
+    if (!s) return isDone ? 'Cash' : 'Pay on Delivery';
     if (/^cash$/i.test(s)) return 'Cash';
     if (/^upi$/i.test(s)) return 'UPI';
     if (/^both/i.test(s)) return s;
     if (/cash\s*on\s*delivery/i.test(s) || /^cod$/i.test(s) || /^pod$/i.test(s) || /pay\s*on\s*delivery/i.test(s)) {
+        if (isDone) return 'Cash';
         return 'Pay on Delivery';
     }
     return s;
@@ -3766,7 +3770,7 @@ function filterOrders() {
             </td>
             <td class="p-4 text-[#5c5f60]">${escapeHtml(o.delivery_address || 'Not provided')}</td>
             <td class="p-4 font-bold text-[#137333]">₹${o.total}</td>
-            <td class="p-4 text-[#5c5f60]">${formatAdminPaymentDisplay(o.payment_method)}</td>
+            <td class="p-4 text-[#5c5f60]">${formatAdminPaymentDisplay(o.payment_method, o.status)}</td>
             <td class="p-4" id="order-status-pill-${o.id}">${getStatusPill(o.status, isFoodOrder)}</td>
             <td class="p-4">${dispatchBadgeHtml}</td>
             <td class="p-4 text-right">${actionButtonsHtml}</td>
@@ -3833,7 +3837,7 @@ async function openOrderDrawer(orderId) {
             document.getElementById('drawer-cust-email').textContent = cachedOrder.customer_email && cachedOrder.customer_email.trim() ? cachedOrder.customer_email : 'Not provided';
         }
         document.getElementById('drawer-cust-address').textContent = cachedOrder.delivery_address && cachedOrder.delivery_address.trim() ? cachedOrder.delivery_address : 'Not provided';
-        document.getElementById('drawer-payment-method').textContent = formatAdminPaymentDisplay(cachedOrder.payment_method);
+        document.getElementById('drawer-payment-method').textContent = formatAdminPaymentDisplay(cachedOrder.payment_method, cachedOrder.status);
         document.getElementById('drawer-order-total').textContent = `₹${cachedOrder.total || 0}`;
         document.getElementById('drawer-status-select').value = cachedOrder.status;
 
@@ -3894,7 +3898,7 @@ async function openOrderDrawer(orderId) {
             document.getElementById('drawer-cust-email').textContent = o.customer_email && o.customer_email.trim() ? o.customer_email : 'Not provided';
         }
         document.getElementById('drawer-cust-address').textContent = o.delivery_address && o.delivery_address.trim() ? o.delivery_address : 'Not provided';
-        document.getElementById('drawer-payment-method').textContent = formatAdminPaymentDisplay(o.payment_method);
+        document.getElementById('drawer-payment-method').textContent = formatAdminPaymentDisplay(o.payment_method, o.status);
         document.getElementById('drawer-order-total').textContent = `₹${o.total}`;
         document.getElementById('drawer-status-select').value = o.status;
 
@@ -4024,7 +4028,7 @@ window.deleteOrderPermanently = deleteOrderPermanently;
 // ==========================================
 let currentDrawerPaymentMode = null;
 
-function selectDrawerPaymentMode(mode) {
+function selectDrawerPaymentMode(mode, isInit = false) {
     currentDrawerPaymentMode = mode;
     const btnCash = document.getElementById('drawer-pay-btn-cash');
     const btnUpi = document.getElementById('drawer-pay-btn-upi');
@@ -4046,6 +4050,7 @@ function selectDrawerPaymentMode(mode) {
 
     const targetOrder = ordersCache.find(x => x.id === currentDrawerOrderId);
     const orderTotal = targetOrder ? Number(targetOrder.total || 0) : 0;
+    const drawerPayEl = document.getElementById('drawer-payment-method');
 
     if (mode === 'Cash') {
         if (btnCash) {
@@ -4056,6 +4061,32 @@ function selectDrawerPaymentMode(mode) {
             badge.textContent = `💵 Cash (₹${orderTotal})`;
         }
         if (splitWrap) splitWrap.classList.add('hidden');
+        if (drawerPayEl) drawerPayEl.textContent = 'Cash';
+
+        if (targetOrder) {
+            targetOrder.payment_method = 'Cash';
+            const rowPayCell = document.querySelector(`#order-row-${currentDrawerOrderId} td:nth-child(5)`);
+            if (rowPayCell) rowPayCell.textContent = 'Cash';
+
+            if (!isInit) {
+                const s = (targetOrder.status || '').toLowerCase();
+                if (s === 'delivered' || s === 'completed') {
+                    targetOrder.payment_status = 'PAID';
+                    fetchWithTimeout('/api/orders/admin/status', {
+                        method: 'POST',
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify({
+                            orderId: currentDrawerOrderId,
+                            status: targetOrder.status,
+                            paymentMethod: 'Cash',
+                            paymentStatus: 'PAID'
+                        })
+                    }, 10000).catch(err => console.warn('[Auto-save cash mode error]:', err.message));
+                }
+                updateDailyRevenue();
+                filterOrders();
+            }
+        }
     } else if (mode === 'UPI') {
         if (btnUpi) {
             btnUpi.className = 'drawer-pay-btn flex flex-col items-center justify-center p-2 rounded-xl border-2 border-blue-600 bg-blue-50 text-blue-900 ring-2 ring-blue-500/40 font-extrabold shadow-sm active:scale-95 cursor-pointer';
@@ -4065,6 +4096,32 @@ function selectDrawerPaymentMode(mode) {
             badge.textContent = `📱 UPI (₹${orderTotal})`;
         }
         if (splitWrap) splitWrap.classList.add('hidden');
+        if (drawerPayEl) drawerPayEl.textContent = 'UPI';
+
+        if (targetOrder) {
+            targetOrder.payment_method = 'UPI';
+            const rowPayCell = document.querySelector(`#order-row-${currentDrawerOrderId} td:nth-child(5)`);
+            if (rowPayCell) rowPayCell.textContent = 'UPI';
+
+            if (!isInit) {
+                const s = (targetOrder.status || '').toLowerCase();
+                if (s === 'delivered' || s === 'completed') {
+                    targetOrder.payment_status = 'PAID';
+                    fetchWithTimeout('/api/orders/admin/status', {
+                        method: 'POST',
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify({
+                            orderId: currentDrawerOrderId,
+                            status: targetOrder.status,
+                            paymentMethod: 'UPI',
+                            paymentStatus: 'PAID'
+                        })
+                    }, 10000).catch(err => console.warn('[Auto-save upi mode error]:', err.message));
+                }
+                updateDailyRevenue();
+                filterOrders();
+            }
+        }
     } else if (mode === 'Both') {
         if (btnBoth) {
             btnBoth.className = 'drawer-pay-btn flex flex-col items-center justify-center p-2 rounded-xl border-2 border-amber-600 bg-amber-50 text-amber-900 ring-2 ring-amber-500/40 font-extrabold shadow-sm active:scale-95 cursor-pointer';
@@ -4172,14 +4229,20 @@ function initDrawerPaymentMode(order) {
     if (statusBox) statusBox.classList.remove('ring-2', 'ring-rose-500');
 
     const method = (order?.payment_method || '').toLowerCase();
+    const isDelivered = ['delivered', 'completed'].includes((order?.status || '').toLowerCase());
+
     if (method.includes('both')) {
-        selectDrawerPaymentMode('Both');
+        selectDrawerPaymentMode('Both', true);
     } else if (method.includes('upi')) {
-        selectDrawerPaymentMode('UPI');
-    } else if (method.includes('cash') || method.includes('cod')) {
-        selectDrawerPaymentMode('Cash');
+        selectDrawerPaymentMode('UPI', true);
+    } else if (method.includes('cash') || method.includes('cod') || method.includes('pay on delivery') || method.includes('pod') || isDelivered) {
+        selectDrawerPaymentMode('Cash', true);
+        if (isDelivered) {
+            const drawerPayEl = document.getElementById('drawer-payment-method');
+            if (drawerPayEl) drawerPayEl.textContent = 'Cash';
+        }
     } else {
-        selectDrawerPaymentMode('Cash');
+        selectDrawerPaymentMode('Cash', true);
     }
 }
 
@@ -4252,6 +4315,10 @@ async function applyDrawerStatusUpdate() {
     if (drawerPayEl && newStatus === 'Delivered') {
         drawerPayEl.textContent = `${finalPaymentMethod} (Collected)`;
     }
+    const rowPayCell = document.querySelector(`#order-row-${targetOrderId} td:nth-child(5)`);
+    if (rowPayCell && newStatus === 'Delivered') {
+        rowPayCell.textContent = finalPaymentMethod;
+    }
 
     const shortId = targetOrderId.replace('order_', '').toUpperCase();
     const toastMsg = newStatus === 'Delivered'
@@ -4323,7 +4390,8 @@ async function quickSetOrderStatus(orderId, newStatus, e) {
         o.status = newStatus;
         if (newStatus === 'Delivered') {
             o.payment_status = 'PAID';
-            if (!o.payment_method || o.payment_method.toLowerCase().includes('cod')) {
+            const pm = (o.payment_method || '').toLowerCase();
+            if (!o.payment_method || pm.includes('cod') || pm.includes('pay on delivery') || pm.includes('pod') || pm.includes('cash on delivery')) {
                 o.payment_method = 'Cash';
                 paymentMethod = 'Cash';
             }
