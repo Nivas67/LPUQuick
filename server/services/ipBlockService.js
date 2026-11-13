@@ -67,26 +67,41 @@ function normalizeIp(ip) {
 }
 
 /**
- * Extract client IP reliably across Vercel, proxies, Cloudflare, and local Express
+ * Extract client IP reliably across Cloudflare, Vercel, Nginx, proxies, and local Express.
+ * Prioritizes tamper-proof Cloudflare edge headers (CF-Connecting-IP, True-Client-IP) to prevent
+ * X-Forwarded-For spoofing attacks.
  */
 function extractClientIp(req) {
     if (!req) return '';
-    const forwarded = req.headers ? (req.headers['x-forwarded-for'] || req.headers['x-vercel-forwarded-for']) : null;
+    const headers = req.headers || {};
+
+    // 1. Cloudflare Edge Real IP (Tamper-proof: Cloudflare overwrites CF-Connecting-IP with the actual visitor IP)
+    const cfIp = headers['cf-connecting-ip'] || headers['true-client-ip'];
+    if (cfIp && typeof cfIp === 'string' && cfIp.trim()) {
+        return normalizeIp(cfIp.trim());
+    }
+
+    // 2. Vercel Edge Forwarded IP
+    const vercelIp = headers['x-vercel-forwarded-for'];
+    if (vercelIp && typeof vercelIp === 'string' && vercelIp.trim()) {
+        const first = vercelIp.split(',')[0].trim();
+        if (first) return normalizeIp(first);
+    }
+
+    // 3. X-Real-IP set by trusted upstream Nginx load balancer
+    const realIp = headers['x-real-ip'];
+    if (realIp && typeof realIp === 'string' && realIp.trim()) {
+        return normalizeIp(realIp.trim());
+    }
+
+    // 4. Fallback: X-Forwarded-For
+    const forwarded = headers['x-forwarded-for'];
     if (forwarded && typeof forwarded === 'string') {
         const client = forwarded.split(',')[0].trim();
         if (client) return normalizeIp(client);
     }
 
-    const realIp = req.headers ? req.headers['x-real-ip'] : null;
-    if (realIp && typeof realIp === 'string' && realIp.trim()) {
-        return normalizeIp(realIp.trim());
-    }
-
-    const cfIp = req.headers ? req.headers['cf-connecting-ip'] : null;
-    if (cfIp && typeof cfIp === 'string' && cfIp.trim()) {
-        return normalizeIp(cfIp.trim());
-    }
-
+    // 5. Socket Remote Address / Express req.ip
     const remote = req.socket ? req.socket.remoteAddress : (req.connection ? req.connection.remoteAddress : req.ip);
     return normalizeIp(remote || '');
 }

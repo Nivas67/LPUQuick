@@ -22,14 +22,40 @@ const LIMITS = {
 };
 
 /**
- * Extracts the real client IP behind Vercel / Cloudflare edge proxies
+ * Extracts the real client IP behind Cloudflare / Vercel / Nginx edge proxies.
+ * Prioritizes tamper-proof CF-Connecting-IP to prevent header spoofing.
  */
 function getClientIp(req) {
-    const xForwardedFor = req.headers['x-forwarded-for'];
-    if (xForwardedFor) {
-        return xForwardedFor.split(',')[0].trim();
+    if (!req) return '127.0.0.1';
+    const headers = req.headers || {};
+
+    // 1. Cloudflare Edge Real IP (Tamper-proof from Cloudflare proxy)
+    const cfIp = headers['cf-connecting-ip'] || headers['true-client-ip'];
+    if (cfIp && typeof cfIp === 'string' && cfIp.trim()) {
+        return cfIp.trim();
     }
-    return req.headers['x-real-ip'] || req.ip || req.socket?.remoteAddress || '127.0.0.1';
+
+    // 2. Vercel Edge Forwarded IP
+    const vercelIp = headers['x-vercel-forwarded-for'];
+    if (vercelIp && typeof vercelIp === 'string' && vercelIp.trim()) {
+        const first = vercelIp.split(',')[0].trim();
+        if (first) return first;
+    }
+
+    // 3. X-Real-IP set by trusted upstream Nginx load balancer
+    const realIp = headers['x-real-ip'];
+    if (realIp && typeof realIp === 'string' && realIp.trim()) {
+        return realIp.trim();
+    }
+
+    // 4. Fallback: X-Forwarded-For
+    const xForwardedFor = headers['x-forwarded-for'];
+    if (xForwardedFor && typeof xForwardedFor === 'string') {
+        const first = xForwardedFor.split(',')[0].trim();
+        if (first) return first;
+    }
+
+    return req.ip || req.socket?.remoteAddress || '127.0.0.1';
 }
 
 /**

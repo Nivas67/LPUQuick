@@ -22,9 +22,10 @@ router.post('/signin', async (req, res) => {
     }
 
     const trimmedEmail = email.trim().toLowerCase();
+    const clientIp = (typeof ipBlockService?.extractClientIp === 'function' ? ipBlockService.extractClientIp(req) : null) || req.ip || '127.0.0.1';
 
     // 1. Rate limiting check: 5 attempts -> 15 min lock
-    const rateCheck = checkLoginRateLimit(trimmedEmail, req.ip);
+    const rateCheck = checkLoginRateLimit(trimmedEmail, clientIp);
     if (rateCheck.locked) {
         return res.status(429).json({
             success: false,
@@ -52,7 +53,7 @@ router.post('/signin', async (req, res) => {
                 role: 'student'
             });
 
-            recordSuccessfulLogin(trimmedEmail, req.ip);
+            recordSuccessfulLogin(trimmedEmail, clientIp);
 
             return res.json({
                 success: true,
@@ -76,12 +77,12 @@ router.post('/signin', async (req, res) => {
         // Verify password using secure constant-time / bcrypt check
         const verifyRes = verifyPassword(password, user.password_hash);
         if (!verifyRes.isValid) {
-            recordFailedLogin(trimmedEmail, req.ip);
+            recordFailedLogin(trimmedEmail, clientIp);
             return res.status(401).json({ error: 'Invalid email or password. Please check and try again.' });
         }
 
         // Login successful: reset rate limit tracking
-        recordSuccessfulLogin(trimmedEmail, req.ip);
+        recordSuccessfulLogin(trimmedEmail, clientIp);
 
         // Seamless auto-upgrade of legacy password hash to Bcrypt
         if (verifyRes.needsUpgrade) {
@@ -358,9 +359,10 @@ router.post('/admin-login', async (req, res) => {
     }
 
     const trimmedEmail = email.trim().toLowerCase();
+    const clientIp = (typeof ipBlockService?.extractClientIp === 'function' ? ipBlockService.extractClientIp(req) : null) || req.ip || '127.0.0.1';
 
     // 1. Rate Limit Check: Limit login attempts. After 5 incorrect attempts, lock for 15 minutes
-    const rateCheck = checkLoginRateLimit(trimmedEmail, req.ip);
+    const rateCheck = checkLoginRateLimit(trimmedEmail, clientIp);
     if (rateCheck.locked) {
         return res.status(429).json({
             success: false,
@@ -381,10 +383,10 @@ router.post('/admin-login', async (req, res) => {
 
         // Generic error message: Avoid revealing whether email or password is incorrect
         if (!user || (user.role !== 'admin' && user.role !== 'owner')) {
-            const failRes = recordFailedLogin(trimmedEmail, req.ip);
-            console.warn(`[SECURITY AUDIT] ADMIN_LOGIN_FAILED: User not found or not admin | email: ${trimmedEmail} | ip: ${req.ip} | attempt: ${failRes.attempts}`);
+            const failRes = recordFailedLogin(trimmedEmail, clientIp);
+            console.warn(`[SECURITY AUDIT] ADMIN_LOGIN_FAILED: User not found or not admin | email: ${trimmedEmail} | ip: ${clientIp} | attempt: ${failRes.attempts}`);
             if (failRes.attempts >= 3) {
-                console.warn(`[SECURITY AUDIT] SUSPICIOUS_LOGIN_ALERT: ${failRes.attempts} failed login attempts for admin target ${trimmedEmail} from IP ${req.ip}`);
+                console.warn(`[SECURITY AUDIT] SUSPICIOUS_LOGIN_ALERT: ${failRes.attempts} failed login attempts for admin target ${trimmedEmail} from IP ${clientIp}`);
             }
             return res.status(401).json({
                 success: false,
@@ -407,10 +409,10 @@ router.post('/admin-login', async (req, res) => {
         const isPasswordCorrect = verifyRes.isValid || isEnvMatch;
 
         if (!isPasswordCorrect) {
-            const failRes = recordFailedLogin(trimmedEmail, req.ip);
-            console.warn(`[SECURITY AUDIT] ADMIN_LOGIN_FAILED: Incorrect password | email: ${trimmedEmail} | ip: ${req.ip} | attempt: ${failRes.attempts}`);
+            const failRes = recordFailedLogin(trimmedEmail, clientIp);
+            console.warn(`[SECURITY AUDIT] ADMIN_LOGIN_FAILED: Incorrect password | email: ${trimmedEmail} | ip: ${clientIp} | attempt: ${failRes.attempts}`);
             if (failRes.attempts >= 3) {
-                console.warn(`[SECURITY AUDIT] SUSPICIOUS_LOGIN_ALERT: ${failRes.attempts} failed login attempts for admin target ${trimmedEmail} from IP ${req.ip}`);
+                console.warn(`[SECURITY AUDIT] SUSPICIOUS_LOGIN_ALERT: ${failRes.attempts} failed login attempts for admin target ${trimmedEmail} from IP ${clientIp}`);
             }
             return res.status(401).json({
                 success: false,
@@ -420,7 +422,7 @@ router.post('/admin-login', async (req, res) => {
         }
 
         // Success: Clear failed attempts
-        recordSuccessfulLogin(trimmedEmail, req.ip);
+        recordSuccessfulLogin(trimmedEmail, clientIp);
 
         // Seamless auto-upgrade of legacy admin password hash to Bcrypt
         if (verifyRes.needsUpgrade) {
