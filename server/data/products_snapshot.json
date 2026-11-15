@@ -1,6 +1,7 @@
 [
   {
     "id": "prod_db41fad9",
+    "hostel_id": "BH-13",
     "name": "Bingo Tedhe Medhe",
     "category": "Snacks & Beverages",
     "subcategory": "Snacks",
@@ -15,11 +16,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T17:49:47.411251+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T17:49:47.411251+00:00"
   },
   {
     "id": "prod_7c8bc35c",
+    "hostel_id": "BH-13",
     "name": "LAY'S American Style Cream & Onion",
     "category": "Snacks & Beverages",
     "subcategory": "Chips",
@@ -31,14 +32,14 @@
     "image_url": "/uploads/LAY_S_American_Style_Cream___Onion_1788531746541.jpg",
     "image_alt": "LAY'S American Style Cream & Onion",
     "tags": "hostel:BH-13, stock:0",
-    "in_stock": false,
+    "in_stock": true,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-04T14:22:28.245536+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-04T14:22:28.245536+00:00"
   },
   {
     "id": "prod_e34fd0bc",
+    "hostel_id": "BH-13",
     "name": "Haldiram's TakaTak Chatpata Masala 95g",
     "category": "Snacks & Beverages",
     "subcategory": "Snacks",
@@ -50,17 +51,17 @@
     "image_url": "https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/Haldiram_s_TakaTak_Chatpata_Masala_95g_1789755354058.jpg",
     "image_alt": "Haldiram's TakaTak Chatpata Masala 95g",
     "tags": "hostel:BH-13, stock:0",
-    "in_stock": false,
+    "in_stock": true,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-18T18:15:55.142881+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-18T18:15:55.142881+00:00"
   },
   {
     "id": "prod_53f45f30",
+    "hostel_id": "BH-13",
     "name": "Cadbury Silk Oreo 58.5g",
     "category": "Snacks & Beverages",
-    "subcategory": "",
+    "subcategory": "Snacks",
     "price": 106,
     "mrp": 110,
     "cost_price": 104,
@@ -72,11 +73,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-04T15:22:38.403803+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-04T15:22:38.403803+00:00"
   },
   {
     "id": "prod_fc2436f7",
+    "hostel_id": "BH-13",
     "name": "KURKURE Masala Munch",
     "category": "Snacks & Beverages",
     "subcategory": "Chips",
@@ -88,14 +89,14 @@
     "image_url": "/uploads/KURKURE_Masala_Munch_1788532137536.jpg",
     "image_alt": "KURKURE Masala Munch",
     "tags": "hostel:BH-13, stock:0",
-    "in_stock": false,
+    "in_stock": true,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-04T14:28:58.827448+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-04T14:28:58.827448+00:00"
   },
   {
     "id": "prod_17af38b3",
+    "hostel_id": "BH-13",
     "name": "UNCLE CHIPS Spicy Treat",
     "category": "Snacks & Beverages",
     "subcategory": "Chips",
@@ -110,11 +111,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-04T14:50:29.55827+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-04T14:50:29.55827+00:00"
   },
   {
     "id": "prod_89c837bb",
+    "hostel_id": "BH-13",
     "name": "LAY'S Spanish Tomato Tango 80g",
     "category": "Snacks & Beverages",
     "subcategory": "Chips",
@@ -126,14 +127,14 @@
     "image_url": "/uploads/LAY_S_Spanish_Tomato_Tango_80g_1788533641028.jpg",
     "image_alt": "LAY'S Spanish Tomato Tango 80g",
     "tags": "hostel:BH-13, stock:0",
-    "in_stock": false,
+    "in_stock": true,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-04T14:54:02.928432+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-04T14:54:02.928432+00:00"
   },
   {
     "id": "prod_d9e7ad12",
+    "hostel_id": "BH-13",
     "name": "SNICKERS Chocolate 40g",
     "category": "Snacks & Beverages",
     "subcategory": "Chocolate",
@@ -145,17 +146,17 @@
     "image_url": "/uploads/SNICKERS_Chocolate_40g_1788530908286.jpg",
     "image_alt": "SNICKERS Chocolate 40g",
     "tags": "hostel:BH-13, stock:0",
-    "in_stock": false,
+    "in_stock": true,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-04T14:08:29.613454+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-04T14:08:29.613454+00:00"
   },
   {
     "id": "prod_963be498",
+    "hostel_id": "BH-13",
     "name": "magiee 2-Minutes noodles",
     "category": "Snacks & Beverages",
-    "subcategory": "",
+    "subcategory": "Snacks",
     "price": 12,
     "mrp": 15,
     "cost_price": 10,
@@ -167,30 +168,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T17:46:43.73331+00:00",
-    "stock_left": 0
-  },
-  {
-    "id": "prod_1071c283",
-    "name": "Test Hostel Product 1791047954270",
-    "category": "Snacks & Beverages",
-    "subcategory": "Popcorn",
-    "price": 50,
-    "mrp": 60,
-    "cost_price": 35,
-    "unit": "piece",
-    "size": "",
-    "image_url": "",
-    "image_alt": "Test Hostel Product 1791047954270",
-    "tags": "stock:0, hostel:BH-11",
-    "in_stock": false,
-    "bestseller": false,
-    "is_new": false,
-    "created_at": "2026-10-03T17:19:15.678306+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T17:46:43.73331+00:00"
   },
   {
     "id": "prod_2bd25f6f",
+    "hostel_id": "BH-13",
     "name": "Unibic Chocochip Cookies -",
     "category": "Snacks & Beverages",
     "subcategory": "Biscuits",
@@ -205,11 +187,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T18:09:56.87872+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T18:09:56.87872+00:00"
   },
   {
     "id": "prod_43ceeb2a",
+    "hostel_id": "BH-13",
     "name": "Haldiram's Snac Lite Fun Wheels -85g",
     "category": "Snacks & Beverages",
     "subcategory": "Namkeen",
@@ -221,14 +203,14 @@
     "image_url": "/uploads/prod_prod_43ceeb2a_1788463602438.webp",
     "image_alt": "Haldiram's Snac Lite Fun Wheels -85g",
     "tags": "hostel:BH-13, stock:0",
-    "in_stock": false,
+    "in_stock": true,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T18:23:26.51422+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T18:23:26.51422+00:00"
   },
   {
     "id": "prod_d601d469",
+    "hostel_id": "BH-13",
     "name": "Sunfeast Dark Fantasy Sandwhich Cream -",
     "category": "Snacks & Beverages",
     "subcategory": "Biscuits",
@@ -240,14 +222,14 @@
     "image_url": "/uploads/prod_prod_d601d469_1788463592808.jpg",
     "image_alt": "Sunfeast Dark Fantasy Sandwhich Cream -",
     "tags": "hostel:BH-13, stock:0",
-    "in_stock": false,
+    "in_stock": true,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T18:00:45.152597+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T18:00:45.152597+00:00"
   },
   {
     "id": "prod_1df8edf0",
+    "hostel_id": "BH-13",
     "name": "Bikano Crunchy Munchy -90g",
     "category": "Snacks & Beverages",
     "subcategory": "Namkeen",
@@ -259,17 +241,17 @@
     "image_url": "/uploads/prod_prod_1df8edf0_1788463612950.webp",
     "image_alt": "Bikano Crunchy Munchy -90g",
     "tags": "hostel:BH-13, stock:0",
-    "in_stock": false,
+    "in_stock": true,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T18:25:57.324982+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T18:25:57.324982+00:00"
   },
   {
     "id": "prod_a51d3f4b",
+    "hostel_id": "BH-13",
     "name": "Kurkure Masala Munch-84.9G",
     "category": "Snacks & Beverages",
-    "subcategory": "",
+    "subcategory": "Snacks",
     "price": 22,
     "mrp": 25,
     "cost_price": 18,
@@ -281,11 +263,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T17:52:26.040209+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T17:52:26.040209+00:00"
   },
   {
     "id": "prod_0ef6737e",
+    "hostel_id": "BH-13",
     "name": "Parle Hide And Seek - 200g",
     "category": "Snacks & Beverages",
     "subcategory": "Biscuits",
@@ -297,14 +279,14 @@
     "image_url": "/uploads/prod_prod_0ef6737e_1788463593504.jpg",
     "image_alt": "Parle Hide And Seek -",
     "tags": "hostel:BH-13, stock:0",
-    "in_stock": false,
+    "in_stock": true,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T18:01:48.388089+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T18:01:48.388089+00:00"
   },
   {
     "id": "prod_07da9b3d",
+    "hostel_id": "BH-13",
     "name": "BRITANNIA Gobbles Cake Fruity Fun 100g",
     "category": "Snacks & Beverages",
     "subcategory": "Cake",
@@ -316,14 +298,14 @@
     "image_url": "/uploads/BRITANNIA_Gobbles_Cake_Fruity_Fun_100g_1788530879398.jpg",
     "image_alt": "BRITANNIA Gobbles Cake Fruity Fun 100g",
     "tags": "hostel:BH-13, stock:0",
-    "in_stock": false,
+    "in_stock": true,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-04T14:08:01.133651+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-04T14:08:01.133651+00:00"
   },
   {
     "id": "prod_eef74719",
+    "hostel_id": "BH-13",
     "name": "Parle Hide And Seek Choco Chip Cream sandwiches-400g",
     "category": "Snacks & Beverages",
     "subcategory": "Biscuits",
@@ -338,11 +320,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-20T17:07:46.456539+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-20T17:07:46.456539+00:00"
   },
   {
     "id": "prod_a3d19662",
+    "hostel_id": "BH-13",
     "name": "Britannia Good Day Chocochip Cookies - 48g",
     "category": "Snacks & Beverages",
     "subcategory": "Biscuits",
@@ -357,11 +339,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T18:07:10.241598+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T18:07:10.241598+00:00"
   },
   {
     "id": "prod_41968603",
+    "hostel_id": "BH-13",
     "name": "Britannia Bourbon - 150g",
     "category": "Snacks & Beverages",
     "subcategory": "Biscuits",
@@ -376,11 +358,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T18:04:57.591965+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T18:04:57.591965+00:00"
   },
   {
     "id": "prod_96a8da93",
+    "hostel_id": "BH-13",
     "name": "Oreo Choco Creme 98.5g",
     "category": "Snacks & Beverages",
     "subcategory": "Biscuits",
@@ -392,14 +374,14 @@
     "image_url": "/uploads/prod_prod_96a8da93_1788463608106.jpg",
     "image_alt": "Oreo Choco Creme 98.5g",
     "tags": "hostel:BH-13, stock:0",
-    "in_stock": false,
+    "in_stock": true,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-03T17:24:20.305002+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-03T17:24:20.305002+00:00"
   },
   {
     "id": "prod_fad57cf4",
+    "hostel_id": "BH-13",
     "name": "Parle Milk Shakti - 350g",
     "category": "Snacks & Beverages",
     "subcategory": "Biscuits",
@@ -414,11 +396,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T17:44:55.631581+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T17:44:55.631581+00:00"
   },
   {
     "id": "prod_6b28f291",
+    "hostel_id": "BH-13",
     "name": "Parle Fab Bourbon (1 piece) - 150g",
     "category": "Snacks & Beverages",
     "subcategory": "Biscuits",
@@ -433,11 +415,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T17:54:37.722561+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T17:54:37.722561+00:00"
   },
   {
     "id": "prod_73ad9ca2",
+    "hostel_id": "BH-13",
     "name": "Bingo Mad Angles -58g",
     "category": "Snacks & Beverages",
     "subcategory": "Chips",
@@ -452,11 +434,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T18:27:10.810437+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T18:27:10.810437+00:00"
   },
   {
     "id": "prod_86a67b21",
+    "hostel_id": "BH-13",
     "name": "Britannia JimJam-138g",
     "category": "Snacks & Beverages",
     "subcategory": "Snacks",
@@ -471,14 +453,14 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T17:56:38.198428+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T17:56:38.198428+00:00"
   },
   {
     "id": "prod_31b5292b",
+    "hostel_id": "BH-13",
     "name": "Oreo Vanila creme 98.5g",
     "category": "Snacks & Beverages",
-    "subcategory": "",
+    "subcategory": "Snacks",
     "price": 34,
     "mrp": 40,
     "cost_price": 24,
@@ -490,11 +472,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-03T17:17:27.550571+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-03T17:17:27.550571+00:00"
   },
   {
     "id": "prod_27c3bb0a",
+    "hostel_id": "BH-13",
     "name": "Doritos Dinamita",
     "category": "Snacks & Beverages",
     "subcategory": "Snacks",
@@ -509,11 +491,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T17:43:14.126802+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T17:43:14.126802+00:00"
   },
   {
     "id": "prod_c36e54db",
+    "hostel_id": "BH-13",
     "name": "Haldiram's Chips Classic Salted-89g",
     "category": "Snacks & Beverages",
     "subcategory": "Chips",
@@ -528,11 +510,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T18:21:40.974857+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T18:21:40.974857+00:00"
   },
   {
     "id": "prod_6a900ad2",
+    "hostel_id": "BH-13",
     "name": "Sunfeast Mom's Magic-183g",
     "category": "Snacks & Beverages",
     "subcategory": "Snacks",
@@ -547,11 +529,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T17:59:55.731772+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T17:59:55.731772+00:00"
   },
   {
     "id": "prod_647506f3",
+    "hostel_id": "BH-13",
     "name": "Doritos Sweet and Chilli",
     "category": "Snacks & Beverages",
     "subcategory": "Snacks",
@@ -563,14 +545,14 @@
     "image_url": "/uploads/prod_prod_647506f3_1788463596433.jpg",
     "image_alt": "Doritos Sweet and Chilli",
     "tags": "hostel:BH-13, stock:0",
-    "in_stock": false,
+    "in_stock": true,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T17:41:39.058902+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T17:41:39.058902+00:00"
   },
   {
     "id": "prod_4a5647d3",
+    "hostel_id": "BH-13",
     "name": "Lay's indian magic Masala-58g",
     "category": "Snacks & Beverages",
     "subcategory": "Chips",
@@ -585,11 +567,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T18:16:27.603363+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T18:16:27.603363+00:00"
   },
   {
     "id": "prod_22edd0c0",
+    "hostel_id": "BH-13",
     "name": "Snickers Peanut Brownie-45g",
     "category": "Snacks & Beverages",
     "subcategory": "Chocolates",
@@ -604,11 +586,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T18:02:40.004176+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T18:02:40.004176+00:00"
   },
   {
     "id": "prod_225d87d6",
+    "hostel_id": "BH-13",
     "name": "Kurkure Puffcorn yummy cheese 58g",
     "category": "Snacks & Beverages",
     "subcategory": "Snacks",
@@ -623,14 +605,14 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-18T16:50:51.455231+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-18T16:50:51.455231+00:00"
   },
   {
     "id": "prod_cb7a294d",
+    "hostel_id": "BH-13",
     "name": "magieee Double Masala 2-Minute noodles 95g",
     "category": "Snacks & Beverages",
-    "subcategory": "",
+    "subcategory": "Snacks",
     "price": 23,
     "mrp": 25,
     "cost_price": 18,
@@ -642,11 +624,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-08T13:08:00.090241+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-08T13:08:00.090241+00:00"
   },
   {
     "id": "prod_416f50ee",
+    "hostel_id": "BH-13",
     "name": "LAY'S Classic Salted",
     "category": "Snacks & Beverages",
     "subcategory": "Chips",
@@ -661,14 +643,14 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-04T14:19:19.057305+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-04T14:19:19.057305+00:00"
   },
   {
     "id": "prod_ce892542",
+    "hostel_id": "BH-13",
     "name": "Parle Milk Shakti",
     "category": "Snacks & Beverages",
-    "subcategory": "",
+    "subcategory": "Snacks",
     "price": 13,
     "mrp": 20,
     "cost_price": 9,
@@ -680,11 +662,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-04T15:03:58.453178+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-04T15:03:58.453178+00:00"
   },
   {
     "id": "prod_bd498743",
+    "hostel_id": "BH-13",
     "name": "UNCLE CHIPS plain salted",
     "category": "Snacks & Beverages",
     "subcategory": "Chips",
@@ -699,14 +681,14 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-04T14:46:40.717497+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-04T14:46:40.717497+00:00"
   },
   {
     "id": "prod_e8d01fb2",
+    "hostel_id": "BH-13",
     "name": "Haldirams Bhelpuri 110g",
     "category": "Snacks & Beverages",
-    "subcategory": "",
+    "subcategory": "Snacks",
     "price": 49,
     "mrp": 50,
     "cost_price": 20,
@@ -718,11 +700,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-04T14:49:17.922784+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-04T14:49:17.922784+00:00"
   },
   {
     "id": "prod_e581ce64",
+    "hostel_id": "BH-13",
     "name": "Cadbury Dairy milk silk Bubbly-46g",
     "category": "Snacks & Beverages",
     "subcategory": "Chocolates",
@@ -737,14 +719,14 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T18:01:37.414195+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T18:01:37.414195+00:00"
   },
   {
     "id": "prod_56c626c6",
+    "hostel_id": "BH-13",
     "name": "Cheetos masala balls 84g",
     "category": "Snacks & Beverages",
-    "subcategory": "",
+    "subcategory": "Snacks",
     "price": 49,
     "mrp": 50,
     "cost_price": 24.5,
@@ -756,11 +738,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-19T16:02:51.53764+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-19T16:02:51.53764+00:00"
   },
   {
     "id": "prod_959f7f78",
+    "hostel_id": "BH-13",
     "name": "Haldiram's Snac Lite SOYA KATORI Masala Dhamaka-110g",
     "category": "Snacks & Beverages",
     "subcategory": "snacks",
@@ -775,11 +757,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-20T17:11:54.305524+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-20T17:11:54.305524+00:00"
   },
   {
     "id": "prod_e4b66387",
+    "hostel_id": "BH-13",
     "name": "PARLE Hide & Seek 100g",
     "category": "Snacks & Beverages",
     "subcategory": "Biscuits",
@@ -791,14 +773,14 @@
     "image_url": "/uploads/PARLE_Hide___Seek_100g_1788533824184.jpg",
     "image_alt": "PARLE Hide & Seek 100g",
     "tags": "hostel:BH-13, stock:0",
-    "in_stock": false,
+    "in_stock": true,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-04T14:57:05.541261+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-04T14:57:05.541261+00:00"
   },
   {
     "id": "prod_1f178a09",
+    "hostel_id": "BH-13",
     "name": "Bikaji Chowpati Bhelpuri",
     "category": "Snacks & Beverages",
     "subcategory": "snacks",
@@ -813,11 +795,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-04T14:44:35.306368+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-04T14:44:35.306368+00:00"
   },
   {
     "id": "prod_a4ffe8c3",
+    "hostel_id": "BH-13",
     "name": "LAY'S India's magic masala",
     "category": "Snacks & Beverages",
     "subcategory": "Chips",
@@ -829,14 +811,14 @@
     "image_url": "/uploads/LAY_S_India_s_magic_masala_1788531425513.jpg",
     "image_alt": "LAY'S India's magic masala",
     "tags": "hostel:BH-13, stock:0",
-    "in_stock": false,
+    "in_stock": true,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-04T14:17:06.878085+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-04T14:17:06.878085+00:00"
   },
   {
     "id": "prod_66755a4a",
+    "hostel_id": "BH-13",
     "name": "Sunfeast Dark Fantasy Bourbon - 99g",
     "category": "Snacks & Beverages",
     "subcategory": "Biscuits",
@@ -848,14 +830,14 @@
     "image_url": "/uploads/prod_prod_66755a4a_1788463598190.jpg",
     "image_alt": "Sunfeast Dark Fantasy Bourbon - 99g",
     "tags": "hostel:BH-13, stock:0",
-    "in_stock": false,
+    "in_stock": true,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T18:03:21.832279+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T18:03:21.832279+00:00"
   },
   {
     "id": "prod_124633c4",
+    "hostel_id": "BH-13",
     "name": "Briannia Milk Bikis 100% Atta - 500g",
     "category": "Snacks & Beverages",
     "subcategory": "Biscuits",
@@ -870,11 +852,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T17:49:54.512383+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T17:49:54.512383+00:00"
   },
   {
     "id": "prod_7e5bc8d0",
+    "hostel_id": "BH-13",
     "name": "Crax Crunchy Noodles-70G",
     "category": "Snacks & Beverages",
     "subcategory": "Snacks",
@@ -886,14 +868,14 @@
     "image_url": "/uploads/prod_prod_7e5bc8d0_1788463607220.jpg",
     "image_alt": "Crax Crunchy Noodles-70G",
     "tags": "hostel:BH-13, stock:0",
-    "in_stock": false,
+    "in_stock": true,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T17:54:29.641726+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T17:54:29.641726+00:00"
   },
   {
     "id": "prod_0f88c6d5",
+    "hostel_id": "BH-13",
     "name": "CUP NOODLES Mazedaar masala (Delicious Masala Flavour)",
     "category": "Snacks & Beverages",
     "subcategory": "Noodles",
@@ -908,11 +890,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-04T14:11:27.090202+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-04T14:11:27.090202+00:00"
   },
   {
     "id": "prod_14525e85",
+    "hostel_id": "BH-13",
     "name": "CUP NOODLES Veggi Manchow (Spicy Vegetable Flavour)",
     "category": "Snacks & Beverages",
     "subcategory": "Noodles",
@@ -927,14 +909,14 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-04T14:13:08.113205+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-04T14:13:08.113205+00:00"
   },
   {
     "id": "prod_8e1cb24d",
+    "hostel_id": "BH-13",
     "name": "magiee Passta Mushroom Penne 68.5g",
     "category": "Snacks & Beverages",
-    "subcategory": "",
+    "subcategory": "Snacks",
     "price": 35,
     "mrp": 36,
     "cost_price": 30,
@@ -946,11 +928,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-04T14:41:56.236836+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-04T14:41:56.236836+00:00"
   },
   {
     "id": "prod_ab976e1d",
+    "hostel_id": "BH-13",
     "name": "magiee Pazzta Masala Penne 69.5g",
     "category": "Snacks & Beverages",
     "subcategory": "Noodles",
@@ -965,14 +947,14 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-06T12:21:55.030794+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-06T12:21:55.030794+00:00"
   },
   {
     "id": "prod_c2793d01",
+    "hostel_id": "BH-13",
     "name": "Crax Cheese Balls 65g",
     "category": "Snacks & Beverages",
-    "subcategory": "",
+    "subcategory": "Snacks",
     "price": 58,
     "mrp": 60,
     "cost_price": 27,
@@ -984,14 +966,14 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-05T15:04:55.150574+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-05T15:04:55.150574+00:00"
   },
   {
     "id": "prod_43224855",
+    "hostel_id": "BH-13",
     "name": "Kurkure Chilli Chatka",
     "category": "Snacks & Beverages",
-    "subcategory": "",
+    "subcategory": "Snacks",
     "price": 20,
     "mrp": 22,
     "cost_price": 18,
@@ -1003,11 +985,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-08T13:03:17.675873+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-08T13:03:17.675873+00:00"
   },
   {
     "id": "prod_11fb98b1",
+    "hostel_id": "BH-13",
     "name": "Parle Fab Jam-In mixed fruit jam 140g",
     "category": "Snacks & Beverages",
     "subcategory": "Biscuits",
@@ -1022,14 +1004,14 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-18T17:06:10.520202+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-18T17:06:10.520202+00:00"
   },
   {
     "id": "prod_f2c39fe1",
+    "hostel_id": "BH-13",
     "name": "SNICKERS Butterscotch 40g",
     "category": "Snacks & Beverages",
-    "subcategory": "",
+    "subcategory": "Snacks",
     "price": 67,
     "mrp": 75,
     "cost_price": 38,
@@ -1041,14 +1023,14 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-04T14:12:15.067606+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-04T14:12:15.067606+00:00"
   },
   {
     "id": "prod_57718229",
+    "hostel_id": "BH-13",
     "name": "Britania Sandwich Bread 110g",
     "category": "Snacks & Beverages",
-    "subcategory": "",
+    "subcategory": "Snacks",
     "price": 14,
     "mrp": 20,
     "cost_price": 10,
@@ -1060,14 +1042,14 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-04T15:09:53.597061+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-04T15:09:53.597061+00:00"
   },
   {
     "id": "prod_a39158cc",
+    "hostel_id": "BH-13",
     "name": "Britania Bourbon 120g",
     "category": "Snacks & Beverages",
-    "subcategory": "",
+    "subcategory": "Snacks",
     "price": 35,
     "mrp": 35,
     "cost_price": 18.5,
@@ -1076,17 +1058,17 @@
     "image_url": "/uploads/Britania_Bourbon_120g_1788620389855.jpg",
     "image_alt": "Britania Bourbon 120g",
     "tags": "hostel:BH-13, stock:0",
-    "in_stock": false,
+    "in_stock": true,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-05T14:59:51.670508+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-05T14:59:51.670508+00:00"
   },
   {
     "id": "prod_14ece3af",
+    "hostel_id": "BH-13",
     "name": "Bingo Mad Angles -106g",
     "category": "Snacks & Beverages",
-    "subcategory": "",
+    "subcategory": "Snacks",
     "price": 49,
     "mrp": 50,
     "cost_price": 36,
@@ -1098,30 +1080,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-20T16:51:53.460476+00:00",
-    "stock_left": 0
-  },
-  {
-    "id": "prod_be5a72a1",
-    "name": "Test Hostel Product 1791047831779",
-    "category": "Snacks & Beverages",
-    "subcategory": "Popcorn",
-    "price": 50,
-    "mrp": 60,
-    "cost_price": 35,
-    "unit": "piece",
-    "size": "",
-    "image_url": "",
-    "image_alt": "Test Hostel Product 1791047831779",
-    "tags": "stock:0, hostel:BH-11",
-    "in_stock": false,
-    "bestseller": false,
-    "is_new": false,
-    "created_at": "2026-10-03T17:17:13.4336+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-20T16:51:53.460476+00:00"
   },
   {
     "id": "prod_2171154a",
+    "hostel_id": "BH-13",
     "name": "Haldiram's Snac Lite-82g",
     "category": "Snacks & Beverages",
     "subcategory": "Namkeen",
@@ -1136,11 +1099,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T18:04:58.079199+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T18:04:58.079199+00:00"
   },
   {
     "id": "prod_c09e752a",
+    "hostel_id": "BH-13",
     "name": "Sunfeast Dark Fantasy Sandwhich Cream -CHOVOLATE FLAVORED 79g",
     "category": "Snacks & Beverages",
     "subcategory": "Biscuits",
@@ -1152,14 +1115,14 @@
     "image_url": "https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/Sunfeast_Dark_Fantasy_Sandwhich_Cream_-CHOVOLATE_FLAVORED_79g_1790274502433.jpg",
     "image_alt": "Sunfeast Dark Fantasy Sandwhich Cream -CHOVOLATE FLAVORED 79g",
     "tags": "hostel:BH-13, stock:0",
-    "in_stock": false,
+    "in_stock": true,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-24T18:28:23.717638+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-24T18:28:23.717638+00:00"
   },
   {
     "id": "prod_773b3527",
+    "hostel_id": "BH-13",
     "name": "gooday chocochip cokkies",
     "category": "Snacks & Beverages",
     "subcategory": "Biscuits",
@@ -1174,14 +1137,14 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-27T19:02:05.999907+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-27T19:02:05.999907+00:00"
   },
   {
     "id": "prod_d63199f0",
+    "hostel_id": "BH-13",
     "name": "magiee Passta Cheese Macroni. 75g",
     "category": "Snacks & Beverages",
-    "subcategory": "",
+    "subcategory": "Snacks",
     "price": 35,
     "mrp": 36,
     "cost_price": 30,
@@ -1193,11 +1156,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-04T14:37:54.551728+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-04T14:37:54.551728+00:00"
   },
   {
     "id": "prod_e267c374",
+    "hostel_id": "BH-13",
     "name": "Oreo Vanila creme 125.25g",
     "category": "Snacks & Beverages",
     "subcategory": "biscuits",
@@ -1212,14 +1175,14 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-04T14:43:59.223262+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-04T14:43:59.223262+00:00"
   },
   {
     "id": "prod_ef08a55c",
+    "hostel_id": "BH-13",
     "name": "Britania Gobbles Cake Choco Chill 100g",
     "category": "Snacks & Beverages",
-    "subcategory": "",
+    "subcategory": "Snacks",
     "price": 30,
     "mrp": 30,
     "cost_price": 25,
@@ -1228,14 +1191,14 @@
     "image_url": "/uploads/Britania_Gobbles_Cake_Choco_Chill_100g_1788532295189.jpg",
     "image_alt": "Britania Gobbles Cake Choco Chill 100g",
     "tags": "hostel:BH-13, stock:0",
-    "in_stock": false,
+    "in_stock": true,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-04T14:31:36.73848+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-04T14:31:36.73848+00:00"
   },
   {
     "id": "prod_dd96210d",
+    "hostel_id": "BH-13",
     "name": "Crax chips masala",
     "category": "Snacks & Beverages",
     "subcategory": "chips",
@@ -1250,11 +1213,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-25T16:13:48.224218+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-25T16:13:48.224218+00:00"
   },
   {
     "id": "prod_71f160ab",
+    "hostel_id": "BH-13",
     "name": "Sunfeast Dark Fantasy Sandwhich Cream -VANILLA FLAVORED 79g",
     "category": "Snacks & Beverages",
     "subcategory": "Biscuits",
@@ -1266,14 +1229,14 @@
     "image_url": "https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/Sunfeast_Dark_Fantasy_Sandwhich_Cream_-VANILLA_FLAVORED_79g_1789752255602.jpg",
     "image_alt": "Sunfeast Dark Fantasy Sandwhich Cream -VANILLA FLAVORED 79g",
     "tags": "hostel:BH-13, stock:0",
-    "in_stock": false,
+    "in_stock": true,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-18T17:24:18.64265+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-18T17:24:18.64265+00:00"
   },
   {
     "id": "prod_5790f788",
+    "hostel_id": "BH-13",
     "name": "Sunfeast dark fantasy(1 piece)",
     "category": "Snacks & Beverages",
     "subcategory": "Biscuits",
@@ -1285,14 +1248,14 @@
     "image_url": "/uploads/Sunfeast_dark_fantasy_1_piece__1788530785146.jpg",
     "image_alt": "Sunfeast dark fantasy",
     "tags": "hostel:BH-13, stock:0",
-    "in_stock": false,
+    "in_stock": true,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-03T14:03:32.967526+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-03T14:03:32.967526+00:00"
   },
   {
     "id": "prod_6164bfae",
+    "hostel_id": "BH-13",
     "name": "YOGA BAR Multigrain Energy Bar- Chocolate Chunk Nut 35g",
     "category": "Snacks & Beverages",
     "subcategory": "Chocolate",
@@ -1307,11 +1270,11 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-06T12:18:00.402027+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-06T12:18:00.402027+00:00"
   },
   {
     "id": "prod_416834f2",
+    "hostel_id": "BH-13",
     "name": "YOGA BAR Multigrain Energy Bar-Nuts & Seeds 35g",
     "category": "Snacks & Beverages",
     "subcategory": "Chocolate",
@@ -1326,14 +1289,14 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-06T12:16:57.266646+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-06T12:16:57.266646+00:00"
   },
   {
     "id": "prod_7d72014f",
+    "hostel_id": "BH-13",
     "name": "Crax Curls 82g",
     "category": "Snacks & Beverages",
-    "subcategory": "",
+    "subcategory": "Snacks",
     "price": 56,
     "mrp": 60,
     "cost_price": 30,
@@ -1342,14 +1305,14 @@
     "image_url": "/uploads/Crax_Curls_82g_1788620575418.jpg",
     "image_alt": "Crax Curls 82g",
     "tags": "hostel:BH-13, stock:0",
-    "in_stock": false,
+    "in_stock": true,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-05T15:02:57.136221+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-05T15:02:57.136221+00:00"
   },
   {
     "id": "prod_a66b46a8",
+    "hostel_id": "BH-13",
     "name": "Britannia Treat Rich Creme Choco -55g",
     "category": "Snacks & Beverages",
     "subcategory": "Biscuits",
@@ -1361,14 +1324,14 @@
     "image_url": "/uploads/prod_prod_a66b46a8_1788463606623.jpg",
     "image_alt": "Britannia Treat Rich Creme Choco -55g",
     "tags": "hostel:BH-13, stock:0",
-    "in_stock": false,
+    "in_stock": true,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T17:47:24.984367+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T17:47:24.984367+00:00"
   },
   {
     "id": "prod_947325e4",
+    "hostel_id": "BH-13",
     "name": "Lotte Choco pie",
     "category": "Snacks & Beverages",
     "subcategory": "Choco Pie",
@@ -1380,14 +1343,14 @@
     "image_url": "/uploads/prod_prod_947325e4_1788463591344.jpg",
     "image_alt": "Lotte Choco pie",
     "tags": "hostel:BH-13, stock:0",
-    "in_stock": false,
+    "in_stock": true,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-03T14:02:29.190937+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-03T14:02:29.190937+00:00"
   },
   {
     "id": "prod_f98aa262",
+    "hostel_id": "BH-13",
     "name": "Parle Hide And Seek Milano - 1g",
     "category": "Snacks & Beverages",
     "subcategory": "Biscuits",
@@ -1399,14 +1362,14 @@
     "image_url": "/uploads/prod_prod_f98aa262_1788463609606.jpg",
     "image_alt": "Parle Hide And Seek Milano - 1g",
     "tags": "hostel:BH-13, stock:0",
-    "in_stock": false,
+    "in_stock": true,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T17:58:47.684259+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T17:58:47.684259+00:00"
   },
   {
     "id": "prod_78de005c",
+    "hostel_id": "BH-13",
     "name": "ACT 11 Caramel Popcorn",
     "category": "Snacks & Beverages",
     "subcategory": "Popcorn",
@@ -1421,7 +1384,6 @@
     "in_stock": false,
     "bestseller": false,
     "is_new": false,
-    "created_at": "2026-09-02T18:07:32.606168+00:00",
-    "stock_left": 0
+    "created_at": "2026-09-02T18:07:32.606168+00:00"
   }
 ]
