@@ -12,6 +12,7 @@ const {
     hashPassword,
     verifyPassword
 } = require('../services/securityService');
+const ipBlockService = require('../services/ipBlockService');
 
 // POST /api/auth/signin
 router.post('/signin', async (req, res) => {
@@ -459,25 +460,29 @@ router.post('/admin-login', async (req, res) => {
                 assignedHostelId = explicitHostels[0];
             }
 
-            // Strictly scope store manager to their assigned hostel
-            if (assignedHostelId) {
-                assignedHostels = [assignedHostelId];
-                if (explicitHostels.length > 1 && explicitHostels.includes(assignedHostelId)) {
-                    assignedHostels = explicitHostels;
+            // Strictly scope store manager to their assigned hostel(s)
+            let validHostels = [];
+            if (explicitHostels.length > 0) {
+                validHostels = Array.from(new Set([
+                    ...(assignedHostelId ? [assignedHostelId] : []),
+                    ...explicitHostels
+                ]));
+                if (!assignedHostelId) {
+                    assignedHostelId = validHostels[0];
                 }
-            } else if (explicitHostels.length > 0) {
-                assignedHostels = explicitHostels;
-                assignedHostelId = explicitHostels[0];
+            } else if (assignedHostelId) {
+                validHostels = [assignedHostelId];
             } else {
                 try {
                     const hostels = await supabaseDb.hostels.getAll({ includeInactive: true });
                     const managed = (hostels || []).filter(h => h.manager_user_id === user.id).map(h => h.id.toUpperCase());
                     if (managed.length > 0) {
                         assignedHostelId = managed[0];
-                        assignedHostels = [assignedHostelId];
+                        validHostels = managed;
                     }
                 } catch (hErr) {}
             }
+            assignedHostels = validHostels;
         }
 
         // Record admin login in background
