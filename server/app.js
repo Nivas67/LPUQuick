@@ -360,12 +360,12 @@ app.get(['/mobile', '/mobile-preview', '/phone', '/preview'], (req, res) => {
 });
 
 // Mobile phone simulator for Admin Dashboard
-app.get(['/admin-preview', '/admin/preview', '/preview-admin', '/mobile-admin'], (req, res) => {
+app.get(['/admin-preview', '/admin/preview', '/preview-admin', '/mobile-admin', '/ad-new-preview', '/ad-new/preview', '/ad-new_preview'], (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'public', 'admin-preview.html'));
 });
 
 // Admin portal route
-app.get('/admin*', (req, res) => {
+app.get(['/ad-new', '/ad-new/*', '/admin*'], (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'admin', 'index.html'));
 });
 
