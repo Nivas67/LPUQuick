@@ -411,23 +411,25 @@ async function requireAdmin(req, res, next) {
                 assignedHostel = explicitHostels[0];
             }
 
-            // Strictly scope non-owner admin to their designated hostel
+            // Strictly scope non-owner admin to their designated hostel(s)
             let validHostels = [];
-            if (assignedHostel) {
-                validHostels = [assignedHostel];
-                if (explicitHostels.length > 1 && explicitHostels.includes(assignedHostel)) {
-                    validHostels = explicitHostels;
+            if (explicitHostels.length > 0) {
+                validHostels = Array.from(new Set([
+                    ...(assignedHostel ? [assignedHostel] : []),
+                    ...explicitHostels
+                ]));
+                if (!assignedHostel) {
+                    assignedHostel = validHostels[0];
                 }
-            } else if (explicitHostels.length > 0) {
-                validHostels = explicitHostels;
-                assignedHostel = explicitHostels[0];
+            } else if (assignedHostel) {
+                validHostels = [assignedHostel];
             } else {
                 try {
                     const hostels = await supabaseDb.hostels.getAll({ includeInactive: true });
                     const managed = (hostels || []).filter(h => h.manager_user_id === user.id).map(h => h.id.toUpperCase());
                     if (managed.length > 0) {
                         assignedHostel = managed[0];
-                        validHostels = [assignedHostel];
+                        validHostels = managed;
                     }
                 } catch (hErr) {}
             }

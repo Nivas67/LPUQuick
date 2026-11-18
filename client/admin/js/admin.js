@@ -587,6 +587,7 @@ function applyAdminRolePermissions(profile) {
                 activeAdminHostelFilter.orders = single;
                 activeAdminHostelFilter.products = single;
                 activeAdminHostelFilter.inventory = single;
+                activeAdminHostelFilter.clientLock = single;
             }
         } else if (myAssignedHostels.length > 1) {
             // Enable selector so admin can view all assigned hostels or pick a specific one
@@ -594,13 +595,18 @@ function applyAdminRolePermissions(profile) {
                 const el = document.getElementById(id);
                 if (el) {
                     el.disabled = false;
-                    el.value = 'ALL';
+                    if (id === 'lock-hostel-filter') {
+                        el.value = myAssignedHostels[0];
+                    } else {
+                        el.value = 'ALL';
+                    }
                 }
             });
             if (typeof activeAdminHostelFilter !== 'undefined') {
                 activeAdminHostelFilter.orders = 'ALL';
                 activeAdminHostelFilter.products = 'ALL';
                 activeAdminHostelFilter.inventory = 'ALL';
+                activeAdminHostelFilter.clientLock = myAssignedHostels[0];
             }
         }
     }
@@ -1163,6 +1169,17 @@ async function loadDashboard() {
 // ================= CLIENT DASHBOARD LOCK CONTROLS =================
 let _lastLockResponse = null;
 
+function getAdminAssignedHostels() {
+    if (!currentAdminProfile) return [];
+    if (Array.isArray(currentAdminProfile.assigned_hostels) && currentAdminProfile.assigned_hostels.length > 0) {
+        return currentAdminProfile.assigned_hostels;
+    }
+    if (currentAdminProfile.assigned_hostel_id) {
+        return [currentAdminProfile.assigned_hostel_id];
+    }
+    return [];
+}
+
 async function loadClientLockState() {
     try {
         const targetHostel = getActiveLockHostel();
@@ -1174,11 +1191,10 @@ async function loadClientLockState() {
             updateClientLockUI(data.availability, data.target_hostel || targetHostel || 'ALL');
         }
         // Panoramic per-hostel lock overview grid:
-        // Strictly for Platform Owner / Main Admin ("show for mee only").
-        // Store Managers and other admins must NEVER see the overview card of all stores.
+        // Platform Owner sees all hostels + master lock; Store Managers see their assigned hostels
         const isOwner = Boolean(data.is_owner || (typeof isPlatformOwner === 'function' && isPlatformOwner(currentAdminProfile)));
         const overviewCard = document.getElementById('lock-hostel-overview-card');
-        if (isOwner && data.all_hostel_locks) {
+        if (data.all_hostel_locks && (isOwner || (Array.isArray(data.all_hostel_locks.hostels) && data.all_hostel_locks.hostels.length > 0))) {
             renderLockHostelOverview(data.all_hostel_locks);
         } else {
             if (overviewCard) overviewCard.classList.add('hidden');
@@ -1189,10 +1205,19 @@ async function loadClientLockState() {
 }
 
 function getActiveLockHostel() {
-    if (currentAdminProfile && !isPlatformOwner(currentAdminProfile) && currentAdminProfile.assigned_hostel_id) {
-        return currentAdminProfile.assigned_hostel_id;
+    const isOwner = typeof isPlatformOwner === 'function' ? isPlatformOwner(currentAdminProfile) : Boolean(currentAdminProfile?.is_owner);
+    const myHostels = getAdminAssignedHostels();
+
+    if (!isOwner && myHostels.length > 0) {
+        const active = activeAdminHostelFilter?.clientLock;
+        if (active && active !== 'ALL') {
+            const cleanActive = String(active).toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const matched = myHostels.find(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanActive);
+            if (matched) return matched;
+        }
+        return myHostels[0];
     }
-    return activeAdminHostelFilter.clientLock || 'ALL';
+    return activeAdminHostelFilter?.clientLock || 'ALL';
 }
 
 function onLockHostelFilterChange(val) {
@@ -1349,16 +1374,31 @@ function updateClientLockUI(avail, targetHostelLabel) {
     // Synchronize the hostel dropdown filter
     const filterSelect = document.getElementById('lock-hostel-filter');
     const isOwnerUser = typeof isPlatformOwner === 'function' ? isPlatformOwner(currentAdminProfile) : Boolean(currentAdminProfile?.is_owner);
-    const assignedHostelId = currentAdminProfile?.assigned_hostel_id;
+    const myHostels = getAdminAssignedHostels();
     if (filterSelect) {
-        if (!isOwnerUser && assignedHostelId) {
-            filterSelect.innerHTML = '';
-            const opt = document.createElement('option');
-            opt.value = assignedHostelId;
-            opt.textContent = `🏢 ${assignedHostelId}`;
-            filterSelect.appendChild(opt);
-            filterSelect.value = assignedHostelId;
-            filterSelect.disabled = true;
+        if (!isOwnerUser && myHostels.length > 0) {
+            if (myHostels.length === 1) {
+                filterSelect.innerHTML = '';
+                const opt = document.createElement('option');
+                opt.value = myHostels[0];
+                opt.textContent = `🏢 ${myHostels[0]}`;
+                filterSelect.appendChild(opt);
+                filterSelect.value = myHostels[0];
+                filterSelect.disabled = true;
+            } else {
+                filterSelect.innerHTML = '';
+                myHostels.forEach(hId => {
+                    const matched = hostelsCache.find(h => h.id === hId || (h.id && hId && h.id.replace(/[^A-Z0-9]/g, '') === hId.replace(/[^A-Z0-9]/g, '')));
+                    const opt = document.createElement('option');
+                    opt.value = hId;
+                    opt.textContent = `🏢 ${matched?.name || hId} (${hId})`;
+                    filterSelect.appendChild(opt);
+                });
+                filterSelect.disabled = false;
+                const cleanTarget = String(targetHostelLabel || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+                const matched = myHostels.find(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanTarget);
+                filterSelect.value = matched || myHostels[0];
+            }
         } else if (targetHostelLabel) {
             if (!Array.from(filterSelect.options).some(o => o.value === targetHostelLabel)) {
                 const opt = document.createElement('option');
@@ -1529,11 +1569,13 @@ async function handleApplyLock(e) {
     }
     let targetHostel = getActiveLockHostel();
     const isOwner = typeof isPlatformOwner === 'function' ? isPlatformOwner(currentAdminProfile) : Boolean(currentAdminProfile?.is_owner);
-    const myHostels = (currentAdminProfile?.assigned_hostels && currentAdminProfile.assigned_hostels.length > 0)
-        ? currentAdminProfile.assigned_hostels
-        : (currentAdminProfile?.assigned_hostel_id ? [currentAdminProfile.assigned_hostel_id] : []);
+    const myHostels = getAdminAssignedHostels();
     if (!isOwner && myHostels.length > 0) {
-        if (!myHostels.includes(targetHostel)) {
+        const cleanTarget = String(targetHostel || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const matched = myHostels.find(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanTarget);
+        if (matched) {
+            targetHostel = matched;
+        } else {
             targetHostel = myHostels[0];
         }
     }
@@ -1574,14 +1616,20 @@ async function handleApplyLock(e) {
 
 async function handleUnlockStore(overrideHostel) {
     const isOwner = typeof isPlatformOwner === 'function' ? isPlatformOwner(currentAdminProfile) : Boolean(currentAdminProfile?.is_owner);
-    const myHostels = (currentAdminProfile?.assigned_hostels && currentAdminProfile.assigned_hostels.length > 0)
-        ? currentAdminProfile.assigned_hostels
-        : (currentAdminProfile?.assigned_hostel_id ? [currentAdminProfile.assigned_hostel_id] : []);
+    const myHostels = getAdminAssignedHostels();
     let targetHostel = overrideHostel || getActiveLockHostel();
-    if (!isOwner && myHostels.length > 0) {
-        if (!myHostels.includes(targetHostel)) {
-            targetHostel = myHostels[0];
+    if (!isOwner) {
+        if (!targetHostel || targetHostel === 'ALL') {
+            alert('Access denied: Only the platform owner can unlock all hostels globally.');
+            return;
         }
+        const cleanTarget = String(targetHostel).toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const matched = myHostels.find(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanTarget);
+        if (!matched) {
+            alert(`Access denied: You can only unlock your assigned stores (${myHostels.join(', ')}).`);
+            return;
+        }
+        targetHostel = matched;
     }
     const hostelLabel = (targetHostel && targetHostel !== 'ALL') ? ` for ${targetHostel}` : '';
     if (!confirm(`Are you sure you want to UNLOCK the client storefront${hostelLabel} and make orders available now?`)) {
@@ -1604,27 +1652,43 @@ async function handleUnlockStore(overrideHostel) {
             }
             // Refresh panoramic overview after change
             loadClientLockState();
+        } else {
+            alert('Failed to unlock store: ' + (data.error || 'Unknown error'));
         }
     } catch (err) {
         alert('Error unlocking store: ' + err.message);
     }
 }
 
-// Per-Hostel Lock Status Overview (Owner Panoramic Grid)
+// Per-Hostel Lock Status Overview
 function selectLockHostel(hostelId) {
     const isOwner = typeof isPlatformOwner === 'function' ? isPlatformOwner(currentAdminProfile) : Boolean(currentAdminProfile?.is_owner);
-    if (!isOwner) return; // Strict boundary: Only platform owner ("mee only") can select other hostel cards
-    if (!hostelId) hostelId = 'ALL';
+    const myHostels = getAdminAssignedHostels();
+
+    if (!isOwner) {
+        if (!hostelId || hostelId === 'ALL') return;
+        const cleanTarget = String(hostelId).toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const canAccess = myHostels.some(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanTarget);
+        if (!canAccess) {
+            alert(`Access denied: You can only select and manage your assigned stores (${myHostels.join(', ')}).`);
+            return;
+        }
+    }
+
+    if (!hostelId) hostelId = isOwner ? 'ALL' : (myHostels[0] || 'BH-13');
     activeAdminHostelFilter.clientLock = hostelId;
     const select = document.getElementById('lock-hostel-filter');
     if (select) {
-        if (!Array.from(select.options).some(o => o.value === hostelId)) {
+        const found = Array.from(select.options).find(o => String(o.value).toUpperCase().replace(/[^A-Z0-9]/g, '') === String(hostelId).toUpperCase().replace(/[^A-Z0-9]/g, ''));
+        if (found) {
+            select.value = found.value;
+        } else {
             const opt = document.createElement('option');
             opt.value = hostelId;
             opt.textContent = hostelId === 'ALL' ? '🏢 All Campus Hostels' : `🏢 ${hostelId}`;
             select.appendChild(opt);
+            select.value = hostelId;
         }
-        select.value = hostelId;
     }
     loadClientLockState();
 }
@@ -1635,6 +1699,9 @@ function renderLockHostelOverview(allHostelLocks) {
     const grid = document.getElementById('lock-hostel-overview-grid');
     const summary = document.getElementById('lock-hostel-overview-summary');
     if (!overviewCard || !grid) return;
+
+    const isOwner = typeof isPlatformOwner === 'function' ? isPlatformOwner(currentAdminProfile) : Boolean(currentAdminProfile?.is_owner);
+    const myHostels = getAdminAssignedHostels();
 
     // Backend returns { master_lock, hostels: [...] }
     let hostels = [];
@@ -1648,6 +1715,11 @@ function renderLockHostelOverview(allHostelLocks) {
         }
     }
 
+    if (!isOwner && myHostels.length > 0) {
+        const allowedNorms = new Set(myHostels.map(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '')));
+        hostels = hostels.filter(h => allowedNorms.has(String(h.hostel_id).toUpperCase().replace(/[^A-Z0-9]/g, '')));
+    }
+
     if (hostels.length === 0) {
         overviewCard.classList.add('hidden');
         return;
@@ -1658,10 +1730,10 @@ function renderLockHostelOverview(allHostelLocks) {
     let lockedCount = 0;
     let totalCount = hostels.length;
     let cardsHtml = '';
-    const currentHostel = getActiveLockHostel() || 'ALL';
+    const currentHostel = getActiveLockHostel() || (isOwner ? 'ALL' : (myHostels[0] || 'BH-13'));
 
-    // Master Lock Card (Global Control)
-    if (masterLock) {
+    // Master Lock Card (Global Control - Only for Platform Owner)
+    if (masterLock && isOwner) {
         const isSelected = (currentHostel === 'ALL');
         const mLocked = Boolean(masterLock.is_locked);
         const mClosedBy = masterLock.closed_by_name || 'Nivas Naidu (Main Admin)';
@@ -1715,7 +1787,7 @@ function renderLockHostelOverview(allHostelLocks) {
         const hostelName = h.hostel_name || h.hostel_id || '—';
         const hostelId = h.hostel_id || '';
         const hostelStatus = h.status === 'OFF' ? ' <span class="text-[8px] text-[#dc2626] font-bold bg-[#fee2e2] px-1 py-0.2 rounded border border-[#fecaca]">[OFF]</span>' : '';
-        const isSelected = (currentHostel === hostelId);
+        const isSelected = (currentHostel && String(currentHostel).toUpperCase().replace(/[^A-Z0-9]/g, '') === String(hostelId).toUpperCase().replace(/[^A-Z0-9]/g, ''));
 
         const managerName = h.manager_name || (h.status === 'OFF' ? 'Unassigned (Inactive)' : 'Unassigned (Main Admin)');
         const closedBy = h.closed_by_name || (lockedByMaster ? 'Nivas Naidu (Main Admin) (via Global Switch)' : (managerName && managerName !== 'Unassigned' ? `${managerName} (Store Manager)` : 'Main Admin'));
@@ -1799,10 +1871,19 @@ function renderLockHostelOverview(allHostelLocks) {
 
 async function quickLockSingleHostel(hostelId) {
     const isOwner = typeof isPlatformOwner === 'function' ? isPlatformOwner(currentAdminProfile) : Boolean(currentAdminProfile?.is_owner);
-    const assignedHostel = currentAdminProfile?.assigned_hostel_id;
-    if (!isOwner && assignedHostel && hostelId !== assignedHostel) {
-        alert(`Access denied: You can only lock or unlock your assigned store (${assignedHostel}).`);
-        return;
+    const myHostels = getAdminAssignedHostels();
+
+    if (!isOwner) {
+        if (!hostelId || hostelId === 'ALL') {
+            alert('Access denied: Only the platform owner can operate the global lock for all hostels.');
+            return;
+        }
+        const cleanTarget = String(hostelId).toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const canAccess = myHostels.some(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanTarget);
+        if (!canAccess) {
+            alert(`Access denied: You can only lock or unlock your assigned stores (${myHostels.join(', ')}).`);
+            return;
+        }
     }
     if (!confirm(`Lock storefront for ${hostelId} immediately?`)) return;
     try {
@@ -6278,7 +6359,8 @@ function handleAdminRealtimePacket(data) {
     } else if (data.type === 'CLIENT_LOCK_UPDATE' && data.availability) {
         const updatedHostel = data.availability.target_hostel || 'ALL';
         const isOwner = typeof isPlatformOwner === 'function' ? isPlatformOwner(currentAdminProfile) : Boolean(currentAdminProfile?.is_owner);
-        if (isOwner && data.all_hostel_locks && typeof renderLockHostelOverview === 'function') {
+        const myHostels = getAdminAssignedHostels();
+        if (data.all_hostel_locks && typeof renderLockHostelOverview === 'function') {
             renderLockHostelOverview(data.all_hostel_locks);
         }
         if (typeof updateClientLockUI === 'function') {
@@ -6290,8 +6372,8 @@ function handleAdminRealtimePacket(data) {
         if (typeof loadClientLockState === 'function') {
             loadClientLockState();
         }
-        const myHostel = currentAdminProfile?.assigned_hostel_id;
-        if (isOwner || !myHostel || updatedHostel === 'ALL' || updatedHostel === myHostel) {
+        const canSeeToast = isOwner || myHostels.length === 0 || updatedHostel === 'ALL' || myHostels.some(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '') === String(updatedHostel).toUpperCase().replace(/[^A-Z0-9]/g, ''));
+        if (canSeeToast) {
             showToast(`Store availability updated for ${updatedHostel}: ${data.availability.lock_status || (data.availability.is_locked ? 'LOCKED' : 'AVAILABLE')}`, 'info');
         }
     } else if (data.type === 'USER_BLOCKED') {
@@ -8089,7 +8171,7 @@ function populateHostelDropdowns() {
         if (!isOwner && myHostels.length > 0) {
             select.innerHTML = '';
             if (myHostels.length > 1) {
-                if (cfg.allowAll) {
+                if (cfg.allowAll && cfg.id !== 'lock-hostel-filter') {
                     const allOpt = document.createElement('option');
                     allOpt.value = 'ALL';
                     allOpt.textContent = '🏢 All My Assigned Hostels';
@@ -8103,10 +8185,14 @@ function populateHostelDropdowns() {
                     select.appendChild(opt);
                 });
                 select.disabled = false;
-                if (currentVal && (currentVal === 'ALL' || myHostels.includes(currentVal))) {
-                    select.value = currentVal;
+                const cleanCurrent = currentVal ? String(currentVal).toUpperCase().replace(/[^A-Z0-9]/g, '') : '';
+                const matchedCurrent = myHostels.find(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanCurrent);
+                if (cfg.id !== 'lock-hostel-filter' && currentVal === 'ALL') {
+                    select.value = 'ALL';
+                } else if (matchedCurrent) {
+                    select.value = matchedCurrent;
                 } else {
-                    select.value = cfg.allowAll ? 'ALL' : myHostels[0];
+                    select.value = (cfg.allowAll && cfg.id !== 'lock-hostel-filter') ? 'ALL' : myHostels[0];
                 }
             } else {
                 const singleId = myHostels[0];
