@@ -2851,14 +2851,14 @@ let clientWsReconnectAttempts = 0;
 let clientWsPingInterval = null;
 let currentTrackedOrderId = null;
 
-// Fast Polling Fallback Engine (activates ONLY when WebSocket is disconnected)
+// Fast Polling Fallback Engine (activates ONLY when WebSocket and Supabase are disconnected)
 let _clientPollTimer = null;
 let _clientPollActive = false;
 let _lastPollOrderStatus = null;
 let _lastPollStoreAvail = null;
-const CLIENT_POLL_FAST_MS = 1500;   // 1.5s for active in-progress order tracking (1-2s instant updates)
-const CLIENT_POLL_IDLE_MS = 45000;  // 45s when user has no active order (saves 90%+ Vercel invocations)
-const CLIENT_POLL_STORE_MS = 10000; // 10s for store availability updates
+const CLIENT_POLL_FAST_MS = 5000;   // 5s for active in-progress order tracking (conserves 70%+ Vercel invocations)
+const CLIENT_POLL_IDLE_MS = 60000;  // 60s when user has no active order (saves 95%+ Vercel invocations)
+const CLIENT_POLL_STORE_MS = 45000; // 45s for store availability updates (conserves Vercel free tier)
 let _storePollTimer = null;
 
 function startClientPollingFallback() {
@@ -3258,6 +3258,16 @@ async function initClientSupabaseRealtime() {
 
         clientSupabaseChannel.subscribe((status) => {
             console.log(`[LPUQuick Client Supabase Realtime] Channel status: ${status}`);
+            if (status === 'SUBSCRIBED') {
+                // Supabase Cloud Realtime is active; stop redundant HTTP polling fallback to stay 100% within Vercel free limits
+                if (typeof stopClientPollingFallback === 'function') {
+                    stopClientPollingFallback();
+                }
+            } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                if (typeof startClientPollingFallback === 'function') {
+                    startClientPollingFallback();
+                }
+            }
         });
     } catch(err) {
         console.warn('[LPUQuick Client Supabase Realtime Error]:', err.message);

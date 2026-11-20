@@ -1,0 +1,26 @@
+[
+  {
+    "id": "inv_b9da3683fea0",
+    "partner_id": "ptr_93433b6dddd6",
+    "partner_name": "sathwik",
+    "hostel_id": "GH-1",
+    "amount": 4000,
+    "investment_date": "2026-11-18",
+    "investment_type": "INITIAL",
+    "transaction_reference": "INITIAL_DEPOSIT",
+    "description": "Initial partnership capital investment",
+    "created_at": "2026-11-18T14:03:21.526Z"
+  },
+  {
+    "id": "inv_0a7a10f2ce60",
+    "partner_id": "ptr_d85ff9639ac5",
+    "partner_name": "Rahul Sharma",
+    "hostel_id": "BH-13",
+    "amount": 50000,
+    "investment_date": "2026-11-18",
+    "investment_type": "INITIAL",
+    "transaction_reference": "UPI_INIT_998877",
+    "description": "Initial partnership capital investment",
+    "created_at": "2026-11-18T13:22:23.318Z"
+  }
+]

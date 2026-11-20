@@ -260,6 +260,7 @@ const staticOptions = {
 app.use('/uploads', express.static(path.join(__dirname, '..', 'public', 'uploads'), staticOptions));
 app.use('/uploads', express.static(path.join(__dirname, '..', 'client', 'uploads'), staticOptions));
 app.use('/ad-new', express.static(path.join(__dirname, '..', 'admin'), staticOptions));
+app.use('/partner', express.static(path.join(__dirname, '..', 'public', 'partner'), staticOptions));
 
 // Explicitly block legacy /admin path (changed to /ad-new)
 app.all(['/admin', '/admin/*'], (req, res) => {
@@ -278,7 +279,7 @@ app.get('/api/health', async (req, res) => {
             const { error } = await client.from('app_availability').select('id').limit(1);
             dbOk = !error;
         }
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Cache-Control', 'public, max-age=15, s-maxage=30, stale-while-revalidate=60');
         res.json({
             status: 'healthy',
             platform: process.env.VERCEL ? 'vercel-serverless' : 'node-server',
@@ -306,6 +307,8 @@ app.use('/api/admin/broadcast-notifications', require('./routes/broadcastNotific
 app.use('/api/admin/hostel-groups', require('./routes/hostelGroups'));
 app.use('/api/admin/backup', require('./routes/backup'));
 app.use('/api/admin/financial', require('./routes/financial'));
+app.use('/api/admin/partners', require('./routes/partnerAdmin'));
+app.use('/api/partner', require('./routes/partnerPortal'));
 app.use('/api/client/status', require('./routes/client-status'));
 app.use('/api/home', require('./routes/home'));
 app.get('/api/banners', (req, res) => res.redirect('/api/home/banners'));
@@ -362,6 +365,11 @@ app.get(['/mobile', '/mobile-preview', '/phone', '/preview'], (req, res) => {
 // Mobile phone simulator for Admin Dashboard
 app.get(['/admin-preview', '/admin/preview', '/preview-admin', '/mobile-admin', '/ad-new-preview', '/ad-new/preview', '/ad-new_preview'], (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'public', 'admin-preview.html'));
+});
+
+// Partner portal route
+app.get(['/partner', '/partner/*'], (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'public', 'partner', 'index.html'));
 });
 
 // Admin portal route

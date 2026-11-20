@@ -9,7 +9,7 @@ const supabaseDb = require('../db/supabaseDb');
  */
 router.get('/active', async (req, res) => {
     try {
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
 
         let activeHostels = await supabaseDb.hostels.getActiveHostels();
         if (!activeHostels) activeHostels = [];

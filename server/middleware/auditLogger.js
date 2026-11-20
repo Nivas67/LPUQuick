@@ -215,6 +215,10 @@ function auditMiddleware(req, res, next) {
     const isHighFrequencyPoll = method === 'GET' && (
         originalUrl.includes('/invalidate-cache') ||
         originalUrl.includes('/favicon') ||
+        originalUrl.includes('/client-lock') ||
+        originalUrl.includes('/notifications') ||
+        originalUrl.includes('/sync') ||
+        originalUrl.includes('/health') ||
         originalUrl.endsWith('.png') ||
         originalUrl.endsWith('.js') ||
         originalUrl.endsWith('.css')

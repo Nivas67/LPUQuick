@@ -2,8 +2,8 @@
   "version": 2,
   "functions": {
     "api/index.js": {
-      "memory": 512,
-      "maxDuration": 60
+      "memory": 256,
+      "maxDuration": 15
     }
   },
   "headers": [
@@ -22,6 +22,15 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=2592000, stale-while-revalidate=604800"
+        }
+      ]
+    },
+    {
+      "source": "/(download|downloads)/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
         }
       ]
     },
@@ -221,16 +230,36 @@
       "destination": "/api/index.js"
     },
     {
-      "source": "/download/(.*)",
-      "destination": "/api/index.js"
+      "source": "/download/apk",
+      "destination": "/public/downloads/LPUQuick.apk"
+    },
+    {
+      "source": "/downloads/apk",
+      "destination": "/public/downloads/LPUQuick.apk"
+    },
+    {
+      "source": "/download/LPUQuick.apk",
+      "destination": "/public/downloads/LPUQuick.apk"
+    },
+    {
+      "source": "/downloads/LPUQuick.apk",
+      "destination": "/public/downloads/LPUQuick.apk"
     },
     {
       "source": "/download",
-      "destination": "/api/index.js"
+      "destination": "/public/downloads/LPUQuick.apk"
+    },
+    {
+      "source": "/downloads",
+      "destination": "/public/downloads/LPUQuick.apk"
+    },
+    {
+      "source": "/download/(.*)",
+      "destination": "/public/downloads/$1"
     },
     {
       "source": "/downloads/(.*)",
-      "destination": "/api/index.js"
+      "destination": "/public/downloads/$1"
     },
     {
       "source": "/uploads/(.*)",
@@ -273,6 +302,22 @@
       "destination": "/admin/index.html"
     },
     {
+      "source": "/partner/css/(.*)",
+      "destination": "/public/partner/css/$1"
+    },
+    {
+      "source": "/partner/js/(.*)",
+      "destination": "/public/partner/js/$1"
+    },
+    {
+      "source": "/partner/(.*)",
+      "destination": "/public/partner/index.html"
+    },
+    {
+      "source": "/partner",
+      "destination": "/public/partner/index.html"
+    },
+    {
       "source": "/css/(.*)",
       "destination": "/client/css/$1"
     },
@@ -309,7 +354,7 @@
       "destination": "/client/$1.$2"
     },
     {
-      "source": "/((?!api/|ad-new/).*)",
+      "source": "/((?!api/|ad-new/|partner/).*)",
       "destination": "/client/index.html"
     }
   ]

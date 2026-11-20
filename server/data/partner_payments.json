@@ -1,0 +1,14 @@
+[
+  {
+    "id": "pay_fa4683138607",
+    "partner_id": "ptr_d85ff9639ac5",
+    "partner_name": "Rahul Sharma",
+    "amount": 10000,
+    "payment_method": "UPI",
+    "transaction_id": "UPI_PAYOUT_992211",
+    "payment_date": "2026-11-18",
+    "remarks": "Advance profit settlement",
+    "status": "CONFIRMED",
+    "created_at": "2026-11-18T13:22:37.571Z"
+  }
+]

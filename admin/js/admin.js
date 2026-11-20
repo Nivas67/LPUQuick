@@ -595,18 +595,14 @@ function applyAdminRolePermissions(profile) {
                 const el = document.getElementById(id);
                 if (el) {
                     el.disabled = false;
-                    if (id === 'lock-hostel-filter') {
-                        el.value = myAssignedHostels[0];
-                    } else {
-                        el.value = 'ALL';
-                    }
+                    el.value = 'ALL';
                 }
             });
             if (typeof activeAdminHostelFilter !== 'undefined') {
                 activeAdminHostelFilter.orders = 'ALL';
                 activeAdminHostelFilter.products = 'ALL';
                 activeAdminHostelFilter.inventory = 'ALL';
-                activeAdminHostelFilter.clientLock = myAssignedHostels[0];
+                activeAdminHostelFilter.clientLock = 'ALL';
             }
         }
     }
@@ -831,7 +827,15 @@ function switchView(viewName) {
             'payment-management': ['owner'],
             'customer-notifications': ['owner'],
             'upi-config': ['owner'],
-            'food-dept': ['owner', 'store_manager', 'cook', 'food_department', 'food']
+            'food-dept': ['owner', 'store_manager', 'cook', 'food_department', 'food'],
+            'partners-overview': ['owner'],
+            'partners-add': ['owner'],
+            'partners-manage': ['owner'],
+            'partners-hostels': ['owner'],
+            'partners-investments': ['owner'],
+            'partners-profits': ['owner'],
+            'partners-payments': ['owner'],
+            'partners-reports': ['owner']
         };
 
         const required = viewRoles[viewName];
@@ -891,7 +895,15 @@ function switchView(viewName) {
         'payment-management': 'Payment & Refund Management (Super Admin Only)',
         'customer-notifications': 'Customer Broadcast & Push Notifications (Super Admin Only)',
         'upi-config': 'UPI Gateway & Merchant Configuration (Super Admin Only)',
-        'food-dept': 'Food Department & Kitchen Operations'
+        'food-dept': 'Food Department & Kitchen Operations',
+        'partners-overview': 'Partnership Management Hub — Executive Overview',
+        'partners-add': 'Add New Business Partner',
+        'partners-manage': 'Partner Directory & Management',
+        'partners-hostels': 'Campus Hostel Assignment Matrix',
+        'partners-investments': 'Partner Investment Management',
+        'partners-profits': 'Profit Management & Operational Expense Ledger',
+        'partners-payments': 'Partner Payments & Settlement History',
+        'partners-reports': 'Partnership Financial Reports & Statements'
     };
     const currentTitle = titles[viewName] || 'Dashboard';
     const topTitle = document.getElementById('top-title');
@@ -933,6 +945,14 @@ function switchView(viewName) {
     else if (viewName === 'customer-notifications') loadBroadcastNotificationsData();
     else if (viewName === 'upi-config') loadUpiConfigView();
     else if (viewName === 'food-dept') loadFoodDeptAdmin();
+    else if (viewName === 'partners-overview') loadPartnerOverview();
+    else if (viewName === 'partners-add') initAddPartnerView();
+    else if (viewName === 'partners-manage') loadPartnersList();
+    else if (viewName === 'partners-hostels') loadHostelsMatrix();
+    else if (viewName === 'partners-investments') loadPartnerInvestments();
+    else if (viewName === 'partners-profits') loadPartnerProfits();
+    else if (viewName === 'partners-payments') loadPartnerPayments();
+    else if (viewName === 'partners-reports') loadPartnerReports();
 
     try {
         if (typeof window !== 'undefined' && window.location.hash.replace(/^#\/?/, '') !== viewName) {
@@ -1210,12 +1230,15 @@ function getActiveLockHostel() {
 
     if (!isOwner && myHostels.length > 0) {
         const active = activeAdminHostelFilter?.clientLock;
-        if (active && active !== 'ALL') {
+        if (active === 'ALL' || (!active && myHostels.length > 1)) {
+            return 'ALL';
+        }
+        if (active) {
             const cleanActive = String(active).toUpperCase().replace(/[^A-Z0-9]/g, '');
             const matched = myHostels.find(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanActive);
             if (matched) return matched;
         }
-        return myHostels[0];
+        return myHostels.length > 1 ? 'ALL' : myHostels[0];
     }
     return activeAdminHostelFilter?.clientLock || 'ALL';
 }
@@ -1387,6 +1410,11 @@ function updateClientLockUI(avail, targetHostelLabel) {
                 filterSelect.disabled = true;
             } else {
                 filterSelect.innerHTML = '';
+                const allOpt = document.createElement('option');
+                allOpt.value = 'ALL';
+                allOpt.textContent = `🏢 All My Assigned Hostels (${myHostels.length} Hostels)`;
+                filterSelect.appendChild(allOpt);
+
                 myHostels.forEach(hId => {
                     const matched = hostelsCache.find(h => h.id === hId || (h.id && hId && h.id.replace(/[^A-Z0-9]/g, '') === hId.replace(/[^A-Z0-9]/g, '')));
                     const opt = document.createElement('option');
@@ -1395,9 +1423,13 @@ function updateClientLockUI(avail, targetHostelLabel) {
                     filterSelect.appendChild(opt);
                 });
                 filterSelect.disabled = false;
-                const cleanTarget = String(targetHostelLabel || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-                const matched = myHostels.find(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanTarget);
-                filterSelect.value = matched || myHostels[0];
+                if (!targetHostelLabel || targetHostelLabel === 'ALL') {
+                    filterSelect.value = 'ALL';
+                } else {
+                    const cleanTarget = String(targetHostelLabel || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+                    const matched = myHostels.find(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanTarget);
+                    filterSelect.value = matched || 'ALL';
+                }
             }
         } else if (targetHostelLabel) {
             if (!Array.from(filterSelect.options).some(o => o.value === targetHostelLabel)) {
@@ -1414,17 +1446,29 @@ function updateClientLockUI(avail, targetHostelLabel) {
     // Update target badge and button text in the Lock Configuration form
     const lockTargetLabel = document.getElementById('lock-target-hostel-label');
     if (lockTargetLabel) {
-        lockTargetLabel.textContent = (targetHostelLabel && targetHostelLabel !== 'ALL') ? targetHostelLabel : 'All Campus Hostels (Global)';
+        if (targetHostelLabel && targetHostelLabel !== 'ALL') {
+            lockTargetLabel.textContent = targetHostelLabel;
+        } else {
+            lockTargetLabel.textContent = isOwnerUser ? 'All Campus Hostels (Global Master Lock)' : `All My Assigned Hostels (${myHostels.join(', ')})`;
+        }
     }
 
     const btnApplyText = document.getElementById('btn-apply-lock-text');
     if (btnApplyText) {
-        btnApplyText.textContent = (targetHostelLabel && targetHostelLabel !== 'ALL') ? `Lock ${targetHostelLabel} Storefront Now` : 'Lock All Hostels Now';
+        if (targetHostelLabel && targetHostelLabel !== 'ALL') {
+            btnApplyText.textContent = `Lock ${targetHostelLabel} Storefront Now`;
+        } else {
+            btnApplyText.textContent = isOwnerUser ? 'Lock All Hostels Now (Global)' : `Lock All My Hostels Now (${myHostels.length})`;
+        }
     }
 
     const btnQuickUnlockText = document.getElementById('btn-quick-unlock-text');
     if (btnQuickUnlockText) {
-        btnQuickUnlockText.textContent = (targetHostelLabel && targetHostelLabel !== 'ALL') ? `Unlock ${targetHostelLabel} Storefront Now` : 'Unlock Storefront Now';
+        if (targetHostelLabel && targetHostelLabel !== 'ALL') {
+            btnQuickUnlockText.textContent = `Unlock ${targetHostelLabel} Storefront Now`;
+        } else {
+            btnQuickUnlockText.textContent = isOwnerUser ? 'Unlock All Hostels Globally' : `Unlock All My Hostels Now (${myHostels.length})`;
+        }
     }
 }
 
@@ -1619,26 +1663,23 @@ async function handleUnlockStore(overrideHostel) {
     const myHostels = getAdminAssignedHostels();
     let targetHostel = overrideHostel || getActiveLockHostel();
     if (!isOwner) {
-        if (!targetHostel || targetHostel === 'ALL') {
-            alert('Access denied: Only the platform owner can unlock all hostels globally.');
-            return;
+        if (targetHostel !== 'ALL') {
+            const cleanTarget = String(targetHostel).toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const matched = myHostels.find(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanTarget);
+            if (!matched) {
+                alert(`Access denied: You can only unlock your assigned stores (${myHostels.join(', ')}).`);
+                return;
+            }
+            targetHostel = matched;
         }
-        const cleanTarget = String(targetHostel).toUpperCase().replace(/[^A-Z0-9]/g, '');
-        const matched = myHostels.find(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanTarget);
-        if (!matched) {
-            alert(`Access denied: You can only unlock your assigned stores (${myHostels.join(', ')}).`);
-            return;
-        }
-        targetHostel = matched;
     }
-    const hostelLabel = (targetHostel && targetHostel !== 'ALL') ? ` for ${targetHostel}` : '';
+    const hostelLabel = (targetHostel && targetHostel !== 'ALL') ? ` for ${targetHostel}` : (isOwner ? ' globally for all hostels' : ' for all your assigned hostels');
     if (!confirm(`Are you sure you want to UNLOCK the client storefront${hostelLabel} and make orders available now?`)) {
         return;
     }
     try {
-        const res = await fetch('/api/admin/client-lock', {
+        const res = await authFetch('/api/admin/client-lock', {
             method: 'DELETE',
-            headers: getAuthHeaders(),
             body: JSON.stringify({ hostel_id: targetHostel })
         });
         const data = await res.json();
@@ -1666,26 +1707,28 @@ function selectLockHostel(hostelId) {
     const myHostels = getAdminAssignedHostels();
 
     if (!isOwner) {
-        if (!hostelId || hostelId === 'ALL') return;
-        const cleanTarget = String(hostelId).toUpperCase().replace(/[^A-Z0-9]/g, '');
-        const canAccess = myHostels.some(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanTarget);
-        if (!canAccess) {
-            alert(`Access denied: You can only select and manage your assigned stores (${myHostels.join(', ')}).`);
-            return;
+        if (hostelId && hostelId !== 'ALL') {
+            const cleanTarget = String(hostelId).toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const canAccess = myHostels.some(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanTarget);
+            if (!canAccess) {
+                alert(`Access denied: You can only select and manage your assigned stores (${myHostels.join(', ')}).`);
+                return;
+            }
         }
     }
 
-    if (!hostelId) hostelId = isOwner ? 'ALL' : (myHostels[0] || 'BH-13');
+    if (!hostelId) hostelId = (isOwner || myHostels.length > 1) ? 'ALL' : (myHostels[0] || 'BH-13');
     activeAdminHostelFilter.clientLock = hostelId;
     const select = document.getElementById('lock-hostel-filter');
     if (select) {
-        const found = Array.from(select.options).find(o => String(o.value).toUpperCase().replace(/[^A-Z0-9]/g, '') === String(hostelId).toUpperCase().replace(/[^A-Z0-9]/g, ''));
+        const cleanH = String(hostelId).toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const found = Array.from(select.options).find(o => String(o.value).toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanH || (hostelId === 'ALL' && o.value === 'ALL'));
         if (found) {
             select.value = found.value;
         } else {
             const opt = document.createElement('option');
             opt.value = hostelId;
-            opt.textContent = hostelId === 'ALL' ? '🏢 All Campus Hostels' : `🏢 ${hostelId}`;
+            opt.textContent = hostelId === 'ALL' ? (isOwner ? '🏢 All Campus Hostels' : '🏢 All My Assigned Hostels') : `🏢 ${hostelId}`;
             select.appendChild(opt);
             select.value = hostelId;
         }
@@ -1816,11 +1859,12 @@ function renderLockHostelOverview(allHostelLocks) {
             attributionHtml = `<p class="text-[9.5px] font-semibold text-[#991b1b] truncate mt-0.5" title="Closed by ${escapeHtml(closedBy)}">🔴 Closed by: <span class="font-extrabold text-[#7f1d1d]">${escapeHtml(closedBy)}</span></p>`;
 
             if (isDirectLocked) {
-                actionBtn = `<button type="button" onclick="event.stopPropagation(); handleUnlockStore('${hostelId}')" class="text-[9px] font-bold text-[#16a34a] hover:underline mt-1 cursor-pointer flex items-center gap-1">🔓 Unlock</button>`;
-            } else if (lockedByMaster) {
-                actionBtn = `<span class="text-[9px] text-[#991b1b]/80 italic mt-1 flex items-center gap-1">🔒 Locked globally</span>`;
+                actionBtn = `<button type="button" onclick="event.stopPropagation(); handleUnlockStore('${hostelId}')" class="text-[9px] font-bold text-[#16a34a] hover:underline mt-1 cursor-pointer flex items-center gap-1">🔓 Unlock Hostel</button>`;
             } else {
-                actionBtn = `<button type="button" onclick="event.stopPropagation(); handleUnlockStore('${hostelId}')" class="text-[9px] font-bold text-[#16a34a] hover:underline mt-1 cursor-pointer flex items-center gap-1">🔓 Unlock</button>`;
+                actionBtn = `<button type="button" onclick="event.stopPropagation(); quickLockSingleHostel('${hostelId}')" class="text-[9px] font-bold text-[#dc2626] hover:underline mt-1 cursor-pointer flex items-center gap-1">🔒 Lock Hostel</button>`;
+            }
+            if (lockedByMaster) {
+                actionBtn += `<span class="text-[8.5px] text-[#991b1b] font-medium block mt-0.5" title="Store is closed campus-wide by Platform Owner">(Global Master Lock Active)</span>`;
             }
         } else {
             // GREEN THEME for OPEN STORE
@@ -1833,7 +1877,7 @@ function renderLockHostelOverview(allHostelLocks) {
             badgeHtml = `<span class="inline-flex items-center gap-1 font-black text-[#16a34a] bg-[#dcfce7] px-1.5 py-0.5 rounded border border-[#bbf7d0] text-[9.5px]">🟢 OPEN</span>`;
             attributionHtml = `<p class="text-[9.5px] font-semibold text-[#166534] truncate mt-0.5" title="Opened by ${escapeHtml(openedBy)}">🟢 Opened by: <span class="font-extrabold text-[#14532d]">${escapeHtml(openedBy)}</span></p>`;
 
-            actionBtn = `<button type="button" onclick="event.stopPropagation(); quickLockSingleHostel('${hostelId}')" class="text-[9px] font-bold text-[#dc2626] hover:underline mt-1 cursor-pointer flex items-center gap-1">🔒 Lock</button>`;
+            actionBtn = `<button type="button" onclick="event.stopPropagation(); quickLockSingleHostel('${hostelId}')" class="text-[9px] font-bold text-[#dc2626] hover:underline mt-1 cursor-pointer flex items-center gap-1">🔒 Lock Hostel</button>`;
         }
 
         cardsHtml += `
@@ -1874,27 +1918,25 @@ async function quickLockSingleHostel(hostelId) {
     const myHostels = getAdminAssignedHostels();
 
     if (!isOwner) {
-        if (!hostelId || hostelId === 'ALL') {
-            alert('Access denied: Only the platform owner can operate the global lock for all hostels.');
-            return;
-        }
-        const cleanTarget = String(hostelId).toUpperCase().replace(/[^A-Z0-9]/g, '');
-        const canAccess = myHostels.some(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanTarget);
-        if (!canAccess) {
-            alert(`Access denied: You can only lock or unlock your assigned stores (${myHostels.join(', ')}).`);
-            return;
+        if (hostelId !== 'ALL') {
+            const cleanTarget = String(hostelId).toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const canAccess = myHostels.some(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanTarget);
+            if (!canAccess) {
+                alert(`Access denied: You can only lock or unlock your assigned stores (${myHostels.join(', ')}).`);
+                return;
+            }
         }
     }
-    if (!confirm(`Lock storefront for ${hostelId} immediately?`)) return;
+    const label = hostelId === 'ALL' ? (isOwner ? 'all campus hostels globally' : 'all your assigned hostels') : hostelId;
+    if (!confirm(`Lock storefront for ${label} immediately?`)) return;
     try {
-        const res = await fetch('/api/admin/client-lock', {
+        const res = await authFetch('/api/admin/client-lock', {
             method: 'POST',
-            headers: getAuthHeaders(),
             body: JSON.stringify({ lock_type: 'IMMEDIATE', duration_minutes: 30, hostel_id: hostelId })
         });
         const data = await res.json();
         if (data.success) {
-            showToast(data.message || `${hostelId} locked.`, 'success');
+            showToast(data.message || `${label} locked.`, 'success');
             if (data.all_hostel_locks) {
                 renderLockHostelOverview(data.all_hostel_locks);
             }
@@ -8171,10 +8213,10 @@ function populateHostelDropdowns() {
         if (!isOwner && myHostels.length > 0) {
             select.innerHTML = '';
             if (myHostels.length > 1) {
-                if (cfg.allowAll && cfg.id !== 'lock-hostel-filter') {
+                if (cfg.allowAll) {
                     const allOpt = document.createElement('option');
                     allOpt.value = 'ALL';
-                    allOpt.textContent = '🏢 All My Assigned Hostels';
+                    allOpt.textContent = `🏢 All My Assigned Hostels (${myHostels.length})`;
                     select.appendChild(allOpt);
                 }
                 myHostels.forEach(hId => {
@@ -8187,12 +8229,12 @@ function populateHostelDropdowns() {
                 select.disabled = false;
                 const cleanCurrent = currentVal ? String(currentVal).toUpperCase().replace(/[^A-Z0-9]/g, '') : '';
                 const matchedCurrent = myHostels.find(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanCurrent);
-                if (cfg.id !== 'lock-hostel-filter' && currentVal === 'ALL') {
+                if (currentVal === 'ALL') {
                     select.value = 'ALL';
                 } else if (matchedCurrent) {
                     select.value = matchedCurrent;
                 } else {
-                    select.value = (cfg.allowAll && cfg.id !== 'lock-hostel-filter') ? 'ALL' : myHostels[0];
+                    select.value = cfg.allowAll ? 'ALL' : myHostels[0];
                 }
             } else {
                 const singleId = myHostels[0];
@@ -8884,7 +8926,7 @@ updateSoundUI();
 checkPushStatus();
 updateAdminNotificationsUI();
 
-// Periodic background sync fallback (every 10 seconds when authenticated & visible)
+// Periodic background sync fallback (every 45 seconds when authenticated & visible, preserving Vercel free tier)
 setInterval(() => {
     if (!adminToken || (typeof document !== 'undefined' && document.hidden)) return;
     if (activeView === 'dashboard') loadDashboard();
@@ -8892,7 +8934,7 @@ setInterval(() => {
     else if (activeView === 'inventory') loadInventory();
     else if (activeView === 'products') loadProducts();
     syncAdminNotificationsFromServer().catch(() => {});
-}, 10000);
+}, 45000);
 
 if (typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', () => {
@@ -17231,3 +17273,806 @@ window.sendBroadcastTestPush = sendBroadcastTestPush;
 window.deleteBroadcastCampaign = deleteBroadcastCampaign;
 window.resendBroadcastCampaign = resendBroadcastCampaign;
 window.filterCampaignHistory = filterCampaignHistory;
+
+
+// =========================================================================
+// PARTNERSHIP MANAGEMENT SYSTEM & FINANCIAL CONTROLLER
+// Partner Controller Alias
+const adminFetch = (url, options) => (typeof authFetch === 'function' ? authFetch(url, options) : fetch(url, options));
+
+// =========================================================================
+
+const PARTNER_CAMPUS_HOSTELS = [
+    'BH-1', 'BH-4', 'BH-5', 'BH-6', 'BH-11', 'BH-12', 'BH-13',
+    'GH-1', 'GH-2', 'GH-3', 'GH-4', 'GH-6', 'GH-11', 'GH-12'
+];
+
+let activeProfitPeriod = 'today';
+
+function formatPartnerCurrency(val) {
+    const num = Number(val) || 0;
+    return '₹' + num.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+}
+
+/**
+ * 1. Load Partnership Overview (10 KPIs)
+ */
+async function loadPartnerOverview() {
+    try {
+        const res = await authFetch('/api/admin/partners/overview');
+        const json = await res.json();
+        if (!json.success || !json.data) throw new Error(json.error || 'Failed to load overview');
+
+        const d = json.data;
+        const setEl = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val;
+        };
+
+        setEl('po-kpi-total-partners', d.total_partners || 0);
+        setEl('po-kpi-active-partners', d.active_partners || 0);
+        setEl('po-kpi-assigned-hostels', d.total_assigned_hostels || 0);
+        setEl('po-kpi-investments', formatPartnerCurrency(d.total_partner_investments));
+        setEl('po-kpi-revenue', formatPartnerCurrency(d.combined_revenue));
+        setEl('po-kpi-expenses', formatPartnerCurrency(d.combined_business_expenses));
+        setEl('po-kpi-net-profit', formatPartnerCurrency(d.combined_net_profit));
+        setEl('po-kpi-partner-share', formatPartnerCurrency(d.total_partner_profit_share));
+        setEl('po-kpi-paid', formatPartnerCurrency(d.total_paid_to_partners));
+        setEl('po-kpi-pending', formatPartnerCurrency(d.pending_partner_payments));
+    } catch (err) {
+        console.error('loadPartnerOverview error:', err);
+        showToast(err.message, 'error');
+    }
+}
+
+/**
+ * 2. Add New Partner View Initializer
+ */
+function initAddPartnerView() {
+    const grid = document.getElementById('add-partner-hostels-grid');
+    if (grid) {
+        grid.innerHTML = PARTNER_CAMPUS_HOSTELS.map(h => `
+            <label class="flex items-center gap-2 p-2 rounded-xl bg-white border border-[#DADCE0] hover:border-[#0066cc] cursor-pointer text-xs font-bold text-slate-800 transition-colors">
+                <input type="checkbox" name="add_partner_hostels" value="${h}" class="rounded text-[#0066cc] focus:ring-blue-500">
+                <span>${h}</span>
+            </label>
+        `).join('');
+    }
+
+    const dateInput = document.getElementById('add-partner-start-date');
+    if (dateInput && !dateInput.value) {
+        dateInput.value = new Date().toISOString().split('T')[0];
+    }
+}
+
+function selectAllAddPartnerHostels(select) {
+    document.querySelectorAll('input[name="add_partner_hostels"]').forEach(cb => {
+        cb.checked = select;
+    });
+}
+
+async function submitAddNewPartner(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btn-submit-add-partner');
+    btn.disabled = true;
+    btn.innerHTML = `<span class="inline-block animate-spin mr-1">◌</span> Creating...`;
+
+    try {
+        const name = document.getElementById('add-partner-name').value.trim();
+        const email = document.getElementById('add-partner-email').value.trim();
+        const phone = document.getElementById('add-partner-phone').value.trim();
+        const partner_id = document.getElementById('add-partner-id').value.trim();
+        const password = document.getElementById('add-partner-password').value;
+        const investment_amount = document.getElementById('add-partner-investment').value;
+        const transaction_reference = document.getElementById('add-partner-inv-ref').value.trim();
+        const profit_sharing_percentage = document.getElementById('add-partner-profit-pct').value;
+        const partnership_start_date = document.getElementById('add-partner-start-date').value;
+        const status = document.getElementById('add-partner-status').value;
+
+        const assignedHostels = Array.from(document.querySelectorAll('input[name="add_partner_hostels"]:checked'))
+            .map(cb => cb.value);
+
+        if (assignedHostels.length === 0) {
+            throw new Error('Please assign at least one campus hostel to this partner');
+        }
+
+        const res = await authFetch('/api/admin/partners', {
+            method: 'POST',
+            body: JSON.stringify({
+                name,
+                email,
+                phone,
+                partner_id: partner_id || undefined,
+                password,
+                investment_amount,
+                transaction_reference,
+                profit_sharing_percentage,
+                partnership_start_date,
+                status,
+                assigned_hostels: assignedHostels
+            })
+        });
+
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to create partner');
+
+        showToast(`Partner ${name} created successfully!`, 'success');
+        document.getElementById('form-add-partner').reset();
+        switchView('partners-manage');
+    } catch (err) {
+        showToast(err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span class="material-symbols-outlined text-sm">check</span><span>Create Partner Account</span>`;
+    }
+}
+
+/**
+ * 3. Manage Partners List
+ */
+async function loadPartnersList() {
+    const tbody = document.getElementById('partners-manage-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-400">Loading partners...</td></tr>`;
+
+    try {
+        const res = await authFetch('/api/admin/partners');
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to load partners');
+
+        const partners = json.data || [];
+        if (partners.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-400">No partners registered yet. Click "Add Partner" to create one.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = partners.map(p => {
+            const hostelsBadges = (p.assigned_hostels || []).map(h => `
+                <span class="inline-block px-1.5 py-0.5 rounded bg-blue-50 text-[#0066cc] border border-blue-200 text-[10px] font-bold mr-1 mb-1">${h}</span>
+            `).join('') || '<span class="text-slate-400 italic">None</span>';
+
+            const summary = p.summary || {};
+            const isAct = p.status === 'ACTIVE';
+
+            return `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="p-3.5">
+                        <p class="font-bold text-slate-900">${p.name}</p>
+                        <p class="text-[11px] text-slate-500">${p.email} • ${p.phone || ''}</p>
+                    </td>
+                    <td class="p-3.5 font-mono text-[11px] font-bold text-slate-700">${p.partner_id || p.id}</td>
+                    <td class="p-3.5">${hostelsBadges}</td>
+                    <td class="p-3.5 text-right font-black text-purple-700">${formatPartnerCurrency(p.investment_amount || 0)}</td>
+                    <td class="p-3.5 text-center"><span class="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-bold text-[10px]">${p.profit_sharing_percentage || 50}%</span></td>
+                    <td class="p-3.5 text-right font-bold text-slate-900">${formatPartnerCurrency(summary.revenue || 0)}</td>
+                    <td class="p-3.5 text-right font-black text-rose-700">${formatPartnerCurrency(summary.pending_payment || 0)}</td>
+                    <td class="p-3.5 text-center">
+                        <button onclick="togglePartnerStatus('${p.id}', '${isAct ? 'INACTIVE' : 'ACTIVE'}')" class="px-2.5 py-1 rounded-full text-[10px] font-bold ${isAct ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'} cursor-pointer">
+                            ${p.status}
+                        </button>
+                    </td>
+                    <td class="p-3.5 text-right">
+                        <div class="flex items-center justify-end gap-1.5">
+                            <button onclick="openEditPartnerModal('${p.id}')" class="p-1.5 text-slate-600 hover:text-blue-600 rounded-lg hover:bg-slate-100 transition-colors" title="Edit Partner">
+                                <span class="material-symbols-outlined text-base">edit</span>
+                            </button>
+                            <button onclick="openResetPartnerPasswordModal('${p.id}', '${p.name}')" class="p-1.5 text-slate-600 hover:text-indigo-600 rounded-lg hover:bg-slate-100 transition-colors" title="Reset Password">
+                                <span class="material-symbols-outlined text-base">lock_reset</span>
+                            </button>
+                            <button onclick="deletePartner('${p.id}', '${p.name}')" class="p-1.5 text-slate-600 hover:text-rose-600 rounded-lg hover:bg-slate-100 transition-colors" title="Delete Partner">
+                                <span class="material-symbols-outlined text-base">delete</span>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-rose-500 font-bold">${err.message}</td></tr>`;
+    }
+}
+
+async function togglePartnerStatus(id, newStatus) {
+    try {
+        const res = await authFetch(`/api/admin/partners/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: newStatus })
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to update status');
+        showToast(`Partner status updated to ${newStatus}`, 'success');
+        loadPartnersList();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+async function openEditPartnerModal(id) {
+    try {
+        const res = await authFetch(`/api/admin/partners/${id}`);
+        const json = await res.json();
+        if (!json.success || !json.data) throw new Error('Partner not found');
+
+        const p = json.data.partner;
+        document.getElementById('edit-partner-id').value = p.id;
+        document.getElementById('edit-partner-name').value = p.name;
+        document.getElementById('edit-partner-phone').value = p.phone || '';
+        document.getElementById('edit-partner-profit-pct').value = p.profit_sharing_percentage || 50;
+        document.getElementById('edit-partner-status').value = p.status || 'ACTIVE';
+
+        const assigned = p.assigned_hostels || [];
+        const grid = document.getElementById('edit-partner-hostels-grid');
+        grid.innerHTML = PARTNER_CAMPUS_HOSTELS.map(h => `
+            <label class="flex items-center gap-1.5 p-1.5 rounded-lg bg-white border border-[#DADCE0] text-[11px] font-bold text-slate-800">
+                <input type="checkbox" name="edit_partner_hostels" value="${h}" ${assigned.includes(h) ? 'checked' : ''} class="rounded text-[#0066cc]">
+                <span>${h}</span>
+            </label>
+        `).join('');
+
+        document.getElementById('modal-edit-partner').classList.remove('hidden');
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+function closeEditPartnerModal() {
+    document.getElementById('modal-edit-partner').classList.add('hidden');
+}
+
+async function submitEditPartner(e) {
+    e.preventDefault();
+    const id = document.getElementById('edit-partner-id').value;
+    const name = document.getElementById('edit-partner-name').value.trim();
+    const phone = document.getElementById('edit-partner-phone').value.trim();
+    const profit_sharing_percentage = document.getElementById('edit-partner-profit-pct').value;
+    const status = document.getElementById('edit-partner-status').value;
+
+    const assigned_hostels = Array.from(document.querySelectorAll('input[name="edit_partner_hostels"]:checked'))
+        .map(cb => cb.value);
+
+    try {
+        const res = await authFetch(`/api/admin/partners/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                name,
+                phone,
+                profit_sharing_percentage,
+                status,
+                assigned_hostels
+            })
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to update partner');
+
+        showToast('Partner details updated successfully', 'success');
+        closeEditPartnerModal();
+        loadPartnersList();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+function openResetPartnerPasswordModal(id, name) {
+    document.getElementById('reset-partner-id').value = id;
+    document.getElementById('reset-partner-name').textContent = name;
+    document.getElementById('reset-partner-new-pass').value = '';
+    document.getElementById('modal-reset-partner-password').classList.remove('hidden');
+}
+
+function closeResetPasswordModal() {
+    document.getElementById('modal-reset-partner-password').classList.add('hidden');
+}
+
+async function submitResetPartnerPassword(e) {
+    e.preventDefault();
+    const id = document.getElementById('reset-partner-id').value;
+    const newPassword = document.getElementById('reset-partner-new-pass').value;
+
+    try {
+        const res = await authFetch(`/api/admin/partners/${id}/reset-password`, {
+            method: 'POST',
+            body: JSON.stringify({ newPassword })
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to reset password');
+
+        showToast('Password reset successfully', 'success');
+        closeResetPasswordModal();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function deletePartner(id, name) {
+    if (!confirm(`Are you sure you want to delete partner "${name}"? This action removes login access and archives their profile.`)) {
+        return;
+    }
+
+    try {
+        const res = await authFetch(`/api/admin/partners/${id}`, { method: 'DELETE' });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to delete partner');
+
+        showToast('Partner removed successfully', 'success');
+        loadPartnersList();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+/**
+ * 4. Hostel Assignment Matrix
+ */
+async function loadHostelsMatrix() {
+    const grid = document.getElementById('hostels-matrix-grid');
+    if (!grid) return;
+    grid.innerHTML = `<div class="col-span-full py-12 text-center text-slate-400 text-xs font-semibold">Loading hostel assignment matrix...</div>`;
+
+    try {
+        const res = await authFetch('/api/admin/partners/meta/hostels-matrix');
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to load matrix');
+
+        const matrix = json.data || [];
+        grid.innerHTML = matrix.map(h => {
+            const isAssigned = h.is_assigned;
+            const partners = h.assigned_partners || [];
+
+            return `
+                <div class="p-4 rounded-2xl bg-white border border-[#DADCE0] shadow-xs flex flex-col justify-between hover:border-[#0066cc] transition-all">
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-black text-slate-900">${h.id}</span>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${isAssigned ? 'bg-blue-50 text-[#0066cc] border border-blue-200' : 'bg-slate-100 text-slate-500'}">
+                                ${isAssigned ? 'Assigned' : 'Unassigned'}
+                            </span>
+                        </div>
+                        <p class="text-xs font-medium text-slate-600">${h.name}</p>
+
+                        <div class="mt-3 pt-2 border-t border-slate-100 space-y-1">
+                            ${isAssigned ? partners.map(p => `
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="font-bold text-slate-800 flex items-center gap-1">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                                        <span>${p.name}</span>
+                                    </span>
+                                    <span class="text-[11px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">${p.profit_share}%</span>
+                                </div>
+                            `).join('') : '<p class="text-[11px] text-slate-400 italic">No partner assigned</p>'}
+                        </div>
+                    </div>
+
+                    <div class="mt-4 pt-3 border-t border-slate-100">
+                        <button onclick="switchView('partners-manage')" class="w-full py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-[11px] font-bold text-slate-700 transition-colors cursor-pointer">
+                            Manage Assignment
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (err) {
+        grid.innerHTML = `<div class="col-span-full py-6 text-center text-rose-500 font-bold">${err.message}</div>`;
+    }
+}
+
+/**
+ * 5. Investment Management
+ */
+async function loadPartnerInvestments() {
+    const tbody = document.getElementById('investments-table-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Loading investments...</td></tr>`;
+
+    try {
+        const res = await authFetch('/api/admin/partners/meta/investments');
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to load investments');
+
+        const s = json.summary || {};
+        document.getElementById('inv-summary-initial').textContent = formatPartnerCurrency(s.total_initial || 0);
+        document.getElementById('inv-summary-additional').textContent = formatPartnerCurrency(s.total_additional || 0);
+        document.getElementById('inv-summary-total').textContent = formatPartnerCurrency(s.total_investment || 0);
+
+        const investments = json.data || [];
+        if (investments.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">No investment records found.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = investments.map(i => `
+            <tr class="hover:bg-slate-50 transition-colors">
+                <td class="p-3.5 font-bold text-slate-800">${i.investment_date || '--'}</td>
+                <td class="p-3.5 font-black text-slate-900">${i.partner_name || 'Partner'}</td>
+                <td class="p-3.5 font-bold text-slate-700">${i.hostel_id || 'GENERAL'}</td>
+                <td class="p-3.5 text-right font-black text-purple-700">${formatPartnerCurrency(i.amount)}</td>
+                <td class="p-3.5 text-center">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${i.investment_type === 'INITIAL' ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}">
+                        ${i.investment_type}
+                    </span>
+                </td>
+                <td class="p-3.5 font-mono text-[11px] text-slate-600">${i.transaction_reference || 'N/A'}</td>
+                <td class="p-3.5 text-slate-500 text-xs">${i.description || 'Capital contribution'}</td>
+            </tr>
+        `).join('');
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-rose-500 font-bold">${e.message}</td></tr>`;
+    }
+}
+
+async function openRecordInvestmentModal() {
+    try {
+        const res = await authFetch('/api/admin/partners');
+        const json = await res.json();
+        const partners = json.data || [];
+
+        const sel = document.getElementById('modal-inv-partner-id');
+        sel.innerHTML = partners.map(p => `<option value="${p.id}">${p.name} (${p.partner_id || p.id})</option>`).join('');
+
+        const hostelSel = document.getElementById('modal-inv-hostel');
+        hostelSel.innerHTML = '<option value="GENERAL">General / Platform Capital</option>' +
+            PARTNER_CAMPUS_HOSTELS.map(h => `<option value="${h}">Hostel ${h}</option>`).join('');
+
+        document.getElementById('modal-inv-amount').value = '';
+        document.getElementById('modal-inv-ref').value = '';
+        document.getElementById('modal-inv-desc').value = '';
+        document.getElementById('modal-record-investment').classList.remove('hidden');
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+function closeRecordInvestmentModal() {
+    document.getElementById('modal-record-investment').classList.add('hidden');
+}
+
+async function submitRecordInvestment(e) {
+    e.preventDefault();
+    const partner_id = document.getElementById('modal-inv-partner-id').value;
+    const amount = document.getElementById('modal-inv-amount').value;
+    const investment_type = document.getElementById('modal-inv-type').value;
+    const hostel_id = document.getElementById('modal-inv-hostel').value;
+    const transaction_reference = document.getElementById('modal-inv-ref').value.trim();
+    const description = document.getElementById('modal-inv-desc').value.trim();
+
+    try {
+        const res = await authFetch('/api/admin/partners/meta/investments', {
+            method: 'POST',
+            body: JSON.stringify({
+                partner_id,
+                amount,
+                investment_type,
+                hostel_id,
+                transaction_reference,
+                description
+            })
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to record investment');
+
+        showToast('Investment recorded successfully', 'success');
+        closeRecordInvestmentModal();
+        loadPartnerInvestments();
+        loadPartnerOverview();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+/**
+ * 6. Profit Management
+ */
+function setProfitPeriod(p) {
+    activeProfitPeriod = p;
+    document.querySelectorAll('.profit-period-btn').forEach(btn => {
+        if (btn.getAttribute('data-period') === p) {
+            btn.className = 'profit-period-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-600 text-white';
+        } else {
+            btn.className = 'profit-period-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200';
+        }
+    });
+    loadPartnerProfits();
+}
+
+async function loadPartnerProfits() {
+    const tbody = document.getElementById('profit-hostel-breakdown-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">Loading profit data...</td></tr>`;
+
+    try {
+        let startDate = null;
+        let endDate = null;
+        const now = new Date();
+        const todayStr = now.toISOString().split('T')[0];
+
+        if (activeProfitPeriod === 'today') {
+            startDate = todayStr;
+            endDate = todayStr;
+        } else if (activeProfitPeriod === 'yesterday') {
+            const yDate = new Date();
+            yDate.setDate(yDate.getDate() - 1);
+            startDate = yDate.toISOString().split('T')[0];
+            endDate = startDate;
+        } else if (activeProfitPeriod === 'last_7_days') {
+            const d7 = new Date();
+            d7.setDate(d7.getDate() - 7);
+            startDate = d7.toISOString().split('T')[0];
+            endDate = todayStr;
+        } else if (activeProfitPeriod === 'last_30_days') {
+            const d30 = new Date();
+            d30.setDate(d30.getDate() - 30);
+            startDate = d30.toISOString().split('T')[0];
+            endDate = todayStr;
+        } else if (activeProfitPeriod === 'this_month') {
+            startDate = todayStr.substring(0, 7) + '-01';
+            endDate = todayStr;
+        }
+
+        let url = '/api/admin/partners/meta/profits';
+        const params = [];
+        if (startDate) params.push(`start_date=${startDate}`);
+        if (endDate) params.push(`end_date=${endDate}`);
+        if (params.length > 0) url += '?' + params.join('&');
+
+        const res = await authFetch(url);
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to calculate profits');
+
+        const f = json.financials || {};
+        document.getElementById('profit-kpi-revenue').textContent = formatPartnerCurrency(f.gross_revenue || 0);
+        document.getElementById('profit-kpi-product-costs').textContent = formatPartnerCurrency(f.product_costs || 0);
+        document.getElementById('profit-kpi-expenses').textContent = formatPartnerCurrency(f.total_expenses - (f.product_costs || 0));
+        document.getElementById('profit-kpi-net').textContent = formatPartnerCurrency(f.net_profit || 0);
+        document.getElementById('profit-kpi-partner-share').textContent = formatPartnerCurrency(json.total_partner_profit_share || 0);
+        document.getElementById('profit-kpi-owner-share').textContent = formatPartnerCurrency(json.owner_profit_share || 0);
+
+        const breakdown = f.hostel_breakdown || {};
+        const keys = Object.keys(breakdown);
+        if (keys.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">No delivered orders for this period</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = keys.map(k => {
+            const h = breakdown[k];
+            const operating = (h.total_expenses || 0) - (h.product_costs || 0);
+            return `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="p-3.5 font-bold text-slate-900">${h.hostel_id}</td>
+                    <td class="p-3.5">${h.completed_orders} / ${h.total_orders}</td>
+                    <td class="p-3.5 text-right font-black text-[#0066cc]">${formatPartnerCurrency(h.revenue)}</td>
+                    <td class="p-3.5 text-right text-slate-700 font-medium">${formatPartnerCurrency(h.product_costs)}</td>
+                    <td class="p-3.5 text-right text-rose-700 font-medium">${formatPartnerCurrency(operating)}</td>
+                    <td class="p-3.5 text-right font-black text-emerald-800">${formatPartnerCurrency(h.net_profit)}</td>
+                </tr>
+            `;
+        }).join('');
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-rose-500 font-bold">${err.message}</td></tr>`;
+    }
+}
+
+function openRecordExpenseModal() {
+    const sel = document.getElementById('modal-exp-hostel-id');
+    sel.innerHTML = '<option value="ALL">All Hostels (Shared Operating Expense)</option>' +
+        PARTNER_CAMPUS_HOSTELS.map(h => `<option value="${h}">Hostel ${h}</option>`).join('');
+
+    document.getElementById('modal-exp-amount').value = '';
+    document.getElementById('modal-exp-desc').value = '';
+    document.getElementById('modal-exp-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('modal-record-expense').classList.remove('hidden');
+}
+
+function closeRecordExpenseModal() {
+    document.getElementById('modal-record-expense').classList.add('hidden');
+}
+
+async function submitRecordExpense(e) {
+    e.preventDefault();
+    const hostel_id = document.getElementById('modal-exp-hostel-id').value;
+    const category = document.getElementById('modal-exp-category').value;
+    const amount = document.getElementById('modal-exp-amount').value;
+    const date = document.getElementById('modal-exp-date').value;
+    const description = document.getElementById('modal-exp-desc').value.trim();
+
+    try {
+        const res = await authFetch('/api/admin/partners/meta/expenses', {
+            method: 'POST',
+            body: JSON.stringify({ hostel_id, category, amount, date, description })
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to record expense');
+
+        showToast('Operating expense recorded successfully', 'success');
+        closeRecordExpenseModal();
+        loadPartnerProfits();
+        loadPartnerOverview();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+/**
+ * 7. Partner Payments
+ */
+async function loadPartnerPayments() {
+    const tbody = document.getElementById('payments-table-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Loading payments...</td></tr>`;
+
+    try {
+        const res = await authFetch('/api/admin/partners/meta/payments');
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to load payments');
+
+        const payments = json.data || [];
+        if (payments.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">No payment settlements recorded yet</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = payments.map(p => `
+            <tr class="hover:bg-slate-50 transition-colors">
+                <td class="p-3.5 font-bold text-slate-800">${p.payment_date || '--'}</td>
+                <td class="p-3.5 font-black text-slate-900">${p.partner_name || 'Partner'}</td>
+                <td class="p-3.5 text-right font-black text-emerald-700">${formatPartnerCurrency(p.amount)}</td>
+                <td class="p-3.5 text-center"><span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 font-bold text-[10px]">${p.payment_method}</span></td>
+                <td class="p-3.5 font-mono text-[11px] text-slate-600 font-semibold">${p.transaction_id || 'N/A'}</td>
+                <td class="p-3.5 text-slate-600 text-xs">${p.remarks || 'Settlement'}</td>
+                <td class="p-3.5 text-center"><span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-[10px]">CONFIRMED</span></td>
+            </tr>
+        `).join('');
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-rose-500 font-bold">${e.message}</td></tr>`;
+    }
+}
+
+async function openRecordPaymentModal() {
+    try {
+        const res = await authFetch('/api/admin/partners');
+        const json = await res.json();
+        const partners = json.data || [];
+
+        const sel = document.getElementById('modal-pay-partner-id');
+        sel.innerHTML = partners.map(p => `<option value="${p.id}">${p.name} (${p.partner_id || p.id})</option>`).join('');
+
+        document.getElementById('modal-pay-amount').value = '';
+        document.getElementById('modal-pay-ref').value = '';
+        document.getElementById('modal-pay-remarks').value = '';
+        document.getElementById('modal-pay-date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('modal-record-payment').classList.remove('hidden');
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+function closeRecordPaymentModal() {
+    document.getElementById('modal-record-payment').classList.add('hidden');
+}
+
+async function submitRecordPayment(e) {
+    e.preventDefault();
+    const partner_id = document.getElementById('modal-pay-partner-id').value;
+    const amount = document.getElementById('modal-pay-amount').value;
+    const payment_method = document.getElementById('modal-pay-method').value;
+    const transaction_id = document.getElementById('modal-pay-ref').value.trim();
+    const payment_date = document.getElementById('modal-pay-date').value;
+    const remarks = document.getElementById('modal-pay-remarks').value.trim();
+
+    try {
+        const res = await authFetch('/api/admin/partners/meta/payments', {
+            method: 'POST',
+            body: JSON.stringify({
+                partner_id,
+                amount,
+                payment_method,
+                transaction_id,
+                payment_date,
+                remarks
+            })
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to record payout');
+
+        showToast('Partner payment recorded successfully', 'success');
+        closeRecordPaymentModal();
+        loadPartnerPayments();
+        loadPartnerOverview();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+/**
+ * 8. Financial Reports
+ */
+async function loadPartnerReports() {
+    const tbody = document.getElementById('reports-summary-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">Loading reports...</td></tr>`;
+
+    try {
+        const res = await authFetch('/api/admin/partners');
+        const json = await res.json();
+        if (!json.success) throw new Error('Failed to load partners');
+
+        const partners = json.data || [];
+        if (partners.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">No partner records found.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = partners.map(p => {
+            const s = p.summary || {};
+            return `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="p-3 font-bold text-slate-900">${p.name} <span class="text-[10px] text-slate-400 font-mono">(${p.partner_id || p.id})</span></td>
+                    <td class="p-3 text-[11px] font-bold text-slate-700">${(p.assigned_hostels || []).join(', ') || 'None'}</td>
+                    <td class="p-3 text-right font-medium text-purple-700">${formatPartnerCurrency(p.investment_amount || 0)}</td>
+                    <td class="p-3 text-right font-black text-[#0066cc]">${formatPartnerCurrency(s.revenue || 0)}</td>
+                    <td class="p-3 text-right font-bold text-emerald-800">${formatPartnerCurrency(s.net_profit || 0)}</td>
+                    <td class="p-3 text-right font-black text-amber-900">${formatPartnerCurrency(s.partner_profit_share || 0)}</td>
+                    <td class="p-3 text-right font-medium text-emerald-700">${formatPartnerCurrency(s.total_paid || 0)}</td>
+                    <td class="p-3 text-right font-black text-rose-700">${formatPartnerCurrency(s.pending_payment || 0)}</td>
+                </tr>
+            `;
+        }).join('');
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-rose-500 font-bold">${e.message}</td></tr>`;
+    }
+}
+
+function exportOwnerReportsCSV() {
+    authFetch('/api/admin/partners')
+        .then(r => r.json())
+        .then(json => {
+            const partners = json.data || [];
+            const rows = [
+                ['LPUQuick Partnership Management Report'],
+                ['Export Date', new Date().toISOString()],
+                [],
+                ['Partner Name', 'Partner ID', 'Email', 'Phone', 'Assigned Hostels', 'Investment', 'Delivered Revenue', 'Net Profit', 'Partner Profit Share', 'Total Paid', 'Pending Balance', 'Status']
+            ];
+
+            partners.forEach(p => {
+                const s = p.summary || {};
+                rows.push([
+                    p.name,
+                    p.partner_id || p.id,
+                    p.email,
+                    p.phone || '',
+                    (p.assigned_hostels || []).join('; '),
+                    p.investment_amount || 0,
+                    s.revenue || 0,
+                    s.net_profit || 0,
+                    s.partner_profit_share || 0,
+                    s.total_paid || 0,
+                    s.pending_payment || 0,
+                    p.status || 'ACTIVE'
+                ]);
+            });
+
+            const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.map(cell => `"${cell}"`).join(',')).join('\n');
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement('a');
+            link.setAttribute('href', encodedUri);
+            link.setAttribute('download', `LPUQuick_Partnership_Report_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            showToast('Partnership report CSV exported', 'success');
+        })
+        .catch(err => showToast(err.message, 'error'));
+}
+
+// Auto-initialize partner hostel checklist on ready
+function initAddPartnerViewOnLoad() {
+    try {
+        if (typeof initAddPartnerView === 'function') initAddPartnerView();
+    } catch (e) {}
+}
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAddPartnerViewOnLoad);
+} else {
+    initAddPartnerViewOnLoad();
+}

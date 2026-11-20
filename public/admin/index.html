@@ -214,6 +214,55 @@
                 <span
                     class="text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Owner</span>
             </button>
+            <!-- PARTNERSHIP MANAGEMENT SECTION -->
+            <div class="pt-4 pb-1 px-4 owner-only-nav">
+                <p class="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-xs text-[#0066cc]">handshake</span>
+                    <span>Partnership Management</span>
+                </p>
+            </div>
+            <button onclick="switchView('partners-overview')" data-view="partners-overview" data-required-role="owner"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-2.5 transition-all text-left w-full owner-only-nav">
+                <span class="material-symbols-outlined text-[#0066cc]">dashboard</span>
+                <span class="flex-1 font-bold text-[#181c1f]">1. Partner Overview</span>
+                <span class="text-[9px] bg-blue-600 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Hub</span>
+            </button>
+            <button onclick="switchView('partners-add')" data-view="partners-add" data-required-role="owner"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-2.5 transition-all text-left w-full owner-only-nav">
+                <span class="material-symbols-outlined text-emerald-600">person_add</span>
+                <span class="flex-1 font-bold text-[#181c1f]">2. Add New Partner</span>
+            </button>
+            <button onclick="switchView('partners-manage')" data-view="partners-manage" data-required-role="owner"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-2.5 transition-all text-left w-full owner-only-nav">
+                <span class="material-symbols-outlined text-indigo-600">group</span>
+                <span class="flex-1 font-bold text-[#181c1f]">3. Manage Partners</span>
+            </button>
+            <button onclick="switchView('partners-hostels')" data-view="partners-hostels" data-required-role="owner"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-2.5 transition-all text-left w-full owner-only-nav">
+                <span class="material-symbols-outlined text-blue-600">domain_add</span>
+                <span class="flex-1 font-bold text-[#181c1f]">4. Hostel Assignments</span>
+            </button>
+            <button onclick="switchView('partners-investments')" data-view="partners-investments" data-required-role="owner"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-2.5 transition-all text-left w-full owner-only-nav">
+                <span class="material-symbols-outlined text-purple-600">savings</span>
+                <span class="flex-1 font-bold text-[#181c1f]">5. Investment Mgmt</span>
+            </button>
+            <button onclick="switchView('partners-profits')" data-view="partners-profits" data-required-role="owner"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-2.5 transition-all text-left w-full owner-only-nav">
+                <span class="material-symbols-outlined text-amber-600">pie_chart</span>
+                <span class="flex-1 font-bold text-[#181c1f]">6. Profit Management</span>
+            </button>
+            <button onclick="switchView('partners-payments')" data-view="partners-payments" data-required-role="owner"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-2.5 transition-all text-left w-full owner-only-nav">
+                <span class="material-symbols-outlined text-emerald-700">payments</span>
+                <span class="flex-1 font-bold text-[#181c1f]">7. Partner Payments</span>
+            </button>
+            <button onclick="switchView('partners-reports')" data-view="partners-reports" data-required-role="owner"
+                class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-2.5 transition-all text-left w-full owner-only-nav">
+                <span class="material-symbols-outlined text-slate-700">description</span>
+                <span class="flex-1 font-bold text-[#181c1f]">8. Financial Reports</span>
+            </button>
+
             <button onclick="switchView('staff')" data-view="staff" data-required-role="owner"
                 class="nav-item flex items-center gap-3 text-[#5c5f60] hover:bg-[#ebeef2] px-4 py-3 transition-all text-left w-full owner-only-nav hidden">
                 <span class="material-symbols-outlined text-[#1a73e8]">manage_accounts</span>
@@ -5986,7 +6035,858 @@
                 </div>
             </div>
 
-        </main>
+        
+            <!-- ================= VIEW: PARTNERSHIP OVERVIEW ================= -->
+            <div id="view-partners-overview" class="space-y-6 max-w-[1440px] mx-auto hidden pb-16">
+                <!-- Header -->
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-[#DADCE0] shadow-xs">
+                    <div>
+                        <div class="flex items-center gap-3">
+                            <span class="p-2.5 rounded-2xl bg-blue-50 text-[#0066cc]">
+                                <span class="material-symbols-outlined text-2xl">handshake</span>
+                            </span>
+                            <div>
+                                <h2 class="text-xl font-black text-[#181c1f]">Partnership Management Hub</h2>
+                                <p class="text-xs text-[#5c5f60]">Campus Hostel Franchise, Capital Investments & Profit Sharing Console</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <button onclick="switchView('partners-add')" class="px-4 py-2.5 bg-[#0066cc] hover:bg-[#0052a3] text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer">
+                            <span class="material-symbols-outlined text-base">person_add</span>
+                            <span>Add New Partner</span>
+                        </button>
+                        <button onclick="openRecordInvestmentModal()" class="px-3.5 py-2.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer">
+                            <span class="material-symbols-outlined text-base">savings</span>
+                            <span>Record Investment</span>
+                        </button>
+                        <button onclick="openRecordPaymentModal()" class="px-3.5 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer">
+                            <span class="material-symbols-outlined text-base">payments</span>
+                            <span>Record Payout</span>
+                        </button>
+                        <button onclick="loadPartnerOverview()" class="px-3 py-2.5 bg-[#ebeef2] hover:bg-[#dfe3e8] text-[#181c1f] rounded-xl font-bold text-xs flex items-center gap-1 transition-all cursor-pointer" title="Refresh Live Data">
+                            <span class="material-symbols-outlined text-base">sync</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 10 Real Database KPI Cards -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+                    <div class="p-4 rounded-2xl bg-white border border-[#DADCE0] shadow-xs">
+                        <div class="flex justify-between items-center text-slate-500 mb-1">
+                            <span class="text-[10px] font-bold uppercase tracking-wider">Total Partners</span>
+                            <span class="material-symbols-outlined text-lg text-blue-600">group</span>
+                        </div>
+                        <p class="text-2xl font-black text-[#181c1f]" id="po-kpi-total-partners">0</p>
+                        <p class="text-[11px] text-slate-500 font-semibold mt-1">Platform Franchisees</p>
+                    </div>
+
+                    <div class="p-4 rounded-2xl bg-white border border-[#DADCE0] shadow-xs">
+                        <div class="flex justify-between items-center text-slate-500 mb-1">
+                            <span class="text-[10px] font-bold uppercase tracking-wider">Active Partners</span>
+                            <span class="material-symbols-outlined text-lg text-emerald-600">check_circle</span>
+                        </div>
+                        <p class="text-2xl font-black text-emerald-700" id="po-kpi-active-partners">0</p>
+                        <p class="text-[11px] text-emerald-600 font-bold mt-1">Operational</p>
+                    </div>
+
+                    <div class="p-4 rounded-2xl bg-white border border-[#DADCE0] shadow-xs">
+                        <div class="flex justify-between items-center text-slate-500 mb-1">
+                            <span class="text-[10px] font-bold uppercase tracking-wider">Assigned Hostels</span>
+                            <span class="material-symbols-outlined text-lg text-indigo-600">domain</span>
+                        </div>
+                        <p class="text-2xl font-black text-indigo-700" id="po-kpi-assigned-hostels">0</p>
+                        <p class="text-[11px] text-slate-500 font-semibold mt-1">Hostels Delegated</p>
+                    </div>
+
+                    <div class="p-4 rounded-2xl bg-white border border-[#DADCE0] shadow-xs">
+                        <div class="flex justify-between items-center text-slate-500 mb-1">
+                            <span class="text-[10px] font-bold uppercase tracking-wider">Partner Capital</span>
+                            <span class="material-symbols-outlined text-lg text-purple-600">savings</span>
+                        </div>
+                        <p class="text-2xl font-black text-purple-700" id="po-kpi-investments">₹0</p>
+                        <p class="text-[11px] text-slate-500 font-semibold mt-1">Total Investments</p>
+                    </div>
+
+                    <div class="p-4 rounded-2xl bg-white border border-[#DADCE0] shadow-xs">
+                        <div class="flex justify-between items-center text-slate-500 mb-1">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-[#0066cc]">Combined Revenue</span>
+                            <span class="material-symbols-outlined text-lg text-[#0066cc]">account_balance_wallet</span>
+                        </div>
+                        <p class="text-2xl font-black text-[#0066cc]" id="po-kpi-revenue">₹0</p>
+                        <p class="text-[11px] text-slate-500 font-semibold mt-1">Delivered Orders Gross</p>
+                    </div>
+
+                    <div class="p-4 rounded-2xl bg-white border border-[#DADCE0] shadow-xs">
+                        <div class="flex justify-between items-center text-slate-500 mb-1">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-rose-700">Business Costs</span>
+                            <span class="material-symbols-outlined text-lg text-rose-600">trending_down</span>
+                        </div>
+                        <p class="text-2xl font-black text-rose-700" id="po-kpi-expenses">₹0</p>
+                        <p class="text-[11px] text-slate-500 font-semibold mt-1">Wholesale + Operating</p>
+                    </div>
+
+                    <div class="p-4 rounded-2xl bg-white border border-[#DADCE0] shadow-xs bg-gradient-to-br from-white to-emerald-50/50">
+                        <div class="flex justify-between items-center text-slate-500 mb-1">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Net Profit</span>
+                            <span class="material-symbols-outlined text-lg text-emerald-600">finance</span>
+                        </div>
+                        <p class="text-2xl font-black text-emerald-800" id="po-kpi-net-profit">₹0</p>
+                        <p class="text-[11px] text-emerald-700 font-bold mt-1">Revenue - Expenses</p>
+                    </div>
+
+                    <div class="p-4 rounded-2xl bg-white border border-[#DADCE0] shadow-xs bg-gradient-to-br from-white to-amber-50/50">
+                        <div class="flex justify-between items-center text-slate-500 mb-1">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-amber-800">Partner Profit Share</span>
+                            <span class="material-symbols-outlined text-lg text-amber-600">pie_chart</span>
+                        </div>
+                        <p class="text-2xl font-black text-amber-900" id="po-kpi-partner-share">₹0</p>
+                        <p class="text-[11px] text-amber-800 font-bold mt-1">Allocated to Partners</p>
+                    </div>
+
+                    <div class="p-4 rounded-2xl bg-white border border-[#DADCE0] shadow-xs">
+                        <div class="flex justify-between items-center text-slate-500 mb-1">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Total Paid</span>
+                            <span class="material-symbols-outlined text-lg text-emerald-600">verified</span>
+                        </div>
+                        <p class="text-2xl font-black text-emerald-700" id="po-kpi-paid">₹0</p>
+                        <p class="text-[11px] text-slate-500 font-semibold mt-1">Settled Payouts</p>
+                    </div>
+
+                    <div class="p-4 rounded-2xl bg-white border border-[#DADCE0] shadow-xs bg-gradient-to-br from-white to-rose-50/50 border-rose-200">
+                        <div class="flex justify-between items-center text-slate-500 mb-1">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-rose-700">Pending Payments</span>
+                            <span class="material-symbols-outlined text-lg text-rose-600">hourglass_top</span>
+                        </div>
+                        <p class="text-2xl font-black text-rose-700" id="po-kpi-pending">₹0</p>
+                        <p class="text-[11px] text-rose-600 font-bold mt-1">Unpaid Balance</p>
+                    </div>
+                </div>
+
+                <!-- Fast Module Navigation Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <button onclick="switchView('partners-manage')" class="p-5 rounded-2xl bg-white border border-[#DADCE0] hover:border-[#0066cc] hover:shadow-md transition-all text-left flex items-start gap-4 cursor-pointer group">
+                        <span class="p-3 rounded-xl bg-indigo-50 text-indigo-600 group-hover:bg-[#0066cc] group-hover:text-white transition-colors">
+                            <span class="material-symbols-outlined text-2xl">group</span>
+                        </span>
+                        <div>
+                            <h4 class="font-bold text-sm text-[#181c1f]">Manage Partners</h4>
+                            <p class="text-xs text-[#5c5f60] mt-0.5">View roster, edit profiles, toggle active status, and reset passwords.</p>
+                        </div>
+                    </button>
+
+                    <button onclick="switchView('partners-hostels')" class="p-5 rounded-2xl bg-white border border-[#DADCE0] hover:border-[#0066cc] hover:shadow-md transition-all text-left flex items-start gap-4 cursor-pointer group">
+                        <span class="p-3 rounded-xl bg-blue-50 text-blue-600 group-hover:bg-[#0066cc] group-hover:text-white transition-colors">
+                            <span class="material-symbols-outlined text-2xl">domain_add</span>
+                        </span>
+                        <div>
+                            <h4 class="font-bold text-sm text-[#181c1f]">Hostel Assignments</h4>
+                            <p class="text-xs text-[#5c5f60] mt-0.5">Assign BH/GH hostels to partners and configure hostel profit share %.</p>
+                        </div>
+                    </button>
+
+                    <button onclick="switchView('partners-investments')" class="p-5 rounded-2xl bg-white border border-[#DADCE0] hover:border-[#0066cc] hover:shadow-md transition-all text-left flex items-start gap-4 cursor-pointer group">
+                        <span class="p-3 rounded-xl bg-purple-50 text-purple-600 group-hover:bg-[#0066cc] group-hover:text-white transition-colors">
+                            <span class="material-symbols-outlined text-2xl">savings</span>
+                        </span>
+                        <div>
+                            <h4 class="font-bold text-sm text-[#181c1f]">Investment Management</h4>
+                            <p class="text-xs text-[#5c5f60] mt-0.5">Track initial & additional capital contributions with UTR references.</p>
+                        </div>
+                    </button>
+
+                    <button onclick="switchView('partners-profits')" class="p-5 rounded-2xl bg-white border border-[#DADCE0] hover:border-[#0066cc] hover:shadow-md transition-all text-left flex items-start gap-4 cursor-pointer group">
+                        <span class="p-3 rounded-xl bg-amber-50 text-amber-600 group-hover:bg-[#0066cc] group-hover:text-white transition-colors">
+                            <span class="material-symbols-outlined text-2xl">pie_chart</span>
+                        </span>
+                        <div>
+                            <h4 class="font-bold text-sm text-[#181c1f]">Profit Management</h4>
+                            <p class="text-xs text-[#5c5f60] mt-0.5">Calculate net margins, operating expenses & partner profit splits.</p>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ================= VIEW: ADD NEW PARTNER ================= -->
+            <div id="view-partners-add" class="space-y-6 max-w-4xl mx-auto hidden pb-16">
+                <div class="bg-white p-6 rounded-3xl border border-[#DADCE0] shadow-xs">
+                    <div class="flex items-center gap-3 pb-4 border-b border-[#DADCE0]">
+                        <span class="p-2.5 rounded-2xl bg-emerald-50 text-emerald-600">
+                            <span class="material-symbols-outlined text-2xl">person_add</span>
+                        </span>
+                        <div>
+                            <h2 class="text-lg font-black text-[#181c1f]">Add New Business Partner</h2>
+                            <p class="text-xs text-[#5c5f60]">Create a partner account, assign campus hostels, and configure profit share</p>
+                        </div>
+                    </div>
+
+                    <form id="form-add-partner" onsubmit="submitAddNewPartner(event)" class="mt-6 space-y-6">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-[#181c1f] mb-1.5">Full Name *</label>
+                                <input type="text" id="add-partner-name" required placeholder="e.g. Rahul Sharma"
+                                    class="w-full px-3.5 py-2.5 border border-[#DADCE0] rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-[#181c1f] mb-1.5">Email Address (Login ID) *</label>
+                                <input type="email" id="add-partner-email" required placeholder="e.g. rahul@domain.com"
+                                    class="w-full px-3.5 py-2.5 border border-[#DADCE0] rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-[#181c1f] mb-1.5">Mobile Number *</label>
+                                <input type="tel" id="add-partner-phone" required placeholder="e.g. 9876543210"
+                                    class="w-full px-3.5 py-2.5 border border-[#DADCE0] rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-[#181c1f] mb-1.5">Custom Partner ID (Optional)</label>
+                                <input type="text" id="add-partner-id" placeholder="e.g. LPU-PTR-001 (auto-generated if empty)"
+                                    class="w-full px-3.5 py-2.5 border border-[#DADCE0] rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-[#181c1f] mb-1.5">Login Password *</label>
+                                <input type="password" id="add-partner-password" required placeholder="Min 6 characters" minlength="6"
+                                    class="w-full px-3.5 py-2.5 border border-[#DADCE0] rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-[#181c1f] mb-1.5">Partnership Start Date</label>
+                                <input type="date" id="add-partner-start-date"
+                                    class="w-full px-3.5 py-2.5 border border-[#DADCE0] rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-[#181c1f] mb-1.5">Initial Investment (₹)</label>
+                                <input type="number" id="add-partner-investment" min="0" step="1000" placeholder="e.g. 50000"
+                                    class="w-full px-3.5 py-2.5 border border-[#DADCE0] rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-[#181c1f] mb-1.5">Investment Reference / UTR</label>
+                                <input type="text" id="add-partner-inv-ref" placeholder="e.g. UPI Ref / Bank UTR"
+                                    class="w-full px-3.5 py-2.5 border border-[#DADCE0] rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-[#181c1f] mb-1.5">Default Profit Sharing Percentage (%) *</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="number" id="add-partner-profit-pct" required min="1" max="100" value="50"
+                                        class="w-full px-3.5 py-2.5 border border-[#DADCE0] rounded-xl text-xs font-bold text-blue-700 focus:ring-2 focus:ring-blue-500 outline-none">
+                                    <span class="text-xs font-bold text-slate-500">%</span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-[#181c1f] mb-1.5">Account Status</label>
+                                <select id="add-partner-status" class="w-full px-3.5 py-2.5 border border-[#DADCE0] rounded-xl text-xs font-bold outline-none bg-white">
+                                    <option value="ACTIVE" selected>ACTIVE (Can Sign In & Access Portal)</option>
+                                    <option value="INACTIVE">INACTIVE (Deactivated / Suspended)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Hostel Multi-Assignment Checkboxes -->
+                        <div class="space-y-2 pt-2 border-t border-[#DADCE0]">
+                            <div class="flex items-center justify-between">
+                                <label class="block text-xs font-bold text-[#181c1f]">Assigned Campus Hostels (Access Restriction Scope) *</label>
+                                <div class="flex items-center gap-2 text-xs">
+                                    <button type="button" onclick="selectAllAddPartnerHostels(true)" class="text-[#0066cc] font-bold hover:underline cursor-pointer">Select All</button>
+                                    <span>•</span>
+                                    <button type="button" onclick="selectAllAddPartnerHostels(false)" class="text-slate-500 font-bold hover:underline cursor-pointer">Clear</button>
+                                </div>
+                            </div>
+                            <p class="text-[11px] text-[#5c5f60]">Partners can strictly access orders, sales, and analytics ONLY for checked hostels.</p>
+                            
+                            <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 p-3 bg-slate-50 rounded-2xl border border-[#DADCE0]" id="add-partner-hostels-grid">
+                                <label class="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-[#DADCE0] hover:border-[#0066cc] hover:shadow-xs cursor-pointer text-xs font-bold text-slate-800 transition-all">
+                                    <input type="checkbox" name="add_partner_hostels" value="BH-1" class="rounded text-[#0066cc] focus:ring-blue-500 w-4 h-4 cursor-pointer">
+                                    <span>BH-1</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-[#DADCE0] hover:border-[#0066cc] hover:shadow-xs cursor-pointer text-xs font-bold text-slate-800 transition-all">
+                                    <input type="checkbox" name="add_partner_hostels" value="BH-4" class="rounded text-[#0066cc] focus:ring-blue-500 w-4 h-4 cursor-pointer">
+                                    <span>BH-4</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-[#DADCE0] hover:border-[#0066cc] hover:shadow-xs cursor-pointer text-xs font-bold text-slate-800 transition-all">
+                                    <input type="checkbox" name="add_partner_hostels" value="BH-5" class="rounded text-[#0066cc] focus:ring-blue-500 w-4 h-4 cursor-pointer">
+                                    <span>BH-5</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-[#DADCE0] hover:border-[#0066cc] hover:shadow-xs cursor-pointer text-xs font-bold text-slate-800 transition-all">
+                                    <input type="checkbox" name="add_partner_hostels" value="BH-6" class="rounded text-[#0066cc] focus:ring-blue-500 w-4 h-4 cursor-pointer">
+                                    <span>BH-6</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-[#DADCE0] hover:border-[#0066cc] hover:shadow-xs cursor-pointer text-xs font-bold text-slate-800 transition-all">
+                                    <input type="checkbox" name="add_partner_hostels" value="BH-11" class="rounded text-[#0066cc] focus:ring-blue-500 w-4 h-4 cursor-pointer">
+                                    <span>BH-11</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-[#DADCE0] hover:border-[#0066cc] hover:shadow-xs cursor-pointer text-xs font-bold text-slate-800 transition-all">
+                                    <input type="checkbox" name="add_partner_hostels" value="BH-12" class="rounded text-[#0066cc] focus:ring-blue-500 w-4 h-4 cursor-pointer">
+                                    <span>BH-12</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-[#DADCE0] hover:border-[#0066cc] hover:shadow-xs cursor-pointer text-xs font-bold text-slate-800 transition-all">
+                                    <input type="checkbox" name="add_partner_hostels" value="BH-13" class="rounded text-[#0066cc] focus:ring-blue-500 w-4 h-4 cursor-pointer">
+                                    <span>BH-13</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-[#DADCE0] hover:border-[#0066cc] hover:shadow-xs cursor-pointer text-xs font-bold text-slate-800 transition-all">
+                                    <input type="checkbox" name="add_partner_hostels" value="GH-1" class="rounded text-[#0066cc] focus:ring-blue-500 w-4 h-4 cursor-pointer">
+                                    <span>GH-1</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-[#DADCE0] hover:border-[#0066cc] hover:shadow-xs cursor-pointer text-xs font-bold text-slate-800 transition-all">
+                                    <input type="checkbox" name="add_partner_hostels" value="GH-2" class="rounded text-[#0066cc] focus:ring-blue-500 w-4 h-4 cursor-pointer">
+                                    <span>GH-2</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-[#DADCE0] hover:border-[#0066cc] hover:shadow-xs cursor-pointer text-xs font-bold text-slate-800 transition-all">
+                                    <input type="checkbox" name="add_partner_hostels" value="GH-3" class="rounded text-[#0066cc] focus:ring-blue-500 w-4 h-4 cursor-pointer">
+                                    <span>GH-3</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-[#DADCE0] hover:border-[#0066cc] hover:shadow-xs cursor-pointer text-xs font-bold text-slate-800 transition-all">
+                                    <input type="checkbox" name="add_partner_hostels" value="GH-4" class="rounded text-[#0066cc] focus:ring-blue-500 w-4 h-4 cursor-pointer">
+                                    <span>GH-4</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-[#DADCE0] hover:border-[#0066cc] hover:shadow-xs cursor-pointer text-xs font-bold text-slate-800 transition-all">
+                                    <input type="checkbox" name="add_partner_hostels" value="GH-6" class="rounded text-[#0066cc] focus:ring-blue-500 w-4 h-4 cursor-pointer">
+                                    <span>GH-6</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-[#DADCE0] hover:border-[#0066cc] hover:shadow-xs cursor-pointer text-xs font-bold text-slate-800 transition-all">
+                                    <input type="checkbox" name="add_partner_hostels" value="GH-11" class="rounded text-[#0066cc] focus:ring-blue-500 w-4 h-4 cursor-pointer">
+                                    <span>GH-11</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-[#DADCE0] hover:border-[#0066cc] hover:shadow-xs cursor-pointer text-xs font-bold text-slate-800 transition-all">
+                                    <input type="checkbox" name="add_partner_hostels" value="GH-12" class="rounded text-[#0066cc] focus:ring-blue-500 w-4 h-4 cursor-pointer">
+                                    <span>GH-12</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-end gap-3 pt-4 border-t border-[#DADCE0]">
+                            <button type="button" onclick="switchView('partners-manage')" class="px-5 py-2.5 rounded-xl text-xs font-bold text-[#5c5f60] hover:bg-slate-100 transition-colors">
+                                Cancel
+                            </button>
+                            <button type="submit" id="btn-submit-add-partner" class="px-6 py-2.5 bg-[#0066cc] hover:bg-[#0052a3] text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer">
+                                <span class="material-symbols-outlined text-sm">check</span>
+                                <span>Create Partner Account</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- ================= VIEW: MANAGE PARTNERS ================= -->
+            <div id="view-partners-manage" class="space-y-6 max-w-[1440px] mx-auto hidden pb-16">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-[#DADCE0] shadow-xs">
+                    <div>
+                        <h2 class="text-lg font-black text-[#181c1f]">Partner Directory</h2>
+                        <p class="text-xs text-[#5c5f60]">All registered campus business partners and active assignments</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="switchView('partners-add')" class="px-4 py-2 bg-[#0066cc] hover:bg-[#0052a3] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm transition-all cursor-pointer">
+                            <span class="material-symbols-outlined text-sm">add</span>
+                            <span>Add Partner</span>
+                        </button>
+                        <button onclick="loadPartnersList()" class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all cursor-pointer" title="Refresh">
+                            <span class="material-symbols-outlined text-base">refresh</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-3xl border border-[#DADCE0] overflow-hidden shadow-xs">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-[#DADCE0] text-slate-600 font-bold uppercase text-[10px] tracking-wider">
+                                    <th class="p-3.5">Partner</th>
+                                    <th class="p-3.5">Partner ID</th>
+                                    <th class="p-3.5">Assigned Hostels</th>
+                                    <th class="p-3.5 text-right">Investment</th>
+                                    <th class="p-3.5 text-center">Profit %</th>
+                                    <th class="p-3.5 text-right">Revenue</th>
+                                    <th class="p-3.5 text-right">Pending Payout</th>
+                                    <th class="p-3.5 text-center">Status</th>
+                                    <th class="p-3.5 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="partners-manage-tbody" class="divide-y divide-slate-100 font-medium">
+                                <tr>
+                                    <td colspan="9" class="p-6 text-center text-slate-400">Loading partners...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW: HOSTEL ASSIGNMENTS ================= -->
+            <div id="view-partners-hostels" class="space-y-6 max-w-[1440px] mx-auto hidden pb-16">
+                <div class="bg-white p-5 rounded-3xl border border-[#DADCE0] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-lg font-black text-[#181c1f]">Hostel Assignment Matrix</h2>
+                        <p class="text-xs text-[#5c5f60]">Campus hostel assignments and partner franchise permissions</p>
+                    </div>
+                    <button onclick="loadHostelsMatrix()" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer">
+                        <span class="material-symbols-outlined text-sm">sync</span>
+                        <span>Reload Matrix</span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" id="hostels-matrix-grid">
+                    <!-- Dynamic Hostel Matrix Cards -->
+                </div>
+            </div>
+
+            <!-- ================= VIEW: INVESTMENT MANAGEMENT ================= -->
+            <div id="view-partners-investments" class="space-y-6 max-w-[1440px] mx-auto hidden pb-16">
+                <div class="bg-white p-5 rounded-3xl border border-[#DADCE0] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-lg font-black text-[#181c1f]">Partner Investment Management</h2>
+                        <p class="text-xs text-[#5c5f60]">Capital tracking independent of monthly business operating expenses</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="openRecordInvestmentModal()" class="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer">
+                            <span class="material-symbols-outlined text-sm">savings</span>
+                            <span>Record Investment</span>
+                        </button>
+                        <button onclick="loadPartnerInvestments()" class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all cursor-pointer" title="Refresh">
+                            <span class="material-symbols-outlined text-base">refresh</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="p-4 rounded-2xl bg-white border border-[#DADCE0] shadow-xs">
+                        <span class="text-[10px] font-bold uppercase text-slate-500">Initial Capital</span>
+                        <p class="text-2xl font-black text-purple-700 mt-1" id="inv-summary-initial">₹0</p>
+                    </div>
+                    <div class="p-4 rounded-2xl bg-white border border-[#DADCE0] shadow-xs">
+                        <span class="text-[10px] font-bold uppercase text-slate-500">Additional Capital</span>
+                        <p class="text-2xl font-black text-blue-700 mt-1" id="inv-summary-additional">₹0</p>
+                    </div>
+                    <div class="p-4 rounded-2xl bg-white border border-[#DADCE0] shadow-xs">
+                        <span class="text-[10px] font-bold uppercase text-slate-500">Total Investment Recorded</span>
+                        <p class="text-2xl font-black text-slate-900 mt-1" id="inv-summary-total">₹0</p>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-3xl border border-[#DADCE0] overflow-hidden shadow-xs">
+                    <div class="p-3 bg-slate-50 border-b border-[#DADCE0] flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-700 uppercase">Investment Ledger</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-[#DADCE0] text-slate-600 font-bold uppercase text-[10px] tracking-wider">
+                                    <th class="p-3.5">Date</th>
+                                    <th class="p-3.5">Partner Name</th>
+                                    <th class="p-3.5">Hostel</th>
+                                    <th class="p-3.5 text-right">Amount</th>
+                                    <th class="p-3.5 text-center">Type</th>
+                                    <th class="p-3.5">Reference / UTR</th>
+                                    <th class="p-3.5">Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody id="investments-table-tbody" class="divide-y divide-slate-100 font-medium">
+                                <tr>
+                                    <td colspan="7" class="p-6 text-center text-slate-400">Loading investments...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW: PROFIT MANAGEMENT ================= -->
+            <div id="view-partners-profits" class="space-y-6 max-w-[1440px] mx-auto hidden pb-16">
+                <div class="bg-white p-5 rounded-3xl border border-[#DADCE0] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-lg font-black text-[#181c1f]">Profit Management & Expense Control</h2>
+                        <p class="text-xs text-[#5c5f60]">Gross revenue, wholesale costs, operational expenses, and net profit splits</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="openRecordExpenseModal()" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm transition-all cursor-pointer">
+                            <span class="material-symbols-outlined text-sm">receipt</span>
+                            <span>Record Operating Expense</span>
+                        </button>
+                        <button onclick="loadPartnerProfits()" class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all cursor-pointer" title="Refresh">
+                            <span class="material-symbols-outlined text-base">refresh</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Period Filter Pills -->
+                <div class="flex items-center gap-1.5 overflow-x-auto pb-1">
+                    <button onclick="setProfitPeriod('today')" class="profit-period-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-600 text-white" data-period="today">Today</button>
+                    <button onclick="setProfitPeriod('yesterday')" class="profit-period-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200" data-period="yesterday">Yesterday</button>
+                    <button onclick="setProfitPeriod('last_7_days')" class="profit-period-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200" data-period="last_7_days">Last 7 Days</button>
+                    <button onclick="setProfitPeriod('last_30_days')" class="profit-period-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200" data-period="last_30_days">Last 30 Days</button>
+                    <button onclick="setProfitPeriod('this_month')" class="profit-period-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200" data-period="this_month">This Month</button>
+                    <button onclick="setProfitPeriod('all_time')" class="profit-period-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200" data-period="all_time">All Time</button>
+                </div>
+
+                <!-- Financial Balance Overview -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+                    <div class="p-4 rounded-2xl bg-white border border-[#DADCE0] shadow-xs">
+                        <span class="text-[10px] font-bold uppercase text-slate-500">Gross Sales</span>
+                        <p class="text-xl font-black text-[#0066cc] mt-1" id="profit-kpi-revenue">₹0</p>
+                    </div>
+                    <div class="p-4 rounded-2xl bg-white border border-[#DADCE0] shadow-xs">
+                        <span class="text-[10px] font-bold uppercase text-slate-500">Product Costs</span>
+                        <p class="text-xl font-black text-slate-800 mt-1" id="profit-kpi-product-costs">₹0</p>
+                    </div>
+                    <div class="p-4 rounded-2xl bg-white border border-[#DADCE0] shadow-xs">
+                        <span class="text-[10px] font-bold uppercase text-slate-500">Operating Expenses</span>
+                        <p class="text-xl font-black text-rose-700 mt-1" id="profit-kpi-expenses">₹0</p>
+                    </div>
+                    <div class="p-4 rounded-2xl bg-white border border-[#DADCE0] shadow-xs bg-emerald-50/50">
+                        <span class="text-[10px] font-bold uppercase text-emerald-800">Net Profit</span>
+                        <p class="text-xl font-black text-emerald-800 mt-1" id="profit-kpi-net">₹0</p>
+                    </div>
+                    <div class="p-4 rounded-2xl bg-white border border-[#DADCE0] shadow-xs bg-amber-50/50">
+                        <span class="text-[10px] font-bold uppercase text-amber-800">Partner Share</span>
+                        <p class="text-xl font-black text-amber-900 mt-1" id="profit-kpi-partner-share">₹0</p>
+                    </div>
+                    <div class="p-4 rounded-2xl bg-white border border-[#DADCE0] shadow-xs bg-blue-50/50">
+                        <span class="text-[10px] font-bold uppercase text-blue-800">Owner Share</span>
+                        <p class="text-xl font-black text-blue-900 mt-1" id="profit-kpi-owner-share">₹0</p>
+                    </div>
+                </div>
+
+                <!-- Hostel Breakdown Table -->
+                <div class="bg-white rounded-3xl border border-[#DADCE0] overflow-hidden shadow-xs">
+                    <div class="p-3 bg-slate-50 border-b border-[#DADCE0] flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-700 uppercase">Hostel-wise Profit Breakdown</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-[#DADCE0] text-slate-600 font-bold uppercase text-[10px] tracking-wider">
+                                    <th class="p-3.5">Hostel</th>
+                                    <th class="p-3.5">Delivered Orders</th>
+                                    <th class="p-3.5 text-right">Revenue</th>
+                                    <th class="p-3.5 text-right">Product Costs</th>
+                                    <th class="p-3.5 text-right">Operating Costs</th>
+                                    <th class="p-3.5 text-right">Net Profit</th>
+                                </tr>
+                            </thead>
+                            <tbody id="profit-hostel-breakdown-tbody" class="divide-y divide-slate-100 font-medium">
+                                <tr>
+                                    <td colspan="6" class="p-6 text-center text-slate-400">Loading breakdown...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW: PARTNER PAYMENTS ================= -->
+            <div id="view-partners-payments" class="space-y-6 max-w-[1440px] mx-auto hidden pb-16">
+                <div class="bg-white p-5 rounded-3xl border border-[#DADCE0] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-lg font-black text-[#181c1f]">Partner Payments & Settlements</h2>
+                        <p class="text-xs text-[#5c5f60]">Record payouts, track transaction IDs, and monitor outstanding balances</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="openRecordPaymentModal()" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer">
+                            <span class="material-symbols-outlined text-sm">payments</span>
+                            <span>Record Payment</span>
+                        </button>
+                        <button onclick="loadPartnerPayments()" class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all cursor-pointer" title="Refresh">
+                            <span class="material-symbols-outlined text-base">refresh</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-3xl border border-[#DADCE0] overflow-hidden shadow-xs">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-[#DADCE0] text-slate-600 font-bold uppercase text-[10px] tracking-wider">
+                                    <th class="p-3.5">Payment Date</th>
+                                    <th class="p-3.5">Partner Name</th>
+                                    <th class="p-3.5 text-right">Amount Paid</th>
+                                    <th class="p-3.5 text-center">Method</th>
+                                    <th class="p-3.5">Transaction ID / UTR</th>
+                                    <th class="p-3.5">Remarks</th>
+                                    <th class="p-3.5 text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payments-table-tbody" class="divide-y divide-slate-100 font-medium">
+                                <tr>
+                                    <td colspan="7" class="p-6 text-center text-slate-400">Loading payout records...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW: FINANCIAL REPORTS ================= -->
+            <div id="view-partners-reports" class="space-y-6 max-w-[1440px] mx-auto hidden pb-16">
+                <div class="bg-white p-5 rounded-3xl border border-[#DADCE0] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-lg font-black text-[#181c1f]">Financial Reports & Export Engine</h2>
+                        <p class="text-xs text-[#5c5f60]">Comprehensive financial summaries, CSV exports, and printable statements</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="exportOwnerReportsCSV()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer">
+                            <span class="material-symbols-outlined text-sm">download</span>
+                            <span>Download Full CSV</span>
+                        </button>
+                        <button onclick="window.print()" class="px-4 py-2 bg-[#0066cc] hover:bg-[#0052a3] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm transition-all cursor-pointer">
+                            <span class="material-symbols-outlined text-sm">print</span>
+                            <span>Print Report</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-3xl border border-[#DADCE0] p-6 space-y-4">
+                    <h3 class="text-sm font-black text-slate-900">Partner Profit & Settlement Status Summary</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-[#DADCE0] text-slate-600 font-bold uppercase text-[10px] tracking-wider">
+                                    <th class="p-3">Partner</th>
+                                    <th class="p-3">Hostels</th>
+                                    <th class="p-3 text-right">Investment</th>
+                                    <th class="p-3 text-right">Delivered Revenue</th>
+                                    <th class="p-3 text-right">Net Profit</th>
+                                    <th class="p-3 text-right">Partner Share</th>
+                                    <th class="p-3 text-right">Paid Out</th>
+                                    <th class="p-3 text-right">Outstanding Balance</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reports-summary-tbody" class="divide-y divide-slate-100 font-medium">
+                                <tr><td colspan="8" class="p-6 text-center text-slate-400">Loading reports...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= MODALS FOR PARTNERSHIP SYSTEM ================= -->
+            
+            <!-- Modal: Edit Partner -->
+            <div id="modal-edit-partner" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs hidden flex items-center justify-center p-4">
+                <div class="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 border border-[#DADCE0] shadow-2xl max-h-[90vh] overflow-y-auto">
+                    <div class="flex items-center justify-between pb-3 border-b border-[#DADCE0]">
+                        <h3 class="text-base font-black text-[#181c1f]">Edit Partner Account</h3>
+                        <button onclick="closeEditPartnerModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500">
+                            <span class="material-symbols-outlined text-lg">close</span>
+                        </button>
+                    </div>
+                    <form id="form-edit-partner" onsubmit="submitEditPartner(event)" class="space-y-4 text-xs">
+                        <input type="hidden" id="edit-partner-id">
+                        <div>
+                            <label class="block font-bold text-[#181c1f] mb-1">Full Name</label>
+                            <input type="text" id="edit-partner-name" required class="w-full px-3 py-2 border border-[#DADCE0] rounded-xl font-medium outline-none">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-[#181c1f] mb-1">Mobile Number</label>
+                            <input type="tel" id="edit-partner-phone" required class="w-full px-3 py-2 border border-[#DADCE0] rounded-xl font-medium outline-none">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-[#181c1f] mb-1">Default Profit Share %</label>
+                            <input type="number" id="edit-partner-profit-pct" min="1" max="100" class="w-full px-3 py-2 border border-[#DADCE0] rounded-xl font-bold text-blue-700 outline-none">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-[#181c1f] mb-1">Status</label>
+                            <select id="edit-partner-status" class="w-full px-3 py-2 border border-[#DADCE0] rounded-xl font-bold outline-none bg-white">
+                                <option value="ACTIVE">ACTIVE</option>
+                                <option value="INACTIVE">INACTIVE</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-bold text-[#181c1f] mb-1">Assigned Hostels</label>
+                            <div class="grid grid-cols-3 gap-2 p-3 bg-slate-50 rounded-xl border border-[#DADCE0]" id="edit-partner-hostels-grid">
+                                <!-- Checkboxes -->
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-end gap-2 pt-3 border-t border-[#DADCE0]">
+                            <button type="button" onclick="closeEditPartnerModal()" class="px-4 py-2 font-bold text-slate-500">Cancel</button>
+                            <button type="submit" class="px-5 py-2 bg-[#0066cc] hover:bg-[#0052a3] text-white rounded-xl font-bold">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Modal: Reset Partner Password -->
+            <div id="modal-reset-partner-password" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs hidden flex items-center justify-center p-4">
+                <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 border border-[#DADCE0] shadow-2xl">
+                    <div class="flex items-center justify-between pb-3 border-b border-[#DADCE0]">
+                        <h3 class="text-sm font-black text-[#181c1f]">Reset Partner Password</h3>
+                        <button onclick="closeResetPasswordModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500">
+                            <span class="material-symbols-outlined text-lg">close</span>
+                        </button>
+                    </div>
+                    <form onsubmit="submitResetPartnerPassword(event)" class="space-y-4 text-xs">
+                        <input type="hidden" id="reset-partner-id">
+                        <p class="text-slate-600">Enter a secure new password for <strong id="reset-partner-name">Partner</strong>:</p>
+                        <div>
+                            <input type="password" id="reset-partner-new-pass" required minlength="6" placeholder="New Password (min 6 chars)"
+                                class="w-full px-3 py-2.5 border border-[#DADCE0] rounded-xl font-medium outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="flex items-center justify-end gap-2 pt-2 border-t border-[#DADCE0]">
+                            <button type="button" onclick="closeResetPasswordModal()" class="px-4 py-2 font-bold text-slate-500">Cancel</button>
+                            <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold">Update Password</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Modal: Record Investment -->
+            <div id="modal-record-investment" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs hidden flex items-center justify-center p-4">
+                <div class="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 border border-[#DADCE0] shadow-2xl">
+                    <div class="flex items-center justify-between pb-3 border-b border-[#DADCE0]">
+                        <h3 class="text-sm font-black text-[#181c1f]">Record Partner Investment</h3>
+                        <button onclick="closeRecordInvestmentModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500">
+                            <span class="material-symbols-outlined text-lg">close</span>
+                        </button>
+                    </div>
+                    <form onsubmit="submitRecordInvestment(event)" class="space-y-3.5 text-xs">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Partner *</label>
+                            <select id="modal-inv-partner-id" required class="w-full px-3 py-2 border border-[#DADCE0] rounded-xl font-medium outline-none bg-white">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Investment Amount (₹) *</label>
+                            <input type="number" id="modal-inv-amount" required min="1" step="1000" placeholder="e.g. 50000"
+                                class="w-full px-3 py-2 border border-[#DADCE0] rounded-xl font-bold text-slate-900 outline-none">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Investment Type *</label>
+                            <select id="modal-inv-type" class="w-full px-3 py-2 border border-[#DADCE0] rounded-xl font-bold outline-none bg-white">
+                                <option value="INITIAL">INITIAL (Founding Capital)</option>
+                                <option value="ADDITIONAL" selected>ADDITIONAL (Expansion / Top-Up)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Hostel Allocation</label>
+                            <select id="modal-inv-hostel" class="w-full px-3 py-2 border border-[#DADCE0] rounded-xl font-medium outline-none bg-white">
+                                <option value="GENERAL">General / Platform Capital</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Transaction Reference / UTR</label>
+                            <input type="text" id="modal-inv-ref" placeholder="UPI Reference / UTR Number"
+                                class="w-full px-3 py-2 border border-[#DADCE0] rounded-xl font-medium outline-none">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Description</label>
+                            <input type="text" id="modal-inv-desc" placeholder="Notes regarding investment"
+                                class="w-full px-3 py-2 border border-[#DADCE0] rounded-xl font-medium outline-none">
+                        </div>
+                        <div class="flex items-center justify-end gap-2 pt-3 border-t border-[#DADCE0]">
+                            <button type="button" onclick="closeRecordInvestmentModal()" class="px-4 py-2 font-bold text-slate-500">Cancel</button>
+                            <button type="submit" class="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold">Save Investment</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Modal: Record Payment / Payout -->
+            <div id="modal-record-payment" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs hidden flex items-center justify-center p-4">
+                <div class="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 border border-[#DADCE0] shadow-2xl">
+                    <div class="flex items-center justify-between pb-3 border-b border-[#DADCE0]">
+                        <h3 class="text-sm font-black text-[#181c1f]">Record Payout to Partner</h3>
+                        <button onclick="closeRecordPaymentModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500">
+                            <span class="material-symbols-outlined text-lg">close</span>
+                        </button>
+                    </div>
+                    <form onsubmit="submitRecordPayment(event)" class="space-y-3.5 text-xs">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Partner *</label>
+                            <select id="modal-pay-partner-id" required class="w-full px-3 py-2 border border-[#DADCE0] rounded-xl font-medium outline-none bg-white">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Payout Amount (₹) *</label>
+                            <input type="number" id="modal-pay-amount" required min="1" step="100" placeholder="e.g. 10000"
+                                class="w-full px-3 py-2 border border-[#DADCE0] rounded-xl font-bold text-emerald-700 outline-none">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Payment Method</label>
+                            <select id="modal-pay-method" class="w-full px-3 py-2 border border-[#DADCE0] rounded-xl font-bold outline-none bg-white">
+                                <option value="UPI" selected>UPI (GPay / PhonePe / Paytm)</option>
+                                <option value="BANK_TRANSFER">Bank Transfer (IMPS / NEFT)</option>
+                                <option value="CASH">Cash Settlement</option>
+                                <option value="CHEQUE">Cheque</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Transaction Reference / UTR *</label>
+                            <input type="text" id="modal-pay-ref" required placeholder="Bank UTR / UPI Reference ID"
+                                class="w-full px-3 py-2 border border-[#DADCE0] rounded-xl font-medium outline-none">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Payment Date</label>
+                            <input type="date" id="modal-pay-date"
+                                class="w-full px-3 py-2 border border-[#DADCE0] rounded-xl font-medium outline-none">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Remarks</label>
+                            <input type="text" id="modal-pay-remarks" placeholder="e.g. October 2026 Profit Payout"
+                                class="w-full px-3 py-2 border border-[#DADCE0] rounded-xl font-medium outline-none">
+                        </div>
+                        <div class="flex items-center justify-end gap-2 pt-3 border-t border-[#DADCE0]">
+                            <button type="button" onclick="closeRecordPaymentModal()" class="px-4 py-2 font-bold text-slate-500">Cancel</button>
+                            <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold">Confirm Payout</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Modal: Record Expense -->
+            <div id="modal-record-expense" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs hidden flex items-center justify-center p-4">
+                <div class="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 border border-[#DADCE0] shadow-2xl">
+                    <div class="flex items-center justify-between pb-3 border-b border-[#DADCE0]">
+                        <h3 class="text-sm font-black text-[#181c1f]">Record Campus Operating Expense</h3>
+                        <button onclick="closeRecordExpenseModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500">
+                            <span class="material-symbols-outlined text-lg">close</span>
+                        </button>
+                    </div>
+                    <form onsubmit="submitRecordExpense(event)" class="space-y-3.5 text-xs">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Hostel Allocation</label>
+                            <select id="modal-exp-hostel-id" class="w-full px-3 py-2 border border-[#DADCE0] rounded-xl font-medium outline-none bg-white">
+                                <option value="ALL">All Hostels (Shared Expense)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Category *</label>
+                            <select id="modal-exp-category" required class="w-full px-3 py-2 border border-[#DADCE0] rounded-xl font-bold outline-none bg-white">
+                                <option value="DELIVERY">DELIVERY (Delivery Rider Fee / Petrol)</option>
+                                <option value="PACKAGING">PACKAGING (Bags / Stickers / Boxes)</option>
+                                <option value="PAYMENT_CHARGES">PAYMENT_CHARGES (Gateway / Settlement Fee)</option>
+                                <option value="OTHER" selected>OTHER (Miscellaneous)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Amount (₹) *</label>
+                            <input type="number" id="modal-exp-amount" required min="1" step="10" placeholder="e.g. 500"
+                                class="w-full px-3 py-2 border border-[#DADCE0] rounded-xl font-bold text-rose-700 outline-none">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Expense Date</label>
+                            <input type="date" id="modal-exp-date"
+                                class="w-full px-3 py-2 border border-[#DADCE0] rounded-xl font-medium outline-none">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Description *</label>
+                            <input type="text" id="modal-exp-desc" required placeholder="e.g. Packaging boxes batch #4"
+                                class="w-full px-3 py-2 border border-[#DADCE0] rounded-xl font-medium outline-none">
+                        </div>
+                        <div class="flex items-center justify-end gap-2 pt-3 border-t border-[#DADCE0]">
+                            <button type="button" onclick="closeRecordExpenseModal()" class="px-4 py-2 font-bold text-slate-500">Cancel</button>
+                            <button type="submit" class="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold">Record Expense</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+</main>
 
         <!-- Mobile Bottom App Bar (Sticky Thumb Navigation) -->
         <nav id="mobile-bottom-nav"
@@ -8012,7 +8912,7 @@
     <div id="partner-modal-container"></div>
 
     <!-- Application Script Reference -->
-    <script src="/ad-new/js/admin.js?v=20261109_pay_v5"></script>
+    <script src="/ad-new/js/admin.js?v=20261118_lock_v2"></script>
 
     <!-- Food Order Full Receipt Details Modal -->
     <div id="modal-food-order-details"

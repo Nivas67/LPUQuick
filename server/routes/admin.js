@@ -317,23 +317,45 @@ router.get('/client-lock', async (req, res) => {
             }
             if (req.query.hostel_id) {
                 const requested = req.query.hostel_id;
-                const canAccess = req.admin?.canAccessHostel
-                    ? req.admin.canAccessHostel(requested)
-                    : myAssignedHostels.some(h => supabaseDb.availability._normalizeHostelId(h) === supabaseDb.availability._normalizeHostelId(requested));
-                if (canAccess) {
-                    targetHostel = requested;
+                const isAllRequest = requested === 'ALL' || requested === 'all' || requested === 'MY_ALL';
+                if (isAllRequest && myAssignedHostels.length > 1) {
+                    targetHostel = 'ALL';
                 } else {
-                    targetHostel = myAssignedHostels[0];
+                    const cleanReq = String(requested).toUpperCase().replace(/[^A-Z0-9]/g, '');
+                    const matched = myAssignedHostels.find(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanReq);
+                    targetHostel = matched || myAssignedHostels[0];
                 }
             } else {
-                targetHostel = myAssignedHostels[0];
+                targetHostel = myAssignedHostels.length > 1 ? 'ALL' : myAssignedHostels[0];
             }
         } else if (req.query.hostel_id) {
             targetHostel = req.query.hostel_id;
         }
 
         const canonicalTarget = supabaseDb.availability._normalizeHostelId(targetHostel);
-        const availability = await supabaseDb.availability.getStatus(canonicalTarget);
+        let availability = null;
+        if (!isOwner && canonicalTarget === 'ALL' && myAssignedHostels.length > 0) {
+            // Compute combined availability for multi-hostel manager
+            const fullLocks = await supabaseDb.availability.getAllHostelLocks();
+            const allowedSet = new Set(myAssignedHostels.map(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '')));
+            const managerHostelLocks = (fullLocks?.hostels || []).filter(h => allowedSet.has(String(h.hostel_id).toUpperCase().replace(/[^A-Z0-9]/g, '')));
+            const lockedHostels = managerHostelLocks.filter(h => Boolean(h.direct_lock && h.direct_lock.is_locked));
+            const allLocked = managerHostelLocks.length > 0 && lockedHostels.length === managerHostelLocks.length;
+            const anyLocked = lockedHostels.length > 0;
+
+            availability = {
+                id: 'manager_assigned_hostels',
+                is_locked: allLocked,
+                lock_status: allLocked ? 'LOCKED' : (anyLocked ? 'PARTIAL' : 'AVAILABLE'),
+                partial_locked: anyLocked && !allLocked,
+                locked_hostels: lockedHostels.map(h => h.hostel_id),
+                locked_hostel_names: lockedHostels.map(h => h.hostel_name || h.hostel_id),
+                message: allLocked ? 'All your assigned hostels are locked.' : (anyLocked ? `${lockedHostels.length} of ${managerHostelLocks.length} hostels closed.` : 'All your assigned hostels are open.'),
+                target_hostel: 'ALL'
+            };
+        } else {
+            availability = await supabaseDb.availability.getStatus(canonicalTarget);
+        }
         
         // Multi-hostel overview: full list for platform owner, or scoped to assigned hostels for store managers
         let allHostelLocks = null;
@@ -352,10 +374,10 @@ router.get('/client-lock', async (req, res) => {
         } else if (myAssignedHostels.length > 0) {
             const fullLocks = await supabaseDb.availability.getAllHostelLocks();
             if (fullLocks && fullLocks.hostels) {
-                const allowedSet = new Set(myAssignedHostels.map(h => supabaseDb.availability._normalizeHostelId(h)));
+                const allowedSet = new Set(myAssignedHostels.map(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '')));
                 allHostelLocks = {
-                    master_lock: null, // Non-owners do not operate global master lock
-                    hostels: fullLocks.hostels.filter(h => allowedSet.has(supabaseDb.availability._normalizeHostelId(h.hostel_id)))
+                    master_lock: fullLocks.master_lock || null,
+                    hostels: fullLocks.hostels.filter(h => allowedSet.has(String(h.hostel_id).toUpperCase().replace(/[^A-Z0-9]/g, '')))
                 };
             }
         }
@@ -384,28 +406,31 @@ router.post('/client-lock', async (req, res) => {
         : (req.admin?.assigned_hostel_id ? [req.admin.assigned_hostel_id] : []);
     const assignedHostel = myAssignedHostels[0] || null;
 
-    let targetHostel = 'ALL';
+    let targetHostels = [];
     if (!isOwner) {
         if (myAssignedHostels.length === 0) {
             return res.status(403).json({ success: false, error: 'Access denied: No hostel assigned to your account. Contact platform owner.' });
         }
-        const requestedHostel = hostel_id || myAssignedHostels[0];
-        const canOperate = req.admin?.canAccessHostel
-            ? req.admin.canAccessHostel(requestedHostel)
-            : myAssignedHostels.some(h => supabaseDb.availability._normalizeHostelId(h) === supabaseDb.availability._normalizeHostelId(requestedHostel));
-
-        if (!canOperate) {
-            return res.status(403).json({
-                success: false,
-                error: `Access denied: You can only operate and change your assigned stores (${myAssignedHostels.join(', ')}).`
-            });
+        const requestedHostel = hostel_id || (myAssignedHostels.length > 1 ? 'ALL' : myAssignedHostels[0]);
+        const isAll = requestedHostel === 'ALL' || requestedHostel === 'all' || requestedHostel === 'MY_ALL';
+        
+        if (isAll) {
+            targetHostels = myAssignedHostels;
+        } else {
+            const cleanReq = String(requestedHostel).toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const matched = myAssignedHostels.find(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanReq);
+            if (!matched) {
+                return res.status(403).json({
+                    success: false,
+                    error: `Access denied: You can only operate and change your assigned stores (${myAssignedHostels.join(', ')}).`
+                });
+            }
+            targetHostels = [matched];
         }
-        targetHostel = requestedHostel;
     } else {
-        targetHostel = hostel_id || 'ALL';
+        const rawTarget = hostel_id || 'ALL';
+        targetHostels = [rawTarget];
     }
-
-    const canonicalTarget = supabaseDb.availability._normalizeHostelId(targetHostel);
 
     try {
         let finalStart = start_at ? new Date(start_at).toISOString() : null;
@@ -436,38 +461,51 @@ router.post('/client-lock', async (req, res) => {
         }
 
         const adminName = req.admin?.name || (isOwner ? 'Nivas Naidu' : 'Store Manager');
-        const adminRole = isOwner ? 'Main Admin' : `${canonicalTarget} Store Manager`;
-        const adminDisplay = `${adminName} (${adminRole})`;
+        let lastUpdated = null;
 
-        const updated = await supabaseDb.availability.setLock({
-            is_locked: isLocked,
-            lock_type: finalType,
-            message: message || null,
-            start_at: finalStart,
-            end_at: finalEnd,
-            created_by: adminId,
-            created_by_name: adminDisplay
-        }, canonicalTarget);
+        // Apply lock to each target hostel
+        for (const target of targetHostels) {
+            const canonicalTarget = supabaseDb.availability._normalizeHostelId(target);
+            const adminRole = isOwner ? (canonicalTarget === 'ALL' ? 'Main Admin' : `${canonicalTarget} Main Admin`) : `${canonicalTarget} Store Manager`;
+            const adminDisplay = `${adminName} (${adminRole})`;
 
-        // Audit Logging
-        const auditAction = finalType === 'SCHEDULED' ? 'CLIENT_LOCK_SCHEDULED' : (isLocked ? 'HOSTEL_CLOSED' : 'HOSTEL_LOCK_UPDATED');
-        const reasonText = finalType === 'SCHEDULED'
-            ? `Scheduled store lock for hostel: ${canonicalTarget}`
-            : (isLocked ? `Closed hostel: ${canonicalTarget}${message ? ' (' + message + ')' : ''}` : `Updated lock for hostel: ${canonicalTarget}`);
-        await supabaseDb.audit.logAction({
-            adminId,
-            action: auditAction,
-            reason: reasonText,
-            metadata: { target_hostel: canonicalTarget, lock_type: finalType, start_at: finalStart, end_at: finalEnd, locked_by: adminDisplay }
-        });
+            const updated = await supabaseDb.availability.setLock({
+                is_locked: isLocked,
+                lock_type: finalType,
+                message: message || null,
+                start_at: finalStart,
+                end_at: finalEnd,
+                created_by: adminId,
+                created_by_name: adminDisplay
+            }, canonicalTarget);
+            lastUpdated = updated;
+
+            // Audit Logging
+            const auditAction = finalType === 'SCHEDULED' ? 'CLIENT_LOCK_SCHEDULED' : (isLocked ? 'HOSTEL_CLOSED' : 'HOSTEL_LOCK_UPDATED');
+            const reasonText = finalType === 'SCHEDULED'
+                ? `Scheduled store lock for hostel: ${canonicalTarget}`
+                : (isLocked ? `Closed hostel: ${canonicalTarget}${message ? ' (' + message + ')' : ''}` : `Updated lock for hostel: ${canonicalTarget}`);
+            await supabaseDb.audit.logAction({
+                adminId,
+                action: auditAction,
+                reason: reasonText,
+                metadata: { target_hostel: canonicalTarget, lock_type: finalType, start_at: finalStart, end_at: finalEnd, locked_by: adminDisplay }
+            });
+
+            try {
+                if (typeof broadcastClientLockUpdate === 'function') {
+                    broadcastClientLockUpdate({ ...updated, target_hostel: canonicalTarget });
+                }
+            } catch (wsErr) {}
+        }
         req._auditLogged = true;
 
-        // Real-time broadcast to all storefront clients & admin dashboards
+        // Fetch refreshed overall status
         let allHostelLocks = null;
         try {
             allHostelLocks = await supabaseDb.availability.getAllHostelLocks();
             if (typeof broadcastClientLockUpdate === 'function') {
-                broadcastClientLockUpdate({ ...updated, target_hostel: canonicalTarget }, allHostelLocks);
+                broadcastClientLockUpdate({ ...lastUpdated, target_hostel: targetHostels[0] }, allHostelLocks);
             }
         } catch (wsErr) {}
 
@@ -475,18 +513,19 @@ router.post('/client-lock', async (req, res) => {
         if (isOwner) {
             returnedHostelLocks = allHostelLocks;
         } else if (myAssignedHostels.length > 0 && allHostelLocks?.hostels) {
-            const allowedSet = new Set(myAssignedHostels.map(h => supabaseDb.availability._normalizeHostelId(h)));
+            const allowedSet = new Set(myAssignedHostels.map(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '')));
             returnedHostelLocks = {
-                master_lock: null,
-                hostels: allHostelLocks.hostels.filter(h => allowedSet.has(supabaseDb.availability._normalizeHostelId(h.hostel_id)))
+                master_lock: allHostelLocks.master_lock || null,
+                hostels: allHostelLocks.hostels.filter(h => allowedSet.has(String(h.hostel_id).toUpperCase().replace(/[^A-Z0-9]/g, '')))
             };
         }
 
+        const msgLabel = targetHostels.length > 1 ? `all assigned hostels (${targetHostels.join(', ')})` : targetHostels[0];
         res.json({
             success: true,
-            target_hostel: canonicalTarget,
-            message: isLocked ? `Storefront for ${canonicalTarget} has been locked.` : `Lock scheduled successfully for ${canonicalTarget}.`,
-            availability: updated,
+            target_hostel: targetHostels.length === 1 ? targetHostels[0] : 'ALL',
+            message: isLocked ? `Storefront for ${msgLabel} has been locked.` : `Lock scheduled successfully for ${msgLabel}.`,
+            availability: lastUpdated,
             all_hostel_locks: returnedHostelLocks
         });
     } catch (err) {
@@ -503,50 +542,66 @@ router.delete('/client-lock', async (req, res) => {
         : (req.admin?.assigned_hostel_id ? [req.admin.assigned_hostel_id] : []);
     const assignedHostel = myAssignedHostels[0] || null;
 
-    let targetHostel = 'ALL';
+    let targetHostels = [];
     if (!isOwner) {
         if (myAssignedHostels.length === 0) {
             return res.status(403).json({ success: false, error: 'Access denied: No hostel assigned to your account.' });
         }
-        const requestedHostel = req.body?.hostel_id || req.query?.hostel_id || myAssignedHostels[0];
-        const canOperate = req.admin?.canAccessHostel
-            ? req.admin.canAccessHostel(requestedHostel)
-            : myAssignedHostels.some(h => supabaseDb.availability._normalizeHostelId(h) === supabaseDb.availability._normalizeHostelId(requestedHostel));
-
-        if (!canOperate) {
-            return res.status(403).json({
-                success: false,
-                error: `Access denied: You can only operate and change your assigned stores (${myAssignedHostels.join(', ')}).`
-            });
+        const requestedHostel = req.body?.hostel_id || req.query?.hostel_id || (myAssignedHostels.length > 1 ? 'ALL' : myAssignedHostels[0]);
+        const isAll = requestedHostel === 'ALL' || requestedHostel === 'all' || requestedHostel === 'MY_ALL';
+        
+        if (isAll) {
+            targetHostels = myAssignedHostels;
+        } else {
+            const cleanReq = String(requestedHostel).toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const matched = myAssignedHostels.find(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanReq);
+            if (!matched) {
+                return res.status(403).json({
+                    success: false,
+                    error: `Access denied: You can only operate and change your assigned stores (${myAssignedHostels.join(', ')}).`
+                });
+            }
+            targetHostels = [matched];
         }
-        targetHostel = requestedHostel;
     } else {
-        targetHostel = req.body?.hostel_id || req.query?.hostel_id || 'ALL';
+        const rawTarget = req.body?.hostel_id || req.query?.hostel_id || 'ALL';
+        targetHostels = [rawTarget];
     }
 
     try {
-        const canonicalTarget = supabaseDb.availability._normalizeHostelId(targetHostel);
         const adminName = req.admin?.name || (isOwner ? 'Nivas Naidu' : 'Store Manager');
-        const adminRole = isOwner ? 'Main Admin' : `${canonicalTarget} Store Manager`;
-        const adminDisplay = `${adminName} (${adminRole})`;
+        let lastUpdated = null;
 
-        const updated = await supabaseDb.availability.unlock(adminId, canonicalTarget, adminDisplay);
+        for (const target of targetHostels) {
+            const canonicalTarget = supabaseDb.availability._normalizeHostelId(target);
+            const adminRole = isOwner ? (canonicalTarget === 'ALL' ? 'Main Admin' : `${canonicalTarget} Main Admin`) : `${canonicalTarget} Store Manager`;
+            const adminDisplay = `${adminName} (${adminRole})`;
 
-        // Audit Logging
-        await supabaseDb.audit.logAction({
-            adminId,
-            action: 'HOSTEL_OPENED',
-            reason: `Opened hostel: ${canonicalTarget} (${adminDisplay})`,
-            metadata: { target_hostel: canonicalTarget, unlocked_by: adminDisplay }
-        });
+            const updated = await supabaseDb.availability.unlock(adminId, canonicalTarget, adminDisplay);
+            lastUpdated = updated;
+
+            // Audit Logging
+            await supabaseDb.audit.logAction({
+                adminId,
+                action: 'HOSTEL_OPENED',
+                reason: `Opened hostel: ${canonicalTarget} (${adminDisplay})`,
+                metadata: { target_hostel: canonicalTarget, unlocked_by: adminDisplay }
+            });
+
+            try {
+                if (typeof broadcastClientLockUpdate === 'function') {
+                    broadcastClientLockUpdate({ ...updated, target_hostel: canonicalTarget });
+                }
+            } catch (wsErr) {}
+        }
         req._auditLogged = true;
 
-        // Real-time broadcast to all storefront clients & admin dashboards
+        // Refreshed locks list
         let allHostelLocks = null;
         try {
             allHostelLocks = await supabaseDb.availability.getAllHostelLocks();
             if (typeof broadcastClientLockUpdate === 'function') {
-                broadcastClientLockUpdate({ ...updated, target_hostel: canonicalTarget }, allHostelLocks);
+                broadcastClientLockUpdate({ ...lastUpdated, target_hostel: targetHostels[0] }, allHostelLocks);
             }
         } catch (wsErr) {}
 
@@ -554,18 +609,19 @@ router.delete('/client-lock', async (req, res) => {
         if (isOwner) {
             returnedHostelLocks = allHostelLocks;
         } else if (myAssignedHostels.length > 0 && allHostelLocks?.hostels) {
-            const allowedSet = new Set(myAssignedHostels.map(h => supabaseDb.availability._normalizeHostelId(h)));
+            const allowedSet = new Set(myAssignedHostels.map(h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '')));
             returnedHostelLocks = {
-                master_lock: null,
-                hostels: allHostelLocks.hostels.filter(h => allowedSet.has(supabaseDb.availability._normalizeHostelId(h.hostel_id)))
+                master_lock: allHostelLocks.master_lock || null,
+                hostels: allHostelLocks.hostels.filter(h => allowedSet.has(String(h.hostel_id).toUpperCase().replace(/[^A-Z0-9]/g, '')))
             };
         }
 
+        const msgLabel = targetHostels.length > 1 ? `all assigned hostels (${targetHostels.join(', ')})` : targetHostels[0];
         res.json({
             success: true,
-            target_hostel: canonicalTarget,
-            message: `Storefront for ${canonicalTarget} is now AVAILABLE.`,
-            availability: updated,
+            target_hostel: targetHostels.length === 1 ? targetHostels[0] : 'ALL',
+            message: `Storefront for ${msgLabel} is now AVAILABLE.`,
+            availability: lastUpdated,
             all_hostel_locks: returnedHostelLocks
         });
     } catch (err) {
