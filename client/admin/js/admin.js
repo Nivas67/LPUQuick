@@ -1,4 +1,3 @@
-
 function formatAdminPaymentDisplay(method, status) {
     const s = method ? String(method).trim() : '';
     const st = status ? String(status).trim().toLowerCase() : '';
@@ -18107,8 +18106,6 @@ if (document.readyState === 'loading') {
     initAddPartnerViewOnLoad();
 }
 
-
-
 // =========================================================================
 // ORDER MODE MANAGEMENT & TAKEAWAY FEE CONTROLLER
 // =========================================================================
@@ -18156,7 +18153,7 @@ async function loadOrderModeManagement() {
             }
         }
 
-        // Render Store Table
+        // Render 14 Campus Store Cards Grid
         renderStoreModesTable();
 
         // Load Real-time Analytics
@@ -18168,70 +18165,146 @@ async function loadOrderModeManagement() {
 }
 
 /**
- * 2. Render Store-Level Settings Table
+ * 2. Render Store-Level Settings Cards Grid & Table
  */
 function renderStoreModesTable() {
-    const tbody = document.getElementById('store-modes-tbody');
-    if (!tbody || !activeOrderModeSettings) return;
+    if (!activeOrderModeSettings) return;
 
+    const grid = document.getElementById('store-order-mode-grid');
+    const tbody = document.getElementById('store-modes-tbody');
     const stores = activeOrderModeSettings.stores || {};
     const hostelKeys = Object.keys(stores);
 
     if (hostelKeys.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">No hostel store records found.</td></tr>';
+        if (grid) grid.innerHTML = '<div class="col-span-full py-12 text-center text-slate-400 text-xs font-semibold">No campus stores found.</div>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">No stores found.</td></tr>';
         return;
     }
 
-    tbody.innerHTML = hostelKeys.map(hId => {
-        const s = stores[hId] || {};
-        const isDel = s.delivery_enabled !== false;
-        const isTak = s.takeaway_enabled !== false;
-        const feeInfo = (s.maintenance_fee_amount !== null && s.maintenance_fee_amount !== undefined)
-            ? (s.maintenance_fee_type === 'percentage' ? s.maintenance_fee_amount + '%' : '₹' + s.maintenance_fee_amount)
-            : '<span class="text-slate-400 text-[11px] italic">Global (₹' + (activeOrderModeSettings.global?.maintenance_fee_amount ?? 2) + ')</span>';
+    // Render Grid Cards if container exists
+    if (grid) {
+        grid.innerHTML = hostelKeys.map(hId => {
+            const s = stores[hId] || {};
+            const isDel = s.delivery_enabled !== false;
+            const isTak = s.takeaway_enabled !== false;
+            const hasCustomFee = (s.maintenance_fee_amount !== null && s.maintenance_fee_amount !== undefined && s.maintenance_fee_amount !== '');
+            const feeInfo = hasCustomFee
+                ? (s.maintenance_fee_type === 'percentage' ? s.maintenance_fee_amount + '%' : '₹' + s.maintenance_fee_amount)
+                : 'Global (₹' + (activeOrderModeSettings.global?.maintenance_fee_amount ?? 2) + ')';
 
-        return `
-            <tr class="hover:bg-slate-50 transition-colors border-b border-slate-100">
-                <td class="p-3.5">
-                    <span class="inline-block px-2.5 py-1 rounded-xl bg-slate-900 text-white font-black text-xs shadow-2xs font-mono">${hId}</span>
-                </td>
-                <td class="p-3.5">
-                    <p class="font-bold text-slate-900 text-xs sm:text-sm">${s.store_name || ('LPUQuick ' + hId + ' Store')}</p>
-                    <p class="text-[11px] text-slate-500 line-clamp-1 max-w-xs mt-0.5" title="${s.pickup_address || ''}">${s.pickup_address || 'LPU Campus'}</p>
-                    <p class="text-[10px] text-slate-400 mt-0.5">📞 ${s.pickup_contact || 'N/A'} • ⏰ ${s.pickup_hours || '8:00 PM - 3:30 AM'}</p>
-                </td>
-                <td class="p-3.5 text-center">
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" ${isDel ? 'checked' : ''} onchange="toggleStoreOrderMode('${hId}', 'delivery', this.checked)" class="sr-only peer">
-                        <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                </td>
-                <td class="p-3.5 text-center">
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" ${isTak ? 'checked' : ''} onchange="toggleStoreOrderMode('${hId}', 'takeaway', this.checked)" class="sr-only peer">
-                        <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                    </label>
-                </td>
-                <td class="p-3.5 text-center font-bold text-xs text-amber-900">
-                    ${feeInfo}
-                </td>
-                <td class="p-3.5 text-right">
-                    <div class="flex items-center justify-end gap-1.5">
-                        ${s.pickup_maps_url ? `
-                            <a href="${s.pickup_maps_url}" target="_blank" rel="noopener noreferrer" class="p-1.5 text-slate-500 hover:text-blue-600 rounded-lg hover:bg-slate-100 transition-colors" title="Open Map">
-                                <span class="material-symbols-outlined text-base">near_me</span>
-                            </a>
-                        ` : ''}
-                        <button onclick="openEditStoreModal('${hId}')" class="px-3 py-1.5 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 font-bold rounded-xl text-xs flex items-center gap-1 transition-all cursor-pointer">
-                            <span class="material-symbols-outlined text-sm">edit</span>
-                            <span>Configure</span>
-                        </button>
+            const storeName = s.store_name || s.name || ('LPUQuick ' + hId + ' Store');
+            const pickupAddr = s.pickup_address || s.address || ('Ground Floor Lift Lobby, ' + hId + ', LPU Campus');
+            const contactPhone = s.pickup_contact || s.phone || '+91 98765 43210';
+            const hours = s.pickup_hours || s.hours || '8:00 PM - 3:30 AM';
+            const mapsUrl = s.pickup_maps_url || s.maps_url || `https://maps.google.com/?q=${encodeURIComponent(hId + ' LPU Phagwara')}`;
+
+            return `
+                <div class="store-mode-card p-5 rounded-3xl bg-white border border-[#DADCE0] shadow-xs flex flex-col justify-between hover:border-[#0066cc] transition-all" data-hostel="${hId}" data-search="${hId} ${storeName} ${pickupAddr}">
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="px-2.5 py-1 rounded-xl bg-slate-900 text-white font-black text-xs font-mono shadow-2xs">${hId}</span>
+                            <span class="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${isDel && isTak ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : (!isDel && !isTak ? 'bg-rose-100 text-rose-800 border border-rose-300' : 'bg-blue-100 text-blue-800 border border-blue-300')}">
+                                ${isDel && isTak ? 'Both Active' : (isDel ? 'Delivery Only' : (isTak ? 'Takeaway Only' : 'Closed'))}
+                            </span>
+                        </div>
+
+                        <h3 class="font-black text-slate-900 text-sm">${storeName}</h3>
+                        <p class="text-xs text-slate-600 mt-1 line-clamp-2 leading-relaxed" title="${pickupAddr}">📍 ${pickupAddr}</p>
+
+                        <div class="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                            <a href="tel:${contactPhone}" class="text-emerald-700 hover:underline">📞 ${contactPhone}</a>
+                            <span>⏰ ${hours}</span>
+                        </div>
+
+                        <!-- Availability Switches -->
+                        <div class="mt-4 pt-3 border-t border-slate-100 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                    <span>🛵</span>
+                                    <span>Home Delivery</span>
+                                </span>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" ${isDel ? 'checked' : ''} onchange="toggleStoreOrderMode('${hId}', 'delivery', this.checked)" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                </label>
+                            </div>
+
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                    <span>🛍️</span>
+                                    <span>Takeaway Pickup</span>
+                                </span>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" ${isTak ? 'checked' : ''} onchange="toggleStoreOrderMode('${hId}', 'takeaway', this.checked)" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                                </label>
+                            </div>
+                        </div>
                     </div>
-                </td>
-            </tr>
-        `;
-    }).join('');
+
+                    <!-- Actions & Fee -->
+                    <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                        <span class="text-[10px] font-black text-amber-900 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
+                            Fee: ${feeInfo}
+                        </span>
+                        <div class="flex items-center gap-1.5">
+                            ${mapsUrl ? `
+                                <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" class="p-1.5 text-slate-500 hover:text-blue-600 rounded-lg hover:bg-slate-100 transition-colors" title="Google Maps Directions">
+                                    <span class="material-symbols-outlined text-base">near_me</span>
+                                </a>
+                            ` : ''}
+                            <button onclick="openEditStoreModal('${hId}')" class="px-3 py-1.5 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 font-bold rounded-xl text-xs flex items-center gap-1 transition-all cursor-pointer">
+                                <span class="material-symbols-outlined text-sm">edit</span>
+                                <span>Configure</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Render Table if container exists
+    if (tbody) {
+        tbody.innerHTML = hostelKeys.map(hId => {
+            const s = stores[hId] || {};
+            const isDel = s.delivery_enabled !== false;
+            const isTak = s.takeaway_enabled !== false;
+            const feeInfo = (s.maintenance_fee_amount !== null && s.maintenance_fee_amount !== undefined)
+                ? (s.maintenance_fee_type === 'percentage' ? s.maintenance_fee_amount + '%' : '₹' + s.maintenance_fee_amount)
+                : '<span class="text-slate-400 text-[11px] italic">Global (₹' + (activeOrderModeSettings.global?.maintenance_fee_amount ?? 2) + ')</span>';
+
+            return `
+                <tr class="hover:bg-slate-50 transition-colors border-b border-slate-100">
+                    <td class="p-3.5 font-mono font-black">${hId}</td>
+                    <td class="p-3.5 font-bold">${s.store_name || s.name || ('LPUQuick ' + hId)}</td>
+                    <td class="p-3.5 text-center">
+                        <input type="checkbox" ${isDel ? 'checked' : ''} onchange="toggleStoreOrderMode('${hId}', 'delivery', this.checked)">
+                    </td>
+                    <td class="p-3.5 text-center">
+                        <input type="checkbox" ${isTak ? 'checked' : ''} onchange="toggleStoreOrderMode('${hId}', 'takeaway', this.checked)">
+                    </td>
+                    <td class="p-3.5 text-center">${feeInfo}</td>
+                    <td class="p-3.5 text-right">
+                        <button onclick="openEditStoreModal('${hId}')" class="px-2.5 py-1 bg-slate-100 rounded-lg text-xs font-bold">Edit</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
 }
+
+/**
+ * Filter Store Cards via Search input
+ */
+function filterStoreModeCards(query) {
+    const q = (query || '').toLowerCase().trim();
+    document.querySelectorAll('.store-mode-card').forEach(card => {
+        const text = (card.dataset.search || card.textContent || '').toLowerCase();
+        card.classList.toggle('hidden', !text.includes(q));
+    });
+}
+window.filterStoreModeCards = filterStoreModeCards;
 
 /**
  * 3. Toggle Global Delivery or Takeaway
@@ -18280,6 +18353,7 @@ async function toggleStoreOrderMode(hostelId, mode, enabled) {
             if (mode === 'delivery') activeOrderModeSettings.stores[hostelId].delivery_enabled = Boolean(enabled);
             if (mode === 'takeaway') activeOrderModeSettings.stores[hostelId].takeaway_enabled = Boolean(enabled);
         }
+        renderStoreModesTable();
     } catch (err) {
         showToast(err.message, 'error');
         loadOrderModeManagement();
@@ -18295,14 +18369,33 @@ function openEditStoreModal(hostelId) {
     if (!s) return;
 
     document.getElementById('edit-store-hostel-id').value = hostelId;
-    document.getElementById('edit-store-modal-hostel-badge').textContent = hostelId;
-    document.getElementById('edit-store-name').value = s.store_name || ('LPUQuick ' + hostelId + ' Dark Store');
-    document.getElementById('edit-store-address').value = s.pickup_address || '';
-    document.getElementById('edit-store-contact').value = s.pickup_contact || '';
-    document.getElementById('edit-store-maps-url').value = s.pickup_maps_url || '';
-    document.getElementById('edit-store-hours').value = s.pickup_hours || '8:00 PM - 3:30 AM';
-    document.getElementById('edit-store-delivery-enabled').checked = s.delivery_enabled !== false;
-    document.getElementById('edit-store-takeaway-enabled').checked = s.takeaway_enabled !== false;
+    
+    const titleEl = document.getElementById('modal-store-title');
+    if (titleEl) titleEl.textContent = `Configure ${hostelId} Store Settings`;
+
+    const subEl = document.getElementById('modal-store-subtitle');
+    if (subEl) subEl.textContent = `Hostel Dark Store & Counter Pickup Details for ${hostelId}`;
+
+    const nameEl = document.getElementById('edit-store-name');
+    if (nameEl) nameEl.value = s.store_name || s.name || ('LPUQuick ' + hostelId + ' Dark Store');
+
+    const phoneEl = document.getElementById('edit-store-phone') || document.getElementById('edit-store-contact');
+    if (phoneEl) phoneEl.value = s.pickup_contact || s.phone || '+91 98765 43210';
+
+    const addrEl = document.getElementById('edit-store-address');
+    if (addrEl) addrEl.value = s.pickup_address || s.address || '';
+
+    const hoursEl = document.getElementById('edit-store-hours');
+    if (hoursEl) hoursEl.value = s.pickup_hours || s.hours || '8:00 PM - 3:30 AM';
+
+    const mapsEl = document.getElementById('edit-store-maps-url');
+    if (mapsEl) mapsEl.value = s.pickup_maps_url || s.maps_url || '';
+
+    const delEl = document.getElementById('edit-store-delivery-enabled');
+    if (delEl) delEl.checked = s.delivery_enabled !== false;
+
+    const takEl = document.getElementById('edit-store-takeaway-enabled');
+    if (takEl) takEl.checked = s.takeaway_enabled !== false;
 
     const feeAmtEl = document.getElementById('edit-store-fee-amount');
     const feeTypeEl = document.getElementById('edit-store-fee-type');
@@ -18325,23 +18418,29 @@ async function submitEditStoreSettings(e) {
     const hostelId = document.getElementById('edit-store-hostel-id').value;
     if (!hostelId) return;
 
-    const store_name = document.getElementById('edit-store-name').value.trim();
-    const pickup_address = document.getElementById('edit-store-address').value.trim();
-    const pickup_contact = document.getElementById('edit-store-contact').value.trim();
-    const pickup_maps_url = document.getElementById('edit-store-maps-url').value.trim();
-    const pickup_hours = document.getElementById('edit-store-hours').value.trim();
-    const delivery_enabled = document.getElementById('edit-store-delivery-enabled').checked;
-    const takeaway_enabled = document.getElementById('edit-store-takeaway-enabled').checked;
+    const store_name = document.getElementById('edit-store-name')?.value?.trim();
+    const phoneEl = document.getElementById('edit-store-phone') || document.getElementById('edit-store-contact');
+    const pickup_contact = phoneEl?.value?.trim() || '';
+    const pickup_address = document.getElementById('edit-store-address')?.value?.trim() || '';
+    const pickup_hours = document.getElementById('edit-store-hours')?.value?.trim() || '';
+    const pickup_maps_url = document.getElementById('edit-store-maps-url')?.value?.trim() || '';
+    const delivery_enabled = document.getElementById('edit-store-delivery-enabled')?.checked ?? true;
+    const takeaway_enabled = document.getElementById('edit-store-takeaway-enabled')?.checked ?? true;
 
-    const feeAmtRaw = document.getElementById('edit-store-fee-amount').value.trim();
-    const feeTypeRaw = document.getElementById('edit-store-fee-type').value.trim();
+    const feeAmtRaw = document.getElementById('edit-store-fee-amount')?.value?.trim() || '';
+    const feeTypeRaw = document.getElementById('edit-store-fee-type')?.value?.trim() || '';
 
     const payload = {
         store_name,
+        name: store_name,
         pickup_address,
+        address: pickup_address,
         pickup_contact,
-        pickup_maps_url,
+        phone: pickup_contact,
         pickup_hours,
+        hours: pickup_hours,
+        pickup_maps_url,
+        maps_url: pickup_maps_url,
         delivery_enabled,
         takeaway_enabled,
         maintenance_fee_amount: feeAmtRaw !== '' ? Number(feeAmtRaw) : null,
@@ -18378,7 +18477,7 @@ function testStoreMapsUrl() {
 }
 
 /**
- * 8. Load Takeaway Fee Settings
+ * 8. Load Takeaway Fee Settings View
  */
 async function loadTakeawayFeeSettings() {
     try {
@@ -18389,17 +18488,17 @@ async function loadTakeawayFeeSettings() {
         activeOrderModeSettings = json.data;
         const g = activeOrderModeSettings.global || {};
 
-        const feeEnabledEl = document.getElementById('global-fee-enabled');
+        const feeEnabledEl = document.getElementById('fee-config-enabled') || document.getElementById('global-fee-enabled');
         if (feeEnabledEl) feeEnabledEl.checked = g.maintenance_fee_enabled !== false;
 
-        const feeAmtEl = document.getElementById('global-fee-amount');
+        const feeAmtEl = document.getElementById('fee-config-amount') || document.getElementById('global-fee-amount');
         if (feeAmtEl) feeAmtEl.value = (g.maintenance_fee_amount !== undefined && g.maintenance_fee_amount !== null) ? g.maintenance_fee_amount : 2;
 
-        const feeTypeEl = document.getElementById('global-fee-type');
-        if (feeTypeEl) feeTypeEl.value = g.maintenance_fee_type || 'fixed';
+        const feeType = g.maintenance_fee_type || 'fixed';
+        const radio = document.querySelector(`input[name="fee_type"][value="${feeType}"]`);
+        if (radio) radio.checked = true;
 
-        onFeeTypeChange();
-        renderStoreFeeOverridesTable();
+        onFeeTypeChange(feeType);
     } catch (err) {
         showToast(err.message, 'error');
     }
@@ -18408,28 +18507,40 @@ async function loadTakeawayFeeSettings() {
 /**
  * 9. Handle Fee Type selection change (Fixed vs Percentage)
  */
-function onFeeTypeChange() {
-    const feeType = document.getElementById('global-fee-type')?.value || 'fixed';
-    const unitEl = document.getElementById('fee-unit-indicator');
-    const hintEl = document.getElementById('fee-help-hint');
-
-    if (unitEl) unitEl.textContent = feeType === 'percentage' ? '%' : '₹';
-    if (hintEl) {
-        hintEl.textContent = feeType === 'percentage'
-            ? 'Calculated as a % of food cart subtotal (e.g. 2% on ₹150 = ₹3)'
-            : 'Fixed charge added to customer bill on takeaway checkout (default ₹2)';
+function onFeeTypeChange(type) {
+    const feeType = type || document.querySelector('input[name="fee_type"]:checked')?.value || document.getElementById('global-fee-type')?.value || 'fixed';
+    
+    const fixedLabel = document.getElementById('label-fee-type-fixed');
+    const pctLabel = document.getElementById('label-fee-type-percentage');
+    if (fixedLabel && pctLabel) {
+        if (feeType === 'fixed') {
+            fixedLabel.className = 'p-3 rounded-2xl border-2 border-amber-500 bg-amber-50/40 cursor-pointer flex items-center gap-2.5 transition-all';
+            pctLabel.className = 'p-3 rounded-2xl border border-slate-200 bg-white cursor-pointer flex items-center gap-2.5 transition-all';
+        } else {
+            pctLabel.className = 'p-3 rounded-2xl border-2 border-amber-500 bg-amber-50/40 cursor-pointer flex items-center gap-2.5 transition-all';
+            fixedLabel.className = 'p-3 rounded-2xl border border-slate-200 bg-white cursor-pointer flex items-center gap-2.5 transition-all';
+        }
     }
+
+    const badge = document.getElementById('fee-amount-unit-badge');
+    if (badge) badge.textContent = feeType === 'percentage' ? '%' : '₹';
+
+    const labelText = document.getElementById('label-fee-amount-text');
+    if (labelText) labelText.textContent = `Maintenance Fee Amount (${feeType === 'percentage' ? '%' : '₹'}) *`;
 
     updateFeePreview();
 }
 
 /**
- * 10. Update Live Bill Calculation Preview
+ * 10. Update Live Bill Calculation Simulator Preview
  */
 function updateFeePreview() {
-    const enabled = document.getElementById('global-fee-enabled')?.checked ?? true;
-    const feeType = document.getElementById('global-fee-type')?.value || 'fixed';
-    const feeAmt = parseFloat(document.getElementById('global-fee-amount')?.value) || 0;
+    const enabledEl = document.getElementById('fee-config-enabled') || document.getElementById('global-fee-enabled');
+    const enabled = enabledEl ? enabledEl.checked : true;
+
+    const feeType = document.querySelector('input[name="fee_type"]:checked')?.value || document.getElementById('global-fee-type')?.value || 'fixed';
+    const amountEl = document.getElementById('fee-config-amount') || document.getElementById('global-fee-amount');
+    const feeAmt = parseFloat(amountEl?.value) || 0;
 
     const subtotal = 150;
     let fee = 0;
@@ -18442,11 +18553,11 @@ function updateFeePreview() {
     }
     const total = subtotal + fee;
 
-    const feeEl = document.getElementById('preview-fee-amount');
-    if (feeEl) feeEl.textContent = '₹' + fee;
+    const simFee = document.getElementById('preview-sim-fee') || document.getElementById('preview-fee-amount');
+    if (simFee) simFee.textContent = (fee > 0 ? '+₹' : '₹') + fee.toFixed(2);
 
-    const totalEl = document.getElementById('preview-total-amount');
-    if (totalEl) totalEl.textContent = '₹' + total;
+    const simTotal = document.getElementById('preview-sim-total') || document.getElementById('preview-total-amount');
+    if (simTotal) simTotal.textContent = '₹' + total.toFixed(2);
 }
 
 /**
@@ -18454,9 +18565,13 @@ function updateFeePreview() {
  */
 async function saveGlobalFeeSettings(e) {
     if (e && e.preventDefault) e.preventDefault();
-    const maintenance_fee_enabled = document.getElementById('global-fee-enabled').checked;
-    const maintenance_fee_amount = parseFloat(document.getElementById('global-fee-amount').value) || 0;
-    const maintenance_fee_type = document.getElementById('global-fee-type').value || 'fixed';
+    const enabledEl = document.getElementById('fee-config-enabled') || document.getElementById('global-fee-enabled');
+    const maintenance_fee_enabled = enabledEl ? enabledEl.checked : true;
+
+    const amountEl = document.getElementById('fee-config-amount') || document.getElementById('global-fee-amount');
+    const maintenance_fee_amount = parseFloat(amountEl?.value) || 0;
+
+    const feeType = document.querySelector('input[name="fee_type"]:checked')?.value || document.getElementById('global-fee-type')?.value || 'fixed';
 
     try {
         const res = await (typeof authFetch === 'function' ? authFetch : fetch)('/api/order-mode/admin/global', {
@@ -18465,7 +18580,7 @@ async function saveGlobalFeeSettings(e) {
             body: JSON.stringify({
                 maintenance_fee_enabled,
                 maintenance_fee_amount,
-                maintenance_fee_type
+                maintenance_fee_type: feeType
             })
         });
         const json = await res.json();
@@ -18479,50 +18594,7 @@ async function saveGlobalFeeSettings(e) {
 }
 
 /**
- * 12. Render Store Fee Overrides Table
- */
-function renderStoreFeeOverridesTable() {
-    const tbody = document.getElementById('store-fee-overrides-tbody');
-    if (!tbody || !activeOrderModeSettings) return;
-
-    const stores = activeOrderModeSettings.stores || {};
-    const globalFeeAmt = activeOrderModeSettings.global?.maintenance_fee_amount ?? 2;
-    const globalFeeType = activeOrderModeSettings.global?.maintenance_fee_type || 'fixed';
-    const globalFeeDisplay = globalFeeType === 'percentage' ? globalFeeAmt + '%' : '₹' + globalFeeAmt;
-
-    const hostelKeys = Object.keys(stores);
-    if (hostelKeys.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-slate-400">No stores found.</td></tr>';
-        return;
-    }
-
-    tbody.innerHTML = hostelKeys.map(hId => {
-        const s = stores[hId] || {};
-        const hasCustom = (s.maintenance_fee_amount !== null && s.maintenance_fee_amount !== undefined);
-        const effectiveDisplay = hasCustom
-            ? (s.maintenance_fee_type === 'percentage' ? s.maintenance_fee_amount + '%' : '₹' + s.maintenance_fee_amount)
-            : globalFeeDisplay;
-
-        return `
-            <tr class="hover:bg-slate-50 transition-colors border-b border-slate-100">
-                <td class="p-3 font-mono font-black text-slate-900 text-xs">${hId}</td>
-                <td class="p-3 text-xs font-bold text-slate-800">${s.store_name || ('LPUQuick ' + hId)}</td>
-                <td class="p-3 text-center text-xs font-bold text-slate-500">${globalFeeDisplay}</td>
-                <td class="p-3 text-center font-black text-xs ${hasCustom ? 'text-amber-800 font-bold' : 'text-slate-400 italic'}">
-                    ${hasCustom ? effectiveDisplay + ' (Custom Override)' : 'Inherit Global'}
-                </td>
-                <td class="p-3 text-right">
-                    <button onclick="openEditStoreModal('${hId}')" class="px-2.5 py-1 bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-900 font-bold rounded-lg text-xs transition-all cursor-pointer">
-                        Edit Fee
-                    </button>
-                </td>
-            </tr>
-        `;
-    }).join('');
-}
-
-/**
- * 13. Load Delivery vs Takeaway Real-time Analytics
+ * 12. Load Delivery vs Takeaway Real-time Analytics
  */
 async function loadOrderModeAnalytics() {
     try {
@@ -18536,13 +18608,28 @@ async function loadOrderModeAnalytics() {
             if (el) el.textContent = val;
         };
 
-        setVal('om-kpi-total-orders', (d.total_orders || 0).toLocaleString());
-        setVal('om-kpi-delivery-orders', (d.delivery_orders || 0).toLocaleString());
-        setVal('om-kpi-takeaway-orders', (d.takeaway_orders || 0).toLocaleString());
-        setVal('om-kpi-delivery-revenue', '₹' + (d.delivery_revenue || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 }));
-        setVal('om-kpi-takeaway-revenue', '₹' + (d.takeaway_revenue || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 }));
-        setVal('om-kpi-combined-revenue', '₹' + (d.combined_revenue || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 }));
-        setVal('om-kpi-takeaway-fees', '₹' + (d.takeaway_fees_collected || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 }));
+        const totalOrders = (d.total_orders || 0).toLocaleString();
+        const delOrders = (d.delivery_orders || 0).toLocaleString();
+        const takOrders = (d.takeaway_orders || 0).toLocaleString();
+        const delRev = '₹' + (d.delivery_revenue || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        const takRev = '₹' + (d.takeaway_revenue || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        const combRev = '₹' + (d.combined_revenue || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        const takFees = '₹' + (d.takeaway_fees_collected || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+
+        setVal('an-total-orders', totalOrders);
+        setVal('an-delivery-orders', delOrders);
+        setVal('an-takeaway-orders', takOrders);
+        setVal('an-delivery-revenue', delRev);
+        setVal('an-takeaway-revenue', takRev);
+        setVal('an-takeaway-fees', takFees);
+
+        setVal('om-kpi-total-orders', totalOrders);
+        setVal('om-kpi-delivery-orders', delOrders);
+        setVal('om-kpi-takeaway-orders', takOrders);
+        setVal('om-kpi-delivery-revenue', delRev);
+        setVal('om-kpi-takeaway-revenue', takRev);
+        setVal('om-kpi-combined-revenue', combRev);
+        setVal('om-kpi-takeaway-fees', takFees);
     } catch (e) {
         console.warn('[OrderMode Analytics]:', e);
     }
@@ -18551,6 +18638,7 @@ async function loadOrderModeAnalytics() {
 // Bind Order Mode functions to window
 window.loadOrderModeManagement = loadOrderModeManagement;
 window.renderStoreModesTable = renderStoreModesTable;
+window.filterStoreModeCards = filterStoreModeCards;
 window.toggleGlobalOrderMode = toggleGlobalOrderMode;
 window.toggleStoreOrderMode = toggleStoreOrderMode;
 window.openEditStoreModal = openEditStoreModal;
@@ -18561,5 +18649,4 @@ window.loadTakeawayFeeSettings = loadTakeawayFeeSettings;
 window.onFeeTypeChange = onFeeTypeChange;
 window.updateFeePreview = updateFeePreview;
 window.saveGlobalFeeSettings = saveGlobalFeeSettings;
-window.renderStoreFeeOverridesTable = renderStoreFeeOverridesTable;
 window.loadOrderModeAnalytics = loadOrderModeAnalytics;
