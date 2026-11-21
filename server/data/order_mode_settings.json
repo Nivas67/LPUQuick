@@ -5,8 +5,8 @@
     "maintenance_fee_enabled": true,
     "maintenance_fee_amount": 2,
     "maintenance_fee_type": "fixed",
-    "updated_at": "2026-11-21T14:41:28.073Z",
-    "updated_by": "Owner"
+    "updated_at": "2026-11-21T15:44:15.962Z",
+    "updated_by": "Nivas Naidu"
   },
   "stores": {
     "BH-1": {
@@ -120,18 +120,18 @@
     "BH-13": {
       "hostel_id": "BH-13",
       "name": "LPUQuick BH-13 Main Hub & Kitchen",
-      "address": "Ground Floor Commercial Complex, BH-13, LPU Campus, Phagwara, Punjab 144411",
-      "phone": "+91 98765 43210",
+      "address": "B-Block 925, BH-13, LPU Campus, Phagwara, Punjab 144411",
+      "phone": "7671836211",
       "maps_url": "https://maps.google.com/?q=Boys+Hostel+13+LPU+Phagwara",
       "hours": "Open Daily: 7:00 PM – 4:00 AM",
-      "delivery_enabled": true,
+      "delivery_enabled": false,
       "takeaway_enabled": true,
       "maintenance_fee_enabled": null,
       "maintenance_fee_amount": null,
       "maintenance_fee_type": null,
       "store_name": "LPUQuick BH-13 Main Hub & Kitchen",
-      "pickup_address": "Ground Floor Commercial Complex, BH-13, LPU Campus, Phagwara, Punjab 144411",
-      "pickup_contact": "+91 98765 43210",
+      "pickup_address": "B-Block 925, BH-13, LPU Campus, Phagwara, Punjab 144411",
+      "pickup_contact": "7671836211",
       "pickup_maps_url": "https://maps.google.com/?q=Boys+Hostel+13+LPU+Phagwara",
       "pickup_hours": "Open Daily: 7:00 PM – 4:00 AM"
     },

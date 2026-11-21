@@ -715,6 +715,9 @@ router.post('/admin/toggle-stock', requireAdmin, async (req, res) => {
             } catch (e) {
                 broadcastInventoryUpdate(productId, updated.stock_left, updated.in_stock, targetHostel);
             }
+            if (targetHostel === 'BH-13') {
+                broadcastInventoryUpdate(productId, updated.stock_left, updated.in_stock, 'ALL');
+            }
         }
         res.json({ success: true, message: `Stock updated for ${targetHostel}`, in_stock: updated.in_stock, stock_left: updated.stock_left, hostel_id: targetHostel });
     } catch (err) {
@@ -772,6 +775,9 @@ router.post('/admin/adjust-stock', requireAdmin, async (req, res) => {
                 }
             } catch (e) {
                 broadcastInventoryUpdate(productId, updated.stock_left, updated.in_stock, targetHostel);
+            }
+            if (targetHostel === 'BH-13') {
+                broadcastInventoryUpdate(productId, updated.stock_left, updated.in_stock, 'ALL');
             }
         }
 

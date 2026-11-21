@@ -118,7 +118,7 @@ router.get('/', async (req, res) => {
             try {
                 const fetchWithTimeout = Promise.race([
                     supabaseDb.products.getAll({ hostel_id: hostelId, includeInactive: false }),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('DATABASE_FETCH_TIMEOUT')), 3500))
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('DATABASE_FETCH_TIMEOUT')), 10000))
                 ]);
                 rawProducts = await fetchWithTimeout;
             } catch (prodErr) {
@@ -129,7 +129,17 @@ router.get('/', async (req, res) => {
                 try {
                     const pSnapPath = path.join(__dirname, '..', 'data', 'products_snapshot.json');
                     if (fs.existsSync(pSnapPath)) {
-                        rawProducts = JSON.parse(fs.readFileSync(pSnapPath, 'utf8'));
+                        const snap = JSON.parse(fs.readFileSync(pSnapPath, 'utf8'));
+                        let hostelInventory = {};
+                        if (supabaseDb.inventory) {
+                            try {
+                                hostelInventory = await supabaseDb.inventory.getHostelInventory(hostelId);
+                            } catch (e) {}
+                        }
+                        rawProducts = snap.map(p => {
+                            const formatted = supabaseDb.products._formatProduct(p);
+                            return supabaseDb.products._applyHostelStockOverlay(formatted, hostelId, hostelInventory);
+                        });
                     }
                 } catch (snapErr) {}
             }

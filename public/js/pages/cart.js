@@ -191,8 +191,8 @@ window.pages.cart = async function () {
                         price: Number(cached.price) || 0,
                         mrp: Number(cached.mrp) || Number(cached.price) || 0,
                         image_url: cached.image_url || '',
-                        in_stock: cached.in_stock !== false,
-                        stock_left: cached.stock_left !== undefined ? Number(cached.stock_left) : 10,
+                        in_stock: Boolean(cached.in_stock && Number(cached.stock_left) > 0),
+                        stock_left: cached.stock_left !== undefined ? Math.max(0, Number(cached.stock_left)) : 0,
                         unit: cached.unit || 'piece',
                         size: cached.size || ''
                     });
@@ -240,11 +240,9 @@ window.pages.cart = async function () {
         // Authoritative Store Stock Determination
         let stockLeft = 0;
         if (item.stock_left !== undefined && item.stock_left !== null) {
-            stockLeft = Number(item.stock_left);
+            stockLeft = Math.max(0, Number(item.stock_left));
         } else if (cachedProd && cachedProd.stock_left !== undefined && cachedProd.stock_left !== null) {
-            stockLeft = Number(cachedProd.stock_left);
-        } else if (item.in_stock !== false) {
-            stockLeft = 10;
+            stockLeft = Math.max(0, Number(cachedProd.stock_left));
         }
 
         const isOutOfStock = (item.in_stock === false) || stockLeft <= 0;
@@ -891,11 +889,9 @@ window.pageInits.cart = function () {
             // Accurate Dark Store Stock Determination
             let stockLeft = 0;
             if (stockLeftAttr !== undefined && stockLeftAttr !== '' && stockLeftAttr !== null) {
-                stockLeft = Number(stockLeftAttr);
+                stockLeft = Math.max(0, Number(stockLeftAttr));
             } else if (cachedProd && cachedProd.stock_left !== undefined && cachedProd.stock_left !== null) {
-                stockLeft = Number(cachedProd.stock_left);
-            } else if (cachedProd?.in_stock !== false) {
-                stockLeft = 10;
+                stockLeft = Math.max(0, Number(cachedProd.stock_left));
             }
 
             const qtyNum = row?.querySelector('.qty-num');
@@ -944,11 +940,9 @@ window.pageInits.cart = function () {
             const stockLeftAttr = btn.dataset.stockLeft || row?.dataset?.stockLeft;
             let stockLeft = 0;
             if (stockLeftAttr !== undefined && stockLeftAttr !== '' && stockLeftAttr !== null) {
-                stockLeft = Number(stockLeftAttr);
+                stockLeft = Math.max(0, Number(stockLeftAttr));
             } else if (cachedProd && cachedProd.stock_left !== undefined && cachedProd.stock_left !== null) {
-                stockLeft = Number(cachedProd.stock_left);
-            } else if (cachedProd?.in_stock !== false) {
-                stockLeft = 10;
+                stockLeft = Math.max(0, Number(cachedProd.stock_left));
             }
 
             const qtyNum = row?.querySelector('.qty-num');

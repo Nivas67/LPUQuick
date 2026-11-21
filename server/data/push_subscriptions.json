@@ -14,5 +14,21 @@
     ],
     "updatedAt": "2026-11-12T06:23:16.997Z",
     "createdAt": "2026-11-07T08:07:22.591Z"
+  },
+  {
+    "endpoint": "https://wns2-pn1p.notify.windows.com/w/?token=BQYAAADg8hCVIpurBVR24NZgdMzAPO9UuR%2fq11gYiAf9HyeZBbxs6GkZKQxXIIRkk6ub6QFGazScW1INjiViEXkpMSn%2bqbrWKIHFNBRpX6e3ft%2fRdA2F4k4Oqb31IdKY%2fYhM2ZMNBtLMY1cYvc5Ey5%2f9JEaQoLw9Ev9hYrGD%2fu2eqcuZEy9eVMwW4NZn9l8Wk%2bwkX9KnuPAgplKBJKUd5n5auc87IMRYj1SvW0pb9ORRnyhY7F22fhBq2bbQ1iLBQNd44H4795k1pnXPAA956agNA3o6AMKAi9s9nygQbAMk5LMeCTqBJZWHCsSNGQ%2bYbaE9aMw%3d",
+    "keys": {
+      "p256dh": "BIS05CRO3XRqTOJM639ftu9pcjhakaEeE_ZNXhQz86cjWRWd_92gnK-DCtlL0cRWIhFCJp0IVtcJ4w690Rw8Xos",
+      "auth": "th1qmNU8Yq3dsp3d2_2zXg"
+    },
+    "userId": "guest_student",
+    "userName": "Student",
+    "hostelId": "BH-13",
+    "userType": "customer",
+    "roles": [
+      "customer"
+    ],
+    "updatedAt": "2026-11-21T15:44:41.763Z",
+    "createdAt": "2026-11-21T14:53:43.434Z"
   }
 ]

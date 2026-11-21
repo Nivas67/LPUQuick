@@ -66,10 +66,14 @@ window.pages.checkout = async function () {
     savedHostel = savedHostel || 'BH-13';
 
     let cartData;
+    let orderModeStatus = null;
     const userId = window.getEffectiveUserId();
     try {
         cartData = await window.api.getCart(userId, savedHostel);
-    let orderModeStatus = null;
+    } catch (e) {
+        cartData = { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 } };
+    }
+
     try {
         if (window.api && typeof window.api.getOrderModeStatus === 'function') {
             orderModeStatus = await window.api.getOrderModeStatus(savedHostel);
@@ -86,10 +90,6 @@ window.pages.checkout = async function () {
         } else {
             window.activeCheckoutOrderMode = 'DELIVERY';
         }
-    }
-
-    } catch (e) {
-        cartData = { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 } };
     }
 
     const items = cartData.items || [];
@@ -116,8 +116,8 @@ window.pages.checkout = async function () {
                         price: Number(cached.price) || 0,
                         mrp: Number(cached.mrp) || Number(cached.price) || 0,
                         image_url: cached.image_url || '',
-                        in_stock: cached.in_stock !== false,
-                        stock_left: cached.stock_left !== undefined ? Number(cached.stock_left) : 10,
+                        in_stock: Boolean(cached.in_stock && Number(cached.stock_left) > 0),
+                        stock_left: cached.stock_left !== undefined ? Math.max(0, Number(cached.stock_left)) : 0,
                         unit: cached.unit || 'piece',
                         size: cached.size || ''
                     });
@@ -264,10 +264,11 @@ window.pages.checkout = async function () {
 
         const cachedProd = window.__cachedProducts?.get(item.product_id);
         const stockLeft = (item.stock_left !== undefined && item.stock_left !== null)
-            ? Number(item.stock_left)
+            ? Math.max(0, Number(item.stock_left))
             : ((cachedProd && cachedProd.stock_left !== undefined && cachedProd.stock_left !== null)
-                ? Number(cachedProd.stock_left)
-                : (item.in_stock === false ? 0 : 10));
+                ? Math.max(0, Number(cachedProd.stock_left))
+                : 0);
+        const isOutOfStock = (item.in_stock === false) || stockLeft <= 0;
         const isMaxStockReached = (Number(item.quantity) || 1) >= stockLeft && stockLeft > 0;
 
         return `
@@ -946,7 +947,7 @@ window.pageInits.checkout = function () {
             const cartId = btn.dataset.id || row?.dataset?.cartId;
             const productId = btn.dataset.productId || row?.dataset?.productId;
             const rawStock = btn.dataset.stockLeft ?? row?.dataset?.stockLeft;
-            const stockLeft = (rawStock !== undefined && rawStock !== '' && rawStock !== null) ? Number(rawStock) : 10;
+            const stockLeft = (rawStock !== undefined && rawStock !== '' && rawStock !== null) ? Math.max(0, Number(rawStock)) : 0;
             const qtyNum = row?.querySelector('.qty-num');
             const curQty = parseInt(qtyNum?.textContent || btn.dataset.qty) || 1;
 
@@ -988,7 +989,7 @@ window.pageInits.checkout = function () {
             const cartId = btn.dataset.id || row?.dataset?.cartId;
             const productId = btn.dataset.productId || row?.dataset?.productId;
             const rawStock = btn.dataset.stockLeft ?? row?.dataset?.stockLeft;
-            const stockLeft = (rawStock !== undefined && rawStock !== '' && rawStock !== null) ? Number(rawStock) : 10;
+            const stockLeft = (rawStock !== undefined && rawStock !== '' && rawStock !== null) ? Math.max(0, Number(rawStock)) : 0;
             const qtyNum = row?.querySelector('.qty-num');
             const curQty = parseInt(qtyNum?.textContent || btn.dataset.qty) || 1;
 

@@ -3,15 +3,15 @@
   "offer_type": "percentage",
   "offer_value": 3,
   "minimum_order_value": 249,
-  "maximum_discount": 0,
+  "maximum_discount": 15,
   "free_delivery_enabled": false,
   "free_delivery_threshold": 199,
   "delivery_fee": 0,
-  "handling_fee": 4,
+  "handling_fee": 0,
   "handling_fee_enabled": true,
   "min_cart_value": 35,
   "start_date": null,
   "end_date": null,
-  "updated_at": "2026-11-01T18:09:34.563+00:00",
-  "updated_by": "user_admin_bh13"
+  "updated_at": "2026-11-20T17:21:31.762+00:00",
+  "updated_by": "nivas_naidu_ad"
 }

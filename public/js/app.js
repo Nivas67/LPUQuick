@@ -3413,8 +3413,8 @@ try {
 // In-place Real-Time Stock Updates across DOM
 function handleLiveInventoryChange(data) {
     if (!data) return;
-    // Strict Dark-Store Hostel Isolation: Only apply update if it matches current client hostel
-    if (data.hostel_id) {
+    // Strict Dark-Store Hostel Isolation: Only apply update if it matches current client hostel (or is global/ALL)
+    if (data.hostel_id && String(data.hostel_id).toUpperCase() !== 'ALL') {
         const clientHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
         const normClient = clientHostel.toLowerCase().replace(/[^a-z0-9]/g, '');
         const normData = String(data.hostel_id).toLowerCase().replace(/[^a-z0-9]/g, '');
