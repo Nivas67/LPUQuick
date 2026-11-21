@@ -309,6 +309,7 @@ app.use('/api/admin/backup', require('./routes/backup'));
 app.use('/api/admin/financial', require('./routes/financial'));
 app.use('/api/admin/partners', require('./routes/partnerAdmin'));
 app.use('/api/partner', require('./routes/partnerPortal'));
+app.use('/api/order-mode', require('./routes/orderMode'));
 app.use('/api/client/status', require('./routes/client-status'));
 app.use('/api/home', require('./routes/home'));
 app.get('/api/banners', (req, res) => res.redirect('/api/home/banners'));

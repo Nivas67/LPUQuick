@@ -69,6 +69,25 @@ window.pages.checkout = async function () {
     const userId = window.getEffectiveUserId();
     try {
         cartData = await window.api.getCart(userId, savedHostel);
+    let orderModeStatus = null;
+    try {
+        if (window.api && typeof window.api.getOrderModeStatus === 'function') {
+            orderModeStatus = await window.api.getOrderModeStatus(savedHostel);
+        }
+    } catch (e) {
+        console.warn('[Checkout OrderMode fetch failed]:', e);
+    }
+    window.activeOrderModeStatus = orderModeStatus;
+    
+    // Determine active order mode: default to DELIVERY if available, otherwise TAKEAWAY
+    if (!window.activeCheckoutOrderMode) {
+        if (orderModeStatus && orderModeStatus.delivery_enabled === false && orderModeStatus.takeaway_enabled === true) {
+            window.activeCheckoutOrderMode = 'TAKEAWAY';
+        } else {
+            window.activeCheckoutOrderMode = 'DELIVERY';
+        }
+    }
+
     } catch (e) {
         cartData = { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 } };
     }
@@ -195,6 +214,18 @@ window.pages.checkout = async function () {
 
     // Handling Fee calculation
     const handlingFee = (items.length > 0 && checkoutSettings.handling_fee_enabled) ? (Number(checkoutSettings.handling_fee) || 0) : 0;
+    const isTakeawayActive = (window.activeCheckoutOrderMode === 'TAKEAWAY');
+    let takeawayFee = 0;
+    if (orderModeStatus && orderModeStatus.maintenance_fee_enabled !== false) {
+        if (orderModeStatus.maintenance_fee_type === 'percentage') {
+            takeawayFee = Math.round(subtotal * ((Number(orderModeStatus.maintenance_fee) || 2) / 100));
+        } else {
+            takeawayFee = Math.max(0, Number(orderModeStatus.maintenance_fee !== undefined ? orderModeStatus.maintenance_fee : 2));
+        }
+    } else if (!orderModeStatus) {
+        takeawayFee = 2; // Default ₹2 maintenance fee
+    }
+
 
     // Minimum Order Value
     const MIN_ORDER_VALUE = Number(checkoutSettings.min_cart_value) || 35;
@@ -202,7 +233,10 @@ window.pages.checkout = async function () {
     const minOrderShortfall = Math.max(0, MIN_ORDER_VALUE - subtotal);
 
     // Exact Total
-    const exactTotal = Math.max(0, subtotal - globalDiscount + deliveryFee + handlingFee);
+    const effectiveDeliveryFee = isTakeawayActive ? 0 : deliveryFee;
+    const effectiveHandlingFee = isTakeawayActive ? 0 : handlingFee;
+    const effectiveTakeawayFee = isTakeawayActive ? takeawayFee : 0;
+    const exactTotal = Math.max(0, subtotal - globalDiscount + (isTakeawayActive ? effectiveTakeawayFee : (effectiveDeliveryFee + effectiveHandlingFee)));
     window.cartTotalCache = exactTotal;
     window.cartSubtotalCache = subtotal;
     window.cartMinOrderCache = MIN_ORDER_VALUE;
@@ -336,8 +370,89 @@ window.pages.checkout = async function () {
             </div>
             ` : ''}
 
-            <!-- Delivery Address Card (Tactile Clay & Liquid Pedestal) -->
-            <div class="glass-panel card-pedestal rounded-3xl p-5 sm:p-6 shadow-xl border border-[var(--glass-border)]">
+            
+            <!-- Order Mode Selector: Home Delivery vs Takeaway from Store -->
+            <div id="checkout-order-mode-selector" class="glass-panel card-pedestal rounded-3xl p-4 sm:p-5 shadow-xl border border-[var(--glass-border)] space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-base text-emerald-600">room_service</span>
+                        <span>Select Order Mode</span>
+                    </span>
+                    <span class="text-[10px] font-black text-slate-400 dark:text-slate-500">Instant Campus Fulfillment</span>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button type="button" id="mode-btn-delivery" onclick="window.switchOrderMode('DELIVERY')"
+                        ${(orderModeStatus && orderModeStatus.delivery_enabled === false) ? 'disabled title="Home delivery is currently disabled for this hostel"' : ''}
+                        class="flex-1 py-3 px-3 sm:px-4 rounded-2xl font-black text-xs sm:text-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 transition-all cursor-pointer ${(window.activeCheckoutOrderMode !== 'TAKEAWAY') ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-500/50' : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 text-slate-700'} ${(orderModeStatus && orderModeStatus.delivery_enabled === false) ? 'opacity-40 cursor-not-allowed' : ''}">
+                        <span class="text-base">🛵</span>
+                        <div class="text-center sm:text-left">
+                            <span class="block">Home Delivery</span>
+                            <span class="text-[9px] opacity-80 font-normal">${(orderModeStatus && orderModeStatus.delivery_enabled === false) ? 'Currently Unavailable' : '3-5 min room delivery'}</span>
+                        </div>
+                    </button>
+
+                    <button type="button" id="mode-btn-takeaway" onclick="window.switchOrderMode('TAKEAWAY')"
+                        ${(orderModeStatus && orderModeStatus.takeaway_enabled === false) ? 'disabled title="Takeaway is currently disabled for this hostel"' : ''}
+                        class="flex-1 py-3 px-3 sm:px-4 rounded-2xl font-black text-xs sm:text-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 transition-all cursor-pointer ${(window.activeCheckoutOrderMode === 'TAKEAWAY') ? 'bg-emerald-600 text-white shadow-md ring-2 ring-emerald-500/50' : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 text-slate-700'} ${(orderModeStatus && orderModeStatus.takeaway_enabled === false) ? 'opacity-40 cursor-not-allowed' : ''}">
+                        <span class="text-base">🛍️</span>
+                        <div class="text-center sm:text-left">
+                            <span class="block">Takeaway from Store</span>
+                            <span class="text-[9px] opacity-80 font-normal">${(orderModeStatus && orderModeStatus.takeaway_enabled === false) ? 'Currently Unavailable' : 'Self-pickup at hostel store'}</span>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Store Pickup Info Card (Visible strictly when Takeaway is selected) -->
+            <div id="checkout-store-pickup-card" class="glass-panel card-pedestal rounded-3xl p-5 sm:p-6 shadow-xl border border-emerald-500/30 bg-emerald-50/20 dark:bg-emerald-950/20 space-y-4 ${(window.activeCheckoutOrderMode === 'TAKEAWAY') ? '' : 'hidden'}">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="flex items-start gap-3.5">
+                        <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-lg border border-white/30 text-xl">
+                            🛍️
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <h3 class="font-black text-slate-900 dark:text-white text-xs sm:text-sm tracking-tight" id="pickup-store-name">
+                                    ${orderModeStatus?.pickup_details?.store_name || ('LPUQuick ' + savedHostel + ' Dark Store')}
+                                </h3>
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300">
+                                    Self Pickup Point
+                                </span>
+                            </div>
+                            <p class="text-xs text-slate-700 dark:text-slate-300 mt-1 font-medium leading-relaxed" id="pickup-store-address">
+                                📍 ${orderModeStatus?.pickup_details?.pickup_address || ('Ground Floor Lift Lobby / Common Room Corridor, ' + savedHostel + ', LPU Campus')}
+                            </p>
+                            <div class="mt-2.5 flex items-center gap-4 text-xs font-bold text-slate-600 dark:text-slate-400 flex-wrap">
+                                <a href="tel:${orderModeStatus?.pickup_details?.pickup_contact || '+91 98765 43210'}" class="text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-1">
+                                    <span>📞</span>
+                                    <span id="pickup-store-contact">${orderModeStatus?.pickup_details?.pickup_contact || '+91 98765 43210'}</span>
+                                </a>
+                                <span class="text-slate-300 dark:text-slate-600">•</span>
+                                <span class="flex items-center gap-1" id="pickup-store-hours">
+                                    <span>⏰</span>
+                                    <span>${orderModeStatus?.pickup_details?.pickup_hours || '8:00 PM - 3:30 AM'}</span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Google Maps Navigation Button -->
+                <div class="pt-2 border-t border-emerald-500/20 flex items-center justify-between">
+                    <p class="text-[11px] text-emerald-800 dark:text-emerald-300 font-bold">
+                        Collect your parcel directly from the hostel counter once ready
+                    </p>
+                    <a id="pickup-store-maps-btn" href="${orderModeStatus?.pickup_details?.pickup_maps_url || 'https://maps.google.com/?q=Lovely+Professional+University'}" target="_blank" rel="noopener noreferrer"
+                        class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs flex items-center gap-1 transition-all cursor-pointer">
+                        <span class="material-symbols-outlined text-sm">directions</span>
+                        <span>Directions</span>
+                    </a>
+                </div>
+            </div>
+
+<!-- Delivery Address Card (Tactile Clay & Liquid Pedestal) -->
+            <div id="checkout-delivery-address-card" class="glass-panel card-pedestal rounded-3xl p-5 sm:p-6 shadow-xl border border-[var(--glass-border)] ${window.activeCheckoutOrderMode === 'TAKEAWAY' ? 'hidden' : ''}">
                 <div class="flex justify-between items-start">
                     <div class="flex items-start gap-3.5">
                         <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-lg border border-white/30">
@@ -414,7 +529,16 @@ window.pages.checkout = async function () {
                     </div>
                     ` : ''}
 
-                    <div class="flex justify-between items-center text-slate-600 dark:text-slate-400 font-medium">
+                    
+                    <!-- Takeaway Maintenance Fee Row -->
+                    <div id="checkout-takeaway-fee-row" class="flex justify-between items-center text-slate-700 dark:text-slate-300 font-medium ${(window.activeCheckoutOrderMode === 'TAKEAWAY') ? '' : 'hidden'}">
+                        <div class="flex items-center gap-1">
+                            <span class="font-bold text-emerald-800 dark:text-emerald-300">Takeaway Maintenance Fee</span>
+                            <span class="text-[10px] text-slate-400" title="Store packaging & order fulfillment fee">ℹ️</span>
+                        </div>
+                        <span class="font-black text-emerald-700 dark:text-emerald-400" id="checkout-takeaway-fee-val">₹${takeawayFee}</span>
+                    </div>
+<div class="flex justify-between items-center text-slate-600 dark:text-slate-400 font-medium">
                         <span>Delivery Fee</span>
                         <div class="flex items-center gap-1.5">
                             ${isFreeDelivery ? `
@@ -709,10 +833,27 @@ window.pageInits.checkout = function () {
             }
 
             const handlingFee = (rows.length > 0 && cfg.handling_fee_enabled !== false) ? (Number(cfg.handling_fee) !== undefined && !isNaN(Number(cfg.handling_fee)) ? Number(cfg.handling_fee) : 3) : 0;
+            const isTakeawayMode = (window.activeCheckoutOrderMode === 'TAKEAWAY');
+            let takeawayFee = 0;
+            const oms = window.activeOrderModeStatus;
+            if (isTakeawayMode) {
+                if (oms && oms.maintenance_fee_enabled !== false) {
+                    if (oms.maintenance_fee_type === 'percentage') {
+                        takeawayFee = Math.round(subtotal * ((Number(oms.maintenance_fee) || 2) / 100));
+                    } else {
+                        takeawayFee = Math.max(0, Number(oms.maintenance_fee !== undefined ? oms.maintenance_fee : 2));
+                    }
+                } else if (!oms) {
+                    takeawayFee = 2;
+                }
+            }
+
             const minCartVal = Number(cfg.min_cart_value) || 35;
             const isMinMet = subtotal >= minCartVal;
             const minShortfall = Math.max(0, minCartVal - subtotal);
-            const exactTotal = Math.max(0, subtotal - globalDiscount + deliveryFee + handlingFee);
+            const effectiveDeliveryFee = isTakeawayMode ? 0 : deliveryFee;
+            const effectiveHandlingFee = isTakeawayMode ? 0 : handlingFee;
+            const exactTotal = Math.max(0, subtotal - globalDiscount + (isTakeawayMode ? takeawayFee : (effectiveDeliveryFee + effectiveHandlingFee)));
             const deliverySavings = isFreeDelivery ? (baseDelivery > 0 ? baseDelivery : 25) : 0;
             const totalSavings = mrpDiscount + globalDiscount + deliverySavings;
 
@@ -760,7 +901,23 @@ window.pageInits.checkout = function () {
             }
 
             const handlingEl = document.getElementById('checkout-handling-val');
-            if (handlingEl) handlingEl.textContent = `₹${handlingFee}`;
+            if (handlingEl) handlingEl.textContent = `₹${isTakeawayMode ? 0 : handlingFee}`;
+            
+            const takeawayFeeRow = document.getElementById('checkout-takeaway-fee-row');
+            const takeawayFeeVal = document.getElementById('checkout-takeaway-fee-val');
+            if (takeawayFeeRow) {
+                takeawayFeeRow.classList.toggle('hidden', !isTakeawayMode);
+                if (takeawayFeeVal) takeawayFeeVal.textContent = `₹${takeawayFee}`;
+            }
+
+            const deliveryFeeRow = document.getElementById('checkout-delivery-fee-row');
+            if (deliveryFeeRow) {
+                deliveryFeeRow.classList.toggle('hidden', isTakeawayMode);
+            }
+            const handlingFeeRow = document.getElementById('checkout-handling-row');
+            if (handlingFeeRow) {
+                handlingFeeRow.classList.toggle('hidden', isTakeawayMode);
+            }
 
             const totalEl = document.getElementById('checkout-total-val');
             if (totalEl) totalEl.textContent = `₹${exactTotal}`;
@@ -961,8 +1118,19 @@ window.pageInits.checkout = function () {
         const savedPhone = (localStorage.getItem('lpuquick_phone') || window.currentPhone || '').replace(/\D/g, '');
 
         const isMainGate = savedBlock && savedBlock.toLowerCase().includes('gate');
-        if ((!savedRoom && !isMainGate) || savedPhone.length !== 10) {
+        const isTakeawayActiveNow = (window.activeCheckoutOrderMode === 'TAKEAWAY');
+        if (!isTakeawayActiveNow && ((!savedRoom && !isMainGate) || savedPhone.length !== 10)) {
             isSubmitting = false;
+            window.openAddressModal(true, () => {
+                if (window.router) window.router();
+            });
+            return;
+        }
+        if (isTakeawayActiveNow && savedPhone.length !== 10) {
+            isSubmitting = false;
+            if (typeof window.showClientToast === 'function') {
+                window.showClientToast('Please provide your 10-digit mobile number for pickup notifications.', 'warning', 'phone');
+            }
             window.openAddressModal(true, () => {
                 if (window.router) window.router();
             });
@@ -1008,6 +1176,7 @@ window.pageInits.checkout = function () {
                 name: window.CURRENT_USER_NAME || 'LPU Student',
                 email: window.CURRENT_USER_EMAIL || '',
                 hostel_id: savedHostel,
+                order_mode: window.activeCheckoutOrderMode || 'DELIVERY',
                 instructions: document.getElementById('checkout-special-instructions')?.value?.trim() || '',
                 special_instructions: document.getElementById('checkout-special-instructions')?.value?.trim() || ''
             });
@@ -1306,4 +1475,29 @@ window.pageInits.checkout = function () {
             }
         });
     }
+};
+
+
+window.switchOrderMode = function(mode) {
+    window.activeCheckoutOrderMode = mode;
+    const isTakeaway = (mode === 'TAKEAWAY');
+
+    const delBtn = document.getElementById('mode-btn-delivery');
+    const takBtn = document.getElementById('mode-btn-takeaway');
+    if (delBtn && takBtn) {
+        if (isTakeaway) {
+            takBtn.className = 'flex-1 py-3 px-3 sm:px-4 rounded-2xl font-black text-xs sm:text-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 transition-all cursor-pointer bg-emerald-600 text-white shadow-md ring-2 ring-emerald-500/50';
+            delBtn.className = 'flex-1 py-3 px-3 sm:px-4 rounded-2xl font-black text-xs sm:text-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 transition-all cursor-pointer bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 text-slate-700';
+        } else {
+            delBtn.className = 'flex-1 py-3 px-3 sm:px-4 rounded-2xl font-black text-xs sm:text-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 transition-all cursor-pointer bg-blue-600 text-white shadow-md ring-2 ring-blue-500/50';
+            takBtn.className = 'flex-1 py-3 px-3 sm:px-4 rounded-2xl font-black text-xs sm:text-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 transition-all cursor-pointer bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 text-slate-700';
+        }
+    }
+
+    const addrCard = document.getElementById('checkout-delivery-address-card');
+    const pickupCard = document.getElementById('checkout-store-pickup-card');
+    if (addrCard) addrCard.classList.toggle('hidden', isTakeaway);
+    if (pickupCard) pickupCard.classList.toggle('hidden', !isTakeaway);
+
+    if (typeof updateCheckoutDOMBill === 'function') updateCheckoutDOMBill();
 };

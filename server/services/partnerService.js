@@ -654,6 +654,11 @@ class PartnerService {
         let onlineCollection = 0;
         let productCosts = 0;
         let cancelledAmount = 0;
+        let deliveryOrdersCount = 0;
+        let takeawayOrdersCount = 0;
+        let deliveryRevenue = 0;
+        let takeawayRevenue = 0;
+        let takeawayFees = 0;
 
         const hostelBreakdown = {};
         if (targetHostels) {
@@ -663,6 +668,10 @@ class PartnerService {
                     total_orders: 0,
                     completed_orders: 0,
                     cancelled_orders: 0,
+                    delivery_orders: 0,
+                    takeaway_orders: 0,
+                    delivery_revenue: 0,
+                    takeaway_revenue: 0,
                     revenue: 0,
                     cash_collection: 0,
                     online_collection: 0,
@@ -685,6 +694,10 @@ class PartnerService {
                     total_orders: 0,
                     completed_orders: 0,
                     cancelled_orders: 0,
+                    delivery_orders: 0,
+                    takeaway_orders: 0,
+                    delivery_revenue: 0,
+                    takeaway_revenue: 0,
                     revenue: 0,
                     cash_collection: 0,
                     online_collection: 0,
@@ -723,6 +736,20 @@ class PartnerService {
             hEntry.completed_orders += 1;
             grossRevenue += orderTotal;
             hEntry.revenue += orderTotal;
+
+            const isTakeaway = (order.order_mode || '').toUpperCase() === 'TAKEAWAY';
+            if (isTakeaway) {
+                takeawayOrdersCount += 1;
+                takeawayRevenue += orderTotal;
+                takeawayFees += Number(order.takeaway_fee || 0);
+                hEntry.takeaway_orders = (hEntry.takeaway_orders || 0) + 1;
+                hEntry.takeaway_revenue = (hEntry.takeaway_revenue || 0) + orderTotal;
+            } else {
+                deliveryOrdersCount += 1;
+                deliveryRevenue += orderTotal;
+                hEntry.delivery_orders = (hEntry.delivery_orders || 0) + 1;
+                hEntry.delivery_revenue = (hEntry.delivery_revenue || 0) + orderTotal;
+            }
 
             // Payment method breakdown
             const payMethod = String(order.payment_method || '').toLowerCase();
@@ -789,6 +816,11 @@ class PartnerService {
             completed_orders: deliveredOrdersCount,
             cancelled_orders: cancelledOrdersCount,
             pending_orders: pendingOrdersCount,
+            delivery_orders: deliveryOrdersCount,
+            takeaway_orders: takeawayOrdersCount,
+            delivery_revenue: Math.round(deliveryRevenue * 100) / 100,
+            takeaway_revenue: Math.round(takeawayRevenue * 100) / 100,
+            takeaway_fees: Math.round(takeawayFees * 100) / 100,
             gross_revenue: Math.round(grossRevenue * 100) / 100,
             cash_collection: Math.round(cashCollection * 100) / 100,
             online_collection: Math.round(onlineCollection * 100) / 100,

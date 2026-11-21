@@ -1900,7 +1900,7 @@ const supabaseDb = {
                 });
 
                 try {
-                    this.saveOrderSnapshot(orderId, itemSnapshots, cleanHostel);
+                    this.saveOrderSnapshot(orderId, itemSnapshots, cleanHostel, orderPayload);
                 } catch (snapErr) {
                     console.warn('[Order Snapshot Save Warning]:', snapErr.message);
                 }
@@ -1931,7 +1931,7 @@ const supabaseDb = {
             });
         },
 
-        saveOrderSnapshot(orderId, itemSnapshots, hostelId = null) {
+        saveOrderSnapshot(orderId, itemSnapshots, hostelId = null, extraMeta = {}) {
             try {
                 const snapshotsPath = path.join(__dirname, '..', 'data', 'order_snapshots.json');
                 let existingSnapshots = {};
@@ -1947,6 +1947,13 @@ const supabaseDb = {
                     order_id: orderId,
                     hostel_id: hostelId || (existingSnapshots[orderId]?.hostel_id) || null,
                     created_at: existingSnapshots[orderId]?.created_at || new Date().toISOString(),
+                    order_mode: extraMeta.order_mode || existingSnapshots[orderId]?.order_mode || 'DELIVERY',
+                    takeaway_fee: extraMeta.takeaway_fee !== undefined ? extraMeta.takeaway_fee : (existingSnapshots[orderId]?.takeaway_fee || 0),
+                    pickup_store_name: extraMeta.pickup_store_name || existingSnapshots[orderId]?.pickup_store_name || null,
+                    pickup_address: extraMeta.pickup_address || existingSnapshots[orderId]?.pickup_address || null,
+                    pickup_contact: extraMeta.pickup_contact || existingSnapshots[orderId]?.pickup_contact || null,
+                    pickup_maps_url: extraMeta.pickup_maps_url || existingSnapshots[orderId]?.pickup_maps_url || null,
+                    pickup_hours: extraMeta.pickup_hours || existingSnapshots[orderId]?.pickup_hours || null,
                     items: itemSnapshots,
                     stock_restored: existingSnapshots[orderId]?.stock_restored || false
                 };
@@ -2097,11 +2104,19 @@ const supabaseDb = {
                 };
             });
 
+            const isTakeaway = snapshot?.order_mode === 'TAKEAWAY' || /\[takeaway\]/i.test(order.delivery_address || '');
             return {
                 ...order,
                 hostel_id: hId,
-                rider_name: humanRiderName,
+                rider_name: isTakeaway ? 'Store Counter (Self Pickup)' : humanRiderName,
                 delivery_assignment: deliveryMeta,
+                order_mode: isTakeaway ? 'TAKEAWAY' : 'DELIVERY',
+                takeaway_fee: snapshot?.takeaway_fee !== undefined ? snapshot.takeaway_fee : (isTakeaway ? (order.delivery_fee || 0) : 0),
+                pickup_store_name: snapshot?.pickup_store_name || null,
+                pickup_address: snapshot?.pickup_address || null,
+                pickup_contact: snapshot?.pickup_contact || null,
+                pickup_maps_url: snapshot?.pickup_maps_url || null,
+                pickup_hours: snapshot?.pickup_hours || null,
                 items: enrichedItems
             };
         },

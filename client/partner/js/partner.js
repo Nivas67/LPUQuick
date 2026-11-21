@@ -284,7 +284,10 @@ function renderHostelMatrix(breakdown) {
                     <span class="w-2 h-2 rounded-full bg-blue-600"></span>
                     <span>${item.hostel_id}</span>
                 </td>
-                <td class="font-bold text-slate-700">${item.completed_orders} / ${item.total_orders}</td>
+                <td class="font-bold text-slate-700">
+                    ${item.completed_orders} / ${item.total_orders}
+                    <span class="block text-[10px] text-slate-400 font-normal">🛵 ${item.delivery_orders || 0} Del • 🛍️ ${item.takeaway_orders || 0} Tak</span>
+                </td>
                 <td class="font-black text-[#0066cc]">${formatCurrency(item.revenue)}</td>
                 <td class="text-emerald-700 font-bold">${formatCurrency(item.cash_collection)}</td>
                 <td class="text-blue-700 font-bold">${formatCurrency(item.online_collection)}</td>

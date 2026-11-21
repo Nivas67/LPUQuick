@@ -488,7 +488,8 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
                 console.warn('[Admin Orders Food Detection Note]:', fErr.message);
             }
 
-            // 3. Fast in-memory assembly
+            // 3. Fast in-memory assembly with Takeaway & Order Mode snapshot resolution
+            const orderSnapshots = supabaseDb.orders.getAllOrderSnapshots();
             let enriched = orders.map(order => {
                 const user = userMap.get(order.user_id);
                 const customerName = resolveOrderCustomerName(order, user);
@@ -505,23 +506,33 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
                     ? resolvedFoodItems.map(i => `${i.name} (x${i.quantity})`).join(', ')
                     : (order.delivery_address || 'Campus items');
 
+                const snap = orderSnapshots[order.id] || null;
+                const isTakeaway = snap?.order_mode === 'TAKEAWAY' || /\[takeaway\]/i.test(order.delivery_address || '');
+
                 return {
                     id: order.id,
                     hostel_id: hId,
                     user_id: order.user_id,
                     status: meta?.status || order.status || 'Order Placed',
+                    order_mode: isTakeaway ? 'TAKEAWAY' : 'DELIVERY',
                     subtotal: order.subtotal || 0,
-                    delivery_fee: order.delivery_fee || 0,
+                    delivery_fee: isTakeaway ? 0 : (order.delivery_fee || 0),
                     platform_fee: order.platform_fee || 0,
+                    takeaway_fee: snap?.takeaway_fee !== undefined ? snap.takeaway_fee : (isTakeaway ? (order.delivery_fee || 2) : 0),
                     tax: order.tax || 0,
                     total: order.total || 0,
                     payment_method: order.payment_method || 'Pay on Delivery',
                     payment_status: order.payment_status || 'pending',
-                    rider_name: deliveryInfo.assigned_to_name || (deliveryInfo.is_claimed ? 'Assigned Rider' : 'Unassigned'),
+                    rider_name: isTakeaway ? 'Store Counter (Self Pickup)' : (deliveryInfo.assigned_to_name || (deliveryInfo.is_claimed ? 'Assigned Rider' : 'Unassigned')),
                     delivery_assignment: deliveryInfo,
                     rider_lat: order.rider_lat || 31.2560,
                     rider_lng: order.rider_lng || 75.7030,
                     delivery_address: order.delivery_address || 'BH13 Hostels',
+                    pickup_store_name: snap?.pickup_store_name || null,
+                    pickup_address: snap?.pickup_address || null,
+                    pickup_contact: snap?.pickup_contact || null,
+                    pickup_maps_url: snap?.pickup_maps_url || null,
+                    pickup_hours: snap?.pickup_hours || null,
                     created_at: order.created_at,
                     customer_name: customerName,
                     customer_phone: customerPhone,

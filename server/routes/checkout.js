@@ -5,6 +5,7 @@ const supabaseDb = require('../db/supabaseDb');
 const { broadcastOrderPlaced, broadcastInventoryUpdate } = require('../realtime');
 const cache = require('../cache');
 const checkoutSettingsService = require('../services/checkoutSettingsService');
+const orderModeService = require('../services/orderModeService');
 
 // In-Process Concurrency Mutex for Checkout Idempotency & Duplicate Order Prevention
 const checkoutLocks = new Map();
@@ -139,18 +140,29 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
         console.warn('[Checkout Guard Warning]:', guardErr.message);
     }
 
-    // Strict Address Check: Must be non-empty and explicitly contain a room number or designated Gate drop point
-    if (!deliveryAddress || typeof deliveryAddress !== 'string' || deliveryAddress.trim().length < 5 || 
-        deliveryAddress.includes('Please set') || 
-        deliveryAddress.includes('Room null') || 
-        deliveryAddress.includes('Room undefined')) {
-        return res.status(400).json({ error: 'Hostel delivery address is required. Please set your hostel room number before placing an order.' });
-    }
+    // Order Mode Resolution: 'DELIVERY' | 'TAKEAWAY'
+    const requestedOrderMode = String(req.body.order_mode || req.body.orderMode || 'DELIVERY').trim().toUpperCase();
+    const orderMode = requestedOrderMode === 'TAKEAWAY' ? 'TAKEAWAY' : 'DELIVERY';
 
-    const isMainGateDrop = /(gate|main\s*gate)/i.test(deliveryAddress) || /(gate|main\s*gate)/i.test(req.body.hostel_id || '');
-    const hasRoomNumber = isMainGateDrop || /Room\s*[a-zA-Z0-9\-]+/i.test(deliveryAddress) || /Flat\s*[a-zA-Z0-9\-]+/i.test(deliveryAddress);
-    if (!hasRoomNumber) {
-        return res.status(400).json({ error: 'Valid hostel room number is required (e.g., BH13 (Block A), Room 304).' });
+    // Strict Address Check for Delivery Orders: Must be non-empty and explicitly contain a room number
+    if (orderMode === 'DELIVERY') {
+        if (!deliveryAddress || typeof deliveryAddress !== 'string' || deliveryAddress.trim().length < 5 || 
+            deliveryAddress.includes('Please set') || 
+            deliveryAddress.includes('Room null') || 
+            deliveryAddress.includes('Room undefined')) {
+            return res.status(400).json({ error: 'Hostel delivery address is required. Please set your hostel room number before placing an order.' });
+        }
+
+        const isMainGateDrop = /(gate|main\s*gate)/i.test(deliveryAddress) || /(gate|main\s*gate)/i.test(req.body.hostel_id || '');
+        const hasRoomNumber = isMainGateDrop || /Room\s*[a-zA-Z0-9\-]+/i.test(deliveryAddress) || /Flat\s*[a-zA-Z0-9\-]+/i.test(deliveryAddress);
+        if (!hasRoomNumber) {
+            return res.status(400).json({ error: 'Valid hostel room number is required (e.g., BH13 (Block A), Room 304).' });
+        }
+    } else {
+        // Takeaway Orders: Address defaults to store pickup if empty
+        if (!deliveryAddress || typeof deliveryAddress !== 'string' || deliveryAddress.trim().length < 3) {
+            deliveryAddress = `[${candidateHostel}] Takeaway from Store`;
+        }
     }
 
     try {
@@ -267,6 +279,26 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
         }
 
         const checkoutSettings = await checkoutSettingsService.getSettings();
+        const storeModeSettings = await orderModeService.getStoreSettings(targetHostelId);
+
+        // Strict Backend Order Mode Validation: Ensure chosen mode is enabled
+        if (orderMode === 'DELIVERY' && !storeModeSettings.delivery_enabled) {
+            return res.status(400).json({
+                success: false,
+                error: 'DELIVERY_DISABLED',
+                code: 'DELIVERY_DISABLED',
+                message: `Home Delivery is currently disabled for ${targetHostelId}. Please choose Takeaway from Store.`
+            });
+        }
+        if (orderMode === 'TAKEAWAY' && !storeModeSettings.takeaway_enabled) {
+            return res.status(400).json({
+                success: false,
+                error: 'TAKEAWAY_DISABLED',
+                code: 'TAKEAWAY_DISABLED',
+                message: `Takeaway from Store is currently disabled for ${targetHostelId}. Please choose Home Delivery.`
+            });
+        }
+
         const subtotal = orderItems.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 1)), 0);
         const MIN_ORDER_VALUE = Number(checkoutSettings.min_cart_value) || 35;
         if (subtotal < MIN_ORDER_VALUE) {
@@ -276,20 +308,33 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
         }
 
         const pricingBreakdown = checkoutSettingsService.calculateCharges(orderItems, checkoutSettings);
-        const handlingFee = pricingBreakdown.platform_fee;
-        const deliveryFee = pricingBreakdown.delivery_fee;
         const discountVal = pricingBreakdown.global_discount;
-        const total = pricingBreakdown.total;
+        let handlingFee = pricingBreakdown.platform_fee;
+        let deliveryFee = pricingBreakdown.delivery_fee;
+        let total = pricingBreakdown.total;
+        let takeawayFee = 0;
+
+        if (orderMode === 'TAKEAWAY') {
+            // STRICT RULE: Never apply delivery charges to takeaway orders!
+            deliveryFee = 0;
+            handlingFee = 0;
+            takeawayFee = await orderModeService.calculateTakeawayFee(subtotal - discountVal, targetHostelId);
+            // STRICT BILL FORMULA: Food Subtotal - Discounts + Takeaway Maintenance Fee = Final Amount
+            total = Math.max(0, (subtotal - discountVal) + takeawayFee);
+        } else {
+            // STRICT RULE: Never apply takeaway maintenance fees to delivery orders!
+            takeawayFee = 0;
+        }
 
         const orderId = customOrderId || `order_${uuidv4().slice(0, 8)}`;
         const initialStatus = 'Order Placed';
-        const rider = 'Alex';
+        const rider = orderMode === 'TAKEAWAY' ? 'Store Counter (Self Pickup)' : 'Alex';
         let method = paymentMethod || 'Pay on Delivery';
         if (/^cash(\s*on\s*delivery)?$/i.test(method) || /^cod$/i.test(method)) {
             method = 'Pay on Delivery';
         }
         let address = deliveryAddress.trim();
-        if (!address.toUpperCase().startsWith(`[${targetHostelId}]`)) {
+        if (orderMode === 'DELIVERY' && !address.toUpperCase().startsWith(`[${targetHostelId}]`)) {
             address = `[${targetHostelId}] ${address.replace(/^\[(BH|GH)[-\s]?\d+\]\s*/i, '')}`;
         }
 
@@ -332,13 +377,15 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
         })();
 
         let normalizedDeliveryAddress = address;
-        if (targetHostelId && !normalizedDeliveryAddress.includes(`[${targetHostelId}]`)) {
+        if (orderMode === 'TAKEAWAY') {
+            normalizedDeliveryAddress = `[${targetHostelId}] [Takeaway] Store Pickup: ${storeModeSettings.name} · ${storeModeSettings.address}`;
+        } else if (targetHostelId && !normalizedDeliveryAddress.includes(`[${targetHostelId}]`)) {
             normalizedDeliveryAddress = `[${targetHostelId}] ${normalizedDeliveryAddress}`;
         }
 
         const foodOrderService = require('../services/foodOrderService');
         const isFoodOrder = orderItems.some(it => foodOrderService.isFoodProduct(it));
-        const estimatedDeliveryMins = isFoodOrder ? 11 : 5;
+        const estimatedDeliveryMins = orderMode === 'TAKEAWAY' ? (isFoodOrder ? 8 : 4) : (isFoodOrder ? 11 : 5);
 
         const orderPayload = {
             id: orderId,
@@ -348,15 +395,22 @@ async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMet
             customer_phone: customerPhone,
             customer_email: customerEmail,
             status: initialStatus,
+            order_mode: orderMode,
             subtotal,
             delivery_fee: deliveryFee,
             platform_fee: handlingFee,
+            takeaway_fee: takeawayFee,
             tax: 0,
             total,
             payment_method: method,
             payment_status: 'pending',
             rider_name: rider,
             delivery_address: normalizedDeliveryAddress,
+            pickup_store_name: storeModeSettings.name,
+            pickup_address: storeModeSettings.address,
+            pickup_contact: storeModeSettings.phone,
+            pickup_maps_url: storeModeSettings.maps_url,
+            pickup_hours: storeModeSettings.hours,
             is_food_order: isFoodOrder,
             estimated_delivery_mins: estimatedDeliveryMins
         };

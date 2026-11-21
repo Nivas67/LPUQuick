@@ -20,7 +20,7 @@
 function isDelivered(status) {
     if (!status) return false;
     const s = String(status).trim().toLowerCase();
-    return s === 'delivered' || s === 'completed';
+    return s === 'delivered' || s === 'completed' || s === 'collected';
 }
 
 /**

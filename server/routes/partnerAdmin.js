@@ -250,9 +250,22 @@ router.get('/meta/hostels-matrix', async (req, res) => {
         const supabase = getSupabaseClient();
         let campusHostels = [];
         try {
-            const { data } = await supabase.from('hostels').select('id, name');
-            if (Array.isArray(data)) campusHostels = data;
+            if (supabase) {
+                const { data } = await supabase.from('hostels').select('id, name');
+                if (Array.isArray(data) && data.length > 0) campusHostels = data;
+            }
         } catch (e) {}
+
+        if (campusHostels.length === 0) {
+            try {
+                const fs = require('fs');
+                const path = require('path');
+                const localHostelsPath = path.join(__dirname, '..', 'data', 'hostels.json');
+                if (fs.existsSync(localHostelsPath)) {
+                    campusHostels = JSON.parse(fs.readFileSync(localHostelsPath, 'utf8'));
+                }
+            } catch (le) {}
+        }
 
         const partners = await partnerService.getAllPartners();
 

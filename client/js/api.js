@@ -811,6 +811,7 @@ const api = {
                         customerName: savedName,
                         customerEmail: savedEmail,
                         hostel_id: extraData.hostel_id || window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13',
+                        order_mode: extraData.order_mode || 'DELIVERY',
                         instructions: extraData.instructions || extraData.special_instructions || '',
                         special_instructions: extraData.instructions || extraData.special_instructions || '',
                         items
@@ -854,6 +855,16 @@ const api = {
             body: JSON.stringify({ orderId, status })
         });
         return res.json();
+    },
+
+    async getOrderModeStatus(hostelId = 'BH-13') {
+        try {
+            const res = await fetch(`${API_BASE}/order-mode/status?hostel_id=${encodeURIComponent(hostelId)}`);
+            const json = await res.json();
+            return json.data || null;
+        } catch (e) {
+            return null;
+        }
     },
 
     clearProductsCache() {
