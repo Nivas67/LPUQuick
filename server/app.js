@@ -259,13 +259,8 @@ const staticOptions = {
 
 app.use('/uploads', express.static(path.join(__dirname, '..', 'public', 'uploads'), staticOptions));
 app.use('/uploads', express.static(path.join(__dirname, '..', 'client', 'uploads'), staticOptions));
-app.use('/ad-new', express.static(path.join(__dirname, '..', 'admin'), staticOptions));
+app.use(['/ad-new', '/admin'], express.static(path.join(__dirname, '..', 'admin'), staticOptions));
 app.use('/partner', express.static(path.join(__dirname, '..', 'public', 'partner'), staticOptions));
-
-// Explicitly block legacy /admin path (changed to /ad-new)
-app.all(['/admin', '/admin/*'], (req, res) => {
-    res.status(404).send('Not Found');
-});
 app.use(express.static(path.join(__dirname, '..', 'client'), staticOptions));
 app.use(express.static(path.join(__dirname, '..', 'public'), staticOptions));
 
@@ -374,7 +369,7 @@ app.get(['/partner', '/partner/*'], (req, res) => {
 });
 
 // Admin portal route
-app.get(['/ad-new', '/ad-new/*', '/admin*'], (req, res) => {
+app.get(['/ad-new', '/ad-new/*', '/admin', '/admin/*'], (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'admin', 'index.html'));
 });
 

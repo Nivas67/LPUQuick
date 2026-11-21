@@ -212,18 +212,6 @@
       ]
     }
   ],
-  "redirects": [
-    {
-      "source": "/admin",
-      "destination": "/",
-      "permanent": false
-    },
-    {
-      "source": "/admin/:path*",
-      "destination": "/",
-      "permanent": false
-    }
-  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
@@ -302,6 +290,26 @@
       "destination": "/admin/index.html"
     },
     {
+      "source": "/admin/css/(.*)",
+      "destination": "/admin/css/$1"
+    },
+    {
+      "source": "/admin/js/(.*)",
+      "destination": "/admin/js/$1"
+    },
+    {
+      "source": "/admin/(.*)\\.(png|jpg|jpeg|svg|ico|webp|woff2|mp3)",
+      "destination": "/admin/$1.$2"
+    },
+    {
+      "source": "/admin/(.*)",
+      "destination": "/admin/index.html"
+    },
+    {
+      "source": "/admin",
+      "destination": "/admin/index.html"
+    },
+    {
       "source": "/partner/css/(.*)",
       "destination": "/public/partner/css/$1"
     },
@@ -354,7 +362,7 @@
       "destination": "/client/$1.$2"
     },
     {
-      "source": "/((?!api/|ad-new/|partner/).*)",
+      "source": "/((?!api/|ad-new/|admin/|partner/).*)",
       "destination": "/client/index.html"
     }
   ]
