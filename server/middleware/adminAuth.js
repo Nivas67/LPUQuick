@@ -41,7 +41,7 @@ async function syncSessionRevocationEpoch() {
 syncSessionRevocationEpoch().catch(() => {});
 
 function getSessionRevocationEpoch() {
-    if (Date.now() - _epochLastFetched > 15000) {
+    if (Date.now() - _epochLastFetched > 60000) {
         _epochLastFetched = Date.now();
         syncSessionRevocationEpoch().catch(() => {});
     }

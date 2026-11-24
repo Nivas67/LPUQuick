@@ -24,7 +24,7 @@ const DEFAULT_SETTINGS = {
 
 let cachedSettings = null;
 let lastCacheTime = 0;
-const CACHE_TTL_MS = 10000; // 10 seconds cache
+const CACHE_TTL_MS = 60000; // 60 seconds cache (mutations update cache immediately)
 
 /**
  * Normalizes and sanitizes settings object ensuring all fields are valid, finite numbers or booleans.
@@ -150,7 +150,7 @@ async function getSettings(forceFresh = false) {
                     });
                     cachedSettings = clean;
                     lastCacheTime = now;
-                    saveToDisk(clean);
+                    if (!process.env.VERCEL) saveToDisk(clean);
                     return clean;
                 } catch (parseErr) {
                     console.warn('[checkoutSettingsService] JSON parse error from Supabase:', parseErr.message);

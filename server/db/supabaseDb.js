@@ -310,7 +310,6 @@ const supabaseDb = {
             const isCampus = cleanOrigin === 'BH13' || cleanOrigin === 'ALL' || cleanOrigin === 'CAMPUS';
 
             let image_url = p.image_url;
-            const localUploads = getLocalUploadsSet();
             const supabaseBaseUrl = process.env.SUPABASE_URL || 'https://yojndzstlilzlkxonmvd.supabase.co';
 
             if (process.env.VERCEL) {
@@ -320,6 +319,7 @@ const supabaseDb = {
                     image_url = `${supabaseBaseUrl}/storage/v1/object/public/products/${filename}`;
                 }
             } else {
+                const localUploads = getLocalUploadsSet();
                 if (image_url && image_url.includes('supabase.co/storage/v1/object/public/products/')) {
                     const filename = image_url.split('/').pop().split('?')[0];
                     if (localUploads.has(filename)) {
@@ -397,7 +397,7 @@ const supabaseDb = {
         async getAll({ includeInactive = false, category, subcategory, sort, hostel_id, force = false } = {}) {
             const cleanHostel = (hostel_id && hostel_id !== 'all' && hostel_id !== 'ALL') ? String(hostel_id).trim().toUpperCase() : null;
             const cacheKey = `products:${cleanHostel || 'all'}:${category || 'all'}:${subcategory || 'all'}:${sort || 'default'}:${includeInactive}`;
-            const isFreshRequired = Boolean(force || includeInactive);
+            const isFreshRequired = Boolean(force);
             if (isFreshRequired) {
                 cache.delete(cacheKey);
             }
@@ -1046,46 +1046,48 @@ const supabaseDb = {
         },
 
         async getAllHostelInventories() {
-            const result = {};
+            return await cache.wrap('inventory:all', async () => {
+                const result = {};
 
-            // 1. Populate from memory cache
-            for (const [hostel, inv] of this._memoryHostelInventory.entries()) {
-                result[hostel] = inv;
-            }
-
-            // 2. Fallback to local file
-            const fileData = this._loadLocalFile();
-            for (const [hostel, inv] of Object.entries(fileData)) {
-                if (!result[hostel]) result[hostel] = inv;
-            }
-
-            // 3. Supabase app_availability table (authoritative single source of truth)
-            const supabase = getSupabaseClient();
-            if (supabase) {
-                try {
-                    const { data, error } = await supabase
-                        .from('app_availability')
-                        .select('id, message')
-                        .like('id', 'inventory_%');
-
-                    if (!error && Array.isArray(data)) {
-                        for (const row of data) {
-                            const rawHostel = row.id.replace(/^inventory_/, '').replace(/_/g, '-');
-                            const normHostel = this._normalizeHostelId(rawHostel);
-                            try {
-                                const parsed = JSON.parse(row.message);
-                                if (parsed && typeof parsed === 'object') {
-                                    result[normHostel] = parsed;
-                                    this._memoryHostelInventory.set(normHostel, parsed);
-                                }
-                            } catch (e) {}
-                        }
-                    }
-                } catch (dbErr) {
-                    console.warn('[All Hostel Inventory Fetch Note]:', dbErr.message);
+                // 1. Populate from memory cache
+                for (const [hostel, inv] of this._memoryHostelInventory.entries()) {
+                    result[hostel] = inv;
                 }
-            }
-            return result;
+
+                // 2. Fallback to local file
+                const fileData = this._loadLocalFile();
+                for (const [hostel, inv] of Object.entries(fileData)) {
+                    if (!result[hostel]) result[hostel] = inv;
+                }
+
+                // 3. Supabase app_availability table (authoritative single source of truth)
+                const supabase = getSupabaseClient();
+                if (supabase) {
+                    try {
+                        const { data, error } = await supabase
+                            .from('app_availability')
+                            .select('id, message')
+                            .like('id', 'inventory_%');
+
+                        if (!error && Array.isArray(data)) {
+                            for (const row of data) {
+                                const rawHostel = row.id.replace(/^inventory_/, '').replace(/_/g, '-');
+                                const normHostel = this._normalizeHostelId(rawHostel);
+                                try {
+                                    const parsed = JSON.parse(row.message);
+                                    if (parsed && typeof parsed === 'object') {
+                                        result[normHostel] = parsed;
+                                        this._memoryHostelInventory.set(normHostel, parsed);
+                                    }
+                                } catch (e) {}
+                            }
+                        }
+                    } catch (dbErr) {
+                        console.warn('[All Hostel Inventory Fetch Note]:', dbErr.message);
+                    }
+                }
+                return result;
+            }, 30000);
         },
 
         async setProductStock(hostelId, productId, { stock_left, in_stock, deleted }) {
@@ -1931,17 +1933,24 @@ const supabaseDb = {
             });
         },
 
-        saveOrderSnapshot(orderId, itemSnapshots, hostelId = null, extraMeta = {}) {
+        _memoryOrderSnapshots: null,
+
+        getAllOrderSnapshots() {
+            if (this._memoryOrderSnapshots) return this._memoryOrderSnapshots;
             try {
                 const snapshotsPath = path.join(__dirname, '..', 'data', 'order_snapshots.json');
-                let existingSnapshots = {};
                 if (fs.existsSync(snapshotsPath)) {
-                    try {
-                        existingSnapshots = JSON.parse(fs.readFileSync(snapshotsPath, 'utf8'));
-                    } catch (e) {
-                        existingSnapshots = {};
-                    }
+                    this._memoryOrderSnapshots = JSON.parse(fs.readFileSync(snapshotsPath, 'utf8'));
+                    return this._memoryOrderSnapshots;
                 }
+            } catch (e) {}
+            this._memoryOrderSnapshots = {};
+            return this._memoryOrderSnapshots;
+        },
+
+        saveOrderSnapshot(orderId, itemSnapshots, hostelId = null, extraMeta = {}) {
+            try {
+                const existingSnapshots = this.getAllOrderSnapshots();
                 existingSnapshots[orderId] = {
                     ...(existingSnapshots[orderId] || {}),
                     order_id: orderId,
@@ -1957,9 +1966,14 @@ const supabaseDb = {
                     items: itemSnapshots,
                     stock_restored: existingSnapshots[orderId]?.stock_restored || false
                 };
-                const dir = path.dirname(snapshotsPath);
-                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-                fs.writeFileSync(snapshotsPath, JSON.stringify(existingSnapshots, null, 2), 'utf8');
+                if (!process.env.VERCEL) {
+                    try {
+                        const snapshotsPath = path.join(__dirname, '..', 'data', 'order_snapshots.json');
+                        const dir = path.dirname(snapshotsPath);
+                        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                        fs.writeFileSync(snapshotsPath, JSON.stringify(existingSnapshots, null, 2), 'utf8');
+                    } catch (fsErr) {}
+                }
 
                 // Mirror into audit_logs asynchronously
                 const supabase = getSupabaseClient();
@@ -1979,24 +1993,7 @@ const supabaseDb = {
         },
 
         getOrderSnapshot(orderId) {
-            try {
-                const snapshotsPath = path.join(__dirname, '..', 'data', 'order_snapshots.json');
-                if (fs.existsSync(snapshotsPath)) {
-                    const data = JSON.parse(fs.readFileSync(snapshotsPath, 'utf8'));
-                    return data[orderId] || null;
-                }
-            } catch (e) {}
-            return null;
-        },
-
-        getAllOrderSnapshots() {
-            try {
-                const snapshotsPath = path.join(__dirname, '..', 'data', 'order_snapshots.json');
-                if (fs.existsSync(snapshotsPath)) {
-                    return JSON.parse(fs.readFileSync(snapshotsPath, 'utf8'));
-                }
-            } catch (e) {}
-            return {};
+            return this.getAllOrderSnapshots()[orderId] || null;
         },
 
         _restockedOrdersSet: new Set(),
@@ -2018,23 +2015,20 @@ const supabaseDb = {
             if (!orderId) return;
             this._restockedOrdersSet.add(orderId);
             try {
-                const snapshotsPath = path.join(__dirname, '..', 'data', 'order_snapshots.json');
-                let existingSnapshots = {};
-                if (fs.existsSync(snapshotsPath)) {
-                    try {
-                        existingSnapshots = JSON.parse(fs.readFileSync(snapshotsPath, 'utf8'));
-                    } catch (e) {
-                        existingSnapshots = {};
-                    }
-                }
+                const existingSnapshots = this.getAllOrderSnapshots();
                 if (!existingSnapshots[orderId]) {
                     existingSnapshots[orderId] = { order_id: orderId };
                 }
                 existingSnapshots[orderId].stock_restored = true;
                 existingSnapshots[orderId].restocked_at = new Date().toISOString();
-                const dir = path.dirname(snapshotsPath);
-                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-                fs.writeFileSync(snapshotsPath, JSON.stringify(existingSnapshots, null, 2), 'utf8');
+                if (!process.env.VERCEL) {
+                    try {
+                        const snapshotsPath = path.join(__dirname, '..', 'data', 'order_snapshots.json');
+                        const dir = path.dirname(snapshotsPath);
+                        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                        fs.writeFileSync(snapshotsPath, JSON.stringify(existingSnapshots, null, 2), 'utf8');
+                    } catch (fsErr) {}
+                }
             } catch (err) {
                 console.warn('[Mark Restocked Snapshot Warning]:', err.message);
             }
@@ -3075,12 +3069,17 @@ const supabaseDb = {
 
             // 5. Clean up snapshots
             try {
-                const snapshotsPath = path.join(__dirname, '..', 'data', 'order_snapshots.json');
-                if (fs.existsSync(snapshotsPath)) {
-                    const snaps = JSON.parse(fs.readFileSync(snapshotsPath, 'utf8'));
-                    if (snaps[orderId]) {
-                        delete snaps[orderId];
-                        fs.writeFileSync(snapshotsPath, JSON.stringify(snaps, null, 2), 'utf8');
+                if (this._memoryOrderSnapshots && this._memoryOrderSnapshots[orderId]) {
+                    delete this._memoryOrderSnapshots[orderId];
+                }
+                if (!process.env.VERCEL) {
+                    const snapshotsPath = path.join(__dirname, '..', 'data', 'order_snapshots.json');
+                    if (fs.existsSync(snapshotsPath)) {
+                        const snaps = JSON.parse(fs.readFileSync(snapshotsPath, 'utf8'));
+                        if (snaps[orderId]) {
+                            delete snaps[orderId];
+                            fs.writeFileSync(snapshotsPath, JSON.stringify(snaps, null, 2), 'utf8');
+                        }
                     }
                 }
             } catch (e) {}
@@ -3470,23 +3469,30 @@ const supabaseDb = {
 
         _memoryHostelAvailability: new Map(),
         _lockMetaFilePath: path.join(__dirname, '..', 'data', 'hostel_lock_meta.json'),
+        _memoryLockMeta: null,
 
         _loadLockMeta() {
+            if (this._memoryLockMeta) return this._memoryLockMeta;
             try {
                 if (fs.existsSync(this._lockMetaFilePath)) {
-                    return JSON.parse(fs.readFileSync(this._lockMetaFilePath, 'utf8'));
+                    this._memoryLockMeta = JSON.parse(fs.readFileSync(this._lockMetaFilePath, 'utf8'));
+                    return this._memoryLockMeta;
                 }
             } catch (e) {}
-            return {};
+            this._memoryLockMeta = {};
+            return this._memoryLockMeta;
         },
 
         _saveLockMeta(key, data) {
             try {
                 const current = this._loadLockMeta();
                 current[key] = { ...(current[key] || {}), ...data, updated_at: new Date().toISOString() };
-                const dir = path.dirname(this._lockMetaFilePath);
-                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-                fs.writeFileSync(this._lockMetaFilePath, JSON.stringify(current, null, 2), 'utf8');
+                this._memoryLockMeta = current;
+                if (!process.env.VERCEL) {
+                    const dir = path.dirname(this._lockMetaFilePath);
+                    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                    fs.writeFileSync(this._lockMetaFilePath, JSON.stringify(current, null, 2), 'utf8');
+                }
             } catch (e) {}
         },
 
@@ -3610,7 +3616,7 @@ const supabaseDb = {
                 this._memoryHostelAvailability.set(key, fetchedRecord);
                 if (key === 'store_main') this._memoryAvailability = { ...this._memoryAvailability, ...fetchedRecord };
                 return fetchedRecord;
-            }, 3000);
+            }, 30000);
         },
 
         async getStatus(hostelId = null) {

@@ -8,8 +8,10 @@ const clientSockets = new Set();
 const orderTrackingSockets = new Map(); // orderId -> Set of ws
 
 let globalSupabaseChannel = null;
+let statelessSupabaseChannel = null;
 
 function getSupabaseRealtimeChannel() {
+    if (process.env.VERCEL) return null; // Serverless: avoid persistent WS connections to save Fluid CPU & Realtime slots
     if (globalSupabaseChannel) return globalSupabaseChannel;
     try {
         const supabase = getSupabaseClient();
@@ -25,20 +27,44 @@ function getSupabaseRealtimeChannel() {
     return globalSupabaseChannel;
 }
 
-// Proactively initialize Supabase Cloud channel
-getSupabaseRealtimeChannel();
+// Proactively initialize Supabase Cloud persistent channel ONLY on persistent servers (never on Vercel Serverless)
+if (!process.env.VERCEL) {
+    getSupabaseRealtimeChannel();
+}
+
+function getStatelessSupabaseChannel() {
+    if (statelessSupabaseChannel) return statelessSupabaseChannel;
+    const supabase = getSupabaseClient();
+    if (supabase) {
+        statelessSupabaseChannel = supabase.channel('lpuquick_global_realtime');
+    }
+    return statelessSupabaseChannel;
+}
 
 function broadcastToSupabase(event, payload) {
     try {
-        const ch = getSupabaseRealtimeChannel();
-        if (ch) {
-            ch.send({
+        const persistentCh = !process.env.VERCEL ? getSupabaseRealtimeChannel() : null;
+        if (persistentCh && persistentCh.state === 'joined') {
+            persistentCh.send({
                 type: 'broadcast',
                 event,
                 payload
             }).catch(err => {
                 console.warn(`[Supabase Realtime Broadcast Warning] ${event}:`, err.message);
             });
+            return;
+        }
+
+        // Stateless REST broadcast via httpSend() — zero WebSocket overhead on Vercel Serverless / Fluid Compute
+        const ch = getStatelessSupabaseChannel();
+        if (ch) {
+            if (typeof ch.httpSend === 'function') {
+                ch.httpSend(event, payload).catch(() => {
+                    return ch.send({ type: 'broadcast', event, payload }).catch(() => {});
+                });
+            } else {
+                ch.send({ type: 'broadcast', event, payload }).catch(() => {});
+            }
         }
     } catch (e) {
         console.warn(`[Supabase Realtime Hub Error] ${event}:`, e.message);
@@ -265,7 +291,7 @@ function setupRealtime(server) {
     });
 
     // Heartbeat: keep all connections alive & prune dead sockets every 25s
-    setInterval(() => {
+    const wsHeartbeat = setInterval(() => {
         const pruneDead = (socketSet) => {
             socketSet.forEach(ws => {
                 if (ws.isAlive === false) {
@@ -280,6 +306,7 @@ function setupRealtime(server) {
         pruneDead(adminSockets);
         pruneDead(clientSockets);
     }, 25000);
+    if (wsHeartbeat && typeof wsHeartbeat.unref === 'function') wsHeartbeat.unref();
 }
 
 // High-Throughput Non-Blocking Chunked Dispatcher for 6,000+ Concurrent WebSockets
@@ -687,7 +714,20 @@ function broadcastFoodStatus(data) {
     try { broadcastToSupabase('FOOD_STATUS_UPDATE', JSON.parse(payload)); } catch(e) {}
 }
 
+// Generic broadcast helper (for partner portal & admin events)
+function broadcast(event, data = {}) {
+    const payload = JSON.stringify({
+        type: event,
+        ...data,
+        timestamp: new Date().toISOString()
+    });
+    chunkedBroadcast(adminSockets, payload);
+    chunkedBroadcast(clientSockets, payload);
+    try { broadcastToSupabase(event, JSON.parse(payload)); } catch(e) {}
+}
+
 module.exports = {
+    broadcast,
     broadcastFoodOrderPlaced: broadcastFoodOrder,
     broadcastFoodStatusUpdate: broadcastFoodStatus,
     setupRealtime,

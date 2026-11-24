@@ -90,16 +90,18 @@ app.use((req, res, next) => {
     next();
 });
 
-// Middleware: Compression with optimal chunk threshold
-const compression = require('compression');
-app.use(compression({
-    level: 6,
-    threshold: 512, // compress responses above 512 bytes for faster mobile loading
-    filter: (req, res) => {
-        if (req.headers['x-no-compression']) return false;
-        return compression.filter(req, res);
-    }
-}));
+// Middleware: Compression (Skip on Vercel Serverless — Vercel Edge Network compresses responses at 0 Fluid CPU cost)
+if (!process.env.VERCEL) {
+    const compression = require('compression');
+    app.use(compression({
+        level: 6,
+        threshold: 512, // compress responses above 512 bytes for faster mobile loading
+        filter: (req, res) => {
+            if (req.headers['x-no-compression']) return false;
+            return compression.filter(req, res);
+        }
+    }));
+}
 
 // Strict CORS: Allow recognized origins, mobile webviews, server-to-server, and local development (Req 13)
 const allowedOrigins = [
@@ -214,8 +216,8 @@ function sanitizeInput(data) {
 }
 
 app.use((req, res, next) => {
-    if (req.body) sanitizeInput(req.body);
-    if (req.query) sanitizeInput(req.query);
+    if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) sanitizeInput(req.body);
+    if (req.query && typeof req.query === 'object' && Object.keys(req.query).length > 0) sanitizeInput(req.query);
     next();
 });
 

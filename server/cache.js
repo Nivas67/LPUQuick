@@ -91,9 +91,10 @@ class HighConcurrencyCache {
         this.clearByPrefix('orders:');
         this.clearByPrefix('active_order:');
         this.clearByPrefix('analytics:');
+        this.clearByPrefix('partner:');
         this.clearByPrefix('home:');
         this.clearByPrefix('users:');
-        console.log('[Cache Engine] ⚡ Orders, Active Orders, Admin Analytics & Home feed cache atomically invalidated.');
+        console.log('[Cache Engine] ⚡ Orders, Active Orders, Admin Analytics, Partner & Home feed cache atomically invalidated.');
     }
 
     invalidateAvailability() {

@@ -2829,20 +2829,12 @@ async function router() {
     }
 }
 
-// Listen for tab focus to instantly refresh store availability
-if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
-    document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) {
-            window.syncStoreAvailability();
-        }
-    });
-}
-
-// Periodic background availability sync (every 60s when active)
+// Periodic background availability sync fallback (every 3m when tab active & Cloud Realtime unavailable)
 setInterval(() => {
     if (typeof document !== 'undefined' && document.hidden) return;
+    if (window.__clientSupabaseSubscribed) return;
     window.syncStoreAvailability();
-}, 60000);
+}, 180000);
 
 // ================= GLOBAL REAL-TIME CLIENT-ADMIN COORDINATION HUB =================
 let globalClientWs = null;
@@ -2850,15 +2842,22 @@ let clientWsReconnectTimer = null;
 let clientWsReconnectAttempts = 0;
 let clientWsPingInterval = null;
 let currentTrackedOrderId = null;
+let clientWsConsecutiveFailures = 0;
+let clientWsUnavailableOnHost = false;
+
+function isLocalClientWsHost() {
+    const h = (typeof location !== 'undefined' && location.hostname) ? location.hostname : '';
+    return /^(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)$/i.test(h);
+}
 
 // Fast Polling Fallback Engine (activates ONLY when WebSocket and Supabase are disconnected)
 let _clientPollTimer = null;
 let _clientPollActive = false;
 let _lastPollOrderStatus = null;
 let _lastPollStoreAvail = null;
-const CLIENT_POLL_FAST_MS = 5000;   // 5s for active in-progress order tracking (conserves 70%+ Vercel invocations)
-const CLIENT_POLL_IDLE_MS = 60000;  // 60s when user has no active order (saves 95%+ Vercel invocations)
-const CLIENT_POLL_STORE_MS = 45000; // 45s for store availability updates (conserves Vercel free tier)
+const CLIENT_POLL_FAST_MS = 10000;  // 10s for active in-progress order tracking when realtime is down
+const CLIENT_POLL_IDLE_MS = 120000; // 120s when user has no active order (saves 95%+ Vercel invocations)
+const CLIENT_POLL_STORE_MS = 90000; // 90s for store availability updates when realtime is down
 let _storePollTimer = null;
 
 function startClientPollingFallback() {
@@ -3188,6 +3187,10 @@ function dispatchClientRealtimeEvent(data) {
 async function initClientSupabaseRealtime() {
     try {
         if (typeof window === 'undefined') return;
+        // Do not tear down & resubscribe an active or connecting Supabase Realtime channel!
+        if (clientSupabaseChannel && (clientSupabaseChannel.state === 'joined' || clientSupabaseChannel.state === 'joining')) {
+            return;
+        }
         const createClientFn = window.supabase?.createClient || (typeof supabase !== 'undefined' ? supabase.createClient : null);
         if (!createClientFn) return;
 
@@ -3210,7 +3213,7 @@ async function initClientSupabaseRealtime() {
             clientSupabaseClient = createClientFn(cfg.supabaseUrl, cfg.supabaseAnonKey, {
                 realtime: {
                     params: {
-                        eventsPerSecond: 20
+                        eventsPerSecond: 10
                     }
                 }
             });
@@ -3233,37 +3236,41 @@ async function initClientSupabaseRealtime() {
             });
         });
 
-        // Postgres changes on orders table for real-time order status updates
-        clientSupabaseChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-            try {
-                const row = payload.new;
-                if (!row) return;
-                const myUid = window.CURRENT_USER_ID || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : null);
-                if (myUid && row.user_id && row.user_id !== myUid) {
-                    return; // Strict Isolation: Only process for the logged-in customer's own order
+        // Subscribe to Postgres WAL changes ONLY for signed-in users (saves Supabase DB WAL CPU on guest browsing)
+        if (window.isUserLoggedIn && window.isUserLoggedIn()) {
+            clientSupabaseChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+                try {
+                    const row = payload.new;
+                    if (!row) return;
+                    const myUid = window.CURRENT_USER_ID || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : null);
+                    if (myUid && row.user_id && row.user_id !== myUid) {
+                        return; // Strict Isolation: Only process for the logged-in customer's own order
+                    }
+                    if (payload.eventType === 'UPDATE') {
+                        dispatchClientRealtimeEvent({
+                            type: 'ORDER_STATUS_UPDATE',
+                            orderId: row.id,
+                            order_id: row.id,
+                            status: row.status,
+                            rider_name: row.rider_name || 'Alex'
+                        });
+                    }
+                } catch(e) {
+                    console.warn('[Client Supabase PG Changes Error]:', e);
                 }
-                if (payload.eventType === 'UPDATE') {
-                    dispatchClientRealtimeEvent({
-                        type: 'ORDER_STATUS_UPDATE',
-                        orderId: row.id,
-                        order_id: row.id,
-                        status: row.status,
-                        rider_name: row.rider_name || 'Alex'
-                    });
-                }
-            } catch(e) {
-                console.warn('[Client Supabase PG Changes Error]:', e);
-            }
-        });
+            });
+        }
 
         clientSupabaseChannel.subscribe((status) => {
             console.log(`[LPUQuick Client Supabase Realtime] Channel status: ${status}`);
             if (status === 'SUBSCRIBED') {
+                window.__clientSupabaseSubscribed = true;
                 // Supabase Cloud Realtime is active; stop redundant HTTP polling fallback to stay 100% within Vercel free limits
                 if (typeof stopClientPollingFallback === 'function') {
                     stopClientPollingFallback();
                 }
             } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                window.__clientSupabaseSubscribed = false;
                 if (typeof startClientPollingFallback === 'function') {
                     startClientPollingFallback();
                 }
@@ -3276,8 +3283,13 @@ async function initClientSupabaseRealtime() {
 
 // Global Client WebSocket Connection
 function initGlobalClientWebSocket() {
-    // Also proactively initialize Supabase Cloud Channel
+    // Initialize Supabase Cloud Channel once cleanly
     initClientSupabaseRealtime();
+
+    // Skip native /ws/client on serverless deployments (e.g. Vercel) to prevent infinite reconnect storms
+    if (!isLocalClientWsHost() || clientWsUnavailableOnHost) {
+        return;
+    }
 
     if (globalClientWs && (globalClientWs.readyState === WebSocket.OPEN || globalClientWs.readyState === WebSocket.CONNECTING)) {
         return;
@@ -3297,9 +3309,12 @@ function initGlobalClientWebSocket() {
     const wsUrl = `${protocol}//${location.host}/ws/client`;
 
     try {
+        let opened = false;
         globalClientWs = new WebSocket(wsUrl);
 
         globalClientWs.onopen = () => {
+            opened = true;
+            clientWsConsecutiveFailures = 0;
             console.log('[LPUQuick WS] ⚡ Connected to campus live stream.');
             clientWsReconnectAttempts = 0;
 
@@ -3334,18 +3349,27 @@ function initGlobalClientWebSocket() {
         globalClientWs.onclose = () => {
             globalClientWs = null;
             if (clientWsPingInterval) { clearInterval(clientWsPingInterval); clientWsPingInterval = null; }
+            if (!opened) {
+                clientWsConsecutiveFailures++;
+                if (clientWsConsecutiveFailures >= 2) {
+                    clientWsUnavailableOnHost = true;
+                }
+            }
 
-            // Activate fast polling fallback immediately when WS drops
-            startClientPollingFallback();
+            // Activate polling fallback ONLY if Cloud Realtime is also disconnected
+            if (!window.__clientSupabaseSubscribed) {
+                startClientPollingFallback();
+            }
 
-            // Continuous resilient reconnect with short exponential backoff (1.5s - 10s max)
-            const delay = Math.min(1500 * Math.max(1, clientWsReconnectAttempts), 10000);
-            clientWsReconnectAttempts = (clientWsReconnectAttempts + 1) % 20;
-            if (clientWsReconnectTimer) clearTimeout(clientWsReconnectTimer);
-            clientWsReconnectTimer = setTimeout(() => {
-                clientWsReconnectTimer = null;
-                initGlobalClientWebSocket();
-            }, delay);
+            if (!clientWsUnavailableOnHost) {
+                const delay = Math.min(2000 * Math.max(1, clientWsReconnectAttempts), 15000);
+                clientWsReconnectAttempts = (clientWsReconnectAttempts + 1) % 20;
+                if (clientWsReconnectTimer) clearTimeout(clientWsReconnectTimer);
+                clientWsReconnectTimer = setTimeout(() => {
+                    clientWsReconnectTimer = null;
+                    initGlobalClientWebSocket();
+                }, delay);
+            }
         };
 
         globalClientWs.onerror = () => {
@@ -3353,10 +3377,8 @@ function initGlobalClientWebSocket() {
         };
 
     } catch (e) {
-        // Activate polling fallback on connection failure
-        startClientPollingFallback();
-        if (!clientWsReconnectTimer) {
-            clientWsReconnectTimer = setTimeout(initGlobalClientWebSocket, 3000);
+        if (!window.__clientSupabaseSubscribed) {
+            startClientPollingFallback();
         }
     }
 }
@@ -3364,9 +3386,12 @@ function initGlobalClientWebSocket() {
 if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
     window.addEventListener('online', () => {
         console.log('[Client Network] 🌐 Reconnected to internet. Re-syncing live state...');
+        clientWsReconnectAttempts = 0;
+        if (clientWsReconnectTimer) { clearTimeout(clientWsReconnectTimer); clientWsReconnectTimer = null; }
         initGlobalClientWebSocket();
-        initClientSupabaseRealtime();
-        checkAndConnectGlobalOrderTracking();
+        if (window.isUserLoggedIn && window.isUserLoggedIn()) {
+            checkAndConnectGlobalOrderTracking();
+        }
         const activeHostel = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
         if (typeof window.syncStoreAvailability === 'function') {
             window.syncStoreAvailability(activeHostel);
@@ -4121,7 +4146,7 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
     window.addEventListener('DOMContentLoaded', bootstrapApp);
 }
 
-// Smart Background Sync (8s when an active order is being tracked, 45s when idle/no active order)
+// Smart Background Sync (20s when active order is tracked with Realtime [8s fallback]; 180s idle)
 let backgroundOrderSyncTimer = null;
 function scheduleBackgroundOrderSync(immediate = false) {
     if (backgroundOrderSyncTimer) clearTimeout(backgroundOrderSyncTimer);
@@ -4129,45 +4154,40 @@ function scheduleBackgroundOrderSync(immediate = false) {
         _runBackgroundOrderSync();
         return;
     }
-    const delay = currentTrackedOrderId ? 8000 : 45000;
+    const hasRealtime = Boolean(window.__clientSupabaseSubscribed || (globalClientWs && globalClientWs.readyState === WebSocket.OPEN));
+    const delay = currentTrackedOrderId
+        ? (hasRealtime ? 20000 : 8000)
+        : (hasRealtime ? 180000 : 90000);
     backgroundOrderSyncTimer = setTimeout(_runBackgroundOrderSync, delay);
 }
 
 async function _runBackgroundOrderSync() {
-    if (!document.hidden && window.isUserLoggedIn()) {
-        await checkAndConnectGlobalOrderTracking();
+    if (!document.hidden && window.isUserLoggedIn && window.isUserLoggedIn()) {
+        if (currentTrackedOrderId || !window.__clientSupabaseSubscribed) {
+            await checkAndConnectGlobalOrderTracking();
+        }
     }
     scheduleBackgroundOrderSync();
 }
 scheduleBackgroundOrderSync();
 
-// Aggressive Visibility & Network Reconnect Hooks
+// Debounced Visibility Hook (prevents spam on rapid tab switches)
+let _lastVisibilitySyncAt = 0;
 document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
-        // Tab became active — immediately check WS health and reconnect if dead
-        if (!globalClientWs || globalClientWs.readyState !== WebSocket.OPEN) {
-            console.log('[LPUQuick WS] 🔄 Tab active — reconnecting WS...');
-            clientWsReconnectAttempts = 0; // Reset backoff on user return
-            if (clientWsReconnectTimer) { clearTimeout(clientWsReconnectTimer); clientWsReconnectTimer = null; }
+        const now = Date.now();
+        if (now - _lastVisibilitySyncAt < 15000) return;
+        _lastVisibilitySyncAt = now;
+
+        if (!window.__clientSupabaseSubscribed) {
             initGlobalClientWebSocket();
         }
-        if (window.isUserLoggedIn()) {
+        if (window.isUserLoggedIn && window.isUserLoggedIn()) {
             checkAndConnectGlobalOrderTracking();
         }
         if (typeof window.syncStoreAvailability === 'function') {
             window.syncStoreAvailability();
         }
-    }
-});
-
-// Network restored — immediately reconnect WS
-window.addEventListener('online', () => {
-    console.log('[LPUQuick WS] 🌐 Network restored — reconnecting...');
-    clientWsReconnectAttempts = 0;
-    if (clientWsReconnectTimer) { clearTimeout(clientWsReconnectTimer); clientWsReconnectTimer = null; }
-    initGlobalClientWebSocket();
-    if (window.isUserLoggedIn()) {
-        checkAndConnectGlobalOrderTracking();
     }
 });
 

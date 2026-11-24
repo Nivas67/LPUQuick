@@ -491,11 +491,16 @@
             return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
 
-        // Live WebSocket Auto-Connect
+        // Live WebSocket Auto-Connect (skipped automatically on serverless hosts without WS support)
+        let foodWsFailures = 0;
         function connectLiveWebSocket() {
+            const isLocal = /^(localhost|127\.0\.0\.1|10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/i.test(location.hostname);
+            if (!isLocal || foodWsFailures >= 2) return;
             try {
+                let opened = false;
                 const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
                 const ws = new WebSocket(`${proto}//${location.host}/ws/track`);
+                ws.onopen = () => { opened = true; foodWsFailures = 0; };
                 ws.onmessage = (event) => {
                     try {
                         const msg = JSON.parse(event.data);
@@ -505,15 +510,20 @@
                     } catch (e) { }
                 };
                 ws.onclose = () => {
-                    setTimeout(connectLiveWebSocket, 4000);
+                    if (!opened) foodWsFailures++;
+                    if (foodWsFailures < 2) {
+                        setTimeout(connectLiveWebSocket, 5000);
+                    }
                 };
             } catch (e) { }
         }
 
-        // Initial Load & Polling
+        // Initial Load & Adaptive Polling (pauses when tab is hidden)
         loadKitchenOrders();
         connectLiveWebSocket();
-        setInterval(loadKitchenOrders, 5000);
+        setInterval(() => {
+            if (!document.hidden) loadKitchenOrders();
+        }, 15000);
     </script>
 </body>
 

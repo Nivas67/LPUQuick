@@ -16,7 +16,7 @@ const DEFAULT_GLOBAL = {
 
 let cachedSettings = null;
 let lastCacheTime = 0;
-const CACHE_TTL_MS = 10000; // 10s memory TTL for ultra-fast response
+const CACHE_TTL_MS = 60000; // 60s memory TTL (mutations update cache immediately)
 
 function normalizeHostelId(input) {
     if (!input) return 'BH-13';
@@ -81,8 +81,8 @@ async function getSettings(forceRefresh = false) {
 
     if (!loaded) {
         loaded = loadFromDisk();
-    } else {
-        // Keep disk backup synced
+    } else if (!process.env.VERCEL) {
+        // Keep disk backup synced locally
         saveToDisk(loaded);
     }
 

@@ -970,14 +970,15 @@ window.pageInits.orders = function () {
         };
     });
 
-    // Real-time tracking telemetry and admin synchronization loop (every 5 seconds)
+    // Real-time tracking telemetry: smooth local animation every 5s, failsafe DB poll every 20s (when Cloud Realtime active) or 10s
     if (window.CURRENT_ACTIVE_ORDER_ID) {
         let runnerWalkStep = 0;
+        let lastFailsafePollAt = 0;
         const trackingTimer = setInterval(async () => {
             try {
                 if (document.hidden) return;
 
-                // If order is actively "Out for Delivery", add gentle live walking motion along corridor
+                // If order is actively "Out for Delivery", add gentle live walking motion along corridor (0 network cost)
                 const curStatus = (window.CURRENT_ACTIVE_ORDER_STATUS || '').toLowerCase();
                 if (curStatus.includes('out') || curStatus.includes('route')) {
                     runnerWalkStep++;
@@ -988,7 +989,12 @@ window.pageInits.orders = function () {
                     }
                 }
 
-                // Poll active order from database as a failsafe to WebSocket
+                // Poll active order from database as a lightweight failsafe to Realtime Broadcast
+                const pollInterval = window.__clientSupabaseSubscribed ? 20000 : 10000;
+                const now = Date.now();
+                if (now - lastFailsafePollAt < pollInterval) return;
+                lastFailsafePollAt = now;
+
                 if (userId && window.api && window.api.getActiveOrder) {
                     const activeRes = await window.api.getActiveOrder(userId);
                     const currentActive = activeRes?.active;

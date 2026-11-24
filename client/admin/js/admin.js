@@ -1109,9 +1109,10 @@ async function loadDashboard() {
             try { localStorage.setItem('lpuquick_admin_orders_cache', JSON.stringify(ordersCache)); } catch (e) { }
         }
 
-        // Ensure productsCache is populated with authoritative live data from Supabase
+        // Ensure productsCache is populated cleanly (reuse cached catalog unless empty)
         try {
-            const prodRes = await fetchWithTimeout(`/api/products?includeInactive=true${hostelParam}&force=true&_t=${Date.now()}`, { headers: getAuthHeaders() }, 8000);
+            const needForceProd = !Array.isArray(productsCache) || productsCache.length === 0;
+            const prodRes = await fetchWithTimeout(`/api/products?includeInactive=true${hostelParam}${needForceProd ? '&force=true' : ''}`, { headers: getAuthHeaders() }, 8000);
             if (prodRes && prodRes.ok) {
                 const prodJson = await prodRes.json();
                 const list = Array.isArray(prodJson) ? prodJson : (prodJson.products || prodJson.data || []);
@@ -6136,12 +6137,29 @@ async function syncOrdersLive() {
     }
 }
 
-const ORDER_POLL_ACTIVE_MS = 1500;   // 1.5s when tab is active and visible (instant 1-2s updates)
-const ORDER_POLL_HIDDEN_MS = 30000;  // 30s when tab is in background / minimized
+const ORDER_POLL_REALTIME_MS = 45000; // 45s safety-net when Realtime/WS is active (saves 96% Vercel Fluid CPU)
+const ORDER_POLL_FALLBACK_MS = 8000;  // 8s when Realtime & WS are both unavailable
+const ORDER_POLL_HIDDEN_MS = 120000;  // 120s fallback when hidden (paused completely if Realtime active)
+
+let adminSupabaseClient = null;
+let adminSupabaseChannel = null;
+let adminSupabaseSubscribed = false;
+let wsConsecutiveFailures = 0;
+let wsUnavailableOnHost = false;
+
+function isLocalWebSocketHost() {
+    const h = (typeof location !== 'undefined' && location.hostname) ? location.hostname : '';
+    return /^(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)$/i.test(h);
+}
 
 function scheduleNextOrderPoll() {
     if (liveOrderPollInterval) clearTimeout(liveOrderPollInterval);
-    const delay = (typeof document !== 'undefined' && document.hidden) ? ORDER_POLL_HIDDEN_MS : ORDER_POLL_ACTIVE_MS;
+    const hasRealtime = Boolean((realtimeWs && realtimeWs.readyState === WebSocket.OPEN) || adminSupabaseSubscribed);
+    const isHidden = (typeof document !== 'undefined' && document.hidden);
+    if (isHidden && hasRealtime) {
+        return; // Pause polling completely while hidden; visibilitychange triggers instant sync on return
+    }
+    const delay = isHidden ? ORDER_POLL_HIDDEN_MS : (hasRealtime ? ORDER_POLL_REALTIME_MS : ORDER_POLL_FALLBACK_MS);
     liveOrderPollInterval = setTimeout(async () => {
         await syncOrdersLive();
         scheduleNextOrderPoll();
@@ -6156,19 +6174,20 @@ function startLiveOrderPolling() {
 
 if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
     document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) {
+        if (!document.hidden && adminToken) {
             syncOrdersLive();
             scheduleNextOrderPoll();
         }
     });
 }
 
-let adminSupabaseClient = null;
-let adminSupabaseChannel = null;
-
 async function initSupabaseRealtime() {
     try {
         if (typeof window === 'undefined') return;
+        // Do not tear down an already healthy or connecting Supabase Realtime channel!
+        if (adminSupabaseChannel && (adminSupabaseChannel.state === 'joined' || adminSupabaseChannel.state === 'joining')) {
+            return;
+        }
         const createClientFn = window.supabase?.createClient || (typeof supabase !== 'undefined' ? supabase.createClient : null);
         if (!createClientFn) return;
 
@@ -6191,7 +6210,7 @@ async function initSupabaseRealtime() {
             adminSupabaseClient = createClientFn(cfg.supabaseUrl, cfg.supabaseAnonKey, {
                 realtime: {
                     params: {
-                        eventsPerSecond: 20
+                        eventsPerSecond: 10
                     }
                 }
             });
@@ -6241,7 +6260,12 @@ async function initSupabaseRealtime() {
         adminSupabaseChannel.subscribe((status) => {
             console.log(`[Admin Supabase Realtime] Status: ${status}`);
             if (status === 'SUBSCRIBED') {
-                updateConnectionStatus(true, 'Live (Cloud + WS)');
+                adminSupabaseSubscribed = true;
+                updateConnectionStatus(true, 'Live (Cloud)');
+                scheduleNextOrderPoll();
+            } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                adminSupabaseSubscribed = false;
+                scheduleNextOrderPoll();
             }
         });
     } catch (err) {
@@ -6470,11 +6494,19 @@ function handleAdminRealtimePacket(data) {
 }
 
 function initRealtimeWebSocket() {
-    // Start continuous smart live poller immediately as bulletproof fallback
-    startLiveOrderPolling();
+    // Start adaptive live poller (safety-net 45s when Cloud Realtime is up, 8s fallback if offline)
+    if (!liveOrderPollInterval) {
+        startLiveOrderPolling();
+    }
 
-    // Start Supabase Cloud Realtime Channel for multi-dashboard cross-device live updates
+    // Start Supabase Cloud Realtime Channel once cleanly for multi-dashboard cross-device live updates
     initSupabaseRealtime();
+
+    // Skip native /ws/admin attempts on serverless hosts (e.g. Vercel) to prevent infinite reconnect storms
+    if (!isLocalWebSocketHost() || wsUnavailableOnHost) {
+        updateConnectionStatus(true, adminSupabaseSubscribed ? 'Live (Cloud)' : 'Live');
+        return;
+    }
 
     // If a connection is already open or in progress, do not open a duplicate!
     if (realtimeWs && (realtimeWs.readyState === WebSocket.OPEN || realtimeWs.readyState === WebSocket.CONNECTING)) {
@@ -6500,13 +6532,17 @@ function initRealtimeWebSocket() {
     const wsUrl = `${protocol}//${location.host}/ws/admin?token=${encodeURIComponent(adminToken)}`;
 
     try {
+        let opened = false;
         realtimeWs = new WebSocket(wsUrl);
 
         realtimeWs.onopen = () => {
+            opened = true;
+            wsConsecutiveFailures = 0;
             console.log('[Admin WS] ✅ Connected to live orders stream.');
             wsReconnectAttempts = 0;
             if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
             updateConnectionStatus(true, 'Live (WS)');
+            scheduleNextOrderPoll();
 
             // Start heartbeat ping every 20s to keep connection alive
             wsPingInterval = setInterval(() => {
@@ -6528,13 +6564,19 @@ function initRealtimeWebSocket() {
         realtimeWs.onclose = () => {
             realtimeWs = null;
             if (wsPingInterval) { clearInterval(wsPingInterval); wsPingInterval = null; }
+            if (!opened) {
+                wsConsecutiveFailures++;
+                if (wsConsecutiveFailures >= 2) {
+                    wsUnavailableOnHost = true;
+                }
+            }
 
-            // WebSocket unavailable (e.g. Vercel Serverless) — Live Poller keeps running seamlessly
-            updateConnectionStatus(true, 'Live');
+            // WebSocket unavailable — Cloud Realtime + Adaptive Poller handle live updates
+            updateConnectionStatus(true, adminSupabaseSubscribed ? 'Live (Cloud)' : 'Live');
+            scheduleNextOrderPoll();
 
-            // Continuous resilient reconnect with short exponential backoff (1.5s - 10s max)
-            if (adminToken && !wsReconnectTimer) {
-                const delay = Math.min(1500 * Math.max(1, wsReconnectAttempts), 10000);
+            if (adminToken && !wsReconnectTimer && !wsUnavailableOnHost) {
+                const delay = Math.min(2000 * Math.max(1, wsReconnectAttempts), 15000);
                 wsReconnectAttempts = (wsReconnectAttempts + 1) % 20;
                 wsReconnectTimer = setTimeout(() => {
                     wsReconnectTimer = null;
@@ -6548,12 +6590,6 @@ function initRealtimeWebSocket() {
         };
     } catch (e) {
         updateConnectionStatus(true, 'Live');
-        if (!wsReconnectTimer) {
-            wsReconnectTimer = setTimeout(() => {
-                wsReconnectTimer = null;
-                initRealtimeWebSocket();
-            }, 3000);
-        }
     }
 }
 
@@ -8951,15 +8987,14 @@ updateSoundUI();
 checkPushStatus();
 updateAdminNotificationsUI();
 
-// Periodic background sync fallback (every 45 seconds when authenticated & visible, preserving Vercel free tier)
+// Periodic background sync fallback (every 120 seconds when authenticated & visible, preserving Vercel & Supabase free tier)
 setInterval(() => {
     if (!adminToken || (typeof document !== 'undefined' && document.hidden)) return;
-    if (activeView === 'dashboard') loadDashboard();
-    else if (activeView === 'orders') syncOrdersLive();
-    else if (activeView === 'inventory') loadInventory();
-    else if (activeView === 'products') loadProducts();
+    if (activeView === 'dashboard' && !adminSupabaseSubscribed) loadDashboard();
+    else if (activeView === 'inventory' && !adminSupabaseSubscribed) loadInventory(false);
+    else if (activeView === 'products' && !adminSupabaseSubscribed) loadProducts(false);
     syncAdminNotificationsFromServer().catch(() => {});
-}, 45000);
+}, 120000);
 
 if (typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', () => {

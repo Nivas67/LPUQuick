@@ -211,20 +211,8 @@ function auditMiddleware(req, res, next) {
     const isAdminRoute = originalUrl.includes('/admin') || originalUrl.includes('/ad-new');
     const isPageView = originalUrl.includes('/audit/page-view');
 
-    // Skip high-frequency read polling if it clutters logs
-    const isHighFrequencyPoll = method === 'GET' && (
-        originalUrl.includes('/invalidate-cache') ||
-        originalUrl.includes('/favicon') ||
-        originalUrl.includes('/client-lock') ||
-        originalUrl.includes('/notifications') ||
-        originalUrl.includes('/sync') ||
-        originalUrl.includes('/health') ||
-        originalUrl.endsWith('.png') ||
-        originalUrl.endsWith('.js') ||
-        originalUrl.endsWith('.css')
-    );
-
-    if (!isMutation && !isPageView && (!isAdminRoute || isHighFrequencyPoll)) {
+    // Only audit state-changing mutations and explicit page-view beacons (skip read-only GET polling to keep DB lean & fast)
+    if (!isMutation && !isPageView) {
         return next();
     }
 

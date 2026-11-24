@@ -11,6 +11,7 @@ const { getSupabaseClient } = require('../supabase');
  */
 router.get('/status', async (req, res) => {
     try {
+        res.setHeader('Cache-Control', 'public, s-maxage=10, stale-while-revalidate=30');
         const hostelId = req.query.hostel_id || req.query.hostel || 'BH-13';
         const s = await orderModeService.getStoreSettings(hostelId);
         const effectiveDelivery = Boolean(s.delivery_enabled && s.global_delivery_enabled);

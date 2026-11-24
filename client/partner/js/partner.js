@@ -453,9 +453,9 @@ function printPartnerStatement() {
     window.print();
 }
 
-// Auto-refresh financial statistics every 60 seconds (optimizes Vercel free tier)
+// Auto-refresh financial statistics every 120 seconds when visible (optimizes Vercel & Supabase free tier)
 setInterval(() => {
     if (localStorage.getItem('lpuquick_partner_token') && !document.hidden) {
         refreshDashboard();
     }
-}, 60000);
+}, 120000);

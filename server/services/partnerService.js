@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const { getSupabaseClient } = require('../supabase');
 const financialEngine = require('../utils/financialEngine');
 const { hashPassword } = require('./securityService');
+const cache = require('../cache');
 
 class PartnerService {
     constructor() {
@@ -60,6 +61,7 @@ class PartnerService {
     }
 
     _saveToDisk() {
+        if (process.env.VERCEL) return;
         try {
             const dataDir = path.join(__dirname, '..', 'data');
             if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
@@ -595,30 +597,25 @@ class PartnerService {
             if (norm) targetHostels = [norm];
         }
 
-        // Fetch products for accurate cost calculations
-        let productMap = new Map();
-        try {
-            const { data: prods } = await supabase.from('products').select('*');
-            if (Array.isArray(prods)) {
-                for (const p of prods) {
-                    productMap.set(p.id, p);
-                }
-            }
-        } catch (pErr) {
-            console.warn('[PartnerService products fetch note]:', pErr.message);
+        // Single-flight coalesced dataset fetch (30s TTL) with projected columns instead of repeated full-table SELECT * scans
+        const { allProducts, allOrders, allItems } = await cache.wrap('partner:raw_dataset', async () => {
+            const [prodsRes, ordRes, itemsRes] = await Promise.all([
+                supabase.from('products').select('id, name, cost_price, price'),
+                supabase.from('orders').select('id, hostel_id, status, total, subtotal, delivery_fee, platform_fee, payment_method, delivery_address, created_at'),
+                supabase.from('order_items').select('order_id, product_id, quantity, unit_price')
+            ]);
+            if (ordRes.error) throw ordRes.error;
+            return {
+                allProducts: prodsRes.data || [],
+                allOrders: ordRes.data || [],
+                allItems: itemsRes.data || []
+            };
+        }, 30000);
+
+        const productMap = new Map();
+        for (const p of allProducts) {
+            productMap.set(p.id, p);
         }
-
-        // Fetch orders
-        let ordersQuery = supabase.from('orders').select('*');
-        const { data: rawOrders, error: ordErr } = await ordersQuery;
-        if (ordErr) throw ordErr;
-
-        const allOrders = rawOrders || [];
-
-        // Fetch order items
-        let orderItemsQuery = supabase.from('order_items').select('*');
-        const { data: rawItems, error: itemsErr } = await orderItemsQuery;
-        const allItems = rawItems || [];
 
         // Group items by order_id
         const itemsByOrderId = new Map();

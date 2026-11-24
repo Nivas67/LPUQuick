@@ -115,6 +115,7 @@ loadCampaigns();
 
 class BroadcastNotificationService {
     getAllCampaigns() {
+        if (process.env.VERCEL) { this.checkDueCampaigns().catch(() => {}); }
         return campaigns.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     }
 
@@ -281,6 +282,7 @@ class BroadcastNotificationService {
     }
 
     getCustomerFeed(hostelId) {
+        if (process.env.VERCEL) { this.checkDueCampaigns().catch(() => {}); }
         const cleanHostel = (hostelId || '').toUpperCase().replace(/[\s-]/g, '');
         // Return active sent campaigns matching all hostels or user's hostel
         return campaigns
@@ -293,20 +295,30 @@ class BroadcastNotificationService {
             .slice(0, 20); // most recent 20
     }
 
-    initScheduler() {
-        // Check for scheduled campaigns every 30 seconds
-        setInterval(async () => {
-            try {
-                const now = new Date();
-                const dueCampaigns = campaigns.filter(c => c.status === 'scheduled' && c.scheduledAt && new Date(c.scheduledAt) <= now);
-                for (const camp of dueCampaigns) {
-                    console.log(`[Broadcast Scheduler] Triggering scheduled broadcast: ${camp.id} (${camp.title})`);
-                    await this.sendCampaign(camp.id);
-                }
-            } catch (err) {
-                console.warn('[Broadcast Scheduler Error]:', err.message);
+    async checkDueCampaigns() {
+        const nowTs = Date.now();
+        if (this._lastDueCheck && (nowTs - this._lastDueCheck < 30000)) return;
+        this._lastDueCheck = nowTs;
+        try {
+            const now = new Date();
+            const dueCampaigns = campaigns.filter(c => c.status === 'scheduled' && c.scheduledAt && new Date(c.scheduledAt) <= now);
+            for (const camp of dueCampaigns) {
+                console.log(`[Broadcast Scheduler] Triggering scheduled broadcast: ${camp.id} (${camp.title})`);
+                await this.sendCampaign(camp.id);
             }
+        } catch (err) {
+            console.warn('[Broadcast Scheduler Error]:', err.message);
+        }
+    }
+
+    initScheduler() {
+        // Skip perpetual background timer on Vercel Serverless (lazy check runs on API reads instead)
+        if (process.env.VERCEL) return;
+        // Check for scheduled campaigns every 30 seconds
+        const timer = setInterval(() => {
+            this.checkDueCampaigns();
         }, 30000);
+        if (timer && typeof timer.unref === 'function') timer.unref();
     }
 }
 

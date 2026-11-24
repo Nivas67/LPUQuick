@@ -62,7 +62,7 @@ function getDeliveryPricingSettings() {
             _memoryDeliverySettings = JSON.parse(raw);
             return _memoryDeliverySettings;
         }
-    } catch (e) {}
+    } catch (e) { }
 
     try {
         if (fs.existsSync(DELIVERY_SETTINGS_PATH)) {
@@ -134,7 +134,7 @@ async function getDeliveryPricingSettingsAsync(forceFresh = false) {
                         _deliverySettingsLastFetch = now;
                         return _memoryDeliverySettings;
                     }
-                } catch (parseErr) {}
+                } catch (parseErr) { }
             }
         }
     } catch (e) {
@@ -223,9 +223,9 @@ function saveDeliveryPricingSettings(newSettings) {
                     lock_type: 'DELIVERY_PRICING',
                     message: JSON.stringify(updated),
                     updated_at: updated.updated_at
-                }]).then(() => {}).catch(e => console.warn('[Delivery Settings Sync Warning]:', e.message));
+                }]).then(() => { }).catch(e => console.warn('[Delivery Settings Sync Warning]:', e.message));
         }
-    } catch (e) {}
+    } catch (e) { }
 
     try {
         const dir = path.dirname(DELIVERY_SETTINGS_PATH);
@@ -236,7 +236,7 @@ function saveDeliveryPricingSettings(newSettings) {
     } catch (writeErr) {
         try {
             fs.writeFileSync(TMP_DELIVERY_SETTINGS_PATH, JSON.stringify(updated, null, 2), 'utf8');
-        } catch (tmpErr) {}
+        } catch (tmpErr) { }
     }
     return updated;
 }
@@ -326,7 +326,7 @@ try {
         lowStockItems: seedProducts.filter(p => p.stock_left > 0 && p.stock_left <= 4).slice(0, 5),
         topProducts: []
     };
-} catch (e) {}
+} catch (e) { }
 
 function withTimeout(promise, ms = 6000, fallback = null) {
     let timer = null;
@@ -398,7 +398,7 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
 
         const payload = await cache.wrap(cacheKey, async () => {
             const supabase = getSupabaseClient();
-            
+
             // 1. Direct query with selective column projection & timeout protection
             let query = supabase
                 .from('orders')
@@ -407,7 +407,7 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
             if (hostelId && hostelId !== 'all' && hostelId !== 'ALL') {
                 try {
                     query = query.eq('hostel_id', hostelId);
-                } catch (e) {}
+                } catch (e) { }
             }
             query = query.order('created_at', { ascending: false });
 
@@ -450,16 +450,16 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
             const foodOrderService = require('../services/foodOrderService');
             const foodMeta = foodOrderService.loadFoodMeta();
 
-            // Food Orders Batch Detection from order_items
+            // Food Orders Batch Detection from order_items (uses lightweight 5-min cached food product index)
             const foodOrdersMap = new Map();
             try {
-                const allProducts = await supabaseDb.products.getAll({});
-                const foodProductMap = new Map();
-                (allProducts || []).forEach(p => {
-                    if (foodOrderService.isFoodProduct(p)) {
-                        foodProductMap.set(p.id, p);
-                    }
-                });
+                const foodProductList = await cache.wrap('products:food_index', async () => {
+                    const { data: prods } = await supabase
+                        .from('products')
+                        .select('id, name, category, subcategory, tags, image_url');
+                    return (prods || []).filter(p => foodOrderService.isFoodProduct(p));
+                }, 300000);
+                const foodProductMap = new Map((foodProductList || []).map(p => [p.id, p]));
                 const foodProductIds = Array.from(foodProductMap.keys());
                 if (foodProductIds.length > 0) {
                     const { data: foodItems } = await withTimeout(
@@ -598,7 +598,7 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
             }
 
             return { orders: enriched };
-        }, forceFresh ? 0 : 2000); // 2-second coalesced micro-cache (prevents duplicate bursts without serving stale data)
+        }, forceFresh ? 0 : 15000); // 15-second coalesced micro-cache (atomically invalidated on any order change)
 
         let resultOrders = payload?.orders || [];
         if (hostelId && hostelId !== 'all' && (!resultOrders || resultOrders.length === 0) && Array.isArray(fallbackOrdersCache)) {
@@ -789,7 +789,7 @@ router.get('/admin/detail/:orderId', requireAdmin, async (req, res) => {
     try {
         const order = await supabaseDb.orders.getOrderById(orderId);
         if (!order) return res.status(404).json({ error: 'Order not found' });
-        
+
         // Enforce store manager hostel isolation
         if (!req.admin.is_owner && req.admin.assigned_hostel_id) {
             const hId = extractHostelId(order);
@@ -804,7 +804,7 @@ router.get('/admin/detail/:orderId', requireAdmin, async (req, res) => {
         if (order.user_id) {
             try {
                 user = await supabaseDb.users.getById(order.user_id);
-            } catch (uErr) {}
+            } catch (uErr) { }
         }
 
         const customerName = resolveOrderCustomerName(order, user);
@@ -855,7 +855,7 @@ router.post('/admin/status', requireAdmin, async (req, res) => {
         if (!existingOrder) {
             try {
                 existingOrder = await supabaseDb.orders.getOrderById(orderId);
-            } catch (e) {}
+            } catch (e) { }
         }
         if (existingOrder) {
             const hId = extractHostelId(existingOrder);
@@ -874,7 +874,7 @@ router.post('/admin/status', requireAdmin, async (req, res) => {
             if (!existingOrder) {
                 try {
                     existingOrder = await supabaseDb.orders.getOrderById(orderId);
-                } catch (e) {}
+                } catch (e) { }
             }
             const existingMethod = (existingOrder?.payment_method || '').toLowerCase();
             if (existingMethod.includes('upi')) {
@@ -889,7 +889,7 @@ router.post('/admin/status', requireAdmin, async (req, res) => {
             paymentStatus = 'PAID';
         }
     }
-    
+
     // 1. Immediately update memory cache for zero latency
     let riderName = 'Alex';
     if (Array.isArray(fallbackOrdersCache)) {
@@ -910,10 +910,10 @@ router.post('/admin/status', requireAdmin, async (req, res) => {
         // Sync status if this order is a Quick's Instant Food order
         const cleanId = String(orderId || '').replace(/^#/, '').trim();
         const foodMeta = (typeof foodOrderService?.loadFoodMeta === 'function') ? foodOrderService.loadFoodMeta() : {};
-        const foodKey = Object.keys(foodMeta).find(k => 
-            k === cleanId || 
-            k.toLowerCase() === cleanId.toLowerCase() || 
-            k === `order_${cleanId}` || 
+        const foodKey = Object.keys(foodMeta).find(k =>
+            k === cleanId ||
+            k.toLowerCase() === cleanId.toLowerCase() ||
+            k === `order_${cleanId}` ||
             k.toLowerCase() === `order_${cleanId}`.toLowerCase() ||
             cleanId === `order_${k}` ||
             cleanId.toLowerCase() === `order_${k}`.toLowerCase()
@@ -954,10 +954,10 @@ router.post('/admin/status', requireAdmin, async (req, res) => {
         // Resilient Fallback for Kitchen / Food Orders (never throw "Order not found" for recorded food orders)
         const cleanId = String(orderId || '').replace(/^#/, '').trim();
         const foodMeta = (typeof foodOrderService?.loadFoodMeta === 'function') ? foodOrderService.loadFoodMeta() : {};
-        const foodKey = Object.keys(foodMeta).find(k => 
-            k === cleanId || 
-            k.toLowerCase() === cleanId.toLowerCase() || 
-            k === `order_${cleanId}` || 
+        const foodKey = Object.keys(foodMeta).find(k =>
+            k === cleanId ||
+            k.toLowerCase() === cleanId.toLowerCase() ||
+            k === `order_${cleanId}` ||
             k.toLowerCase() === `order_${cleanId}`.toLowerCase() ||
             cleanId === `order_${k}` ||
             cleanId.toLowerCase() === `order_${k}`.toLowerCase()
@@ -988,7 +988,7 @@ router.post('/admin/status', requireAdmin, async (req, res) => {
         if (['cancelled', 'canceled', 'rejected'].includes(String(status || '').toLowerCase().trim())) {
             try {
                 await supabaseDb.orders.restockOrderItems(orderId);
-            } catch (e) {}
+            } catch (e) { }
         }
         res.status(500).json({ success: false, error: err.message || 'Failed to update order status in database.' });
     }
@@ -1041,7 +1041,7 @@ router.get('/admin/delivery-staff', requireAdmin, async (req, res) => {
         const forceFresh = req.query.force === 'true';
         const payload = await cache.wrap('orders:admin:delivery-staff', async () => {
             const supabase = getSupabaseClient();
-            
+
             // Run staff query and active orders load query concurrently in parallel
             const [staff, activeOrdersRes] = await Promise.all([
                 supabaseDb.staff.getAllStaff(),
@@ -1050,8 +1050,8 @@ router.get('/admin/delivery-staff', requireAdmin, async (req, res) => {
                     : Promise.resolve({ data: [] })
             ]);
 
-            const deliveryStaff = (staff || []).filter(s => 
-                s.account_status === 'ACTIVE' && 
+            const deliveryStaff = (staff || []).filter(s =>
+                s.account_status === 'ACTIVE' &&
                 ((Array.isArray(s.roles) && (s.roles.includes('delivery_person') || s.roles.includes('owner'))) || Boolean(s.is_owner))
             );
 
@@ -1208,7 +1208,7 @@ router.post('/delivery-duty-status', async (req, res) => {
                 try {
                     const u = await supabaseDb.users.getUserById(adminId);
                     if (u) adminName = u.name || adminName;
-                } catch (err) {}
+                } catch (err) { }
             }
         }
         let isOwner = false;
@@ -1220,7 +1220,7 @@ router.post('/delivery-duty-status', async (req, res) => {
                 if (u && (u.is_owner || (Array.isArray(u.roles) && u.roles.includes('owner')))) {
                     isOwner = true;
                 }
-            } catch (err) {}
+            } catch (err) { }
         }
 
         let targetId = adminId;
@@ -1247,7 +1247,7 @@ router.post('/delivery-duty-status', async (req, res) => {
             status: updated.status,
             is_on_duty: updated.status === 'Active',
             duty_status: updated.status === 'Active' ? 'ON_DUTY' : 'OFF_DUTY',
-            message: updated.status === 'Active' 
+            message: updated.status === 'Active'
                 ? `🟢 ${targetName} is now ON DUTY (Online).`
                 : `⚪ ${targetName} is now OFFLINE (Off Duty).`
         });
@@ -1457,7 +1457,7 @@ router.get('/delivery-earnings', async (req, res) => {
                 const staffObj = (staffList || []).find(s => s.id === p.partner_id);
                 const pName = p.partner_name.toLowerCase();
                 const pEmailPrefix = staffObj && staffObj.email ? staffObj.email.split('@')[0].toLowerCase() : '';
-                
+
                 for (const cand of candidateStrings) {
                     if (cand === pName || (pEmailPrefix && cand === pEmailPrefix) || pName.includes(cand) || cand.includes(pName)) {
                         return p;
@@ -1887,7 +1887,7 @@ router.get('/delivery-earnings', async (req, res) => {
                 id: ownerId,
                 name: ownerName
             },
-            
+
             // Today's KPI Metrics
             today_stats: {
                 date: todayStr,
@@ -2005,7 +2005,7 @@ async function withOrderClaimLock(orderId, fn) {
     orderClaimLocks.set(orderId, currentLock);
 
     // Wait for the prior claim operation on this specific order to finish
-    await prevLock.catch(() => {});
+    await prevLock.catch(() => { });
 
     try {
         return await fn();
@@ -2039,7 +2039,7 @@ router.post('/:orderId/claim', requireAdmin, requireRole('delivery_person'), asy
         if (!existingOrder) {
             try {
                 existingOrder = await supabaseDb.orders.getOrderById(orderId);
-            } catch (e) {}
+            } catch (e) { }
         }
         if (existingOrder) {
             const hId = extractHostelId(existingOrder);
@@ -2087,7 +2087,7 @@ router.post('/:orderId/claim', requireAdmin, requireRole('delivery_person'), asy
         }
 
         // Trigger background Push notification to other admins
-        pushService.notifyOrderClaimed(orderId, resolvedRiderName, adminId).catch(() => {});
+        pushService.notifyOrderClaimed(orderId, resolvedRiderName, adminId).catch(() => { });
 
         res.json({
             success: true,
@@ -2157,7 +2157,7 @@ router.post('/:orderId/transfer/request', requireAdmin, async (req, res) => {
                 return res.status(400).json({ success: false, error: 'Selected recipient is not assigned the delivery role' });
             }
         }
-    } catch (e) {}
+    } catch (e) { }
 
     if (!isRiderOnline(toAdminId)) {
         return res.status(400).json({
@@ -2189,7 +2189,7 @@ router.post('/:orderId/transfer/request', requireAdmin, async (req, res) => {
                 broadcastStatusUpdate(orderId, updated.status, toAdminName || reqAdminName);
             }
 
-            pushService.notifyOrderClaimed(orderId, toAdminName || reqAdminName).catch(() => {});
+            pushService.notifyOrderClaimed(orderId, toAdminName || reqAdminName).catch(() => { });
 
             return res.json({
                 success: true,
@@ -2242,7 +2242,7 @@ router.post('/:orderId/transfer/request', requireAdmin, async (req, res) => {
             toId: toAdminId,
             toName: toAdminName,
             reason
-        }).catch(() => {});
+        }).catch(() => { });
 
         res.json({
             success: true,
@@ -2293,12 +2293,12 @@ router.post('/:orderId/transfer/respond', requireAdmin, async (req, res) => {
                 adminName,
                 Boolean(accept),
                 updated.previous_transfer.from_id
-            ).catch(() => {});
+            ).catch(() => { });
         }
 
         res.json({
             success: true,
-            message: accept 
+            message: accept
                 ? `You have accepted delivery of order #${orderId.replace('order_', '').slice(0, 8)}`
                 : `Transfer declined`,
             order: updated
@@ -2327,7 +2327,7 @@ router.post('/:orderId/transfer/direct', requireAdmin, requireRole('owner', 'sto
                 return res.status(400).json({ success: false, error: 'Selected staff member is not assigned the delivery role' });
             }
         }
-    } catch (e) {}
+    } catch (e) { }
 
     if (!isRiderOnline(targetAdminId)) {
         return res.status(400).json({
@@ -2360,7 +2360,7 @@ router.post('/:orderId/transfer/direct', requireAdmin, requireRole('owner', 'sto
             broadcastStatusUpdate(orderId, updated.status, targetAdminName);
         }
 
-        pushService.notifyOrderClaimed(orderId, targetAdminName).catch(() => {});
+        pushService.notifyOrderClaimed(orderId, targetAdminName).catch(() => { });
 
         res.json({
             success: true,
@@ -2525,7 +2525,7 @@ router.get('/detail/:orderId', async (req, res) => {
         const orderPhone = (order.customer_phone || '').replace(/\D/g, '').slice(-10);
 
         const isOwner = (reqUserId && (reqUserId === order.user_id || reqUserId === order.guest_id || reqUserId === `user_phone_${orderPhone}`)) ||
-                        (reqPhone && orderPhone && reqPhone === orderPhone);
+            (reqPhone && orderPhone && reqPhone === orderPhone);
 
         // If neither admin nor verified owner, mask sensitive customer PII to protect privacy
         if (!isAdmin && !isOwner) {
@@ -2683,8 +2683,8 @@ router.post('/:orderId/status', requireAdmin, async (req, res) => {
             if (o) o.status = status;
         }
         cache.invalidateOrders();
-        const existingRider = updated?.rider_name 
-            ? (typeof updated.rider_name === 'string' && updated.rider_name.startsWith('{') ? (JSON.parse(updated.rider_name).name || 'Alex') : updated.rider_name) 
+        const existingRider = updated?.rider_name
+            ? (typeof updated.rider_name === 'string' && updated.rider_name.startsWith('{') ? (JSON.parse(updated.rider_name).name || 'Alex') : updated.rider_name)
             : (req.body.rider_name || 'Alex');
         broadcastStatusUpdate(orderId, status, existingRider);
         res.json({ success: true, order: updated });
@@ -2718,7 +2718,7 @@ router.post('/:orderId/cancel', async (req, res) => {
         const orderPhone = (order.customer_phone || '').replace(/\D/g, '').slice(-10);
 
         const isOwner = (reqUserId && (reqUserId === order.user_id || reqUserId === order.guest_id || reqUserId === `user_phone_${orderPhone}`)) ||
-                        (reqPhone && orderPhone && reqPhone === orderPhone);
+            (reqPhone && orderPhone && reqPhone === orderPhone);
 
         if (!isAdmin && !isOwner) {
             console.warn(`[SECURITY AUDIT] UNAUTHORIZED_ORDER_CANCEL_ATTEMPT: orderId=${orderId} | reqUserId=${reqUserId} | orderUserId=${order.user_id} | ip=${req.ip}`);
@@ -2733,7 +2733,7 @@ router.post('/:orderId/cancel', async (req, res) => {
         try {
             const foodOrderService = require('../services/foodOrderService');
             foodOrderService.cancelFoodOrder(orderId, reason || 'User requested cancellation');
-        } catch (e) {}
+        } catch (e) { }
         if (Array.isArray(fallbackOrdersCache)) {
             const o = fallbackOrdersCache.find(x => x.id === orderId);
             if (o) o.status = 'Cancelled';
@@ -2775,7 +2775,7 @@ router.post('/:orderId/reorder', async (req, res) => {
                 .from('order_items')
                 .select('product_id, quantity')
                 .eq('order_id', orderId);
-            
+
             if (dbItems && dbItems.length > 0) {
                 for (const item of dbItems) {
                     if (item.product_id) {
@@ -2836,7 +2836,7 @@ router.post('/:orderId/change-address', async (req, res) => {
         const orderPhone = (order.customer_phone || '').replace(/\D/g, '').slice(-10);
 
         const isOwner = (reqUserId && (reqUserId === order.user_id || reqUserId === order.guest_id || reqUserId === `user_phone_${orderPhone}`)) ||
-                        (reqPhone && orderPhone && reqPhone === orderPhone);
+            (reqPhone && orderPhone && reqPhone === orderPhone);
 
         if (!isAdmin && !isOwner) {
             console.warn(`[SECURITY AUDIT] UNAUTHORIZED_ADDRESS_CHANGE_ATTEMPT: orderId=${orderId} | ip=${req.ip}`);
@@ -2924,7 +2924,7 @@ router.delete('/:orderId', requireOwner, async (req, res) => {
             if (typeof broadcastOrderDeleted === 'function') {
                 broadcastOrderDeleted(orderId);
             }
-        } catch (e) {}
+        } catch (e) { }
         console.log(`[Order Delete] Order #${orderId} was permanently deleted by Owner`);
         res.json({
             success: true,
@@ -2950,7 +2950,7 @@ router.delete('/admin/:orderId', requireOwner, async (req, res) => {
             if (typeof broadcastOrderDeleted === 'function') {
                 broadcastOrderDeleted(orderId);
             }
-        } catch (e) {}
+        } catch (e) { }
         console.log(`[Order Delete] Order #${orderId} was permanently deleted by Owner`);
         res.json({
             success: true,
