@@ -46,7 +46,7 @@ function buildAllowedRedirectUrl(req, clientOrderId = null) {
         (publicAppHost && hostnameOnly === publicAppHost) ||
         (vercelUrlHost && hostnameOnly === vercelUrlHost) ||
         (vercelBranchHost && hostnameOnly === vercelBranchHost) ||
-        /^lpuquick(-[a-zA-Z0-9-]+)?\.vercel\.app$/.test(hostnameOnly);
+        /^lpu-?quick(-[a-zA-Z0-9-]+)?\.vercel\.app$/.test(hostnameOnly);
 
     if (!isAllowedHost) {
         return undefined;

@@ -121,7 +121,7 @@ app.use(cors({
         if (allowedOrigins.some(o => origin === o || origin.endsWith('.lpuquick.com'))) {
             return callback(null, true);
         }
-        if (/^https:\/\/lpuquick(-[a-zA-Z0-9-]+)?\.vercel\.app$/.test(origin)) {
+        if (/^https:\/\/lpu-?quick(-[a-zA-Z0-9-]+)?\.vercel\.app$/.test(origin)) {
             return callback(null, true);
         }
         if (/^https?:\/\/(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/.test(origin)) {
@@ -157,7 +157,7 @@ app.use((req, res, next) => {
 
         const isAllowedOrigin = allowedOrigins.some(o => {
             try { return new URL(o).host === originHost; } catch { return false; }
-        }) || originHost.endsWith('.lpuquick.com') || /^lpuquick(-[a-zA-Z0-9-]+)?\.vercel\.app$/.test(originHost) ||
+        }) || originHost.endsWith('.lpuquick.com') || /^lpu-?quick(-[a-zA-Z0-9-]+)?\.vercel\.app$/.test(originHost) ||
         /^(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/.test(originHost);
 
         if (!isAllowedOrigin && originHost !== req.headers.host) {
@@ -174,7 +174,7 @@ app.use((req, res, next) => {
 
         const isAllowedReferer = allowedOrigins.some(o => {
             try { return new URL(o).host === refererHost; } catch { return false; }
-        }) || refererHost.endsWith('.lpuquick.com') || /^lpuquick(-[a-zA-Z0-9-]+)?\.vercel\.app$/.test(refererHost) ||
+        }) || refererHost.endsWith('.lpuquick.com') || /^lpu-?quick(-[a-zA-Z0-9-]+)?\.vercel\.app$/.test(refererHost) ||
         /^(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/.test(refererHost);
 
         if (!isAllowedReferer && refererHost !== req.headers.host) {
