@@ -86,7 +86,12 @@ window.pages.checkout = async function () {
     window.activeOrderModeStatus = orderModeStatus;
     window.__sandboxPaymentConfig = sandboxConfig;
     const isSandboxUpiReady = Boolean(sandboxConfig && sandboxConfig.ready && sandboxConfig.environment === 'sandbox');
-    if (!isSandboxUpiReady || (window.activeCheckoutPaymentMethod !== 'upi_sandbox' && window.activeCheckoutPaymentMethod !== 'cod')) {
+    const isSandboxPreviewIsolation = Boolean(sandboxConfig && sandboxConfig.previewIsolation);
+    if (!isSandboxUpiReady) {
+        window.activeCheckoutPaymentMethod = 'cod';
+    } else if (isSandboxPreviewIsolation) {
+        window.activeCheckoutPaymentMethod = 'upi_sandbox';
+    } else if (window.activeCheckoutPaymentMethod !== 'upi_sandbox' && window.activeCheckoutPaymentMethod !== 'cod') {
         window.activeCheckoutPaymentMethod = 'cod';
     }
     const isSandboxSelected = isSandboxUpiReady && window.activeCheckoutPaymentMethod === 'upi_sandbox';
@@ -319,6 +324,9 @@ window.pages.checkout = async function () {
         </div>
     `}).join('');
 
+    const needsGoogleAuth = !isSandboxPreviewIsolation && !window.isUserLoggedIn();
+    const needsAddressConfig = !isSandboxPreviewIsolation && !(typeof window.hasUserConfiguredAddress === 'function' ? window.hasUserConfiguredAddress() : Boolean(localStorage.getItem('lpuquick_room')));
+
     return `
 <div class="bg-background text-on-background min-h-screen pb-32">
     <!-- Floating Dynamic Island Header -->
@@ -341,7 +349,7 @@ window.pages.checkout = async function () {
         <!-- Pre-Order Section -->
         <div id="checkout-form-section" class="space-y-4 transition-all duration-200">
             
-            ${!window.isUserLoggedIn() ? `
+            ${needsGoogleAuth ? `
             <!-- Google Auth First Order Verification Card (Step 6) -->
             <div id="checkout-google-auth-card" class="glass-panel card-pedestal rounded-3xl p-4 sm:p-5 shadow-xl border-2 border-emerald-500/40 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent space-y-3">
                 <div class="flex items-center justify-between gap-3">
@@ -370,7 +378,7 @@ window.pages.checkout = async function () {
                     <span id="btn-checkout-google-text">Continue with Google</span>
                 </button>
             </div>
-            ` : !(typeof window.hasUserConfiguredAddress === 'function' ? window.hasUserConfiguredAddress() : Boolean(localStorage.getItem('lpuquick_room'))) ? `
+            ` : needsAddressConfig ? `
             <!-- Room Address & Mobile Required Banner -->
             <div class="glass-panel rounded-2xl p-4 flex items-center justify-between text-xs border border-rose-500/40 bg-rose-500/10 shadow-sm backdrop-blur-xl">
                 <div class="flex items-center gap-3">
@@ -612,7 +620,19 @@ window.pages.checkout = async function () {
                 </div>
                 
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" id="payment-options">
-                    <!-- 1. Pay on Delivery (ACTIVE) -->
+                    <!-- 1. Pay on Delivery (Disabled cleanly in isolated Preview Sandbox; Active in Production) -->
+                    ${isSandboxPreviewIsolation ? `
+                    <div class="flex items-center gap-3 p-4 rounded-2xl border border-[var(--glass-border)] bg-white/40 dark:bg-slate-800/40 opacity-60 cursor-not-allowed payment-blocked-trigger relative" data-title="Pay on Delivery (Disabled in Sandbox)">
+                        <input type="radio" name="paymentMethod" value="cod" disabled class="text-slate-400">
+                        <div>
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <p class="font-bold text-xs text-slate-600 dark:text-slate-400">Pay on Delivery</p>
+                                <span class="text-[8px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-black px-1.5 py-0.5 rounded-full">Disabled</span>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-0.5">Disabled in Sandbox Preview</p>
+                        </div>
+                    </div>
+                    ` : `
                     <label class="flex items-center gap-3 p-4 rounded-2xl ${!isSandboxSelected ? 'border-2 border-emerald-500 bg-emerald-500/10 shadow-md' : 'border border-[var(--glass-border)] bg-white/40 dark:bg-slate-800/40'} cursor-pointer payment-option-label relative" data-method="cod">
                         <input type="radio" name="paymentMethod" value="cod" ${!isSandboxSelected ? 'checked' : ''} class="text-emerald focus:ring-emerald">
                         <div>
@@ -620,6 +640,7 @@ window.pages.checkout = async function () {
                             <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Pay at ${savedHostel} room door (Cash / UPI)</p>
                         </div>
                     </label>
+                    `}
 
                     ${isSandboxUpiReady ? `
                     <!-- 2. UPI / QR Sandbox Test Gateway (ACTIVE in Sandbox Preview) -->
@@ -721,7 +742,7 @@ window.pages.checkout = async function () {
                         <span>Add Items Worth ₹${minOrderShortfall} More</span>
                     </a>
                 </div>
-                ` : (!(typeof window.hasUserConfiguredAddress === 'function' ? window.hasUserConfiguredAddress() : Boolean(localStorage.getItem('lpuquick_room'))) ? `
+                ` : (needsAddressConfig ? `
                 <button type="button" onclick="window.openAddressModal(true, () => { if (typeof window.router === 'function') window.router(); })" class="clay-btn clay-btn-primary w-full py-4 px-5 rounded-2xl text-white font-black text-xs sm:text-sm shadow-xl flex items-center justify-center gap-2 cursor-pointer transition-all">
                     <span class="material-symbols-outlined text-base">home_pin</span>
                     <span>Set Hostel Room Address to Complete Order (₹${exactTotal})</span>

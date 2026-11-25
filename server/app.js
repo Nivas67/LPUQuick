@@ -131,7 +131,7 @@ app.use(cors({
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-token', 'x-admin-key', 'x-user-id', 'x-user-phone', 'x-hostel-id', 'x-gateway-signature', 'x-gateway-event', 'x-signature', 'x-event', 'x-event-id', 'x-idempotency-key', 'x-financial-token']
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-token', 'x-admin-key', 'x-user-id', 'x-user-phone', 'x-hostel-id', 'x-gateway-signature', 'x-gateway-event', 'x-signature', 'x-event', 'x-event-id', 'x-idempotency-key', 'x-sandbox-token', 'x-financial-token']
 }));
 
 // CSRF Protection Middleware for state-changing requests (Req 11)
@@ -240,6 +240,9 @@ app.use(auditMiddleware);
 
 const { apiSecurityShield, record404AttackProbe } = require('./middleware/securityShield');
 app.use(apiSecurityShield);
+
+const { createSandboxPreviewIsolationMiddleware } = require('./middleware/sandboxPreviewIsolation');
+app.use(createSandboxPreviewIsolationMiddleware());
 
 // Static files (Client and Admin portals) with ETag and Cache-Control headers
 const staticOptions = {

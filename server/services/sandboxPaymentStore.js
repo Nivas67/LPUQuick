@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
-const { getSupabaseClient } = require('../supabase');
+const { isProductionSupabaseUrl } = require('../supabase');
 
 class SandboxStoreError extends Error {
     constructor(message, { code = 'SANDBOX_STORE_ERROR', statusCode = 500 } = {}) {
@@ -14,46 +14,81 @@ class SandboxStoreError extends Error {
 let _dedicatedSandboxClient = null;
 let _dedicatedSandboxSignature = null;
 
-/**
- * Resolve the Supabase client strictly for isolated sandbox storage.
- * Prefers dedicated SANDBOX_SUPABASE_URL / SANDBOX_SUPABASE_SERVICE_ROLE_KEY when provided.
- */
-function resolveSandboxDbHandle() {
-    const customUrl = String(process.env.SANDBOX_SUPABASE_URL || '').trim();
-    const customKey = String(process.env.SANDBOX_SUPABASE_SERVICE_ROLE_KEY || '').trim();
-    const schemaName = String(process.env.SANDBOX_SUPABASE_SCHEMA || '').trim() || 'public';
+function isSandboxDatabaseConfigured(overrides = {}) {
+    const customUrl = String((overrides.sandboxUrl !== undefined ? overrides.sandboxUrl : process.env.SANDBOX_SUPABASE_URL) || '').trim();
+    const customKey = String((overrides.sandboxKey !== undefined ? overrides.sandboxKey : process.env.SANDBOX_SUPABASE_SERVICE_ROLE_KEY) || '').trim();
 
-    let baseClient = null;
-    if (customUrl && customKey) {
-        const sig = `${customUrl}::${customKey.slice(-6)}::${schemaName}`;
-        if (!_dedicatedSandboxClient || _dedicatedSandboxSignature !== sig) {
-            _dedicatedSandboxClient = createClient(customUrl, customKey, {
-                auth: { persistSession: false, autoRefreshToken: false },
-                db: { schema: schemaName }
-            });
-            _dedicatedSandboxSignature = sig;
-        }
-        baseClient = _dedicatedSandboxClient;
-    } else {
-        baseClient = getSupabaseClient();
+    if (!customUrl || !customKey || customKey.includes('your-') || customKey.includes('<')) {
+        return false;
+    }
+    if (isProductionSupabaseUrl(customUrl)) {
+        return false;
+    }
+    try {
+        const parsed = new URL(customUrl);
+        return parsed.protocol === 'https:';
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Resolve the Supabase client strictly from SANDBOX_SUPABASE_URL + SANDBOX_SUPABASE_SERVICE_ROLE_KEY.
+ * Fails closed whenever missing or pointing to a production database. Never falls back to production.
+ */
+function resolveSandboxDbHandle(overrides = {}) {
+    const customUrl = String((overrides.sandboxUrl !== undefined ? overrides.sandboxUrl : process.env.SANDBOX_SUPABASE_URL) || '').trim();
+    const customKey = String((overrides.sandboxKey !== undefined ? overrides.sandboxKey : process.env.SANDBOX_SUPABASE_SERVICE_ROLE_KEY) || '').trim();
+    const schemaName = String((overrides.schemaName !== undefined ? overrides.schemaName : process.env.SANDBOX_SUPABASE_SCHEMA) || '').trim() || 'public';
+
+    if (!customUrl || !customKey || customKey.includes('your-') || customKey.includes('<')) {
+        throw new SandboxStoreError(
+            'Isolated sandbox Supabase credentials (SANDBOX_SUPABASE_URL and SANDBOX_SUPABASE_SERVICE_ROLE_KEY) are not configured.',
+            { code: 'SANDBOX_DB_NOT_CONFIGURED', statusCode: 503 }
+        );
     }
 
-    if (!baseClient) {
-        throw new SandboxStoreError('Supabase client is not configured for sandbox storage.', {
-            code: 'SANDBOX_DB_UNAVAILABLE',
+    if (isProductionSupabaseUrl(customUrl)) {
+        throw new SandboxStoreError(
+            'Refusing to connect sandbox payment storage to a production Supabase project.',
+            { code: 'PRODUCTION_DB_FORBIDDEN_IN_SANDBOX', statusCode: 503 }
+        );
+    }
+
+    let parsedUrl;
+    try {
+        parsedUrl = new URL(customUrl);
+    } catch {
+        throw new SandboxStoreError('Invalid SANDBOX_SUPABASE_URL format.', {
+            code: 'INVALID_SANDBOX_DB_URL',
+            statusCode: 503
+        });
+    }
+    if (parsedUrl.protocol !== 'https:') {
+        throw new SandboxStoreError('SANDBOX_SUPABASE_URL must use HTTPS.', {
+            code: 'INSECURE_SANDBOX_DB_URL',
             statusCode: 503
         });
     }
 
-    const scopedClient = (schemaName && schemaName !== 'public' && typeof baseClient.schema === 'function')
-        ? baseClient.schema(schemaName)
-        : baseClient;
+    const sig = `${customUrl}::${customKey.slice(-6)}::${schemaName}`;
+    if (!_dedicatedSandboxClient || _dedicatedSandboxSignature !== sig) {
+        _dedicatedSandboxClient = createClient(customUrl, customKey, {
+            auth: { persistSession: false, autoRefreshToken: false },
+            db: { schema: schemaName }
+        });
+        _dedicatedSandboxSignature = sig;
+    }
+
+    const scopedClient = (schemaName && schemaName !== 'public' && typeof _dedicatedSandboxClient.schema === 'function')
+        ? _dedicatedSandboxClient.schema(schemaName)
+        : _dedicatedSandboxClient;
 
     return {
         client: scopedClient,
-        baseClient,
+        baseClient: _dedicatedSandboxClient,
         schemaName,
-        usesDedicatedProject: Boolean(customUrl && customKey)
+        usesDedicatedProject: true
     };
 }
 
@@ -62,8 +97,14 @@ function mapSupabaseTableError(error, fallbackMsg = 'Sandbox storage operation f
     const msg = String(error.message || '');
     if (error.code === '42P01' || error.status === 404 || msg.includes('Could not find the table') || msg.includes('does not exist')) {
         return new SandboxStoreError(
-            'Sandbox payment database tables have not been migrated yet. Apply the sandbox migration SQL first.',
+            'Sandbox payment database tables have not been migrated yet. Apply server/db/migrations/20261125_upi_sandbox_gateway.sql first.',
             { code: 'SANDBOX_SCHEMA_NOT_MIGRATED', statusCode: 503 }
+        );
+    }
+    if (error.code === '42501' || msg.includes('permission denied')) {
+        return new SandboxStoreError(
+            'Database permission denied for service_role. Ensure explicit grants in the sandbox migration SQL have been applied.',
+            { code: 'SANDBOX_DB_PERMISSION_DENIED', statusCode: 503 }
         );
     }
     return new SandboxStoreError(fallbackMsg, {
@@ -91,6 +132,145 @@ function createSupabaseSandboxStore(options = {}) {
         }
     }
 
+    async function listCatalogItems({ category = null, search = null } = {}) {
+        const { client } = getHandle();
+        let query = client
+            .from('sandbox_catalog_items')
+            .select('id, hostel_id, name, category, subcategory, price, mrp, unit, size, image_url, in_stock, stock_left, is_active, is_veg, bestseller, is_new')
+            .eq('is_active', true);
+
+        if (category && category !== 'All' && category !== '__all__') {
+            query = query.ilike('category', `%${String(category).trim()}%`);
+        }
+
+        const { data, error } = await query.order('bestseller', { ascending: false }).order('name', { ascending: true });
+        if (error) throw mapSupabaseTableError(error, 'Failed to read sandbox catalog fixtures.');
+
+        let rows = data || [];
+        if (search) {
+            const q = String(search).trim().toLowerCase();
+            rows = rows.filter(r =>
+                (r.name && r.name.toLowerCase().includes(q)) ||
+                (r.category && r.category.toLowerCase().includes(q)) ||
+                (r.subcategory && r.subcategory.toLowerCase().includes(q))
+            );
+        }
+        return rows;
+    }
+
+    async function getCatalogItemsByIds(productIds = []) {
+        const ids = Array.from(new Set((productIds || []).filter(Boolean)));
+        if (ids.length === 0) return [];
+        const { client } = getHandle();
+        const { data, error } = await client
+            .from('sandbox_catalog_items')
+            .select('id, hostel_id, name, category, subcategory, price, mrp, unit, size, image_url, in_stock, stock_left, is_active')
+            .in('id', ids)
+            .eq('is_active', true);
+        if (error) throw mapSupabaseTableError(error, 'Failed to load sandbox catalog products.');
+        return data || [];
+    }
+
+    async function getCartItems(userId, hostelId = 'BH-13') {
+        const cleanUser = String(userId || '').trim();
+        if (!cleanUser) return [];
+        const { client } = getHandle();
+
+        const { data: rows, error } = await client
+            .from('sandbox_cart_items')
+            .select('id, user_id, product_id, hostel_id, quantity')
+            .eq('user_id', cleanUser);
+
+        if (error) throw mapSupabaseTableError(error, 'Failed to read sandbox cart.');
+        if (!rows || rows.length === 0) return [];
+
+        const catalogRows = await getCatalogItemsByIds(rows.map(r => r.product_id));
+        const catalogMap = new Map(catalogRows.map(c => [c.id, c]));
+
+        return rows
+            .map(row => {
+                const prod = catalogMap.get(row.product_id);
+                if (!prod) return null;
+                return {
+                    id: row.id,
+                    cart_id: row.id,
+                    product_id: row.product_id,
+                    hostel_id: row.hostel_id || hostelId || 'BH-13',
+                    quantity: Math.max(1, Number(row.quantity) || 1),
+                    name: prod.name,
+                    category: prod.category,
+                    subcategory: prod.subcategory,
+                    price: Number(prod.price),
+                    mrp: Number(prod.mrp) || Number(prod.price),
+                    unit: prod.unit,
+                    size: prod.size,
+                    image_url: prod.image_url,
+                    in_stock: Boolean(prod.in_stock),
+                    stock_left: Math.max(0, Number(prod.stock_left) || 0)
+                };
+            })
+            .filter(Boolean);
+    }
+
+    async function setCartItemQuantity(userId, productId, quantity, hostelId = 'BH-13') {
+        const cleanUser = String(userId || '').trim();
+        const cleanProd = String(productId || '').trim();
+        const cleanHostel = String(hostelId || 'BH-13').trim() || 'BH-13';
+        const qty = Math.floor(Number(quantity) || 0);
+        const { client } = getHandle();
+
+        if (!cleanUser || !cleanProd) {
+            throw new SandboxStoreError('userId and productId are required.', {
+                code: 'INVALID_SANDBOX_CART_INPUT',
+                statusCode: 400
+            });
+        }
+
+        if (qty <= 0) {
+            const { error } = await client
+                .from('sandbox_cart_items')
+                .delete()
+                .eq('user_id', cleanUser)
+                .eq('product_id', cleanProd);
+            if (error) throw mapSupabaseTableError(error, 'Failed to remove sandbox cart item.');
+            return getCartItems(cleanUser, cleanHostel);
+        }
+
+        const prods = await getCatalogItemsByIds([cleanProd]);
+        if (prods.length === 0) {
+            throw new SandboxStoreError('Product not found in isolated sandbox catalog.', {
+                code: 'UNKNOWN_SANDBOX_PRODUCT',
+                statusCode: 400
+            });
+        }
+
+        const cappedQty = Math.min(99, Math.max(1, qty));
+        const { error } = await client
+            .from('sandbox_cart_items')
+            .upsert([{
+                id: `sbx_cart_${crypto.createHash('sha256').update(`${cleanUser}::${cleanProd}::${cleanHostel}`).digest('hex').slice(0, 20)}`,
+                user_id: cleanUser,
+                product_id: cleanProd,
+                hostel_id: cleanHostel,
+                quantity: cappedQty,
+                updated_at: new Date().toISOString()
+            }], { onConflict: 'user_id,product_id,hostel_id' });
+
+        if (error) throw mapSupabaseTableError(error, 'Failed to save sandbox cart item.');
+        return getCartItems(cleanUser, cleanHostel);
+    }
+
+    async function clearCart(userId) {
+        const cleanUser = String(userId || '').trim();
+        if (!cleanUser) return;
+        const { client } = getHandle();
+        const { error } = await client
+            .from('sandbox_cart_items')
+            .delete()
+            .eq('user_id', cleanUser);
+        if (error) throw mapSupabaseTableError(error, 'Failed to clear sandbox cart.');
+    }
+
     async function findOrderByIdempotencyKey(idempotencyKey) {
         if (!idempotencyKey) return null;
         const { client } = getHandle();
@@ -109,7 +289,7 @@ function createSupabaseSandboxStore(options = {}) {
         if (!cleanId) return null;
         const { client } = getHandle();
 
-        let { data, error } = await client
+        const { data, error } = await client
             .from('sandbox_payment_orders')
             .select('*')
             .eq('client_order_id', cleanId)
@@ -132,7 +312,7 @@ function createSupabaseSandboxStore(options = {}) {
         const { client } = getHandle();
         const { data, error } = await client
             .from('sandbox_payment_orders')
-            .select('id, client_order_id, gateway_order_id, hostel_id, order_mode, amount, currency, environment, is_test, status, payment_url, utr, fulfilled, sandbox_fulfilled_at, created_at, updated_at')
+            .select('id, client_order_id, gateway_order_id, user_id, hostel_id, order_mode, amount, currency, environment, is_test, status, payment_url, utr, fulfilled, sandbox_fulfilled_at, created_at, updated_at')
             .eq('user_id', cleanUser)
             .order('created_at', { ascending: false })
             .limit(Math.min(50, Math.max(1, Number(limit) || 15)));
@@ -178,7 +358,6 @@ function createSupabaseSandboxStore(options = {}) {
 
         if (error) {
             if (error.code === '23505') {
-                // Race condition on unique key: return existing durable row cleanly
                 const existing = row.checkout_idempotency_key
                     ? await findOrderByIdempotencyKey(row.checkout_idempotency_key)
                     : await findOrderByClientOrGatewayId(row.client_order_id);
@@ -215,7 +394,6 @@ function createSupabaseSandboxStore(options = {}) {
             });
         }
 
-        // Preserve terminal Paid fulfilment monotonically
         const nextStatus = existing.status === 'Paid' ? 'Paid' : status;
         const shouldMarkFulfilled = nextStatus === 'Paid' && !existing.fulfilled;
 
@@ -269,7 +447,7 @@ function createSupabaseSandboxStore(options = {}) {
 
     /**
      * Atomically deduplicate event_id, enforce monotonic event_sequence, verify order identity + amount,
-     * and record at most one sandbox fulfilment inside Postgres (via RPC or atomic unique + sequence update).
+     * and record at most one sandbox fulfilment inside Postgres (via RPC or atomic fallback).
      */
     async function processWebhookAtomically({
         eventId,
@@ -286,7 +464,6 @@ function createSupabaseSandboxStore(options = {}) {
     }) {
         const { client } = getHandle();
 
-        // Preferred path: PostgreSQL stored procedure transaction (FOR UPDATE + atomic insert + monotonic sequence)
         try {
             const { data: rpcData, error: rpcError } = await client.rpc('process_sandbox_webhook_atomic', {
                 p_event_id: eventId,
@@ -313,7 +490,6 @@ function createSupabaseSandboxStore(options = {}) {
             if (err instanceof SandboxStoreError) throw err;
         }
 
-        // Fallback PostgREST path when RPC function is not deployed yet (still uses DB UNIQUE + conditional sequence guards)
         const existingEvent = await client
             .from('sandbox_webhook_events')
             .select('event_id, processing_result, client_order_id, gateway_order_id')
@@ -329,7 +505,6 @@ function createSupabaseSandboxStore(options = {}) {
             };
         }
 
-        // Locate strictly inside isolated sandbox_payment_orders (NEVER production orders!)
         let order = null;
         if (clientOrderId) {
             order = await findOrderByClientOrGatewayId(clientOrderId);
@@ -345,7 +520,6 @@ function createSupabaseSandboxStore(options = {}) {
             };
         }
 
-        // Verify order identity coherence if both IDs are present
         if (clientOrderId && order.client_order_id !== clientOrderId) {
             return {
                 outcome: 'rejected_mismatch',
@@ -360,8 +534,6 @@ function createSupabaseSandboxStore(options = {}) {
                 code: 'ORDER_IDENTITY_MISMATCH'
             };
         }
-
-        // Verify exact INR amount match (in paise integer arithmetic)
         if (Math.round(Number(order.amount) * 100) !== Math.round(Number(amount) * 100)) {
             return {
                 outcome: 'rejected_mismatch',
@@ -455,7 +627,6 @@ function createSupabaseSandboxStore(options = {}) {
         }
 
         if (!updatedRes.data) {
-            // Concurrent higher-sequence update won the race cleanly
             await client
                 .from('sandbox_webhook_events')
                 .update({ processing_result: 'stale_sequence_ignored' })
@@ -497,6 +668,12 @@ function createSupabaseSandboxStore(options = {}) {
     }
 
     return {
+        isConfigured: () => isSandboxDatabaseConfigured(),
+        listCatalogItems,
+        getCatalogItemsByIds,
+        getCartItems,
+        setCartItemQuantity,
+        clearCart,
         appendAuditLog,
         findOrderByIdempotencyKey,
         findOrderByClientOrGatewayId,
@@ -509,6 +686,7 @@ function createSupabaseSandboxStore(options = {}) {
 
 module.exports = {
     SandboxStoreError,
+    isSandboxDatabaseConfigured,
     resolveSandboxDbHandle,
     createSupabaseSandboxStore
 };

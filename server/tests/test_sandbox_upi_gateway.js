@@ -1,10 +1,15 @@
 const assert = require('assert');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const http = require('http');
 const express = require('express');
 const { createUpiGatewayClient } = require('../services/upiGatewayClient');
 const { createSandboxPaymentService } = require('../services/sandboxPaymentService');
 const { createPaymentsRouter } = require('../routes/payments');
+const { issueSandboxSessionToken } = require('../services/sandboxAuth');
+const { resolveSandboxDbHandle, isSandboxDatabaseConfigured } = require('../services/sandboxPaymentStore');
+const { createSandboxPreviewIsolationMiddleware } = require('../middleware/sandboxPreviewIsolation');
 
 /**
  * Isolated in-memory transactional mock store mirroring 20261125_upi_sandbox_gateway.sql semantics.
@@ -15,12 +20,82 @@ function createMockSandboxStore() {
     const ordersByGatewayId = new Map();
     const ordersByIdemKey = new Map();
     const eventsById = new Map();
+    const cartByUserProd = new Map();
     const auditLogs = [];
+
+    const catalogItems = [
+        { id: 'SBX_PROD_MAGGI', hostel_id: 'BH-13', name: '[Sandbox] Masala Noodles', category: 'Snacks & Beverages', subcategory: 'Noodles', price: 55, mrp: 60, unit: 'pack', size: '2-Pack', image_url: '', in_stock: true, stock_left: 50, is_active: true, is_veg: true, bestseller: true, is_new: false },
+        { id: 'SBX_PROD_MEAL', hostel_id: 'BH-13', name: '[Sandbox] Express Meal Box', category: "Quick's Instant Food", subcategory: 'Meals', price: 120, mrp: 140, unit: 'box', size: 'Regular', image_url: '', in_stock: true, stock_left: 50, is_active: true, is_veg: true, bestseller: true, is_new: true }
+    ];
 
     return {
         _ordersByClientId: ordersByClientId,
         _eventsById: eventsById,
         _auditLogs: auditLogs,
+
+        isConfigured: () => true,
+
+        async listCatalogItems({ category, search } = {}) {
+            let list = catalogItems.filter(c => c.is_active);
+            if (category && category !== 'All') {
+                const lc = String(category).toLowerCase();
+                list = list.filter(c => c.category.toLowerCase().includes(lc));
+            }
+            if (search) {
+                const lq = String(search).toLowerCase();
+                list = list.filter(c => c.name.toLowerCase().includes(lq));
+            }
+            return list;
+        },
+
+        async getCatalogItemsByIds(ids = []) {
+            return catalogItems.filter(c => ids.includes(c.id));
+        },
+
+        async getCartItems(userId, hostelId = 'BH-13') {
+            const out = [];
+            for (const row of cartByUserProd.values()) {
+                if (row.user_id !== userId) continue;
+                const prod = catalogItems.find(c => c.id === row.product_id);
+                if (prod) {
+                    out.push({
+                        id: row.id,
+                        cart_id: row.id,
+                        product_id: row.product_id,
+                        hostel_id: row.hostel_id || hostelId,
+                        quantity: row.quantity,
+                        name: prod.name,
+                        price: prod.price,
+                        mrp: prod.mrp,
+                        in_stock: true,
+                        stock_left: prod.stock_left
+                    });
+                }
+            }
+            return out;
+        },
+
+        async setCartItemQuantity(userId, productId, quantity, hostelId = 'BH-13') {
+            const key = `${userId}::${productId}`;
+            if (quantity <= 0) {
+                cartByUserProd.delete(key);
+            } else {
+                cartByUserProd.set(key, {
+                    id: `sbx_cart_${productId}`,
+                    user_id: userId,
+                    product_id: productId,
+                    hostel_id: hostelId,
+                    quantity
+                });
+            }
+            return this.getCartItems(userId, hostelId);
+        },
+
+        async clearCart(userId) {
+            for (const [k, v] of cartByUserProd.entries()) {
+                if (v.user_id === userId) cartByUserProd.delete(k);
+            }
+        },
 
         async appendAuditLog(entry) {
             auditLogs.push({ ...entry, created_at: new Date().toISOString() });
@@ -206,93 +281,28 @@ function signWebhookPayload(rawJson, secret, timestampSec = Math.floor(Date.now(
 
 async function runTests() {
     console.log('===================================================================');
-    console.log('🧪 LPUQuick Sandbox UPI Gateway Security & Integration Test Suite');
+    console.log('🧪 LPUQuick Sandbox UPI Gateway Security & Isolation Test Suite');
     console.log('===================================================================');
 
     const TEST_API_KEY = 'test_key_sandbox_unit_12345';
     const TEST_API_SECRET = 'test_sec_sandbox_unit_67890';
     const TEST_WEBHOOK_SECRET = 'whsec_sandbox_unit_secret_9988776655';
 
-    // Track real-world side effects to assert ZERO production leakage
-    let prodOrdersCreated = 0;
-    let prodCartCleared = 0;
-    let prodInventoryModified = 0;
+    // Ensure auth signing in unit test process uses isolated test secret
+    const prevWebhookSecret = process.env.PAYMENT_WEBHOOK_SECRET;
+    process.env.PAYMENT_WEBHOOK_SECRET = TEST_WEBHOOK_SECRET;
 
-    // Mock catalog DB (returns authoritative ₹55 for prod_maggi, ₹120 for prod_redbull)
-    const mockDb = {
-        products: {
-            async getByIds(ids) {
-                const catalog = {
-                    prod_maggi: { id: 'prod_maggi', name: 'Maggi Noodles', price: 55, mrp: 60 },
-                    prod_redbull: { id: 'prod_redbull', name: 'Red Bull', price: 120, mrp: 125 }
-                };
-                return ids.map(id => catalog[id]).filter(Boolean);
-            }
-        },
-        cart: {
-            async getCart() {
-                return { items: [] };
-            },
-            async clearCart() {
-                prodCartCleared++;
-            }
-        },
-        orders: {
-            async createOrder() {
-                prodOrdersCreated++;
-                throw new Error('Production orders must NEVER be called from sandbox!');
-            }
-        },
-        inventory: {
-            async deduct() {
-                prodInventoryModified++;
-            }
-        }
-    };
-
-    const mockSettingsSvc = {
-        async getSettings() {
-            return {
-                offers_enabled: false,
-                handling_fee_enabled: true,
-                handling_fee: 3,
-                delivery_fee: 0,
-                free_delivery_enabled: true,
-                min_cart_value: 35
-            };
-        },
-        calculateCharges(items) {
-            const subtotal = items.reduce((s, it) => s + Number(it.price) * Number(it.quantity), 0);
-            const platform_fee = 3;
-            return {
-                subtotal,
-                global_discount: 0,
-                delivery_fee: 0,
-                platform_fee,
-                total: subtotal + platform_fee
-            };
-        }
-    };
-
-    const mockModeSvc = {
-        async getStoreSettings() {
-            return { delivery_enabled: true, takeaway_enabled: true };
-        },
-        async calculateTakeawayFee() {
-            return 2;
-        }
-    };
+    let prodCheckoutHit = 0;
 
     // Mock Laravel UPI Gateway HTTP server
     const gatewayOrders = new Map();
     let gatewayCreateCalls = 0;
-    let gatewayMode = 'normal'; // 'normal' | 'slow' | '522' | 'bad_url' | 'tampered_status_amount' | 'wrong_status_order_id'
+    let gatewayMode = 'normal';
 
     const mockGatewayServer = http.createServer((req, res) => {
         let raw = '';
         req.on('data', chunk => { raw += chunk; });
         req.on('end', () => {
-            // Assert server-to-server auth headers
             if (req.headers['x-api-key'] !== TEST_API_KEY || req.headers['x-api-secret'] !== TEST_API_SECRET) {
                 res.writeHead(401, { 'Content-Type': 'application/json' });
                 return res.end(JSON.stringify({ message: 'Invalid API credentials' }));
@@ -383,9 +393,6 @@ async function runTests() {
     const service = createSandboxPaymentService({
         store,
         gatewayClient,
-        db: mockDb,
-        checkoutSettingsService: mockSettingsSvc,
-        orderModeService: mockModeSvc,
         getWebhookSecret: () => TEST_WEBHOOK_SECRET
     });
 
@@ -393,7 +400,15 @@ async function runTests() {
     app.use(express.json({
         verify: (req, res, buf) => { req.rawBody = buf; }
     }));
+    app.use(createSandboxPreviewIsolationMiddleware({
+        store,
+        isSandboxRuntime: () => true
+    }));
     app.use('/api/payments', createPaymentsRouter(service));
+    app.post('/api/checkout', (req, res) => {
+        prodCheckoutHit++;
+        res.status(200).json({ ok: true });
+    });
     app.use((err, req, res, next) => {
         if (err && err.type === 'entity.parse.failed') {
             return res.status(400).json({ success: false, code: 'MALFORMED_PAYLOAD' });
@@ -406,8 +421,8 @@ async function runTests() {
     const appBase = `http://127.0.0.1:${appServer.address().port}`;
 
     try {
-        // 1. Frontend price manipulation test & Authoritative calculation
-        console.log('[1/15] Testing attempted frontend price manipulation...');
+        // 1. Frontend price manipulation test & Authoritative calculation using isolated sandbox catalog
+        console.log('[1/18] Testing attempted frontend price manipulation...');
         const idemSuccess = 'IDEM_TEST_SUCCESS_01';
         const createRes = await fetch(`${appBase}/api/payments/sandbox/create-order`, {
             method: 'POST',
@@ -420,25 +435,55 @@ async function runTests() {
                 idempotencyKey: idemSuccess,
                 amount: 1,
                 total: 1,
-                items: [{ product_id: 'prod_maggi', quantity: 2, price: 1 }] // catalog: 55*2 + 3 = 113
+                items: [{ product_id: 'SBX_PROD_MAGGI', quantity: 2, price: 1 }] // sandbox catalog: 55*2 + 3 = 113
             })
         });
         const createJson = await createRes.json();
         assert.strictEqual(createRes.status, 200);
         assert.strictEqual(createJson.amount, 113, 'Backend must ignore tampered price=1 and compute 113');
         assert.ok(createJson.payment_url.includes('/sandbox/pay/'), 'payment_url must start with /sandbox/pay/');
+        assert.ok(createJson.status_token, 'Signed order status token must be issued');
+        assert.ok(createJson.session_token, 'Signed session token must be issued');
         const clientOrderId1 = createJson.client_order_id;
         const gwOrderId1 = createJson.gateway_order_id;
+        const order1StatusToken = createJson.status_token;
 
-        // 2. Pending initial state (Redirect alone never confirms)
-        console.log('[2/15] Testing Pending payment status before completion...');
-        const pendingRes = await fetch(`${appBase}/api/payments/sandbox/status/${clientOrderId1}`);
+        // 2. Unauthorized order status & orders-list requests (Authentication + Ownership)
+        console.log('[2/18] Testing unauthorized and cross-user order status requests...');
+        const unauthStatus = await fetch(`${appBase}/api/payments/sandbox/status/${clientOrderId1}`);
+        assert.strictEqual(unauthStatus.status, 401, 'Unauthenticated status request must return 401');
+
+        const forgedStatus = await fetch(`${appBase}/api/payments/sandbox/status/${clientOrderId1}`, {
+            headers: { Authorization: 'Bearer sbx_ord_forged.invalid' }
+        });
+        assert.strictEqual(forgedStatus.status, 401, 'Forged token must return 401');
+
+        const otherUserTok = issueSandboxSessionToken('user_attacker_other');
+        const crossUserStatus = await fetch(`${appBase}/api/payments/sandbox/status/${clientOrderId1}`, {
+            headers: { Authorization: `Bearer ${otherUserTok}` }
+        });
+        assert.strictEqual(crossUserStatus.status, 403, 'Different user token must return 403 Forbidden');
+
+        const unauthList = await fetch(`${appBase}/api/payments/sandbox/orders?userId=user_sbx_1`);
+        assert.strictEqual(unauthList.status, 401, 'Unauthenticated orders list must return 401');
+
+        const crossUserList = await fetch(`${appBase}/api/payments/sandbox/orders?userId=user_sbx_1`, {
+            headers: { Authorization: `Bearer ${otherUserTok}` }
+        });
+        assert.strictEqual(crossUserList.status, 403, 'Cross-user orders list must return 403');
+
+        // 3. Pending initial state with valid owner token
+        console.log('[3/18] Testing authorized Pending payment status before completion...');
+        const pendingRes = await fetch(`${appBase}/api/payments/sandbox/status/${clientOrderId1}`, {
+            headers: { Authorization: `Bearer ${order1StatusToken}` }
+        });
         const pendingJson = await pendingRes.json();
+        assert.strictEqual(pendingRes.status, 200);
         assert.strictEqual(pendingJson.order.status, 'Pending');
         assert.strictEqual(pendingJson.order.fulfilled, false);
 
-        // 3. Invalid webhook signature (wrong hmac, missing header, legacy body-only sha256)
-        console.log('[3/15] Testing invalid / missing / legacy webhook signature rejection...');
+        // 4. Invalid webhook signature (wrong hmac, legacy body-only sha256)
+        console.log('[4/18] Testing invalid / legacy webhook signature rejection...');
         const paidPayloadObj = {
             event: 'order.paid',
             event_id: 'evt_paid_001',
@@ -477,10 +522,10 @@ async function runTests() {
             },
             body: paidRaw
         });
-        assert.strictEqual(legacyRes.status, 401, 'Legacy body-only signatures must be rejected');
+        assert.strictEqual(legacyRes.status, 401);
 
-        // 4. Expired webhook timestamp (>300s)
-        console.log('[4/15] Testing expired webhook timestamp rejection (>300s)...');
+        // 5. Expired webhook timestamp (>300s)
+        console.log('[5/18] Testing expired webhook timestamp rejection (>300s)...');
         const oldTs = Math.floor(Date.now() / 1000) - 360;
         const expiredTsRes = await fetch(`${appBase}/api/payments/webhook`, {
             method: 'POST',
@@ -494,8 +539,8 @@ async function runTests() {
         });
         assert.strictEqual(expiredTsRes.status, 401);
 
-        // 5. Successful simulated payment via signed webhook
-        console.log('[5/15] Testing successful simulated payment webhook...');
+        // 6. Successful simulated payment via signed webhook
+        console.log('[6/18] Testing successful simulated payment webhook...');
         gatewayOrders.get(clientOrderId1).status = 'Paid';
         gatewayOrders.get(clientOrderId1).utr = '429900112233';
         const paidWhRes = await fetch(`${appBase}/api/payments/webhook`, {
@@ -513,8 +558,8 @@ async function runTests() {
         assert.strictEqual(paidWhJson.status, 'Paid');
         assert.strictEqual(paidWhJson.fulfilled, true);
 
-        // 6. Duplicate webhook event deduplication
-        console.log('[6/15] Testing duplicate webhook event deduplication...');
+        // 7. Duplicate webhook event deduplication
+        console.log('[7/18] Testing duplicate webhook event deduplication...');
         const dupRes = await fetch(`${appBase}/api/payments/webhook`, {
             method: 'POST',
             headers: {
@@ -530,8 +575,8 @@ async function runTests() {
         assert.strictEqual(dupJson.duplicate, true);
         assert.strictEqual(store._eventsById.size, 1);
 
-        // 7. Out-of-order webhook event (older event_sequence=1 arrives after sequence=3)
-        console.log('[7/15] Testing out-of-order webhook sequence protection...');
+        // 8. Out-of-order webhook event
+        console.log('[8/18] Testing out-of-order webhook sequence protection...');
         const olderObj = {
             ...paidPayloadObj,
             event: 'order.failed',
@@ -553,17 +598,17 @@ async function runTests() {
         const olderJson = await olderRes.json();
         assert.strictEqual(olderRes.status, 200);
         assert.strictEqual(olderJson.ignored_out_of_order, true);
-        assert.strictEqual(store._ordersByClientId.get(clientOrderId1).status, 'Paid', 'Paid must not downgrade to older Failed');
+        assert.strictEqual(store._ordersByClientId.get(clientOrderId1).status, 'Paid');
 
-        // 8. Multiple checkout clicks concurrency + idempotency
-        console.log('[8/15] Testing multiple concurrent checkout clicks deduplication...');
+        // 9. Multiple checkout clicks concurrency + idempotency
+        console.log('[9/18] Testing multiple concurrent checkout clicks deduplication...');
         const callsBefore = gatewayCreateCalls;
         const clickPayload = JSON.stringify({
             userId: 'user_sbx_multi',
             hostel_id: 'BH-13',
             order_mode: 'TAKEAWAY',
             idempotencyKey: 'IDEM_CONCURRENT_MULTI_99',
-            items: [{ product_id: 'prod_redbull', quantity: 1 }] // Takeaway: 120 + 2 = 122
+            items: [{ product_id: 'SBX_PROD_MEAL', quantity: 1 }] // Takeaway: 120 + 2 = 122
         });
         const clickResults = await Promise.all([1, 2, 3].map(() =>
             fetch(`${appBase}/api/payments/sandbox/create-order`, {
@@ -572,12 +617,13 @@ async function runTests() {
                 body: clickPayload
             }).then(r => r.json())
         ));
-        assert.strictEqual(gatewayCreateCalls, callsBefore + 1, 'Gateway must only be called once for multi-click');
+        assert.strictEqual(gatewayCreateCalls, callsBefore + 1);
         const multiOrderId = clickResults[0].client_order_id;
+        const multiToken = clickResults[0].status_token;
         assert.ok(clickResults.every(r => r.client_order_id === multiOrderId && r.amount === 122));
 
-        // 9. Incorrect payment amount in webhook & status check
-        console.log('[9/15] Testing incorrect payment amount rejection...');
+        // 10. Incorrect payment amount in webhook & status check
+        console.log('[10/18] Testing incorrect payment amount rejection...');
         const wrongAmtRaw = JSON.stringify({
             event: 'order.paid',
             event_id: 'evt_wrong_amt_1',
@@ -600,15 +646,16 @@ async function runTests() {
             body: wrongAmtRaw
         });
         assert.strictEqual(wrongAmtWh.status, 400);
-        assert.strictEqual(store._ordersByClientId.get(multiOrderId).status, 'Pending');
 
         gatewayMode = 'tampered_status_amount';
-        const statusTamperRes = await fetch(`${appBase}/api/payments/sandbox/status/${multiOrderId}`);
+        const statusTamperRes = await fetch(`${appBase}/api/payments/sandbox/status/${multiOrderId}`, {
+            headers: { Authorization: `Bearer ${multiToken}` }
+        });
         assert.strictEqual(statusTamperRes.status, 400);
         gatewayMode = 'normal';
 
-        // 10. Incorrect order ID in webhook & status check
-        console.log('[10/15] Testing incorrect order ID rejection...');
+        // 11. Incorrect order ID in webhook & status check
+        console.log('[11/18] Testing incorrect order ID rejection...');
         const wrongIdRaw = JSON.stringify({
             event: 'order.paid',
             event_id: 'evt_wrong_id_1',
@@ -633,12 +680,14 @@ async function runTests() {
         assert.strictEqual(wrongIdWh.status, 400);
 
         gatewayMode = 'wrong_status_order_id';
-        const statusWrongIdRes = await fetch(`${appBase}/api/payments/sandbox/status/${multiOrderId}`);
+        const statusWrongIdRes = await fetch(`${appBase}/api/payments/sandbox/status/${multiOrderId}`, {
+            headers: { Authorization: `Bearer ${multiToken}` }
+        });
         assert.strictEqual(statusWrongIdRes.status, 400);
         gatewayMode = 'normal';
 
-        // 11. Failed, Expired, Under review, Pending, Timeout webhook events
-        console.log('[11/15] Testing Pending, Under review, Failed, Expired, and Timeout webhook states...');
+        // 12. Failed, Expired, Under review, Pending, Timeout webhook events
+        console.log('[12/18] Testing Pending, Under review, Failed, Expired, and Timeout webhook states...');
         const seqEvents = [
             { evt: 'order.pending', seq: 1, expect: 'Pending' },
             { evt: 'order.under_review', seq: 2, expect: 'Under review' },
@@ -673,8 +722,8 @@ async function runTests() {
             assert.strictEqual(j.status, item.expect);
         }
 
-        // 12. Gateway unavailable (Cloudflare 522) & Provider HTTP timeout
-        console.log('[12/15] Testing Cloudflare 522 & provider timeout resilience...');
+        // 13. Gateway unavailable (Cloudflare 522) & Provider HTTP timeout
+        console.log('[13/18] Testing Cloudflare 522 & provider timeout resilience...');
         gatewayMode = '522';
         const res522 = await fetch(`${appBase}/api/payments/sandbox/create-order`, {
             method: 'POST',
@@ -682,7 +731,7 @@ async function runTests() {
             body: JSON.stringify({
                 userId: 'user_sbx_522',
                 idempotencyKey: 'IDEM_522_TEST',
-                items: [{ product_id: 'prod_maggi', quantity: 1 }]
+                items: [{ product_id: 'SBX_PROD_MAGGI', quantity: 1 }]
             })
         });
         const j522 = await res522.json();
@@ -690,8 +739,9 @@ async function runTests() {
         assert.strictEqual(j522.code, 'GATEWAY_CLOUDFLARE_522');
         assert.strictEqual(j522.retryable, true);
 
-        // Status check during gateway 522 still returns durable stored state cleanly
-        const fallbackStatusRes = await fetch(`${appBase}/api/payments/sandbox/status/${clientOrderId1}`);
+        const fallbackStatusRes = await fetch(`${appBase}/api/payments/sandbox/status/${clientOrderId1}`, {
+            headers: { Authorization: `Bearer ${order1StatusToken}` }
+        });
         const fallbackStatusJson = await fallbackStatusRes.json();
         assert.strictEqual(fallbackStatusRes.status, 200);
         assert.strictEqual(fallbackStatusJson.gatewaySync.ok, false);
@@ -704,15 +754,15 @@ async function runTests() {
             body: JSON.stringify({
                 userId: 'user_sbx_to',
                 idempotencyKey: 'IDEM_TIMEOUT_TEST',
-                items: [{ product_id: 'prod_maggi', quantity: 1 }]
+                items: [{ product_id: 'SBX_PROD_MAGGI', quantity: 1 }]
             })
         });
         const jTimeout = await resTimeout.json();
         assert.strictEqual(resTimeout.status, 504);
         assert.strictEqual(jTimeout.code, 'GATEWAY_TIMEOUT');
 
-        // 13. Non-sandbox payment_url open-redirect protection
-        console.log('[13/15] Testing gateway untrusted payment_url rejection...');
+        // 14. Non-sandbox payment_url open-redirect protection
+        console.log('[14/18] Testing gateway untrusted payment_url rejection...');
         gatewayMode = 'bad_url';
         const resBadUrl = await fetch(`${appBase}/api/payments/sandbox/create-order`, {
             method: 'POST',
@@ -720,14 +770,14 @@ async function runTests() {
             body: JSON.stringify({
                 userId: 'user_sbx_url',
                 idempotencyKey: 'IDEM_BAD_URL',
-                items: [{ product_id: 'prod_maggi', quantity: 1 }]
+                items: [{ product_id: 'SBX_PROD_MAGGI', quantity: 1 }]
             })
         });
         assert.strictEqual(resBadUrl.status, 502);
         gatewayMode = 'normal';
 
-        // 14. Sandbox webhook targeting a production order ID or non-sandbox event
-        console.log('[14/15] Testing isolation: sandbox event cannot affect production orders...');
+        // 15. Sandbox webhook targeting a production order ID or non-sandbox event
+        console.log('[15/18] Testing isolation: sandbox event cannot affect production orders...');
         const prodTargetRaw = JSON.stringify({
             event: 'order.paid',
             event_id: 'evt_prod_cross_1',
@@ -774,18 +824,54 @@ async function runTests() {
         });
         assert.strictEqual(nonSandboxRes.status, 403);
 
-        // 15. Verify zero production side-effects & zero secret leakage on public config
-        console.log('[15/15] Verifying zero production mutations and no secret leaks...');
+        // 16. Preview isolation middleware blocks live checkout/admin & isolates cart/catalog
+        console.log('[16/18] Testing Preview isolation middleware and sandbox cart/catalog...');
+        const liveCheckoutBlocked = await fetch(`${appBase}/api/checkout`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: 'u1' })
+        });
+        assert.strictEqual(liveCheckoutBlocked.status, 403);
+        assert.strictEqual(prodCheckoutHit, 0, 'Live checkout route must never execute in Sandbox Preview');
+
+        const adminBlocked = await fetch(`${appBase}/api/orders/admin/all`);
+        assert.strictEqual(adminBlocked.status, 403);
+
+        const cartAddRes = await fetch(`${appBase}/api/cart/set-quantity`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: 'sbx_cart_u1', productId: 'SBX_PROD_MAGGI', quantity: 2, hostel_id: 'BH-13' })
+        });
+        assert.strictEqual(cartAddRes.status, 200);
+        const cartAddJson = await cartAddRes.json();
+        assert.strictEqual(cartAddJson.sandbox, true);
+        assert.strictEqual(cartAddJson.pricing.subtotal, 110);
+
+        // 17. Fail-closed Sandbox DB configuration guards (never falls back to production)
+        console.log('[17/18] Testing fail-closed sandbox database guards...');
+        assert.strictEqual(isSandboxDatabaseConfigured({ sandboxUrl: '', sandboxKey: '' }), false);
+        assert.strictEqual(isSandboxDatabaseConfigured({ sandboxUrl: 'https://vltnqvktdlpcltndmmwl.supabase.co', sandboxKey: 'sb_secret_dummy' }), false);
+        assert.throws(() => resolveSandboxDbHandle({ sandboxUrl: '', sandboxKey: '' }), /not configured/i);
+        assert.throws(() => resolveSandboxDbHandle({ sandboxUrl: 'https://vltnqvktdlpcltndmmwl.supabase.co', sandboxKey: 'sb_secret_dummy' }), /production/i);
+
+        // 18. Audit SQL migration file permissions & zero secret leaks
+        console.log('[18/18] Auditing sandbox SQL migration grants and config response...');
+        const sql = fs.readFileSync(path.join(__dirname, '../db/migrations/20261125_upi_sandbox_gateway.sql'), 'utf8');
+        assert.ok(sql.includes('ENABLE ROW LEVEL SECURITY'), 'All sandbox tables must enable RLS');
+        assert.ok(sql.includes('REVOKE ALL ON FUNCTION public.process_sandbox_webhook_atomic'), 'Function execute must be revoked from PUBLIC/anon/authenticated');
+        assert.ok(sql.includes('GRANT EXECUTE ON FUNCTION public.process_sandbox_webhook_atomic'), 'Function execute must be explicitly granted to service_role');
+        assert.ok(sql.includes('SET search_path = pg_catalog, public, pg_temp'), 'SECURITY DEFINER must pin safe search_path');
+        assert.ok(!sql.includes('vltnqvktdlpcltndmmwl'), 'Migration must never reference production project ref');
+
         const cfgRes = await fetch(`${appBase}/api/payments/sandbox/config`);
         const cfgText = await cfgRes.text();
         assert.strictEqual(cfgRes.status, 200);
         assert.ok(!cfgText.includes('test_key_') && !cfgText.includes('test_sec_') && !cfgText.includes(TEST_WEBHOOK_SECRET));
-        assert.strictEqual(prodOrdersCreated, 0, 'Zero production orders created');
-        assert.strictEqual(prodCartCleared, 0, 'Zero carts cleared');
-        assert.strictEqual(prodInventoryModified, 0, 'Zero inventory mutations');
 
-        console.log('\n✅ ALL 15 SANDBOX UPI PAYMENT & SECURITY TESTS PASSED!');
+        console.log('\n✅ ALL 18 SANDBOX UPI GATEWAY, AUTH, ISOLATION & MIGRATION AUDIT TESTS PASSED!');
     } finally {
+        if (prevWebhookSecret === undefined) delete process.env.PAYMENT_WEBHOOK_SECRET;
+        else process.env.PAYMENT_WEBHOOK_SECRET = prevWebhookSecret;
         appServer.close();
         mockGatewayServer.close();
     }

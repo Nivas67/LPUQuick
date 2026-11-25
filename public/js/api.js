@@ -885,9 +885,16 @@ const api = {
             headers['x-idempotency-key'] = String(payload.idempotencyKey);
         }
         try {
+            const existingTokens = JSON.parse((typeof localStorage !== 'undefined' && localStorage.getItem('lpuquick_sandbox_tokens')) || '{}');
+            if (existingTokens && existingTokens.session_token) {
+                headers['Authorization'] = `Bearer ${existingTokens.session_token}`;
+            }
+        } catch (e) {}
+        try {
             const res = await fetch(`${API_BASE}/payments/sandbox/create-order`, {
                 method: 'POST',
                 headers,
+                credentials: 'same-origin',
                 signal: controller.signal,
                 body: JSON.stringify(payload)
             });
@@ -901,6 +908,17 @@ const api = {
                     error: data.error || 'Unable to start sandbox UPI payment.'
                 };
             }
+            try {
+                if (typeof localStorage !== 'undefined') {
+                    const tokStore = JSON.parse(localStorage.getItem('lpuquick_sandbox_tokens') || '{}');
+                    if (data.session_token) tokStore.session_token = data.session_token;
+                    if (data.client_order_id && data.status_token) {
+                        tokStore.orders = tokStore.orders || {};
+                        tokStore.orders[data.client_order_id] = data.status_token;
+                    }
+                    localStorage.setItem('lpuquick_sandbox_tokens', JSON.stringify(tokStore));
+                }
+            } catch (e) {}
             return data;
         } catch (err) {
             clearTimeout(timeoutId);
@@ -924,8 +942,21 @@ const api = {
     async getSandboxPaymentStatus(orderId, refresh = true) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
+        const headers = {};
+        try {
+            if (typeof localStorage !== 'undefined') {
+                const tokStore = JSON.parse(localStorage.getItem('lpuquick_sandbox_tokens') || '{}');
+                const tok = (tokStore.orders && tokStore.orders[orderId]) || tokStore.session_token || '';
+                if (tok) {
+                    headers['x-sandbox-token'] = tok;
+                    headers['Authorization'] = `Bearer ${tok}`;
+                }
+            }
+        } catch (e) {}
         try {
             const res = await fetch(`${API_BASE}/payments/sandbox/status/${encodeURIComponent(orderId)}?refresh=${refresh ? '1' : '0'}`, {
+                headers,
+                credentials: 'same-origin',
                 signal: controller.signal
             });
             clearTimeout(timeoutId);
@@ -954,8 +985,21 @@ const api = {
 
     async getSandboxOrders(userId) {
         if (!userId) return { success: true, orders: [] };
+        const headers = {};
         try {
-            const res = await fetch(`${API_BASE}/payments/sandbox/orders?userId=${encodeURIComponent(userId)}`);
+            if (typeof localStorage !== 'undefined') {
+                const tokStore = JSON.parse(localStorage.getItem('lpuquick_sandbox_tokens') || '{}');
+                if (tokStore && tokStore.session_token) {
+                    headers['x-sandbox-token'] = tokStore.session_token;
+                    headers['Authorization'] = `Bearer ${tokStore.session_token}`;
+                }
+            }
+        } catch (e) {}
+        try {
+            const res = await fetch(`${API_BASE}/payments/sandbox/orders?userId=${encodeURIComponent(userId)}`, {
+                headers,
+                credentials: 'same-origin'
+            });
             return await res.json();
         } catch (e) {
             return { success: false, orders: [] };

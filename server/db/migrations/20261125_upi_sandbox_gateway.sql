@@ -1,10 +1,63 @@
 -- =============================================================================
 -- LPUQuick Sandbox UPI Gateway Isolated Database Migration
--- Apply ONLY to a dedicated Sandbox/Preview Supabase project (recommended)
--- OR an isolated database instance.
--- ZERO foreign keys, triggers, or writes to production orders/inventory/carts.
+-- Target Project: mgsxeguulxumfgehpphb (https://mgsxeguulxumfgehpphb.supabase.co)
+-- CRITICAL: Apply ONLY to the dedicated Sandbox Supabase project.
+-- Do NOT execute on the production Supabase project or use the shared-schema file.
 -- =============================================================================
 
+-- 1. Isolated Sandbox Catalog Fixtures (Zero dependency on production products/inventory)
+CREATE TABLE IF NOT EXISTS sandbox_catalog_items (
+    id TEXT PRIMARY KEY,
+    hostel_id VARCHAR(32) NOT NULL DEFAULT 'BH-13',
+    name TEXT NOT NULL,
+    category TEXT NOT NULL,
+    subcategory TEXT NOT NULL DEFAULT '',
+    price NUMERIC(10, 2) NOT NULL CHECK (price >= 1 AND price <= 100000),
+    mrp NUMERIC(10, 2) CHECK (mrp IS NULL OR mrp >= price),
+    unit TEXT NOT NULL DEFAULT 'pack',
+    size TEXT NOT NULL DEFAULT '',
+    image_url TEXT NOT NULL DEFAULT '',
+    in_stock BOOLEAN NOT NULL DEFAULT TRUE,
+    stock_left INTEGER NOT NULL DEFAULT 50 CHECK (stock_left >= 0),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    is_veg BOOLEAN NOT NULL DEFAULT TRUE,
+    bestseller BOOLEAN NOT NULL DEFAULT FALSE,
+    is_new BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sbx_catalog_active_category
+    ON sandbox_catalog_items (is_active, category);
+
+-- Seed safe dummy catalog fixtures for Preview storefront & checkout testing
+INSERT INTO sandbox_catalog_items (
+    id, hostel_id, name, category, subcategory, price, mrp, unit, size, image_url, in_stock, stock_left, is_active, is_veg, bestseller, is_new
+) VALUES
+    ('SBX_PROD_MAGGI', 'BH-13', '[Sandbox] Classic Masala Noodles', 'Snacks & Beverages', 'Instant Noodles', 55.00, 60.00, 'pack', '2-Pack', 'https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?w=300', TRUE, 50, TRUE, TRUE, TRUE, FALSE),
+    ('SBX_PROD_CHAI', 'BH-13', '[Sandbox] Campus Masala Chai', 'Quick''s Instant Food', 'Hot Beverages', 25.00, 30.00, 'cup', '150ml', 'https://images.unsplash.com/photo-1571934811356-5cc061b6821f?w=300', TRUE, 50, TRUE, TRUE, TRUE, FALSE),
+    ('SBX_PROD_COOKIE', 'BH-13', '[Sandbox] Chocochip Test Cookies', 'Snacks & Beverages', 'Biscuits', 37.00, 40.00, 'pack', '75g', 'https://images.unsplash.com/photo-1499636136210-6f4ee915583e?w=300', TRUE, 50, TRUE, TRUE, FALSE, TRUE),
+    ('SBX_PROD_DRINK', 'BH-13', '[Sandbox] Sparkling Berry Cooler', 'Snacks & Beverages', 'Cold Drinks', 40.00, 45.00, 'can', '250ml', 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=300', TRUE, 50, TRUE, TRUE, FALSE, FALSE),
+    ('SBX_PROD_MEAL', 'BH-13', '[Sandbox] Sandbox Express Meal Box', 'Quick''s Instant Food', 'Meals', 120.00, 140.00, 'box', 'Regular', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300', TRUE, 50, TRUE, TRUE, TRUE, TRUE),
+    ('SBX_PROD_BAR', 'BH-13', '[Sandbox] Peanut Crunch Bar', 'Snacks & Beverages', 'Chocolates', 20.00, 25.00, 'piece', '40g', 'https://images.unsplash.com/photo-1606312619070-d48b4c652a52?w=300', TRUE, 50, TRUE, TRUE, FALSE, FALSE)
+ON CONFLICT (id) DO NOTHING;
+
+-- 2. Isolated Sandbox Cart Storage (Zero dependency on production cart_items or users)
+CREATE TABLE IF NOT EXISTS sandbox_cart_items (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    product_id TEXT NOT NULL REFERENCES sandbox_catalog_items(id) ON DELETE CASCADE,
+    hostel_id VARCHAR(32) NOT NULL DEFAULT 'BH-13',
+    quantity INTEGER NOT NULL CHECK (quantity > 0 AND quantity <= 99),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, product_id, hostel_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_sbx_cart_user_hostel
+    ON sandbox_cart_items (user_id, hostel_id);
+
+-- 3. Isolated Sandbox Payment Orders
 CREATE TABLE IF NOT EXISTS sandbox_payment_orders (
     id TEXT PRIMARY KEY,
     client_order_id VARCHAR(64) NOT NULL UNIQUE,
@@ -40,6 +93,7 @@ CREATE INDEX IF NOT EXISTS idx_sbx_payment_orders_user_created
 CREATE INDEX IF NOT EXISTS idx_sbx_payment_orders_status
     ON sandbox_payment_orders (status);
 
+-- 4. Durable Webhook Deduplication Table
 CREATE TABLE IF NOT EXISTS sandbox_webhook_events (
     id TEXT PRIMARY KEY,
     event_id VARCHAR(128) NOT NULL UNIQUE,
@@ -58,6 +112,7 @@ CREATE TABLE IF NOT EXISTS sandbox_webhook_events (
 CREATE INDEX IF NOT EXISTS idx_sbx_webhook_events_client_order
     ON sandbox_webhook_events (client_order_id, event_sequence DESC);
 
+-- 5. Append-Only Sandbox Payment Audit Trail
 CREATE TABLE IF NOT EXISTS sandbox_payment_audit_logs (
     id TEXT PRIMARY KEY,
     action VARCHAR(64) NOT NULL,
@@ -71,14 +126,30 @@ CREATE TABLE IF NOT EXISTS sandbox_payment_audit_logs (
 CREATE INDEX IF NOT EXISTS idx_sbx_payment_audit_order
     ON sandbox_payment_audit_logs (client_order_id, created_at DESC);
 
--- Enable Row Level Security (service_role bypasses RLS cleanly; blocks direct anon browser table access)
+-- 6. Default-Deny RLS on all sandbox tables (service_role bypasses RLS cleanly; blocks anon/authenticated)
+ALTER TABLE sandbox_catalog_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sandbox_cart_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sandbox_payment_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sandbox_webhook_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sandbox_payment_audit_logs ENABLE ROW LEVEL SECURITY;
 
--- Atomic PostgreSQL transaction processor for signed webhook deduplication,
--- monotonic event_sequence ordering, amount/identity verification, and single fulfilment.
-CREATE OR REPLACE FUNCTION process_sandbox_webhook_atomic(
+-- 7. Explicit least-privilege grants (works safely even when automatic API grants are disabled)
+REVOKE ALL ON TABLE sandbox_catalog_items FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON TABLE sandbox_cart_items FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON TABLE sandbox_payment_orders FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON TABLE sandbox_webhook_events FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON TABLE sandbox_payment_audit_logs FROM PUBLIC, anon, authenticated;
+
+GRANT USAGE ON SCHEMA public TO service_role;
+GRANT SELECT, INSERT, UPDATE ON TABLE sandbox_catalog_items TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE sandbox_cart_items TO service_role;
+GRANT SELECT, INSERT, UPDATE ON TABLE sandbox_payment_orders TO service_role;
+GRANT SELECT, INSERT, UPDATE ON TABLE sandbox_webhook_events TO service_role;
+GRANT SELECT, INSERT ON TABLE sandbox_payment_audit_logs TO service_role;
+
+-- 8. Atomic PostgreSQL transaction processor for signed webhook deduplication,
+--    monotonic event_sequence ordering, amount/identity verification, and single fulfilment.
+CREATE OR REPLACE FUNCTION public.process_sandbox_webhook_atomic(
     p_event_id TEXT,
     p_event_type TEXT,
     p_event_sequence BIGINT,
@@ -93,15 +164,15 @@ CREATE OR REPLACE FUNCTION process_sandbox_webhook_atomic(
 ) RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, pg_temp
+SET search_path = pg_catalog, public, pg_temp
 AS $$
 DECLARE
-    v_existing_evt sandbox_webhook_events%ROWTYPE;
-    v_order sandbox_payment_orders%ROWTYPE;
+    v_existing_evt public.sandbox_webhook_events%ROWTYPE;
+    v_order public.sandbox_payment_orders%ROWTYPE;
     v_should_fulfil BOOLEAN := FALSE;
     v_now TIMESTAMPTZ := NOW();
-    v_evt_row_id TEXT := 'sbx_evt_' || REPLACE(gen_random_uuid()::TEXT, '-', '');
-    v_aud_row_id TEXT := 'sbx_aud_' || REPLACE(gen_random_uuid()::TEXT, '-', '');
+    v_evt_row_id TEXT := 'sbx_evt_' || REPLACE(pg_catalog.gen_random_uuid()::TEXT, '-', '');
+    v_aud_row_id TEXT := 'sbx_aud_' || REPLACE(pg_catalog.gen_random_uuid()::TEXT, '-', '');
 BEGIN
     IF UPPER(COALESCE(p_currency, 'INR')) <> 'INR' THEN
         RETURN jsonb_build_object(
@@ -113,7 +184,7 @@ BEGIN
 
     -- 1. Check durable webhook deduplication first
     SELECT * INTO v_existing_evt
-    FROM sandbox_webhook_events
+    FROM public.sandbox_webhook_events
     WHERE event_id = p_event_id;
 
     IF FOUND THEN
@@ -128,14 +199,14 @@ BEGIN
     -- 2. Lock matching sandbox payment order row (isolated strictly to sandbox_payment_orders)
     IF NULLIF(BTRIM(COALESCE(p_client_order_id, '')), '') IS NOT NULL THEN
         SELECT * INTO v_order
-        FROM sandbox_payment_orders
+        FROM public.sandbox_payment_orders
         WHERE client_order_id = p_client_order_id
         FOR UPDATE;
     END IF;
 
     IF NOT FOUND AND NULLIF(BTRIM(COALESCE(p_gateway_order_id, '')), '') IS NOT NULL THEN
         SELECT * INTO v_order
-        FROM sandbox_payment_orders
+        FROM public.sandbox_payment_orders
         WHERE gateway_order_id = p_gateway_order_id
         FOR UPDATE;
     END IF;
@@ -179,7 +250,7 @@ BEGIN
 
     -- 5. Monotonic event_sequence guard (ignore older/out-of-order deliveries)
     IF p_event_sequence <= COALESCE(v_order.last_event_sequence, 0) THEN
-        INSERT INTO sandbox_webhook_events (
+        INSERT INTO public.sandbox_webhook_events (
             id, event_id, event_type, event_sequence,
             client_order_id, gateway_order_id, environment, is_test,
             signature_timestamp, payload, processing_result
@@ -201,7 +272,7 @@ BEGIN
     END IF;
 
     -- 6. Persist verified webhook event and advance order state atomically
-    INSERT INTO sandbox_webhook_events (
+    INSERT INTO public.sandbox_webhook_events (
         id, event_id, event_type, event_sequence,
         client_order_id, gateway_order_id, environment, is_test,
         signature_timestamp, payload, processing_result
@@ -213,21 +284,21 @@ BEGIN
 
     v_should_fulfil := (p_mapped_status = 'Paid' AND NOT v_order.fulfilled);
 
-    UPDATE sandbox_payment_orders
+    UPDATE public.sandbox_payment_orders
     SET
         status = p_mapped_status,
-        gateway_order_id = COALESCE(sandbox_payment_orders.gateway_order_id, NULLIF(p_gateway_order_id, '')),
-        utr = COALESCE(NULLIF(p_utr, ''), sandbox_payment_orders.utr),
+        gateway_order_id = COALESCE(public.sandbox_payment_orders.gateway_order_id, NULLIF(p_gateway_order_id, '')),
+        utr = COALESCE(NULLIF(p_utr, ''), public.sandbox_payment_orders.utr),
         last_event_id = p_event_id,
         last_event_sequence = p_event_sequence,
-        fulfilled = CASE WHEN v_should_fulfil THEN TRUE ELSE sandbox_payment_orders.fulfilled END,
-        sandbox_fulfilled_at = CASE WHEN v_should_fulfil THEN v_now ELSE sandbox_payment_orders.sandbox_fulfilled_at END,
-        gateway_raw_response = COALESCE(p_payload, sandbox_payment_orders.gateway_raw_response),
+        fulfilled = CASE WHEN v_should_fulfil THEN TRUE ELSE public.sandbox_payment_orders.fulfilled END,
+        sandbox_fulfilled_at = CASE WHEN v_should_fulfil THEN v_now ELSE public.sandbox_payment_orders.sandbox_fulfilled_at END,
+        gateway_raw_response = COALESCE(p_payload, public.sandbox_payment_orders.gateway_raw_response),
         updated_at = v_now
-    WHERE sandbox_payment_orders.client_order_id = v_order.client_order_id
+    WHERE public.sandbox_payment_orders.client_order_id = v_order.client_order_id
     RETURNING * INTO v_order;
 
-    INSERT INTO sandbox_payment_audit_logs (
+    INSERT INTO public.sandbox_payment_audit_logs (
         id, action, client_order_id, gateway_order_id, event_id, details
     ) VALUES (
         v_aud_row_id,
@@ -255,3 +326,7 @@ BEGIN
     );
 END;
 $$;
+
+-- Restrict SECURITY DEFINER function execution strictly to server-side service_role
+REVOKE ALL ON FUNCTION public.process_sandbox_webhook_atomic(TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, NUMERIC, TEXT, TEXT, BIGINT, JSONB) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.process_sandbox_webhook_atomic(TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, NUMERIC, TEXT, TEXT, BIGINT, JSONB) TO service_role;

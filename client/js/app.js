@@ -2637,7 +2637,7 @@ const routeScrollPositions = new Map();
 function checkInitialAddressSelection() {
     if (typeof window.hasUserConfiguredAddress === 'function' && !window.hasUserConfiguredAddress()) {
         const path = typeof getCurrentRoute === 'function' ? getCurrentRoute() : '/';
-        if (path === '/blocked') return;
+        if (path === '/blocked' || path === '/sandbox-payment' || path === '/sandbox-payment-return') return;
         if (document.getElementById('address-modal')) return;
 
         setTimeout(() => {

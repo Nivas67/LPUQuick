@@ -3,8 +3,15 @@ const {
     createSandboxPaymentService,
     GatewayError,
     WebhookSecurityError,
-    SandboxStoreError
+    SandboxStoreError,
+    SandboxAuthError
 } = require('../services/sandboxPaymentService');
+const {
+    extractCandidateTokens,
+    issueSandboxSessionToken,
+    issueOrderStatusToken,
+    setSandboxSessionCookie
+} = require('../services/sandboxAuth');
 
 function buildAllowedRedirectUrl(req, clientOrderId = null) {
     const rawHost = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim();
@@ -50,7 +57,12 @@ function buildAllowedRedirectUrl(req, clientOrderId = null) {
 }
 
 function sendKnownError(res, err) {
-    if (err instanceof GatewayError || err instanceof WebhookSecurityError || err instanceof SandboxStoreError) {
+    if (
+        err instanceof GatewayError ||
+        err instanceof WebhookSecurityError ||
+        err instanceof SandboxStoreError ||
+        err instanceof SandboxAuthError
+    ) {
         return res.status(err.statusCode || 400).json({
             success: false,
             code: err.code || 'PAYMENT_ERROR',
@@ -67,9 +79,10 @@ function sendKnownError(res, err) {
     });
 }
 
-function createPaymentsRouter(serviceOverrides = null) {
+function createPaymentsRouter(serviceOverrides = null, routerOptions = {}) {
     const router = express.Router();
     const service = serviceOverrides || createSandboxPaymentService();
+    const authOverrides = routerOptions.authOverrides || {};
 
     // Public non-sensitive sandbox config endpoint (never returns API keys or secrets)
     router.get('/sandbox/config', (req, res) => {
@@ -83,17 +96,29 @@ function createPaymentsRouter(serviceOverrides = null) {
     });
 
     // POST /api/payments/sandbox/create-order
-    // Creates an isolated sandbox test order on backend & returns validated /sandbox/pay/ URL
+    // Creates an isolated sandbox test order on backend, binds HMAC ownership tokens, & returns /sandbox/pay/ URL
     router.post('/sandbox/create-order', async (req, res) => {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         try {
+            const requestedUserId = String(req.body.userId || req.body.user_id || '').trim();
+            const { verifiedTokens } = extractCandidateTokens(req, authOverrides);
+            const activeSession = verifiedTokens.find(t => t.typ === 'session');
+
+            // Prevent session spoofing across different users when a session token is already bound
+            if (activeSession && requestedUserId && activeSession.uid !== requestedUserId) {
+                return res.status(403).json({
+                    success: false,
+                    code: 'USER_SESSION_MISMATCH',
+                    error: 'Authenticated sandbox session does not match requested userId.'
+                });
+            }
+
             const safeRedirect = req.body.redirectUrl && typeof req.body.redirectUrl === 'string' && req.body.redirectUrl.startsWith('https://')
                 ? req.body.redirectUrl
                 : buildAllowedRedirectUrl(req);
 
-            // Strip any client-supplied amount/price/total overrides — only forward safe identity + item quantities
             const payload = {
-                userId: req.body.userId || req.body.user_id,
+                userId: activeSession ? activeSession.uid : (req.body.userId || req.body.user_id),
                 guestUserId: req.body.guestUserId || req.body.guest_id,
                 hostel_id: req.body.hostel_id || req.body.hostel,
                 order_mode: req.body.order_mode || req.body.orderMode || 'DELIVERY',
@@ -106,19 +131,35 @@ function createPaymentsRouter(serviceOverrides = null) {
             };
 
             const result = await service.createSandboxCheckoutOrder(payload);
-            return res.status(200).json(result);
+
+            const ownerUserId = result.user_id || payload.userId || 'sandbox_guest';
+            const sessionToken = issueSandboxSessionToken(ownerUserId, authOverrides);
+            const statusToken = issueOrderStatusToken(result.client_order_id, ownerUserId, authOverrides);
+            setSandboxSessionCookie(res, req, sessionToken);
+
+            const safeResult = { ...result };
+            delete safeResult.user_id;
+
+            return res.status(200).json({
+                ...safeResult,
+                status_token: statusToken,
+                session_token: sessionToken
+            });
         } catch (err) {
             return sendKnownError(res, err);
         }
     });
 
     // GET /api/payments/sandbox/status/:orderId
-    // Server-to-server status verification against Laravel UPI gateway
+    // Enforces ownership token/session + verifies server-to-server against Laravel UPI gateway
     router.get('/sandbox/status/:orderId', async (req, res) => {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         try {
             const refresh = req.query.refresh !== '0';
-            const result = await service.verifyAndSyncSandboxOrderStatus(req.params.orderId, { refresh });
+            const result = await service.verifyAndSyncSandboxOrderStatus(req.params.orderId, {
+                refresh,
+                req
+            });
             return res.json(result);
         } catch (err) {
             return sendKnownError(res, err);
@@ -126,15 +167,21 @@ function createPaymentsRouter(serviceOverrides = null) {
     });
 
     // GET /api/payments/sandbox/orders
-    // Recent isolated sandbox test orders for a given user
+    // Enforces authenticated session ownership for the requested user's sandbox test orders
     router.get('/sandbox/orders', async (req, res) => {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         try {
-            const userId = String(req.query.userId || req.headers['x-user-id'] || '').trim();
+            const { verifiedTokens } = extractCandidateTokens(req, authOverrides);
+            const activeSession = verifiedTokens.find(t => t.typ === 'session');
+            const userId = String(req.query.userId || req.headers['x-user-id'] || activeSession?.uid || '').trim();
             if (!userId) {
-                return res.status(400).json({ success: false, code: 'MISSING_USER_ID', error: 'userId is required.' });
+                return res.status(401).json({
+                    success: false,
+                    code: 'UNAUTHORIZED_ORDERS_REQUEST',
+                    error: 'Authentication required to list sandbox orders.'
+                });
             }
-            const orders = await service.listSandboxOrdersForUser(userId);
+            const orders = await service.listSandboxOrdersForUser(userId, { req });
             return res.json({ success: true, sandbox: true, orders });
         } catch (err) {
             return sendKnownError(res, err);

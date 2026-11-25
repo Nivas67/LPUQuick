@@ -1,3 +1,4 @@
+const { isSandboxRuntime } = require('../supabase');
 const supabaseDb = require('../db/supabaseDb');
 const ipBlockService = require('../services/ipBlockService');
 
@@ -199,6 +200,9 @@ function inferActionDetails(req, method, originalUrl, statusCode, duration) {
  * Core Audit Logging Middleware
  */
 function auditMiddleware(req, res, next) {
+    if (isSandboxRuntime()) {
+        return next();
+    }
     const startTime = Date.now();
     const originalUrl = req.originalUrl || req.path || '';
     const method = req.method;
