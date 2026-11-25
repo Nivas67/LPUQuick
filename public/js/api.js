@@ -857,6 +857,111 @@ const api = {
         return res.json();
     },
 
+    async getSandboxPaymentConfig(force = false) {
+        const now = Date.now();
+        if (!force && window.__sandboxPaymentConfigCache && (now - (window.__sandboxPaymentConfigCacheTime || 0) < 60000)) {
+            return window.__sandboxPaymentConfigCache;
+        }
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        try {
+            const res = await fetch(`${API_BASE}/payments/sandbox/config`, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            const json = await res.json();
+            window.__sandboxPaymentConfigCache = json;
+            window.__sandboxPaymentConfigCacheTime = Date.now();
+            return json;
+        } catch (err) {
+            clearTimeout(timeoutId);
+            return window.__sandboxPaymentConfigCache || { success: false, ready: false, environment: 'unconfigured' };
+        }
+    },
+
+    async createSandboxUpiOrder(payload = {}) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
+        const headers = { 'Content-Type': 'application/json' };
+        if (payload.idempotencyKey) {
+            headers['x-idempotency-key'] = String(payload.idempotencyKey);
+        }
+        try {
+            const res = await fetch(`${API_BASE}/payments/sandbox/create-order`, {
+                method: 'POST',
+                headers,
+                signal: controller.signal,
+                body: JSON.stringify(payload)
+            });
+            clearTimeout(timeoutId);
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.success) {
+                return {
+                    success: false,
+                    code: data.code || 'GATEWAY_ERROR',
+                    retryable: Boolean(data.retryable || res.status >= 500),
+                    error: data.error || 'Unable to start sandbox UPI payment.'
+                };
+            }
+            return data;
+        } catch (err) {
+            clearTimeout(timeoutId);
+            if (err && err.name === 'AbortError') {
+                return {
+                    success: false,
+                    code: 'NETWORK_TIMEOUT',
+                    retryable: true,
+                    error: 'Payment gateway request timed out. Please retry.'
+                };
+            }
+            return {
+                success: false,
+                code: 'NETWORK_ERROR',
+                retryable: true,
+                error: 'Network issue reaching payment gateway. Please retry.'
+            };
+        }
+    },
+
+    async getSandboxPaymentStatus(orderId, refresh = true) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        try {
+            const res = await fetch(`${API_BASE}/payments/sandbox/status/${encodeURIComponent(orderId)}?refresh=${refresh ? '1' : '0'}`, {
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok && !data.order) {
+                return {
+                    success: false,
+                    code: data.code || 'STATUS_ERROR',
+                    retryable: Boolean(data.retryable || res.status >= 500),
+                    error: data.error || 'Unable to verify sandbox payment status.'
+                };
+            }
+            return data;
+        } catch (err) {
+            clearTimeout(timeoutId);
+            return {
+                success: false,
+                code: err && err.name === 'AbortError' ? 'NETWORK_TIMEOUT' : 'NETWORK_ERROR',
+                retryable: true,
+                error: err && err.name === 'AbortError'
+                    ? 'Timed out waiting for gateway status check. Please retry.'
+                    : 'Unable to check payment status right now. Please retry.'
+            };
+        }
+    },
+
+    async getSandboxOrders(userId) {
+        if (!userId) return { success: true, orders: [] };
+        try {
+            const res = await fetch(`${API_BASE}/payments/sandbox/orders?userId=${encodeURIComponent(userId)}`);
+            return await res.json();
+        } catch (e) {
+            return { success: false, orders: [] };
+        }
+    },
+
     async getOrderModeStatus(hostelId = 'BH-13') {
         try {
             const res = await fetch(`${API_BASE}/order-mode/status?hostel_id=${encodeURIComponent(hostelId)}`);

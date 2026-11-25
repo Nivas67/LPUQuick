@@ -67,21 +67,39 @@ window.pages.checkout = async function () {
 
     let cartData;
     let orderModeStatus = null;
+    let sandboxConfig = { ready: false, environment: 'unconfigured' };
     const userId = window.getEffectiveUserId();
     try {
-        cartData = await window.api.getCart(userId, savedHostel);
+        const [cartRes, modeRes, sbxRes] = await Promise.allSettled([
+            window.api.getCart(userId, savedHostel),
+            (window.api && typeof window.api.getOrderModeStatus === 'function') ? window.api.getOrderModeStatus(savedHostel) : Promise.resolve(null),
+            (window.api && typeof window.api.getSandboxPaymentConfig === 'function') ? window.api.getSandboxPaymentConfig() : Promise.resolve(null)
+        ]);
+        cartData = (cartRes.status === 'fulfilled' && cartRes.value)
+            ? cartRes.value
+            : { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 } };
+        orderModeStatus = modeRes.status === 'fulfilled' ? modeRes.value : null;
+        if (sbxRes.status === 'fulfilled' && sbxRes.value) sandboxConfig = sbxRes.value;
     } catch (e) {
         cartData = { items: [], pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 } };
     }
-
-    try {
-        if (window.api && typeof window.api.getOrderModeStatus === 'function') {
-            orderModeStatus = await window.api.getOrderModeStatus(savedHostel);
-        }
-    } catch (e) {
-        console.warn('[Checkout OrderMode fetch failed]:', e);
-    }
     window.activeOrderModeStatus = orderModeStatus;
+    window.__sandboxPaymentConfig = sandboxConfig;
+    const isSandboxUpiReady = Boolean(sandboxConfig && sandboxConfig.ready && sandboxConfig.environment === 'sandbox');
+    if (!isSandboxUpiReady || (window.activeCheckoutPaymentMethod !== 'upi_sandbox' && window.activeCheckoutPaymentMethod !== 'cod')) {
+        window.activeCheckoutPaymentMethod = 'cod';
+    }
+    const isSandboxSelected = isSandboxUpiReady && window.activeCheckoutPaymentMethod === 'upi_sandbox';
+    let lastSandboxSummary = null;
+    try {
+        const rawLastSbx = localStorage.getItem('lpuquick_last_sandbox_order');
+        if (rawLastSbx) {
+            const parsedSbx = JSON.parse(rawLastSbx);
+            if (parsedSbx && /^[A-Za-z0-9_-]{1,64}$/.test(String(parsedSbx.client_order_id || ''))) {
+                lastSandboxSummary = parsedSbx;
+            }
+        }
+    } catch (e) {}
     
     // Determine active order mode: default to DELIVERY if available, otherwise TAKEAWAY
     if (!window.activeCheckoutOrderMode) {
@@ -588,21 +606,34 @@ window.pages.checkout = async function () {
 
             <!-- Payment Method Selection -->
             <div class="glass-panel card-pedestal rounded-3xl p-5 sm:p-6 shadow-xl border border-[var(--glass-border)] space-y-3.5">
-                <div class="flex items-center justify-between">
+                <div class="flex items-center justify-between gap-2">
                     <h3 class="font-black text-xs sm:text-sm text-slate-900 dark:text-white tracking-tight">Payment Method</h3>
-                    <span class="liquid-badge text-[10px] text-emerald-800 dark:text-emerald-300 font-black px-2.5 py-0.5">Pay on Delivery Active</span>
+                    <span id="checkout-payment-badge" class="liquid-badge text-[10px] ${isSandboxSelected ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-800 dark:text-emerald-300'} font-black px-2.5 py-0.5">${isSandboxSelected ? 'Sandbox UPI Test Active' : 'Pay on Delivery Active'}</span>
                 </div>
                 
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" id="payment-options">
                     <!-- 1. Pay on Delivery (ACTIVE) -->
-                    <label class="flex items-center gap-3 p-4 rounded-2xl border-2 border-emerald-500 bg-emerald-500/10 cursor-pointer payment-option-label relative shadow-md" data-method="cod">
-                        <input type="radio" name="paymentMethod" value="cod" checked class="text-emerald focus:ring-emerald">
+                    <label class="flex items-center gap-3 p-4 rounded-2xl ${!isSandboxSelected ? 'border-2 border-emerald-500 bg-emerald-500/10 shadow-md' : 'border border-[var(--glass-border)] bg-white/40 dark:bg-slate-800/40'} cursor-pointer payment-option-label relative" data-method="cod">
+                        <input type="radio" name="paymentMethod" value="cod" ${!isSandboxSelected ? 'checked' : ''} class="text-emerald focus:ring-emerald">
                         <div>
                             <p class="font-black text-xs text-slate-900 dark:text-white">Pay on Delivery</p>
                             <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Pay at ${savedHostel} room door (Cash / UPI)</p>
                         </div>
                     </label>
 
+                    ${isSandboxUpiReady ? `
+                    <!-- 2. UPI / QR Sandbox Test Gateway (ACTIVE in Sandbox Preview) -->
+                    <label class="flex items-center gap-3 p-4 rounded-2xl ${isSandboxSelected ? 'border-2 border-emerald-500 bg-emerald-500/10 shadow-md' : 'border border-[var(--glass-border)] bg-white/40 dark:bg-slate-800/40'} cursor-pointer payment-option-label relative" data-method="upi_sandbox">
+                        <input type="radio" name="paymentMethod" value="upi_sandbox" ${isSandboxSelected ? 'checked' : ''} class="text-emerald focus:ring-emerald">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <p class="font-black text-xs text-slate-900 dark:text-white truncate">UPI / QR</p>
+                                <span class="text-[8px] bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/40 font-black px-1.5 py-0.5 rounded-full">SANDBOX</span>
+                            </div>
+                            <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Simulated UPI test payment</p>
+                        </div>
+                    </label>
+                    ` : `
                     <!-- 2. UPI / GPay / QR (Soon) -->
                     <div class="flex items-center gap-3 p-4 rounded-2xl border border-[var(--glass-border)] bg-white/40 dark:bg-slate-800/40 opacity-60 cursor-pointer payment-blocked-trigger relative" data-title="Online UPI Payments">
                         <input type="radio" name="paymentMethod" value="upi" disabled class="text-slate-400">
@@ -614,6 +645,7 @@ window.pages.checkout = async function () {
                             <p class="text-[10px] text-slate-400">Instant UPI</p>
                         </div>
                     </div>
+                    `}
 
                     <!-- 3. Cards / NetBanking (Soon) -->
                     <div class="flex items-center gap-3 p-4 rounded-2xl border border-[var(--glass-border)] bg-white/40 dark:bg-slate-800/40 opacity-60 cursor-pointer payment-blocked-trigger relative" data-title="Card & NetBanking">
@@ -625,6 +657,36 @@ window.pages.checkout = async function () {
                             </div>
                             <p class="text-[10px] text-slate-400">Visa / Master</p>
                         </div>
+                    </div>
+                </div>
+
+                ${isSandboxUpiReady ? `
+                <div id="checkout-sandbox-info-banner" class="${isSandboxSelected ? '' : 'hidden'} p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/35 text-[11px] text-amber-900 dark:text-amber-200 space-y-1.5">
+                    <div class="flex items-start gap-2">
+                        <span class="material-symbols-outlined text-base text-amber-600 shrink-0 mt-0.5">science</span>
+                        <div>
+                            <p class="font-black">Isolated Sandbox Test Payment</p>
+                            <p class="opacity-90 mt-0.5">Simulated checkout only. Real money is never charged, and real store inventory, carts, and deliveries will not be triggered.</p>
+                        </div>
+                    </div>
+                    ${lastSandboxSummary && lastSandboxSummary.client_order_id ? `
+                    <div class="pt-1 flex items-center justify-between border-t border-amber-500/20">
+                        <span class="font-mono text-[10px] opacity-80 truncate">Last: ${lastSandboxSummary.client_order_id}</span>
+                        <a href="#/sandbox-payment?client_order_id=${encodeURIComponent(lastSandboxSummary.client_order_id)}" class="font-black text-emerald-700 dark:text-emerald-300 hover:underline shrink-0 ml-2">Check Status →</a>
+                    </div>
+                    ` : ''}
+                </div>
+                ` : ''}
+
+                <div id="checkout-sandbox-redirect-fallback" class="hidden p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/35 text-xs space-y-2.5">
+                    <p class="font-black text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-base">open_in_new</span>
+                        <span>Sandbox UPI Checkout Ready</span>
+                    </p>
+                    <p class="text-[11px] text-slate-600 dark:text-slate-300 font-mono" id="sandbox-fallback-order-id"></p>
+                    <div class="flex flex-wrap gap-2">
+                        <a id="sandbox-fallback-pay-link" href="#" class="clay-btn clay-btn-primary px-4 py-2 rounded-xl text-xs font-black text-white">Open Simulated Checkout</a>
+                        <a id="sandbox-fallback-status-link" href="#/sandbox-payment" class="clay-card px-4 py-2 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200">Check Verification Status</a>
                     </div>
                 </div>
             </div>
@@ -671,18 +733,18 @@ window.pages.checkout = async function () {
                         <span class="material-symbols-outlined text-base" id="thumb-icon">arrow_forward</span>
                     </div>
                     <div class="slider-text text-xs sm:text-sm select-none" id="pay-slider-text">
-                        Slide to Confirm Order ₹${exactTotal}
+                        ${isSandboxSelected ? `Slide to Pay (Sandbox UPI) ₹${exactTotal}` : `Slide to Confirm Order ₹${exactTotal}`}
                     </div>
                 </div>
                 
                 <div class="mt-3.5 flex flex-col gap-2">
                     <button type="button" class="clay-btn clay-btn-primary w-full py-4 px-4 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer shadow-xl active:scale-95 transition-all tracking-wide uppercase select-none" id="tap-to-pay-btn" style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;">
                         <span class="material-symbols-outlined text-base pointer-events-none">bolt</span>
-                        <span class="pointer-events-none">⚡ 1-Tap Quick Place (₹${exactTotal})</span>
+                        <span class="pointer-events-none">${isSandboxSelected ? `⚡ Start Sandbox UPI Payment (₹${exactTotal})` : `⚡ 1-Tap Quick Place (₹${exactTotal})`}</span>
                     </button>
                     <div class="flex items-center justify-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
                         <span class="material-symbols-outlined text-xs text-emerald">verified</span>
-                        <span>${hasFoodOrder ? '11-Min Kitchen Corridor Dispatch' : '5-Min Corridor Dispatch'} • Pay cash on room delivery</span>
+                        <span id="checkout-payment-subcaption">${isSandboxSelected ? 'Isolated Sandbox Mode • Simulated UPI checkout' : `${hasFoodOrder ? '11-Min Kitchen Corridor Dispatch' : '5-Min Corridor Dispatch'} • Pay cash on room delivery`}</span>
                     </div>
                 </div>
                 `)}
@@ -746,6 +808,56 @@ window.pageInits.checkout = function () {
     let isSubmitting = false;
     let confirmed = false;
     let resetSliderUI = null;
+
+    function getSelectedPaymentMethod() {
+        const checked = document.querySelector('input[name="paymentMethod"]:checked');
+        if (checked && checked.value === 'upi_sandbox') return 'upi_sandbox';
+        return 'cod';
+    }
+
+    function invalidateSandboxAttemptKey() {
+        window.__currentSandboxAttemptKey = null;
+    }
+
+    function syncPaymentMethodUI() {
+        const method = getSelectedPaymentMethod();
+        const isSandbox = method === 'upi_sandbox';
+        window.activeCheckoutPaymentMethod = method;
+
+        document.querySelectorAll('.payment-option-label').forEach(lbl => {
+            const active = lbl.dataset.method === method;
+            lbl.className = active
+                ? 'flex items-center gap-3 p-4 rounded-2xl border-2 border-emerald-500 bg-emerald-500/10 shadow-md cursor-pointer payment-option-label relative'
+                : 'flex items-center gap-3 p-4 rounded-2xl border border-[var(--glass-border)] bg-white/40 dark:bg-slate-800/40 cursor-pointer payment-option-label relative';
+        });
+
+        const badgeEl = document.getElementById('checkout-payment-badge');
+        if (badgeEl) {
+            badgeEl.textContent = isSandbox ? 'Sandbox UPI Test Active' : 'Pay on Delivery Active';
+            badgeEl.className = `liquid-badge text-[10px] ${isSandbox ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-800 dark:text-emerald-300'} font-black px-2.5 py-0.5`;
+        }
+
+        const sandboxBanner = document.getElementById('checkout-sandbox-info-banner');
+        if (sandboxBanner) sandboxBanner.classList.toggle('hidden', !isSandbox);
+
+        const totalNow = window.cartTotalCache !== undefined ? window.cartTotalCache : '';
+        const tapBtn = document.getElementById('tap-to-pay-btn');
+        if (tapBtn && !tapBtn.disabled) {
+            tapBtn.innerHTML = `<span class="material-symbols-outlined text-base pointer-events-none">bolt</span> <span class="pointer-events-none">${isSandbox ? `⚡ Start Sandbox UPI Payment (₹${totalNow})` : `⚡ 1-Tap Quick Place (₹${totalNow})`}</span>`;
+        }
+
+        const sliderTextEl = document.getElementById('pay-slider-text');
+        if (sliderTextEl && !confirmed) {
+            sliderTextEl.textContent = isSandbox ? `Slide to Pay (Sandbox UPI) ₹${totalNow}` : `Slide to Confirm Order ₹${totalNow}`;
+        }
+
+        const subCaption = document.getElementById('checkout-payment-subcaption');
+        if (subCaption) {
+            subCaption.textContent = isSandbox
+                ? 'Isolated Sandbox Mode • Simulated UPI checkout'
+                : 'Express Corridor Dispatch • Pay cash on room delivery';
+        }
+    }
 
     function updateCheckoutDOMBill() {
         try {
@@ -923,13 +1035,16 @@ window.pageInits.checkout = function () {
             const totalEl = document.getElementById('checkout-total-val');
             if (totalEl) totalEl.textContent = `₹${exactTotal}`;
 
+            const isSandboxNow = getSelectedPaymentMethod() === 'upi_sandbox';
+            invalidateSandboxAttemptKey();
+
             const tapBtn = document.getElementById('tap-to-pay-btn');
             if (tapBtn && !tapBtn.disabled) {
-                tapBtn.innerHTML = `<span class="material-symbols-outlined text-base">bolt</span> <span>⚡ 1-Tap Quick Place (₹${exactTotal})</span>`;
+                tapBtn.innerHTML = `<span class="material-symbols-outlined text-base pointer-events-none">bolt</span> <span class="pointer-events-none">${isSandboxNow ? `⚡ Start Sandbox UPI Payment (₹${exactTotal})` : `⚡ 1-Tap Quick Place (₹${exactTotal})`}</span>`;
             }
 
             const sliderText = document.getElementById('pay-slider-text');
-            if (sliderText) sliderText.textContent = `Slide to Pay ₹${exactTotal}`;
+            if (sliderText) sliderText.textContent = isSandboxNow ? `Slide to Pay (Sandbox UPI) ₹${exactTotal}` : `Slide to Confirm Order ₹${exactTotal}`;
 
             const savingsVal = document.getElementById('checkout-savings-val');
             if (savingsVal) savingsVal.textContent = `Total Savings: ₹${totalSavings} applied`;
@@ -1032,12 +1147,152 @@ window.pageInits.checkout = function () {
         trigger.onclick = () => {
             const title = trigger.dataset.title || 'Online Payment';
             if (typeof window.showClientToast === 'function') {
-                window.showClientToast(`⏳ ${title} is onboarding. Please use Pay on Delivery.`, 'info', 'account_balance_wallet');
+                window.showClientToast(`⏳ ${title} is onboarding. Please use Pay on Delivery or UPI Sandbox.`, 'info', 'account_balance_wallet');
             }
         };
     });
 
+    // Payment method radio switchers
+    document.querySelectorAll('input[name="paymentMethod"]').forEach(radio => {
+        radio.addEventListener('change', syncPaymentMethodUI);
+    });
+    syncPaymentMethodUI();
+
+    document.getElementById('checkout-retry-btn')?.addEventListener('click', () => {
+        const errBanner = document.getElementById('checkout-error-banner');
+        if (errBanner) errBanner.classList.add('hidden');
+        executeOrderPlacement();
+    });
+
+    async function executeSandboxUpiCheckout() {
+        if (isSubmitting) return;
+        isSubmitting = true;
+
+        const errBanner = document.getElementById('checkout-error-banner');
+        const errMsg = document.getElementById('checkout-error-msg');
+        if (errBanner) errBanner.classList.add('hidden');
+
+        const minOrderLimit = window.cartMinOrderCache || 35;
+        if ((window.cartSubtotalCache !== undefined) && window.cartSubtotalCache < minOrderLimit) {
+            isSubmitting = false;
+            if (typeof resetSliderUI === 'function') resetSliderUI();
+            const shortfall = minOrderLimit - (window.cartSubtotalCache || 0);
+            if (typeof window.showClientToast === 'function') {
+                window.showClientToast(`⚠️ Minimum order value is ₹${minOrderLimit}. Add ₹${shortfall} more.`, 'warning', 'shopping_bag');
+            }
+            window.location.hash = '#/cart';
+            return;
+        }
+
+        const tapBtn = document.getElementById('tap-to-pay-btn');
+        if (tapBtn) {
+            tapBtn.disabled = true;
+            tapBtn.innerHTML = `<span class="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin mr-2"></span> Creating Test Payment...`;
+        }
+
+        try {
+            const activeUserId = window.CURRENT_USER_ID || userId;
+            const hostelId = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
+            const domItems = [];
+            document.querySelectorAll('.cart-checkout-row').forEach(row => {
+                const pid = row.dataset.productId;
+                const qty = parseInt(row.querySelector('.qty-num')?.textContent || '0', 10) || 0;
+                if (pid && qty > 0) domItems.push({ product_id: pid, quantity: qty });
+            });
+
+            if (!window.__currentSandboxAttemptKey) {
+                const randPart = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+                    ? crypto.randomUUID().replace(/-/g, '').slice(0, 12).toUpperCase()
+                    : `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`.toUpperCase();
+                window.__currentSandboxAttemptKey = `SBX_ATT_${randPart}`;
+            }
+
+            const phoneDigits = (localStorage.getItem('lpuquick_phone') || window.currentPhone || '').replace(/\D/g, '');
+            const redirectUrl = (window.location && window.location.protocol === 'https:')
+                ? `${window.location.origin}/sandbox-payment-return`
+                : undefined;
+
+            const res = await window.api.createSandboxUpiOrder({
+                userId: activeUserId,
+                guestUserId: localStorage.getItem('lpuquick_guest_cart_id') || '',
+                hostel_id: hostelId,
+                order_mode: window.activeCheckoutOrderMode || 'DELIVERY',
+                customerName: window.CURRENT_USER_NAME || 'Sandbox Student',
+                customerEmail: window.CURRENT_USER_EMAIL || '',
+                customerPhone: phoneDigits || '',
+                idempotencyKey: window.__currentSandboxAttemptKey,
+                redirectUrl,
+                items: domItems.length > 0 ? domItems : undefined
+            });
+
+            if (!res || !res.success || !res.payment_url) {
+                throw new Error(res?.error || 'Unable to create sandbox UPI payment order.');
+            }
+
+            let parsedPayUrl;
+            try {
+                parsedPayUrl = new URL(res.payment_url);
+            } catch {
+                throw new Error('Gateway returned a malformed sandbox payment URL.');
+            }
+            if (!parsedPayUrl.pathname.startsWith('/sandbox/pay/')) {
+                throw new Error('Rejected non-sandbox payment URL.');
+            }
+
+            try {
+                localStorage.setItem('lpuquick_last_sandbox_order', JSON.stringify({
+                    client_order_id: res.client_order_id,
+                    gateway_order_id: res.gateway_order_id || null,
+                    amount: res.amount,
+                    hostel_id: res.hostel_id,
+                    order_mode: res.order_mode,
+                    created_at: new Date().toISOString()
+                }));
+            } catch (e) {}
+
+            const fallbackBox = document.getElementById('checkout-sandbox-redirect-fallback');
+            const fallbackOrderEl = document.getElementById('sandbox-fallback-order-id');
+            const fallbackPayLink = document.getElementById('sandbox-fallback-pay-link');
+            const fallbackStatusLink = document.getElementById('sandbox-fallback-status-link');
+            if (fallbackBox) fallbackBox.classList.remove('hidden');
+            if (fallbackOrderEl) fallbackOrderEl.textContent = `Test Order: ${res.client_order_id} • ₹${res.amount} INR`;
+            if (fallbackPayLink) fallbackPayLink.href = parsedPayUrl.toString();
+            if (fallbackStatusLink) fallbackStatusLink.href = `#/sandbox-payment?client_order_id=${encodeURIComponent(res.client_order_id)}`;
+
+            if (typeof window.showClientToast === 'function') {
+                window.showClientToast('🧪 Redirecting to Sandbox UPI Checkout...', 'success', 'science');
+            }
+
+            // Reset submission gate cleanly after slight delay if browser holds page open
+            setTimeout(() => {
+                isSubmitting = false;
+                if (tapBtn) {
+                    tapBtn.disabled = false;
+                    syncPaymentMethodUI();
+                }
+            }, 3000);
+
+            window.location.assign(parsedPayUrl.toString());
+        } catch (err) {
+            console.error('[Sandbox Checkout Error]:', err);
+            if (errBanner) {
+                errBanner.classList.remove('hidden');
+                if (errMsg) errMsg.textContent = err.message || 'Sandbox payment gateway unavailable. Please retry.';
+            }
+            if (tapBtn) {
+                tapBtn.disabled = false;
+                syncPaymentMethodUI();
+            }
+            if (typeof resetSliderUI === 'function') resetSliderUI();
+            confirmed = false;
+            isSubmitting = false;
+        }
+    }
+
     async function executeOrderPlacement() {
+        if (getSelectedPaymentMethod() === 'upi_sandbox') {
+            return executeSandboxUpiCheckout();
+        }
 
         if (isSubmitting) return;
         isSubmitting = true;
@@ -1296,7 +1551,10 @@ window.pageInits.checkout = function () {
             isDragging = false;
             setSliderPosition(0, true);
             if (sliderText) {
-                sliderText.textContent = `Slide to Confirm Order ₹${window.cartTotalCache || ''}`;
+                const isSbx = getSelectedPaymentMethod() === 'upi_sandbox';
+                sliderText.textContent = isSbx
+                    ? `Slide to Pay (Sandbox UPI) ₹${window.cartTotalCache || ''}`
+                    : `Slide to Confirm Order ₹${window.cartTotalCache || ''}`;
                 sliderText.style.color = '';
             }
             if (sliderThumb) {
@@ -1481,6 +1739,7 @@ window.pageInits.checkout = function () {
 
 window.switchOrderMode = function(mode) {
     window.activeCheckoutOrderMode = mode;
+    window.__currentSandboxAttemptKey = null;
     const isTakeaway = (mode === 'TAKEAWAY');
 
     const delBtn = document.getElementById('mode-btn-delivery');

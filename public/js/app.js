@@ -424,6 +424,8 @@ const routes = {
     '/categories': 'categories',
     '/cart': 'cart',
     '/checkout': 'checkout',
+    '/sandbox-payment': 'sandbox_payment',
+    '/sandbox-payment-return': 'sandbox_payment',
     '/flow-assist': 'flowassist',
     '/orders': 'orders',
     '/settings': 'settings',
@@ -487,7 +489,14 @@ window.handleBannerTargetClick = window.handleBannerTargetClick || function (tar
 };
 
 function getCurrentRoute() {
-    let hash = window.location.hash.slice(1) || '/';
+    let hash = window.location.hash.slice(1) || '';
+    if (!hash) {
+        const p = (window.location.pathname || '').replace(/\/+$/, '');
+        if (p === '/sandbox-payment' || p === '/sandbox-payment-return') {
+            return '/sandbox-payment';
+        }
+        hash = '/';
+    }
     const queryIndex = hash.indexOf('?');
     if (queryIndex !== -1) {
         hash = hash.substring(0, queryIndex);

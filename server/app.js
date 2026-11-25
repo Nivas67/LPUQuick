@@ -131,7 +131,7 @@ app.use(cors({
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-token', 'x-admin-key', 'x-user-id', 'x-user-phone', 'x-hostel-id', 'x-gateway-signature', 'x-gateway-event', 'x-financial-token']
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-token', 'x-admin-key', 'x-user-id', 'x-user-phone', 'x-hostel-id', 'x-gateway-signature', 'x-gateway-event', 'x-signature', 'x-event', 'x-event-id', 'x-idempotency-key', 'x-financial-token']
 }));
 
 // CSRF Protection Middleware for state-changing requests (Req 11)
@@ -314,6 +314,7 @@ app.use('/api/search', require('./routes/search'));
 app.use('/api/flow-assist', require('./routes/flowassist'));
 app.use('/api/cart', require('./routes/cart'));
 app.use('/api/checkout', require('./routes/checkout'));
+app.use('/api/payments', require('./routes/payments'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/categories', require('./routes/categories'));
 app.use('/api/products', require('./routes/products'));
@@ -383,6 +384,13 @@ app.get('*', (req, res) => {
 // Global Error Handler — catches unhandled exceptions and returns sanitized JSON
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
+    if (err && err.type === 'entity.parse.failed') {
+        return res.status(400).json({
+            success: false,
+            error: 'Malformed JSON payload.',
+            code: 'MALFORMED_PAYLOAD'
+        });
+    }
     console.error('[Unhandled Error]:', err.message);
     res.status(err.status || 500).json({
         success: false,

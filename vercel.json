@@ -221,7 +221,7 @@
       ]
     },
     {
-      "source": "/api/(admin|auth|cart|checkout|orders)/(.*)",
+      "source": "/api/(admin|auth|cart|checkout|orders|payments)/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
