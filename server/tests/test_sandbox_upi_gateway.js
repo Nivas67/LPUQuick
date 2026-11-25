@@ -8,7 +8,13 @@ const { createUpiGatewayClient } = require('../services/upiGatewayClient');
 const { createSandboxPaymentService } = require('../services/sandboxPaymentService');
 const { createPaymentsRouter } = require('../routes/payments');
 const { issueSandboxSessionToken } = require('../services/sandboxAuth');
-const { resolveSandboxDbHandle, isSandboxDatabaseConfigured } = require('../services/sandboxPaymentStore');
+const {
+    resolveSandboxDbHandle,
+    isSandboxDatabaseConfigured,
+    createSupabaseSandboxStore,
+    isAllowedStatusTransition,
+    parseValidSandboxAmount
+} = require('../services/sandboxPaymentStore');
 const { createSandboxPreviewIsolationMiddleware } = require('../middleware/sandboxPreviewIsolation');
 
 /**
@@ -163,7 +169,10 @@ function createMockSandboxStore() {
                 err.statusCode = 404;
                 throw err;
             }
-            const nextStatus = row.status === 'Paid' ? 'Paid' : status;
+            const allowed = isAllowedStatusTransition(row.status, Boolean(row.fulfilled), status);
+            const nextStatus = (row.fulfilled || row.status === 'Paid')
+                ? 'Paid'
+                : (allowed ? status : row.status);
             const newlyFulfilled = nextStatus === 'Paid' && !row.fulfilled;
             row.status = nextStatus;
             if (gatewayOrderId && !row.gateway_order_id) {
@@ -191,9 +200,20 @@ function createMockSandboxStore() {
             currency,
             utr
         }) {
-            if (String(currency || 'INR').toUpperCase() !== 'INR') {
+            const cleanCurrency = typeof currency === 'string' ? currency.trim().toUpperCase() : '';
+            if (!cleanCurrency) {
+                return { outcome: 'rejected_mismatch', statusCode: 400, code: 'INVALID_CURRENCY' };
+            }
+            if (cleanCurrency !== 'INR') {
                 return { outcome: 'rejected_mismatch', statusCode: 400, code: 'CURRENCY_MISMATCH' };
             }
+            const cleanAmount = parseValidSandboxAmount(amount);
+            if (cleanAmount === null) {
+                return { outcome: 'rejected_mismatch', statusCode: 400, code: 'INVALID_WEBHOOK_AMOUNT' };
+            }
+
+            // Simulate Postgres transactional serialization across concurrent duplicate deliveries
+            await Promise.resolve();
             if (eventsById.has(eventId)) {
                 return {
                     outcome: 'duplicate_event',
@@ -214,7 +234,8 @@ function createMockSandboxStore() {
             if (gatewayOrderId && order.gateway_order_id && order.gateway_order_id !== gatewayOrderId) {
                 return { outcome: 'rejected_mismatch', statusCode: 400, code: 'ORDER_IDENTITY_MISMATCH' };
             }
-            if (Math.round(Number(order.amount) * 100) !== Math.round(Number(amount) * 100)) {
+            const orderAmount = parseValidSandboxAmount(order.amount);
+            if (orderAmount === null || Math.round(orderAmount * 100) !== Math.round(cleanAmount * 100)) {
                 return { outcome: 'rejected_mismatch', statusCode: 400, code: 'AMOUNT_MISMATCH' };
             }
 
@@ -236,6 +257,25 @@ function createMockSandboxStore() {
                 };
             }
 
+            if (!isAllowedStatusTransition(order.status, Boolean(order.fulfilled), mappedStatus)) {
+                auditLogs.push({
+                    action: 'SANDBOX_WEBHOOK_INVALID_TRANSITION',
+                    client_order_id: order.client_order_id,
+                    event_id: eventId,
+                    from_status: order.status,
+                    attempted_status: mappedStatus
+                });
+                return {
+                    outcome: 'rejected_invalid_transition',
+                    statusCode: 409,
+                    code: 'INVALID_STATUS_TRANSITION',
+                    client_order_id: order.client_order_id,
+                    gateway_order_id: order.gateway_order_id,
+                    status: order.status,
+                    fulfilled: Boolean(order.fulfilled)
+                };
+            }
+
             eventsById.set(eventId, {
                 event_id: eventId,
                 event_type: eventType,
@@ -245,7 +285,7 @@ function createMockSandboxStore() {
             });
 
             const fulfilledNow = mappedStatus === 'Paid' && !order.fulfilled;
-            order.status = mappedStatus;
+            order.status = (order.fulfilled || order.status === 'Paid') ? 'Paid' : mappedStatus;
             order.last_event_id = eventId;
             order.last_event_sequence = eventSequence;
             if (utr) order.utr = utr;
@@ -910,13 +950,19 @@ async function runTests() {
             else process.env.SANDBOX_SUPABASE_SERVICE_ROLE_KEY = prevSbxKey;
         }
 
-        // 18. Audit SQL migration file permissions & zero secret leaks
-        console.log('[18/18] Auditing sandbox SQL migration grants and config response...');
+        // 18. Audit SQL migration file permissions, validations, concurrency & zero secret leaks
+        console.log('[18/21] Auditing sandbox SQL migration grants, guards, and config response...');
         const sql = fs.readFileSync(path.join(__dirname, '../db/migrations/20261125_upi_sandbox_gateway.sql'), 'utf8');
         assert.ok(sql.includes('ENABLE ROW LEVEL SECURITY'), 'All sandbox tables must enable RLS');
         assert.ok(sql.includes('REVOKE ALL ON FUNCTION public.process_sandbox_webhook_atomic'), 'Function execute must be revoked from PUBLIC/anon/authenticated');
+        assert.ok(sql.includes('REVOKE ALL ON FUNCTION public.enforce_sandbox_order_status_transition'), 'Trigger function execute must be revoked from PUBLIC/anon/authenticated');
         assert.ok(sql.includes('GRANT EXECUTE ON FUNCTION public.process_sandbox_webhook_atomic'), 'Function execute must be explicitly granted to service_role');
         assert.ok(sql.includes('SET search_path = pg_catalog, public, pg_temp'), 'SECURITY DEFINER must pin safe search_path');
+        assert.ok(sql.includes("NULLIF(BTRIM(COALESCE(p_currency, '')), '') IS NULL"), 'SQL must reject NULL/missing currency instead of defaulting to INR');
+        assert.ok(sql.includes("pg_catalog.lower(p_amount::TEXT) IN ('nan', 'infinity', '-infinity')"), 'SQL must reject non-finite NaN/Infinity amounts');
+        assert.ok(sql.includes('pg_advisory_xact_lock'), 'SQL must serialize concurrent duplicate event deliveries transactionally');
+        assert.ok(sql.includes('ON CONFLICT (event_id) DO NOTHING') && sql.includes('RETURNING id INTO v_inserted_evt_id'), 'SQL webhook event insert must handle unique conflicts safely');
+        assert.ok(sql.includes('enforce_sandbox_order_status_transition') && sql.includes('INVALID_STATUS_TRANSITION'), 'SQL must enforce valid payment status transitions');
         assert.ok(sql.includes("NOTIFY pgrst, 'reload schema';"), 'Migration must notify PostgREST to reload schema cache');
         assert.ok(!sql.includes('vltnqvktdlpcltndmmwl'), 'Migration must never reference production project ref');
 
@@ -925,7 +971,220 @@ async function runTests() {
         assert.strictEqual(cfgRes.status, 200);
         assert.ok(!cfgText.includes('test_key_') && !cfgText.includes('test_sec_') && !cfgText.includes(TEST_WEBHOOK_SECRET));
 
-        console.log('\n✅ ALL 18 SANDBOX UPI GATEWAY, AUTH, ISOLATION & MIGRATION AUDIT TESTS PASSED!');
+        // 19. NULL, missing, invalid & non-INR webhook currency and amount rejection
+        console.log('[19/21] Testing NULL, missing, invalid, and mismatched currency/amount rejection...');
+        const sendSignedWebhook = async (payloadObj) => {
+            const raw = JSON.stringify(payloadObj);
+            return fetch(`${appBase}/api/payments/webhook`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Signature': signWebhookPayload(raw, TEST_WEBHOOK_SECRET),
+                    'X-Event': payloadObj.event,
+                    'X-Event-Id': payloadObj.event_id
+                },
+                body: raw
+            });
+        };
+
+        const invalidPayloads = [
+            { ...paidPayloadObj, event_id: 'evt_null_curr', event_sequence: 10, currency: null },
+            (() => { const o = { ...paidPayloadObj, event_id: 'evt_miss_curr', event_sequence: 10 }; delete o.currency; return o; })(),
+            { ...paidPayloadObj, event_id: 'evt_blank_curr', event_sequence: 10, currency: '   ' },
+            { ...paidPayloadObj, event_id: 'evt_usd_curr', event_sequence: 10, currency: 'USD' },
+            { ...paidPayloadObj, event_id: 'evt_null_amt', event_sequence: 10, amount: null },
+            (() => { const o = { ...paidPayloadObj, event_id: 'evt_miss_amt', event_sequence: 10 }; delete o.amount; return o; })(),
+            { ...paidPayloadObj, event_id: 'evt_nan_amt', event_sequence: 10, amount: 'NaN' },
+            { ...paidPayloadObj, event_id: 'evt_bool_amt', event_sequence: 10, amount: true },
+            { ...paidPayloadObj, event_id: 'evt_zero_amt', event_sequence: 10, amount: 0 },
+            { ...paidPayloadObj, event_id: 'evt_neg_amt', event_sequence: 10, amount: -50 },
+            { ...paidPayloadObj, event_id: 'evt_over_amt', event_sequence: 10, amount: 100001 },
+            { ...paidPayloadObj, event_id: 'evt_scale_amt', event_sequence: 10, amount: 113.456 }
+        ];
+        for (const p of invalidPayloads) {
+            const res = await sendSignedWebhook(p);
+            assert.strictEqual(res.status, 400, `Expected 400 for invalid webhook payload ${p.event_id}, got ${res.status}`);
+        }
+
+        // 20. Concurrent duplicate webhook deliveries (HTTP fan-out + PostgREST 23505 race path)
+        console.log('[20/21] Testing concurrent duplicate webhook delivery deduplication...');
+        const raceOrderRes = await fetch(`${appBase}/api/payments/sandbox/create-order`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                userId: 'user_sbx_race',
+                hostel_id: 'BH-13',
+                order_mode: 'DELIVERY',
+                idempotencyKey: 'IDEM_CONCURRENT_WH_01',
+                items: [{ product_id: 'SBX_PROD_MAGGI', quantity: 1 }] // 55 + 3 = 58
+            })
+        });
+        const raceOrder = await raceOrderRes.json();
+        assert.strictEqual(raceOrderRes.status, 200);
+        const eventsBeforeRace = store._eventsById.size;
+        const concurrentWhObj = {
+            event: 'order.paid',
+            event_id: 'evt_concurrent_dup_001',
+            event_sequence: 1,
+            order_id: raceOrder.gateway_order_id,
+            client_order_id: raceOrder.client_order_id,
+            amount: 58,
+            currency: 'INR',
+            environment: 'sandbox',
+            test: true,
+            utr: '429955667788'
+        };
+        const concurrentResponses = await Promise.all(
+            [1, 2, 3, 4, 5].map(() => sendSignedWebhook(concurrentWhObj).then(async r => ({ status: r.status, body: await r.json() })))
+        );
+        assert.ok(concurrentResponses.every(r => r.status === 200), 'All concurrent duplicate deliveries must succeed idempotently with 200');
+        assert.strictEqual(concurrentResponses.filter(r => !r.body.duplicate).length, 1, 'Exactly one concurrent delivery should process');
+        assert.strictEqual(store._eventsById.size, eventsBeforeRace + 1, 'Only one webhook event row should be stored');
+        assert.strictEqual(store._ordersByClientId.get(raceOrder.client_order_id).status, 'Paid');
+
+        // Direct createSupabaseSandboxStore PostgREST fallback concurrency & 23505 race test
+        let orderUpdatesInMockDb = 0;
+        let evtInsertCountInMockDb = 0;
+        let storedDbOrder = {
+            client_order_id: 'LPUQ_SBX_FALLBACK_1',
+            gateway_order_id: 'GW_FB_1',
+            amount: 58,
+            currency: 'INR',
+            status: 'Pending',
+            fulfilled: false,
+            last_event_sequence: 0
+        };
+        const makeQueryBuilder = (table) => {
+            const state = { table, op: 'select', filters: {}, ltFilters: {}, payload: null };
+            const builder = {
+                select() { return builder; },
+                insert(rows) {
+                    state.op = 'insert';
+                    state.payload = rows;
+                    if (table === 'sandbox_payment_audit_logs') return Promise.resolve({ error: null });
+                    if (table === 'sandbox_webhook_events') {
+                        evtInsertCountInMockDb++;
+                        if (evtInsertCountInMockDb === 1) return Promise.resolve({ error: null });
+                        return Promise.resolve({ error: { code: '23505', message: 'duplicate key value violates unique constraint' } });
+                    }
+                    return Promise.resolve({ error: null });
+                },
+                update(payload) { state.op = 'update'; state.payload = payload; return builder; },
+                eq(k, v) { state.filters[k] = v; return builder; },
+                neq(k, v) { state.filters[`neq_${k}`] = v; return builder; },
+                lt(k, v) { state.ltFilters[k] = v; return builder; },
+                maybeSingle() {
+                    if (table === 'sandbox_webhook_events') {
+                        return Promise.resolve({ data: null, error: null });
+                    }
+                    if (table === 'sandbox_payment_orders' && state.op === 'select') {
+                        return Promise.resolve({ data: { ...storedDbOrder }, error: null });
+                    }
+                    if (table === 'sandbox_payment_orders' && state.op === 'update') {
+                        if (state.filters.neq_status && storedDbOrder.status === state.filters.neq_status) {
+                            return Promise.resolve({ data: null, error: null });
+                        }
+                        if (state.filters.fulfilled === false && storedDbOrder.fulfilled) {
+                            return Promise.resolve({ data: null, error: null });
+                        }
+                        if (state.ltFilters.last_event_sequence !== undefined && !(storedDbOrder.last_event_sequence < state.ltFilters.last_event_sequence)) {
+                            return Promise.resolve({ data: null, error: null });
+                        }
+                        orderUpdatesInMockDb++;
+                        storedDbOrder = { ...storedDbOrder, ...state.payload };
+                        return Promise.resolve({ data: { ...storedDbOrder }, error: null });
+                    }
+                    return Promise.resolve({ data: null, error: null });
+                }
+            };
+            return builder;
+        };
+        const fallbackStore = createSupabaseSandboxStore({
+            getHandle: () => ({
+                client: {
+                    rpc: async () => ({ data: null, error: { code: '42883', message: 'function does not exist' } }),
+                    from: (t) => makeQueryBuilder(t)
+                }
+            })
+        });
+        const [fb1, fb2] = await Promise.all([1, 2].map(() => fallbackStore.processWebhookAtomically({
+            eventId: 'evt_fb_race_1',
+            eventType: 'order.paid',
+            eventSequence: 1,
+            mappedStatus: 'Paid',
+            clientOrderId: 'LPUQ_SBX_FALLBACK_1',
+            gatewayOrderId: 'GW_FB_1',
+            amount: 58,
+            currency: 'INR',
+            utr: '429999001122',
+            signatureTimestamp: Math.floor(Date.now() / 1000),
+            rawPayload: {}
+        })));
+        assert.strictEqual(orderUpdatesInMockDb, 1, 'Fallback concurrent race must only update order once');
+        assert.ok([fb1, fb2].some(r => r.outcome === 'processed') && [fb1, fb2].some(r => r.outcome === 'duplicate_event' && r.duplicate === true));
+        const fbNullCurr = await fallbackStore.processWebhookAtomically({
+            eventId: 'evt_fb_null_curr',
+            eventType: 'order.paid',
+            eventSequence: 2,
+            mappedStatus: 'Paid',
+            clientOrderId: 'LPUQ_SBX_FALLBACK_1',
+            amount: 58,
+            currency: null,
+            signatureTimestamp: Math.floor(Date.now() / 1000),
+            rawPayload: {}
+        });
+        assert.strictEqual(fbNullCurr.outcome, 'rejected_mismatch');
+        assert.strictEqual(fbNullCurr.code, 'INVALID_CURRENCY');
+
+        // 21. Valid status transitions & Paid-order downgrade prevention
+        console.log('[21/21] Testing status-transition rules and Paid-order downgrade protection...');
+        for (const [idx, badEvt] of ['order.failed', 'order.expired', 'order.under_review', 'order.pending'].entries()) {
+            const downgradeRes = await sendSignedWebhook({
+                event: badEvt,
+                event_id: `evt_downgrade_paid_${idx}`,
+                event_sequence: 10 + idx,
+                order_id: gwOrderId1,
+                client_order_id: clientOrderId1,
+                amount: 113,
+                currency: 'INR',
+                environment: 'sandbox',
+                test: true
+            });
+            const downgradeJson = await downgradeRes.json();
+            assert.strictEqual(downgradeRes.status, 409, `Paid order must reject downgrade via ${badEvt}`);
+            assert.strictEqual(downgradeJson.code, 'INVALID_STATUS_TRANSITION');
+            assert.strictEqual(store._ordersByClientId.get(clientOrderId1).status, 'Paid');
+            assert.strictEqual(store._ordersByClientId.get(clientOrderId1).fulfilled, true);
+        }
+
+        // Direct fallback downgrade & invalid non-Paid regression checks
+        const fbDowngrade = await fallbackStore.processWebhookAtomically({
+            eventId: 'evt_fb_downgrade_1',
+            eventType: 'order.expired',
+            eventSequence: 2,
+            mappedStatus: 'Expired',
+            clientOrderId: 'LPUQ_SBX_FALLBACK_1',
+            gatewayOrderId: 'GW_FB_1',
+            amount: 58,
+            currency: 'INR',
+            signatureTimestamp: Math.floor(Date.now() / 1000),
+            rawPayload: {}
+        });
+        assert.strictEqual(fbDowngrade.outcome, 'rejected_invalid_transition');
+        assert.strictEqual(fbDowngrade.statusCode, 409);
+        assert.strictEqual(storedDbOrder.status, 'Paid');
+
+        const syncedPaid = await fallbackStore.updateOrderFromStatusCheck('LPUQ_SBX_FALLBACK_1', {
+            status: 'Failed',
+            gatewayOrderId: 'GW_FB_1'
+        });
+        assert.strictEqual(syncedPaid.record.status, 'Paid', 'Status polling sync must never downgrade Paid order');
+        assert.strictEqual(isAllowedStatusTransition('Under review', false, 'Pending'), false);
+        assert.strictEqual(isAllowedStatusTransition('Failed', false, 'Under review'), false);
+        assert.strictEqual(isAllowedStatusTransition('Expired', false, 'Failed'), false);
+        assert.strictEqual(isAllowedStatusTransition('Paid', true, 'Failed'), false);
+
+        console.log('\n✅ ALL 21 SANDBOX UPI GATEWAY, AUTH, ISOLATION, CONCURRENCY & TRANSITION TESTS PASSED!');
     } finally {
         if (prevWebhookSecret === undefined) delete process.env.PAYMENT_WEBHOOK_SECRET;
         else process.env.PAYMENT_WEBHOOK_SECRET = prevWebhookSecret;

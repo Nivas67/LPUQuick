@@ -444,8 +444,8 @@ function createSandboxPaymentService(deps = {}) {
                 statusCode: 403
             });
         }
-        if (gatewayStatus.currency && gatewayStatus.currency !== 'INR') {
-            throw new GatewayError('Gateway currency mismatch (expected INR).', {
+        if (!gatewayStatus.currency || gatewayStatus.currency !== 'INR') {
+            throw new GatewayError('Gateway currency missing or mismatch (expected INR).', {
                 code: 'CURRENCY_MISMATCH',
                 statusCode: 400
             });
@@ -462,7 +462,7 @@ function createSandboxPaymentService(deps = {}) {
                 statusCode: 400
             });
         }
-        if (Math.round(Number(gatewayStatus.amount) * 100) !== Math.round(Number(stored.amount) * 100)) {
+        if (!Number.isFinite(Number(gatewayStatus.amount)) || Math.round(Number(gatewayStatus.amount) * 100) !== Math.round(Number(stored.amount) * 100)) {
             throw new GatewayError('Gateway payment amount mismatch against stored order total.', {
                 code: 'AMOUNT_MISMATCH',
                 statusCode: 400
@@ -539,15 +539,22 @@ function createSandboxPaymentService(deps = {}) {
             rawPayload: bodyObj
         });
 
-        if (result.outcome === 'rejected_order_not_found' || result.outcome === 'rejected_mismatch') {
+        if (
+            result.outcome === 'rejected_order_not_found' ||
+            result.outcome === 'rejected_mismatch' ||
+            result.outcome === 'rejected_invalid_transition'
+        ) {
+            const errorMsg = result.outcome === 'rejected_order_not_found'
+                ? 'Sandbox order not found (production orders cannot be modified by sandbox webhooks).'
+                : result.outcome === 'rejected_invalid_transition'
+                    ? 'Invalid payment status transition (already-paid orders cannot be downgraded).'
+                    : 'Webhook verification failed against stored sandbox order.';
             return {
-                statusCode: result.statusCode || 400,
+                statusCode: result.statusCode || (result.outcome === 'rejected_invalid_transition' ? 409 : 400),
                 body: {
                     success: false,
                     code: result.code || 'WEBHOOK_REJECTED',
-                    error: result.outcome === 'rejected_order_not_found'
-                        ? 'Sandbox order not found (production orders cannot be modified by sandbox webhooks).'
-                        : 'Webhook verification failed against stored sandbox order.'
+                    error: errorMsg
                 }
             };
         }

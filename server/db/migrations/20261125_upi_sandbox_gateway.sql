@@ -147,8 +147,43 @@ GRANT SELECT, INSERT, UPDATE ON TABLE sandbox_payment_orders TO service_role;
 GRANT SELECT, INSERT, UPDATE ON TABLE sandbox_webhook_events TO service_role;
 GRANT SELECT, INSERT ON TABLE sandbox_payment_audit_logs TO service_role;
 
--- 8. Atomic PostgreSQL transaction processor for signed webhook deduplication,
---    monotonic event_sequence ordering, amount/identity verification, and single fulfilment.
+-- 8. Table-level status-transition guard (never allow Paid or settled orders to be downgraded)
+CREATE OR REPLACE FUNCTION public.enforce_sandbox_order_status_transition()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = pg_catalog, public, pg_temp
+AS $$
+BEGIN
+    IF TG_OP = 'UPDATE' THEN
+        IF (OLD.fulfilled = TRUE OR OLD.status = 'Paid') THEN
+            IF NEW.status <> 'Paid' OR (OLD.fulfilled = TRUE AND NEW.fulfilled IS DISTINCT FROM TRUE) THEN
+                RAISE EXCEPTION 'Cannot downgrade settled sandbox payment order (%) from Paid to %', OLD.client_order_id, NEW.status
+                    USING ERRCODE = 'check_violation';
+            END IF;
+        ELSIF OLD.status = 'Under review' AND NEW.status = 'Pending' THEN
+            RAISE EXCEPTION 'Invalid sandbox payment transition from Under review to Pending for order %', OLD.client_order_id
+                USING ERRCODE = 'check_violation';
+        ELSIF OLD.status = 'Failed' AND NEW.status IN ('Pending', 'Under review') THEN
+            RAISE EXCEPTION 'Invalid sandbox payment transition from Failed to % for order %', NEW.status, OLD.client_order_id
+                USING ERRCODE = 'check_violation';
+        ELSIF OLD.status = 'Expired' AND NEW.status IN ('Pending', 'Under review', 'Failed') THEN
+            RAISE EXCEPTION 'Invalid sandbox payment transition from Expired to % for order %', NEW.status, OLD.client_order_id
+                USING ERRCODE = 'check_violation';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_enforce_sandbox_order_status_transition ON public.sandbox_payment_orders;
+CREATE TRIGGER trg_enforce_sandbox_order_status_transition
+    BEFORE UPDATE ON public.sandbox_payment_orders
+    FOR EACH ROW
+    EXECUTE FUNCTION public.enforce_sandbox_order_status_transition();
+
+-- 9. Atomic PostgreSQL transaction processor for signed webhook deduplication,
+--    concurrent duplicate serialization, strict amount/currency checks, monotonic sequence,
+--    state-transition enforcement, and single fulfilment.
 CREATE OR REPLACE FUNCTION public.process_sandbox_webhook_atomic(
     p_event_id TEXT,
     p_event_type TEXT,
@@ -173,8 +208,58 @@ DECLARE
     v_now TIMESTAMPTZ := NOW();
     v_evt_row_id TEXT := 'sbx_evt_' || REPLACE(pg_catalog.gen_random_uuid()::TEXT, '-', '');
     v_aud_row_id TEXT := 'sbx_aud_' || REPLACE(pg_catalog.gen_random_uuid()::TEXT, '-', '');
+    v_inserted_evt_id TEXT := NULL;
 BEGIN
-    IF UPPER(COALESCE(p_currency, 'INR')) <> 'INR' THEN
+    -- 0. Strict fail-closed validation (reject NULL, missing, non-finite, invalid scale, or non-INR currency)
+    IF NULLIF(BTRIM(COALESCE(p_event_id, '')), '') IS NULL OR pg_catalog.char_length(p_event_id) > 128 THEN
+        RETURN jsonb_build_object(
+            'outcome', 'rejected_mismatch',
+            'statusCode', 400,
+            'code', 'MISSING_EVENT_ID'
+        );
+    END IF;
+
+    IF NULLIF(BTRIM(COALESCE(p_event_type, '')), '') IS NULL THEN
+        RETURN jsonb_build_object(
+            'outcome', 'rejected_mismatch',
+            'statusCode', 400,
+            'code', 'UNSUPPORTED_WEBHOOK_EVENT'
+        );
+    END IF;
+
+    IF p_event_sequence IS NULL OR p_event_sequence < 0 THEN
+        RETURN jsonb_build_object(
+            'outcome', 'rejected_mismatch',
+            'statusCode', 400,
+            'code', 'INVALID_EVENT_SEQUENCE'
+        );
+    END IF;
+
+    IF p_mapped_status IS NULL OR p_mapped_status NOT IN ('Pending', 'Under review', 'Paid', 'Failed', 'Expired') THEN
+        RETURN jsonb_build_object(
+            'outcome', 'rejected_mismatch',
+            'statusCode', 400,
+            'code', 'INVALID_WEBHOOK_STATUS'
+        );
+    END IF;
+
+    IF p_signature_timestamp IS NULL OR p_signature_timestamp <= 0 THEN
+        RETURN jsonb_build_object(
+            'outcome', 'rejected_mismatch',
+            'statusCode', 400,
+            'code', 'INVALID_SIGNATURE_TIMESTAMP'
+        );
+    END IF;
+
+    IF NULLIF(BTRIM(COALESCE(p_currency, '')), '') IS NULL THEN
+        RETURN jsonb_build_object(
+            'outcome', 'rejected_mismatch',
+            'statusCode', 400,
+            'code', 'INVALID_CURRENCY'
+        );
+    END IF;
+
+    IF UPPER(BTRIM(p_currency)) <> 'INR' THEN
         RETURN jsonb_build_object(
             'outcome', 'rejected_mismatch',
             'statusCode', 400,
@@ -182,7 +267,34 @@ BEGIN
         );
     END IF;
 
-    -- 1. Check durable webhook deduplication first
+    IF p_amount IS NULL
+       OR pg_catalog.lower(p_amount::TEXT) IN ('nan', 'infinity', '-infinity')
+       OR p_amount < 1
+       OR p_amount > 100000
+       OR ROUND(p_amount, 2) <> p_amount THEN
+        RETURN jsonb_build_object(
+            'outcome', 'rejected_mismatch',
+            'statusCode', 400,
+            'code', 'INVALID_WEBHOOK_AMOUNT'
+        );
+    END IF;
+
+    IF NULLIF(BTRIM(COALESCE(p_client_order_id, '')), '') IS NULL
+       AND NULLIF(BTRIM(COALESCE(p_gateway_order_id, '')), '') IS NULL THEN
+        RETURN jsonb_build_object(
+            'outcome', 'rejected_mismatch',
+            'statusCode', 400,
+            'code', 'MISSING_ORDER_IDENTIFIER'
+        );
+    END IF;
+
+    -- 1. Serialize concurrent duplicate deliveries of the same event_id transactionally
+    PERFORM pg_catalog.pg_advisory_xact_lock(
+        pg_catalog.hashtext('sbx_wh_evt_v1'),
+        pg_catalog.hashtext(p_event_id)
+    );
+
+    -- Check durable webhook deduplication first
     SELECT * INTO v_existing_evt
     FROM public.sandbox_webhook_events
     WHERE event_id = p_event_id;
@@ -239,8 +351,20 @@ BEGIN
         );
     END IF;
 
-    -- 4. Exact INR amount check (paise equality)
-    IF ROUND(v_order.amount * 100) <> ROUND(p_amount * 100) THEN
+    -- 4. Exact stored order currency & paise-exact INR amount check (NULL-safe)
+    IF v_order.currency IS NULL
+       OR UPPER(BTRIM(v_order.currency)) <> 'INR'
+       OR UPPER(BTRIM(v_order.currency)) <> UPPER(BTRIM(p_currency)) THEN
+        RETURN jsonb_build_object(
+            'outcome', 'rejected_mismatch',
+            'statusCode', 400,
+            'code', 'CURRENCY_MISMATCH'
+        );
+    END IF;
+
+    IF v_order.amount IS NULL
+       OR pg_catalog.lower(v_order.amount::TEXT) IN ('nan', 'infinity', '-infinity')
+       OR ROUND(v_order.amount * 100) <> ROUND(p_amount * 100) THEN
         RETURN jsonb_build_object(
             'outcome', 'rejected_mismatch',
             'statusCode', 400,
@@ -248,7 +372,7 @@ BEGIN
         );
     END IF;
 
-    -- 5. Monotonic event_sequence guard (ignore older/out-of-order deliveries)
+    -- 5. Monotonic event_sequence guard (ignore older/out-of-order deliveries cleanly)
     IF p_event_sequence <= COALESCE(v_order.last_event_sequence, 0) THEN
         INSERT INTO public.sandbox_webhook_events (
             id, event_id, event_type, event_sequence,
@@ -259,7 +383,19 @@ BEGIN
             v_order.client_order_id, COALESCE(v_order.gateway_order_id, NULLIF(p_gateway_order_id, '')),
             'sandbox', TRUE, p_signature_timestamp, COALESCE(p_payload, '{}'::jsonb), 'stale_sequence_ignored'
         )
-        ON CONFLICT (event_id) DO NOTHING;
+        ON CONFLICT (event_id) DO NOTHING
+        RETURNING id INTO v_inserted_evt_id;
+
+        IF v_inserted_evt_id IS NULL THEN
+            RETURN jsonb_build_object(
+                'outcome', 'duplicate_event',
+                'duplicate', TRUE,
+                'event_id', p_event_id,
+                'client_order_id', v_order.client_order_id,
+                'status', v_order.status,
+                'fulfilled', v_order.fulfilled
+            );
+        END IF;
 
         RETURN jsonb_build_object(
             'outcome', 'stale_sequence_ignored',
@@ -271,7 +407,40 @@ BEGIN
         );
     END IF;
 
-    -- 6. Persist verified webhook event and advance order state atomically
+    -- 6. Valid status-transition enforcement (already-Paid orders can never be downgraded)
+    IF ((v_order.fulfilled = TRUE OR v_order.status = 'Paid') AND p_mapped_status <> 'Paid')
+       OR (v_order.status = 'Under review' AND p_mapped_status = 'Pending')
+       OR (v_order.status = 'Failed' AND p_mapped_status IN ('Pending', 'Under review'))
+       OR (v_order.status = 'Expired' AND p_mapped_status IN ('Pending', 'Under review', 'Failed')) THEN
+        INSERT INTO public.sandbox_payment_audit_logs (
+            id, action, client_order_id, gateway_order_id, event_id, details
+        ) VALUES (
+            v_aud_row_id,
+            'SANDBOX_WEBHOOK_INVALID_TRANSITION',
+            v_order.client_order_id,
+            v_order.gateway_order_id,
+            p_event_id,
+            jsonb_build_object(
+                'from_status', v_order.status,
+                'from_fulfilled', v_order.fulfilled,
+                'attempted_status', p_mapped_status,
+                'event_type', p_event_type,
+                'event_sequence', p_event_sequence
+            )
+        );
+
+        RETURN jsonb_build_object(
+            'outcome', 'rejected_invalid_transition',
+            'statusCode', 409,
+            'code', 'INVALID_STATUS_TRANSITION',
+            'client_order_id', v_order.client_order_id,
+            'gateway_order_id', v_order.gateway_order_id,
+            'status', v_order.status,
+            'fulfilled', v_order.fulfilled
+        );
+    END IF;
+
+    -- 7. Persist verified webhook event atomically (never fails with 23505 under concurrent duplicate delivery)
     INSERT INTO public.sandbox_webhook_events (
         id, event_id, event_type, event_sequence,
         client_order_id, gateway_order_id, environment, is_test,
@@ -280,13 +449,29 @@ BEGIN
         v_evt_row_id, p_event_id, p_event_type, p_event_sequence,
         v_order.client_order_id, COALESCE(v_order.gateway_order_id, NULLIF(p_gateway_order_id, '')),
         'sandbox', TRUE, p_signature_timestamp, COALESCE(p_payload, '{}'::jsonb), 'processed'
-    );
+    )
+    ON CONFLICT (event_id) DO NOTHING
+    RETURNING id INTO v_inserted_evt_id;
+
+    IF v_inserted_evt_id IS NULL THEN
+        RETURN jsonb_build_object(
+            'outcome', 'duplicate_event',
+            'duplicate', TRUE,
+            'event_id', p_event_id,
+            'client_order_id', v_order.client_order_id,
+            'status', v_order.status,
+            'fulfilled', v_order.fulfilled
+        );
+    END IF;
 
     v_should_fulfil := (p_mapped_status = 'Paid' AND NOT v_order.fulfilled);
 
     UPDATE public.sandbox_payment_orders
     SET
-        status = p_mapped_status,
+        status = CASE
+            WHEN public.sandbox_payment_orders.fulfilled = TRUE OR public.sandbox_payment_orders.status = 'Paid' THEN 'Paid'
+            ELSE p_mapped_status
+        END,
         gateway_order_id = COALESCE(public.sandbox_payment_orders.gateway_order_id, NULLIF(p_gateway_order_id, '')),
         utr = COALESCE(NULLIF(p_utr, ''), public.sandbox_payment_orders.utr),
         last_event_id = p_event_id,
@@ -327,7 +512,8 @@ BEGIN
 END;
 $$;
 
--- Restrict SECURITY DEFINER function execution strictly to server-side service_role
+-- Restrict trigger & SECURITY DEFINER function execution strictly to server-side roles
+REVOKE ALL ON FUNCTION public.enforce_sandbox_order_status_transition() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.process_sandbox_webhook_atomic(TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, NUMERIC, TEXT, TEXT, BIGINT, JSONB) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.process_sandbox_webhook_atomic(TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, NUMERIC, TEXT, TEXT, BIGINT, JSONB) TO service_role;
 

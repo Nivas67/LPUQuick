@@ -213,7 +213,13 @@ function validateWebhookEnvelope({ headers = {}, body }) {
         });
     }
 
-    const payloadCurrency = body.currency ? String(body.currency).trim().toUpperCase() : 'INR';
+    if (typeof body.currency !== 'string' || !body.currency.trim()) {
+        throw new WebhookSecurityError('Missing or invalid currency in webhook payload.', {
+            code: 'INVALID_CURRENCY',
+            statusCode: 400
+        });
+    }
+    const payloadCurrency = body.currency.trim().toUpperCase();
     if (payloadCurrency !== 'INR') {
         throw new WebhookSecurityError('Unsupported currency in webhook payload.', {
             code: 'CURRENCY_MISMATCH',
@@ -230,9 +236,25 @@ function validateWebhookEnvelope({ headers = {}, body }) {
         });
     }
 
-    const amountNum = Number(body.amount);
-    if (!Number.isFinite(amountNum) || amountNum <= 0) {
+    const rawAmt = body.amount;
+    const rawAmtStr = typeof rawAmt === 'string' ? rawAmt.trim() : null;
+    if (
+        (typeof rawAmt !== 'number' && typeof rawAmt !== 'string') ||
+        (typeof rawAmt === 'string' && !/^\d+(?:\.\d{1,2})?$/.test(rawAmtStr))
+    ) {
         throw new WebhookSecurityError('Webhook payload contains missing or invalid amount.', {
+            code: 'INVALID_WEBHOOK_AMOUNT',
+            statusCode: 400
+        });
+    }
+    const amountNum = Number(rawAmt);
+    if (
+        !Number.isFinite(amountNum) ||
+        amountNum < 1 ||
+        amountNum > 100000 ||
+        Math.abs(amountNum * 100 - Math.round(amountNum * 100)) > 1e-6
+    ) {
+        throw new WebhookSecurityError('Webhook payload contains invalid payment amount.', {
             code: 'INVALID_WEBHOOK_AMOUNT',
             statusCode: 400
         });

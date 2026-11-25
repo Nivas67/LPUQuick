@@ -114,6 +114,43 @@ function mapSupabaseTableError(error, fallbackMsg = 'Sandbox storage operation f
     });
 }
 
+function isAllowedStatusTransition(currentStatus, currentFulfilled, nextStatus) {
+    const VALID_STATUSES = ['Pending', 'Under review', 'Paid', 'Failed', 'Expired'];
+    if (!VALID_STATUSES.includes(nextStatus)) {
+        return false;
+    }
+    if (currentFulfilled || currentStatus === 'Paid') {
+        return nextStatus === 'Paid';
+    }
+    if (currentStatus === 'Under review') {
+        return nextStatus !== 'Pending';
+    }
+    if (currentStatus === 'Failed') {
+        return nextStatus !== 'Pending' && nextStatus !== 'Under review';
+    }
+    if (currentStatus === 'Expired') {
+        return nextStatus === 'Expired' || nextStatus === 'Paid';
+    }
+    return true;
+}
+
+function parseValidSandboxAmount(rawAmount) {
+    if (rawAmount === null || rawAmount === undefined || typeof rawAmount === 'boolean' || typeof rawAmount === 'object') {
+        return null;
+    }
+    if (typeof rawAmount === 'string' && !/^\s*\d+(?:\.\d{1,2})?\s*$/.test(rawAmount)) {
+        return null;
+    }
+    const n = Number(rawAmount);
+    if (!Number.isFinite(n) || n < 1 || n > 100000) {
+        return null;
+    }
+    if (Math.abs(n * 100 - Math.round(n * 100)) > 1e-6) {
+        return null;
+    }
+    return Math.round(n * 100) / 100;
+}
+
 function createSupabaseSandboxStore(options = {}) {
     const getHandle = options.getHandle || resolveSandboxDbHandle;
 
@@ -395,7 +432,10 @@ function createSupabaseSandboxStore(options = {}) {
             });
         }
 
-        const nextStatus = existing.status === 'Paid' ? 'Paid' : status;
+        const transitionAllowed = isAllowedStatusTransition(existing.status, Boolean(existing.fulfilled), status);
+        const nextStatus = (existing.fulfilled || existing.status === 'Paid')
+            ? 'Paid'
+            : (transitionAllowed ? status : existing.status);
         const shouldMarkFulfilled = nextStatus === 'Paid' && !existing.fulfilled;
 
         const updatePayload = {
@@ -423,6 +463,8 @@ function createSupabaseSandboxStore(options = {}) {
 
         if (shouldMarkFulfilled) {
             query = query.eq('fulfilled', false);
+        } else if (nextStatus !== 'Paid') {
+            query = query.eq('fulfilled', false).neq('status', 'Paid');
         }
 
         const { data, error } = await query.select('*').maybeSingle();
@@ -436,7 +478,8 @@ function createSupabaseSandboxStore(options = {}) {
             details: {
                 previous_status: existing.status,
                 new_status: refreshed?.status || nextStatus,
-                newly_fulfilled: Boolean(shouldMarkFulfilled && data)
+                newly_fulfilled: Boolean(shouldMarkFulfilled && data),
+                transition_rejected: !transitionAllowed
             }
         });
 
@@ -448,7 +491,7 @@ function createSupabaseSandboxStore(options = {}) {
 
     /**
      * Atomically deduplicate event_id, enforce monotonic event_sequence, verify order identity + amount,
-     * and record at most one sandbox fulfilment inside Postgres (via RPC or atomic fallback).
+     * enforce state-transition rules, and record at most one sandbox fulfilment inside Postgres.
      */
     async function processWebhookAtomically({
         eventId,
@@ -464,19 +507,21 @@ function createSupabaseSandboxStore(options = {}) {
         rawPayload
     }) {
         const { client } = getHandle();
+        const normalizedCurrency = typeof currency === 'string' ? currency.trim().toUpperCase() : '';
+        const normalizedAmount = parseValidSandboxAmount(amount);
 
         try {
             const { data: rpcData, error: rpcError } = await client.rpc('process_sandbox_webhook_atomic', {
-                p_event_id: eventId,
-                p_event_type: eventType,
-                p_event_sequence: eventSequence,
-                p_mapped_status: mappedStatus,
+                p_event_id: eventId || null,
+                p_event_type: eventType || null,
+                p_event_sequence: Number.isInteger(eventSequence) ? eventSequence : null,
+                p_mapped_status: mappedStatus || null,
                 p_client_order_id: clientOrderId || null,
                 p_gateway_order_id: gatewayOrderId || null,
-                p_amount: amount,
-                p_currency: currency || 'INR',
+                p_amount: normalizedAmount !== null ? normalizedAmount : null,
+                p_currency: currency === undefined || currency === null ? null : String(currency),
                 p_utr: utr || null,
-                p_signature_timestamp: signatureTimestamp,
+                p_signature_timestamp: signatureTimestamp || null,
                 p_payload: rawPayload
             });
 
@@ -489,6 +534,16 @@ function createSupabaseSandboxStore(options = {}) {
             }
         } catch (err) {
             if (err instanceof SandboxStoreError) throw err;
+        }
+
+        if (!normalizedCurrency) {
+            return { outcome: 'rejected_mismatch', statusCode: 400, code: 'INVALID_CURRENCY' };
+        }
+        if (normalizedCurrency !== 'INR') {
+            return { outcome: 'rejected_mismatch', statusCode: 400, code: 'CURRENCY_MISMATCH' };
+        }
+        if (normalizedAmount === null) {
+            return { outcome: 'rejected_mismatch', statusCode: 400, code: 'INVALID_WEBHOOK_AMOUNT' };
         }
 
         const existingEvent = await client
@@ -535,7 +590,15 @@ function createSupabaseSandboxStore(options = {}) {
                 code: 'ORDER_IDENTITY_MISMATCH'
             };
         }
-        if (Math.round(Number(order.amount) * 100) !== Math.round(Number(amount) * 100)) {
+        if (!order.currency || String(order.currency).trim().toUpperCase() !== normalizedCurrency) {
+            return {
+                outcome: 'rejected_mismatch',
+                statusCode: 400,
+                code: 'CURRENCY_MISMATCH'
+            };
+        }
+        const orderAmount = parseValidSandboxAmount(order.amount);
+        if (orderAmount === null || Math.round(orderAmount * 100) !== Math.round(normalizedAmount * 100)) {
             return {
                 outcome: 'rejected_mismatch',
                 statusCode: 400,
@@ -544,6 +607,31 @@ function createSupabaseSandboxStore(options = {}) {
         }
 
         const isOutOfOrder = Number(eventSequence) <= Number(order.last_event_sequence || 0);
+        if (!isOutOfOrder && !isAllowedStatusTransition(order.status, Boolean(order.fulfilled), mappedStatus)) {
+            await appendAuditLog({
+                action: 'SANDBOX_WEBHOOK_INVALID_TRANSITION',
+                client_order_id: order.client_order_id,
+                gateway_order_id: order.gateway_order_id,
+                event_id: eventId,
+                details: {
+                    from_status: order.status,
+                    from_fulfilled: Boolean(order.fulfilled),
+                    attempted_status: mappedStatus,
+                    event_type: eventType,
+                    event_sequence: eventSequence
+                }
+            });
+            return {
+                outcome: 'rejected_invalid_transition',
+                statusCode: 409,
+                code: 'INVALID_STATUS_TRANSITION',
+                client_order_id: order.client_order_id,
+                gateway_order_id: order.gateway_order_id,
+                status: order.status,
+                fulfilled: Boolean(order.fulfilled)
+            };
+        }
+
         const processingResult = isOutOfOrder ? 'stale_sequence_ignored' : 'processed';
 
         const insertEvt = await client
@@ -615,19 +703,34 @@ function createSupabaseSandboxStore(options = {}) {
             orderUpdate.sandbox_fulfilled_at = nowIso;
         }
 
-        const updatedRes = await client
+        let updateQuery = client
             .from('sandbox_payment_orders')
             .update(orderUpdate)
             .eq('client_order_id', order.client_order_id)
-            .lt('last_event_sequence', eventSequence)
-            .select('*')
-            .maybeSingle();
+            .lt('last_event_sequence', eventSequence);
+        if (mappedStatus !== 'Paid') {
+            updateQuery = updateQuery.eq('fulfilled', false).neq('status', 'Paid');
+        }
+
+        const updatedRes = await updateQuery.select('*').maybeSingle();
 
         if (updatedRes.error) {
             throw mapSupabaseTableError(updatedRes.error, 'Failed updating sandbox payment order.');
         }
 
         if (!updatedRes.data) {
+            const latestOrder = await findOrderByClientOrGatewayId(order.client_order_id);
+            if (latestOrder && (latestOrder.fulfilled || latestOrder.status === 'Paid') && mappedStatus !== 'Paid') {
+                return {
+                    outcome: 'rejected_invalid_transition',
+                    statusCode: 409,
+                    code: 'INVALID_STATUS_TRANSITION',
+                    client_order_id: latestOrder.client_order_id,
+                    gateway_order_id: latestOrder.gateway_order_id,
+                    status: latestOrder.status,
+                    fulfilled: Boolean(latestOrder.fulfilled)
+                };
+            }
             await client
                 .from('sandbox_webhook_events')
                 .update({ processing_result: 'stale_sequence_ignored' })
@@ -638,7 +741,7 @@ function createSupabaseSandboxStore(options = {}) {
                 ignoredOutOfOrder: true,
                 event_id: eventId,
                 client_order_id: order.client_order_id,
-                status: order.status
+                status: latestOrder?.status || order.status
             };
         }
 
@@ -689,5 +792,7 @@ module.exports = {
     SandboxStoreError,
     isSandboxDatabaseConfigured,
     resolveSandboxDbHandle,
+    isAllowedStatusTransition,
+    parseValidSandboxAmount,
     createSupabaseSandboxStore
 };
