@@ -330,3 +330,6 @@ $$;
 -- Restrict SECURITY DEFINER function execution strictly to server-side service_role
 REVOKE ALL ON FUNCTION public.process_sandbox_webhook_atomic(TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, NUMERIC, TEXT, TEXT, BIGINT, JSONB) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.process_sandbox_webhook_atomic(TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, NUMERIC, TEXT, TEXT, BIGINT, JSONB) TO service_role;
+
+-- Refresh PostgREST schema cache immediately when automatic API grants were disabled on project creation
+NOTIFY pgrst, 'reload schema';

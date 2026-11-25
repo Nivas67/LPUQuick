@@ -120,11 +120,12 @@ function createSandboxPreviewIsolationMiddleware(options = {}) {
             return next();
         }
 
-        const p = req.path || '';
+        const rawPath = (req.path || '').replace(/\/+$/, '') || '/';
+        const p = rawPath.toLowerCase();
         const method = req.method.toUpperCase();
 
         // Always allow isolated sandbox payment endpoints
-        if (p.startsWith('/api/payments')) {
+        if (p === '/api/payments' || p.startsWith('/api/payments/')) {
             return next();
         }
 
@@ -254,7 +255,7 @@ function createSandboxPreviewIsolationMiddleware(options = {}) {
             }
 
             if (p.startsWith('/api/categories/') && method === 'GET') {
-                const catName = decodeURIComponent(p.slice('/api/categories/'.length));
+                const catName = decodeURIComponent(rawPath.slice('/api/categories/'.length));
                 const hostelId = normalizeHostelParam(req.query.hostel_id || req.query.hostel);
                 const rows = await store.listCatalogItems({ category: catName });
                 return res.json({ success: true, sandbox: true, products: rows.map(r => formatCatalogProduct(r, hostelId)) });
@@ -267,7 +268,7 @@ function createSandboxPreviewIsolationMiddleware(options = {}) {
             }
 
             if (p.startsWith('/api/products/') && method === 'GET') {
-                const pid = decodeURIComponent(p.slice('/api/products/'.length));
+                const pid = decodeURIComponent(rawPath.slice('/api/products/'.length));
                 const hostelId = normalizeHostelParam(req.query.hostel_id || req.query.hostel);
                 const rows = await store.getCatalogItemsByIds([pid]);
                 if (!rows.length) {
@@ -286,7 +287,7 @@ function createSandboxPreviewIsolationMiddleware(options = {}) {
             }
 
             // Isolated Sandbox Cart Endpoints (backed strictly by sandbox_cart_items in sandbox DB)
-            if (p.startsWith('/api/cart')) {
+            if (p === '/api/cart' || p.startsWith('/api/cart/')) {
                 const hostelId = normalizeHostelParam(req.query.hostel_id || req.body?.hostel_id || req.headers['x-hostel-id']);
 
                 if (p === '/api/cart/check-conflict' && method === 'POST') {
@@ -310,14 +311,14 @@ function createSandboxPreviewIsolationMiddleware(options = {}) {
                 }
 
                 if (p.startsWith('/api/cart/user/') && method === 'DELETE') {
-                    const uid = decodeURIComponent(p.slice('/api/cart/user/'.length));
+                    const uid = decodeURIComponent(rawPath.slice('/api/cart/user/'.length));
                     await store.clearCart(uid);
                     const pricing = computeSandboxCartPricing([]);
                     return res.json({ success: true, items: [], item_count: 0, total_items: 0, pricing, sandbox: true });
                 }
 
                 if (method === 'PUT' && p.startsWith('/api/cart/')) {
-                    const cartId = decodeURIComponent(p.slice('/api/cart/'.length));
+                    const cartId = decodeURIComponent(rawPath.slice('/api/cart/'.length));
                     const uid = getEffectiveSandboxUserId(req);
                     const curItems = await store.getCartItems(uid, hostelId);
                     const target = curItems.find(it => it.cart_id === cartId || it.product_id === cartId);
@@ -331,7 +332,7 @@ function createSandboxPreviewIsolationMiddleware(options = {}) {
                 }
 
                 if (method === 'DELETE' && p.startsWith('/api/cart/')) {
-                    const cartId = decodeURIComponent(p.slice('/api/cart/'.length));
+                    const cartId = decodeURIComponent(rawPath.slice('/api/cart/'.length));
                     const uid = getEffectiveSandboxUserId(req);
                     const curItems = await store.getCartItems(uid, hostelId);
                     const target = curItems.find(it => it.cart_id === cartId || it.product_id === cartId);
@@ -341,7 +342,7 @@ function createSandboxPreviewIsolationMiddleware(options = {}) {
                 }
 
                 if (method === 'GET') {
-                    const parts = p.split('/').filter(Boolean);
+                    const parts = rawPath.split('/').filter(Boolean);
                     const uid = parts.length >= 3 ? decodeURIComponent(parts[2]) : getEffectiveSandboxUserId(req);
                     const items = uid ? await store.getCartItems(uid, hostelId) : [];
                     const pricing = computeSandboxCartPricing(items);
@@ -355,7 +356,7 @@ function createSandboxPreviewIsolationMiddleware(options = {}) {
         // Safe isolated stubs for customer SPA background checks (never touches real users or real orders)
         if (p.startsWith('/api/auth/check-status/') && method === 'GET') {
             return res.json({
-                userId: decodeURIComponent(p.slice('/api/auth/check-status/'.length)),
+                userId: decodeURIComponent(rawPath.slice('/api/auth/check-status/'.length)),
                 isBlocked: false,
                 account_status: 'ACTIVE',
                 sandbox: true

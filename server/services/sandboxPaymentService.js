@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { isSandboxRuntime, isProductionSupabaseUrl } = require('../supabase');
+const { isSandboxRuntime, isProductionSupabaseUrl, isAllowedSandboxSupabaseUrl } = require('../supabase');
 const {
     GatewayError,
     createUpiGatewayClient,
@@ -105,13 +105,14 @@ function createSandboxPaymentService(deps = {}) {
         const dbConfigured = Boolean(checkDbConfigured());
         const sbxUrl = String(process.env.SANDBOX_SUPABASE_URL || '').trim();
         const pointsToProd = isProductionSupabaseUrl(sbxUrl);
+        const allowlisted = isAllowedSandboxSupabaseUrl(sbxUrl);
 
         return {
             ...gwDiag,
             dbConfigured,
-            dbIsolated: Boolean(dbConfigured && !pointsToProd),
+            dbIsolated: Boolean(dbConfigured && allowlisted && !pointsToProd),
             previewIsolation: isSandboxRuntime(),
-            ready: Boolean(gwDiag.ready && dbConfigured && !pointsToProd)
+            ready: Boolean(gwDiag.ready && dbConfigured && allowlisted && !pointsToProd)
         };
     }
 

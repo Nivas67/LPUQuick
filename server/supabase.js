@@ -6,6 +6,7 @@ const FORBIDDEN_PRODUCTION_REFS = [
     'yojndzstlilzlkxonmvd',
     'dzygsmgdzvroxepwyjyz'
 ];
+const DEFAULT_SANDBOX_PROJECT_REF = 'mgsxeguulxumfgehpphb';
 
 // Legacy fallback credentials used only in standard non-sandbox/non-preview mode
 const DEFAULT_SUPABASE_URL = `https://${PRODUCTION_PROJECT_REF}.supabase.co`;
@@ -21,6 +22,38 @@ function isProductionSupabaseUrl(urlStr) {
     if (!urlStr || typeof urlStr !== 'string') return false;
     const lower = urlStr.toLowerCase();
     return FORBIDDEN_PRODUCTION_REFS.some(ref => lower.includes(ref));
+}
+
+function getAllowedSandboxRefs() {
+    const raw = String(process.env.SANDBOX_ALLOWED_SUPABASE_REFS || '').trim();
+    const candidates = raw
+        ? raw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+        : [DEFAULT_SANDBOX_PROJECT_REF];
+    return candidates.filter(ref => /^[a-z0-9]{12,32}$/.test(ref) && !FORBIDDEN_PRODUCTION_REFS.includes(ref));
+}
+
+function isAllowedSandboxSupabaseUrl(urlStr) {
+    if (!urlStr || typeof urlStr !== 'string') return false;
+    const trimmed = urlStr.trim();
+    if (!trimmed || isProductionSupabaseUrl(trimmed)) return false;
+
+    let parsed;
+    try {
+        parsed = new URL(trimmed);
+    } catch {
+        return false;
+    }
+
+    if (parsed.protocol !== 'https:' || parsed.port || parsed.username || parsed.password) {
+        return false;
+    }
+    if ((parsed.pathname && parsed.pathname !== '/') || parsed.search || parsed.hash) {
+        return false;
+    }
+
+    const hostname = parsed.hostname.toLowerCase();
+    const allowedRefs = getAllowedSandboxRefs();
+    return allowedRefs.some(ref => hostname === `${ref}.supabase.co`);
 }
 
 let supabase = null;
@@ -72,7 +105,7 @@ function getSupabaseClient() {
     if (isSandboxRuntime()) {
         const envUrl = String(process.env.SUPABASE_URL || '').trim();
         const envKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
-        if (!envUrl || !envKey || isProductionSupabaseUrl(envUrl)) {
+        if (!envUrl || !envKey || !isAllowedSandboxSupabaseUrl(envUrl)) {
             return null;
         }
         if (supabase) return supabase;
@@ -101,7 +134,7 @@ function getSupabaseClient() {
 
 /**
  * Resolve dedicated Sandbox Supabase client strictly from SANDBOX_SUPABASE_URL + SANDBOX_SUPABASE_SERVICE_ROLE_KEY.
- * Never falls back to production credentials or DEFAULT_SUPABASE_URL.
+ * Never falls back to production credentials or DEFAULT_SUPABASE_URL, and enforces the explicit sandbox allowlist.
  */
 function getSandboxSupabaseClient() {
     const sandboxUrl = String(process.env.SANDBOX_SUPABASE_URL || '').trim();
@@ -110,7 +143,7 @@ function getSandboxSupabaseClient() {
     if (!sandboxUrl || !sandboxKey || sandboxKey.includes('your-') || sandboxKey.includes('<')) {
         return null;
     }
-    if (isProductionSupabaseUrl(sandboxUrl)) {
+    if (!isAllowedSandboxSupabaseUrl(sandboxUrl)) {
         return null;
     }
 
@@ -129,8 +162,12 @@ function getSandboxSupabaseClient() {
 
 module.exports = {
     PRODUCTION_PROJECT_REF,
+    FORBIDDEN_PRODUCTION_REFS,
+    DEFAULT_SANDBOX_PROJECT_REF,
+    getAllowedSandboxRefs,
     isSandboxRuntime,
     isProductionSupabaseUrl,
+    isAllowedSandboxSupabaseUrl,
     supabase,
     getSupabaseClient,
     getSandboxSupabaseClient

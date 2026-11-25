@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
-const { isProductionSupabaseUrl } = require('../supabase');
+const { isProductionSupabaseUrl, isAllowedSandboxSupabaseUrl } = require('../supabase');
 
 class SandboxStoreError extends Error {
     constructor(message, { code = 'SANDBOX_STORE_ERROR', statusCode = 500 } = {}) {
@@ -24,17 +24,12 @@ function isSandboxDatabaseConfigured(overrides = {}) {
     if (isProductionSupabaseUrl(customUrl)) {
         return false;
     }
-    try {
-        const parsed = new URL(customUrl);
-        return parsed.protocol === 'https:';
-    } catch {
-        return false;
-    }
+    return isAllowedSandboxSupabaseUrl(customUrl);
 }
 
 /**
  * Resolve the Supabase client strictly from SANDBOX_SUPABASE_URL + SANDBOX_SUPABASE_SERVICE_ROLE_KEY.
- * Fails closed whenever missing or pointing to a production database. Never falls back to production.
+ * Fails closed whenever missing, pointing to production, or outside the explicit sandbox project allowlist.
  */
 function resolveSandboxDbHandle(overrides = {}) {
     const customUrl = String((overrides.sandboxUrl !== undefined ? overrides.sandboxUrl : process.env.SANDBOX_SUPABASE_URL) || '').trim();
@@ -67,6 +62,12 @@ function resolveSandboxDbHandle(overrides = {}) {
     if (parsedUrl.protocol !== 'https:') {
         throw new SandboxStoreError('SANDBOX_SUPABASE_URL must use HTTPS.', {
             code: 'INSECURE_SANDBOX_DB_URL',
+            statusCode: 503
+        });
+    }
+    if (!isAllowedSandboxSupabaseUrl(customUrl)) {
+        throw new SandboxStoreError('SANDBOX_SUPABASE_URL does not match an explicitly allowlisted sandbox Supabase project.', {
+            code: 'SANDBOX_DB_UNTRUSTED_HOST',
             statusCode: 503
         });
     }

@@ -834,6 +834,27 @@ async function runTests() {
         assert.strictEqual(liveCheckoutBlocked.status, 403);
         assert.strictEqual(prodCheckoutHit, 0, 'Live checkout route must never execute in Sandbox Preview');
 
+        // Uppercase / trailing slash bypass attempt must also be blocked, while preserving uppercase IDs on catalog routes
+        const liveCheckoutMixedCaseBlocked = await fetch(`${appBase}/api/Checkout/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: 'u1' })
+        });
+        assert.strictEqual(liveCheckoutMixedCaseBlocked.status, 403);
+        assert.strictEqual(prodCheckoutHit, 0, 'Mixed-case / trailing-slash checkout route must never bypass Preview isolation');
+
+        const lookalikePaymentsBlocked = await fetch(`${appBase}/api/payments_evil`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+        assert.strictEqual(lookalikePaymentsBlocked.status, 403);
+
+        const trailingSlashCatalog = await fetch(`${appBase}/api/products/SBX_PROD_MAGGI/`);
+        assert.strictEqual(trailingSlashCatalog.status, 200);
+        const trailingCatalogJson = await trailingSlashCatalog.json();
+        assert.strictEqual(trailingCatalogJson.product.id, 'SBX_PROD_MAGGI');
+
         const adminBlocked = await fetch(`${appBase}/api/orders/admin/all`);
         assert.strictEqual(adminBlocked.status, 403);
 
@@ -847,12 +868,47 @@ async function runTests() {
         assert.strictEqual(cartAddJson.sandbox, true);
         assert.strictEqual(cartAddJson.pricing.subtotal, 110);
 
-        // 17. Fail-closed Sandbox DB configuration guards (never falls back to production)
-        console.log('[17/18] Testing fail-closed sandbox database guards...');
+        // 17. Strict sandbox DB allowlist & fail-closed guards (never falls back to production or arbitrary hosts)
+        console.log('[17/18] Testing strict sandbox DB allowlist and fail-closed guards...');
+        const {
+            isAllowedSandboxSupabaseUrl,
+            getSupabaseClient,
+            getSandboxSupabaseClient
+        } = require('../supabase');
+
+        assert.strictEqual(isAllowedSandboxSupabaseUrl('https://mgsxeguulxumfgehpphb.supabase.co'), true);
+        assert.strictEqual(isAllowedSandboxSupabaseUrl('https://vltnqvktdlpcltndmmwl.supabase.co'), false);
+        assert.strictEqual(isAllowedSandboxSupabaseUrl('https://evil-project.supabase.co'), false);
+        assert.strictEqual(isAllowedSandboxSupabaseUrl('http://mgsxeguulxumfgehpphb.supabase.co'), false);
+        assert.strictEqual(isAllowedSandboxSupabaseUrl('https://mgsxeguulxumfgehpphb.supabase.co:8443'), false);
+
         assert.strictEqual(isSandboxDatabaseConfigured({ sandboxUrl: '', sandboxKey: '' }), false);
         assert.strictEqual(isSandboxDatabaseConfigured({ sandboxUrl: 'https://vltnqvktdlpcltndmmwl.supabase.co', sandboxKey: 'sb_secret_dummy' }), false);
+        assert.strictEqual(isSandboxDatabaseConfigured({ sandboxUrl: 'https://evil-project.supabase.co', sandboxKey: 'sb_secret_dummy' }), false);
+        assert.strictEqual(isSandboxDatabaseConfigured({ sandboxUrl: 'https://mgsxeguulxumfgehpphb.supabase.co', sandboxKey: 'sb_secret_dummy' }), true);
+
         assert.throws(() => resolveSandboxDbHandle({ sandboxUrl: '', sandboxKey: '' }), /not configured/i);
         assert.throws(() => resolveSandboxDbHandle({ sandboxUrl: 'https://vltnqvktdlpcltndmmwl.supabase.co', sandboxKey: 'sb_secret_dummy' }), /production/i);
+        assert.throws(() => resolveSandboxDbHandle({ sandboxUrl: 'https://evil-project.supabase.co', sandboxKey: 'sb_secret_dummy' }), /allowlisted/i);
+        assert.throws(() => resolveSandboxDbHandle({ sandboxUrl: 'http://mgsxeguulxumfgehpphb.supabase.co', sandboxKey: 'sb_secret_dummy' }), /HTTPS/i);
+
+        const prevPayEnv = process.env.PAYMENT_ENVIRONMENT;
+        const prevSbxUrl = process.env.SANDBOX_SUPABASE_URL;
+        const prevSbxKey = process.env.SANDBOX_SUPABASE_SERVICE_ROLE_KEY;
+        try {
+            process.env.PAYMENT_ENVIRONMENT = 'sandbox';
+            process.env.SANDBOX_SUPABASE_URL = 'https://evil-project.supabase.co';
+            process.env.SANDBOX_SUPABASE_SERVICE_ROLE_KEY = 'sb_secret_dummy';
+            assert.strictEqual(getSupabaseClient(), null, 'Production Supabase client must fail closed in sandbox runtime');
+            assert.strictEqual(getSandboxSupabaseClient(), null, 'Sandbox client must reject unapproved Supabase hosts');
+        } finally {
+            if (prevPayEnv === undefined) delete process.env.PAYMENT_ENVIRONMENT;
+            else process.env.PAYMENT_ENVIRONMENT = prevPayEnv;
+            if (prevSbxUrl === undefined) delete process.env.SANDBOX_SUPABASE_URL;
+            else process.env.SANDBOX_SUPABASE_URL = prevSbxUrl;
+            if (prevSbxKey === undefined) delete process.env.SANDBOX_SUPABASE_SERVICE_ROLE_KEY;
+            else process.env.SANDBOX_SUPABASE_SERVICE_ROLE_KEY = prevSbxKey;
+        }
 
         // 18. Audit SQL migration file permissions & zero secret leaks
         console.log('[18/18] Auditing sandbox SQL migration grants and config response...');
@@ -861,6 +917,7 @@ async function runTests() {
         assert.ok(sql.includes('REVOKE ALL ON FUNCTION public.process_sandbox_webhook_atomic'), 'Function execute must be revoked from PUBLIC/anon/authenticated');
         assert.ok(sql.includes('GRANT EXECUTE ON FUNCTION public.process_sandbox_webhook_atomic'), 'Function execute must be explicitly granted to service_role');
         assert.ok(sql.includes('SET search_path = pg_catalog, public, pg_temp'), 'SECURITY DEFINER must pin safe search_path');
+        assert.ok(sql.includes("NOTIFY pgrst, 'reload schema';"), 'Migration must notify PostgREST to reload schema cache');
         assert.ok(!sql.includes('vltnqvktdlpcltndmmwl'), 'Migration must never reference production project ref');
 
         const cfgRes = await fetch(`${appBase}/api/payments/sandbox/config`);
