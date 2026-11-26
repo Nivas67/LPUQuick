@@ -143,12 +143,17 @@ export default {
             return fetchStaticAsset(env, request, `/downloads/${normalizedPath.slice('/download/'.length)}`);
         }
 
-        // 7. Customer Storefront root & Sandbox Payment Return SPA page (never fall back to Admin HTML)
+        // 7. Service Worker script must bypass CDN stale caching across proxy hops
+        if (lowerPath === '/sw.js') {
+            return fetchStaticAsset(env, request, '/sw.js', { noCacheHtml: true });
+        }
+
+        // 8. Customer Storefront root & Sandbox Payment Return SPA page (never fall back to Admin HTML)
         if (lowerPath === '/' || lowerPath === '/index.html' || lowerPath === '/sandbox-payment-return' || lowerPath === '/sandbox-payment') {
             return fetchStaticAsset(env, request, '/index.html', { noCacheHtml: true });
         }
 
-        // 8. Non-asset unknown paths fall back strictly to Customer Storefront (never Admin Dashboard); missing asset extensions return 404
+        // 9. Non-asset unknown paths fall back strictly to Customer Storefront (never Admin Dashboard); missing asset extensions return 404
         if (STATIC_EXT_RE.test(lowerPath)) {
             if (env && env.ASSETS && typeof env.ASSETS.fetch === 'function') {
                 return env.ASSETS.fetch(request);

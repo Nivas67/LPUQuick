@@ -131,6 +131,7 @@ function createSandboxPreviewIsolationMiddleware(options = {}) {
 
         // Health & Realtime endpoints (never leak production Supabase URL/key or ping prod DB)
         if (p === '/api/health' && method === 'GET') {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
             const dbReady = isSandboxDatabaseConfigured() && !isProductionSupabaseUrl(process.env.SANDBOX_SUPABASE_URL || '');
             return res.json({
                 status: 'healthy',
@@ -142,6 +143,7 @@ function createSandboxPreviewIsolationMiddleware(options = {}) {
         }
 
         if (p === '/api/realtime/config' && method === 'GET') {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
             return res.json({
                 supabaseUrl: '',
                 supabaseAnonKey: '',
@@ -288,6 +290,7 @@ function createSandboxPreviewIsolationMiddleware(options = {}) {
 
             // Isolated Sandbox Cart Endpoints (backed strictly by sandbox_cart_items in sandbox DB)
             if (p === '/api/cart' || p.startsWith('/api/cart/')) {
+                res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, private');
                 const hostelId = normalizeHostelParam(req.query.hostel_id || req.body?.hostel_id || req.headers['x-hostel-id']);
 
                 if (p === '/api/cart/check-conflict' && method === 'POST') {
@@ -355,6 +358,7 @@ function createSandboxPreviewIsolationMiddleware(options = {}) {
 
         // Safe isolated stubs for customer SPA background checks (never touches real users or real orders)
         if (p.startsWith('/api/auth/check-status/') && method === 'GET') {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, private');
             return res.json({
                 userId: decodeURIComponent(rawPath.slice('/api/auth/check-status/'.length)),
                 isBlocked: false,
@@ -364,10 +368,12 @@ function createSandboxPreviewIsolationMiddleware(options = {}) {
         }
 
         if (p === '/api/auth/update-address' && method === 'POST') {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, private');
             return res.json({ success: true, sandbox: true });
         }
 
         if (method === 'GET' && /^\/api\/orders\/[^/]+(\/active)?$/.test(p) && !p.startsWith('/api/orders/admin')) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, private');
             return res.json({ active: null, past: [], orders: [], sandbox: true });
         }
 

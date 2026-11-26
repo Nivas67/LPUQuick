@@ -233,6 +233,90 @@ async function runWranglerRouteTests() {
         const productsIsoJson = await productsIsoRes.json();
         assert.strictEqual(productsIsoJson.code, 'SANDBOX_DB_NOT_CONFIGURED');
 
+        // 9. Vercel External Rewrite Proxy Compatibility & Security Checks
+        const vercelProxyConfig = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../vercel-proxy/vercel.json'), 'utf8'));
+        assert.strictEqual(vercelProxyConfig.framework, null);
+        assert.strictEqual(vercelProxyConfig.buildCommand, null);
+        assert.strictEqual(vercelProxyConfig.outputDirectory, 'static');
+        assert.ok(!vercelProxyConfig.functions, 'Minimal Vercel proxy config must not deploy Vercel Serverless Functions');
+        assert.deepStrictEqual(vercelProxyConfig.rewrites, [
+            { source: '/', destination: 'https://lpuquick.nivasnaidu07.workers.dev/' },
+            { source: '/:path*', destination: 'https://lpuquick.nivasnaidu07.workers.dev/:path*' }
+        ]);
+
+        const swRes = await fetch(`${baseUrl}/sw.js`);
+        assert.strictEqual(swRes.status, 200);
+        assert.ok((swRes.headers.get('cache-control') || '').includes('no-store'), '/sw.js must emit no-store across proxy');
+
+        assert.ok((healthRes.headers.get('cache-control') || '').includes('no-store'), '/api/health must emit no-store in sandbox');
+
+        const cartNoStoreRes = await fetch(`${baseUrl}/api/cart/sbx_proxy_u1`);
+        assert.ok((cartNoStoreRes.headers.get('cache-control') || '').includes('no-store'), '/api/cart/* must emit no-store');
+
+        const vercelCorsRes = await fetch(`${baseUrl}/api/payments/sandbox/create-order`, {
+            method: 'OPTIONS',
+            headers: {
+                Origin: 'https://lpuquick.vercel.app',
+                'Access-Control-Request-Method': 'POST'
+            }
+        });
+        assert.strictEqual(vercelCorsRes.headers.get('access-control-allow-origin'), 'https://lpuquick.vercel.app');
+
+        const vercelCsrfCheckRes = await fetch(`${baseUrl}/api/payments/sandbox/create-order`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Origin: 'https://lpuquick.vercel.app',
+                'X-Forwarded-Host': 'lpuquick.vercel.app',
+                'X-Forwarded-Proto': 'https'
+            },
+            body: JSON.stringify({ userId: 'sbx_u1' })
+        });
+        assert.notStrictEqual(vercelCsrfCheckRes.status, 403, 'Allowlisted lpuquick.vercel.app Origin must pass CSRF guard behind Worker host');
+        assert.ok((vercelCsrfCheckRes.headers.get('cache-control') || '').includes('no-store'));
+
+        const paymentsModule = require('../routes/payments');
+        assert.strictEqual(
+            paymentsModule.buildAllowedRedirectUrl({
+                headers: {
+                    host: 'lpuquick.nivasnaidu07.workers.dev',
+                    'x-forwarded-host': 'lpuquick.vercel.app',
+                    'x-forwarded-proto': 'https'
+                }
+            }),
+            'https://lpuquick.vercel.app/sandbox-payment-return'
+        );
+        assert.strictEqual(
+            paymentsModule.buildAllowedRedirectUrl({
+                headers: {
+                    host: 'lpuquick.nivasnaidu07.workers.dev',
+                    origin: 'https://lpuquick.vercel.app'
+                }
+            }),
+            'https://lpuquick.vercel.app/sandbox-payment-return'
+        );
+        assert.strictEqual(
+            paymentsModule.resolveValidatedRedirectUrl({
+                headers: {
+                    host: 'lpuquick.nivasnaidu07.workers.dev',
+                    origin: 'https://lpuquick.vercel.app'
+                },
+                body: { redirectUrl: 'https://evil.example/phish' }
+            }),
+            'https://lpuquick.vercel.app/sandbox-payment-return',
+            'Untrusted redirectUrl body must be rejected in favor of allowlisted proxy host'
+        );
+        assert.strictEqual(
+            paymentsModule.resolveValidatedRedirectUrl({
+                headers: {
+                    host: 'lpuquick.nivasnaidu07.workers.dev',
+                    origin: 'https://lpuquick.vercel.app'
+                },
+                body: { redirectUrl: 'https://lpuquick.vercel.app/sandbox-payment-return' }
+            }),
+            'https://lpuquick.vercel.app/sandbox-payment-return'
+        );
+
         // Confirm no global-scope runtime exceptions occurred in Worker logs
         const combinedLogs = logs.join('\n');
         assert.ok(!combinedLogs.includes('Disallowed operation called within global scope'), 'Worker must not call disallowed global-scope operations');

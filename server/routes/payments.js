@@ -13,14 +13,11 @@ const {
     setSandboxSessionCookie
 } = require('../services/sandboxAuth');
 
-function buildAllowedRedirectUrl(req, clientOrderId = null) {
-    const rawHost = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim();
-    const proto = String(req.headers['x-forwarded-proto'] || req.protocol || '').split(',')[0].trim().toLowerCase();
-    if (!rawHost || proto !== 'https') {
-        return undefined;
-    }
+function isAllowedRedirectHostname(rawHost) {
+    const cleanHost = String(rawHost || '').split(',')[0].trim();
+    if (!cleanHost) return false;
+    const hostnameOnly = cleanHost.split(':')[0].toLowerCase();
 
-    const hostnameOnly = rawHost.split(':')[0].toLowerCase();
     const configuredAppHost = (() => {
         try {
             return process.env.APP_URL ? new URL(process.env.APP_URL).hostname.toLowerCase() : '';
@@ -39,7 +36,7 @@ function buildAllowedRedirectUrl(req, clientOrderId = null) {
     const vercelUrlHost = String(process.env.VERCEL_URL || '').trim().toLowerCase();
     const vercelBranchHost = String(process.env.VERCEL_BRANCH_URL || '').trim().toLowerCase();
 
-    const isAllowedHost =
+    return Boolean(
         hostnameOnly === 'lpuquick.com' ||
         hostnameOnly.endsWith('.lpuquick.com') ||
         (configuredAppHost && hostnameOnly === configuredAppHost) ||
@@ -48,14 +45,63 @@ function buildAllowedRedirectUrl(req, clientOrderId = null) {
         (vercelBranchHost && hostnameOnly === vercelBranchHost) ||
         /^lpu-?quick(-[a-zA-Z0-9-]+)?\.vercel\.app$/.test(hostnameOnly) ||
         /^lpu-?quick(-[a-z0-9-]+)?\.[a-z0-9-]+\.workers\.dev$/.test(hostnameOnly) ||
-        /^lpu-?quick(-[a-z0-9-]+)?\.pages\.dev$/.test(hostnameOnly);
+        /^lpu-?quick(-[a-z0-9-]+)?\.pages\.dev$/.test(hostnameOnly)
+    );
+}
 
-    if (!isAllowedHost) {
+function extractUrlOriginHost(rawUrl) {
+    if (!rawUrl || typeof rawUrl !== 'string') return '';
+    try {
+        const parsed = new URL(rawUrl);
+        if (parsed.protocol !== 'https:') return '';
+        return parsed.host || '';
+    } catch {
+        return '';
+    }
+}
+
+function buildAllowedRedirectUrl(req, clientOrderId = null) {
+    const proto = String(req.headers['x-forwarded-proto'] || req.protocol || '').split(',')[0].trim().toLowerCase();
+    const forwardedHost = String(req.headers['x-forwarded-host'] || '').split(',')[0].trim();
+    const directHost = String(req.headers.host || '').split(',')[0].trim();
+    const browserOriginHost = extractUrlOriginHost(req.headers.origin) || extractUrlOriginHost(req.headers.referer);
+
+    // Prefer forwarded proxy host, then allowlisted HTTPS Origin/Referer if proxy stripped X-Forwarded-Host
+    let rawHost = '';
+    if (forwardedHost && isAllowedRedirectHostname(forwardedHost)) {
+        rawHost = forwardedHost;
+    } else if (
+        browserOriginHost &&
+        isAllowedRedirectHostname(browserOriginHost) &&
+        (!directHost || directHost.toLowerCase().endsWith('.workers.dev'))
+    ) {
+        rawHost = browserOriginHost;
+    } else if (directHost && isAllowedRedirectHostname(directHost)) {
+        rawHost = directHost;
+    }
+
+    const effectiveProto = proto === 'https' || browserOriginHost ? 'https' : '';
+    if (!rawHost || effectiveProto !== 'https') {
         return undefined;
     }
 
     const base = `https://${rawHost}/sandbox-payment-return`;
     return clientOrderId ? `${base}?client_order_id=${encodeURIComponent(clientOrderId)}` : base;
+}
+
+function resolveValidatedRedirectUrl(req) {
+    const requested = req?.body?.redirectUrl;
+    if (requested && typeof requested === 'string') {
+        try {
+            const parsed = new URL(requested.trim());
+            if (parsed.protocol === 'https:' && isAllowedRedirectHostname(parsed.host)) {
+                return parsed.toString();
+            }
+        } catch {
+            // Fall through to derived allowlisted redirect URL
+        }
+    }
+    return buildAllowedRedirectUrl(req);
 }
 
 function sendKnownError(res, err) {
@@ -115,9 +161,7 @@ function createPaymentsRouter(serviceOverrides = null, routerOptions = {}) {
                 });
             }
 
-            const safeRedirect = req.body.redirectUrl && typeof req.body.redirectUrl === 'string' && req.body.redirectUrl.startsWith('https://')
-                ? req.body.redirectUrl
-                : buildAllowedRedirectUrl(req);
+            const safeRedirect = resolveValidatedRedirectUrl(req);
 
             const payload = {
                 userId: activeSession ? activeSession.uid : (req.body.userId || req.body.user_id),
@@ -220,5 +264,8 @@ function createPaymentsRouter(serviceOverrides = null, routerOptions = {}) {
 
 const defaultRouter = createPaymentsRouter();
 defaultRouter.createPaymentsRouter = createPaymentsRouter;
+defaultRouter.buildAllowedRedirectUrl = buildAllowedRedirectUrl;
+defaultRouter.resolveValidatedRedirectUrl = resolveValidatedRedirectUrl;
+defaultRouter.isAllowedRedirectHostname = isAllowedRedirectHostname;
 
 module.exports = defaultRouter;

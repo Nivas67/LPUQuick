@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": null,
+  "outputDirectory": "static",
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "https://lpuquick.nivasnaidu07.workers.dev/"
+    },
+    {
+      "source": "/:path*",
+      "destination": "https://lpuquick.nivasnaidu07.workers.dev/:path*"
+    }
+  ]
+}
