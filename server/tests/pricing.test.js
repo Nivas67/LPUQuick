@@ -2,6 +2,21 @@
 const assert = require('assert');
 const { calculatePricing } = require('../routes/cart');
 
+// Deterministic baseline settings so unit tests never depend on live production global_checkout_settings.json
+const BASELINE_TEST_SETTINGS = {
+    offers_enabled: true,
+    offer_type: 'percentage',
+    offer_value: 5,
+    minimum_order_value: 350,
+    maximum_discount: 50,
+    free_delivery_enabled: true,
+    free_delivery_threshold: 0,
+    delivery_fee: 0,
+    handling_fee: 3,
+    handling_fee_enabled: true,
+    min_cart_value: 35
+};
+
 console.log('--- Running Pricing Calculator Unit Tests ---');
 
 // Test 1: Subtotal with items (135) + ₹3 handling fee = 138
@@ -10,7 +25,7 @@ console.log('--- Running Pricing Calculator Unit Tests ---');
         { price: 40, quantity: 2 }, // 80
         { price: 55, quantity: 1 }  // 55
     ];
-    const result = calculatePricing(items);
+    const result = calculatePricing(items, BASELINE_TEST_SETTINGS);
     assert.strictEqual(result.subtotal, 135, 'Subtotal should be 135');
     assert.strictEqual(result.delivery_fee, 0, 'Delivery fee should be 0 (Free Campus Delivery)');
     assert.strictEqual(result.platform_fee, 3, 'Handling fee should be 3 for every order');
@@ -27,7 +42,7 @@ console.log('--- Running Pricing Calculator Unit Tests ---');
     const items = [
         { price: 20, quantity: 1 }
     ];
-    const result = calculatePricing(items);
+    const result = calculatePricing(items, BASELINE_TEST_SETTINGS);
     assert.strictEqual(result.subtotal, 20, 'Subtotal should be 20');
     assert.strictEqual(result.delivery_fee, 0, 'Delivery fee should be 0');
     assert.strictEqual(result.platform_fee, 3, 'Handling fee should be 3');
@@ -41,7 +56,7 @@ console.log('--- Running Pricing Calculator Unit Tests ---');
 // Test 3: Empty cart
 {
     const items = [];
-    const result = calculatePricing(items);
+    const result = calculatePricing(items, BASELINE_TEST_SETTINGS);
     assert.strictEqual(result.subtotal, 0, 'Subtotal should be 0');
     assert.strictEqual(result.delivery_fee, 0, 'Delivery fee should be 0');
     assert.strictEqual(result.platform_fee, 0, 'Handling fee should be 0 for empty cart');
@@ -58,7 +73,7 @@ console.log('--- Running Pricing Calculator Unit Tests ---');
         { name: 'Snack A', price: 100, mrp: 120, quantity: 2 }, // price: 200, mrp: 240
         { name: 'Snack B', price: 200, mrp: 220, quantity: 1 }  // price: 200, mrp: 220
     ];
-    const result = calculatePricing(items);
+    const result = calculatePricing(items, BASELINE_TEST_SETTINGS);
     assert.strictEqual(result.item_count, 3, 'Total items should be 2 + 1 = 3');
     assert.strictEqual(result.total_mrp, 460, 'Total MRP should be 240 + 220 = 460');
     assert.strictEqual(result.subtotal, 400, 'Subtotal should be 200 + 200 = 400');

@@ -51,6 +51,30 @@ function getExpressApiHandler(env) {
     return cachedApiHandler;
 }
 
+const HTML_SECURITY_HEADERS = {
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'SAMEORIGIN',
+    'X-XSS-Protection': '1; mode=block',
+    'X-DNS-Prefetch-Control': 'off',
+    'X-Download-Options': 'noopen',
+    'Origin-Agent-Cluster': '?1',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=(self)',
+    'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
+    'Content-Security-Policy':
+        "default-src 'self'; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://accounts.google.com https://apis.google.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; " +
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.tailwindcss.com; " +
+        "font-src 'self' https://fonts.gstatic.com data:; " +
+        "img-src 'self' data: blob: https:; " +
+        "connect-src 'self' https: wss:; " +
+        "frame-src 'self' https://accounts.google.com; " +
+        "frame-ancestors 'self'; " +
+        "base-uri 'self'; " +
+        "form-action 'self';"
+};
+
 async function fetchStaticAsset(env, request, targetPathname, { noCacheHtml = false } = {}) {
     if (!env || !env.ASSETS || typeof env.ASSETS.fetch !== 'function') {
         return new Response('Static assets binding unavailable.', { status: 500 });
@@ -59,13 +83,20 @@ async function fetchStaticAsset(env, request, targetPathname, { noCacheHtml = fa
     url.pathname = targetPathname;
     const assetRequest = new Request(url.toString(), request);
     const response = await env.ASSETS.fetch(assetRequest);
-    if (!noCacheHtml) {
-        return response;
-    }
     const headers = new Headers(response.headers);
-    headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-    headers.set('Pragma', 'no-cache');
-    headers.set('Expires', '0');
+    headers.set('X-Content-Type-Options', 'nosniff');
+    headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+
+    if (targetPathname.toLowerCase().endsWith('.html')) {
+        for (const [k, v] of Object.entries(HTML_SECURITY_HEADERS)) {
+            headers.set(k, v);
+        }
+    }
+    if (noCacheHtml) {
+        headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+        headers.set('Pragma', 'no-cache');
+        headers.set('Expires', '0');
+    }
     return new Response(response.body, {
         status: response.status,
         statusText: response.statusText,

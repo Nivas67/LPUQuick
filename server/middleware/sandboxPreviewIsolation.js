@@ -124,6 +124,11 @@ function createSandboxPreviewIsolationMiddleware(options = {}) {
         const p = rawPath.toLowerCase();
         const method = req.method.toUpperCase();
 
+        // Ensure Vercel external rewrite proxy never caches sandbox API responses
+        if (p.startsWith('/api/')) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        }
+
         // Always allow isolated sandbox payment endpoints
         if (p === '/api/payments' || p.startsWith('/api/payments/')) {
             return next();

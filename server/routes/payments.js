@@ -43,7 +43,8 @@ function isAllowedRedirectHostname(rawHost) {
         (publicAppHost && hostnameOnly === publicAppHost) ||
         (vercelUrlHost && hostnameOnly === vercelUrlHost) ||
         (vercelBranchHost && hostnameOnly === vercelBranchHost) ||
-        /^lpu-?quick(-[a-zA-Z0-9-]+)?\.vercel\.app$/.test(hostnameOnly) ||
+        hostnameOnly === 'lpuquick.vercel.app' ||
+        /^lpuquick(-[a-zA-Z0-9-]+)*-(nivx|lpuquickltd-5410)\.vercel\.app$/.test(hostnameOnly) ||
         /^lpu-?quick(-[a-z0-9-]+)?\.[a-z0-9-]+\.workers\.dev$/.test(hostnameOnly) ||
         /^lpu-?quick(-[a-z0-9-]+)?\.pages\.dev$/.test(hostnameOnly)
     );

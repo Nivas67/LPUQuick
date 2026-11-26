@@ -243,15 +243,35 @@ async function runWranglerRouteTests() {
             { source: '/', destination: 'https://lpuquick.nivasnaidu07.workers.dev/' },
             { source: '/:path*', destination: 'https://lpuquick.nivasnaidu07.workers.dev/:path*' }
         ]);
+        const noCacheSources = new Set((vercelProxyConfig.headers || []).filter(h =>
+            Array.isArray(h.headers) && h.headers.some(kv => kv.key === 'x-vercel-enable-rewrite-caching' && kv.value === '0')
+        ).map(h => h.source));
+        for (const reqSource of ['/', '/sw.js', '/api/:path*', '/admin', '/partner', '/sandbox-payment-return']) {
+            assert.ok(noCacheSources.has(reqSource), `vercel-proxy/vercel.json must disable edge rewrite caching on ${reqSource}`);
+        }
+
+        // Verify HTML security headers on Worker static pages
+        for (const htmlRes of [rootRes, sbxReturnRes]) {
+            assert.ok((htmlRes.headers.get('content-security-policy') || '').includes("frame-ancestors 'self'"), 'HTML responses must emit CSP frame-ancestors');
+            assert.strictEqual(htmlRes.headers.get('x-frame-options'), 'SAMEORIGIN');
+            assert.strictEqual(htmlRes.headers.get('x-content-type-options'), 'nosniff');
+            assert.strictEqual(htmlRes.headers.get('referrer-policy'), 'strict-origin-when-cross-origin');
+            assert.ok((htmlRes.headers.get('strict-transport-security') || '').includes('max-age='));
+        }
 
         const swRes = await fetch(`${baseUrl}/sw.js`);
         assert.strictEqual(swRes.status, 200);
         assert.ok((swRes.headers.get('cache-control') || '').includes('no-store'), '/sw.js must emit no-store across proxy');
+        assert.strictEqual(swRes.headers.get('x-content-type-options'), 'nosniff');
 
         assert.ok((healthRes.headers.get('cache-control') || '').includes('no-store'), '/api/health must emit no-store in sandbox');
 
         const cartNoStoreRes = await fetch(`${baseUrl}/api/cart/sbx_proxy_u1`);
         assert.ok((cartNoStoreRes.headers.get('cache-control') || '').includes('no-store'), '/api/cart/* must emit no-store');
+
+        const checkoutSettingsRes = await fetch(`${baseUrl}/api/checkout/settings`);
+        assert.strictEqual(checkoutSettingsRes.status, 200);
+        assert.ok((checkoutSettingsRes.headers.get('cache-control') || '').includes('no-store'), '/api/checkout/settings must emit no-store in sandbox');
 
         const vercelCorsRes = await fetch(`${baseUrl}/api/payments/sandbox/create-order`, {
             method: 'OPTIONS',
@@ -261,6 +281,25 @@ async function runWranglerRouteTests() {
             }
         });
         assert.strictEqual(vercelCorsRes.headers.get('access-control-allow-origin'), 'https://lpuquick.vercel.app');
+
+        const spoofedCorsRes = await fetch(`${baseUrl}/api/payments/sandbox/create-order`, {
+            method: 'OPTIONS',
+            headers: {
+                Origin: 'https://lpuquick-attacker.vercel.app',
+                'Access-Control-Request-Method': 'POST'
+            }
+        });
+        assert.strictEqual(spoofedCorsRes.headers.get('access-control-allow-origin'), null, 'Unrelated third-party lpuquick-*.vercel.app origin must be rejected by CORS');
+
+        const spoofedCsrfRes = await fetch(`${baseUrl}/api/payments/sandbox/create-order`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Origin: 'https://lpuquick-attacker.vercel.app'
+            },
+            body: JSON.stringify({ userId: 'sbx_u1' })
+        });
+        assert.strictEqual(spoofedCsrfRes.status, 403, 'Unrelated third-party *.vercel.app Origin must be blocked by CSRF');
 
         const vercelCsrfCheckRes = await fetch(`${baseUrl}/api/payments/sandbox/create-order`, {
             method: 'POST',
@@ -276,6 +315,9 @@ async function runWranglerRouteTests() {
         assert.ok((vercelCsrfCheckRes.headers.get('cache-control') || '').includes('no-store'));
 
         const paymentsModule = require('../routes/payments');
+        assert.strictEqual(paymentsModule.isAllowedRedirectHostname('lpuquick.vercel.app'), true);
+        assert.strictEqual(paymentsModule.isAllowedRedirectHostname('lpuquick-abc123-nivx.vercel.app'), true);
+        assert.strictEqual(paymentsModule.isAllowedRedirectHostname('lpuquick-attacker.vercel.app'), false);
         assert.strictEqual(
             paymentsModule.buildAllowedRedirectUrl({
                 headers: {
@@ -316,6 +358,19 @@ async function runWranglerRouteTests() {
             }),
             'https://lpuquick.vercel.app/sandbox-payment-return'
         );
+
+        // Verify HMAC raw webhook signature helper preserves byte-level validation
+        const { computeWebhookSignature, verifyWebhookSignature } = require('../services/sandboxWebhookSecurity');
+        const rawWebhookBuf = Buffer.from('{"event":"order.paid","event_id":"evt_1","event_sequence":1,"environment":"sandbox","test":true,"currency":"INR","client_order_id":"LPUQ_SBX_1","amount":58}', 'utf8');
+        const tsNow = Math.floor(Date.now() / 1000);
+        const testSecret = 'sbx_webhook_test_secret_2026_hmac';
+        const sigHex = computeWebhookSignature(tsNow, rawWebhookBuf, testSecret).toString('hex');
+        assert.strictEqual(verifyWebhookSignature({
+            signatureHeader: `t=${tsNow},v1=${sigHex}`,
+            rawBody: rawWebhookBuf,
+            webhookSecret: testSecret,
+            nowSeconds: tsNow
+        }).timestamp, tsNow);
 
         // Confirm no global-scope runtime exceptions occurred in Worker logs
         const combinedLogs = logs.join('\n');

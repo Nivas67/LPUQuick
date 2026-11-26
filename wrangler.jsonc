@@ -48,6 +48,8 @@
     "NODE_ENV": "production",
     "CLOUDFLARE_WORKERS": "1",
     "PAYMENT_ENVIRONMENT": "sandbox",
+    "PUBLIC_APP_URL": "https://lpuquick.vercel.app",
+    "APP_URL": "https://lpuquick.vercel.app",
     "UPI_GATEWAY_BASE_URL": "https://paylpuquick.freecpanel.shop/api/v1",
     "SANDBOX_SUPABASE_URL": "https://mgsxeguulxumfgehpphb.supabase.co",
     "SANDBOX_ALLOWED_SUPABASE_REFS": "mgsxeguulxumfgehpphb",

@@ -24,12 +24,25 @@ if (!isServerlessRuntime()) {
 // Security Middleware & Response Headers
 app.disable('x-powered-by');
 
+const isAllowedDeploymentHost = (host) => (
+    host.endsWith('.lpuquick.com') ||
+    host === 'lpuquick.vercel.app' ||
+    /^lpuquick(-[a-zA-Z0-9-]+)*-(nivx|lpuquickltd-5410)\.vercel\.app$/.test(host) ||
+    /^lpu-?quick(-[a-zA-Z0-9-]+)?\.[a-zA-Z0-9-]+\.workers\.dev$/.test(host) ||
+    /^lpu-?quick(-[a-zA-Z0-9-]+)?\.pages\.dev$/.test(host)
+);
+
 // 1. Production HTTPS-Everywhere Enforcer (Req 6)
 if (process.env.NODE_ENV === 'production') {
     app.use((req, res, next) => {
         const proto = req.headers['x-forwarded-proto'];
         if (proto && proto.toLowerCase() !== 'https') {
-            return res.redirect(301, `https://${req.headers.host}${req.url}`);
+            const forwardedHost = String(req.headers['x-forwarded-host'] || '').split(',')[0].trim();
+            const forwardedHostname = forwardedHost.split(':')[0].toLowerCase();
+            const safeHost = (forwardedHostname && isAllowedDeploymentHost(forwardedHostname))
+                ? forwardedHost
+                : req.headers.host;
+            return res.redirect(301, `https://${safeHost}${req.url}`);
         }
         next();
     });
@@ -119,13 +132,6 @@ const allowedOrigins = [
     'https://lpuquick.vercel.app'
 ].filter(Boolean);
 
-const isAllowedDeploymentHost = (host) => (
-    host.endsWith('.lpuquick.com') ||
-    /^lpu-?quick(-[a-zA-Z0-9-]+)?\.vercel\.app$/.test(host) ||
-    /^lpu-?quick(-[a-zA-Z0-9-]+)?\.[a-zA-Z0-9-]+\.workers\.dev$/.test(host) ||
-    /^lpu-?quick(-[a-zA-Z0-9-]+)?\.pages\.dev$/.test(host)
-);
-
 app.use(cors({
     origin: (origin, callback) => {
         if (!origin) return callback(null, true);
@@ -145,7 +151,7 @@ app.use(cors({
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-token', 'x-admin-key', 'x-user-id', 'x-user-phone', 'x-hostel-id', 'x-gateway-signature', 'x-gateway-event', 'x-signature', 'x-event', 'x-event-id', 'x-idempotency-key', 'x-sandbox-token', 'x-financial-token']
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-token', 'x-admin-key', 'x-partner-token', 'x-user-id', 'x-user-phone', 'x-hostel-id', 'x-gateway-signature', 'x-gateway-event', 'x-signature', 'x-event', 'x-event-id', 'x-idempotency-key', 'x-sandbox-token', 'x-financial-token']
 }));
 
 // CSRF Protection Middleware for state-changing requests (Req 11)
