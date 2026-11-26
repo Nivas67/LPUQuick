@@ -1,5 +1,5 @@
-// LPUQuick High-Performance Ultra-Fast Service Worker (V2026.11.07-V30)
-const CACHE_NAME = 'lpuquick-pwa-v30-pixel-perfect-notifications';
+// LPUQuick High-Performance Ultra-Fast Service Worker (V2026.11.26-V31)
+const CACHE_NAME = 'lpuquick-pwa-v31-cf-routing';
 const API_CACHE_NAME = 'lpuquick-api-cache-v2';
 
 const STATIC_ASSETS = [
@@ -84,9 +84,13 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
-    // Skip non-GET requests, WebSocket, Supabase direct calls, and Admin routes
+    // Skip non-GET requests, WebSocket, Supabase direct calls, and isolated Admin/Partner/Sandbox-Return routes
     if (event.request.method !== 'GET' ||
         url.pathname.startsWith('/admin') ||
+        url.pathname.startsWith('/ad-new') ||
+        url.pathname.startsWith('/partner') ||
+        url.pathname === '/sandbox-payment-return' ||
+        url.pathname === '/sandbox-payment' ||
         url.hostname.includes('supabase.co')) {
         return;
     }

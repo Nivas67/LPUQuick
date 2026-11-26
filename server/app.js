@@ -1,8 +1,10 @@
-require('dotenv').config();
+if (!process.env.CLOUDFLARE_WORKERS && typeof globalThis.WebSocketPair === 'undefined') {
+    try { require('dotenv').config(); } catch (e) {}
+}
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { getSupabaseClient } = require('./supabase');
+const { getSupabaseClient, isServerlessRuntime } = require('./supabase');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -11,11 +13,13 @@ app.set('trust proxy', 1);
 const supabase = getSupabaseClient();
 console.log('[Database] 100% Supabase Cloud PostgreSQL Active (Single Database Mode)');
 
-// Initialize Hostel Groups & Shared Inventory Registry
-try {
-    const hostelGroupService = require('./services/hostelGroupService');
-    hostelGroupService.init().catch(err => console.warn('[HostelGroupService init note]:', err.message));
-} catch (e) {}
+// Initialize Hostel Groups & Shared Inventory Registry (skip top-level async I/O in Cloudflare Workers / serverless global scope)
+if (!isServerlessRuntime()) {
+    try {
+        const hostelGroupService = require('./services/hostelGroupService');
+        hostelGroupService.init().catch(err => console.warn('[HostelGroupService init note]:', err.message));
+    } catch (e) {}
+}
 
 // Security Middleware & Response Headers
 app.disable('x-powered-by');
@@ -90,8 +94,8 @@ app.use((req, res, next) => {
     next();
 });
 
-// Middleware: Compression (Skip on Vercel Serverless — Vercel Edge Network compresses responses at 0 Fluid CPU cost)
-if (!process.env.VERCEL) {
+// Middleware: Compression (Skip on Vercel / Cloudflare Workers — Edge Network compresses responses at 0 CPU cost)
+if (!isServerlessRuntime()) {
     const compression = require('compression');
     app.use(compression({
         level: 6,
@@ -115,15 +119,25 @@ const allowedOrigins = [
     'https://lpuquick.vercel.app'
 ].filter(Boolean);
 
+const isAllowedDeploymentHost = (host) => (
+    host.endsWith('.lpuquick.com') ||
+    /^lpu-?quick(-[a-zA-Z0-9-]+)?\.vercel\.app$/.test(host) ||
+    /^lpu-?quick(-[a-zA-Z0-9-]+)?\.[a-zA-Z0-9-]+\.workers\.dev$/.test(host) ||
+    /^lpu-?quick(-[a-zA-Z0-9-]+)?\.pages\.dev$/.test(host)
+);
+
 app.use(cors({
     origin: (origin, callback) => {
         if (!origin) return callback(null, true);
-        if (allowedOrigins.some(o => origin === o || origin.endsWith('.lpuquick.com'))) {
+        if (allowedOrigins.some(o => origin === o)) {
             return callback(null, true);
         }
-        if (/^https:\/\/lpu-?quick(-[a-zA-Z0-9-]+)?\.vercel\.app$/.test(origin)) {
-            return callback(null, true);
-        }
+        try {
+            const originHostname = new URL(origin).hostname.toLowerCase();
+            if (isAllowedDeploymentHost(originHostname)) {
+                return callback(null, true);
+            }
+        } catch (e) {}
         if (/^https?:\/\/(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/.test(origin)) {
             return callback(null, true);
         }
@@ -149,15 +163,18 @@ app.use((req, res, next) => {
 
     if (origin) {
         let originHost = '';
+        let originHostname = '';
         try {
-            originHost = new URL(origin).host;
+            const u = new URL(origin);
+            originHost = u.host;
+            originHostname = u.hostname.toLowerCase();
         } catch (e) {
             return res.status(403).json({ error: 'Invalid origin header', code: 'FORBIDDEN_CSRF' });
         }
 
         const isAllowedOrigin = allowedOrigins.some(o => {
             try { return new URL(o).host === originHost; } catch { return false; }
-        }) || originHost.endsWith('.lpuquick.com') || /^lpu-?quick(-[a-zA-Z0-9-]+)?\.vercel\.app$/.test(originHost) ||
+        }) || isAllowedDeploymentHost(originHostname) ||
         /^(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/.test(originHost);
 
         if (!isAllowedOrigin && originHost !== req.headers.host) {
@@ -166,15 +183,18 @@ app.use((req, res, next) => {
         }
     } else if (referer) {
         let refererHost = '';
+        let refererHostname = '';
         try {
-            refererHost = new URL(referer).host;
+            const u = new URL(referer);
+            refererHost = u.host;
+            refererHostname = u.hostname.toLowerCase();
         } catch (e) {
             return res.status(403).json({ error: 'Invalid referer header', code: 'FORBIDDEN_CSRF' });
         }
 
         const isAllowedReferer = allowedOrigins.some(o => {
             try { return new URL(o).host === refererHost; } catch { return false; }
-        }) || refererHost.endsWith('.lpuquick.com') || /^lpu-?quick(-[a-zA-Z0-9-]+)?\.vercel\.app$/.test(refererHost) ||
+        }) || isAllowedDeploymentHost(refererHostname) ||
         /^(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/.test(refererHost);
 
         if (!isAllowedReferer && refererHost !== req.headers.host) {

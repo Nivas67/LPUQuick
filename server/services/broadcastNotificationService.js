@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const pushService = require('../notifications/pushService');
+const { isServerlessRuntime } = require('../supabase');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const CAMPAIGNS_FILE = path.join(DATA_DIR, 'broadcast_campaigns.json');
@@ -312,8 +313,8 @@ class BroadcastNotificationService {
     }
 
     initScheduler() {
-        // Skip perpetual background timer on Vercel Serverless (lazy check runs on API reads instead)
-        if (process.env.VERCEL) return;
+        // Skip perpetual background timer on Vercel / Cloudflare Workers (lazy check runs on API reads instead)
+        if (isServerlessRuntime()) return;
         // Check for scheduled campaigns every 30 seconds
         const timer = setInterval(() => {
             this.checkDueCampaigns();

@@ -46,7 +46,9 @@ function buildAllowedRedirectUrl(req, clientOrderId = null) {
         (publicAppHost && hostnameOnly === publicAppHost) ||
         (vercelUrlHost && hostnameOnly === vercelUrlHost) ||
         (vercelBranchHost && hostnameOnly === vercelBranchHost) ||
-        /^lpu-?quick(-[a-zA-Z0-9-]+)?\.vercel\.app$/.test(hostnameOnly);
+        /^lpu-?quick(-[a-zA-Z0-9-]+)?\.vercel\.app$/.test(hostnameOnly) ||
+        /^lpu-?quick(-[a-z0-9-]+)?\.[a-z0-9-]+\.workers\.dev$/.test(hostnameOnly) ||
+        /^lpu-?quick(-[a-z0-9-]+)?\.pages\.dev$/.test(hostnameOnly);
 
     if (!isAllowedHost) {
         return undefined;

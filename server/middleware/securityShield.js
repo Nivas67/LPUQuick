@@ -9,6 +9,8 @@
  * Zero external dependencies, ultra-fast memory footprint (< 3MB).
  */
 
+const { isServerlessRuntime } = require('../supabase');
+
 // In-memory sliding window IP store
 const ipStore = new Map();
 
@@ -61,17 +63,22 @@ function getClientIp(req) {
 /**
  * Periodically purge stale IP entries to guarantee zero memory bloat
  */
-const cleanupTimer = setInterval(() => {
-    const now = Date.now();
+function pruneIpStore(now = Date.now()) {
     for (const [ip, data] of ipStore.entries()) {
         // Remove if not jailed and no requests in last 2 minutes
         if (data.blockedUntil < now && (!data.requests.length || now - data.requests[data.requests.length - 1] > 120000)) {
             ipStore.delete(ip);
         }
     }
-}, LIMITS.CLEANUP_INTERVAL_MS);
-if (cleanupTimer && typeof cleanupTimer.unref === 'function') {
-    cleanupTimer.unref();
+}
+
+if (!isServerlessRuntime()) {
+    const cleanupTimer = setInterval(() => {
+        pruneIpStore(Date.now());
+    }, LIMITS.CLEANUP_INTERVAL_MS);
+    if (cleanupTimer && typeof cleanupTimer.unref === 'function') {
+        cleanupTimer.unref();
+    }
 }
 
 /**
@@ -102,6 +109,7 @@ function apiSecurityShield(req, res, next) {
 
     const ip = getClientIp(req);
     const now = Date.now();
+    if (ipStore.size > 200) pruneIpStore(now);
     const record = getIpRecord(ip);
 
     // 1. Check if IP is currently in security jail
@@ -157,6 +165,7 @@ function apiSecurityShield(req, res, next) {
 function record404AttackProbe(req) {
     const ip = getClientIp(req);
     const now = Date.now();
+    if (ipStore.size > 200) pruneIpStore(now);
     const record = getIpRecord(ip);
 
     // Filter to last 60 seconds

@@ -16,3 +16,7 @@ scratch/
 android/.gradle/
 android/build/
 client/uploads/
+.dev.vars
+.dev.vars.*
+.wrangler/
+dist-cf/

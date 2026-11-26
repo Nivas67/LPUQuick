@@ -15,12 +15,14 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
+/* Glassmorphism card headers */
 .glass-header {
     background: rgba(255, 255, 255, 0.92);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
 }
 
+/* Financial Stat Cards */
 .stat-card {
     background: #ffffff;
     border: 1px solid #e2e8f0;
@@ -36,6 +38,7 @@ body {
     transform: translateY(-2px);
 }
 
+/* Badges */
 .badge-pill {
     display: inline-flex;
     align-items: center;
@@ -46,6 +49,7 @@ body {
     font-weight: 700;
 }
 
+/* Table styles */
 .financial-table th {
     background-color: #f1f5f9;
     color: #475569;
@@ -62,6 +66,7 @@ body {
     border-bottom: 1px solid #f1f5f9;
 }
 
+/* Print statement styles */
 @media print {
     body {
         background: #ffffff !important;

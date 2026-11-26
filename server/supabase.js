@@ -12,6 +12,18 @@ const DEFAULT_SANDBOX_PROJECT_REF = 'mgsxeguulxumfgehpphb';
 const DEFAULT_SUPABASE_URL = `https://${PRODUCTION_PROJECT_REF}.supabase.co`;
 const DEFAULT_SUPABASE_KEY = Buffer.from('c2Jfc2VjcmV0X3BmOTNyWEdpVzY3alp0ektGSWlXR0FfSEhwMmxRVDg=', 'base64').toString('utf8');
 
+function isCloudflareWorker() {
+    return (
+        Boolean(process.env.CLOUDFLARE_WORKERS) ||
+        (typeof globalThis.navigator !== 'undefined' && globalThis.navigator.userAgent === 'Cloudflare-Workers') ||
+        typeof globalThis.WebSocketPair !== 'undefined'
+    );
+}
+
+function isServerlessRuntime() {
+    return Boolean(process.env.VERCEL) || isCloudflareWorker();
+}
+
 function isSandboxRuntime() {
     const payEnv = String(process.env.PAYMENT_ENVIRONMENT || '').trim().toLowerCase();
     const vercelEnv = String(process.env.VERCEL_ENV || '').trim().toLowerCase();
@@ -165,6 +177,8 @@ module.exports = {
     FORBIDDEN_PRODUCTION_REFS,
     DEFAULT_SANDBOX_PROJECT_REF,
     getAllowedSandboxRefs,
+    isCloudflareWorker,
+    isServerlessRuntime,
     isSandboxRuntime,
     isProductionSupabaseUrl,
     isAllowedSandboxSupabaseUrl,

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>LPUQuick — Partner Financial Portal</title>
     <link rel="icon" type="image/png" href="/favicon.png">
+    <!-- Google Fonts & Tailwind CDN -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
@@ -14,6 +15,7 @@
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col font-sans antialiased selection:bg-blue-500 selection:text-white">
 
+    <!-- Toast Notification Container -->
     <div id="partner-toast" class="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none max-w-sm w-full"></div>
 
     <!-- 1. AUTHENTICATION VIEW (Partner Sign In) -->
@@ -67,10 +69,13 @@
         </div>
     </div>
 
-    <!-- 2. MAIN DASHBOARD VIEW -->
+    <!-- 2. MAIN DASHBOARD VIEW (Shown once authenticated) -->
     <div id="partner-dashboard-view" class="hidden min-h-screen flex flex-col">
+        
+        <!-- Header -->
         <header class="glass-header sticky top-0 z-40 border-b border-slate-200 shadow-2xs">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                <!-- Brand & Partner Title -->
                 <div class="flex items-center gap-3">
                     <div class="w-9 h-9 rounded-xl bg-[#0066cc] text-white flex items-center justify-center font-black text-base shadow-sm">
                         LQ
@@ -86,17 +91,21 @@
                     </div>
                 </div>
 
+                <!-- Right Action Bar -->
                 <div class="flex items-center gap-3">
+                    <!-- Assigned Hostels Pill -->
                     <div class="hidden md:flex items-center gap-1.5 px-3 py-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-bold text-slate-700" id="header-hostels-pill">
                         <span class="material-symbols-outlined text-sm text-[#0066cc]">apartment</span>
                         <span id="header-hostels-text">Assigned: ...</span>
                     </div>
 
+                    <!-- Refresh Button -->
                     <button onclick="refreshDashboard()" title="Refresh live financials"
                         class="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors">
                         <span class="material-symbols-outlined text-lg">sync</span>
                     </button>
 
+                    <!-- Sign Out Button -->
                     <button onclick="handlePartnerLogout()"
                         class="px-3.5 py-1.5 rounded-xl text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-all flex items-center gap-1">
                         <span class="material-symbols-outlined text-sm">logout</span>
@@ -106,8 +115,11 @@
             </div>
         </header>
 
+        <!-- Subheader Controls (Hostel Switcher & Date Filter) -->
         <div class="bg-white border-b border-slate-200 py-3 px-4 sm:px-6 lg:px-8 no-print">
             <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                
+                <!-- Hostel Switcher -->
                 <div class="flex items-center gap-2">
                     <label class="text-xs font-black uppercase text-slate-500 shrink-0 flex items-center gap-1">
                         <span class="material-symbols-outlined text-sm">filter_alt</span> Hostel Scope:
@@ -118,6 +130,7 @@
                     </select>
                 </div>
 
+                <!-- Date Range Filters -->
                 <div class="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
                     <button onclick="setDateRange('today')" class="date-filter-btn px-3 py-1.5 rounded-xl text-xs font-bold transition-all bg-blue-600 text-white shadow-xs" data-filter="today">Today</button>
                     <button onclick="setDateRange('yesterday')" class="date-filter-btn px-3 py-1.5 rounded-xl text-xs font-bold transition-all bg-slate-100 text-slate-700 hover:bg-slate-200" data-filter="yesterday">Yesterday</button>
@@ -129,8 +142,10 @@
             </div>
         </div>
 
+        <!-- Main Content Area -->
         <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
-            <!-- 12 KPI CARDS -->
+
+            <!-- 12 EXECUTIVE FINANCIAL KPI CARDS -->
             <section class="space-y-3">
                 <div class="flex items-center justify-between">
                     <h3 class="text-xs font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
@@ -141,6 +156,7 @@
                 </div>
 
                 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                    <!-- Card 1: Assigned Hostels -->
                     <div class="stat-card">
                         <div class="flex items-center justify-between text-slate-500 mb-1">
                             <span class="text-[11px] font-bold uppercase tracking-wider">Assigned Hostels</span>
@@ -150,6 +166,7 @@
                         <div class="text-[11px] text-slate-500 font-semibold mt-1" id="kpi-assigned-list">Restricted Scope</div>
                     </div>
 
+                    <!-- Card 2: Today's Orders -->
                     <div class="stat-card">
                         <div class="flex items-center justify-between text-slate-500 mb-1">
                             <span class="text-[11px] font-bold uppercase tracking-wider">Today's Orders</span>
@@ -159,6 +176,7 @@
                         <div class="text-[11px] text-emerald-600 font-bold mt-1">Live Daily Dispatch</div>
                     </div>
 
+                    <!-- Card 3: Total Orders -->
                     <div class="stat-card">
                         <div class="flex items-center justify-between text-slate-500 mb-1">
                             <span class="text-[11px] font-bold uppercase tracking-wider">Total Orders</span>
@@ -168,6 +186,7 @@
                         <div class="text-[11px] text-slate-500 font-semibold mt-1"><span id="kpi-completed-orders">0</span> Completed</div>
                     </div>
 
+                    <!-- Card 4: Today's Revenue -->
                     <div class="stat-card">
                         <div class="flex items-center justify-between text-slate-500 mb-1">
                             <span class="text-[11px] font-bold uppercase tracking-wider">Today's Revenue</span>
@@ -177,6 +196,7 @@
                         <div class="text-[11px] text-slate-500 font-semibold mt-1">Delivered Sales (IST)</div>
                     </div>
 
+                    <!-- Card 5: Monthly Revenue -->
                     <div class="stat-card">
                         <div class="flex items-center justify-between text-slate-500 mb-1">
                             <span class="text-[11px] font-bold uppercase tracking-wider">Monthly Revenue</span>
@@ -186,6 +206,7 @@
                         <div class="text-[11px] text-slate-500 font-semibold mt-1">Current Calendar Month</div>
                     </div>
 
+                    <!-- Card 6: Total Revenue (Gross) -->
                     <div class="stat-card bg-gradient-to-br from-white to-blue-50/40 border-blue-200">
                         <div class="flex items-center justify-between text-slate-500 mb-1">
                             <span class="text-[11px] font-bold uppercase tracking-wider text-[#0066cc]">Total Revenue</span>
@@ -195,6 +216,7 @@
                         <div class="text-[11px] text-slate-500 font-semibold mt-1">Delivered Orders Gross</div>
                     </div>
 
+                    <!-- Card 7: Total Expenses -->
                     <div class="stat-card">
                         <div class="flex items-center justify-between text-slate-500 mb-1">
                             <span class="text-[11px] font-bold uppercase tracking-wider">Total Expenses</span>
@@ -204,6 +226,7 @@
                         <div class="text-[11px] text-slate-500 font-semibold mt-1">Wholesale + Operating</div>
                     </div>
 
+                    <!-- Card 8: Net Profit -->
                     <div class="stat-card bg-gradient-to-br from-white to-emerald-50/40 border-emerald-200">
                         <div class="flex items-center justify-between text-slate-500 mb-1">
                             <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Campus Net Profit</span>
@@ -213,6 +236,7 @@
                         <div class="text-[11px] text-slate-500 font-semibold mt-1">Revenue - All Expenses</div>
                     </div>
 
+                    <!-- Card 9: Partner Profit Share -->
                     <div class="stat-card bg-gradient-to-br from-white to-amber-50/50 border-amber-300 shadow-sm">
                         <div class="flex items-center justify-between text-slate-500 mb-1">
                             <span class="text-[11px] font-black uppercase tracking-wider text-amber-800">Partner Profit Share</span>
@@ -222,6 +246,7 @@
                         <div class="text-[11px] text-amber-800 font-bold mt-1" id="kpi-share-percentage-label">Configured: 50% Share</div>
                     </div>
 
+                    <!-- Card 10: Total Investment -->
                     <div class="stat-card">
                         <div class="flex items-center justify-between text-slate-500 mb-1">
                             <span class="text-[11px] font-bold uppercase tracking-wider">Total Investment</span>
@@ -231,6 +256,7 @@
                         <div class="text-[11px] text-slate-500 font-semibold mt-1">Separate Capital Balance</div>
                     </div>
 
+                    <!-- Card 11: Total Amount Received -->
                     <div class="stat-card">
                         <div class="flex items-center justify-between text-slate-500 mb-1">
                             <span class="text-[11px] font-bold uppercase tracking-wider">Total Received</span>
@@ -240,6 +266,7 @@
                         <div class="text-[11px] text-slate-500 font-semibold mt-1">Confirmed Owner Payouts</div>
                     </div>
 
+                    <!-- Card 12: Pending Payments -->
                     <div class="stat-card bg-gradient-to-br from-white to-rose-50/40 border-rose-200">
                         <div class="flex items-center justify-between text-slate-500 mb-1">
                             <span class="text-[11px] font-bold uppercase tracking-wider text-rose-700">Pending Payments</span>
@@ -251,8 +278,10 @@
                 </div>
             </section>
 
-            <!-- FINANCIAL BREAKDOWN -->
+            <!-- FINANCIAL BREAKDOWN & RECONCILIATION -->
             <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                <!-- Revenue & Collections (Cash vs Online) -->
                 <div class="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
                     <div class="flex items-center justify-between pb-3 border-b border-slate-100">
                         <h4 class="text-sm font-black text-slate-900 flex items-center gap-2">
@@ -285,6 +314,7 @@
                             </div>
                         </div>
 
+                        <!-- Mathematical Accounting Alert -->
                         <div class="p-3 rounded-xl bg-slate-100 border border-slate-200 text-[11px] text-slate-600 flex items-start gap-2">
                             <span class="material-symbols-outlined text-slate-400 text-sm mt-0.5 shrink-0">info</span>
                             <span><strong>Audit Note:</strong> Cash and Online are payment collection channels within Total Revenue. Cash collections are never added on top of Total Revenue.</span>
@@ -292,6 +322,7 @@
                     </div>
                 </div>
 
+                <!-- Operating Expenses Ledger -->
                 <div class="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
                     <div class="flex items-center justify-between pb-3 border-b border-slate-100">
                         <h4 class="text-sm font-black text-slate-900 flex items-center gap-2">
@@ -330,7 +361,7 @@
                 </div>
             </section>
 
-            <!-- TABS -->
+            <!-- NAVIGATION TABS -->
             <section class="space-y-4">
                 <div class="flex items-center gap-2 border-b border-slate-200 no-print">
                     <button onclick="switchPartnerTab('hostel-performance')" id="tab-btn-hostel-performance"
@@ -355,7 +386,7 @@
                     </button>
                 </div>
 
-                <!-- TAB 1 -->
+                <!-- TAB 1: HOSTEL PERFORMANCE MATRIX -->
                 <div id="partner-tab-hostel-performance" class="partner-tab-pane space-y-4">
                     <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
                         <div class="p-4 bg-slate-50/70 border-b border-slate-200 flex items-center justify-between">
@@ -387,7 +418,7 @@
                     </div>
                 </div>
 
-                <!-- TAB 2 -->
+                <!-- TAB 2: INVESTMENT HISTORY -->
                 <div id="partner-tab-investments" class="partner-tab-pane hidden space-y-4">
                     <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
                         <div class="p-4 bg-slate-50/70 border-b border-slate-200 flex items-center justify-between">
@@ -419,7 +450,7 @@
                     </div>
                 </div>
 
-                <!-- TAB 3 -->
+                <!-- TAB 3: PAYOUT & SETTLEMENT HISTORY -->
                 <div id="partner-tab-payments" class="partner-tab-pane hidden space-y-4">
                     <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
                         <div class="p-4 bg-slate-50/70 border-b border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -454,7 +485,7 @@
                     </div>
                 </div>
 
-                <!-- TAB 4 -->
+                <!-- TAB 4: STATEMENTS & EXPORTS -->
                 <div id="partner-tab-reports" class="partner-tab-pane hidden space-y-4">
                     <div class="bg-white rounded-2xl border border-slate-200 p-6 space-y-6">
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
@@ -476,6 +507,7 @@
                             </div>
                         </div>
 
+                        <!-- Statement Summary Preview -->
                         <div class="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4 font-mono text-xs">
                             <div class="flex justify-between items-center pb-2 border-b border-slate-200">
                                 <span class="font-bold text-slate-800">LPUQuick Financial Statement</span>
@@ -499,10 +531,12 @@
                         </div>
                     </div>
                 </div>
+
             </section>
         </main>
     </div>
 
+    <!-- Scripts -->
     <script src="/partner/js/partner.js?v=20261125_free_opt1"></script>
 </body>
 </html>

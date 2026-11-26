@@ -11,6 +11,7 @@
 
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
+const { isServerlessRuntime } = require('../supabase');
 
 // -------------------------------------------------------------
 // 1. LOGIN RATE LIMITING & TEMPORARY LOCKOUT
@@ -29,6 +30,7 @@ function getCleanKey(identifier, ip) {
 
 function checkLoginRateLimit(identifier, ip) {
     const now = Date.now();
+    if (failedAttemptsMap.size > 50) pruneExpiredLockouts(now);
     const { idKey, ipKey } = getCleanKey(identifier, ip);
     const keysToCheck = [idKey, ipKey].filter(Boolean);
 
@@ -89,15 +91,23 @@ function recordSuccessfulLogin(identifier, ip) {
     if (ipKey) failedAttemptsMap.delete(ipKey);
 }
 
-// Periodic cleanup of expired lockout records to prevent memory growth
-setInterval(() => {
-    const now = Date.now();
+function pruneExpiredLockouts(now = Date.now()) {
     for (const [key, record] of failedAttemptsMap.entries()) {
         if ((!record.lockedUntil || record.lockedUntil < now) && (now - record.firstFailedAt > LOCKOUT_DURATION_MS)) {
             failedAttemptsMap.delete(key);
         }
     }
-}, 5 * 60 * 1000).unref();
+}
+
+// Periodic cleanup of expired lockout records on long-running Node servers (never start global timers in Workers/serverless)
+if (!isServerlessRuntime()) {
+    const cleanupTimer = setInterval(() => {
+        pruneExpiredLockouts(Date.now());
+    }, 5 * 60 * 1000);
+    if (cleanupTimer && typeof cleanupTimer.unref === 'function') {
+        cleanupTimer.unref();
+    }
+}
 
 // -------------------------------------------------------------
 // 2. ENTERPRISE BCRYPT PASSWORD HASHING & LEGACY UPGRADE
