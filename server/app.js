@@ -25,7 +25,6 @@ if (!isServerlessRuntime()) {
 app.disable('x-powered-by');
 
 const isAllowedDeploymentHost = (host) => (
-    host.endsWith('.lpuquick.com') ||
     host === 'lpuquick.vercel.app' ||
     /^lpuquick(-[a-zA-Z0-9-]+)*-(nivx|lpuquickltd-5410)\.vercel\.app$/.test(host)
 );
@@ -125,8 +124,6 @@ const allowedOrigins = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
     'http://localhost:5173',
-    'https://lpuquick.com',
-    'https://www.lpuquick.com',
     'https://lpuquick.vercel.app'
 ].filter(Boolean);
 

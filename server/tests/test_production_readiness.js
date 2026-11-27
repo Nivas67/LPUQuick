@@ -717,6 +717,15 @@ async function runTests() {
         assert.strictEqual(rlsSql.includes('mgsxeguulxumfgehpphb'), false);
         assert.ok(fs.existsSync(path.join(__dirname, '..', 'db', 'migrations', '20261127_dzygsmgdzvroxepwyjyz_rollback.sql')));
 
+        const seedSqlPath = path.join(__dirname, '..', 'db', 'migrations', '20261127_dzygsmgdzvroxepwyjyz_seed_catalog_and_config.sql');
+        assert.ok(fs.existsSync(seedSqlPath), 'Non-PII catalog & config seed SQL must exist');
+        const seedSql = fs.readFileSync(seedSqlPath, 'utf8');
+        const hostelInsertCount = (seedSql.match(/INSERT INTO public\.hostels /g) || []).length;
+        const productInsertCount = (seedSql.match(/INSERT INTO public\.products /g) || []).length;
+        assert.strictEqual(hostelInsertCount, 14, 'Seed SQL must preserve all 14 hostels');
+        assert.strictEqual(productInsertCount, 73, 'Seed SQL must preserve all 73 products');
+        assert.strictEqual(/7671836211|sathwik@lpuquick\.com|yojndzstlilzlkxonmvd|vltnqvktdlpcltndmmwl|mgsxeguulxumfgehpphb|workers\.dev|pages\.dev|password_hash/i.test(seedSql), false, 'Seed SQL must contain zero PII, legacy DB refs, or Cloudflare domains');
+
         for (const rel of ['js/turnstile-client.js', 'js/api.js', 'js/app.js', 'js/pages/signin.js', 'js/pages/checkout.js']) {
             const clientContent = fs.readFileSync(path.join(__dirname, '..', '..', 'client', rel), 'utf8').replace(/\r\n/g, '\n');
             const publicContent = fs.readFileSync(path.join(__dirname, '..', '..', 'public', rel), 'utf8').replace(/\r\n/g, '\n');

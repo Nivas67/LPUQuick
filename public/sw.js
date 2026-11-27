@@ -1,5 +1,5 @@
-// LPUQuick High-Performance Ultra-Fast Service Worker (V2026.11.26-V31)
-const CACHE_NAME = 'lpuquick-pwa-v31-cf-routing';
+// LPUQuick High-Performance Ultra-Fast Service Worker (V2026.11.27-V32)
+const CACHE_NAME = 'lpuquick-pwa-v32-vercel';
 const API_CACHE_NAME = 'lpuquick-api-cache-v2';
 
 const STATIC_ASSETS = [

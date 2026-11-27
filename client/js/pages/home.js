@@ -44,12 +44,12 @@ const STORE_CATEGORIES = [
         id: 'biscuits',
         name: 'Biscuits',
         emoji: '🍪',
-        img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_124633c4_1788463612432.jpg',
+        img: '/uploads/prod_prod_124633c4_1788463612432.jpg',
         banner: {
             title: 'Cadbury Brownie & Cookies',
             subtitle: 'Gooey, Fudgy, Chocolatey.',
             tag: 'TOP CRUNCH',
-            img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_124633c4_1788463612432.jpg',
+            img: '/uploads/prod_prod_124633c4_1788463612432.jpg',
             bg: 'linear-gradient(135deg, #2b0938 0%, #4a154b 50%, #6b1d5c 100%)'
         }
     },
@@ -57,12 +57,12 @@ const STORE_CATEGORIES = [
         id: 'chips',
         name: 'Chips',
         emoji: '🥔',
-        img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_73ad9ca2_1788463605585.webp',
+        img: '/uploads/prod_prod_73ad9ca2_1788463605585.webp',
         banner: {
             title: 'Mad Angles & Crisps',
             subtitle: 'Tangy, Spicy & Loaded Crunch.',
             tag: 'SNACK CRUNCH',
-            img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_73ad9ca2_1788463605585.webp',
+            img: '/uploads/prod_prod_73ad9ca2_1788463605585.webp',
             bg: 'linear-gradient(135deg, #451a03 0%, #78350f 50%, #b45309 100%)'
         }
     },
@@ -70,12 +70,12 @@ const STORE_CATEGORIES = [
         id: 'namkeen',
         name: 'Namkeen',
         emoji: '🥜',
-        img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/Bikaji_Chowpati_Bhelpuri_1788533073973.jpg',
+        img: '/uploads/Bikaji_Chowpati_Bhelpuri_1788533073973.jpg',
         banner: {
             title: 'Bikaji Chowpati & Namkeen',
             subtitle: 'Crunchy, Tangy Bhelpuri, Bhujia & Sev.',
             tag: 'DESI CHOWPATI',
-            img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/Bikaji_Chowpati_Bhelpuri_1788533073973.jpg',
+            img: '/uploads/Bikaji_Chowpati_Bhelpuri_1788533073973.jpg',
             bg: 'linear-gradient(135deg, #78350f 0%, #9a3412 50%, #c2410c 100%)'
         }
     },
@@ -83,12 +83,12 @@ const STORE_CATEGORIES = [
         id: 'chocolates',
         name: 'Chocolates',
         emoji: '🍫',
-        img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_e581ce64_1788463600537.jpg',
+        img: '/uploads/prod_prod_e581ce64_1788463600537.jpg',
         banner: {
             title: 'Cadbury Silk & Bubbly',
             subtitle: 'Gooey, Fudgy, Velvety Chocolate.',
             tag: 'SWEET CRAVINGS',
-            img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_e581ce64_1788463600537.jpg',
+            img: '/uploads/prod_prod_e581ce64_1788463600537.jpg',
             bg: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)'
         }
     },
@@ -122,12 +122,12 @@ const STORE_CATEGORIES = [
         id: 'snacks',
         name: 'Snacks',
         emoji: '🍿',
-        img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_db41fad9_1788463611792.jpg',
+        img: '/uploads/prod_prod_db41fad9_1788463611792.jpg',
         banner: {
             title: 'Tedhe Medhe & Munchies',
             subtitle: 'Perfect Companion for Late Study.',
             tag: 'CAMPUS MUNCH',
-            img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_db41fad9_1788463611792.jpg',
+            img: '/uploads/prod_prod_db41fad9_1788463611792.jpg',
             bg: 'linear-gradient(135deg, #14532d 0%, #166534 50%, #15803d 100%)'
         }
     },
@@ -135,12 +135,12 @@ const STORE_CATEGORIES = [
         id: 'bakery',
         name: 'Bakery',
         emoji: '🧁',
-        img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/BRITANNIA_Gobbles_Cake_Fruity_Fun_100g_1788530879398.jpg',
+        img: '/uploads/BRITANNIA_Gobbles_Cake_Fruity_Fun_100g_1788530879398.jpg',
         banner: {
             title: 'Britannia Gobbles & Cakes',
             subtitle: 'Fruity Fun, Choco Chill & Soft Sponge Treats.',
             tag: 'FRESH BAKE',
-            img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/BRITANNIA_Gobbles_Cake_Fruity_Fun_100g_1788530879398.jpg',
+            img: '/uploads/BRITANNIA_Gobbles_Cake_Fruity_Fun_100g_1788530879398.jpg',
             bg: 'linear-gradient(135deg, #831843 0%, #9d174d 50%, #e11d48 100%)'
         }
     },
@@ -174,12 +174,12 @@ const STORE_CATEGORIES = [
         id: 'popcorn',
         name: 'Popcorn',
         emoji: '🌽',
-        img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_78de005c_1788463606110.jpg',
+        img: '/uploads/prod_prod_78de005c_1788463606110.jpg',
         banner: {
             title: 'Act II Caramel Popcorn',
             subtitle: 'Theater-Style Golden Caramel Crunch.',
             tag: 'MOVIE NIGHT',
-            img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_78de005c_1788463606110.jpg',
+            img: '/uploads/prod_prod_78de005c_1788463606110.jpg',
             bg: 'linear-gradient(135deg, #713f12 0%, #854d0e 50%, #ca8a04 100%)'
         }
     },
@@ -187,12 +187,12 @@ const STORE_CATEGORIES = [
         id: 'others',
         name: 'Others',
         emoji: '📦',
-        img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_78de005c_1788463606110.jpg',
+        img: '/uploads/prod_prod_78de005c_1788463606110.jpg',
         banner: {
             title: 'Popcorn & Essentials',
             subtitle: 'Theater-Style Caramel Crunch & Daily Essentials.',
             tag: 'QUICK SNACKS',
-            img: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_78de005c_1788463606110.jpg',
+            img: '/uploads/prod_prod_78de005c_1788463606110.jpg',
             bg: 'linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%)'
         }
     }

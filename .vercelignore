@@ -15,6 +15,17 @@ load-balancer
 server/tests
 server/db/*.db*
 server/db/backups
+server/data/backups
+server/data/partners.json
+server/data/partner_investments.json
+server/data/partner_payments.json
+server/data/hostel_expenses.json
+server/data/order_snapshots.json
+server/data/food_orders_meta.json
+server/data/admin_order_notifications.json
+server/data/push_subscriptions.json
+server/data/broadcast_campaigns.json
+server/data/hostel_lock_meta.json
 *.log
 *.md
 !README.md

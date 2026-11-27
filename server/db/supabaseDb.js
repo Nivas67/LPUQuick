@@ -311,25 +311,19 @@ const supabaseDb = {
 
             let image_url = p.image_url;
             const supabaseBaseUrl = String(process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '');
+            const localUploads = getLocalUploadsSet();
 
-            if (process.env.VERCEL && supabaseBaseUrl) {
-                // On Vercel: Offload product image data transfer to Supabase Storage CDN
-                if (image_url && image_url.startsWith('/uploads/')) {
-                    const filename = image_url.replace('/uploads/', '').split('?')[0];
-                    image_url = `${supabaseBaseUrl}/storage/v1/object/public/products/${filename}`;
+            if (image_url && image_url.includes('supabase.co/storage/v1/object/public/products/')) {
+                const filename = image_url.split('/').pop().split('?')[0];
+                if (filename && localUploads.has(filename)) {
+                    image_url = `/uploads/${filename}`;
                 }
-            } else {
-                const localUploads = getLocalUploadsSet();
-                if (image_url && image_url.includes('supabase.co/storage/v1/object/public/products/')) {
-                    const filename = image_url.split('/').pop().split('?')[0];
-                    if (localUploads.has(filename)) {
-                        image_url = `/uploads/${filename}`;
-                    }
-                } else if (image_url && image_url.startsWith('/uploads/') && supabaseBaseUrl) {
-                    const filename = image_url.replace('/uploads/', '').split('?')[0];
-                    if (!localUploads.has(filename) && filename) {
-                        image_url = `${supabaseBaseUrl}/storage/v1/object/public/products/${filename}`;
-                    }
+            } else if (image_url && image_url.startsWith('/uploads/')) {
+                const filename = image_url.replace('/uploads/', '').split('?')[0];
+                if (filename && localUploads.has(filename)) {
+                    image_url = `/uploads/${filename}`;
+                } else if (filename && supabaseBaseUrl) {
+                    image_url = `${supabaseBaseUrl}/storage/v1/object/public/products/${filename}`;
                 }
             }
             return {

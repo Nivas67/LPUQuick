@@ -37,16 +37,12 @@ function isAllowedRedirectHostname(rawHost) {
     const vercelBranchHost = String(process.env.VERCEL_BRANCH_URL || '').trim().toLowerCase();
 
     return Boolean(
-        hostnameOnly === 'lpuquick.com' ||
-        hostnameOnly.endsWith('.lpuquick.com') ||
         (configuredAppHost && hostnameOnly === configuredAppHost) ||
         (publicAppHost && hostnameOnly === publicAppHost) ||
         (vercelUrlHost && hostnameOnly === vercelUrlHost) ||
         (vercelBranchHost && hostnameOnly === vercelBranchHost) ||
         hostnameOnly === 'lpuquick.vercel.app' ||
-        /^lpuquick(-[a-zA-Z0-9-]+)*-(nivx|lpuquickltd-5410)\.vercel\.app$/.test(hostnameOnly) ||
-        /^lpu-?quick(-[a-z0-9-]+)?\.[a-z0-9-]+\.workers\.dev$/.test(hostnameOnly) ||
-        /^lpu-?quick(-[a-z0-9-]+)?\.pages\.dev$/.test(hostnameOnly)
+        /^lpuquick(-[a-zA-Z0-9-]+)*-(nivx|lpuquickltd-5410)\.vercel\.app$/.test(hostnameOnly)
     );
 }
 
@@ -74,7 +70,7 @@ function buildAllowedRedirectUrl(req, clientOrderId = null) {
     } else if (
         browserOriginHost &&
         isAllowedRedirectHostname(browserOriginHost) &&
-        (!directHost || directHost.toLowerCase().endsWith('.workers.dev'))
+        !directHost
     ) {
         rawHost = browserOriginHost;
     } else if (directHost && isAllowedRedirectHostname(directHost)) {

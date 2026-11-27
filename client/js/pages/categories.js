@@ -89,7 +89,7 @@ const RAIL_CATEGORIES = [
         name: 'Cookies',
         headerTitle: 'Bakery & Biscuits',
         status: 'live',
-        image: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/PARLE_Hide___Seek_100g_1788533824184.jpg',
+        image: '/uploads/PARLE_Hide___Seek_100g_1788533824184.jpg',
         match: (p) => resolveProductRailCategory(p) === 'biscuits'
     },
     {
@@ -97,7 +97,7 @@ const RAIL_CATEGORIES = [
         name: 'Chips & Crisps',
         headerTitle: 'Chips & Crisps',
         status: 'live',
-        image: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/LAY_S_India_s_magic_masala_1788531425513.jpg',
+        image: '/uploads/LAY_S_India_s_magic_masala_1788531425513.jpg',
         match: (p) => resolveProductRailCategory(p) === 'chips'
     },
     {
@@ -105,7 +105,7 @@ const RAIL_CATEGORIES = [
         name: 'Chocolates',
         headerTitle: 'Chocolates & Candies',
         status: 'live',
-        image: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_e581ce64_1788463600537.jpg',
+        image: '/uploads/prod_prod_e581ce64_1788463600537.jpg',
         match: (p) => resolveProductRailCategory(p) === 'chocolates'
     },
     {
@@ -113,7 +113,7 @@ const RAIL_CATEGORIES = [
         name: 'Namkeen',
         headerTitle: 'Namkeen & Bhujia',
         status: 'live',
-        image: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/Bikaji_Chowpati_Bhelpuri_1788533073973.jpg',
+        image: '/uploads/Bikaji_Chowpati_Bhelpuri_1788533073973.jpg',
         match: (p) => resolveProductRailCategory(p) === 'namkeen'
     },
     {
@@ -121,7 +121,7 @@ const RAIL_CATEGORIES = [
         name: 'Munchies',
         headerTitle: 'Snacks & Munchies',
         status: 'live',
-        image: 'https://yojndzstlilzlkxonmvd.supabase.co/storage/v1/object/public/products/prod_prod_78de005c_1788463606110.jpg',
+        image: '/uploads/prod_prod_78de005c_1788463606110.jpg',
         match: (p) => resolveProductRailCategory(p) === 'snacks'
     },
     {

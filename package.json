@@ -7,9 +7,6 @@
     "start": "node server/index.js",
     "dev": "node server/index.js",
     "test": "node server/tests/pricing.test.js",
-    "cf:dev": "wrangler dev",
-    "cf:dry-run": "wrangler deploy --dry-run --outdir dist-cf",
-    "cf:deploy": "wrangler deploy",
     "sync:local": "node scripts/sync_cloud_to_local_db.js"
   },
   "dependencies": {

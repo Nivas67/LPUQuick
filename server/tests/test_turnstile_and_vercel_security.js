@@ -241,12 +241,47 @@ async function runTests() {
             });
             assert.strictEqual(unsubUnauth.status, 401, 'POST /api/notifications/unsubscribe must require admin auth');
 
-            // Deprecated workers.dev CORS rejected
-            const workersCors = await originalFetch(`${baseUrl}/api/health`, {
+            // Deprecated workers.dev, pages.dev, and legacy custom domain CORS rejected
+            for (const legacyOrigin of ['https://lpuquick.nivasnaidu07.workers.dev', 'https://lpuquick.pages.dev', 'https://lpuquick.com']) {
+                const legacyCors = await originalFetch(`${baseUrl}/api/health`, {
+                    method: 'OPTIONS',
+                    headers: { Origin: legacyOrigin, 'Access-Control-Request-Method': 'GET' }
+                });
+                assert.strictEqual(legacyCors.headers.get('access-control-allow-origin'), null, `${legacyOrigin} must not be CORS allowlisted`);
+            }
+            const vercelCors = await originalFetch(`${baseUrl}/api/health`, {
                 method: 'OPTIONS',
-                headers: { Origin: 'https://lpuquick.nivasnaidu07.workers.dev', 'Access-Control-Request-Method': 'GET' }
+                headers: { Origin: 'https://lpuquick.vercel.app', 'Access-Control-Request-Method': 'GET' }
             });
-            assert.strictEqual(workersCors.headers.get('access-control-allow-origin'), null, 'Removed workers.dev origin must no longer be CORS allowlisted');
+            assert.strictEqual(vercelCors.headers.get('access-control-allow-origin'), 'https://lpuquick.vercel.app', 'https://lpuquick.vercel.app must be CORS allowlisted');
+
+            // Local product images in public/uploads must stay on Vercel CDN even when VERCEL=1
+            const prevVercelEnv = process.env.VERCEL;
+            const prevSupaEnv = process.env.SUPABASE_URL;
+            process.env.VERCEL = '1';
+            process.env.SUPABASE_URL = 'https://dzygsmgdzvroxepwyjyz.supabase.co';
+            try {
+                const db = require('../db/supabaseDb');
+                const formattedLocal = db.products._formatProduct({
+                    id: 'prod_local_check',
+                    name: 'Test Local Img',
+                    category: 'Snacks & Beverages',
+                    price: 20,
+                    image_url: '/uploads/prod_prod_e581ce64_1788463600537.jpg'
+                });
+                assert.strictEqual(formattedLocal.image_url, '/uploads/prod_prod_e581ce64_1788463600537.jpg', 'Bundled public/uploads asset must keep /uploads path under VERCEL=1');
+                const formattedRemote = db.products._formatProduct({
+                    id: 'prod_remote_check',
+                    name: 'Test Remote Img',
+                    category: 'Snacks & Beverages',
+                    price: 20,
+                    image_url: '/uploads/nonexistent_runtime_upload_12345.jpg'
+                });
+                assert.strictEqual(formattedRemote.image_url, 'https://dzygsmgdzvroxepwyjyz.supabase.co/storage/v1/object/public/products/nonexistent_runtime_upload_12345.jpg');
+            } finally {
+                if (prevVercelEnv === undefined) delete process.env.VERCEL; else process.env.VERCEL = prevVercelEnv;
+                if (prevSupaEnv === undefined) delete process.env.SUPABASE_URL; else process.env.SUPABASE_URL = prevSupaEnv;
+            }
 
             // OTP per-IP shield rate limit returns 429 after 5 attempts
             let got429 = false;
