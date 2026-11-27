@@ -7,8 +7,14 @@ const financialEngine = require('../utils/financialEngine');
 const supabaseDb = require('../db/supabaseDb');
 const { verifyPassword } = require('../services/securityService');
 
-const FALLBACK_FINANCIAL_SECRET = Buffer.from('bHB1cXVpY2tfZmluYW5jaWFsX3Bpbl9zZWN1cmVfc2VjcmV0XzIwMjY=', 'base64').toString('utf8');
-const FINANCIAL_SECRET = process.env.JWT_SECRET || process.env.ADMIN_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || FALLBACK_FINANCIAL_SECRET;
+function getFinancialSecret() {
+    return String(
+        process.env.ADMIN_SESSION_SECRET ||
+        process.env.JWT_SECRET ||
+        process.env.SUPABASE_SERVICE_ROLE_KEY ||
+        ''
+    ).trim();
+}
 const SESSION_DURATION_MS = 15 * 60 * 1000; // 15 minutes auto-lock timeout
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes lockout after 5 consecutive failures
@@ -39,9 +45,13 @@ function verifyPin(pin, storedHash, salt) {
  * Helper: Issue signed HMAC financial token
  */
 function issueFinancialToken(adminId) {
+    const secret = getFinancialSecret();
+    if (!secret) {
+        throw new Error('Financial signing secret is not configured.');
+    }
     const expiresAt = Date.now() + SESSION_DURATION_MS;
     const payload = `${adminId}:${expiresAt}:${crypto.randomBytes(8).toString('hex')}`;
-    const signature = crypto.createHmac('sha256', FINANCIAL_SECRET).update(payload).digest('hex');
+    const signature = crypto.createHmac('sha256', secret).update(payload).digest('hex');
     const token = `${Buffer.from(payload).toString('base64url')}.${signature}`;
     
     return { token, expiresAt, expiresInSeconds: Math.floor(SESSION_DURATION_MS / 1000) };
@@ -55,8 +65,11 @@ function verifyFinancialToken(token) {
     const parts = token.split('.');
     if (parts.length !== 2) return null;
 
+    const secret = getFinancialSecret();
+    if (!secret) return null;
+
     const [b64Payload, signature] = parts;
-    const expectedSig = crypto.createHmac('sha256', FINANCIAL_SECRET).update(Buffer.from(b64Payload, 'base64url').toString('utf8')).digest('hex');
+    const expectedSig = crypto.createHmac('sha256', secret).update(Buffer.from(b64Payload, 'base64url').toString('utf8')).digest('hex');
     const sigA = Buffer.from(signature, 'hex');
     const sigB = Buffer.from(expectedSig, 'hex');
     if (sigA.length !== sigB.length || !crypto.timingSafeEqual(sigA, sigB)) {

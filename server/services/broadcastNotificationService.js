@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const pushService = require('../notifications/pushService');
-const { isServerlessRuntime } = require('../supabase');
+const { isServerlessRuntime, getSupabaseClient } = require('../supabase');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const CAMPAIGNS_FILE = path.join(DATA_DIR, 'broadcast_campaigns.json');
@@ -103,6 +103,25 @@ function loadCampaigns() {
 
 function persistCampaigns() {
     try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            supabase.from('app_availability').upsert([{
+                id: 'broadcast_campaigns_registry',
+                is_locked: false,
+                lock_type: 'BROADCAST_CAMPAIGNS',
+                message: JSON.stringify(campaigns.slice(0, 100)),
+                updated_at: new Date().toISOString()
+            }]).then(() => {}).catch(() => {});
+        }
+    } catch (e) {}
+    if (process.env.VERCEL || process.env.CLOUDFLARE_WORKERS) {
+        try {
+            const tmpFile = path.join(require('os').tmpdir(), 'broadcast_campaigns.json');
+            fs.writeFileSync(tmpFile, JSON.stringify(campaigns, null, 2));
+        } catch (tmpErr) {}
+        return;
+    }
+    try {
         fs.writeFileSync(CAMPAIGNS_FILE, JSON.stringify(campaigns, null, 2));
     } catch (e) {
         try {
@@ -113,6 +132,24 @@ function persistCampaigns() {
 }
 
 loadCampaigns();
+
+(async function hydrateCampaignsFromCloud() {
+    try {
+        const supabase = getSupabaseClient();
+        if (!supabase) return;
+        const { data, error } = await supabase
+            .from('app_availability')
+            .select('message')
+            .eq('id', 'broadcast_campaigns_registry')
+            .maybeSingle();
+        if (!error && data && data.message) {
+            const parsed = JSON.parse(data.message);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                campaigns = parsed;
+            }
+        }
+    } catch (e) {}
+})();
 
 class BroadcastNotificationService {
     getAllCampaigns() {

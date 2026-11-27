@@ -132,16 +132,32 @@ function createPaymentsRouter(serviceOverrides = null, routerOptions = {}) {
     const router = express.Router();
     const service = serviceOverrides || createSandboxPaymentService();
     const authOverrides = routerOptions.authOverrides || {};
+    const allowSandboxRoutes = () => Boolean(serviceOverrides) || String(process.env.PAYMENT_ENVIRONMENT || '').trim().toLowerCase() === 'sandbox';
 
     // Public non-sensitive sandbox config endpoint (never returns API keys or secrets)
     router.get('/sandbox/config', (req, res) => {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         const cfg = service.getSafeSandboxConfig();
+        const isSandbox = allowSandboxRoutes();
         return res.json({
             success: true,
-            sandbox: true,
-            ...cfg
+            sandbox: isSandbox,
+            onlinePaymentsEnabled: String(process.env.ONLINE_PAYMENTS_ENABLED || 'false').toLowerCase() === 'true',
+            ...cfg,
+            ready: isSandbox ? Boolean(cfg.ready) : false
         });
+    });
+
+    router.use((req, res, next) => {
+        if (!allowSandboxRoutes()) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            return res.status(403).json({
+                success: false,
+                code: 'ONLINE_PAYMENTS_DISABLED',
+                error: 'Online and sandbox payment endpoints are disabled until merchant eligibility and live verification are complete.'
+            });
+        }
+        return next();
     });
 
     // POST /api/payments/sandbox/create-order

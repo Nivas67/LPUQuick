@@ -168,20 +168,23 @@ async function runWranglerRouteTests() {
         const foodRes = await fetch(`${baseUrl}/food`);
         assert.strictEqual(foodRes.status, 200);
 
-        // 8. Express API routes under Cloudflare Workers (/api/* returns JSON, auth & sandbox isolation active)
+        // 8. Express API routes under Cloudflare Workers (/api/* returns JSON, original production storefront active, online payments disabled)
         const healthRes = await fetch(`${baseUrl}/api/health`);
         const healthJson = await healthRes.json();
         assert.strictEqual(healthRes.status, 200);
-        assert.strictEqual(healthJson.environment, 'sandbox-preview');
+        assert.strictEqual(healthJson.environment, 'production');
+        assert.strictEqual(healthJson.onlinePaymentsEnabled, false);
 
         const sbxCfgRes = await fetch(`${baseUrl}/api/payments/sandbox/config`);
         const sbxCfgJson = await sbxCfgRes.json();
         assert.strictEqual(sbxCfgRes.status, 200);
-        assert.strictEqual(sbxCfgJson.sandbox, true);
-        assert.strictEqual(sbxCfgJson.environment, 'sandbox');
-        assert.strictEqual(sbxCfgJson.previewIsolation, true);
+        assert.strictEqual(sbxCfgJson.sandbox, false);
+        assert.strictEqual(sbxCfgJson.environment, 'production');
+        assert.strictEqual(sbxCfgJson.onlinePaymentsEnabled, false);
+        assert.strictEqual(sbxCfgJson.previewIsolation, false);
+        assert.strictEqual(sbxCfgJson.ready, false);
 
-        // Verify workers.dev CORS allowlist & JSON body parsing + signature auth in Express Worker
+        // Verify workers.dev CORS allowlist & JSON body parsing + fail-closed payment guard in production
         const corsRes = await fetch(`${baseUrl}/api/payments/sandbox/create-order`, {
             method: 'OPTIONS',
             headers: {
@@ -191,47 +194,46 @@ async function runWranglerRouteTests() {
         });
         assert.strictEqual(corsRes.headers.get('access-control-allow-origin'), 'https://lpuquick.nivx1.workers.dev');
 
-        const unauthWebhookRes = await fetch(`${baseUrl}/api/payments/webhook`, {
+        const prodWebhookBlocked = await fetch(`${baseUrl}/api/payments/webhook`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ event: 'order.paid', event_id: 'e1' })
         });
-        assert.ok([401, 503].includes(unauthWebhookRes.status), `Webhook should reject unauthenticated/unconfigured call with 401 or 503 JSON, got ${unauthWebhookRes.status}`);
-        const unauthWebhookJson = await unauthWebhookRes.json();
-        assert.ok(['MISSING_SIGNATURE', 'WEBHOOK_SECRET_NOT_CONFIGURED'].includes(unauthWebhookJson.code));
+        assert.strictEqual(prodWebhookBlocked.status, 403);
+        const prodWebhookJson = await prodWebhookBlocked.json();
+        assert.strictEqual(prodWebhookJson.code, 'ONLINE_PAYMENTS_DISABLED');
 
-        const unauthOrdersRes = await fetch(`${baseUrl}/api/payments/sandbox/orders`);
-        assert.strictEqual(unauthOrdersRes.status, 401);
-        const unauthOrdersJson = await unauthOrdersRes.json();
-        assert.strictEqual(unauthOrdersJson.code, 'UNAUTHORIZED_ORDERS_REQUEST');
-
-        const unauthStatusRes = await fetch(`${baseUrl}/api/payments/sandbox/status/LPUQ_FAKE_1`);
-        assert.ok([401, 503].includes(unauthStatusRes.status));
-        const unauthStatusJson = await unauthStatusRes.json();
-        assert.ok(['UNAUTHORIZED_STATUS_REQUEST', 'SANDBOX_DB_NOT_CONFIGURED'].includes(unauthStatusJson.code));
-
-        const prodCheckoutBlocked = await fetch(`${baseUrl}/api/checkout`, {
+        const sbxOrderBlocked = await fetch(`${baseUrl}/api/payments/sandbox/create-order`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId: 'u1' })
         });
-        assert.strictEqual(prodCheckoutBlocked.status, 403);
-        const prodCheckoutJson = await prodCheckoutBlocked.json();
-        assert.strictEqual(prodCheckoutJson.code, 'LIVE_CHECKOUT_DISABLED_IN_SANDBOX');
+        assert.strictEqual(sbxOrderBlocked.status, 403);
+        assert.strictEqual((await sbxOrderBlocked.json()).code, 'ONLINE_PAYMENTS_DISABLED');
 
-        const adminApiBlocked = await fetch(`${baseUrl}/api/orders/admin/all`);
-        assert.strictEqual(adminApiBlocked.status, 403);
-        const adminApiBlockedJson = await adminApiBlocked.json();
-        assert.strictEqual(adminApiBlockedJson.code, 'SANDBOX_ISOLATION_ACTIVE');
+        const onlineCheckoutBlocked = await fetch(`${baseUrl}/api/checkout`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ customerPhone: '9876543210', deliveryAddress: 'BH13 (Block A), Room 304', paymentMethod: 'upi' })
+        });
+        assert.strictEqual(onlineCheckoutBlocked.status, 400);
+        assert.strictEqual((await onlineCheckoutBlocked.json()).code, 'PAYMENT_METHOD_DISABLED');
+
+        const unauthOrdersRes = await fetch(`${baseUrl}/api/orders/user_someone`);
+        assert.strictEqual(unauthOrdersRes.status, 401);
+        assert.strictEqual((await unauthOrdersRes.json()).code, 'AUTH_REQUIRED');
+
+        const unauthCartRes = await fetch(`${baseUrl}/api/cart/user_someone`);
+        assert.strictEqual(unauthCartRes.status, 401);
+        assert.strictEqual((await unauthCartRes.json()).code, 'AUTH_REQUIRED');
+
+        const adminApiProtected = await fetch(`${baseUrl}/api/orders/admin/all`);
+        assert.strictEqual(adminApiProtected.status, 401);
+        assert.strictEqual((await adminApiProtected.json()).code, 'UNAUTHORIZED');
 
         const unknownApiRes = await fetch(`${baseUrl}/api/nonexistent-endpoint`);
-        assert.ok(unknownApiRes.status === 403 || unknownApiRes.status === 404);
+        assert.strictEqual(unknownApiRes.status, 404);
         assert.ok((unknownApiRes.headers.get('content-type') || '').includes('application/json'), '/api/* must return JSON, never HTML');
-
-        const productsIsoRes = await fetch(`${baseUrl}/api/products`);
-        assert.strictEqual(productsIsoRes.status, 503, 'Without sandbox service_role secret in dev, products must fail closed with 503 SANDBOX_DB_NOT_CONFIGURED (never hit production)');
-        const productsIsoJson = await productsIsoRes.json();
-        assert.strictEqual(productsIsoJson.code, 'SANDBOX_DB_NOT_CONFIGURED');
 
         // 9. Vercel External Rewrite Proxy Compatibility & Security Checks
         const vercelProxyConfig = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../vercel-proxy/vercel.json'), 'utf8'));
@@ -241,13 +243,17 @@ async function runWranglerRouteTests() {
         assert.ok(!vercelProxyConfig.functions, 'Minimal Vercel proxy config must not deploy Vercel Serverless Functions');
         assert.deepStrictEqual(vercelProxyConfig.rewrites, [
             { source: '/', destination: 'https://lpuquick.nivasnaidu07.workers.dev/' },
-            { source: '/:path*', destination: 'https://lpuquick.nivasnaidu07.workers.dev/:path*' }
+            { source: '/(.*)', destination: 'https://lpuquick.nivasnaidu07.workers.dev/$1' }
         ]);
         const noCacheSources = new Set((vercelProxyConfig.headers || []).filter(h =>
             Array.isArray(h.headers) && h.headers.some(kv => kv.key === 'x-vercel-enable-rewrite-caching' && kv.value === '0')
         ).map(h => h.source));
-        for (const reqSource of ['/', '/sw.js', '/api/:path*', '/admin', '/partner', '/sandbox-payment-return']) {
+        for (const reqSource of ['/', '/index.html', '/sw.js', '/api', '/api/(.*)', '/admin', '/admin/(.*)', '/ad-new', '/ad-new/(.*)', '/partner', '/partner/(.*)', '/sandbox-payment(.*)']) {
             assert.ok(noCacheSources.has(reqSource), `vercel-proxy/vercel.json must disable edge rewrite caching on ${reqSource}`);
+        }
+        const catchAllPattern = new RegExp(`^${vercelProxyConfig.rewrites[1].source}$`);
+        for (const trailingPath of ['/admin', '/admin/', '/admin/index.html', '/partner', '/partner/', '/ad-new/', '/css/styles.css', '/api/health']) {
+            assert.ok(catchAllPattern.test(trailingPath), `vercel-proxy/vercel.json rewrite must match ${trailingPath}`);
         }
 
         // Verify HTML security headers on Worker static pages
@@ -264,16 +270,17 @@ async function runWranglerRouteTests() {
         assert.ok((swRes.headers.get('cache-control') || '').includes('no-store'), '/sw.js must emit no-store across proxy');
         assert.strictEqual(swRes.headers.get('x-content-type-options'), 'nosniff');
 
-        assert.ok((healthRes.headers.get('cache-control') || '').includes('no-store'), '/api/health must emit no-store in sandbox');
+        assert.ok((healthRes.headers.get('cache-control') || '').includes('max-age='), '/api/health must emit short cache header in production');
 
         const cartNoStoreRes = await fetch(`${baseUrl}/api/cart/sbx_proxy_u1`);
         assert.ok((cartNoStoreRes.headers.get('cache-control') || '').includes('no-store'), '/api/cart/* must emit no-store');
 
         const checkoutSettingsRes = await fetch(`${baseUrl}/api/checkout/settings`);
         assert.strictEqual(checkoutSettingsRes.status, 200);
-        assert.ok((checkoutSettingsRes.headers.get('cache-control') || '').includes('no-store'), '/api/checkout/settings must emit no-store in sandbox');
+        const checkoutSettingsJson = await checkoutSettingsRes.json();
+        assert.strictEqual(checkoutSettingsJson.success, true);
 
-        const vercelCorsRes = await fetch(`${baseUrl}/api/payments/sandbox/create-order`, {
+        const vercelCorsRes = await fetch(`${baseUrl}/api/checkout`, {
             method: 'OPTIONS',
             headers: {
                 Origin: 'https://lpuquick.vercel.app',
@@ -282,7 +289,7 @@ async function runWranglerRouteTests() {
         });
         assert.strictEqual(vercelCorsRes.headers.get('access-control-allow-origin'), 'https://lpuquick.vercel.app');
 
-        const spoofedCorsRes = await fetch(`${baseUrl}/api/payments/sandbox/create-order`, {
+        const spoofedCorsRes = await fetch(`${baseUrl}/api/checkout`, {
             method: 'OPTIONS',
             headers: {
                 Origin: 'https://lpuquick-attacker.vercel.app',
@@ -291,17 +298,17 @@ async function runWranglerRouteTests() {
         });
         assert.strictEqual(spoofedCorsRes.headers.get('access-control-allow-origin'), null, 'Unrelated third-party lpuquick-*.vercel.app origin must be rejected by CORS');
 
-        const spoofedCsrfRes = await fetch(`${baseUrl}/api/payments/sandbox/create-order`, {
+        const spoofedCsrfRes = await fetch(`${baseUrl}/api/checkout`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 Origin: 'https://lpuquick-attacker.vercel.app'
             },
-            body: JSON.stringify({ userId: 'sbx_u1' })
+            body: JSON.stringify({ paymentMethod: 'upi' })
         });
         assert.strictEqual(spoofedCsrfRes.status, 403, 'Unrelated third-party *.vercel.app Origin must be blocked by CSRF');
 
-        const vercelCsrfCheckRes = await fetch(`${baseUrl}/api/payments/sandbox/create-order`, {
+        const vercelCsrfCheckRes = await fetch(`${baseUrl}/api/checkout`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -309,10 +316,11 @@ async function runWranglerRouteTests() {
                 'X-Forwarded-Host': 'lpuquick.vercel.app',
                 'X-Forwarded-Proto': 'https'
             },
-            body: JSON.stringify({ userId: 'sbx_u1' })
+            body: JSON.stringify({ paymentMethod: 'upi' })
         });
-        assert.notStrictEqual(vercelCsrfCheckRes.status, 403, 'Allowlisted lpuquick.vercel.app Origin must pass CSRF guard behind Worker host');
-        assert.ok((vercelCsrfCheckRes.headers.get('cache-control') || '').includes('no-store'));
+        assert.strictEqual(vercelCsrfCheckRes.status, 400, 'Allowlisted lpuquick.vercel.app Origin must pass CSRF guard and reach production payment guard (400 PAYMENT_METHOD_DISABLED)');
+        const vercelCsrfJson = await vercelCsrfCheckRes.json();
+        assert.strictEqual(vercelCsrfJson.code, 'PAYMENT_METHOD_DISABLED');
 
         const paymentsModule = require('../routes/payments');
         assert.strictEqual(paymentsModule.isAllowedRedirectHostname('lpuquick.vercel.app'), true);
@@ -374,7 +382,8 @@ async function runWranglerRouteTests() {
 
         // Confirm no global-scope runtime exceptions occurred in Worker logs
         const combinedLogs = logs.join('\n');
-        assert.ok(!combinedLogs.includes('Disallowed operation called within global scope'), 'Worker must not call disallowed global-scope operations');
+        const disallowedLine = logs.find((l) => String(l).includes('Disallowed operation called within global scope')) || '';
+        assert.ok(!combinedLogs.includes('Disallowed operation called within global scope'), `Worker must not call disallowed global-scope operations:\n${disallowedLine}\n--- FULL LOGS ---\n${combinedLogs.slice(-1500)}`);
 
         console.log('✅ ALL CLOUDFLARE WRANGLER DEV ROUTE, ASSET & SANDBOX ISOLATION TESTS PASSED!');
     } finally {

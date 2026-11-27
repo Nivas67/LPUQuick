@@ -27,9 +27,7 @@ app.disable('x-powered-by');
 const isAllowedDeploymentHost = (host) => (
     host.endsWith('.lpuquick.com') ||
     host === 'lpuquick.vercel.app' ||
-    /^lpuquick(-[a-zA-Z0-9-]+)*-(nivx|lpuquickltd-5410)\.vercel\.app$/.test(host) ||
-    /^lpu-?quick(-[a-zA-Z0-9-]+)?\.[a-zA-Z0-9-]+\.workers\.dev$/.test(host) ||
-    /^lpu-?quick(-[a-zA-Z0-9-]+)?\.pages\.dev$/.test(host)
+    /^lpuquick(-[a-zA-Z0-9-]+)*-(nivx|lpuquickltd-5410)\.vercel\.app$/.test(host)
 );
 
 // 1. Production HTTPS-Everywhere Enforcer (Req 6)
@@ -79,12 +77,12 @@ app.use((req, res, next) => {
     res.setHeader(
         'Content-Security-Policy',
         "default-src 'self'; " +
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://accounts.google.com https://apis.google.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://accounts.google.com https://apis.google.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://challenges.cloudflare.com; " +
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.tailwindcss.com; " +
         "font-src 'self' https://fonts.gstatic.com data:; " +
         "img-src 'self' data: blob: https:; " +
         "connect-src 'self' https: wss:; " +
-        "frame-src 'self' https://accounts.google.com; " +
+        "frame-src 'self' https://accounts.google.com https://challenges.cloudflare.com; " +
         "frame-ancestors 'self'; " +
         "base-uri 'self'; " +
         "form-action 'self';"
@@ -151,7 +149,7 @@ app.use(cors({
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-token', 'x-admin-key', 'x-partner-token', 'x-user-id', 'x-user-phone', 'x-hostel-id', 'x-gateway-signature', 'x-gateway-event', 'x-signature', 'x-event', 'x-event-id', 'x-idempotency-key', 'x-sandbox-token', 'x-financial-token']
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-token', 'x-admin-key', 'x-partner-token', 'x-customer-token', 'x-user-id', 'x-user-phone', 'x-hostel-id', 'x-gateway-signature', 'x-gateway-event', 'x-signature', 'x-event', 'x-event-id', 'x-idempotency-key', 'x-sandbox-token', 'x-financial-token', 'x-turnstile-token']
 }));
 
 // CSRF Protection Middleware for state-changing requests (Req 11)
@@ -309,22 +307,38 @@ app.get('/api/health', async (req, res) => {
         res.json({
             status: 'healthy',
             platform: process.env.VERCEL ? 'vercel-serverless' : 'node-server',
+            environment: String(process.env.PAYMENT_ENVIRONMENT || 'production').toLowerCase(),
+            onlinePaymentsEnabled: String(process.env.ONLINE_PAYMENTS_ENABLED || 'false').toLowerCase() === 'true',
             database: dbOk ? 'connected' : 'standby',
             uptime: Math.round(process.uptime()),
             timestamp: new Date().toISOString()
         });
     } catch (e) {
-        res.status(200).json({ status: 'healthy', database: 'standby', note: e.message });
+        res.status(200).json({ status: 'healthy', database: 'standby' });
     }
 });
 
-// Public Realtime Configuration for Supabase Channel Subscriptions
+// Public Realtime Configuration for Supabase Channel Subscriptions (never returns service_role key)
 app.get('/api/realtime/config', (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=3600');
+    const anonKey = String(process.env.SUPABASE_ANON_KEY || '').trim();
+    const safeAnonKey = anonKey.startsWith('sb_secret_') ? '' : anonKey;
     res.json({
         supabaseUrl: process.env.SUPABASE_URL || '',
-        supabaseAnonKey: process.env.SUPABASE_ANON_KEY || ''
+        supabaseAnonKey: safeAnonKey
     });
+});
+
+app.get(['/api/security/turnstile-config', '/api/auth/turnstile-config'], (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    const { getPublicTurnstileConfig } = require('./services/turnstileService');
+    res.json(getPublicTurnstileConfig(req));
+});
+
+app.use(['/api/auth', '/api/cart', '/api/checkout', '/api/orders', '/api/payments', '/api/admin', '/api/partner', '/api/notifications', '/api/backup', '/api/financial', '/api/security'], (req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    next();
 });
 
 app.use('/api/auth', require('./routes/auth'));

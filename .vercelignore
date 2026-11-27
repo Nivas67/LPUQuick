@@ -1,0 +1,20 @@
+# Exclude non-runtime files and Cloudflare Workers artifacts from Vercel bundles
+.git
+node_modules
+.env
+.env.*
+!.env.example
+.wrangler
+dist-cf
+vercel-proxy
+wrangler.jsonc
+android
+scratch
+scripts
+load-balancer
+server/tests
+server/db/*.db*
+server/db/backups
+*.log
+*.md
+!README.md

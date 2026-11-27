@@ -39,6 +39,7 @@ function loadFromDisk() {
 }
 
 function saveToDisk(data) {
+    if (process.env.VERCEL || process.env.CLOUDFLARE_WORKERS) return;
     try {
         const dir = path.dirname(SETTINGS_FILE_PATH);
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });

@@ -2,16 +2,23 @@ const express = require('express');
 const router = express.Router();
 const partnerService = require('../services/partnerService');
 const { generatePartnerToken, requirePartnerAuth } = require('../middleware/partnerAuth');
-const { verifyPassword } = require('../services/securityService');
+const {
+    verifyPassword,
+    checkLoginRateLimitPersistent,
+    recordFailedLoginPersistent,
+    recordSuccessfulLoginPersistent
+} = require('../services/securityService');
+const ipBlockService = require('../services/ipBlockService');
+const { verifyTurnstileMiddleware } = require('../services/turnstileService');
 const financialEngine = require('../utils/financialEngine');
 
 /**
  * 1. PARTNER LOGIN
  */
-router.post('/login', async (req, res) => {
+router.post('/login', verifyTurnstileMiddleware({ action: 'partner_login' }), async (req, res) => {
     try {
         const { email, password } = req.body;
-        if (!email || !password) {
+        if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
             return res.status(400).json({
                 success: false,
                 code: 'MISSING_CREDENTIALS',
@@ -19,10 +26,22 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        const cleanEmail = String(email).trim().toLowerCase();
+        const cleanEmail = email.trim().toLowerCase();
+        const clientIp = (typeof ipBlockService?.extractClientIp === 'function' ? ipBlockService.extractClientIp(req) : null) || req.ip || '127.0.0.1';
+        const rateCheck = await checkLoginRateLimitPersistent(`partner:${cleanEmail}`, clientIp);
+        if (rateCheck.locked) {
+            return res.status(429).json({
+                success: false,
+                code: 'LOGIN_RATE_LIMITED',
+                error: rateCheck.error,
+                retry_after: rateCheck.remainingSeconds
+            });
+        }
+
         const partner = await partnerService.getPartnerByEmail(cleanEmail, true);
 
         if (!partner) {
+            await recordFailedLoginPersistent(`partner:${cleanEmail}`, clientIp);
             return res.status(401).json({
                 success: false,
                 code: 'INVALID_CREDENTIALS',
@@ -38,15 +57,18 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        // Verify password
-        const passwordMatches = await verifyPassword(password, partner.password_hash);
-        if (!passwordMatches) {
+        // Verify password (verifyPassword returns { isValid, needsUpgrade })
+        const passwordCheck = verifyPassword(password, partner.password_hash);
+        if (!passwordCheck || passwordCheck.isValid !== true) {
+            await recordFailedLoginPersistent(`partner:${cleanEmail}`, clientIp);
             return res.status(401).json({
                 success: false,
                 code: 'INVALID_CREDENTIALS',
                 error: 'Invalid partner credentials.'
             });
         }
+
+        await recordSuccessfulLoginPersistent(`partner:${cleanEmail}`, clientIp);
 
         // Issue token
         const token = generatePartnerToken(partner.id);

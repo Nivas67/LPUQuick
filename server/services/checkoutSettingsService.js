@@ -111,6 +111,7 @@ function loadFromDisk() {
  * Saves settings to disk backup
  */
 function saveToDisk(settings) {
+    if (process.env.VERCEL || process.env.CLOUDFLARE_WORKERS) return;
     try {
         const dir = path.dirname(SETTINGS_FILE_PATH);
         if (!fs.existsSync(dir)) {

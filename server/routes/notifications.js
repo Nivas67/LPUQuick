@@ -1,11 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const pushService = require('../notifications/pushService');
+const { requireAdmin } = require('../middleware/adminAuth');
+const { resolveRequestActor, isOwnerMatch } = require('../services/customerAuth');
+const { verifyTurnstileMiddleware } = require('../services/turnstileService');
 
 // GET /api/notifications/vapid-public-key
 router.get('/vapid-public-key', (req, res) => {
     try {
         const publicKey = pushService.getPublicKey();
+        if (!publicKey) {
+            return res.status(503).json({ success: false, configured: false, error: 'Push notifications are not configured.' });
+        }
         res.json({ success: true, publicKey });
     } catch (err) {
         console.error('[VAPID Key Error]:', err.message);
@@ -14,7 +20,7 @@ router.get('/vapid-public-key', (req, res) => {
 });
 
 // POST /api/notifications/subscribe
-router.post('/subscribe', (req, res) => {
+router.post('/subscribe', requireAdmin, (req, res) => {
     const { subscription, adminId, adminName, roles, assigned_hostels, hostelId, is_owner } = req.body;
     if (!subscription || !subscription.endpoint) {
         return res.status(400).json({ success: false, error: 'Valid push subscription object required' });
@@ -37,15 +43,29 @@ router.post('/subscribe', (req, res) => {
 });
 
 // POST /api/notifications/customer-subscribe
-router.post('/customer-subscribe', (req, res) => {
+router.post('/customer-subscribe', verifyTurnstileMiddleware({ action: 'customer_subscribe' }), async (req, res) => {
     const { subscription, userId, userName, hostelId } = req.body;
     if (!subscription || !subscription.endpoint) {
         return res.status(400).json({ success: false, error: 'Valid push subscription object required' });
     }
 
     try {
+        let verifiedUserId = null;
+        if (userId && !String(userId).startsWith('guest_')) {
+            const actor = await resolveRequestActor(req);
+            if (!actor || (!actor.isCustomer && !actor.isAdmin)) {
+                return res.status(401).json({ success: false, code: 'AUTH_REQUIRED', error: 'Sign in required to bind customer alerts to an account.' });
+            }
+            if (!isOwnerMatch(actor, userId)) {
+                return res.status(403).json({ success: false, code: 'FORBIDDEN_USER_SCOPE', error: 'Access denied.' });
+            }
+            verifiedUserId = actor.userId;
+        } else if (userId) {
+            verifiedUserId = String(userId);
+        }
+
         const ok = pushService.saveCustomerSubscription(subscription, {
-            userId,
+            userId: verifiedUserId,
             userName,
             hostelId
         });
@@ -83,7 +103,7 @@ router.get('/customer-feed', (req, res) => {
 });
 
 // POST /api/notifications/unsubscribe
-router.post('/unsubscribe', (req, res) => {
+router.post('/unsubscribe', requireAdmin, (req, res) => {
     const { endpoint } = req.body;
     if (!endpoint) {
         return res.status(400).json({ success: false, error: 'Endpoint is required' });
@@ -99,7 +119,7 @@ router.post('/unsubscribe', (req, res) => {
 });
 
 // POST /api/notifications/test
-router.post('/test', async (req, res) => {
+router.post('/test', requireAdmin, async (req, res) => {
     const { adminId, adminName } = req.body;
     try {
         const payload = {

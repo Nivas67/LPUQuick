@@ -90,6 +90,7 @@ function getTimeSection(hour) {
 }
 
 const { getSupabaseClient } = require('../supabase');
+const { resolveRequestActor, isOwnerMatch } = require('../services/customerAuth');
 
 // GET /api/home (High-Concurrency Scaled for 6,000+ Users)
 router.get('/', async (req, res) => {
@@ -188,15 +189,18 @@ router.get('/', async (req, res) => {
             };
         }, 300000);
 
-        // 2. Compute personalized buy again with user-level caching
+        // 2. Compute personalized buy again ONLY for verified matching actor
         let buyAgain = baseFeed.default_buy_again;
         let isPersonalizedBuyAgain = false;
 
-        if (userId && !userId.startsWith('guest_') && userId !== 'null' && userId !== 'undefined') {
-            const userPersonalized = await getUserPersonalizedBuyAgain(userId);
-            if (userPersonalized && userPersonalized.items) {
-                buyAgain = userPersonalized.items;
-                isPersonalizedBuyAgain = true;
+        if (userId && !String(userId).startsWith('guest_') && userId !== 'null' && userId !== 'undefined') {
+            const actor = await resolveRequestActor(req);
+            if (actor && isOwnerMatch(actor, userId)) {
+                const userPersonalized = await getUserPersonalizedBuyAgain(actor.userId);
+                if (userPersonalized && userPersonalized.items) {
+                    buyAgain = userPersonalized.items;
+                    isPersonalizedBuyAgain = true;
+                }
             }
         }
 
@@ -268,8 +272,18 @@ async function getUserPersonalizedBuyAgain(userId) {
 router.get('/user-buy-again', async (req, res) => {
     try {
         const userId = req.query.userId || req.headers['x-user-id'] || null;
-        res.setHeader('Cache-Control', 'private, no-cache');
-        const userPersonalized = await getUserPersonalizedBuyAgain(userId);
+        res.setHeader('Cache-Control', 'private, no-store');
+        if (!userId || String(userId).startsWith('guest_') || userId === 'null' || userId === 'undefined') {
+            return res.json({ success: true, buy_again: [], is_personalized_buy_again: false });
+        }
+        const actor = await resolveRequestActor(req);
+        if (!actor || (!actor.isCustomer && !actor.isAdmin)) {
+            return res.status(401).json({ success: false, code: 'AUTH_REQUIRED', error: 'Sign in required.', buy_again: [] });
+        }
+        if (!isOwnerMatch(actor, userId)) {
+            return res.status(403).json({ success: false, code: 'FORBIDDEN_USER_SCOPE', error: 'Access denied.', buy_again: [] });
+        }
+        const userPersonalized = await getUserPersonalizedBuyAgain(actor.userId);
         res.json({
             success: true,
             buy_again: userPersonalized?.items || [],

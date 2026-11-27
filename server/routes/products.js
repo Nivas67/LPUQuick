@@ -58,18 +58,20 @@ async function uploadBase64ToSupabaseStorage(base64Data, preferredName = null) {
     const cleanPrefix = sanitizeFileName(preferredName);
     const cleanFileName = cleanPrefix ? `${cleanPrefix}_${Date.now()}.${ext}` : `prod_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
 
-    // 1. Mirror directly to local uploads directory for immediate zero-latency serving
-    try {
-        const publicUploads = path.join(__dirname, '..', '..', 'public', 'uploads');
-        if (!fs.existsSync(publicUploads)) fs.mkdirSync(publicUploads, { recursive: true });
-        fs.writeFileSync(path.join(publicUploads, cleanFileName), buffer);
+    // 1. Mirror directly to local uploads directory in non-serverless environments
+    if (!process.env.VERCEL && !process.env.CLOUDFLARE_WORKERS) {
+        try {
+            const publicUploads = path.join(__dirname, '..', '..', 'public', 'uploads');
+            if (!fs.existsSync(publicUploads)) fs.mkdirSync(publicUploads, { recursive: true });
+            fs.writeFileSync(path.join(publicUploads, cleanFileName), buffer);
 
-        const clientUploads = path.join(__dirname, '..', '..', 'client', 'uploads');
-        if (fs.existsSync(clientUploads)) {
-            fs.writeFileSync(path.join(clientUploads, cleanFileName), buffer);
+            const clientUploads = path.join(__dirname, '..', '..', 'client', 'uploads');
+            if (fs.existsSync(clientUploads)) {
+                fs.writeFileSync(path.join(clientUploads, cleanFileName), buffer);
+            }
+        } catch (fsErr) {
+            console.warn('[Local Image Save Warning]:', fsErr.message);
         }
-    } catch (fsErr) {
-        console.warn('[Local Image Save Warning]:', fsErr.message);
     }
 
     const supabase = getSupabaseClient();

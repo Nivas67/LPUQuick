@@ -22,6 +22,7 @@ function loadFoodConfig() {
 }
 
 function saveFoodConfig(cfg) {
+    if (process.env.VERCEL || process.env.CLOUDFLARE_WORKERS) return;
     try {
         const dir = path.dirname(CONFIG_FILE);
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -58,11 +59,13 @@ async function syncFoodMetaFromCloud() {
             const parsed = JSON.parse(data.message);
             if (parsed && typeof parsed === 'object') {
                 _cachedFoodMeta = { ...loadFoodMeta(), ...parsed };
-                try {
-                    const dir = path.dirname(FOOD_META_FILE);
-                    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-                    fs.writeFileSync(FOOD_META_FILE, JSON.stringify(_cachedFoodMeta, null, 2), 'utf8');
-                } catch (e) {}
+                if (!process.env.VERCEL && !process.env.CLOUDFLARE_WORKERS) {
+                    try {
+                        const dir = path.dirname(FOOD_META_FILE);
+                        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                        fs.writeFileSync(FOOD_META_FILE, JSON.stringify(_cachedFoodMeta, null, 2), 'utf8');
+                    } catch (e) {}
+                }
             }
         }
     } catch (err) {
@@ -73,12 +76,14 @@ syncFoodMetaFromCloud().catch(() => {});
 
 function saveFoodMeta(meta) {
     _cachedFoodMeta = meta;
-    try {
-        const dir = path.dirname(FOOD_META_FILE);
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(FOOD_META_FILE, JSON.stringify(meta, null, 2), 'utf8');
-    } catch (e) {
-        console.warn('[Food Meta Save Note]:', e.message);
+    if (!process.env.VERCEL && !process.env.CLOUDFLARE_WORKERS) {
+        try {
+            const dir = path.dirname(FOOD_META_FILE);
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+            fs.writeFileSync(FOOD_META_FILE, JSON.stringify(meta, null, 2), 'utf8');
+        } catch (e) {
+            console.warn('[Food Meta Save Note]:', e.message);
+        }
     }
     try {
         const supabase = getSupabaseClient();

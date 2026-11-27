@@ -273,33 +273,92 @@ let activeOrderMemoryCacheTime = 0;
 let productsMemoryCache = new Map();
 let productsMemoryCacheTime = new Map();
 
+function getCustomerAuthHeaders(extra = {}) {
+    const headers = { ...extra };
+    try {
+        if (typeof localStorage !== 'undefined') {
+            const tok = localStorage.getItem('lpuquick_token') || sessionStorage.getItem('lpuquick_token') || '';
+            if (tok) {
+                headers['x-customer-token'] = tok;
+                if (!headers['Authorization']) {
+                    headers['Authorization'] = `Bearer ${tok}`;
+                }
+            }
+        }
+    } catch (e) {}
+    return headers;
+}
+
+function resolveTurnstileToken(explicitToken, containerId) {
+    if (explicitToken && typeof explicitToken === 'string') return explicitToken;
+    if (typeof window !== 'undefined' && window.LpuQuickTurnstile) {
+        return (containerId ? window.LpuQuickTurnstile.getToken(containerId) : null) || window.LpuQuickTurnstile.getToken() || null;
+    }
+    return null;
+}
+
 const api = {
     // Auth
-    async signin(email, password) {
+    async signin(email, password, turnstileToken = null) {
+        const tsToken = resolveTurnstileToken(turnstileToken, 'signin-turnstile-container');
+        const headers = { 'Content-Type': 'application/json' };
+        if (tsToken) headers['x-turnstile-token'] = tsToken;
         const res = await fetch(`${API_BASE}/auth/signin`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
+            method: 'POST',
+            headers,
+            credentials: 'same-origin',
+            body: JSON.stringify({ email, password, turnstileToken: tsToken || undefined })
         });
         return res.json();
     },
     async signup(data) {
+        const tsToken = resolveTurnstileToken(data?.turnstileToken, 'signup-turnstile-container');
+        const headers = { 'Content-Type': 'application/json' };
+        if (tsToken) headers['x-turnstile-token'] = tsToken;
         const res = await fetch(`${API_BASE}/auth/signup`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
+            method: 'POST',
+            headers,
+            credentials: 'same-origin',
+            body: JSON.stringify({ ...(data || {}), turnstileToken: tsToken || undefined })
         });
         return res.json();
     },
     async googleAuth(payload = {}) {
+        const tsToken = resolveTurnstileToken(payload?.turnstileToken, 'signin-turnstile-container');
+        const headers = { 'Content-Type': 'application/json' };
+        if (tsToken) headers['x-turnstile-token'] = tsToken;
         const res = await fetch(`${API_BASE}/auth/google`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            method: 'POST',
+            headers,
+            credentials: 'same-origin',
+            body: JSON.stringify({ ...(payload || {}), turnstileToken: tsToken || undefined })
         });
         return res.json();
     },
-    async sendOtp(phone, userId = null) {
+    async getSession() {
+        const res = await fetch(`${API_BASE}/auth/session`, {
+            headers: getCustomerAuthHeaders(),
+            credentials: 'same-origin'
+        });
+        if (!res.ok) return null;
+        return res.json();
+    },
+    async logout() {
+        const res = await fetch(`${API_BASE}/auth/logout`, {
+            method: 'POST',
+            headers: getCustomerAuthHeaders({ 'Content-Type': 'application/json' }),
+            credentials: 'same-origin'
+        });
+        return res.json();
+    },
+    async sendOtp(phone, userId = null, turnstileToken = null) {
+        const tsToken = resolveTurnstileToken(turnstileToken, 'address-turnstile-container');
+        const headers = { 'Content-Type': 'application/json' };
+        if (tsToken) headers['x-turnstile-token'] = tsToken;
         const res = await fetch(`${API_BASE}/auth/send-otp`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone, userId })
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ phone, userId, turnstileToken: tsToken || undefined })
         });
         return res.json();
     },
@@ -385,7 +444,10 @@ const api = {
         const enrichPersonalizedBuyAgain = async (feedData) => {
             if (!uid || uid.startsWith('guest_') || uid === 'null' || uid === 'undefined') return feedData;
             try {
-                const res = await fetch(`${API_BASE}/home/user-buy-again?userId=${encodeURIComponent(uid)}`);
+                const res = await fetch(`${API_BASE}/home/user-buy-again?userId=${encodeURIComponent(uid)}`, {
+                    headers: getCustomerAuthHeaders(),
+                    credentials: 'same-origin'
+                });
                 const personal = await res.json();
                 if (personal && personal.success && Array.isArray(personal.buy_again) && personal.buy_again.length > 0) {
                     feedData.buy_again = personal.buy_again;
@@ -592,7 +654,8 @@ const api = {
             if (now - cartMemoryCacheTime >= 2500 || window.__lastCartHostel !== hid) {
                 const queryParam = hid ? `?hostel_id=${encodeURIComponent(hid)}` : '';
                 fetch(`${API_BASE}/cart/${userId}${queryParam}`, {
-                    headers: { 'x-hostel-id': hid }
+                    headers: getCustomerAuthHeaders({ 'x-hostel-id': hid }),
+                    credentials: 'same-origin'
                 }).then(r => r.ok ? r.json() : null).then(data => {
                     if (data && Array.isArray(data.items)) {
                         cartMemoryCache = data;
@@ -606,7 +669,8 @@ const api = {
         try {
             const queryParam = hid ? `?hostel_id=${encodeURIComponent(hid)}` : '';
             const res = await fetch(`${API_BASE}/cart/${userId}${queryParam}`, {
-                headers: { 'x-hostel-id': hid }
+                headers: getCustomerAuthHeaders({ 'x-hostel-id': hid }),
+                credentials: 'same-origin'
             });
             if (!res.ok) {
                 if (cartMemoryCache && Array.isArray(cartMemoryCache.items)) return cartMemoryCache;
@@ -660,10 +724,11 @@ const api = {
         const hid = hostelId || window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
         const res = await fetch(`${API_BASE}/cart/set-quantity`, {
             method: 'POST',
-            headers: { 
+            headers: getCustomerAuthHeaders({ 
                 'Content-Type': 'application/json',
                 'x-hostel-id': hid
-            },
+            }),
+            credentials: 'same-origin',
             body: JSON.stringify({ userId: uid, productId, quantity, hostel_id: hid })
         });
         const result = await res.json();
@@ -682,10 +747,11 @@ const api = {
         const hid = hostelId || window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
         const res = await fetch(`${API_BASE}/cart`, {
             method: 'POST',
-            headers: { 
+            headers: getCustomerAuthHeaders({ 
                 'Content-Type': 'application/json',
                 'x-hostel-id': hid
-            },
+            }),
+            credentials: 'same-origin',
             body: JSON.stringify({ userId, productId, quantity, hostel_id: hid })
         });
         const result = await res.json();
@@ -704,10 +770,11 @@ const api = {
         const hid = hostelId || window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
         const res = await fetch(`${API_BASE}/cart/${cartId}`, {
             method: 'PUT',
-            headers: { 
+            headers: getCustomerAuthHeaders({ 
                 'Content-Type': 'application/json',
                 'x-hostel-id': hid
-            },
+            }),
+            credentials: 'same-origin',
             body: JSON.stringify({ quantity, userId, hostel_id: hid })
         });
         const result = await res.json();
@@ -727,10 +794,11 @@ const api = {
         const hid = hostelId || window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
         const res = await fetch(`${API_BASE}/cart/${cartId}`, {
             method: 'DELETE',
-            headers: { 
+            headers: getCustomerAuthHeaders({ 
                 'Content-Type': 'application/json',
                 'x-hostel-id': hid
-            },
+            }),
+            credentials: 'same-origin',
             body: JSON.stringify({ userId: uid, hostel_id: hid })
         });
         const result = await res.json();
@@ -748,7 +816,9 @@ const api = {
     async clearCart(userId) {
         const uid = userId || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : window.CURRENT_USER_ID);
         const res = await fetch(`${API_BASE}/cart/user/${uid}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: getCustomerAuthHeaders(),
+            credentials: 'same-origin'
         });
         const result = await res.json();
         cartMemoryCache = { items: [], item_count: 0, total_items: 0, pricing: { subtotal: 0, delivery_fee: 0, platform_fee: 0, tax: 0, total: 0 } };
@@ -763,7 +833,8 @@ const api = {
         try {
             const res = await fetch(`${API_BASE}/cart/merge`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getCustomerAuthHeaders({ 'Content-Type': 'application/json' }),
+                credentials: 'same-origin',
                 body: JSON.stringify({ guestUserId, targetUserId })
             });
             const result = await res.json();
@@ -796,9 +867,13 @@ const api = {
             const timeoutId = setTimeout(() => controller.abort(), 10000); // 10-second per attempt
 
             try {
+                const tsToken = resolveTurnstileToken(extraData.turnstileToken, 'checkout-turnstile-container');
+                const checkoutHeaders = getCustomerAuthHeaders({ 'Content-Type': 'application/json' });
+                if (tsToken) checkoutHeaders['x-turnstile-token'] = tsToken;
                 const res = await fetch(`${API_BASE}/checkout`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: checkoutHeaders,
+                    credentials: 'same-origin',
                     signal: controller.signal,
                     body: JSON.stringify({
                         orderId,
@@ -814,7 +889,8 @@ const api = {
                         order_mode: extraData.order_mode || 'DELIVERY',
                         instructions: extraData.instructions || extraData.special_instructions || '',
                         special_instructions: extraData.instructions || extraData.special_instructions || '',
-                        items
+                        items,
+                        turnstileToken: tsToken || undefined
                     })
                 });
                 clearTimeout(timeoutId);
@@ -1047,11 +1123,9 @@ const api = {
         if (!force && ordersMemoryCache && (Date.now() - ordersMemoryCacheTime < 8000)) {
             return ordersMemoryCache;
         }
-        const authHeaders = { 'x-user-id': userId };
-        const userToken = (typeof localStorage !== 'undefined' && localStorage.getItem('lpuquick_token')) || '';
-        if (userToken) authHeaders['Authorization'] = `Bearer ${userToken}`;
+        const authHeaders = getCustomerAuthHeaders({ 'x-user-id': userId });
         if (ordersMemoryCache && !force) {
-            fetch(`${API_BASE}/orders/${userId}`, { headers: authHeaders }).then(r => r.json()).then(data => {
+            fetch(`${API_BASE}/orders/${userId}`, { headers: authHeaders, credentials: 'same-origin' }).then(r => r.json()).then(data => {
                 if (data) {
                     ordersMemoryCache = data;
                     ordersMemoryCacheTime = Date.now();
@@ -1060,7 +1134,7 @@ const api = {
             return ordersMemoryCache;
         }
         try {
-            const res = await fetch(`${API_BASE}/orders/${userId}`, { headers: authHeaders });
+            const res = await fetch(`${API_BASE}/orders/${userId}`, { headers: authHeaders, credentials: 'same-origin' });
             const data = await res.json();
             ordersMemoryCache = data;
             ordersMemoryCacheTime = Date.now();
@@ -1074,11 +1148,9 @@ const api = {
         if (!force && activeOrderMemoryCache && (Date.now() - activeOrderMemoryCacheTime < 8000)) {
             return activeOrderMemoryCache;
         }
-        const authHeaders = { 'x-user-id': userId };
-        const userToken = (typeof localStorage !== 'undefined' && localStorage.getItem('lpuquick_token')) || '';
-        if (userToken) authHeaders['Authorization'] = `Bearer ${userToken}`;
+        const authHeaders = getCustomerAuthHeaders({ 'x-user-id': userId });
         if (activeOrderMemoryCache && !force) {
-            fetch(`${API_BASE}/orders/${userId}/active`, { headers: authHeaders }).then(r => r.json()).then(data => {
+            fetch(`${API_BASE}/orders/${userId}/active`, { headers: authHeaders, credentials: 'same-origin' }).then(r => r.json()).then(data => {
                 if (data) {
                     activeOrderMemoryCache = data;
                     activeOrderMemoryCacheTime = Date.now();
@@ -1087,7 +1159,7 @@ const api = {
             return activeOrderMemoryCache;
         }
         try {
-            const res = await fetch(`${API_BASE}/orders/${userId}/active`, { headers: authHeaders });
+            const res = await fetch(`${API_BASE}/orders/${userId}/active`, { headers: authHeaders, credentials: 'same-origin' });
             const data = await res.json();
             activeOrderMemoryCache = data;
             activeOrderMemoryCacheTime = Date.now();
@@ -1097,7 +1169,7 @@ const api = {
         }
     },
     async getOrderDetail(orderId) {
-        const headers = {};
+        const headers = getCustomerAuthHeaders();
         const userId = (typeof window !== 'undefined' && window.CURRENT_USER_ID) || (typeof window !== 'undefined' && typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : '');
         if (userId) headers['x-user-id'] = userId;
         const userPhone = (typeof window !== 'undefined' && window.CURRENT_USER_PHONE) || '';
@@ -1107,13 +1179,14 @@ const api = {
             headers['Authorization'] = `Bearer ${adminToken}`;
             headers['x-admin-token'] = adminToken;
         }
-        const res = await fetch(`${API_BASE}/orders/detail/${orderId}`, { headers });
+        const res = await fetch(`${API_BASE}/orders/detail/${orderId}`, { headers, credentials: 'same-origin' });
         return res.json();
     },
     async reorder(orderId, userId = (window.isUserLoggedIn() ? window.CURRENT_USER_ID : window.getEffectiveUserId())) {
         const res = await fetch(`${API_BASE}/orders/${orderId}/reorder`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getCustomerAuthHeaders({ 'Content-Type': 'application/json' }),
+            credentials: 'same-origin',
             body: JSON.stringify({ userId })
         });
         const result = await res.json();
@@ -1124,7 +1197,7 @@ const api = {
     },
 
     async cancelOrder(orderId, reason = '') {
-        const headers = { 'Content-Type': 'application/json' };
+        const headers = getCustomerAuthHeaders({ 'Content-Type': 'application/json' });
         const userId = (typeof window !== 'undefined' && window.CURRENT_USER_ID) || (typeof window !== 'undefined' && typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : '');
         if (userId) headers['x-user-id'] = userId;
         const userPhone = (typeof window !== 'undefined' && window.CURRENT_USER_PHONE) || '';
@@ -1137,6 +1210,7 @@ const api = {
         const res = await fetch(`${API_BASE}/orders/${orderId}/cancel`, {
             method: 'POST',
             headers,
+            credentials: 'same-origin',
             body: JSON.stringify({ reason, userId, userPhone })
         });
         return res.json();
@@ -1170,7 +1244,8 @@ const api = {
     async changeOrderAddress(orderId, newAddress) {
         const res = await fetch(`${API_BASE}/orders/${orderId}/change-address`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getCustomerAuthHeaders({ 'Content-Type': 'application/json' }),
+            credentials: 'same-origin',
             body: JSON.stringify({ newAddress })
         });
         return res.json();
@@ -1218,7 +1293,8 @@ const api = {
         try {
             const res = await fetch(`${API_BASE}/auth/update-address`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getCustomerAuthHeaders({ 'Content-Type': 'application/json' }),
+                credentials: 'same-origin',
                 body: JSON.stringify({ userId, hostel, block, room, phone })
             });
             return await res.json();
@@ -1229,12 +1305,16 @@ const api = {
     },
 
     // Authentication & Verification Endpoints
-    async googleAuth(userData) {
+    async googleAuth(userData = {}) {
         try {
+            const tsToken = resolveTurnstileToken(userData?.turnstileToken, 'signin-turnstile-container');
+            const headers = { 'Content-Type': 'application/json' };
+            if (tsToken) headers['x-turnstile-token'] = tsToken;
             const res = await fetch(`${API_BASE}/auth/google`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(userData)
+                headers,
+                credentials: 'same-origin',
+                body: JSON.stringify({ ...(userData || {}), turnstileToken: tsToken || undefined })
             });
             return await res.json();
         } catch (err) {
@@ -1243,12 +1323,16 @@ const api = {
         }
     },
 
-    async signIn(email, password) {
+    async signIn(email, password, turnstileToken = null) {
         try {
+            const tsToken = resolveTurnstileToken(turnstileToken, 'signin-turnstile-container');
+            const headers = { 'Content-Type': 'application/json' };
+            if (tsToken) headers['x-turnstile-token'] = tsToken;
             const res = await fetch(`${API_BASE}/auth/signin`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
+                headers,
+                credentials: 'same-origin',
+                body: JSON.stringify({ email, password, turnstileToken: tsToken || undefined })
             });
             return await res.json();
         } catch (err) {
@@ -1257,12 +1341,16 @@ const api = {
         }
     },
 
-    async sendOtp(phone, userId) {
+    async sendOtp(phone, userId, turnstileToken = null) {
         try {
+            const tsToken = resolveTurnstileToken(turnstileToken, 'address-turnstile-container');
+            const extraHeaders = { 'Content-Type': 'application/json' };
+            if (tsToken) extraHeaders['x-turnstile-token'] = tsToken;
             const res = await fetch(`${API_BASE}/auth/send-otp`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone, userId })
+                headers: getCustomerAuthHeaders(extraHeaders),
+                credentials: 'same-origin',
+                body: JSON.stringify({ phone, userId, turnstileToken: tsToken || undefined })
             });
             return await res.json();
         } catch (err) {
@@ -1274,7 +1362,8 @@ const api = {
         try {
             const res = await fetch(`${API_BASE}/auth/verify-otp`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getCustomerAuthHeaders({ 'Content-Type': 'application/json' }),
+                credentials: 'same-origin',
                 body: JSON.stringify({ phone, otp, userId })
             });
             return await res.json();
@@ -1285,7 +1374,10 @@ const api = {
 
     async getUserProfile(userId) {
         try {
-            const res = await fetch(`${API_BASE}/auth/profile/${userId}`);
+            const res = await fetch(`${API_BASE}/auth/profile/${userId}`, {
+                headers: getCustomerAuthHeaders(),
+                credentials: 'same-origin'
+            });
             return await res.json();
         } catch (err) {
             return null;

@@ -2,6 +2,39 @@ const express = require('express');
 const router = express.Router();
 const supabaseDb = require('../db/supabaseDb');
 const checkoutSettingsService = require('../services/checkoutSettingsService');
+const { resolveRequestActor, isOwnerMatch, setGuestSessionCookie } = require('../services/customerAuth');
+
+const GUEST_ID_RE = /^guest_[a-zA-Z0-9_-]{4,64}$/;
+
+async function authorizeCartActor(req, res, userId) {
+    const uid = String(userId || '').trim();
+    if (!uid) {
+        res.status(400).json({ error: 'userId is required' });
+        return null;
+    }
+    const actor = await resolveRequestActor(req);
+    if (uid.startsWith('guest_')) {
+        if (!GUEST_ID_RE.test(uid)) {
+            res.status(400).json({ error: 'Invalid guest cart identifier' });
+            return null;
+        }
+        if (actor.guestId && actor.guestId !== uid && !actor.isAdmin) {
+            res.status(403).json({ success: false, code: 'FORBIDDEN_CART_SCOPE', error: 'Guest cart session mismatch.' });
+            return null;
+        }
+        setGuestSessionCookie(res, req, uid);
+        return actor;
+    }
+    if (!actor.isAdmin && !actor.isCustomer) {
+        res.status(401).json({ success: false, code: 'AUTH_REQUIRED', error: 'Authentication required for customer cart.' });
+        return null;
+    }
+    if (!isOwnerMatch(actor, uid)) {
+        res.status(403).json({ success: false, code: 'FORBIDDEN_CART_SCOPE', error: 'Cannot access another customer cart.' });
+        return null;
+    }
+    return actor;
+}
 
 // Pricing Calculation Engine (Powered by checkoutSettingsService with fallback)
 function calculatePricing(items = [], settings = null) {
@@ -34,9 +67,8 @@ function getHostelFromReq(req) {
 // GET /api/cart?userId=... or GET /api/cart?user_id=...
 router.get('/', async (req, res) => {
     const userId = req.query.userId || req.query.user_id || req.query.id;
-    if (!userId) {
-        return res.status(400).json({ error: 'userId is required' });
-    }
+    const actor = await authorizeCartActor(req, res, userId);
+    if (!actor) return;
     const hostelId = getHostelFromReq(req);
     try {
         const cart = await supabaseDb.cart.getCart(userId, hostelId);
@@ -50,6 +82,8 @@ router.get('/', async (req, res) => {
 // GET /api/cart/:userId
 router.get('/:userId', async (req, res) => {
     const { userId } = req.params;
+    const actor = await authorizeCartActor(req, res, userId);
+    if (!actor) return;
     const hostelId = getHostelFromReq(req);
     try {
         const cart = await supabaseDb.cart.getCart(userId, hostelId);
@@ -110,6 +144,8 @@ router.post('/set-quantity', async (req, res) => {
     if (!userId || !productId) {
         return res.status(400).json({ error: 'userId and productId are required' });
     }
+    const actor = await authorizeCartActor(req, res, userId);
+    if (!actor) return;
 
     if (quantity > 0) {
         const conflict = await checkHostelConflict(userId, productId);
@@ -141,6 +177,8 @@ async function handleAddToCart(req, res) {
     if (!userId || !productId) {
         return res.status(400).json({ error: 'userId and productId are required' });
     }
+    const actor = await authorizeCartActor(req, res, userId);
+    if (!actor) return;
 
     const conflict = await checkHostelConflict(userId, productId);
     if (conflict.hasConflict) {
@@ -172,9 +210,11 @@ router.put('/:id', async (req, res) => {
     if (quantity === undefined) {
         return res.status(400).json({ error: 'quantity is required' });
     }
+    const actor = await authorizeCartActor(req, res, userId);
+    if (!actor) return;
 
     try {
-        const cart = await supabaseDb.cart.updateItem(id, Number(quantity), userId || 'guest_cart', hostelId);
+        const cart = await supabaseDb.cart.updateItem(id, Number(quantity), userId, hostelId);
         res.json(formatCartResponse(cart));
     } catch (err) {
         res.status(400).json({ error: err.message });
@@ -184,8 +224,11 @@ router.put('/:id', async (req, res) => {
 // DELETE /api/cart/:id (Remove single item by cartId or productId)
 router.delete('/:id', async (req, res) => {
     const { id } = req.params;
-    const userId = req.body?.userId || req.query?.userId || 'guest_cart';
+    const userId = req.body?.userId || req.query?.userId;
     const hostelId = getHostelFromReq(req);
+
+    const actor = await authorizeCartActor(req, res, userId);
+    if (!actor) return;
 
     try {
         if (id && id.startsWith('prod_')) {
@@ -203,6 +246,8 @@ router.delete('/:id', async (req, res) => {
 // DELETE /api/cart/user/:userId (Clear entire cart)
 router.delete('/user/:userId', async (req, res) => {
     const { userId } = req.params;
+    const actor = await authorizeCartActor(req, res, userId);
+    if (!actor) return;
     try {
         await supabaseDb.cart.clearCart(userId);
         res.json({ message: 'Cart cleared successfully', ...formatCartResponse({ items: [] }) });
@@ -217,6 +262,11 @@ router.post('/merge', async (req, res) => {
     const { guestUserId, targetUserId } = req.body;
     if (!guestUserId || !targetUserId) {
         return res.status(400).json({ error: 'guestUserId and targetUserId are required' });
+    }
+    const actor = await authorizeCartActor(req, res, targetUserId);
+    if (!actor) return;
+    if (actor.guestId && actor.guestId !== String(guestUserId).trim() && !actor.isAdmin) {
+        return res.status(403).json({ success: false, code: 'FORBIDDEN_CART_SCOPE', error: 'Guest cart session mismatch.' });
     }
     try {
         const cart = await supabaseDb.cart.mergeCart(guestUserId, targetUserId);

@@ -10,8 +10,17 @@ const orderTrackingSockets = new Map(); // orderId -> Set of ws
 let globalSupabaseChannel = null;
 let statelessSupabaseChannel = null;
 
+function isStatelessServerless() {
+    return Boolean(
+        process.env.VERCEL ||
+        process.env.CLOUDFLARE_WORKERS ||
+        typeof globalThis.WebSocketPair !== 'undefined' ||
+        (typeof globalThis.navigator !== 'undefined' && globalThis.navigator.userAgent === 'Cloudflare-Workers')
+    );
+}
+
 function getSupabaseRealtimeChannel() {
-    if (process.env.VERCEL) return null; // Serverless: avoid persistent WS connections to save Fluid CPU & Realtime slots
+    if (isStatelessServerless()) return null; // Serverless / Workers: avoid persistent WS connections at global/request scope
     if (globalSupabaseChannel) return globalSupabaseChannel;
     try {
         const supabase = getSupabaseClient();
@@ -27,8 +36,8 @@ function getSupabaseRealtimeChannel() {
     return globalSupabaseChannel;
 }
 
-// Proactively initialize Supabase Cloud persistent channel ONLY on persistent servers (never on Vercel Serverless)
-if (!process.env.VERCEL) {
+// Proactively initialize Supabase Cloud persistent channel ONLY on persistent servers (never on Vercel Serverless or Cloudflare Workers)
+if (!isStatelessServerless()) {
     getSupabaseRealtimeChannel();
 }
 
@@ -43,7 +52,7 @@ function getStatelessSupabaseChannel() {
 
 function broadcastToSupabase(event, payload) {
     try {
-        const persistentCh = !process.env.VERCEL ? getSupabaseRealtimeChannel() : null;
+        const persistentCh = !isStatelessServerless() ? getSupabaseRealtimeChannel() : null;
         if (persistentCh && persistentCh.state === 'joined') {
             persistentCh.send({
                 type: 'broadcast',

@@ -1,12 +1,46 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { getSupabaseClient } = require('../supabase');
 
 const AVAILABILITY_FILE = path.join(__dirname, '../data/rider_availability.json');
 const TMP_AVAILABILITY_FILE = path.join(os.tmpdir(), 'lpuquick_rider_availability.json');
 
-// In-memory cache for speed
+// In-memory cache for speed + Supabase persistence across serverless invocations
 let availabilityCache = null;
+
+function syncCacheToCloud() {
+    try {
+        const supabase = getSupabaseClient();
+        if (!supabase || !availabilityCache) return;
+        supabase.from('app_availability').upsert([{
+            id: 'rider_availability_registry',
+            is_locked: false,
+            lock_type: 'RIDER_AVAILABILITY',
+            message: JSON.stringify(availabilityCache),
+            updated_at: new Date().toISOString()
+        }]).then(() => {}).catch(() => {});
+    } catch (e) {}
+}
+
+async function hydrateFromCloud() {
+    try {
+        const supabase = getSupabaseClient();
+        if (!supabase) return;
+        const { data, error } = await supabase
+            .from('app_availability')
+            .select('message')
+            .eq('id', 'rider_availability_registry')
+            .maybeSingle();
+        if (!error && data && data.message) {
+            const parsed = JSON.parse(data.message);
+            if (parsed && typeof parsed === 'object') {
+                availabilityCache = { ...(availabilityCache || {}), ...parsed };
+            }
+        }
+    } catch (e) {}
+}
+hydrateFromCloud().catch(() => {});
 
 function loadCache() {
     try {
@@ -30,6 +64,13 @@ function loadCache() {
 }
 
 function saveCache() {
+    syncCacheToCloud();
+    if (process.env.VERCEL || process.env.CLOUDFLARE_WORKERS) {
+        try {
+            fs.writeFileSync(TMP_AVAILABILITY_FILE, JSON.stringify(availabilityCache || {}, null, 2), 'utf8');
+        } catch (tmpErr) {}
+        return;
+    }
     // 1. Try local project path
     try {
         const dir = path.dirname(AVAILABILITY_FILE);

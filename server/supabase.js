@@ -1,16 +1,16 @@
 const { createClient } = require('@supabase/supabase-js');
 
-const PRODUCTION_PROJECT_REF = 'vltnqvktdlpcltndmmwl';
-const FORBIDDEN_PRODUCTION_REFS = [
+const PRODUCTION_PROJECT_REF = 'dzygsmgdzvroxepwyjyz';
+const REJECTED_LEGACY_REFS = [
     'vltnqvktdlpcltndmmwl',
-    'yojndzstlilzlkxonmvd',
-    'dzygsmgdzvroxepwyjyz'
+    'yojndzstlilzlkxonmvd'
+];
+const FORBIDDEN_PRODUCTION_REFS = [
+    'dzygsmgdzvroxepwyjyz',
+    'vltnqvktdlpcltndmmwl',
+    'yojndzstlilzlkxonmvd'
 ];
 const DEFAULT_SANDBOX_PROJECT_REF = 'mgsxeguulxumfgehpphb';
-
-// Legacy fallback credentials used only in standard non-sandbox/non-preview mode
-const DEFAULT_SUPABASE_URL = `https://${PRODUCTION_PROJECT_REF}.supabase.co`;
-const DEFAULT_SUPABASE_KEY = Buffer.from('c2Jfc2VjcmV0X3BmOTNyWEdpVzY3alp0ektGSWlXR0FfSEhwMmxRVDg=', 'base64').toString('utf8');
 
 function isCloudflareWorker() {
     return (
@@ -26,14 +26,40 @@ function isServerlessRuntime() {
 
 function isSandboxRuntime() {
     const payEnv = String(process.env.PAYMENT_ENVIRONMENT || '').trim().toLowerCase();
-    const vercelEnv = String(process.env.VERCEL_ENV || '').trim().toLowerCase();
-    return payEnv === 'sandbox' || vercelEnv === 'preview';
+    return payEnv === 'sandbox';
 }
 
 function isProductionSupabaseUrl(urlStr) {
     if (!urlStr || typeof urlStr !== 'string') return false;
-    const lower = urlStr.toLowerCase();
-    return FORBIDDEN_PRODUCTION_REFS.some(ref => lower.includes(ref));
+    const lower = urlStr.trim().toLowerCase();
+    return REJECTED_LEGACY_REFS.some(ref => lower.includes(ref)) || lower.includes(PRODUCTION_PROJECT_REF);
+}
+
+function isAuthorizedProductionSupabaseUrl(urlStr) {
+    if (!urlStr || typeof urlStr !== 'string') return false;
+    const lower = urlStr.trim().toLowerCase();
+    if (!lower) return false;
+    if (REJECTED_LEGACY_REFS.some(ref => lower.includes(ref))) return false;
+    if (lower.includes(DEFAULT_SANDBOX_PROJECT_REF)) return false;
+
+    let parsed;
+    try {
+        parsed = new URL(lower);
+    } catch {
+        return false;
+    }
+
+    if (parsed.protocol !== 'https:' || parsed.port || parsed.username || parsed.password) {
+        return false;
+    }
+    if ((parsed.pathname && parsed.pathname !== '/') || parsed.search || parsed.hash) {
+        return false;
+    }
+
+    if (String(process.env.ALLOW_CUSTOM_SUPABASE_REF || '').trim() === '1') {
+        return parsed.hostname.endsWith('.supabase.co');
+    }
+    return parsed.hostname === `${PRODUCTION_PROJECT_REF}.supabase.co`;
 }
 
 function getAllowedSandboxRefs() {
@@ -69,90 +95,84 @@ function isAllowedSandboxSupabaseUrl(urlStr) {
 }
 
 let supabase = null;
+let _supabaseConfigSig = null;
 let _sandboxSupabase = null;
 let _sandboxConfigSig = null;
 
-// Only auto-populate production fallback credentials when NOT running in sandbox or Preview
-if (!isSandboxRuntime()) {
-    if (!process.env.SUPABASE_URL || process.env.SUPABASE_URL.includes('dzygsmgdzvroxepwyjyz') || process.env.SUPABASE_URL.includes('yojndzstlilzlkxonmvd')) {
-        process.env.SUPABASE_URL = DEFAULT_SUPABASE_URL;
-    }
-    if (!process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_URL === DEFAULT_SUPABASE_URL) {
-        process.env.SUPABASE_SERVICE_ROLE_KEY = DEFAULT_SUPABASE_KEY;
-    }
+function isConfiguredCredential(val) {
+    const s = String(val || '').trim();
+    return Boolean(s && !s.includes('your-') && !s.includes('<'));
 }
 
-if (!process.env.JWT_SECRET && !isSandboxRuntime()) {
-    process.env.JWT_SECRET = Buffer.from('bHB1cXVpY2tfc2VjcmV0X2p3dF9rZXlfMjAyNg==', 'base64').toString('utf8');
+function createSupabaseAdminClient(url, key) {
+    return createClient(url, key, {
+        auth: {
+            persistSession: false,
+            autoRefreshToken: false
+        }
+    });
 }
 
 if (!isSandboxRuntime()) {
-    const supabaseUrl = process.env.SUPABASE_URL || DEFAULT_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || DEFAULT_SUPABASE_KEY;
+    const supabaseUrl = String(process.env.SUPABASE_URL || '').trim();
+    const supabaseKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
 
-    if (supabaseUrl && supabaseKey && !supabaseKey.includes('your-')) {
-        try {
-            supabase = createClient(supabaseUrl, supabaseKey, {
-                auth: {
-                    persistSession: false,
-                    autoRefreshToken: false
-                }
-            });
-            console.log('[Supabase] Client initialized successfully');
-        } catch (err) {
-            console.error('[Supabase] Failed to initialize client');
+    if (isConfiguredCredential(supabaseUrl) && isConfiguredCredential(supabaseKey)) {
+        if (!isAuthorizedProductionSupabaseUrl(supabaseUrl)) {
+            console.error(`[Supabase] Refused to initialize unauthorized Supabase URL. Only project ref "${PRODUCTION_PROJECT_REF}" is authorized.`);
+        } else {
+            try {
+                supabase = createSupabaseAdminClient(supabaseUrl, supabaseKey);
+                _supabaseConfigSig = `${supabaseUrl}::${supabaseKey.length}`;
+                console.log(`[Supabase] Client initialized successfully for authorized project "${PRODUCTION_PROJECT_REF}"`);
+            } catch (err) {
+                console.error('[Supabase] Failed to initialize client');
+            }
         }
     } else {
-        console.warn('[Supabase] Credentials not configured in .env. Client in standby mode.');
+        console.warn('[Supabase] Credentials not configured in environment. Client in standby mode.');
     }
 } else {
-    console.log('[Supabase] Sandbox/Preview isolation active: production database fallback disabled.');
+    console.log('[Supabase] Sandbox isolation active: production database fallback disabled.');
 }
 
 /**
- * Get the standard Supabase client.
- * Fails closed (returns null) when in sandbox/preview mode pointing to the production database.
+ * Get the standard Supabase client lazily from environment variables.
+ * Never falls back to hardcoded keys, and fails closed if URL is unauthorized or sandbox isolation is active.
  */
 function getSupabaseClient() {
+    const envUrl = String(process.env.SUPABASE_URL || '').trim();
+    const envKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+
+    if (!isConfiguredCredential(envUrl) || !isConfiguredCredential(envKey)) {
+        return null;
+    }
+
     if (isSandboxRuntime()) {
-        const envUrl = String(process.env.SUPABASE_URL || '').trim();
-        const envKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
-        if (!envUrl || !envKey || !isAllowedSandboxSupabaseUrl(envUrl)) {
+        if (!isAllowedSandboxSupabaseUrl(envUrl)) {
             return null;
         }
-        if (supabase) return supabase;
-        supabase = createClient(envUrl, envKey, {
-            auth: { persistSession: false, autoRefreshToken: false }
-        });
-        return supabase;
+    } else if (!isAuthorizedProductionSupabaseUrl(envUrl)) {
+        return null;
     }
 
-    if (supabase) return supabase;
-
-    const url = process.env.SUPABASE_URL || DEFAULT_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || DEFAULT_SUPABASE_KEY;
-
-    if (url && key && !key.includes('your-')) {
-        supabase = createClient(url, key, {
-            auth: {
-                persistSession: false,
-                autoRefreshToken: false
-            }
-        });
-        return supabase;
+    const sig = `${envUrl}::${envKey.length}`;
+    if (!supabase || _supabaseConfigSig !== sig) {
+        supabase = createSupabaseAdminClient(envUrl, envKey);
+        _supabaseConfigSig = sig;
     }
-    return null;
+    return supabase;
 }
 
 /**
  * Resolve dedicated Sandbox Supabase client strictly from SANDBOX_SUPABASE_URL + SANDBOX_SUPABASE_SERVICE_ROLE_KEY.
- * Never falls back to production credentials or DEFAULT_SUPABASE_URL, and enforces the explicit sandbox allowlist.
+ * Never falls back to production credentials, and enforces the explicit sandbox allowlist.
  */
 function getSandboxSupabaseClient() {
     const sandboxUrl = String(process.env.SANDBOX_SUPABASE_URL || '').trim();
     const sandboxKey = String(process.env.SANDBOX_SUPABASE_SERVICE_ROLE_KEY || '').trim();
 
-    if (!sandboxUrl || !sandboxKey || sandboxKey.includes('your-') || sandboxKey.includes('<')) {
+    if (!isConfiguredCredential(sandboxUrl) || !isConfiguredCredential(sandboxKey)) {
         return null;
     }
     if (!isAllowedSandboxSupabaseUrl(sandboxUrl)) {
@@ -161,12 +181,7 @@ function getSandboxSupabaseClient() {
 
     const sig = `${sandboxUrl}::${sandboxKey.length}`;
     if (!_sandboxSupabase || _sandboxConfigSig !== sig) {
-        _sandboxSupabase = createClient(sandboxUrl, sandboxKey, {
-            auth: {
-                persistSession: false,
-                autoRefreshToken: false
-            }
-        });
+        _sandboxSupabase = createSupabaseAdminClient(sandboxUrl, sandboxKey);
         _sandboxConfigSig = sig;
     }
     return _sandboxSupabase;
@@ -174,6 +189,7 @@ function getSandboxSupabaseClient() {
 
 module.exports = {
     PRODUCTION_PROJECT_REF,
+    REJECTED_LEGACY_REFS,
     FORBIDDEN_PRODUCTION_REFS,
     DEFAULT_SANDBOX_PROJECT_REF,
     getAllowedSandboxRefs,
@@ -181,6 +197,7 @@ module.exports = {
     isServerlessRuntime,
     isSandboxRuntime,
     isProductionSupabaseUrl,
+    isAuthorizedProductionSupabaseUrl,
     isAllowedSandboxSupabaseUrl,
     supabase,
     getSupabaseClient,

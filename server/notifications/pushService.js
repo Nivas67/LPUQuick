@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const webpush = require('web-push');
 const { isRiderOnline } = require('../services/riderAvailability');
+const { getSupabaseClient } = require('../supabase');
 
 // Directory paths
 const CONFIG_DIR = path.join(__dirname, '..', 'config');
@@ -17,41 +18,56 @@ try {
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 } catch (e) {}
 
-// Stable fallback VAPID keys for zero-config and read-only serverless environments
-const DEFAULT_VAPID_KEYS = {
-    publicKey: 'BIbDYL9eYQn5V-yONZGWuMURDwAvuG8liBT7SNmQxeVHA62Qo4I2LgGSZdYRrVfW5UGAeGAjoZE5ThGTXdITl0E',
-    privateKey: '4aBeU8au19rwlm_aTMDoNQieTg6fLFHR1OYI6QpIdss'
-};
+// Resolve VAPID credentials lazily from runtime environment (or local unversioned dev config)
+// Never ships hardcoded private keys in source control.
+let _configuredVapidSig = '';
 
-// Load or generate stable VAPID keys
-let vapidKeys = DEFAULT_VAPID_KEYS;
-if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
-    vapidKeys = {
-        publicKey: process.env.VAPID_PUBLIC_KEY,
-        privateKey: process.env.VAPID_PRIVATE_KEY
-    };
-} else {
-    try {
-        if (fs.existsSync(VAPID_FILE)) {
-            vapidKeys = JSON.parse(fs.readFileSync(VAPID_FILE, 'utf8'));
-        } else {
-            vapidKeys = DEFAULT_VAPID_KEYS;
-            try {
-                fs.writeFileSync(VAPID_FILE, JSON.stringify(vapidKeys, null, 2));
-            } catch (wErr) {}
-        }
-    } catch (e) {
-        vapidKeys = DEFAULT_VAPID_KEYS;
+function resolveVapidConfig() {
+    const envPublic = String(process.env.VAPID_PUBLIC_KEY || '').trim();
+    const envPrivate = String(process.env.VAPID_PRIVATE_KEY || '').trim();
+    const subject = String(process.env.VAPID_SUBJECT || 'mailto:admin@lpu.in').trim() || 'mailto:admin@lpu.in';
+
+    if (envPublic && envPrivate) {
+        return { publicKey: envPublic, privateKey: envPrivate, subject };
     }
+
+    if (process.env.NODE_ENV !== 'production') {
+        try {
+            if (fs.existsSync(VAPID_FILE)) {
+                const fileKeys = JSON.parse(fs.readFileSync(VAPID_FILE, 'utf8'));
+                if (fileKeys && fileKeys.publicKey && fileKeys.privateKey) {
+                    return {
+                        publicKey: String(fileKeys.publicKey).trim(),
+                        privateKey: String(fileKeys.privateKey).trim(),
+                        subject
+                    };
+                }
+            }
+        } catch (e) {}
+    }
+
+    return null;
 }
 
-// Configure web-push with VAPID details
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:admin@lpu.in';
-try {
-    webpush.setVapidDetails(VAPID_SUBJECT, vapidKeys.publicKey, vapidKeys.privateKey);
-} catch (vErr) {
-    console.warn('[Push Service] VAPID configuration note:', vErr.message);
+function ensureWebPushConfigured() {
+    const cfg = resolveVapidConfig();
+    if (!cfg || !cfg.publicKey || !cfg.privateKey) {
+        return null;
+    }
+    const sig = `${cfg.subject}:${cfg.publicKey}:${cfg.privateKey.length}`;
+    if (_configuredVapidSig !== sig) {
+        try {
+            webpush.setVapidDetails(cfg.subject, cfg.publicKey, cfg.privateKey);
+            _configuredVapidSig = sig;
+        } catch (vErr) {
+            console.warn('[Push Service] VAPID configuration note:', vErr.message);
+            return null;
+        }
+    }
+    return cfg;
 }
+
+ensureWebPushConfigured();
 
 // In-memory subscription cache synced to disk
 let subscriptions = [];
@@ -63,7 +79,50 @@ try {
     subscriptions = [];
 }
 
+function syncSubscriptionsToCloud() {
+    try {
+        const supabase = getSupabaseClient();
+        if (!supabase) return;
+        supabase.from('app_availability').upsert([{
+            id: 'push_subscriptions_registry',
+            is_locked: false,
+            lock_type: 'PUSH_SUBSCRIPTIONS',
+            message: JSON.stringify(subscriptions),
+            updated_at: new Date().toISOString()
+        }]).then(() => {}).catch(() => {});
+    } catch (e) {}
+}
+
+async function hydrateSubscriptionsFromCloud() {
+    try {
+        const supabase = getSupabaseClient();
+        if (!supabase) return;
+        const { data, error } = await supabase
+            .from('app_availability')
+            .select('message')
+            .eq('id', 'push_subscriptions_registry')
+            .maybeSingle();
+        if (!error && data && data.message) {
+            const parsed = JSON.parse(data.message);
+            if (Array.isArray(parsed)) {
+                const byEndpoint = new Map(subscriptions.map(s => [s.endpoint, s]));
+                parsed.forEach(s => { if (s && s.endpoint && !byEndpoint.has(s.endpoint)) byEndpoint.set(s.endpoint, s); });
+                subscriptions = Array.from(byEndpoint.values());
+            }
+        }
+    } catch (e) {}
+}
+hydrateSubscriptionsFromCloud().catch(() => {});
+
 function persistSubscriptions() {
+    syncSubscriptionsToCloud();
+    if (process.env.VERCEL || process.env.CLOUDFLARE_WORKERS) {
+        try {
+            const tmpFile = path.join(require('os').tmpdir(), 'push_subscriptions.json');
+            fs.writeFileSync(tmpFile, JSON.stringify(subscriptions, null, 2));
+        } catch (tmpErr) {}
+        return;
+    }
     try {
         fs.writeFileSync(SUBS_FILE, JSON.stringify(subscriptions, null, 2));
     } catch (e) {
@@ -76,7 +135,8 @@ function persistSubscriptions() {
 
 class PushNotificationService {
     getPublicKey() {
-        return vapidKeys.publicKey;
+        const cfg = resolveVapidConfig();
+        return cfg ? cfg.publicKey : null;
     }
 
     saveSubscription(subscription, adminInfo = {}) {
@@ -188,6 +248,10 @@ class PushNotificationService {
 
     async sendPush(subEntry, payload) {
         try {
+            const cfg = ensureWebPushConfigured();
+            if (!cfg) {
+                return false;
+            }
             const pushSubscription = {
                 endpoint: subEntry.endpoint,
                 keys: subEntry.keys

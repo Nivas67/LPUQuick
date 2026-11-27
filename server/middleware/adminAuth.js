@@ -1,9 +1,26 @@
 const crypto = require('crypto');
 const supabaseDb = require('../db/supabaseDb');
 
-// Server secret key for HMAC token signing (falls back to resilient stable server secret)
-const FALLBACK_HMAC_SECRET = Buffer.from('bHB1cXVpY2tfc2VjdXJlX2FkbWluX2F1dGhfaG1hY18yMDI2', 'base64').toString('utf8');
-const ADMIN_AUTH_SECRET = process.env.JWT_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || FALLBACK_HMAC_SECRET;
+/**
+ * Resolve HMAC signing secret lazily so Cloudflare Worker env bindings work seamlessly.
+ * Fails closed without any hardcoded secret fallback.
+ */
+function getAdminSigningSecret() {
+    return String(
+        process.env.ADMIN_SESSION_SECRET ||
+        process.env.JWT_SECRET ||
+        process.env.SUPABASE_SERVICE_ROLE_KEY ||
+        ''
+    ).trim();
+}
+
+function getAdminCandidateSecrets() {
+    return Array.from(new Set([
+        process.env.ADMIN_SESSION_SECRET,
+        process.env.JWT_SECRET,
+        process.env.SUPABASE_SERVICE_ROLE_KEY
+    ].map(s => String(s || '').trim()).filter(Boolean)));
+}
 
 /**
  * Generate a cryptographically signed HMAC token for an authenticated administrator.
@@ -69,6 +86,11 @@ async function setSessionRevocationEpoch(epoch) {
 }
 
 function generateAdminToken(adminId, role = 'admin') {
+    const signingSecret = getAdminSigningSecret();
+    if (!signingSecret) {
+        throw new Error('Admin session signing secret is not configured.');
+    }
+
     const header = { alg: 'HS256', typ: 'JWT' };
     const payload = {
         sub: adminId,
@@ -82,21 +104,12 @@ function generateAdminToken(adminId, role = 'admin') {
     const dataToSign = `${encodedHeader}.${encodedPayload}`;
 
     const signature = crypto
-        .createHmac('sha256', ADMIN_AUTH_SECRET)
+        .createHmac('sha256', signingSecret)
         .update(dataToSign)
         .digest('base64url');
 
     return `lpuquick_adm_${dataToSign}.${signature}`;
 }
-
-// Allowed candidate secrets for signature validation across environment configurations
-const CANDIDATE_SECRETS = Array.from(new Set([
-    process.env.JWT_SECRET,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    ADMIN_AUTH_SECRET,
-    FALLBACK_HMAC_SECRET,
-    Buffer.from('bHB1cXVpY2tfc2VjcmV0X2p3dF9rZXlfMjAyNg==', 'base64').toString('utf8')
-].filter(Boolean)));
 
 /**
  * Verify HMAC token and return decoded payload if signature is valid and unexpired.
@@ -121,8 +134,11 @@ function verifyAdminToken(tokenString) {
     const [encodedHeader, encodedPayload, receivedSignature] = parts;
     const dataToSign = `${encodedHeader}.${encodedPayload}`;
 
+    const candidateSecrets = getAdminCandidateSecrets();
+    if (candidateSecrets.length === 0) return null;
+
     let isSignatureValid = false;
-    for (const secret of CANDIDATE_SECRETS) {
+    for (const secret of candidateSecrets) {
         const expectedSignature = crypto
             .createHmac('sha256', secret)
             .update(dataToSign)

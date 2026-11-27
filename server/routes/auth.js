@@ -3,19 +3,123 @@ const router = express.Router();
 const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const supabaseDb = require('../db/supabaseDb');
-const { getSupabaseClient } = require('../supabase');
+const _supabaseMod = require('../supabase');
+const getSupabaseClient = (...args) => _supabaseMod.getSupabaseClient(...args);
 const { generateAdminToken, verifyAdminToken, resolveAdminRoles, staffUserCache, KNOWN_STAFF_FALLBACKS } = require('../middleware/adminAuth');
 const {
     checkLoginRateLimit,
     recordFailedLogin,
     recordSuccessfulLogin,
+    checkLoginRateLimitPersistent,
+    recordFailedLoginPersistent,
+    recordSuccessfulLoginPersistent,
     hashPassword,
     verifyPassword
 } = require('../services/securityService');
 const ipBlockService = require('../services/ipBlockService');
+const { verifyTurnstileMiddleware } = require('../services/turnstileService');
+const {
+    issueCustomerSessionToken,
+    setCustomerSessionCookie,
+    clearCustomerSessionCookie,
+    resolveRequestActor,
+    isOwnerMatch
+} = require('../services/customerAuth');
 
-// POST /api/auth/signin
-router.post('/signin', async (req, res) => {
+function buildCustomerUserPayload(user, { isBlocked = false, blockReason = null, blockedAt = null, picture = '' } = {}) {
+    return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone || '',
+        picture: picture || '',
+        role: user.role || 'student',
+        account_status: isBlocked ? 'BLOCKED' : 'ACTIVE',
+        block_reason: isBlocked ? blockReason : null,
+        blocked_at: blockedAt
+    };
+}
+
+async function resolveUserBlacklistStatus(user) {
+    let isBlocked = user?.account_status === 'BLOCKED';
+    let blockReason = user?.block_reason || (isBlocked ? 'Fake Orders' : null);
+    let blockedAt = user?.blocked_at || null;
+    try {
+        const blacklistCheck = await supabaseDb.blacklist.isUserBlacklisted(user.id);
+        if (blacklistCheck?.isBlacklisted) {
+            isBlocked = true;
+            blockReason = user?.block_reason || blacklistCheck.reason || 'Fake Orders';
+            blockedAt = user?.blocked_at || blacklistCheck.blocked_at || null;
+        }
+    } catch {}
+    return { isBlocked, blockReason, blockedAt };
+}
+
+function sendAuthenticatedCustomerSession(res, req, user, opts = {}) {
+    const token = issueCustomerSessionToken(user);
+    if (token) {
+        setCustomerSessionCookie(res, req, token);
+    }
+    return res.json({
+        success: true,
+        ...(token ? { token } : {}),
+        user: buildCustomerUserPayload(user, opts),
+        ...(opts.message ? { message: opts.message } : {})
+    });
+}
+
+// POST /api/auth/signup (Explicit student account registration)
+router.post('/signup', verifyTurnstileMiddleware({ action: 'customer_signup' }), async (req, res) => {
+    const { name, email, password, phone } = req.body;
+    if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
+        return res.status(400).json({ error: 'Valid email and password are required' });
+    }
+    if (password.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    }
+
+    const trimmedEmail = email.trim().toLowerCase();
+    const clientIp = (typeof ipBlockService?.extractClientIp === 'function' ? ipBlockService.extractClientIp(req) : null) || req.ip || '127.0.0.1';
+    const rateCheck = await checkLoginRateLimitPersistent(trimmedEmail, clientIp);
+    if (rateCheck.locked) {
+        return res.status(429).json({
+            success: false,
+            code: 'LOGIN_RATE_LIMITED',
+            error: rateCheck.error,
+            retry_after: rateCheck.remainingSeconds
+        });
+    }
+
+    try {
+        const existing = await supabaseDb.users.getByIdentifier(trimmedEmail);
+        if (existing) {
+            return res.status(409).json({ error: 'An account with this email already exists. Please sign in.' });
+        }
+
+        const id = `user_${uuidv4().slice(0, 8)}`;
+        const rawName = (typeof name === 'string' && name.trim()) ? name.trim() : trimmedEmail.split('@')[0].replace(/[._]/g, ' ');
+        const displayName = rawName.charAt(0).toUpperCase() + rawName.slice(1) || 'LPU Student';
+        const cleanPhone = phone ? String(phone).replace(/\D/g, '').slice(-10) : null;
+
+        const user = await supabaseDb.users.createUser({
+            id,
+            name: displayName,
+            email: trimmedEmail,
+            phone: cleanPhone && cleanPhone.length === 10 ? cleanPhone : null,
+            password_hash: hashPassword(password),
+            role: 'student'
+        });
+
+        await recordSuccessfulLoginPersistent(trimmedEmail, clientIp);
+        return sendAuthenticatedCustomerSession(res, req, user, { message: 'Welcome to LPUQuick!' });
+    } catch (err) {
+        console.error('[Customer Signup Error]:', err.message);
+        return res.status(500).json({ error: 'Could not create account. Please try again.' });
+    }
+});
+
+// POST /api/auth/signin (Strict verified email/password login — no auto-create on typo)
+router.post('/signin', verifyTurnstileMiddleware({ action: 'customer_signin' }), async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -25,8 +129,8 @@ router.post('/signin', async (req, res) => {
     const trimmedEmail = email.trim().toLowerCase();
     const clientIp = (typeof ipBlockService?.extractClientIp === 'function' ? ipBlockService.extractClientIp(req) : null) || req.ip || '127.0.0.1';
 
-    // 1. Rate limiting check: 5 attempts -> 15 min lock
-    const rateCheck = checkLoginRateLimit(trimmedEmail, clientIp);
+    // 1. Rate limiting check: 5 attempts -> 15 min lock (persistent across serverless invocations)
+    const rateCheck = await checkLoginRateLimitPersistent(trimmedEmail, clientIp);
     if (rateCheck.locked) {
         return res.status(429).json({
             success: false,
@@ -40,34 +144,8 @@ router.post('/signin', async (req, res) => {
         let user = await supabaseDb.users.getByIdentifier(trimmedEmail);
 
         if (!user) {
-            // Auto-register new student with secure Bcrypt hash
-            const id = `user_${uuidv4().slice(0, 8)}`;
-            const rawName = trimmedEmail.split('@')[0].replace(/[._]/g, ' ');
-            const displayName = rawName.charAt(0).toUpperCase() + rawName.slice(1) || 'LPU Student';
-
-            user = await supabaseDb.users.createUser({
-                id,
-                name: displayName,
-                email: trimmedEmail,
-                phone: req.body.phone || null,
-                password_hash: hashPassword(password),
-                role: 'student'
-            });
-
-            recordSuccessfulLogin(trimmedEmail, clientIp);
-
-            return res.json({
-                success: true,
-                user: {
-                    id: user.id,
-                    name: user.name,
-                    email: user.email,
-                    phone: user.phone,
-                    role: user.role || 'student',
-                    account_status: user.account_status || 'ACTIVE'
-                },
-                message: 'Welcome to LPUQuick!'
-            });
+            await recordFailedLoginPersistent(trimmedEmail, clientIp);
+            return res.status(401).json({ error: 'Invalid email or password. Please check and try again.' });
         }
 
         // Disallow password sign-in for Google-registered accounts
@@ -78,12 +156,12 @@ router.post('/signin', async (req, res) => {
         // Verify password using secure constant-time / bcrypt check
         const verifyRes = verifyPassword(password, user.password_hash);
         if (!verifyRes.isValid) {
-            recordFailedLogin(trimmedEmail, clientIp);
+            await recordFailedLoginPersistent(trimmedEmail, clientIp);
             return res.status(401).json({ error: 'Invalid email or password. Please check and try again.' });
         }
 
         // Login successful: reset rate limit tracking
-        recordSuccessfulLogin(trimmedEmail, clientIp);
+        await recordSuccessfulLoginPersistent(trimmedEmail, clientIp);
 
         // Seamless auto-upgrade of legacy password hash to Bcrypt
         if (verifyRes.needsUpgrade) {
@@ -96,77 +174,45 @@ router.post('/signin', async (req, res) => {
             } catch (e) {}
         }
 
-        // Check if user is blacklisted / blocked
-        const blacklistCheck = await supabaseDb.blacklist.isUserBlacklisted(user.id);
-        const isBlocked = user.account_status === 'BLOCKED' || blacklistCheck.isBlacklisted;
-        const blockReason = user.block_reason || blacklistCheck.reason || 'Fake Orders';
+        const bl = await resolveUserBlacklistStatus(user);
 
         // Record active customer login timestamp
         supabaseDb.users.recordCustomerLogin(user.id).catch(() => {});
 
-        res.json({
-            success: true,
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                phone: user.phone,
-                role: user.role || 'student',
-                account_status: isBlocked ? 'BLOCKED' : 'ACTIVE',
-                block_reason: isBlocked ? blockReason : null,
-                blocked_at: user.blocked_at || blacklistCheck.blocked_at || null
-            }
-        });
+        return sendAuthenticatedCustomerSession(res, req, user, bl);
     } catch (err) {
         res.status(500).json({ error: 'An error occurred during sign in. Please try again.' });
     }
 });
 
-// Helper function to decode JWT claims
-function decodeGoogleJwt(token) {
-    try {
-        const parts = token.split('.');
-        if (parts.length !== 3) return null;
-        const payload = Buffer.from(parts[1], 'base64').toString('utf8');
-        return JSON.parse(payload);
-    } catch (e) {
-        return null;
-    }
-}
-
 // POST /api/auth/google
-router.post('/google', async (req, res) => {
+router.post('/google', verifyTurnstileMiddleware({ action: 'google_signin' }), async (req, res) => {
     try {
         let email = '';
         let name = '';
         let picture = '';
+        const configuredClientId = String(process.env.GOOGLE_CLIENT_ID || '').trim();
 
-        // 1. Verify via Google ID Token (credential)
+        // 1. Verify via Google ID Token (credential) server-side; never fall back to unverified JWT decoding
         if (req.body.credential && typeof req.body.credential === 'string') {
             try {
                 const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 3500);
+                const timeout = setTimeout(() => controller.abort(), 5000);
                 const tokenRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(req.body.credential)}`, {
                     signal: controller.signal
                 });
                 clearTimeout(timeout);
                 if (tokenRes.ok) {
                     const tokenData = await tokenRes.json();
-                    if (tokenData && tokenData.email && (tokenData.email_verified === 'true' || tokenData.email_verified === true)) {
+                    const audienceOk = !configuredClientId || tokenData.aud === configuredClientId;
+                    if (tokenData && tokenData.email && audienceOk && (tokenData.email_verified === 'true' || tokenData.email_verified === true)) {
                         email = tokenData.email;
                         name = tokenData.name || tokenData.given_name || '';
                         picture = tokenData.picture || '';
                     }
                 }
             } catch (netErr) {
-                // If offline or network timeout, inspect decoded token claims
-                const decoded = decodeGoogleJwt(req.body.credential);
-                const allowedIssuers = ['accounts.google.com', 'https://accounts.google.com'];
-                if (decoded && decoded.email && allowedIssuers.includes(decoded.iss) && (!decoded.exp || decoded.exp > (Date.now() / 1000))) {
-                    email = decoded.email;
-                    name = decoded.name || decoded.given_name || '';
-                    picture = decoded.picture || '';
-                }
+                console.warn('[Server Google Tokeninfo Fetch Warning]:', netErr.message);
             }
         }
 
@@ -174,7 +220,7 @@ router.post('/google', async (req, res) => {
         if (!email && req.body.access_token && typeof req.body.access_token === 'string') {
             try {
                 const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 3500);
+                const timeout = setTimeout(() => controller.abort(), 5000);
                 const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
                     headers: { Authorization: `Bearer ${req.body.access_token}` },
                     signal: controller.signal
@@ -200,12 +246,7 @@ router.post('/google', async (req, res) => {
 
         const trimmedEmail = String(email).trim().toLowerCase();
 
-        let user = null;
-        try {
-            user = await supabaseDb.users.getByIdentifier(trimmedEmail);
-        } catch (dbFetchErr) {
-            console.warn('[Google Auth DB Fetch Warning]:', dbFetchErr.message);
-        }
+        let user = await supabaseDb.users.getByIdentifier(trimmedEmail);
 
         if (!user) {
             // Auto-register new verified student via Google OAuth
@@ -213,26 +254,14 @@ router.post('/google', async (req, res) => {
             const rawName = name || trimmedEmail.split('@')[0].replace(/[._]/g, ' ');
             const displayName = rawName.charAt(0).toUpperCase() + rawName.slice(1) || 'LPU Student';
 
-            try {
-                user = await supabaseDb.users.createUser({
-                    id,
-                    name: displayName,
-                    email: trimmedEmail,
-                    phone: null,
-                    password_hash: 'google_oauth',
-                    role: 'student'
-                });
-            } catch (dbCreateErr) {
-                console.warn('[Google Auth DB Create Fallback]:', dbCreateErr.message);
-                user = {
-                    id,
-                    name: displayName,
-                    email: trimmedEmail,
-                    phone: '',
-                    role: 'student',
-                    account_status: 'ACTIVE'
-                };
-            }
+            user = await supabaseDb.users.createUser({
+                id,
+                name: displayName,
+                email: trimmedEmail,
+                phone: null,
+                password_hash: 'google_oauth',
+                role: 'student'
+            });
         } else if (name && name.length > 1) {
             // Update name if existing user record has generic name
             const currentName = user.name || '';
@@ -257,39 +286,83 @@ router.post('/google', async (req, res) => {
             supabaseDb.users.recordCustomerLogin(user.id).catch(() => {});
         }
 
-        // Check if user is blacklisted / blocked
-        let isBlocked = false;
-        let blockReason = null;
-        let blockedAt = null;
-        try {
-            const blacklistCheck = await supabaseDb.blacklist.isUserBlacklisted(user.id);
-            isBlocked = user.account_status === 'BLOCKED' || Boolean(blacklistCheck.isBlacklisted);
-            blockReason = user.block_reason || blacklistCheck.reason || (isBlocked ? 'Fake Orders' : null);
-            blockedAt = user.blocked_at || blacklistCheck.blocked_at || null;
-        } catch (blErr) {
-            isBlocked = user.account_status === 'BLOCKED';
-            blockReason = user.block_reason || null;
-            blockedAt = user.blocked_at || null;
-        }
-
-        return res.json({
-            success: true,
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                phone: user.phone || '',
-                picture: picture || '',
-                role: user.role || 'student',
-                account_status: isBlocked ? 'BLOCKED' : 'ACTIVE',
-                block_reason: isBlocked ? blockReason : null,
-                blocked_at: blockedAt
-            }
-        });
+        const bl = await resolveUserBlacklistStatus(user);
+        return sendAuthenticatedCustomerSession(res, req, user, { ...bl, picture });
     } catch (err) {
         console.error('[Google Auth Error]:', err.message);
         return res.status(500).json({ error: 'Authentication failed. Please try signing in again.' });
     }
+});
+
+// POST /api/auth/supabase-session (Exchange verified Supabase Auth access_token for server HttpOnly session cookie)
+router.post('/supabase-session', async (req, res) => {
+    const accessToken = req.body?.access_token || req.headers?.authorization || '';
+    const supabase = getSupabaseClient();
+    if (!supabase || !supabase.auth || typeof supabase.auth.getUser !== 'function') {
+        return res.status(503).json({ success: false, code: 'SUPABASE_NOT_CONFIGURED', error: 'Supabase authentication service unavailable.' });
+    }
+    const clean = String(accessToken).replace(/^Bearer\s+/i, '').trim();
+    if (!clean) {
+        return res.status(400).json({ success: false, error: 'access_token is required' });
+    }
+
+    try {
+        const { data, error } = await supabase.auth.getUser(clean);
+        if (error || !data || !data.user || !data.user.email) {
+            return res.status(401).json({ success: false, code: 'INVALID_SUPABASE_TOKEN', error: 'Invalid or expired Supabase session.' });
+        }
+        const trimmedEmail = String(data.user.email).trim().toLowerCase();
+        let user = await supabaseDb.users.getByIdentifier(trimmedEmail);
+        if (!user) {
+            const id = `user_${uuidv4().slice(0, 8)}`;
+            const rawName = (data.user.user_metadata?.full_name || trimmedEmail.split('@')[0]).replace(/[._]/g, ' ');
+            const displayName = rawName.charAt(0).toUpperCase() + rawName.slice(1) || 'LPU Student';
+            user = await supabaseDb.users.createUser({
+                id,
+                name: displayName,
+                email: trimmedEmail,
+                phone: null,
+                password_hash: 'supabase_auth',
+                role: 'student'
+            });
+        }
+        const bl = await resolveUserBlacklistStatus(user);
+        return sendAuthenticatedCustomerSession(res, req, user, bl);
+    } catch (err) {
+        console.error('[Supabase Session Error]:', err.message);
+        return res.status(500).json({ success: false, error: 'Failed to verify Supabase session.' });
+    }
+});
+
+// GET /api/auth/session (Authoritative server-side session verification)
+router.get('/session', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, private');
+    try {
+        const actor = await resolveRequestActor(req);
+        if (!actor.isCustomer && !actor.isAdmin) {
+            return res.json({ authenticated: false, user: null });
+        }
+        const user = await supabaseDb.users.getById(actor.userId);
+        if (!user || user.account_status === 'DISABLED') {
+            clearCustomerSessionCookie(res, req);
+            return res.json({ authenticated: false, user: null });
+        }
+        const bl = await resolveUserBlacklistStatus(user);
+        return res.json({
+            authenticated: true,
+            authMethod: actor.authMethod,
+            user: buildCustomerUserPayload(user, bl)
+        });
+    } catch (err) {
+        return res.status(500).json({ authenticated: false, user: null });
+    }
+});
+
+// POST /api/auth/logout (Clears HttpOnly customer & admin session cookies)
+router.post('/logout', (req, res) => {
+    clearCustomerSessionCookie(res, req);
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.json({ success: true, message: 'Signed out cleanly.' });
 });
 
 // GET /api/auth/check-status/:userId (Lightweight check for blocked account status)
@@ -308,10 +381,18 @@ router.get('/check-status/:userId', async (req, res) => {
     }
 });
 
-// POST /api/auth/update-address (Save campus delivery hostel & room address)
+// POST /api/auth/update-address (Save campus delivery hostel & room address; verified owner or admin only)
 router.post('/update-address', async (req, res) => {
     const { userId, hostel, block, room, phone } = req.body;
     if (!userId) return res.status(400).json({ error: 'userId is required' });
+
+    const actor = await resolveRequestActor(req);
+    if (!actor.isAdmin && !actor.isCustomer) {
+        return res.status(401).json({ success: false, code: 'AUTH_REQUIRED', error: 'Authentication required to update delivery address.' });
+    }
+    if (!isOwnerMatch(actor, userId)) {
+        return res.status(403).json({ success: false, code: 'FORBIDDEN', error: 'You cannot modify another user\'s address.' });
+    }
 
     // Check if user is blocked
     const blCheck = await supabaseDb.blacklist.isUserBlacklisted(userId);
@@ -352,7 +433,7 @@ router.post('/update-address', async (req, res) => {
 });
 
 // POST /api/auth/admin-login (Secure administrator authentication)
-router.post('/admin-login', async (req, res) => {
+router.post('/admin-login', verifyTurnstileMiddleware({ action: 'admin_login' }), async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
@@ -363,7 +444,7 @@ router.post('/admin-login', async (req, res) => {
     const clientIp = (typeof ipBlockService?.extractClientIp === 'function' ? ipBlockService.extractClientIp(req) : null) || req.ip || '127.0.0.1';
 
     // 1. Rate Limit Check: Limit login attempts. After 5 incorrect attempts, lock for 15 minutes
-    const rateCheck = checkLoginRateLimit(trimmedEmail, clientIp);
+    const rateCheck = await checkLoginRateLimitPersistent(trimmedEmail, clientIp);
     if (rateCheck.locked) {
         return res.status(429).json({
             success: false,
@@ -384,7 +465,7 @@ router.post('/admin-login', async (req, res) => {
 
         // Generic error message: Avoid revealing whether email or password is incorrect
         if (!user || (user.role !== 'admin' && user.role !== 'owner')) {
-            const failRes = recordFailedLogin(trimmedEmail, clientIp);
+            const failRes = await recordFailedLoginPersistent(trimmedEmail, clientIp);
             console.warn(`[SECURITY AUDIT] ADMIN_LOGIN_FAILED: User not found or not admin | email: ${trimmedEmail} | ip: ${clientIp} | attempt: ${failRes.attempts}`);
             if (failRes.attempts >= 3) {
                 console.warn(`[SECURITY AUDIT] SUSPICIOUS_LOGIN_ALERT: ${failRes.attempts} failed login attempts for admin target ${trimmedEmail} from IP ${clientIp}`);
@@ -410,7 +491,7 @@ router.post('/admin-login', async (req, res) => {
         const isPasswordCorrect = verifyRes.isValid || isEnvMatch;
 
         if (!isPasswordCorrect) {
-            const failRes = recordFailedLogin(trimmedEmail, clientIp);
+            const failRes = await recordFailedLoginPersistent(trimmedEmail, clientIp);
             console.warn(`[SECURITY AUDIT] ADMIN_LOGIN_FAILED: Incorrect password | email: ${trimmedEmail} | ip: ${clientIp} | attempt: ${failRes.attempts}`);
             if (failRes.attempts >= 3) {
                 console.warn(`[SECURITY AUDIT] SUSPICIOUS_LOGIN_ALERT: ${failRes.attempts} failed login attempts for admin target ${trimmedEmail} from IP ${clientIp}`);
@@ -423,7 +504,7 @@ router.post('/admin-login', async (req, res) => {
         }
 
         // Success: Clear failed attempts
-        recordSuccessfulLogin(trimmedEmail, clientIp);
+        await recordSuccessfulLoginPersistent(trimmedEmail, clientIp);
 
         // Seamless auto-upgrade of legacy admin password hash to Bcrypt
         if (verifyRes.needsUpgrade) {
@@ -493,7 +574,16 @@ router.post('/admin-login', async (req, res) => {
         } catch (rErr) {}
 
         // Generate cryptographically signed HMAC admin session token
-        const token = generateAdminToken(user.id, 'admin');
+        let token;
+        try {
+            token = generateAdminToken(user.id, 'admin');
+        } catch (secretErr) {
+            return res.status(503).json({
+                success: false,
+                code: 'AUTH_NOT_CONFIGURED',
+                error: 'Administrator session signing secret is not configured.'
+            });
+        }
 
         // Set HttpOnly, Secure, SameSite=Strict cookie for enhanced session protection (Req 10)
         try {
@@ -643,7 +733,7 @@ async function sendRealSms(phone, otp) {
 }
 
 // POST /api/auth/send-otp (Secure WhatsApp OTP generation & delivery)
-router.post('/send-otp', async (req, res) => {
+router.post('/send-otp', verifyTurnstileMiddleware({ action: 'otp_request' }), async (req, res) => {
     const rawPhone = req.body.phone || req.body.mobile;
     const userId = req.body.userId || req.body.user_id;
 
@@ -656,7 +746,7 @@ router.post('/send-otp', async (req, res) => {
         return res.status(400).json({ success: false, error: 'Please enter a valid 10-digit Indian mobile number' });
     }
 
-    // 1. Rate Limiting Check
+    // 1. Rate Limiting Check (memory + Supabase persistent across serverless invocations)
     const rateCheck = checkOtpRateLimit(cleanPhone);
     if (!rateCheck.allowed) {
         return res.status(429).json({
@@ -666,18 +756,56 @@ router.post('/send-otp', async (req, res) => {
         });
     }
 
+    const supabase = getSupabaseClient();
+    if (supabase && typeof supabase.rpc === 'function') {
+        try {
+            const { data: rlData, error: rlErr } = await supabase.rpc('check_and_increment_rate_limit', {
+                p_key: `otp_phone:${cleanPhone}`,
+                p_window_seconds: 600,
+                p_max_hits: 5,
+                p_lock_seconds: 600
+            });
+            const row = Array.isArray(rlData) ? rlData[0] : rlData;
+            if (!rlErr && row && row.allowed === false) {
+                const retryAfter = Math.max(1, Number(row.retry_after_seconds) || 600);
+                return res.status(429).json({
+                    success: false,
+                    error: `Too many OTP requests for this phone number. Please try again in ${Math.ceil(retryAfter / 60)} minutes.`,
+                    retry_after: retryAfter
+                });
+            }
+        } catch (e) {}
+    }
+
     // 2. Generate Cryptographically Strong 6-digit OTP
-    const crypto = require('crypto');
     const otp = crypto.randomInt(100000, 1000000).toString();
+    const otpHash = crypto.createHash('sha256').update(otp, 'utf8').digest('hex');
     const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
 
-    // 3. Store OTP securely with attempt tracking
+    // 3. Store OTP securely in memory + Supabase Postgres (for multi-instance serverless consistency)
     otpStore.set(cleanPhone, {
         otp,
+        otpHash,
         userId: userId || null,
         expiresAt,
         attempts: 0
     });
+
+    if (supabase) {
+        try {
+            await supabase
+                .from('auth_otp_challenges')
+                .upsert([{
+                    phone: cleanPhone,
+                    otp_hash: otpHash,
+                    user_id: userId || null,
+                    attempts: 0,
+                    expires_at: new Date(expiresAt).toISOString(),
+                    locked_until: null,
+                    updated_at: new Date().toISOString()
+                }]);
+        } catch (e) {}
+    }
 
     // 4. Primary: Dispatch via WhatsApp Messaging Provider
     const waResult = await whatsappService.sendOtp(cleanPhone, otp);
@@ -747,7 +875,29 @@ router.post('/verify-otp', async (req, res) => {
         return res.status(400).json({ success: false, error: 'Valid 10-digit mobile number required' });
     }
 
-    const record = otpStore.get(cleanPhone);
+    const supabase = getSupabaseClient();
+    let record = otpStore.get(cleanPhone);
+    let fromDb = false;
+
+    if (!record && supabase) {
+        try {
+            const { data: dbOtp } = await supabase
+                .from('auth_otp_challenges')
+                .select('*')
+                .eq('phone', cleanPhone)
+                .maybeSingle();
+            if (dbOtp) {
+                fromDb = true;
+                record = {
+                    otpHash: dbOtp.otp_hash,
+                    userId: dbOtp.user_id,
+                    expiresAt: new Date(dbOtp.expires_at).getTime(),
+                    lockedUntil: dbOtp.locked_until ? new Date(dbOtp.locked_until).getTime() : null,
+                    attempts: Number(dbOtp.attempts) || 0
+                };
+            }
+        } catch (e) {}
+    }
 
     // Strict validation: Reject unrequested / forged phone OTP checks
     if (!record) {
@@ -772,6 +922,9 @@ router.post('/verify-otp', async (req, res) => {
     // Check Expiration
     if (Date.now() > record.expiresAt) {
         otpStore.delete(cleanPhone);
+        if (supabase) {
+            try { await supabase.from('auth_otp_challenges').delete().eq('phone', cleanPhone); } catch (e) {}
+        }
         return res.status(400).json({
             success: false,
             error: 'OTP code has expired. Please request a new code.',
@@ -783,6 +936,14 @@ router.post('/verify-otp', async (req, res) => {
     record.attempts = (record.attempts || 0) + 1;
     if (record.attempts > 5) {
         record.lockedUntil = Date.now() + (15 * 60 * 1000); // 15-minute lock
+        if (supabase) {
+            try {
+                await supabase
+                    .from('auth_otp_challenges')
+                    .update({ attempts: record.attempts, locked_until: new Date(record.lockedUntil).toISOString(), updated_at: new Date().toISOString() })
+                    .eq('phone', cleanPhone);
+            } catch (e) {}
+        }
         return res.status(429).json({
             success: false,
             error: 'Too many incorrect attempts. For security, verification is locked for 15 minutes.',
@@ -791,10 +952,20 @@ router.post('/verify-otp', async (req, res) => {
         });
     }
 
-    // Constant-time comparison to prevent timing attacks
-    const crypto = require('crypto');
-    const isMatch = record.otp.length === cleanOtp.length &&
-        crypto.timingSafeEqual(Buffer.from(record.otp), Buffer.from(cleanOtp));
+    if (fromDb || supabase) {
+        try {
+            await supabase
+                .from('auth_otp_challenges')
+                .update({ attempts: record.attempts, updated_at: new Date().toISOString() })
+                .eq('phone', cleanPhone);
+        } catch (e) {}
+    }
+
+    // Constant-time comparison against SHA-256 OTP hash (prevents timing attacks and works across serverless cold starts)
+    const submittedHash = crypto.createHash('sha256').update(cleanOtp, 'utf8').digest('hex');
+    const storedHash = record.otpHash || crypto.createHash('sha256').update(String(record.otp || ''), 'utf8').digest('hex');
+    const isMatch = storedHash.length === submittedHash.length &&
+        crypto.timingSafeEqual(Buffer.from(storedHash), Buffer.from(submittedHash));
 
     if (!isMatch) {
         const remainingAttempts = 5 - record.attempts;
@@ -806,8 +977,11 @@ router.post('/verify-otp', async (req, res) => {
         });
     }
 
-    // OTP Verified! Immediately purge from store to prevent replay
+    // OTP Verified! Immediately purge from memory and Supabase to prevent replay
     otpStore.delete(cleanPhone);
+    if (supabase) {
+        try { await supabase.from('auth_otp_challenges').delete().eq('phone', cleanPhone); } catch (e) {}
+    }
 
     // Update database if userId provided
     if (userId && !userId.startsWith('guest_')) {
@@ -826,31 +1000,20 @@ router.post('/verify-otp', async (req, res) => {
     });
 });
 
-// GET /api/auth/profile/:id (SEC: Protected against unauthorized PII enumeration)
+// GET /api/auth/profile/:id (SEC: Protected against unauthorized PII enumeration via server-verified session)
 router.get('/profile/:id', async (req, res) => {
     const { id } = req.params;
-    const authHeader = req.headers['authorization'] || req.headers['x-admin-token'] || req.headers['x-admin-key'] || '';
-    const adminPayload = authHeader ? verifyAdminToken(authHeader) : null;
-    const requesterUserId = req.headers['x-user-id'];
-
-    if (!adminPayload && requesterUserId && requesterUserId !== id) {
-        return res.status(403).json({ error: 'Access denied: You cannot view profile of another account.' });
+    const actor = await resolveRequestActor(req);
+    if (!actor.isAdmin && !actor.isCustomer) {
+        return res.status(401).json({ success: false, code: 'AUTH_REQUIRED', error: 'Authentication required to view profile.' });
+    }
+    if (!isOwnerMatch(actor, id)) {
+        return res.status(403).json({ success: false, code: 'FORBIDDEN', error: 'Access denied: You cannot view profile of another account.' });
     }
 
     try {
         const user = await supabaseDb.users.getById(id);
         if (!user) return res.status(404).json({ error: 'User not found' });
-
-        if (!adminPayload && requesterUserId !== id) {
-            return res.json({
-                user: {
-                    id: user.id,
-                    name: user.name ? (user.name.charAt(0) + '***') : 'User',
-                    email: '*****@***.***',
-                    phone: '**********'
-                }
-            });
-        }
 
         res.json({ user: { id: user.id, name: user.name, email: user.email, phone: user.phone, dob: user.dob } });
     } catch (err) {

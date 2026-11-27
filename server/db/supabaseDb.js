@@ -310,10 +310,10 @@ const supabaseDb = {
             const isCampus = cleanOrigin === 'BH13' || cleanOrigin === 'ALL' || cleanOrigin === 'CAMPUS';
 
             let image_url = p.image_url;
-            const supabaseBaseUrl = process.env.SUPABASE_URL || 'https://yojndzstlilzlkxonmvd.supabase.co';
+            const supabaseBaseUrl = String(process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '');
 
-            if (process.env.VERCEL) {
-                // On Vercel: Offload 100% of product image data transfer to Supabase Storage CDN (Zero Vercel Origin/Data Transfer)
+            if (process.env.VERCEL && supabaseBaseUrl) {
+                // On Vercel: Offload product image data transfer to Supabase Storage CDN
                 if (image_url && image_url.startsWith('/uploads/')) {
                     const filename = image_url.replace('/uploads/', '').split('?')[0];
                     image_url = `${supabaseBaseUrl}/storage/v1/object/public/products/${filename}`;
@@ -325,7 +325,7 @@ const supabaseDb = {
                     if (localUploads.has(filename)) {
                         image_url = `/uploads/${filename}`;
                     }
-                } else if (image_url && image_url.startsWith('/uploads/')) {
+                } else if (image_url && image_url.startsWith('/uploads/') && supabaseBaseUrl) {
                     const filename = image_url.replace('/uploads/', '').split('?')[0];
                     if (!localUploads.has(filename) && filename) {
                         image_url = `${supabaseBaseUrl}/storage/v1/object/public/products/${filename}`;

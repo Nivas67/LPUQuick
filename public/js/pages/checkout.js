@@ -748,6 +748,9 @@ window.pages.checkout = async function () {
                     <span>Set Hostel Room Address to Complete Order (₹${exactTotal})</span>
                 </button>
                 ` : `
+                <!-- Cloudflare Turnstile Container (Order Placement Protection) -->
+                <div id="checkout-turnstile-container" class="hidden flex justify-center min-h-[65px] mb-3"></div>
+
                 <div class="slider-track select-none" id="pay-slider-track">
                     <div class="slider-progress" id="pay-slider-progress"></div>
                     <div class="slider-thumb flex items-center justify-center select-none" id="pay-slider-thumb">
@@ -829,6 +832,10 @@ window.pageInits.checkout = function () {
     let isSubmitting = false;
     let confirmed = false;
     let resetSliderUI = null;
+
+    if (window.LpuQuickTurnstile) {
+        window.LpuQuickTurnstile.mount('checkout-turnstile-container', { action: 'checkout' }).catch(() => {});
+    }
 
     function getSelectedPaymentMethod() {
         const checked = document.querySelector('input[name="paymentMethod"]:checked');
@@ -1307,6 +1314,10 @@ window.pageInits.checkout = function () {
             if (typeof resetSliderUI === 'function') resetSliderUI();
             confirmed = false;
             isSubmitting = false;
+        } finally {
+            if (window.LpuQuickTurnstile) {
+                window.LpuQuickTurnstile.reset('checkout-turnstile-container');
+            }
         }
     }
 
@@ -1447,6 +1458,12 @@ window.pageInits.checkout = function () {
         }
 
         try {
+            let checkoutTurnstileToken = null;
+            if (window.LpuQuickTurnstile) {
+                const tsCheck = await window.LpuQuickTurnstile.ensureToken('checkout-turnstile-container', { action: 'checkout' });
+                checkoutTurnstileToken = tsCheck.token;
+            }
+
             const activeUserId = window.CURRENT_USER_ID || userId;
             const orderRes = await window.api.checkout(activeUserId, selectedMethod, fullAddress, {
                 phone: savedPhone,
@@ -1455,7 +1472,8 @@ window.pageInits.checkout = function () {
                 hostel_id: savedHostel,
                 order_mode: window.activeCheckoutOrderMode || 'DELIVERY',
                 instructions: document.getElementById('checkout-special-instructions')?.value?.trim() || '',
-                special_instructions: document.getElementById('checkout-special-instructions')?.value?.trim() || ''
+                special_instructions: document.getElementById('checkout-special-instructions')?.value?.trim() || '',
+                turnstileToken: checkoutTurnstileToken || undefined
             });
 
             if (orderRes && orderRes.success && orderRes.order) {
@@ -1512,6 +1530,10 @@ window.pageInits.checkout = function () {
             }
             confirmed = false;
             isSubmitting = false;
+        } finally {
+            if (window.LpuQuickTurnstile) {
+                window.LpuQuickTurnstile.reset('checkout-turnstile-container');
+            }
         }
     }
 

@@ -11,7 +11,9 @@
 
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
-const { isServerlessRuntime } = require('../supabase');
+const _supabaseMod = require('../supabase');
+const { isServerlessRuntime } = _supabaseMod;
+const getSupabaseClient = (...args) => _supabaseMod.getSupabaseClient(...args);
 
 // -------------------------------------------------------------
 // 1. LOGIN RATE LIMITING & TEMPORARY LOCKOUT
@@ -89,6 +91,100 @@ function recordSuccessfulLogin(identifier, ip) {
     const { idKey, ipKey } = getCleanKey(identifier, ip);
     if (idKey) failedAttemptsMap.delete(idKey);
     if (ipKey) failedAttemptsMap.delete(ipKey);
+}
+
+async function checkLoginRateLimitPersistent(identifier, ip) {
+    const memCheck = checkLoginRateLimit(identifier, ip);
+    if (memCheck.locked) return memCheck;
+
+    const supabase = getSupabaseClient();
+    if (!supabase) return memCheck;
+
+    try {
+        const { idKey, ipKey } = getCleanKey(identifier, ip);
+        const dbKeys = [idKey ? `login_${idKey}` : null, ipKey ? `login_${ipKey}` : null].filter(Boolean);
+        if (dbKeys.length === 0) return memCheck;
+
+        const nowMs = Date.now();
+        const { data, error } = await supabase
+            .from('security_rate_limits')
+            .select('rate_key, blocked_until')
+            .in('rate_key', dbKeys);
+
+        if (!error && Array.isArray(data)) {
+            for (const row of data) {
+                if (row.blocked_until) {
+                    const blockedMs = new Date(row.blocked_until).getTime();
+                    if (Number.isFinite(blockedMs) && blockedMs > nowMs) {
+                        const remainingSeconds = Math.ceil((blockedMs - nowMs) / 1000);
+                        return {
+                            locked: true,
+                            remainingSeconds,
+                            error: `Too many failed login attempts. Login temporarily locked for ${Math.ceil(remainingSeconds / 60)} more minute(s) to protect your account.`,
+                            code: 'LOGIN_RATE_LIMITED'
+                        };
+                    }
+                }
+            }
+        }
+    } catch (e) {}
+
+    return memCheck;
+}
+
+async function recordFailedLoginPersistent(identifier, ip) {
+    const memRes = recordFailedLogin(identifier, ip);
+    const supabase = getSupabaseClient();
+    if (!supabase || typeof supabase.rpc !== 'function') return memRes;
+
+    try {
+        const { idKey, ipKey } = getCleanKey(identifier, ip);
+        const dbKeys = [idKey ? `login_${idKey}` : null, ipKey ? `login_${ipKey}` : null].filter(Boolean);
+        const lockSecs = Math.round(LOCKOUT_DURATION_MS / 1000);
+        let maxHits = memRes.attempts;
+        let locked = memRes.locked;
+        let retrySec = memRes.remainingSeconds || 0;
+
+        for (const pKey of dbKeys) {
+            const { data, error } = await supabase.rpc('check_and_increment_rate_limit', {
+                p_key: pKey,
+                p_window_seconds: lockSecs,
+                p_max_hits: LOGIN_LIMIT,
+                p_lock_seconds: lockSecs
+            });
+            const row = Array.isArray(data) ? data[0] : data;
+            if (!error && row) {
+                if (Number(row.hits) > maxHits) maxHits = Number(row.hits);
+                if (row.allowed === false) {
+                    locked = true;
+                    retrySec = Math.max(retrySec, Number(row.retry_after_seconds) || lockSecs);
+                }
+            }
+        }
+
+        return {
+            locked,
+            attempts: maxHits,
+            remainingAttempts: Math.max(0, LOGIN_LIMIT - maxHits),
+            remainingSeconds: retrySec
+        };
+    } catch (e) {
+        return memRes;
+    }
+}
+
+async function recordSuccessfulLoginPersistent(identifier, ip) {
+    recordSuccessfulLogin(identifier, ip);
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+
+    try {
+        const { idKey, ipKey } = getCleanKey(identifier, ip);
+        const dbKeys = [idKey ? `login_${idKey}` : null, ipKey ? `login_${ipKey}` : null].filter(Boolean);
+        if (dbKeys.length > 0) {
+            await supabase.from('security_rate_limits').delete().in('rate_key', dbKeys);
+        }
+    } catch (e) {}
 }
 
 function pruneExpiredLockouts(now = Date.now()) {
@@ -277,6 +373,9 @@ module.exports = {
     checkLoginRateLimit,
     recordFailedLogin,
     recordSuccessfulLogin,
+    checkLoginRateLimitPersistent,
+    recordFailedLoginPersistent,
+    recordSuccessfulLoginPersistent,
     hashPassword,
     verifyPassword,
     validateBase64Image,

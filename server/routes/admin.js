@@ -1189,17 +1189,19 @@ async function savePosterImageIfBase64(imageUrl, posterId = 'poster') {
         const cleanPosterId = sanitizeFileName(posterId) || 'poster';
         const fileName = `banner_${cleanPosterId}_${Date.now()}.${ext}`;
 
-        // Save locally to public/uploads & client/uploads if available
-        try {
-            const pubUploads = path.join(__dirname, '..', '..', 'public', 'uploads');
-            if (!fs.existsSync(pubUploads)) fs.mkdirSync(pubUploads, { recursive: true });
-            fs.writeFileSync(path.join(pubUploads, fileName), buffer);
+        // Save locally to public/uploads & client/uploads only outside serverless platforms
+        if (!process.env.VERCEL && !process.env.CLOUDFLARE_WORKERS) {
+            try {
+                const pubUploads = path.join(__dirname, '..', '..', 'public', 'uploads');
+                if (!fs.existsSync(pubUploads)) fs.mkdirSync(pubUploads, { recursive: true });
+                fs.writeFileSync(path.join(pubUploads, fileName), buffer);
 
-            const clientUploads = path.join(__dirname, '..', '..', 'client', 'uploads');
-            if (fs.existsSync(clientUploads)) {
-                fs.writeFileSync(path.join(clientUploads, fileName), buffer);
-            }
-        } catch (e) {}
+                const clientUploads = path.join(__dirname, '..', '..', 'client', 'uploads');
+                if (fs.existsSync(clientUploads)) {
+                    fs.writeFileSync(path.join(clientUploads, fileName), buffer);
+                }
+            } catch (e) {}
+        }
 
         // Upload to Supabase Storage
         try {
@@ -1309,15 +1311,13 @@ async function saveAdminBannersData(data) {
             console.error('[Admin Advertisements] Supabase save error:', dbErr.message);
         }
 
-        // 2. Local disk file persistence with /tmp resilience
-        try {
-            const dir = path.dirname(BANNERS_DATA_FILE);
-            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-            fs.writeFileSync(BANNERS_DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
-        } catch (writeErr) {
+        // 2. Local disk file persistence on non-serverless hosts
+        if (!process.env.VERCEL && !process.env.CLOUDFLARE_WORKERS) {
             try {
-                fs.writeFileSync(path.join('/tmp', 'banners.json'), JSON.stringify(data, null, 2), 'utf8');
-            } catch (tmpErr) {}
+                const dir = path.dirname(BANNERS_DATA_FILE);
+                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                fs.writeFileSync(BANNERS_DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
+            } catch (writeErr) {}
         }
 
         return true;

@@ -2,11 +2,43 @@
   "version": 2,
   "functions": {
     "api/index.js": {
-      "memory": 256,
-      "maxDuration": 15
+      "maxDuration": 30
     }
   },
   "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=(self)"
+        },
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin-allow-popups"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains; preload"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://accounts.google.com https://apis.google.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.tailwindcss.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: wss:; frame-src 'self' https://accounts.google.com https://challenges.cloudflare.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self';"
+        }
+      ]
+    },
     {
       "source": "/(css|js)/(.*)",
       "headers": [
@@ -17,7 +49,7 @@
       ]
     },
     {
-      "source": "/(assets|uploads)/(.*)",
+      "source": "/(assets|uploads|img)/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
@@ -35,7 +67,24 @@
       ]
     },
     {
-      "source": "/ad-new/(css|js)/(.*)",
+      "source": "/(ad-new|admin|partner)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate, max-age=0"
+        },
+        {
+          "key": "Pragma",
+          "value": "no-cache"
+        },
+        {
+          "key": "Expires",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "source": "/(ad-new|admin|partner)/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
@@ -61,54 +110,11 @@
       ]
     },
     {
-      "source": "/ad-new",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate, max-age=0"
-        },
-        {
-          "key": "Pragma",
-          "value": "no-cache"
-        },
-        {
-          "key": "Expires",
-          "value": "0"
-        }
-      ]
-    },
-    {
-      "source": "/ad-new/:match*",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate, max-age=0"
-        },
-        {
-          "key": "Pragma",
-          "value": "no-cache"
-        },
-        {
-          "key": "Expires",
-          "value": "0"
-        }
-      ]
-    },
-    {
       "source": "/(index\\.html)?",
       "headers": [
         {
           "key": "Cache-Control",
           "value": "public, max-age=0, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/api/hostels/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate, max-age=0"
         }
       ]
     },
@@ -122,11 +128,11 @@
       ]
     },
     {
-      "source": "/api/order-mode/status",
+      "source": "/api/hostels/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, s-maxage=10, stale-while-revalidate=30"
+          "value": "no-cache, no-store, must-revalidate, private"
         }
       ]
     },
@@ -135,7 +141,16 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate, max-age=0"
+          "value": "no-cache, no-store, must-revalidate, private"
+        }
+      ]
+    },
+    {
+      "source": "/api/order-mode/status",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=10, stale-while-revalidate=30"
         }
       ]
     },
@@ -185,15 +200,6 @@
       ]
     },
     {
-      "source": "/api/home",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, s-maxage=60, stale-while-revalidate=120"
-        }
-      ]
-    },
-    {
       "source": "/api/products",
       "headers": [
         {
@@ -221,11 +227,11 @@
       ]
     },
     {
-      "source": "/api/(admin|auth|cart|checkout|orders|payments)/(.*)",
+      "source": "/api/(admin|auth|cart|checkout|orders|payments|partner|notifications|security|backup|financial)/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
+          "value": "no-cache, no-store, must-revalidate, private"
         }
       ]
     }
@@ -233,6 +239,10 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/api",
       "destination": "/api/index.js"
     },
     {
@@ -272,6 +282,42 @@
       "destination": "/public/uploads/$1"
     },
     {
+      "source": "/img/(.*)",
+      "destination": "/public/img/$1"
+    },
+    {
+      "source": "/food",
+      "destination": "/public/food.html"
+    },
+    {
+      "source": "/food/",
+      "destination": "/public/food.html"
+    },
+    {
+      "source": "/cook",
+      "destination": "/public/food.html"
+    },
+    {
+      "source": "/cook/",
+      "destination": "/public/food.html"
+    },
+    {
+      "source": "/mobile",
+      "destination": "/public/mobile-preview.html"
+    },
+    {
+      "source": "/mobile-preview",
+      "destination": "/public/mobile-preview.html"
+    },
+    {
+      "source": "/phone",
+      "destination": "/public/mobile-preview.html"
+    },
+    {
+      "source": "/preview",
+      "destination": "/public/mobile-preview.html"
+    },
+    {
       "source": "/ad-new/css/(.*)",
       "destination": "/admin/css/$1"
     },
@@ -280,7 +326,7 @@
       "destination": "/admin/js/$1"
     },
     {
-      "source": "/ad-new/(.*)\\.(png|jpg|jpeg|svg|ico|webp|woff2|mp3)",
+      "source": "/ad-new/(.*)\\.(png|jpg|jpeg|svg|ico|webp|woff2|mp3|json)",
       "destination": "/admin/$1.$2"
     },
     {
@@ -296,7 +342,19 @@
       "destination": "/public/admin-preview.html"
     },
     {
+      "source": "/admin-preview",
+      "destination": "/public/admin-preview.html"
+    },
+    {
+      "source": "/admin/preview",
+      "destination": "/public/admin-preview.html"
+    },
+    {
       "source": "/preview-admin",
+      "destination": "/public/admin-preview.html"
+    },
+    {
+      "source": "/mobile-admin",
       "destination": "/public/admin-preview.html"
     },
     {
@@ -316,7 +374,7 @@
       "destination": "/admin/js/$1"
     },
     {
-      "source": "/admin/(.*)\\.(png|jpg|jpeg|svg|ico|webp|woff2|mp3)",
+      "source": "/admin/(.*)\\.(png|jpg|jpeg|svg|ico|webp|woff2|mp3|json)",
       "destination": "/admin/$1.$2"
     },
     {
@@ -334,6 +392,10 @@
     {
       "source": "/partner/js/(.*)",
       "destination": "/public/partner/js/$1"
+    },
+    {
+      "source": "/partner/(.*)\\.(png|jpg|jpeg|svg|ico|webp|woff2|mp3|json)",
+      "destination": "/public/partner/$1.$2"
     },
     {
       "source": "/partner/(.*)",

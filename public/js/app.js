@@ -110,8 +110,12 @@ window.refreshUserActivity = function () {
 };
 
 window.logoutUser = function () {
+    if (window.api && typeof window.api.logout === 'function') {
+        window.api.logout().catch(() => {});
+    }
     try {
         localStorage.removeItem('lpuquick_user');
+        localStorage.removeItem('lpuquick_token');
         localStorage.removeItem('lpuquick_last_active');
         localStorage.removeItem('lpuquick_address_configured');
         localStorage.removeItem('lpuquick_room');
@@ -136,7 +140,7 @@ window.logoutUser = function () {
             const savedUser = JSON.parse(savedUserStr);
             const uid = savedUser?.id || savedUser?.user_id || savedUser?.uid;
             if (uid) {
-                // Session is VALID & PERMANENT - User stays logged in on all visits!
+                // Hydrate UI from saved profile, then silently reconcile against server session
                 window.CURRENT_USER_ID = uid;
                 window.CURRENT_USER_NAME = savedUser.name || 'LPU Student';
                 window.CURRENT_USER_EMAIL = savedUser.email || '';
@@ -159,6 +163,29 @@ window.logoutUser = function () {
         console.warn('[Auth Init Error]:', e);
     }
 })();
+
+// Verify stored customer session asynchronously with server (HttpOnly cookie / token)
+if (typeof window !== 'undefined' && typeof fetch === 'function') {
+    setTimeout(async () => {
+        if (!window.CURRENT_USER_ID || !window.api || typeof window.api.getSession !== 'function') return;
+        try {
+            const sessionRes = await window.api.getSession();
+            if (sessionRes && sessionRes.authenticated === false) {
+                localStorage.removeItem('lpuquick_user');
+                localStorage.removeItem('lpuquick_token');
+                window.CURRENT_USER_ID = null;
+                window.CURRENT_USER_NAME = null;
+                window.CURRENT_USER_EMAIL = null;
+                window.CURRENT_USER_PICTURE = null;
+            } else if (sessionRes && sessionRes.authenticated && sessionRes.user && sessionRes.user.id) {
+                window.CURRENT_USER_ID = sessionRes.user.id;
+                window.CURRENT_USER_NAME = sessionRes.user.name || window.CURRENT_USER_NAME;
+                window.CURRENT_USER_EMAIL = sessionRes.user.email || window.CURRENT_USER_EMAIL;
+                localStorage.setItem('lpuquick_user', JSON.stringify(sessionRes.user));
+            }
+        } catch (e) {}
+    }, 50);
+}
 
 // Attach throttled global user activity listener
 let lastActivityTouch = 0;
@@ -204,35 +231,20 @@ window.getEffectiveUserId = function () {
 };
 
 // Global Google Auth Verification Helper (Used for First-Time Order Checkout Verification)
-window.promptGoogleAuth = function (onSuccess, onError) {
+window.promptGoogleAuth = async function (onSuccess, onError) {
     const clientId = window.GOOGLE_CLIENT_ID || '632433440395-4ph6ghe311niied8h423ki98slbse8d2.apps.googleusercontent.com';
+    let preSolvedTurnstile = null;
 
     async function finishAuth(userData) {
         try {
             let res = null;
             try {
                 if (window.api && typeof window.api.googleAuth === 'function') {
-                    res = await window.api.googleAuth(userData);
+                    const tok = userData?.turnstileToken || preSolvedTurnstile || (window.LpuQuickTurnstile ? window.LpuQuickTurnstile.consumeLastToken() : null);
+                    res = await window.api.googleAuth({ ...(userData || {}), turnstileToken: tok || undefined });
                 }
             } catch (networkErr) {
                 console.warn('[Google Auth Network Recovery]:', networkErr.message);
-            }
-
-            if ((!res || !res.user || !res.user.id) && (userData.email || userData.name)) {
-                const rawName = userData.name || (userData.email ? userData.email.split('@')[0] : 'LPU Student');
-                const cleanName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
-                res = {
-                    success: true,
-                    user: {
-                        id: `user_${Math.random().toString(36).slice(2, 10)}`,
-                        name: cleanName,
-                        email: (userData.email || '').toLowerCase(),
-                        phone: localStorage.getItem('lpuquick_phone') || '',
-                        picture: userData.picture || '',
-                        role: 'student',
-                        account_status: 'ACTIVE'
-                    }
-                };
             }
 
             if (res && res.user && res.user.id) {
@@ -241,6 +253,9 @@ window.promptGoogleAuth = function (onSuccess, onError) {
                 window.CURRENT_USER_EMAIL = res.user.email;
                 window.CURRENT_USER_PICTURE = res.user.picture || '';
                 localStorage.setItem('lpuquick_user', JSON.stringify(res.user));
+                if (res.token) {
+                    localStorage.setItem('lpuquick_token', res.token);
+                }
                 localStorage.setItem('lpuquick_last_active', Date.now().toString());
                 if (typeof window.refreshUserActivity === 'function') window.refreshUserActivity();
 
@@ -272,6 +287,22 @@ window.promptGoogleAuth = function (onSuccess, onError) {
         }
     }
 
+    if (window.LpuQuickTurnstile) {
+        try {
+            const tsCfg = await window.LpuQuickTurnstile.getConfig();
+            if (tsCfg && tsCfg.enabled) {
+                preSolvedTurnstile = await window.LpuQuickTurnstile.promptChallenge({
+                    action: 'google_signin',
+                    title: 'Human Verification',
+                    subtitle: 'Complete this quick check before signing in with Google.'
+                });
+            }
+        } catch (tsErr) {
+            if (typeof onError === 'function') onError(tsErr);
+            return;
+        }
+    }
+
     if (window.google && window.google.accounts && window.google.accounts.oauth2) {
         try {
             const tokenClient = window.google.accounts.oauth2.initTokenClient({
@@ -280,23 +311,7 @@ window.promptGoogleAuth = function (onSuccess, onError) {
                 callback: async (tokenResponse) => {
                     if (tokenResponse && tokenResponse.access_token) {
                         try {
-                            let profile = null;
-                            try {
-                                const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                                    headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
-                                });
-                                if (userInfoRes.ok) profile = await userInfoRes.json();
-                            } catch (e) {}
-
-                            if (profile && profile.email) {
-                                await finishAuth({
-                                    email: profile.email,
-                                    name: profile.name,
-                                    picture: profile.picture
-                                });
-                            } else {
-                                await finishAuth({ access_token: tokenResponse.access_token });
-                            }
+                            await finishAuth({ access_token: tokenResponse.access_token });
                         } catch (err) {
                             if (typeof onError === 'function') onError(err);
                         }
@@ -827,6 +842,9 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
                     <span id="blocked-hostel-msg">This hostel is opening soon. Delivering to ${liveDisplayNames} right now.</span>
                 </div>
 
+                <!-- Cloudflare Turnstile Container (OTP Protection if enabled) -->
+                <div id="address-turnstile-container" class="hidden flex justify-center min-h-[65px] py-1"></div>
+
                 <!-- Save / Verify Button -->
                 <button type="button" id="save-address-btn" class="clay-btn clay-btn-primary w-full py-3 rounded-2xl text-xs font-black shadow-md active:scale-95 transition-transform cursor-pointer">
                     Confirm Address & Deliver to ${selectedHostel} (<span id="btn-block-label">${selectedBlock}</span>)
@@ -905,6 +923,9 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
         closeBtn.onclick = closeModal;
     }
     document.body.appendChild(modal);
+    if (window.LpuQuickTurnstile) {
+        window.LpuQuickTurnstile.mount('address-turnstile-container', { action: 'otp_request' }).catch(() => {});
+    }
 
     // Enforce strictly numeric input in real-time
     const roomInput = modal.querySelector('#room-input');
@@ -1226,7 +1247,12 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
         }
 
         try {
-            const sendRes = await window.api.sendOtp(phoneToVerify, userId);
+            let otpTurnstileToken = null;
+            if (window.LpuQuickTurnstile) {
+                const tsCheck = await window.LpuQuickTurnstile.ensureToken('address-turnstile-container', { action: 'otp_request' });
+                otpTurnstileToken = tsCheck.token;
+            }
+            const sendRes = await window.api.sendOtp(phoneToVerify, userId, otpTurnstileToken);
             if (btnSave) {
                 btnSave.disabled = false;
                 btnSave.innerHTML = `Confirm Address & Deliver to ${selectedHostel} (<span id="btn-block-label">${selectedBlock}</span>)`;
@@ -1262,6 +1288,10 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
                 alertMsg.textContent = err.message || 'Could not send WhatsApp verification code.';
             } else if (typeof window.showClientToast === 'function') {
                 window.showClientToast(err.message || 'Could not send WhatsApp OTP', 'error', 'error');
+            }
+        } finally {
+            if (window.LpuQuickTurnstile) {
+                window.LpuQuickTurnstile.reset('address-turnstile-container');
             }
         }
     }
@@ -3245,30 +3275,7 @@ async function initClientSupabaseRealtime() {
             });
         });
 
-        // Subscribe to Postgres WAL changes ONLY for signed-in users (saves Supabase DB WAL CPU on guest browsing)
-        if (window.isUserLoggedIn && window.isUserLoggedIn()) {
-            clientSupabaseChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-                try {
-                    const row = payload.new;
-                    if (!row) return;
-                    const myUid = window.CURRENT_USER_ID || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : null);
-                    if (myUid && row.user_id && row.user_id !== myUid) {
-                        return; // Strict Isolation: Only process for the logged-in customer's own order
-                    }
-                    if (payload.eventType === 'UPDATE') {
-                        dispatchClientRealtimeEvent({
-                            type: 'ORDER_STATUS_UPDATE',
-                            orderId: row.id,
-                            order_id: row.id,
-                            status: row.status,
-                            rider_name: row.rider_name || 'Alex'
-                        });
-                    }
-                } catch(e) {
-                    console.warn('[Client Supabase PG Changes Error]:', e);
-                }
-            });
-        }
+        // Live status updates are delivered via Supabase Broadcast channels without querying protected orders rows directly with anon credentials.
 
         clientSupabaseChannel.subscribe((status) => {
             console.log(`[LPUQuick Client Supabase Realtime] Channel status: ${status}`);
@@ -4288,10 +4295,23 @@ function urlBase64ToUint8Array(base64String) {
     return outputArray;
 }
 
-async function registerCustomerPushSubscription() {
+async function registerCustomerPushSubscription(opts = {}) {
     try {
-        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+        if (!('Notification' in window) || Notification.permission !== 'granted') return false;
+
+        let tsToken = opts.turnstileToken || null;
+        if (window.LpuQuickTurnstile) {
+            const tsCfg = await window.LpuQuickTurnstile.getConfig();
+            if (tsCfg && tsCfg.enabled && !tsToken) {
+                if (!opts.interactive) return false;
+                tsToken = await window.LpuQuickTurnstile.promptChallenge({
+                    action: 'customer_subscribe',
+                    title: 'Enable Push Alerts',
+                    subtitle: 'Quick verification to activate order status notifications.'
+                });
+            }
+        }
 
         const reg = await navigator.serviceWorker.ready;
         let sub = await reg.pushManager.getSubscription();
@@ -4299,7 +4319,7 @@ async function registerCustomerPushSubscription() {
         if (!sub) {
             const res = await fetch('/api/notifications/vapid-public-key');
             const data = await res.json();
-            if (!data.success || !data.publicKey) return;
+            if (!data.success || !data.publicKey) return false;
 
             const convertedKey = urlBase64ToUint8Array(data.publicKey);
             sub = await reg.pushManager.subscribe({
@@ -4313,19 +4333,31 @@ async function registerCustomerPushSubscription() {
             const userName = window.CURRENT_USER_NAME || 'Student';
             const hostelId = window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
 
-            await fetch('/api/notifications/customer-subscribe', {
+            const headers = { 'Content-Type': 'application/json' };
+            try {
+                const tok = localStorage.getItem('lpuquick_token') || sessionStorage.getItem('lpuquick_token') || '';
+                if (tok) headers['x-customer-token'] = tok;
+            } catch (e) {}
+            if (tsToken) headers['x-turnstile-token'] = tsToken;
+
+            const subRes = await fetch('/api/notifications/customer-subscribe', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
+                credentials: 'same-origin',
                 body: JSON.stringify({
                     subscription: sub,
                     userId,
                     userName,
-                    hostelId
+                    hostelId,
+                    turnstileToken: tsToken || undefined
                 })
             });
+            return subRes.ok;
         }
+        return false;
     } catch (e) {
         console.warn('[Customer Push Registration Note]:', e);
+        return false;
     }
 }
 
@@ -4407,8 +4439,8 @@ window.requestNotificationPermissionFromCenter = async function () {
         if ('Notification' in window) {
             const perm = await Notification.requestPermission();
             if (perm === 'granted') {
-                await registerCustomerPushSubscription();
-                if (typeof window.showClientToast === 'function') {
+                const ok = await registerCustomerPushSubscription({ interactive: true });
+                if (ok && typeof window.showClientToast === 'function') {
                     window.showClientToast("🔔 Device push enabled! You'll receive real-time campus alerts.", "success", "notifications");
                 }
             } else {

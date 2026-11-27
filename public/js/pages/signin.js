@@ -55,6 +55,9 @@ window.pages.signin = async function() {
             <!-- Status Banner -->
             <div id="auth-status-msg" class="hidden p-3 rounded-xl text-xs font-bold border text-left"></div>
 
+            <!-- Cloudflare Turnstile Widget Container -->
+            <div id="signin-turnstile-container" class="hidden flex justify-center min-h-[65px] py-1"></div>
+
             <!-- Google Sign-In Button (Tactile Clay Action) -->
             <div class="space-y-3 pt-1" id="custom-google-btn-wrapper">
                 <button class="clay-btn w-full h-12 rounded-2xl flex items-center justify-center gap-3 text-slate-900 dark:text-white font-black text-xs active:scale-95 transition-transform shadow-lg cursor-pointer group" type="button" id="btn-google">
@@ -98,6 +101,10 @@ window.pageInits.signin = function() {
         return;
     }
 
+    if (window.LpuQuickTurnstile) {
+        window.LpuQuickTurnstile.mount('signin-turnstile-container', { action: 'customer_signin' }).catch(() => {});
+    }
+
     const clientId = window.GOOGLE_CLIENT_ID || '632433440395-4ph6ghe311niied8h423ki98slbse8d2.apps.googleusercontent.com';
 
     function resetGoogleButton() {
@@ -136,29 +143,21 @@ window.pageInits.signin = function() {
         }
 
         try {
-            let res = null;
-            try {
-                res = await window.api.googleAuth(userData);
-            } catch (networkErr) {
-                console.warn('[Google Auth Network Recovery]:', networkErr.message);
+            let turnstileToken = userData.turnstileToken || null;
+            if (!turnstileToken && window.LpuQuickTurnstile) {
+                const tsCheck = await window.LpuQuickTurnstile.ensureToken('signin-turnstile-container', { action: 'google_signin' });
+                turnstileToken = tsCheck.token;
             }
 
-            if ((!res || !res.user || !res.user.id) && (userData.email || userData.name)) {
-                console.warn('[Google Auth Fallback to Local Verified Profile]:', res ? res.error : 'Network');
-                const rawName = userData.name || (userData.email ? userData.email.split('@')[0] : 'LPU Student');
-                const cleanName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
-                res = {
-                    success: true,
-                    user: {
-                        id: `user_${Math.random().toString(36).slice(2, 10)}`,
-                        name: cleanName,
-                        email: (userData.email || '').toLowerCase(),
-                        phone: '',
-                        picture: userData.picture || '',
-                        role: 'student',
-                        account_status: 'ACTIVE'
-                    }
-                };
+            let res = null;
+            try {
+                res = await window.api.googleAuth({ ...userData, turnstileToken });
+            } catch (networkErr) {
+                console.warn('[Google Auth Network Recovery]:', networkErr.message);
+            } finally {
+                if (window.LpuQuickTurnstile) {
+                    window.LpuQuickTurnstile.reset('signin-turnstile-container');
+                }
             }
 
             if (res && res.user && res.user.id) {
@@ -167,6 +166,9 @@ window.pageInits.signin = function() {
                 window.CURRENT_USER_EMAIL = res.user.email;
                 window.CURRENT_USER_PICTURE = res.user.picture || '';
                 localStorage.setItem('lpuquick_user', JSON.stringify(res.user));
+                if (res.token) {
+                    localStorage.setItem('lpuquick_token', res.token);
+                }
                 localStorage.setItem('lpuquick_last_active', Date.now().toString());
                 if (typeof window.refreshUserActivity === 'function') window.refreshUserActivity();
 
@@ -203,34 +205,6 @@ window.pageInits.signin = function() {
             }
         } catch (err) {
             console.error('[Google Auth Error]:', err);
-            if (userData && (userData.email || userData.name)) {
-                const rawName = userData.name || (userData.email ? userData.email.split('@')[0] : 'LPU Student');
-                const localUser = {
-                    id: `user_${Math.random().toString(36).slice(2, 10)}`,
-                    name: rawName.charAt(0).toUpperCase() + rawName.slice(1),
-                    email: (userData.email || '').toLowerCase(),
-                    phone: '',
-                    picture: userData.picture || '',
-                    role: 'student',
-                    account_status: 'ACTIVE'
-                };
-                window.CURRENT_USER_ID = localUser.id;
-                window.CURRENT_USER_NAME = localUser.name;
-                window.CURRENT_USER_EMAIL = localUser.email;
-                window.CURRENT_USER_PICTURE = localUser.picture;
-                localStorage.setItem('lpuquick_user', JSON.stringify(localUser));
-                localStorage.setItem('lpuquick_last_active', Date.now().toString());
-
-                document.documentElement.classList.add('dark');
-                if (document.body) document.body.classList.add('dark');
-                localStorage.setItem('lpuquick_theme', 'dark');
-                if (typeof window.syncAllThemeToggles === 'function') {
-                    window.syncAllThemeToggles();
-                }
-
-                window.location.hash = '#/';
-                return;
-            }
             resetGoogleButton();
             showStatusMessage('Sign-in error: ' + (err.message || 'Please check your connection.'), true);
         }
@@ -271,6 +245,14 @@ window.pageInits.signin = function() {
     // Google Sign-In Button Click Handler
     document.getElementById('btn-google')?.addEventListener('click', async () => {
         const btn = document.getElementById('btn-google');
+        if (window.LpuQuickTurnstile) {
+            try {
+                await window.LpuQuickTurnstile.ensureToken('signin-turnstile-container', { action: 'google_signin' });
+            } catch (tsErr) {
+                showStatusMessage(tsErr.message || 'Please complete the security check above first.', true);
+                return;
+            }
+        }
         if (btn) {
             btn.disabled = true;
             btn.innerHTML = `<span class="w-5 h-5 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin mr-2"></span> Connecting to Google...`;
@@ -290,30 +272,12 @@ window.pageInits.signin = function() {
                         clearTimeout(popupSafetyTimer);
                         if (tokenResponse && tokenResponse.access_token) {
                             try {
-                                let profile = null;
-                                try {
-                                    const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                                        headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
-                                    });
-                                    if (userInfoRes.ok) {
-                                        profile = await userInfoRes.json();
-                                    }
-                                } catch (fetchErr) {
-                                    console.warn('[Userinfo Fetch Fallback to Server]:', fetchErr);
-                                }
-
-                                if (profile && profile.email) {
-                                    await handleAuthenticatedUser({
-                                        email: profile.email,
-                                        name: profile.name,
-                                        picture: profile.picture
-                                    });
-                                } else {
+                                if (tokenResponse && tokenResponse.access_token) {
                                     await handleAuthenticatedUser({
                                         access_token: tokenResponse.access_token
                                     });
+                                    return;
                                 }
-                                return;
                             } catch (procErr) {
                                 console.error('[Token Processing Error]:', procErr);
                                 showStatusMessage('Failed to authenticate with Google.', true);

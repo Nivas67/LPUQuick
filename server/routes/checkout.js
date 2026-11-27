@@ -6,6 +6,8 @@ const { broadcastOrderPlaced, broadcastInventoryUpdate } = require('../realtime'
 const cache = require('../cache');
 const checkoutSettingsService = require('../services/checkoutSettingsService');
 const orderModeService = require('../services/orderModeService');
+const { resolveRequestActor, isOwnerMatch } = require('../services/customerAuth');
+const { verifyTurnstileMiddleware } = require('../services/turnstileService');
 
 // In-Process Concurrency Mutex for Checkout Idempotency & Duplicate Order Prevention
 const checkoutLocks = new Map();
@@ -82,6 +84,40 @@ async function handlePlaceOrder(req, res) {
 }
 
 async function executeOrderPlacement(req, res, { userId, guestUserId, paymentMethod, deliveryAddress, customOrderId, clientItems }) {
+    const actor = await resolveRequestActor(req);
+    const requestedUserId = String(userId || '').trim();
+    if (requestedUserId && !requestedUserId.startsWith('guest_') && requestedUserId !== 'anonymous' && requestedUserId !== 'null' && requestedUserId !== 'undefined') {
+        if (!actor.isAdmin && !actor.isCustomer) {
+            return res.status(401).json({
+                success: false,
+                code: 'AUTH_REQUIRED',
+                error: 'Sign in required to place an order with this customer account.'
+            });
+        }
+        if (!isOwnerMatch(actor, requestedUserId)) {
+            return res.status(403).json({
+                success: false,
+                code: 'FORBIDDEN_USER_SCOPE',
+                error: 'You cannot place an order on behalf of another customer.'
+            });
+        }
+        userId = actor.isCustomer ? actor.userId : requestedUserId;
+    } else if (actor.isCustomer) {
+        userId = actor.userId;
+    }
+
+    // Enforce Pay-on-Delivery only until online payments are explicitly authorized and enabled
+    const onlinePaymentsEnabled = String(process.env.ONLINE_PAYMENTS_ENABLED || 'false').trim().toLowerCase() === 'true';
+    const rawMethod = String(paymentMethod || 'Pay on Delivery').trim();
+    const isCodMethod = /^(pay\s*on\s*delivery|cash\s*on\s*delivery|cash|cod|pod)$/i.test(rawMethod);
+    if (!onlinePaymentsEnabled && !isCodMethod) {
+        return res.status(400).json({
+            success: false,
+            code: 'PAYMENT_METHOD_DISABLED',
+            error: 'Online payments are disabled until merchant verification completes. Please select Pay on Delivery.'
+        });
+    }
+
     // Extract & validate mandatory 10-digit mobile number
     const checkPhone = (req.body.customerPhone || req.body.phone || '').replace(/\D/g, '');
     if (!checkPhone || checkPhone.length !== 10) {
@@ -542,7 +578,9 @@ router.get('/settings', async (req, res) => {
     }
 });
 
-router.post('/', handlePlaceOrder);
-router.post('/place', handlePlaceOrder);
+const checkoutTurnstileGuard = verifyTurnstileMiddleware({ action: 'checkout' });
+
+router.post('/', checkoutTurnstileGuard, handlePlaceOrder);
+router.post('/place', checkoutTurnstileGuard, handlePlaceOrder);
 
 module.exports = router;

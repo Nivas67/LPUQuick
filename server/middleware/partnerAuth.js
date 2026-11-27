@@ -1,21 +1,33 @@
 const crypto = require('crypto');
 const partnerService = require('../services/partnerService');
 
-const FALLBACK_HMAC_SECRET = Buffer.from('bHB1cXVpY2tfc2VjdXJlX2FkbWluX2F1dGhfaG1hY18yMDI2', 'base64').toString('utf8');
-const PARTNER_AUTH_SECRET = process.env.JWT_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || FALLBACK_HMAC_SECRET;
+function getPartnerSigningSecret() {
+    return String(
+        process.env.PARTNER_SESSION_SECRET ||
+        process.env.JWT_SECRET ||
+        process.env.SUPABASE_SERVICE_ROLE_KEY ||
+        ''
+    ).trim();
+}
 
-const CANDIDATE_SECRETS = Array.from(new Set([
-    process.env.JWT_SECRET,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    PARTNER_AUTH_SECRET,
-    FALLBACK_HMAC_SECRET
-].filter(Boolean)));
+function getPartnerCandidateSecrets() {
+    return Array.from(new Set([
+        process.env.PARTNER_SESSION_SECRET,
+        process.env.JWT_SECRET,
+        process.env.SUPABASE_SERVICE_ROLE_KEY
+    ].map(s => String(s || '').trim()).filter(Boolean)));
+}
 
 /**
  * Generate cryptographically signed HMAC token for an authenticated Partner.
  * Valid for 30 days.
  */
 function generatePartnerToken(partnerId) {
+    const signingSecret = getPartnerSigningSecret();
+    if (!signingSecret) {
+        throw new Error('Partner session signing secret is not configured.');
+    }
+
     const header = { alg: 'HS256', typ: 'JWT' };
     const payload = {
         sub: partnerId,
@@ -29,7 +41,7 @@ function generatePartnerToken(partnerId) {
     const dataToSign = `${encodedHeader}.${encodedPayload}`;
 
     const signature = crypto
-        .createHmac('sha256', PARTNER_AUTH_SECRET)
+        .createHmac('sha256', signingSecret)
         .update(dataToSign)
         .digest('base64url');
 
@@ -58,8 +70,11 @@ function verifyPartnerToken(tokenString) {
     const [encodedHeader, encodedPayload, receivedSignature] = parts;
     const dataToSign = `${encodedHeader}.${encodedPayload}`;
 
+    const candidateSecrets = getPartnerCandidateSecrets();
+    if (candidateSecrets.length === 0) return null;
+
     let isSignatureValid = false;
-    for (const secret of CANDIDATE_SECRETS) {
+    for (const secret of candidateSecrets) {
         const expectedSignature = crypto
             .createHmac('sha256', secret)
             .update(dataToSign)

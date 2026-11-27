@@ -56,6 +56,9 @@
                     <span id="login-error-text">Authentication failed</span>
                 </div>
 
+                <!-- Cloudflare Turnstile Widget Container -->
+                <div id="partner-turnstile-container" class="hidden flex justify-center min-h-[65px] pt-1"></div>
+
                 <button type="submit" id="partner-login-btn"
                     class="w-full py-3 px-4 bg-[#0066cc] hover:bg-[#0052a3] active:scale-[0.99] text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer">
                     <span>Sign In to Dashboard</span>
@@ -537,6 +540,7 @@
     </div>
 
     <!-- Scripts -->
-    <script src="/partner/js/partner.js?v=20261125_free_opt1"></script>
+    <script src="/js/turnstile-client.js?v=20261127_ts1"></script>
+    <script src="/partner/js/partner.js?v=20261127_ts1"></script>
 </body>
 </html>

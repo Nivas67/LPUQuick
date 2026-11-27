@@ -1,16 +1,38 @@
 const fs = require('fs');
 const path = require('path');
+const { getSupabaseClient } = require('../supabase');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const NOTIFS_FILE = path.join(DATA_DIR, 'admin_order_notifications.json');
 
-// Ensure data directory exists
-try {
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-} catch (e) {}
+// Ensure data directory exists on writable hosts
+if (!process.env.VERCEL && !process.env.CLOUDFLARE_WORKERS) {
+    try {
+        if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+    } catch (e) {}
+}
 
 let memoryNotifs = [];
 let lastMtime = 0;
+
+async function hydrateNotificationsFromCloud() {
+    try {
+        const supabase = getSupabaseClient();
+        if (!supabase) return;
+        const { data, error } = await supabase
+            .from('app_availability')
+            .select('message')
+            .eq('id', 'admin_notifications_registry')
+            .maybeSingle();
+        if (!error && data && data.message) {
+            const parsed = JSON.parse(data.message);
+            if (Array.isArray(parsed) && parsed.length > 0 && memoryNotifs.length === 0) {
+                memoryNotifs = parsed;
+            }
+        }
+    } catch (e) {}
+}
+hydrateNotificationsFromCloud().catch(() => {});
 
 function loadNotifications() {
     try {
@@ -32,6 +54,19 @@ function loadNotifications() {
 loadNotifications();
 
 function persistNotifications() {
+    try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            supabase.from('app_availability').upsert([{
+                id: 'admin_notifications_registry',
+                is_locked: false,
+                lock_type: 'ADMIN_NOTIFICATIONS',
+                message: JSON.stringify(memoryNotifs.slice(0, 150)),
+                updated_at: new Date().toISOString()
+            }]).then(() => {}).catch(() => {});
+        }
+    } catch (e) {}
+    if (process.env.VERCEL || process.env.CLOUDFLARE_WORKERS) return;
     try {
         fs.writeFileSync(NOTIFS_FILE, JSON.stringify(memoryNotifs.slice(0, 150), null, 2));
         if (fs.existsSync(NOTIFS_FILE)) {

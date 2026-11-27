@@ -37,6 +37,7 @@ function loadLocalBackup() {
 }
 
 function saveLocalBackup() {
+    if (process.env.VERCEL || process.env.CLOUDFLARE_WORKERS) return;
     try {
         ensureDataDir();
         const obj = {};
@@ -75,7 +76,21 @@ function extractClientIp(req) {
     if (!req) return '';
     const headers = req.headers || {};
 
-    // 1. Cloudflare Edge Real IP (Tamper-proof: Cloudflare overwrites CF-Connecting-IP with the actual visitor IP)
+    // Under direct Vercel hosting, prioritize Vercel Edge forwarded headers; ignore client-spoofable CF headers unless explicitly behind CF proxy
+    if (process.env.VERCEL && process.env.TRUST_CLOUDFLARE_HEADERS !== '1') {
+        const vercelIp = headers['x-vercel-forwarded-for'];
+        if (vercelIp && typeof vercelIp === 'string' && vercelIp.trim()) {
+            const first = vercelIp.split(',')[0].trim();
+            if (first) return normalizeIp(first);
+        }
+
+        const realIp = headers['x-real-ip'];
+        if (realIp && typeof realIp === 'string' && realIp.trim()) {
+            return normalizeIp(realIp.trim());
+        }
+    }
+
+    // 1. Trusted Cloudflare Edge Real IP (when fronted by Cloudflare or in local proxy checks)
     const cfIp = headers['cf-connecting-ip'] || headers['true-client-ip'];
     if (cfIp && typeof cfIp === 'string' && cfIp.trim()) {
         return normalizeIp(cfIp.trim());
