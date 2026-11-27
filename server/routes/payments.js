@@ -42,6 +42,8 @@ function isAllowedRedirectHostname(rawHost) {
         (vercelUrlHost && hostnameOnly === vercelUrlHost) ||
         (vercelBranchHost && hostnameOnly === vercelBranchHost) ||
         hostnameOnly === 'lpuquick.vercel.app' ||
+        hostnameOnly === 'lpuquick.in' ||
+        hostnameOnly === 'www.lpuquick.in' ||
         /^lpuquick(-[a-zA-Z0-9-]+)*-(nivx|lpuquickltd-5410)\.vercel\.app$/.test(hostnameOnly)
     );
 }
