@@ -4,7 +4,6 @@ import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.view.KeyEvent;
-import android.view.View;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
@@ -13,13 +12,14 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.view.WindowCompat;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 public class MainActivity extends AppCompatActivity {
 
     private WebView mWebView;
     private SwipeRefreshLayout mSwipeRefresh;
-    private static final String APP_URL = "https://lpuquick.in/?app=android";
+    private static final String APP_URL = "https://www.lpuquick.in/?app=android";
 
     public static class WebAppInterface {
         @JavascriptInterface
@@ -29,7 +29,7 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public String getAppVersion() {
-            return "1.0.1";
+            return "1.0.2";
         }
     }
 
@@ -37,6 +37,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
 
         mSwipeRefresh = new SwipeRefreshLayout(this);
         mWebView = new WebView(this);
@@ -60,7 +61,7 @@ public class MainActivity extends AppCompatActivity {
         // Identify this WebView to the web app so all install options are removed
         String defaultUa = settings.getUserAgentString();
         if (defaultUa != null && !defaultUa.contains("LPUQuickAndroidApp")) {
-            settings.setUserAgentString(defaultUa + " LPUQuickAndroidApp/1.0.1 (Android Native)");
+            settings.setUserAgentString(defaultUa + " LPUQuickAndroidApp/1.0.2 (Android Native)");
         }
 
         // Bridge for native detection
@@ -70,9 +71,6 @@ public class MainActivity extends AppCompatActivity {
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(mWebView, true);
-
-        // Hardware acceleration
-        mWebView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
         mWebView.setWebViewClient(new WebViewClient() {
             @Override

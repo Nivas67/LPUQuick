@@ -8,7 +8,7 @@
     </style>
 
     <style name="Theme.LPUQuick.Fullscreen" parent="Theme.LPUQuick">
-        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">default</item>
         <item name="android:windowTranslucentStatus">false</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
     </style>
