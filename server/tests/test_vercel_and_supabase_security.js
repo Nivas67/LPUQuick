@@ -100,7 +100,7 @@ async function runTests() {
         });
         assert.strictEqual(unsubUnauth.status, 401, 'POST /api/notifications/unsubscribe must require admin auth');
 
-        // Legacy Cloudflare and custom domains rejected in CORS; Vercel origin allowed
+        // Legacy Cloudflare and unapproved custom domains rejected in CORS; Vercel and lpuquick.in origins allowed
         for (const legacyOrigin of ['https://lpuquick.nivasnaidu07.workers.dev', 'https://lpuquick.pages.dev', 'https://lpuquick.com']) {
             const legacyCors = await fetch(`${baseUrl}/api/health`, {
                 method: 'OPTIONS',
@@ -108,11 +108,13 @@ async function runTests() {
             });
             assert.strictEqual(legacyCors.headers.get('access-control-allow-origin'), null, `${legacyOrigin} must not be CORS allowlisted`);
         }
-        const vercelCors = await fetch(`${baseUrl}/api/health`, {
-            method: 'OPTIONS',
-            headers: { Origin: 'https://lpuquick.vercel.app', 'Access-Control-Request-Method': 'GET' }
-        });
-        assert.strictEqual(vercelCors.headers.get('access-control-allow-origin'), 'https://lpuquick.vercel.app');
+        for (const allowedOrigin of ['https://lpuquick.vercel.app', 'https://lpuquick.in', 'https://www.lpuquick.in']) {
+            const vercelCors = await fetch(`${baseUrl}/api/health`, {
+                method: 'OPTIONS',
+                headers: { Origin: allowedOrigin, 'Access-Control-Request-Method': 'GET' }
+            });
+            assert.strictEqual(vercelCors.headers.get('access-control-allow-origin'), allowedOrigin, `${allowedOrigin} must be CORS allowlisted`);
+        }
 
         // Local bundled uploads stay on Vercel CDN under VERCEL=1
         const prevSupaUrl = process.env.SUPABASE_URL;

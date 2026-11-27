@@ -235,7 +235,7 @@
                 ${!isSafari ? `
                 <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 text-xs text-amber-600 dark:text-amber-400 flex items-start gap-2">
                     <span class="material-symbols-outlined text-base shrink-0 mt-0.5">info</span>
-                    <span>For the best experience on iOS, open <b>${(typeof window !== 'undefined' && window.location && window.location.host) ? String(window.location.host).replace(/[^a-zA-Z0-9.:-]/g, '') : 'lpuquick.vercel.app'}</b> in <b>Safari</b>.</span>
+                    <span>For the best experience on iOS, open <b>${(typeof window !== 'undefined' && window.location && window.location.host) ? String(window.location.host).replace(/[^a-zA-Z0-9.:-]/g, '') : 'lpuquick.in'}</b> in <b>Safari</b>.</span>
                 </div>
                 ` : ''}
 
