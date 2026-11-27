@@ -35,7 +35,7 @@ For deployment on VPS, AWS EC2, DigitalOcean, or Hostinger VPS, use the included
 - **Connection Pooling (`keepalive 64`)**: Reuses open TCP connections to Node.js workers to eliminate socket starvation and connection lag.
 - **Full WebSocket Support**: Proxying for `/ws/*` endpoints with 3600-second long-lived keepalive timeouts.
 - **Static Asset Edge Caching**: Offloads images, CSS, and JS caching directly to Nginx so Node.js processes handle only dynamic API logic.
-- **Real-IP Resolution**: Cloudflare IP ranges are mapped automatically to restore the client's real IP address.
+- **Real-IP Resolution**: Trusted `X-Real-IP` and `X-Forwarded-For` proxy headers preserve the client's real IP address.
 
 ### Deployment:
 ```bash
@@ -49,10 +49,9 @@ sudo systemctl reload nginx
 
 ---
 
-## 3. Cloudflare & Vercel Edge Serverless Load Balancing
+## 3. Vercel Edge Serverless Load Balancing
 
-- **Vercel Cloud**: Serverless functions in [`api/index.js`](file:///c:/Users/Digvi/OneDrive/Documents/LpuQuick/api/index.js) auto-scale dynamically across multiple edge instances with automated regional load balancing.
-- **Cloudflare Edge**: All static assets are served from the nearest Cloudflare point of presence, and API calls are load-balanced to your origin server with DDoS protection.
+- **Vercel Cloud**: Serverless functions in [`api/index.js`](file:///c:/Users/Digvi/OneDrive/Documents/LpuQuick/api/index.js) and static assets under `public/` auto-scale dynamically across Vercel Edge Network with automated TLS and regional routing on `https://lpuquick.vercel.app`.
 
 ---
 

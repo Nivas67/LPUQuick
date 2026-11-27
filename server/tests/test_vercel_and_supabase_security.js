@@ -75,7 +75,7 @@ async function runTests() {
         const homeRes = await fetch(`${baseUrl}/api/health`);
         assert.strictEqual(homeRes.status, 200);
         const csp = homeRes.headers.get('content-security-policy') || '';
-        assert.strictEqual(csp.includes('challenges.cloudflare.com'), false, 'CSP must contain zero Cloudflare origins');
+        assert.strictEqual(csp.toLowerCase().includes('cloudflare'), false, 'CSP must contain zero Cloudflare origins');
 
         const removedTsCfg = await fetch(`${baseUrl}/api/security/turnstile-config`);
         assert.strictEqual(removedTsCfg.status, 404, 'Removed Turnstile config endpoint must return 404');
@@ -164,6 +164,7 @@ async function runTests() {
             assert.strictEqual(portalRes.status, 200, `${route} must return 200`);
             const html = await portalRes.text();
             assert.strictEqual(html.includes('turnstile-client.js'), false, `${route} must not embed Turnstile JS`);
+            assert.strictEqual(html.toLowerCase().includes('cloudflare'), false, `${route} must contain zero Cloudflare CDN or script domains`);
         }
 
         // Partner wrong-password regression test

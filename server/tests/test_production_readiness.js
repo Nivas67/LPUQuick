@@ -693,7 +693,7 @@ async function runTests() {
         assert.strictEqual(vercelCfg.functions?.['api/index.js']?.maxDuration, 30);
         const rawVercelJson = JSON.stringify(vercelCfg);
         assert.strictEqual(rawVercelJson.includes('workers.dev'), false, 'Active Vercel config must never reference workers.dev');
-        assert.strictEqual(rawVercelJson.includes('challenges.cloudflare.com'), false, 'CSP in vercel.json must not include Cloudflare Turnstile');
+        assert.strictEqual(rawVercelJson.toLowerCase().includes('cloudflare'), false, 'CSP in vercel.json must contain zero Cloudflare domains');
         const apiRewrite = (vercelCfg.rewrites || []).find((r) => r.source === '/api/(.*)');
         assert.ok(apiRewrite && apiRewrite.destination === '/api/index.js');
         assert.ok((vercelCfg.rewrites || []).some((r) => r.source === '/admin/(.*)' && r.destination === '/admin/index.html'));
