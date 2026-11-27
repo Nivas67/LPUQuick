@@ -10818,4 +10818,7870 @@ async function handlePosterSubmit(e) {
             });
             if (res.ok) {
                 const data = await res.json();
-... [truncated for diff preview]
+                if (data.success && Array.isArray(data.posters)) {
+                    adminPosters = data.posters;
+                    savedSuccessfully = true;
+                }
+            }
+        } catch (netErr) {
+            console.warn('[Advertisements] Network save failed, saving to local cache:', netErr);
+        }
+
+        if (!savedSuccessfully) {
+            if (id) {
+                const idx = adminPosters.findIndex(p => p.id === id);
+                if (idx !== -1) {
+                    adminPosters[idx] = { ...adminPosters[idx], ...payload, updated_at: new Date().toISOString() };
+                } else {
+                    adminPosters.push({ ...payload, id });
+                }
+            } else {
+                const newId = `poster_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+                adminPosters.push({ ...payload, id: newId, created_at: new Date().toISOString() });
+            }
+        }
+
+        adminPosters.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+        localStorage.setItem('lpuquick_admin_posters', JSON.stringify(adminPosters));
+        notifyLocalAdsUpdated();
+
+        closePosterModal();
+        renderAdminCarouselSlides();
+        renderAdminPostersGrid();
+        updateAdminCarouselView();
+        startAdminCarouselAutoSlide();
+
+        const navBadge = document.getElementById('nav-ads-badge');
+        const countBadge = document.getElementById('admin-posters-count-badge');
+        const activeCount = adminPosters.filter(p => p.is_active !== false).length;
+        if (navBadge) navBadge.textContent = String(adminPosters.length);
+        if (countBadge) countBadge.textContent = `${adminPosters.length} advertisement${adminPosters.length === 1 ? '' : 's'} (${activeCount} active)`;
+
+        showToast(id ? '✓ Advertisement updated successfully!' : '✓ New advertisement added to carousel!', 'success');
+    } catch (err) {
+        showToast('Error saving advertisement: ' + err.message, 'warning');
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            if (origBtnHtml) saveBtn.innerHTML = origBtnHtml;
+        }
+    }
+}
+
+async function handleModalDeletePoster() {
+    if (!editingPosterId) return;
+    await quickDeletePoster(editingPosterId);
+    closePosterModal();
+}
+
+async function quickDeletePoster(id) {
+    if (!confirm('Are you sure you want to delete this promotional poster?')) return;
+
+    try {
+        try {
+            await fetch(`/api/admin/advertisements/${id}`, {
+                method: 'DELETE',
+                headers: getAuthHeaders()
+            });
+        } catch (netErr) {
+            console.warn('[Advertisements] Network delete failed, falling back to local:', netErr);
+        }
+
+        adminPosters = adminPosters.filter(p => p.id !== id);
+        localStorage.setItem('lpuquick_admin_posters', JSON.stringify(adminPosters));
+        notifyLocalAdsUpdated();
+
+        renderAdminCarouselSlides();
+        renderAdminPostersGrid();
+        updateAdminCarouselView();
+        startAdminCarouselAutoSlide();
+
+        const navBadge = document.getElementById('nav-ads-badge');
+        const countBadge = document.getElementById('admin-posters-count-badge');
+        const activeCount = adminPosters.filter(p => p.is_active !== false).length;
+        if (navBadge) navBadge.textContent = String(adminPosters.length);
+        if (countBadge) countBadge.textContent = `${adminPosters.length} poster${adminPosters.length === 1 ? '' : 's'} (${activeCount} active)`;
+
+        showToast('Poster deleted successfully', 'info');
+    } catch (err) {
+        showToast('Failed to delete poster: ' + err.message, 'warning');
+    }
+}
+
+async function togglePosterActive(id) {
+    const poster = adminPosters.find(p => p.id === id);
+    if (!poster) return;
+
+    poster.is_active = poster.is_active === false ? true : false;
+    notifyLocalAdsUpdated();
+
+    renderAdminCarouselSlides();
+    renderAdminPostersGrid();
+    updateAdminCarouselView();
+    startAdminCarouselAutoSlide();
+
+    try {
+        const res = await fetch('/api/admin/advertisements', {
+            method: 'POST',
+            headers: {
+                ...getAuthHeaders(),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(poster)
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data.success && Array.isArray(data.posters)) {
+                adminPosters = data.posters;
+                notifyLocalAdsUpdated();
+                renderAdminCarouselSlides();
+                renderAdminPostersGrid();
+            }
+        }
+    } catch (netErr) { }
+
+    showToast(`Poster ${poster.is_active ? 'activated' : 'paused'} in carousel`, 'info');
+}
+
+async function movePosterOrder(id, delta) {
+    const index = adminPosters.findIndex(p => p.id === id);
+    if (index === -1) return;
+
+    const targetIndex = index + delta;
+    if (targetIndex < 0 || targetIndex >= adminPosters.length) return;
+
+    // Swap positions
+    const temp = adminPosters[index];
+    adminPosters[index] = adminPosters[targetIndex];
+    adminPosters[targetIndex] = temp;
+
+    // Re-index display_order
+    adminPosters.forEach((p, i) => { p.display_order = i + 1; });
+    localStorage.setItem('lpuquick_admin_posters', JSON.stringify(adminPosters));
+    notifyLocalAdsUpdated();
+
+    renderAdminCarouselSlides();
+    renderAdminPostersGrid();
+    updateAdminCarouselView();
+
+    // Fast atomic reorder endpoint
+    try {
+        await fetch('/api/admin/advertisements/reorder', {
+            method: 'POST',
+            headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ordered_ids: adminPosters.map(p => p.id) })
+        });
+    } catch (e) { }
+
+    showToast('Poster order updated', 'info');
+}
+
+// ================= REAL-TIME SYNCHRONIZATION HANDLERS =================
+function handleRealtimeAdvertisementsUpdated(data) {
+    try {
+        let changed = false;
+        if (Array.isArray(data.posters)) {
+            adminPosters = data.posters;
+            adminPosters.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+            localStorage.setItem('lpuquick_admin_posters', JSON.stringify(adminPosters));
+            changed = true;
+        }
+
+        if (data.settings) {
+            if (data.settings.autoplay_delay) {
+                adminCarouselDelay = Math.max(1000, Number(data.settings.autoplay_delay));
+            }
+            if (data.settings.autoplay_enabled !== undefined) {
+                adminCarouselAutoplay = Boolean(data.settings.autoplay_enabled);
+            }
+            localStorage.setItem('lpuquick_admin_carousel_settings', JSON.stringify(data.settings));
+            changed = true;
+        }
+
+        if (changed) {
+            const slider = document.getElementById('admin-carousel-delay-slider');
+            const delayBadge = document.getElementById('admin-delay-display-badge');
+            const speedPill = document.getElementById('admin-carousel-speed-pill');
+            const delaySec = (adminCarouselDelay / 1000).toFixed(1);
+
+            if (slider && document.activeElement !== slider) slider.value = delaySec;
+            if (delayBadge) delayBadge.textContent = `${delaySec} seconds`;
+            if (speedPill) speedPill.textContent = `⚡ ${delaySec}s delay`;
+
+            const playPauseIcon = document.getElementById('admin-carousel-playpause-icon');
+            if (playPauseIcon) {
+                playPauseIcon.textContent = adminCarouselAutoplay ? 'pause' : 'play_arrow';
+            }
+
+            const navBadge = document.getElementById('nav-ads-badge');
+            const countBadge = document.getElementById('admin-posters-count-badge');
+            const activeCount = adminPosters.filter(p => p.is_active !== false).length;
+            if (navBadge) navBadge.textContent = String(adminPosters.length);
+            if (countBadge) countBadge.textContent = `${adminPosters.length} poster${adminPosters.length === 1 ? '' : 's'} (${activeCount} active)`;
+
+            renderAdminCarouselSlides();
+            renderAdminPostersGrid();
+            updateAdminCarouselView();
+            startAdminCarouselAutoSlide();
+
+            if (activeView === 'advertisements') {
+                showToast('⚡ Live promotional banner sync received', 'info');
+            }
+        }
+    } catch (err) {
+        console.error('[Advertisements Realtime] Error handling update:', err);
+    }
+}
+
+// Multi-Tab Real-time Broadcast Channel
+let adsBroadcastChannel = null;
+try {
+    if (typeof BroadcastChannel !== 'undefined') {
+        adsBroadcastChannel = new BroadcastChannel('lpuquick_ads_sync');
+        adsBroadcastChannel.onmessage = (event) => {
+            if (event.data && event.data.type === 'ADVERTISEMENTS_UPDATED') {
+                handleRealtimeAdvertisementsUpdated(event.data);
+            }
+        };
+    }
+} catch (e) { }
+
+function notifyLocalAdsUpdated() {
+    try {
+        const payload = {
+            type: 'ADVERTISEMENTS_UPDATED',
+            posters: adminPosters,
+            banners: adminPosters,
+            settings: {
+                autoplay_delay: adminCarouselDelay,
+                autoplay_enabled: adminCarouselAutoplay
+            }
+        };
+        try {
+            localStorage.setItem('lpuquick_admin_posters', JSON.stringify(adminPosters));
+            localStorage.setItem('lpuquick_active_banners', JSON.stringify(adminPosters));
+            localStorage.setItem('lpuquick_carousel_settings', JSON.stringify(payload.settings));
+        } catch (storageErr) { }
+
+        adsBroadcastChannel?.postMessage(payload);
+        window.dispatchEvent(new CustomEvent('advertisementsUpdated', { detail: payload }));
+    } catch (e) { }
+}
+
+// Cross-tab storage event listener
+window.addEventListener('storage', (e) => {
+    if (e.key === 'lpuquick_admin_posters' || e.key === 'lpuquick_admin_carousel_settings') {
+        try {
+            const cachedPosters = localStorage.getItem('lpuquick_admin_posters');
+            const cachedSettings = localStorage.getItem('lpuquick_admin_carousel_settings');
+            handleRealtimeAdvertisementsUpdated({
+                posters: cachedPosters ? JSON.parse(cachedPosters) : undefined,
+                settings: cachedSettings ? JSON.parse(cachedSettings) : undefined
+            });
+        } catch (err) { }
+    }
+});
+
+// =========================================================================
+// DELIVERY PARTNER HUB, MY EARNINGS (₹3/ORDER) & PARTNER DRAWER CONTROLLER
+// =========================================================================
+let earningsPeriod = 'weekly';
+let earningsWeekOffset = 0;
+let earningsMonthOffset = 0;
+let earningsSelectedRider = 'all';
+let currentEarningsData = null;
+let selectedDayFilter = null;
+let partnerIsOnDuty = true;
+let partnerDashboardSubTab = 'partner';
+let fleetCustomStartDate = null;
+let fleetCustomEndDate = null;
+let earningsSelectedShift = 'all';
+
+function updateFleetViewMetrics(data) {
+    if (!data) return;
+    const fleetDailyPayout = document.getElementById('fleet-metric-daily-payout');
+    if (fleetDailyPayout) {
+        fleetDailyPayout.textContent = `₹${(data.platform_metrics?.total_daily_payout || 0).toFixed(2)}`;
+    }
+
+    const fleetMonthlyExpense = document.getElementById('fleet-metric-monthly-expense');
+    if (fleetMonthlyExpense) {
+        fleetMonthlyExpense.textContent = `₹${(data.platform_metrics?.total_monthly_expense || 0).toFixed(2)}`;
+    }
+
+    const fleetTotalFleet = document.getElementById('fleet-metric-total-fleet');
+    if (fleetTotalFleet) {
+        fleetTotalFleet.textContent = String(data.platform_metrics?.total_active_fleet || 0);
+    }
+
+    const fleetTotalOrders = document.getElementById('fleet-metric-total-orders');
+    if (fleetTotalOrders) {
+        fleetTotalOrders.textContent = String(data.platform_metrics?.total_completed_all_time || 0);
+    }
+
+    renderFleetPartnersTable(data.partners_summary || []);
+}
+
+async function loadDeliveryEarnings(customStart, customEnd) {
+    try {
+        const queryParams = new URLSearchParams({
+            period: earningsPeriod,
+            weekOffset: earningsWeekOffset,
+            monthOffset: earningsMonthOffset,
+            riderId: earningsSelectedRider,
+            shift: earningsSelectedShift,
+            _t: Date.now()
+        });
+
+        if (currentAdminProfile?.id) queryParams.set('ownerId', currentAdminProfile.id);
+        if (currentAdminProfile?.name) queryParams.set('ownerName', currentAdminProfile.name);
+
+        if (customStart && customEnd) {
+            queryParams.set('startDate', customStart);
+            queryParams.set('endDate', customEnd);
+        } else if (fleetCustomStartDate && fleetCustomEndDate) {
+            queryParams.set('startDate', fleetCustomStartDate);
+            queryParams.set('endDate', fleetCustomEndDate);
+        }
+
+        const res = await fetchWithTimeout(`/api/orders/delivery-earnings?${queryParams.toString()}`, {
+            headers: getAuthHeaders()
+        }, 8000);
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Failed to fetch earnings');
+
+        currentEarningsData = data;
+
+        // Role-based visibility: Except owner, non-owner admins cannot see other admins' revenue or fleet aggregates
+        const isOwner = Boolean(data.is_owner ?? (currentAdminProfile?.is_owner || currentAdminProfile?.roles?.includes('owner')));
+        const fleetTabBtn = document.getElementById('subtab-fleet-btn');
+        const pricingBtn = document.getElementById('btn-open-pricing-modal');
+        const allFleetBtn = document.getElementById('btn-filter-all-fleet');
+        const onlyMineBtn = document.getElementById('btn-filter-only-mine');
+        const riderSelect = document.getElementById('earnings-rider-select');
+        const headerRateBtn = document.getElementById('btn-header-pricing-pill');
+
+        if (!isOwner) {
+            if (fleetTabBtn) fleetTabBtn.classList.add('hidden');
+            if (pricingBtn) pricingBtn.classList.add('hidden');
+            if (allFleetBtn) allFleetBtn.classList.add('hidden');
+            if (onlyMineBtn) onlyMineBtn.classList.add('hidden');
+            if (riderSelect) riderSelect.classList.add('hidden');
+            if (headerRateBtn) {
+                headerRateBtn.onclick = null;
+                headerRateBtn.style.cursor = 'default';
+                headerRateBtn.title = 'Configured delivery fee per completed order';
+            }
+            if (partnerDashboardSubTab === 'fleet') {
+                setPartnerDashboardSubTab('partner');
+            }
+        } else {
+            if (fleetTabBtn) fleetTabBtn.classList.remove('hidden');
+            if (pricingBtn) pricingBtn.classList.remove('hidden');
+            if (allFleetBtn) allFleetBtn.classList.remove('hidden');
+            if (onlyMineBtn) onlyMineBtn.classList.remove('hidden');
+            if (riderSelect) riderSelect.classList.remove('hidden');
+            if (headerRateBtn) {
+                headerRateBtn.onclick = openDeliveryPricingModal;
+                headerRateBtn.style.cursor = 'pointer';
+                headerRateBtn.title = 'Click to open Delivery Pricing Engine';
+            }
+        }
+
+        // Populate Rider Dropdown with All Fleet, Only Mine (Owner), and Individual Runners
+        if (riderSelect) {
+            const ownerName = data.owner_info?.name || currentAdminProfile?.name || 'Owner';
+            let optionsHtml = isOwner ? `
+                <option value="all" ${earningsSelectedRider === 'all' ? 'selected' : ''}>🌐 All Delivery Fleet</option>
+                <option value="mine" ${earningsSelectedRider === 'mine' ? 'selected' : ''}>👤 Only Mine (${escapeHtml(ownerName)} - Deliveries)</option>
+            ` : `
+                <option value="${escapeHtml(currentAdminProfile?.id || data.selected_rider?.id || 'mine')}" selected>👤 My Deliveries (${escapeHtml(currentAdminProfile?.name || 'Rider')})</option>
+            `;
+            if (isOwner && Array.isArray(data.available_riders)) {
+                // Auto-reset if previously selected rider was revoked or no longer in active delivery fleet
+                const isValidSelection = earningsSelectedRider === 'all' || earningsSelectedRider === 'mine' || data.available_riders.some(r => r.id === earningsSelectedRider);
+                if (!isValidSelection) {
+                    earningsSelectedRider = 'all';
+                }
+                data.available_riders.forEach(r => {
+                    let roleTag = '';
+                    if (r.is_owner) {
+                        roleTag = ' (Owner & Delivery)';
+                    } else if (r.is_store_manager || (Array.isArray(r.roles) && r.roles.includes('store_manager'))) {
+                        roleTag = ' (Store Mgr & Delivery)';
+                    } else if (r.is_inventory_manager || (Array.isArray(r.roles) && r.roles.includes('inventory_manager'))) {
+                        roleTag = ' (Inventory & Delivery)';
+                    } else {
+                        roleTag = ' (Delivery Partner)';
+                    }
+                    const runsTag = r.total_completed ? ` • ${r.total_completed} runs` : '';
+                    const isSel = earningsSelectedRider === r.id ? 'selected' : '';
+                    optionsHtml += `<option value="${escapeHtml(r.id)}" ${isSel}>🏃 ${escapeHtml(r.name)}${roleTag}${runsTag}</option>`;
+                });
+            }
+            riderSelect.innerHTML = optionsHtml;
+            riderSelect.value = earningsSelectedRider;
+        }
+
+        // Update Hub Header dynamic rate badge
+        const headerRate = document.getElementById('hub-header-rate-display');
+        if (headerRate) {
+            headerRate.textContent = `₹${(data.rate_per_order || 3.00).toFixed(2)}`;
+        }
+
+        // Update Monthly Snapshot formula label
+        const formulaEl = document.getElementById('partner-snapshot-formula');
+        if (formulaEl) {
+            formulaEl.textContent = `Monthly Revenue = Completed Deliveries × ₹${(data.rate_per_order || 3.00).toFixed(2)}`;
+        }
+
+        // Update Active Filter indicators and banner
+        const btnAll = document.getElementById('btn-filter-all-fleet');
+        const btnMine = document.getElementById('btn-filter-only-mine');
+        const riderBadge = document.getElementById('active-rider-indicator-badge');
+        const filterBanner = document.getElementById('partner-filter-alert-banner');
+        const filterTitle = document.getElementById('partner-filter-banner-title');
+        const filterType = document.getElementById('partner-filter-banner-type');
+
+        if (earningsSelectedRider === 'mine') {
+            if (btnAll) btnAll.className = 'flex-1 py-1 px-2 rounded-lg bg-[#F0F4F9] hover:bg-blue-50 text-[#5c5f60] font-bold text-[11px] border border-[#DADCE0] transition-all cursor-pointer text-center';
+            if (btnMine) btnMine.className = 'flex-1 py-1 px-2 rounded-lg bg-indigo-600 text-white font-black text-[11px] border border-indigo-700 transition-all cursor-pointer text-center shadow-xs';
+            if (riderBadge) {
+                riderBadge.textContent = 'Only Mine';
+                riderBadge.className = 'text-[10px] font-black text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200';
+            }
+            if (filterBanner) {
+                filterBanner.classList.remove('hidden');
+                if (filterTitle) filterTitle.textContent = `Viewing Stats: ${data.selected_rider?.name || 'Owner (My Deliveries)'}`;
+                if (filterType) {
+                    filterType.textContent = 'Owner Only';
+                    filterType.className = 'text-[10px] bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded-full';
+                }
+            }
+        } else if (earningsSelectedRider && earningsSelectedRider !== 'all') {
+            if (btnAll) btnAll.className = 'flex-1 py-1 px-2 rounded-lg bg-[#F0F4F9] hover:bg-blue-50 text-[#5c5f60] font-bold text-[11px] border border-[#DADCE0] transition-all cursor-pointer text-center';
+            if (btnMine) btnMine.className = 'flex-1 py-1 px-2 rounded-lg bg-[#F0F4F9] hover:bg-indigo-50 text-[#5c5f60] font-bold text-[11px] border border-[#DADCE0] transition-all cursor-pointer text-center';
+            if (riderBadge) {
+                riderBadge.textContent = 'Individual Partner';
+                riderBadge.className = 'text-[10px] font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200';
+            }
+            if (filterBanner) {
+                filterBanner.classList.remove('hidden');
+                if (filterTitle) filterTitle.textContent = `Viewing Stats: ${data.selected_rider?.name || 'Individual Runner'}`;
+                if (filterType) {
+                    filterType.textContent = 'Partner Filter Active';
+                    filterType.className = 'text-[10px] bg-blue-100 text-[#0066cc] font-bold px-2 py-0.5 rounded-full';
+                }
+            }
+        } else {
+            if (btnAll) btnAll.className = 'flex-1 py-1 px-2 rounded-lg bg-[#0066cc] text-white font-black text-[11px] border border-blue-700 transition-all cursor-pointer text-center shadow-xs';
+            if (btnMine) btnMine.className = 'flex-1 py-1 px-2 rounded-lg bg-[#F0F4F9] hover:bg-indigo-50 text-[#5c5f60] font-bold text-[11px] border border-[#DADCE0] transition-all cursor-pointer text-center';
+            if (riderBadge) {
+                riderBadge.textContent = 'All Fleet';
+                riderBadge.className = 'text-[10px] font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200';
+            }
+            if (filterBanner) filterBanner.classList.add('hidden');
+        }
+
+        // Sync Rider Availability Duty Status with server
+        if (typeof data.is_on_duty === 'boolean') {
+            partnerIsOnDuty = data.is_on_duty;
+            if (typeof updatePartnerDutyUI === 'function') {
+                updatePartnerDutyUI(partnerIsOnDuty);
+            }
+        }
+
+        // Update Partner Drawer details
+        const drawerStore = document.getElementById('drawer-store-name');
+        if (drawerStore && data.store_info) {
+            drawerStore.textContent = `${data.store_info.store_id} • ${data.store_info.store_name}`;
+        }
+        const drawerEmp = document.getElementById('drawer-employee-id');
+        if (drawerEmp && data.store_info) {
+            const riderName = currentAdminProfile?.name || 'Rider';
+            drawerEmp.textContent = `${data.store_info.employee_id} (${riderName})`;
+        }
+
+        // 1. Partner Dashboard: Top KPI Cards
+        const kpiEarnings = document.getElementById('partner-kpi-today-earnings');
+        if (kpiEarnings) {
+            kpiEarnings.textContent = `₹${(data.today_stats?.today_earnings || 0).toFixed(2)}`;
+        }
+
+        const kpiCompleted = document.getElementById('partner-kpi-today-completed');
+        if (kpiCompleted) {
+            kpiCompleted.textContent = String(data.today_stats?.completed_today || 0);
+        }
+
+        const kpiBreakdown = document.getElementById('partner-kpi-today-breakdown');
+        if (kpiBreakdown) {
+            const pCount = data.today_stats?.pending_today || 0;
+            const cCount = data.today_stats?.cancelled_today || 0;
+            kpiBreakdown.textContent = `${pCount} Pending • ${cCount} Cancelled`;
+        }
+
+        // 2. Partner Dashboard: Monthly Snapshot Card
+        const snapshotMonthName = document.getElementById('partner-snapshot-month-name');
+        if (snapshotMonthName) {
+            snapshotMonthName.textContent = data.monthly_stats?.month_name || 'September 2026';
+        }
+
+        const snapshotDeliveries = document.getElementById('partner-snapshot-deliveries');
+        if (snapshotDeliveries) {
+            snapshotDeliveries.textContent = String(data.monthly_stats?.completed_month || 0);
+        }
+
+        const snapshotPayout = document.getElementById('partner-snapshot-payout');
+        if (snapshotPayout) {
+            snapshotPayout.textContent = `₹${(data.monthly_stats?.monthly_payout || 0).toFixed(2)}`;
+        }
+
+        const snapshotAvg = document.getElementById('partner-snapshot-avg');
+        if (snapshotAvg) {
+            snapshotAvg.textContent = `${data.monthly_stats?.avg_deliveries_per_day || 0} / day`;
+        }
+
+        // 3. Visual Chart & Period Indicators
+        const weeklyBtn = document.getElementById('tab-earnings-weekly');
+        const monthlyBtn = document.getElementById('tab-earnings-monthly');
+        if (weeklyBtn && monthlyBtn) {
+            if (earningsPeriod === 'weekly') {
+                weeklyBtn.className = 'px-3 py-1.5 rounded-xl bg-white text-[#0066cc] shadow-xs transition-all tracking-wider cursor-pointer font-black';
+                monthlyBtn.className = 'px-3 py-1.5 rounded-xl text-[#5c5f60] hover:text-[#181c1f] transition-all tracking-wider cursor-pointer font-bold';
+            } else {
+                monthlyBtn.className = 'px-3 py-1.5 rounded-xl bg-white text-[#0066cc] shadow-xs transition-all tracking-wider cursor-pointer font-black';
+                weeklyBtn.className = 'px-3 py-1.5 rounded-xl text-[#5c5f60] hover:text-[#181c1f] transition-all tracking-wider cursor-pointer font-bold';
+            }
+        }
+
+        const rangeBadge = document.getElementById('earnings-range-badge');
+        if (rangeBadge) rangeBadge.textContent = data.range_label || 'Current Period';
+
+        const grandTotalEl = document.getElementById('earnings-grand-total');
+        if (grandTotalEl) grandTotalEl.textContent = `₹${(data.grand_total || 0).toFixed(2)}`;
+
+        const orderPayoutEl = document.getElementById('earnings-order-payout');
+        if (orderPayoutEl) orderPayoutEl.textContent = `₹${(data.order_payout || 0).toFixed(2)}`;
+
+        const incentivesEl = document.getElementById('earnings-incentives');
+        if (incentivesEl) incentivesEl.textContent = `₹${(data.incentives || 0)}`;
+
+        const statTotal = document.getElementById('stat-total-orders');
+        if (statTotal) statTotal.textContent = data.total_orders || 0;
+
+        const statSingle = document.getElementById('stat-single-runs');
+        if (statSingle) statSingle.textContent = data.single_runs || 0;
+
+        const statMulti = document.getElementById('stat-multi-runs');
+        if (statMulti) statMulti.textContent = data.multi_runs || 0;
+
+        // Render Bar Chart, Recent Ledger & Orders List
+        renderEarningsBarChart(data.days || [], data.period);
+        renderPartnerLedger(data.recent_ledger || []);
+        renderEarningsOrders(data.all_orders || [], selectedDayFilter);
+
+        // 4. Admin Fleet Overview: Platform Aggregated Metrics & Overview Table
+        updateFleetViewMetrics(data);
+
+    } catch (err) {
+        console.error('[Delivery Earnings Error]:', err);
+        showToast('Error loading delivery partner earnings: ' + err.message, 'error');
+    }
+}
+
+function switchEarningsPeriod(period) {
+    earningsPeriod = period;
+    earningsWeekOffset = 0;
+    earningsMonthOffset = 0;
+    selectedDayFilter = null;
+    loadDeliveryEarnings();
+}
+
+function shiftEarningsPeriod(delta) {
+    if (earningsPeriod === 'weekly') {
+        earningsWeekOffset += delta;
+    } else {
+        earningsMonthOffset += delta;
+    }
+    selectedDayFilter = null;
+    loadDeliveryEarnings();
+}
+
+function filterEarningsByRider(riderId) {
+    earningsSelectedRider = riderId;
+    selectedDayFilter = null;
+    loadDeliveryEarnings();
+}
+
+function renderEarningsBarChart(days, period) {
+    const container = document.getElementById('earnings-chart-container');
+    if (!container) return;
+
+    if (!Array.isArray(days) || days.length === 0) {
+        container.innerHTML = '<div class="w-full text-center text-xs text-[#5c5f60] py-12">No delivery data available for this range.</div>';
+        return;
+    }
+
+    const maxPayout = Math.max(...days.map(d => d.payout), 1);
+    const chartHeightPx = 130;
+
+    let html = '';
+    days.forEach(d => {
+        const heightPct = Math.round((d.payout / maxPayout) * 100);
+        const barHeightPx = Math.max(6, Math.round((d.payout / maxPayout) * chartHeightPx));
+        const isSelected = selectedDayFilter === d.date;
+
+        // Colors matching Screenshot 1: rounded pill light blue, highlighted if active/today
+        let barBg = 'bg-[#8ec7f9] hover:bg-[#64b5f6]';
+        let badgeColor = 'text-[#181c1f]';
+        let labelColor = 'text-[#5c5f60]';
+        let borderBottom = '';
+
+        if (d.is_today) {
+            barBg = 'bg-[#0066cc]';
+            badgeColor = 'text-[#0066cc] font-black';
+            labelColor = 'text-[#0066cc] font-black';
+            borderBottom = '<div class="w-full h-1 bg-[#0066cc] rounded-full mt-1"></div>';
+        }
+        if (isSelected) {
+            barBg = 'bg-[#0052a3] ring-2 ring-[#0066cc] ring-offset-2';
+        }
+
+        html += `
+        <div class="flex-1 flex flex-col items-center justify-end h-full z-10 cursor-pointer group" onclick="toggleEarningsDayFilter('${d.date}')" title="${d.display_label}: ${d.order_count} Orders (₹${d.payout})">
+            <!-- Payout Tag Badge above Bar -->
+            <div class="text-[10px] sm:text-xs font-bold ${badgeColor} mb-1 transition-transform group-hover:scale-110">
+                ₹${d.payout}
+            </div>
+
+            <!-- Vertical Bar -->
+            <div class="w-5 sm:w-8 md:w-10 rounded-t-xl sm:rounded-t-2xl ${barBg} transition-all duration-300" style="height: ${barHeightPx}px;"></div>
+
+            <!-- Day Label below baseline -->
+            <div class="pt-2 text-center w-full">
+                <div class="text-[10px] sm:text-[11px] font-bold ${labelColor} truncate">${d.display_label}</div>
+                ${borderBottom}
+            </div>
+        </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+function toggleEarningsDayFilter(dateStr) {
+    if (selectedDayFilter === dateStr) {
+        selectedDayFilter = null;
+    } else {
+        selectedDayFilter = dateStr;
+    }
+    if (currentEarningsData) {
+        renderEarningsBarChart(currentEarningsData.days || [], currentEarningsData.period);
+        renderEarningsOrders(currentEarningsData.all_orders || [], selectedDayFilter);
+    }
+}
+
+function renderEarningsOrders(orders, dateFilter) {
+    const listEl = document.getElementById('earnings-orders-list');
+    const countEl = document.getElementById('orders-list-count');
+    const headingEl = document.getElementById('orders-list-heading');
+    if (!listEl) return;
+
+    let filtered = orders;
+    if (dateFilter) {
+        filtered = orders.filter(o => o.date === dateFilter);
+        if (headingEl) headingEl.textContent = `Orders on ${dateFilter}`;
+    } else {
+        if (headingEl) headingEl.textContent = 'Delivered Orders Breakdown';
+    }
+
+    const deliveredOrders = filtered.filter(o => o.delivery_state === 'Completed' || ['delivered', 'completed'].includes((o.status || '').toLowerCase()));
+    const cancelledOrders = filtered.filter(o => o.delivery_state === 'Cancelled' || (o.status || '').toLowerCase() === 'cancelled');
+    const activeRate = currentEarningsData?.pricing_config?.rate_per_order || 3.00;
+    const totalEarned = deliveredOrders.reduce((sum, o) => sum + (typeof o.payout === 'number' ? o.payout : activeRate), 0).toFixed(2);
+
+    if (countEl) {
+        let badgeText = `${deliveredOrders.length} Delivered • ₹${totalEarned}`;
+        if (cancelledOrders.length > 0) {
+            badgeText += ` (${cancelledOrders.length} Cancelled)`;
+        }
+        countEl.textContent = badgeText;
+    }
+
+    if (filtered.length === 0) {
+        listEl.innerHTML = `
+            <div class="p-6 text-center text-[#5c5f60] bg-[#F8FAFD] rounded-2xl border border-[#EBF0F7]">
+                <span class="material-symbols-outlined text-3xl text-slate-400">receipt</span>
+                <p class="text-xs font-bold mt-1">No orders on this selected day.</p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    filtered.forEach(o => {
+        const isCancelled = o.delivery_state === 'Cancelled' || (o.status || '').toLowerCase() === 'cancelled';
+        const isDelivered = o.delivery_state === 'Completed' || ['delivered', 'completed'].includes((o.status || '').toLowerCase());
+
+        let iconBg = 'bg-blue-100 text-[#0066cc]';
+        let iconName = 'check_circle';
+        let badgeHtml = `<div class="text-xs font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">+₹${(typeof o.payout === 'number' ? o.payout : activeRate).toFixed(2)}</div>`;
+        let subtextHtml = `<div class="text-[10px] text-[#5c5f60] font-semibold mt-1">Order: ₹${o.total}</div>`;
+
+        if (isCancelled) {
+            iconBg = 'bg-rose-100 text-rose-600';
+            iconName = 'cancel';
+            badgeHtml = `<div class="text-xs font-black text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200">Cancelled • ₹0.00</div>`;
+            subtextHtml = `<div class="text-[10px] text-rose-600 font-semibold mt-1">Order: ₹${o.total} (₹0 payout)</div>`;
+        } else if (!isDelivered) {
+            iconBg = 'bg-amber-100 text-amber-600';
+            iconName = 'schedule';
+            badgeHtml = `<div class="text-xs font-black text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">Pending • ₹0.00</div>`;
+            subtextHtml = `<div class="text-[10px] text-[#5c5f60] font-semibold mt-1">Order: ₹${o.total} (Pending)</div>`;
+        }
+
+        html += `
+        <div class="p-3 bg-[#F8FAFD] hover:bg-[#F0F4F9] rounded-2xl border border-[#EBF0F7] flex items-center justify-between gap-3 transition-colors">
+            <div class="flex items-center gap-3 min-w-0">
+                <div class="w-9 h-9 rounded-xl ${iconBg} flex items-center justify-center font-black text-xs shrink-0">
+                    <span class="material-symbols-outlined text-lg">${iconName}</span>
+                </div>
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                        <span class="font-black text-xs text-[#181c1f]">#${escapeHtml((o.id || '').slice(-8))}</span>
+                        <span class="text-[10px] text-[#5c5f60] font-semibold">${escapeHtml(o.time || '')}</span>
+                    </div>
+                    <p class="text-[11px] text-[#5c5f60] truncate font-medium mt-0.5">${escapeHtml(o.address || 'Campus Room')}</p>
+                </div>
+            </div>
+
+            <div class="text-right shrink-0">
+                ${badgeHtml}
+                ${subtextHtml}
+            </div>
+        </div>
+        `;
+    });
+
+    listEl.innerHTML = html;
+}
+
+// Sub-Tab Switcher between Partner Dashboard and Fleet Overview
+function setPartnerDashboardSubTab(subTab) {
+    partnerDashboardSubTab = subTab;
+    const partnerView = document.getElementById('earnings-subview-partner');
+    const fleetView = document.getElementById('earnings-subview-fleet');
+    const partnerBtn = document.getElementById('subtab-partner-btn');
+    const fleetBtn = document.getElementById('subtab-fleet-btn');
+
+    if (subTab === 'partner') {
+        if (partnerView) partnerView.classList.remove('hidden');
+        if (fleetView) fleetView.classList.add('hidden');
+        if (partnerBtn) partnerBtn.className = 'px-4 py-2 rounded-xl bg-white text-[#0066cc] font-black text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer';
+        if (fleetBtn) fleetBtn.className = 'px-4 py-2 rounded-xl text-[#5c5f60] hover:text-[#181c1f] font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer';
+    } else {
+        if (fleetView) fleetView.classList.remove('hidden');
+        if (partnerView) partnerView.classList.add('hidden');
+        if (fleetBtn) fleetBtn.className = 'px-4 py-2 rounded-xl bg-white text-[#0066cc] font-black text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer';
+        if (partnerBtn) partnerBtn.className = 'px-4 py-2 rounded-xl text-[#5c5f60] hover:text-[#181c1f] font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer';
+
+        if (currentEarningsData) {
+            updateFleetViewMetrics(currentEarningsData);
+        } else {
+            loadDeliveryEarnings();
+        }
+    }
+}
+
+// Render Itemized Recent Payout Ledger in Partner Dashboard
+function renderPartnerLedger(ledger) {
+    const tbody = document.getElementById('partner-ledger-tbody');
+    if (!tbody) return;
+
+    if (!Array.isArray(ledger) || ledger.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="3" class="py-6 text-center text-[#5c5f60]">
+                    <span class="material-symbols-outlined text-2xl text-slate-400">receipt_long</span>
+                    <p class="text-xs font-bold mt-1">No ledger entries recorded yet.</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    let html = '';
+    ledger.forEach(entry => {
+        const isSelected = selectedDayFilter === entry.date;
+        const rowBg = isSelected ? 'bg-blue-50/70 font-bold' : (entry.is_today ? 'bg-blue-50/30' : 'hover:bg-[#F8FAFD]');
+        const tag = entry.is_today ? '<span class="text-[9px] bg-[#0066cc] text-white px-1.5 py-0.5 rounded font-black ml-1">TODAY</span>' : '';
+        const statusBadge = entry.completed_deliveries > 0
+            ? '<span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded-full border border-emerald-300">Credited</span>'
+            : '<span class="text-[10px] bg-slate-100 text-slate-600 font-bold px-1.5 py-0.5 rounded-full">Settled</span>';
+
+        html += `
+            <tr class="${rowBg} cursor-pointer transition-colors" onclick="toggleEarningsDayFilter('${entry.date}')" title="Click to view orders for ${escapeHtml(entry.display_date)}">
+                <td class="py-2.5 pr-2">
+                    <div class="font-bold text-xs text-[#181c1f] flex items-center">
+                        <span>${escapeHtml(entry.display_date)}</span>
+                        ${tag}
+                    </div>
+                    <div class="text-[10px] text-[#5c5f60] mt-0.5">
+                        ${entry.pending_deliveries > 0 ? `<span class="text-amber-600 font-semibold">${entry.pending_deliveries} Pending</span> • ` : ''}
+                        ${entry.cancelled_deliveries > 0 ? `<span class="text-rose-600 font-semibold">${entry.cancelled_deliveries} Cancelled</span>` : '0 Cancelled'}
+                    </div>
+                </td>
+                <td class="py-2.5 text-center">
+                    <span class="font-black text-xs text-[#181c1f]">${entry.completed_deliveries}</span>
+                    <span class="text-[10px] text-[#5c5f60] block font-medium">runs</span>
+                </td>
+                <td class="py-2.5 text-right pl-2">
+                    <div class="text-xs font-black text-emerald-700">+₹${(entry.amount_credited || 0).toFixed(2)}</div>
+                    <div class="mt-0.5">${statusBadge}</div>
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
+
+// Render Admin Fleet Overview Table
+function renderFleetPartnersTable(partners) {
+    const tbody = document.getElementById('fleet-partners-tbody');
+    if (!tbody) return;
+
+    if (!Array.isArray(partners) || partners.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="p-8 text-center text-[#5c5f60]">
+                    <span class="material-symbols-outlined text-3xl text-slate-400">group_off</span>
+                    <p class="text-xs font-bold mt-1">No delivery partners found in fleet roster.</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    let html = '';
+    partners.forEach(p => {
+        const isOnline = p.availability_status === 'Active';
+        const statusPill = isOnline
+            ? '<span class="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full border border-emerald-300"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>Active</span>'
+            : '<span class="inline-flex items-center gap-1 text-[10px] font-bold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>Offline</span>';
+
+        const shiftBadge = p.primary_shift
+            ? `<div class="text-[10px] text-indigo-700 font-semibold mt-0.5 flex items-center gap-1"><span class="material-symbols-outlined text-xs">schedule</span><span>${escapeHtml(p.primary_shift)}</span></div>`
+            : '';
+
+        html += `
+            <tr class="hover:bg-[#f9fafb] transition-colors border-b border-[#F0F4F9]">
+                <td class="p-4 font-mono font-bold text-xs text-[#181c1f]">#${escapeHtml(String(p.partner_id).slice(-8))}</td>
+                <td class="p-4">
+                    <div class="font-bold text-xs text-[#181c1f]">${escapeHtml(p.partner_name || 'Delivery Partner')}</div>
+                    <div class="text-[10px] text-[#5c5f60] font-medium">${escapeHtml(p.phone || '+91 98765 43210')}</div>
+                    ${shiftBadge}
+                </td>
+                <td class="p-4">${statusPill}</td>
+                <td class="p-4 text-center font-black text-xs text-[#181c1f]">${p.today_deliveries || 0}</td>
+                <td class="p-4 text-center font-black text-xs text-emerald-700 bg-emerald-50/50">₹${(p.today_wage || 0).toFixed(2)}</td>
+                <td class="p-4 text-center font-black text-xs text-[#181c1f]">${p.monthly_deliveries || 0}</td>
+                <td class="p-4 text-center font-black text-xs text-[#0066cc] bg-blue-50/50">₹${(p.monthly_payout || 0).toFixed(2)}</td>
+                <td class="p-4 text-right">
+                    <button type="button" onclick="inspectPartnerFromFleet('${escapeHtml(p.partner_id)}')" class="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-[#0066cc] font-black text-xs border border-blue-200 transition-all cursor-pointer inline-flex items-center gap-1 active:scale-95" title="View Partner Dashboard">
+                        <span class="material-symbols-outlined text-xs">visibility</span>
+                        <span>Inspect</span>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
+
+function inspectPartnerFromFleet(partnerId) {
+    const riderSelect = document.getElementById('earnings-rider-select');
+    if (riderSelect) riderSelect.value = partnerId;
+    earningsSelectedRider = partnerId;
+    setPartnerDashboardSubTab('partner');
+    loadDeliveryEarnings();
+}
+
+// Partner Duty Toggle in Dashboard
+function updatePartnerDutyUI(isOnDuty) {
+    const dot = document.getElementById('partner-status-dot');
+    const txt = document.getElementById('partner-status-text');
+    const btnLabel = document.getElementById('partner-duty-btn-label');
+    const btn = document.getElementById('partner-duty-toggle-btn');
+
+    if (isOnDuty) {
+        if (dot) dot.className = 'w-3 h-3 rounded-full bg-emerald-500 animate-pulse';
+        if (txt) txt.textContent = 'Active';
+        if (btnLabel) btnLabel.textContent = 'Switch to Offline';
+        if (btn) btn.className = 'w-full py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer';
+    } else {
+        if (dot) dot.className = 'w-3 h-3 rounded-full bg-slate-400';
+        if (txt) txt.textContent = 'Offline';
+        if (btnLabel) btnLabel.textContent = 'Switch to Active';
+        if (btn) btn.className = 'w-full py-1.5 px-3 rounded-xl bg-slate-600 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer';
+    }
+}
+
+// Partner Duty Toggle in Dashboard
+async function togglePartnerDutyStatus() {
+    partnerIsOnDuty = !partnerIsOnDuty;
+    const newStatus = partnerIsOnDuty ? 'Active' : 'Offline';
+    updatePartnerDutyUI(partnerIsOnDuty);
+
+    try {
+        const res = await fetchWithTimeout('/api/orders/delivery-duty-status', {
+            method: 'POST',
+            headers: {
+                ...getAuthHeaders(),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                riderId: currentAdminProfile?.id,
+                status: newStatus
+            })
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data && typeof data.is_on_duty === 'boolean') {
+                partnerIsOnDuty = data.is_on_duty;
+                updatePartnerDutyUI(partnerIsOnDuty);
+            }
+        }
+    } catch (e) {
+        console.warn('[Duty Status POST error]:', e.message);
+    }
+
+    if (partnerIsOnDuty) {
+        showToast('🟢 Delivery Partner status set to ACTIVE (Online & Taking Deliveries)', 'success');
+    } else {
+        showToast('⚪ Delivery Partner status set to OFFLINE (Shift Paused - No Orders)', 'info');
+    }
+}
+
+// Fleet Preset & Custom Date & Shift Filtering
+function setFleetPresetFilter(preset) {
+    const todayBtn = document.getElementById('fleet-filter-today');
+    const weekBtn = document.getElementById('fleet-filter-week');
+    const monthBtn = document.getElementById('fleet-filter-month');
+
+    [todayBtn, weekBtn, monthBtn].forEach(b => {
+        if (b) b.className = 'fleet-preset-btn px-3 py-1.5 rounded-xl border border-[#DADCE0] bg-[#F8FAFD] hover:bg-white text-[#181c1f] font-bold transition-all cursor-pointer';
+    });
+
+    fleetCustomStartDate = null;
+    fleetCustomEndDate = null;
+    const startInput = document.getElementById('fleet-start-date');
+    const endInput = document.getElementById('fleet-end-date');
+    if (startInput) startInput.value = '';
+    if (endInput) endInput.value = '';
+
+    if (preset === 'today') {
+        if (todayBtn) todayBtn.className = 'fleet-preset-btn px-3 py-1.5 rounded-xl border border-[#0066cc] bg-[#0066cc] text-white font-black transition-all cursor-pointer shadow-xs';
+        switchEarningsPeriod('daily');
+    } else if (preset === 'month') {
+        if (monthBtn) monthBtn.className = 'fleet-preset-btn px-3 py-1.5 rounded-xl border border-[#0066cc] bg-[#0066cc] text-white font-black transition-all cursor-pointer shadow-xs';
+        switchEarningsPeriod('monthly');
+    } else {
+        if (weekBtn) weekBtn.className = 'fleet-preset-btn px-3 py-1.5 rounded-xl border border-[#0066cc] bg-[#0066cc] text-white font-black transition-all cursor-pointer shadow-xs';
+        switchEarningsPeriod('weekly');
+    }
+}
+
+function filterFleetByShift(shiftId) {
+    earningsSelectedShift = shiftId || 'all';
+    const shiftSelect = document.getElementById('fleet-shift-filter');
+    if (shiftSelect && shiftSelect.value !== earningsSelectedShift) {
+        shiftSelect.value = earningsSelectedShift;
+    }
+    loadDeliveryEarnings(fleetCustomStartDate, fleetCustomEndDate);
+}
+
+function applyFleetCustomDateRange() {
+    const startInput = document.getElementById('fleet-start-date');
+    const endInput = document.getElementById('fleet-end-date');
+    if (!startInput || !endInput || !startInput.value || !endInput.value) {
+        showToast('Please select both start date and end date', 'warning');
+        return;
+    }
+    fleetCustomStartDate = startInput.value;
+    fleetCustomEndDate = endInput.value;
+    loadDeliveryEarnings(fleetCustomStartDate, fleetCustomEndDate);
+}
+
+// CSV/Excel Export for Delivery Partner Payouts
+function exportPartnerPayoutCSV() {
+    if (!currentEarningsData) {
+        showToast('No delivery earnings data loaded to export', 'error');
+        return;
+    }
+
+    const partners = currentEarningsData.partners_summary || [];
+    const ledger = currentEarningsData.recent_ledger || [];
+    const now = new Date();
+    const timestampStr = now.toISOString().slice(0, 10);
+    const activeRate = Number(currentEarningsData.rate_per_order) || 3.00;
+
+    let csv = '\uFEFF'; // UTF-8 BOM for Microsoft Excel
+    csv += 'LPUQuick - Delivery Fleet Partner Payout Sheet\n';
+    csv += `Generated On,${now.toLocaleString('en-IN')}\n`;
+    csv += `Fixed Rate Per Delivered Order,INR ${activeRate.toFixed(2)}\n`;
+    csv += `Total Daily Payout Platform-Wide,INR ${(currentEarningsData.platform_metrics?.total_daily_payout || 0).toFixed(2)}\n`;
+    csv += `Total Monthly Partner Expense,INR ${(currentEarningsData.platform_metrics?.total_monthly_expense || 0).toFixed(2)}\n\n`;
+
+    csv += 'SECTION 1: PARTNER PERFORMANCE & WAGE ROSTER\n';
+    csv += 'Partner ID,Partner Name,Phone,Availability Status,Today Deliveries,Today Wage (INR),Month Deliveries,Month Payout (INR),Total Deliveries\n';
+
+    if (partners.length === 0) {
+        csv += 'No registered partners found\n';
+    } else {
+        partners.forEach(p => {
+            const row = [
+                `"${p.partner_id || ''}"`,
+                `"${(p.partner_name || '').replace(/"/g, '""')}"`,
+                `"${p.phone || 'N/A'}"`,
+                `"${p.availability_status || 'Active'}"`,
+                p.today_deliveries || 0,
+                (p.today_wage || 0).toFixed(2),
+                p.monthly_deliveries || 0,
+                (p.monthly_payout || 0).toFixed(2),
+                p.total_completed || 0
+            ];
+            csv += row.join(',') + '\n';
+        });
+    }
+
+    csv += '\nSECTION 2: ITEMIZED RECENT PAYOUT LEDGER\n';
+    csv += 'Date,Day,Completed Deliveries,Pending Deliveries,Cancelled Deliveries,Rate (INR),Amount Credited (INR),Settlement Status\n';
+
+    ledger.forEach(l => {
+        const row = [
+            `"${l.date}"`,
+            `"${(l.display_date || '').replace(/"/g, '""')}"`,
+            l.completed_deliveries || 0,
+            l.pending_deliveries || 0,
+            l.cancelled_deliveries || 0,
+            activeRate.toFixed(2),
+            (l.amount_credited || 0).toFixed(2),
+            `"${l.settlement_status || 'Credited'}"`
+        ];
+        csv += row.join(',') + '\n';
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `LPUQuick_Delivery_Payout_Sheet_${timestampStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    showToast('📥 Delivery partner payout sheet exported to CSV successfully!', 'success');
+}
+
+// =========================================================================
+// DELIVERY PRICING ENGINE MODAL & RATE CONFIGURATION
+// =========================================================================
+function openDeliveryPricingModal() {
+    closePartnerDrawer();
+    const modalContainer = document.getElementById('partner-modal-container');
+    if (!modalContainer) return;
+
+    const currentRate = Number(currentEarningsData?.rate_per_order) || 3.00;
+    const currentThreshold = Number(currentEarningsData?.pricing_config?.daily_bonus_threshold) || 20;
+    const currentBonus = Number(currentEarningsData?.pricing_config?.daily_bonus_amount) || 20.00;
+
+    modalContainer.innerHTML = `
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-5">
+                <!-- Header -->
+                <div class="flex items-center justify-between border-b pb-3">
+                    <div class="flex items-center gap-2.5">
+                        <span class="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+                            <span class="material-symbols-outlined text-2xl">payments</span>
+                        </span>
+                        <div>
+                            <h3 class="font-black text-base text-[#181c1f]">Delivery Pricing Engine</h3>
+                            <p class="text-[11px] text-[#5c5f60]">Configure per-order payout rate & performance incentives</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="closePartnerModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 font-bold cursor-pointer">✕</button>
+                </div>
+
+                <!-- Rate per Order Form -->
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-black text-[#181c1f] mb-1.5">Delivery Payout Rate Per Order (₹)</label>
+                        <div class="relative">
+                            <span class="absolute left-3.5 top-1/2 -translate-y-1/2 font-black text-slate-500 text-base">₹</span>
+                            <input type="number" id="pricing-rate-input" step="0.5" min="0.5" max="200" value="${currentRate}" oninput="updatePricingPreview()" class="w-full pl-8 pr-4 py-2.5 bg-[#F8FAFD] border border-[#DADCE0] rounded-2xl font-black text-xl text-[#181c1f] focus:bg-white focus:border-[#0066cc] outline-none transition-all">
+                        </div>
+                    </div>
+
+                    <!-- Quick Preset Rate Chips -->
+                    <div>
+                        <span class="text-[11px] text-[#5c5f60] font-bold block mb-1.5">Quick Presets:</span>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            ${[3.00, 4.00, 5.00, 7.00, 10.00, 15.00].map(r => `
+                                <button type="button" onclick="setPricingPreset(${r})" class="px-3 py-1.5 rounded-xl border ${currentRate === r ? 'border-[#0066cc] bg-blue-50 text-[#0066cc] font-black' : 'border-[#DADCE0] bg-white text-[#181c1f] font-bold hover:bg-slate-50'} text-xs transition-all cursor-pointer active:scale-95">
+                                    ₹${r.toFixed(2)}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Daily Incentive Tier Inputs -->
+                    <div class="grid grid-cols-2 gap-3 pt-1">
+                        <div>
+                            <label class="block text-[11px] font-bold text-[#5c5f60] mb-1">Daily Target Orders</label>
+                            <input type="number" id="pricing-target-input" min="1" max="100" value="${currentThreshold}" oninput="updatePricingPreview()" class="w-full px-3 py-2 bg-[#F8FAFD] border border-[#DADCE0] rounded-xl font-bold text-xs text-[#181c1f] outline-none focus:bg-white focus:border-[#0066cc]">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-[#5c5f60] mb-1">Bonus Cash (₹)</label>
+                            <input type="number" id="pricing-bonus-input" min="0" max="500" value="${currentBonus}" oninput="updatePricingPreview()" class="w-full px-3 py-2 bg-[#F8FAFD] border border-[#DADCE0] rounded-xl font-bold text-xs text-[#181c1f] outline-none focus:bg-white focus:border-[#0066cc]">
+                        </div>
+                    </div>
+
+                    <!-- Live Real-Time Formula Preview Card -->
+                    <div class="p-3.5 bg-emerald-50 rounded-2xl border border-emerald-200 space-y-1.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-black text-emerald-950 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-sm text-emerald-700">calculate</span>
+                                <span>Real-World Earnings Simulation</span>
+                            </span>
+                            <span id="pricing-preview-badge" class="text-xs font-black text-emerald-800 bg-white px-2 py-0.5 rounded-lg border border-emerald-300">₹${currentRate.toFixed(2)} / order</span>
+                        </div>
+                        <p id="pricing-preview-desc" class="text-[11px] text-emerald-800 leading-relaxed font-medium">
+                            A runner completing <strong>20 orders</strong> today will earn: <strong>₹${(20 * currentRate).toFixed(2)}</strong> direct wage + <strong>₹${currentBonus.toFixed(2)}</strong> daily bonus = <strong>₹${((20 * currentRate) + currentBonus).toFixed(2)}</strong> total.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex items-center gap-2 pt-2">
+                    <button type="button" onclick="closePartnerModal()" class="flex-1 py-2.5 rounded-xl border border-[#DADCE0] bg-[#F8FAFD] hover:bg-white text-[#181c1f] font-bold text-xs cursor-pointer transition-all">Cancel</button>
+                    <button type="button" onclick="saveDeliveryPricingConfig()" class="flex-1 py-2.5 rounded-xl bg-[#0066cc] hover:bg-[#0052a3] text-white font-black text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95">
+                        <span class="material-symbols-outlined text-sm">save</span>
+                        <span>Save & Apply Pricing</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function setPricingPreset(rate) {
+    const input = document.getElementById('pricing-rate-input');
+    if (input) {
+        input.value = rate;
+        updatePricingPreview();
+    }
+}
+
+function updatePricingPreview() {
+    const input = document.getElementById('pricing-rate-input');
+    const badge = document.getElementById('pricing-preview-badge');
+    const desc = document.getElementById('pricing-preview-desc');
+    const bonusInput = document.getElementById('pricing-bonus-input');
+
+    const rate = Math.max(0.5, parseFloat(input?.value) || 3.00);
+    const bonus = parseFloat(bonusInput?.value) || 20.00;
+
+    if (badge) badge.textContent = `₹${rate.toFixed(2)} / order`;
+    if (desc) {
+        desc.innerHTML = `A runner completing <strong>20 orders</strong> today will earn: <strong>₹${(20 * rate).toFixed(2)}</strong> direct wage + <strong>₹${bonus.toFixed(2)}</strong> daily bonus = <strong>₹${((20 * rate) + bonus).toFixed(2)}</strong> total.`;
+    }
+}
+
+async function saveDeliveryPricingConfig() {
+    const rateInput = document.getElementById('pricing-rate-input');
+    const targetInput = document.getElementById('pricing-target-input');
+    const bonusInput = document.getElementById('pricing-bonus-input');
+
+    const rate = parseFloat(rateInput?.value);
+    const target = parseInt(targetInput?.value, 10);
+    const bonus = parseFloat(bonusInput?.value);
+
+    if (isNaN(rate) || rate < 0.50 || rate > 500) {
+        showToast('Please enter a valid rate between ₹0.50 and ₹500.00', 'warning');
+        return;
+    }
+
+    try {
+        const res = await fetchWithTimeout('/api/orders/delivery-pricing-config', {
+            method: 'POST',
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({
+                rate_per_order: rate,
+                daily_bonus_threshold: isNaN(target) ? 20 : target,
+                daily_bonus_amount: isNaN(bonus) ? 20.00 : bonus,
+                updated_by: currentAdminProfile?.name || 'Owner'
+            })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Failed to update pricing');
+
+        closePartnerModal();
+        showToast(`⚡ Delivery rate updated to ₹${rate.toFixed(2)} / order! Recalculating all metrics...`, 'success');
+        await loadDeliveryEarnings();
+    } catch (err) {
+        console.error('[Save Delivery Pricing Error]:', err);
+        showToast('Error saving delivery rate: ' + err.message, 'error');
+    }
+}
+
+window.openDeliveryPricingModal = openDeliveryPricingModal;
+window.setPricingPreset = setPricingPreset;
+window.updatePricingPreview = updatePricingPreview;
+window.saveDeliveryPricingConfig = saveDeliveryPricingConfig;
+
+// Partner Drawer Slide-over Controls (Screenshot 2)
+function openPartnerDrawer() {
+    const drawer = document.getElementById('partner-drawer');
+    const backdrop = document.getElementById('partner-drawer-backdrop');
+    if (drawer && backdrop) {
+        backdrop.classList.remove('opacity-0', 'pointer-events-none');
+        backdrop.classList.add('opacity-100');
+        drawer.classList.remove('translate-x-full');
+    }
+}
+
+function closePartnerDrawer() {
+    const drawer = document.getElementById('partner-drawer');
+    const backdrop = document.getElementById('partner-drawer-backdrop');
+    if (drawer && backdrop) {
+        backdrop.classList.remove('opacity-100');
+        backdrop.classList.add('opacity-0', 'pointer-events-none');
+        drawer.classList.add('translate-x-full');
+    }
+}
+
+function toggleDutyStatus() {
+    partnerIsOnDuty = !partnerIsOnDuty;
+    const btn = document.getElementById('drawer-duty-btn');
+    const txt = document.getElementById('drawer-duty-text');
+    if (btn && txt) {
+        if (partnerIsOnDuty) {
+            btn.className = 'w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer';
+            txt.textContent = 'ON DUTY (Active)';
+            showToast('🟢 You are now ON DUTY. Campus orders will be dispatched to you.', 'success');
+        } else {
+            btn.className = 'w-full py-2 px-3 rounded-xl bg-slate-600 hover:bg-slate-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer';
+            txt.textContent = 'OFF DUTY (Paused)';
+            showToast('⚪ You are now OFF DUTY. New dispatch alerts paused.', 'info');
+        }
+    }
+}
+
+// Dialog Modals for Partner Drawer Actions
+function openPartnerShiftModal() {
+    closePartnerDrawer();
+    const modalContainer = document.getElementById('partner-modal-container');
+    if (!modalContainer) return;
+
+    const shifts = currentEarningsData?.shifts_summary || [
+        { id: 'morning', title: 'Morning Shift', hours: '08:00 AM – 02:00 PM', completed_today: 0, earned_wage: 0, is_current: false },
+        { id: 'evening', title: 'Evening Rush', hours: '02:00 PM – 08:00 PM', completed_today: 0, earned_wage: 0, is_current: true },
+        { id: 'night', title: 'Night Express', hours: '08:00 PM – 02:00 AM', completed_today: 0, earned_wage: 0, is_current: false },
+        { id: 'late_night', title: 'Late Night Overtime', hours: '02:00 AM – 08:00 AM', completed_today: 0, earned_wage: 0, is_current: false }
+    ];
+
+    const totalDeliveriesToday = shifts.reduce((acc, s) => acc + (s.completed_today || 0), 0);
+    const totalWageToday = shifts.reduce((acc, s) => acc + (s.earned_wage || 0), 0);
+
+    let shiftsHtml = '';
+    shifts.forEach(s => {
+        const isCurrent = s.is_current;
+        const borderClass = isCurrent ? 'border-2 border-[#0066cc] bg-blue-50/50' : 'border border-[#EBF0F7] bg-[#F8FAFD]';
+        const activeBadge = isCurrent
+            ? '<span class="text-[10px] bg-emerald-100 text-emerald-800 font-black px-2 py-0.5 rounded-full border border-emerald-300 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>ACTIVE NOW</span>'
+            : '<span class="text-[10px] text-[#5c5f60] font-bold bg-slate-100 px-2 py-0.5 rounded-full">Scheduled</span>';
+
+        shiftsHtml += `
+            <div class="p-3.5 rounded-2xl ${borderClass} transition-all space-y-2">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="font-black text-xs text-[#181c1f] flex items-center gap-1.5">
+                            <span>${escapeHtml(s.title)}</span>
+                        </div>
+                        <div class="text-[11px] text-[#5c5f60] font-semibold mt-0.5">🕒 ${escapeHtml(s.hours)}</div>
+                    </div>
+                    ${activeBadge}
+                </div>
+                <div class="flex items-center justify-between pt-2 border-t border-slate-200/60 text-xs">
+                    <div class="flex items-center gap-2">
+                        <span class="text-[#5c5f60] font-medium">Deliveries Today:</span>
+                        <span class="font-black text-[#181c1f] bg-white px-2 py-0.5 rounded-lg border border-slate-200">${s.completed_today} runs</span>
+                    </div>
+                    <div class="font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
+                        +₹${(s.earned_wage || 0).toFixed(2)}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    modalContainer.innerHTML = `
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+                <div class="flex items-center justify-between border-b pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="w-8 h-8 rounded-xl bg-blue-50 text-[#0066cc] flex items-center justify-center font-bold">
+                            <span class="material-symbols-outlined text-lg">schedule</span>
+                        </span>
+                        <div>
+                            <h3 class="font-black text-base text-[#181c1f]">Delivery Partner Shifts & Timings</h3>
+                            <p class="text-[11px] text-[#5c5f60]">Real-world 24/7 campus shift breakdown with live delivery wage accrual</p>
+                        </div>
+                    </div>
+                    <button onclick="closePartnerModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 font-bold cursor-pointer">✕</button>
+                </div>
+
+                <!-- Shift Performance Summary Banner -->
+                <div class="p-3.5 bg-gradient-to-r from-blue-900 to-[#0066cc] text-white rounded-2xl flex items-center justify-between shadow-xs">
+                    <div>
+                        <div class="text-[10px] text-blue-200 uppercase font-bold tracking-wider">Today's Shift Wage Accrual</div>
+                        <div class="text-xl font-black mt-0.5">₹${totalWageToday.toFixed(2)}</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-[10px] text-blue-200 uppercase font-bold tracking-wider">Total Shift Runs</div>
+                        <div class="text-xl font-black mt-0.5">${totalDeliveriesToday} Orders</div>
+                    </div>
+                </div>
+
+                <!-- Shift Cards List -->
+                <div class="space-y-2.5">
+                    ${shiftsHtml}
+                </div>
+
+                <div class="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 flex items-center justify-between text-xs">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-emerald-700 text-lg">verified</span>
+                        <div>
+                            <div class="font-black text-emerald-900">₹3.00 Fixed Rate Guaranteed</div>
+                            <div class="text-[11px] text-emerald-800">Direct credit per completed delivery across all shifts</div>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="closePartnerModal()" class="w-full py-2.5 rounded-xl bg-[#181c1f] hover:bg-black text-white font-bold text-xs cursor-pointer transition-all">Close</button>
+            </div>
+        </div>
+    `;
+}
+
+function openPartnerProfileModal() {
+    closePartnerDrawer();
+    const modalContainer = document.getElementById('partner-modal-container');
+    if (!modalContainer) return;
+    const name = currentAdminProfile?.name || 'LPU Delivery Runner';
+    const email = currentAdminProfile?.email || 'runner@lpuquick.com';
+    modalContainer.innerHTML = `
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+                <div class="flex items-center justify-between border-b pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[#0066cc]">person</span>
+                        <h3 class="font-black text-base text-[#181c1f]">Partner Profile</h3>
+                    </div>
+                    <button onclick="closePartnerModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500">✕</button>
+                </div>
+                <div class="flex items-center gap-4 p-4 bg-[#F8FAFD] rounded-2xl border border-[#EBF0F7]">
+                    <div class="w-14 h-14 rounded-full bg-[#0066cc] text-white flex items-center justify-center text-xl font-black">
+                        ${name.charAt(0)}
+                    </div>
+                    <div>
+                        <div class="font-black text-base text-[#181c1f]">${escapeHtml(name)}</div>
+                        <div class="text-xs text-[#5c5f60] font-semibold">${escapeHtml(email)}</div>
+                        <div class="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full inline-block mt-1">Verified Delivery Runner</div>
+                    </div>
+                </div>
+                <div class="space-y-2 text-xs">
+                    <div class="flex justify-between py-2 border-b border-slate-100">
+                        <span class="text-slate-500">Partner ID</span>
+                        <span class="font-bold text-[#181c1f]">2000516247_DPI66365</span>
+                    </div>
+                    <div class="flex justify-between py-2 border-b border-slate-100">
+                        <span class="text-slate-500">Assigned Hub</span>
+                        <span class="font-bold text-[#181c1f]">${escapeHtml(activeAdminHostelFilter?.deliveryEarnings || 'Campus')} Ground Station</span>
+                    </div>
+                    <div class="flex justify-between py-2 border-b border-slate-100">
+                        <span class="text-slate-500">Delivery Rate</span>
+                        <span class="font-bold text-emerald-700">₹3.00 / Order</span>
+                    </div>
+                </div>
+                <button onclick="closePartnerModal()" class="w-full py-2.5 rounded-xl bg-[#0066cc] text-white font-bold text-xs">Done</button>
+            </div>
+        </div>
+    `;
+}
+
+function openPartnerReferralModal() {
+    closePartnerDrawer();
+    const modalContainer = document.getElementById('partner-modal-container');
+    if (!modalContainer) return;
+    modalContainer.innerHTML = `
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+                <div class="flex items-center justify-between border-b pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-purple-600">group</span>
+                        <h3 class="font-black text-base text-[#181c1f]">Refer a Delivery Partner</h3>
+                    </div>
+                    <button onclick="closePartnerModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500">✕</button>
+                </div>
+                <div class="p-4 bg-purple-50 rounded-2xl border border-purple-200 text-center space-y-2">
+                    <div class="text-xs text-purple-900 font-bold">Your Unique Referral Code</div>
+                    <div class="text-2xl font-black text-purple-700 tracking-widest bg-white p-2 rounded-xl border border-purple-200">RUNNER66365</div>
+                    <p class="text-[11px] text-purple-800">Earn ₹100 direct cash bonus when a fellow LPU student signs up as a runner and completes their first 20 deliveries!</p>
+                </div>
+                <button onclick="navigator.clipboard.writeText('RUNNER66365'); showToast('Referral code copied to clipboard!', 'success'); closePartnerModal();" class="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs">Copy Code</button>
+            </div>
+        </div>
+    `;
+}
+
+function openEarningsNotificationModal() {
+    closePartnerDrawer();
+    const modalContainer = document.getElementById('partner-modal-container');
+    if (!modalContainer) return;
+    modalContainer.innerHTML = `
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+                <div class="flex items-center justify-between border-b pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-amber-500">notifications</span>
+                        <h3 class="font-black text-base text-[#181c1f]">Partner Announcements</h3>
+                    </div>
+                    <button onclick="closePartnerModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500">✕</button>
+                </div>
+                <div class="space-y-2 text-xs">
+                    <div class="p-3 bg-blue-50 rounded-2xl border border-blue-200">
+                        <div class="font-bold text-blue-900">✨ Automatic ₹3.00 Delivery Payout Active</div>
+                        <p class="text-blue-800 text-[11px] mt-0.5">Every successfully marked Delivered order automatically credits ₹3 to your ledger. Check your weekly bar chart for day-wise breakdown.</p>
+                    </div>
+                    <div class="p-3 bg-amber-50 rounded-2xl border border-amber-200">
+                        <div class="font-bold text-amber-900">⚡ Campus Express Rush Hours</div>
+                        <p class="text-amber-800 text-[11px] mt-0.5">Peak midnight hunger hours (10:00 PM - 01:30 AM). Multi-run orders eligible for fastest corridor batching.</p>
+                    </div>
+                </div>
+                <button onclick="closePartnerModal()" class="w-full py-2.5 rounded-xl bg-[#0066cc] text-white font-bold text-xs">Close</button>
+            </div>
+        </div>
+    `;
+}
+
+function openTaxRefundModal() {
+    closePartnerDrawer();
+    const modalContainer = document.getElementById('partner-modal-container');
+    if (!modalContainer) return;
+    modalContainer.innerHTML = `
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+                <div class="flex items-center justify-between border-b pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[#0066cc]">receipt_long</span>
+                        <h3 class="font-black text-base text-[#181c1f]">Tax Invoices & TDS Slips</h3>
+                    </div>
+                    <button onclick="closePartnerModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500">✕</button>
+                </div>
+                <div class="space-y-2 text-xs">
+                    <p class="text-slate-600 font-medium">As an LPU campus gig delivery partner, your payouts are exempt from Section 194C withholding under student freelance tier.</p>
+                    <div class="p-3 bg-[#F8FAFD] rounded-2xl border border-[#EBF0F7] space-y-1">
+                        <div class="font-bold text-[#181c1f]">FY 2026-2027 Statement:</div>
+                        <div class="text-slate-600">Total Orders Delivered: <span class="font-bold text-[#181c1f]">144 Orders</span></div>
+                        <div class="text-slate-600">Calculated Payout: <span class="font-bold text-emerald-700">₹432.00</span></div>
+                        <div class="text-slate-600">Tax Deducted: <span class="font-bold text-[#181c1f]">₹0.00</span></div>
+                    </div>
+                </div>
+                <button onclick="showToast('Tax statement downloaded successfully', 'success'); closePartnerModal();" class="w-full py-2.5 rounded-xl bg-[#0066cc] text-white font-bold text-xs">Download PDF Statement</button>
+            </div>
+        </div>
+    `;
+}
+
+function openPartnerHelpModal() {
+    closePartnerDrawer();
+    const modalContainer = document.getElementById('partner-modal-container');
+    if (!modalContainer) return;
+    modalContainer.innerHTML = `
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+                <div class="flex items-center justify-between border-b pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-emerald-600">support_agent</span>
+                        <h3 class="font-black text-base text-[#181c1f]">Partner Support Helpline</h3>
+                    </div>
+                    <button onclick="closePartnerModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500">✕</button>
+                </div>
+                <div class="space-y-3 text-xs">
+                    <div class="p-3 bg-emerald-50 rounded-2xl border border-emerald-200">
+                        <div class="font-bold text-emerald-900">Campus Hub Central Dispatch Desk</div>
+                        <div class="text-emerald-800 text-[11px] mt-0.5">Phone: +91 98765 43210 (Direct Campus extension)</div>
+                        <div class="text-emerald-800 text-[11px]">Location: Ground Floor Dispatch Hub</div>
+                    </div>
+                    <div class="p-3 bg-[#F8FAFD] rounded-2xl border border-[#EBF0F7]">
+                        <div class="font-bold text-[#181c1f]">Emergency Assistance</div>
+                        <p class="text-slate-600 text-[11px] mt-0.5">For hostel security gate clearance or student room entry queries, contact Hub supervisor on duty.</p>
+                    </div>
+                </div>
+                <button onclick="closePartnerModal()" class="w-full py-2.5 rounded-xl bg-[#0066cc] text-white font-bold text-xs">Close</button>
+            </div>
+        </div>
+    `;
+}
+
+function showEarningsInfoModal() {
+    const modalContainer = document.getElementById('partner-modal-container');
+    if (!modalContainer) return;
+    modalContainer.innerHTML = `
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+                <div class="flex items-center justify-between border-b pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[#0066cc]">info</span>
+                        <h3 class="font-black text-base text-[#181c1f]">How Your Earnings Are Calculated</h3>
+                    </div>
+                    <button onclick="closePartnerModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500">✕</button>
+                </div>
+                <div class="space-y-3 text-xs">
+                    <div class="p-3 bg-blue-50 rounded-2xl border border-blue-200 space-y-1">
+                        <div class="font-black text-[#0066cc]">1. Order Payout (₹3.00 / Delivered Order)</div>
+                        <p class="text-slate-600">Every single order marked Delivered generates a ₹3.00 delivery fee credited to the assigned delivery partner.</p>
+                    </div>
+                    <div class="p-3 bg-[#F8FAFD] rounded-2xl border border-[#EBF0F7] space-y-1">
+                        <div class="font-bold text-[#181c1f]">2. Single Runs vs Multi Runs</div>
+                        <p class="text-slate-600">Orders delivered individually are Single Runs. Multiple deliveries carried in the same 15-minute window are batched as Multi Runs.</p>
+                    </div>
+                    <div class="p-3 bg-[#F8FAFD] rounded-2xl border border-[#EBF0F7] space-y-1">
+                        <div class="font-bold text-[#181c1f]">3. Day-Wise Statistics</div>
+                        <p class="text-slate-600">The bar chart aggregates orders by calendar date (Monday to Sunday in Weekly mode, and whole month in Monthly mode).</p>
+                    </div>
+                </div>
+                <button onclick="closePartnerModal()" class="w-full py-2.5 rounded-xl bg-[#0066cc] text-white font-bold text-xs">Got it</button>
+            </div>
+        </div>
+    `;
+}
+
+function closePartnerModal() {
+    const modalContainer = document.getElementById('partner-modal-container');
+    if (modalContainer) modalContainer.innerHTML = '';
+}
+
+// ============================================================
+// BACKUP & DISASTER RECOVERY (0 - 100) CLIENT CONTROLLER
+// ============================================================
+
+let currentLoadedBackupZip = null;
+let currentLoadedBackupManifest = null;
+let currentBackupStatus = null;
+
+/**
+ * Fetch and display current live system snapshot metrics
+ */
+async function loadBackupDashboard() {
+    const token = adminToken || localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token');
+    try {
+        const res = await fetchWithTimeout('/api/admin/backup/status', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        const data = await res.json();
+        if (!data.success) {
+            showToast(data.error || 'Failed to fetch backup status', 'error');
+            return;
+        }
+
+        currentBackupStatus = data;
+        const tables = data.tables || {};
+
+        // Update Snapshot Cards
+        const elUsers = document.getElementById('backup-stat-users');
+        if (elUsers) elUsers.textContent = (tables.users !== undefined && tables.users >= 0) ? tables.users.toLocaleString() : '0';
+
+        const elProducts = document.getElementById('backup-stat-products');
+        if (elProducts) elProducts.textContent = (tables.products !== undefined && tables.products >= 0) ? tables.products.toLocaleString() : '0';
+
+        const elOrders = document.getElementById('backup-stat-orders');
+        if (elOrders) {
+            const oCount = tables.orders || 0;
+            const iCount = tables.order_items || 0;
+            elOrders.textContent = `${oCount.toLocaleString()} (${iCount} items)`;
+        }
+
+        const elUploads = document.getElementById('backup-stat-uploads');
+        if (elUploads) {
+            const up = data.uploads || { count: 0, size_mb: 0 };
+            elUploads.textContent = `${up.count} files (${up.size_mb} MB)`;
+        }
+    } catch (err) {
+        console.error('[Backup Dashboard Error]:', err);
+        showToast('Error loading backup metrics: ' + err.message, 'error');
+    }
+}
+
+/**
+ * 1-Click System Export (0 - 100):
+ * Queries DB + configs, downloads all images via CDN, and bundles into a standard .ZIP client-side.
+ */
+async function startFullSystemExport() {
+    if (typeof JSZip === 'undefined') {
+        showToast('Archive engine is initializing. Please try again in a few seconds.', 'warning');
+        return;
+    }
+
+    const token = adminToken || localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token');
+    const btn = document.getElementById('btn-start-export');
+    const progressWrap = document.getElementById('backup-export-progress-wrap');
+    const progressBar = document.getElementById('backup-export-bar');
+    const statusText = document.getElementById('backup-export-status-text');
+    const percentText = document.getElementById('backup-export-percent-text');
+
+    if (btn) btn.disabled = true;
+    if (progressWrap) progressWrap.classList.remove('hidden');
+
+    function updateExportProgress(percent, text) {
+        if (progressBar) progressBar.style.width = `${percent}%`;
+        if (percentText) percentText.textContent = `${percent}%`;
+        if (statusText) statusText.textContent = text;
+    }
+
+    try {
+        updateExportProgress(10, 'Extracting database tables & server configs...');
+        const res = await fetchWithTimeout('/api/admin/backup/export-data', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        }, 60000);
+        const payload = await res.json();
+
+        if (!payload.success) {
+            throw new Error(payload.error || 'Server rejected export request');
+        }
+
+        const { manifest, database, configs, uploads } = payload;
+        const zip = new JSZip();
+
+        // 1. Add Manifest
+        zip.file('manifest.json', JSON.stringify(manifest, null, 2));
+
+        // 2. Add Database Tables
+        const dbFolder = zip.folder('database');
+        for (const [tableName, rows] of Object.entries(database)) {
+            dbFolder.file(`${tableName}.json`, JSON.stringify(rows, null, 2));
+        }
+
+        // 3. Add Server Configs
+        const configFolder = zip.folder('config');
+        for (const [cfgKey, cfgData] of Object.entries(configs)) {
+            if (cfgData !== null && cfgData !== undefined) {
+                configFolder.file(`${cfgKey}.json`, JSON.stringify(cfgData, null, 2));
+            }
+        }
+
+        // 4. Download and Add Images via CDN
+        const uploadsFolder = zip.folder('uploads');
+        const totalImages = (uploads || []).length;
+        let downloadedCount = 0;
+
+        for (const img of (uploads || [])) {
+            try {
+                const imgRes = await fetch(img.url);
+                if (imgRes.ok) {
+                    const blob = await imgRes.blob();
+                    uploadsFolder.file(img.filename, blob);
+                }
+            } catch (imgErr) {
+                console.warn(`[Export Warning] Failed to bundle image ${img.filename}:`, imgErr.message);
+            }
+            downloadedCount++;
+            const pct = Math.min(80, 20 + Math.round((downloadedCount / Math.max(1, totalImages)) * 60));
+            updateExportProgress(pct, `Packaging images (${downloadedCount}/${totalImages})...`);
+        }
+
+        // 5. Compress Archive
+        updateExportProgress(85, 'Compressing 0-100 system archive...');
+        const zipBlob = await zip.generateAsync({
+            type: 'blob',
+            compression: 'DEFLATE',
+            compressionOptions: { level: 6 }
+        }, (meta) => {
+            const pct = Math.min(99, 85 + Math.round(meta.percent * 0.14));
+            updateExportProgress(pct, `Compressing archive (${Math.round(meta.percent)}%)...`);
+        });
+
+        updateExportProgress(100, 'Download starting...');
+
+        // 6. Trigger Browser Download
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const filename = `LPUQuick_Full_Backup_${timestamp}.zip`;
+        const blobUrl = URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+
+        showToast('🎉 Complete 0-100 system backup archive downloaded!', 'success');
+    } catch (err) {
+        console.error('[Export Error]:', err);
+        showToast('Backup export failed: ' + err.message, 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+        setTimeout(() => {
+            if (progressWrap) progressWrap.classList.add('hidden');
+            updateExportProgress(0, '');
+        }, 3000);
+    }
+}
+
+/**
+ * Handle selection / drop of backup ZIP file
+ */
+async function handleBackupFileSelect(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (typeof JSZip === 'undefined') {
+        showToast('Archive engine is initializing. Please wait.', 'warning');
+        return;
+    }
+
+    try {
+        showToast('Inspecting backup archive...', 'info');
+        const zip = await JSZip.loadAsync(file);
+
+        const manifestFile = zip.file('manifest.json');
+        if (!manifestFile) {
+            showToast('Invalid backup: manifest.json not found in archive.', 'error');
+            return;
+        }
+
+        const manifest = JSON.parse(await manifestFile.async('string'));
+        currentLoadedBackupZip = zip;
+        currentLoadedBackupManifest = manifest;
+
+        // Populate inspection card
+        const card = document.getElementById('backup-inspection-card');
+        if (card) card.classList.remove('hidden');
+
+        const elApp = document.getElementById('inspect-backup-app');
+        if (elApp) elApp.textContent = `${manifest.app || 'LPUQuick'} Backup v${manifest.version || '1.0'}`;
+
+        const elDate = document.getElementById('inspect-backup-date');
+        if (elDate && manifest.created_at) {
+            elDate.textContent = `Created: ${new Date(manifest.created_at).toLocaleString()}`;
+        }
+
+        const tables = manifest.tables || {};
+        const setVal = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val !== undefined ? val.toLocaleString() : '0';
+        };
+
+        setVal('inspect-users-count', tables.users);
+        setVal('inspect-products-count', tables.products);
+        setVal('inspect-orders-count', tables.orders);
+        setVal('inspect-items-count', tables.order_items);
+        setVal('inspect-images-count', manifest.uploads?.count || 0);
+        setVal('inspect-configs-count', (manifest.configs || []).length);
+
+        showToast('Backup archive verified! Choose restore strategy below.', 'success');
+    } catch (err) {
+        console.error('[Inspect Backup Error]:', err);
+        showToast('Failed to parse backup archive: ' + err.message, 'error');
+    }
+}
+
+/**
+ * Confirm and execute full disaster recovery restore with chunked image batches
+ */
+async function confirmAndExecuteRestore() {
+    if (!currentLoadedBackupZip || !currentLoadedBackupManifest) {
+        showToast('Please select a valid backup ZIP archive first.', 'warning');
+        return;
+    }
+
+    const selectedRadio = document.querySelector('input[name="restore-mode"]:checked');
+    const mode = selectedRadio?.value || 'clean';
+
+    const promptMessage = mode === 'clean'
+        ? 'Type "RESTORE" to execute Clean Ditto Mirror restore. All existing records will be replaced with the backup archive data:'
+        : 'Type "RESTORE" to execute Safe Merge restore. Matching records will be updated and new ones inserted:';
+
+    const confirmation = prompt(promptMessage);
+    if (confirmation !== 'RESTORE') {
+        showToast('Restore cancelled by user.', 'info');
+        return;
+    }
+
+    const token = adminToken || localStorage.getItem('lpuquick_admin_token') || sessionStorage.getItem('lpuquick_admin_token');
+    const btn = document.getElementById('btn-execute-restore');
+    const progressWrap = document.getElementById('backup-restore-progress-wrap');
+    const progressBar = document.getElementById('backup-restore-bar');
+    const statusText = document.getElementById('backup-restore-status-text');
+    const percentText = document.getElementById('backup-restore-percent-text');
+
+    if (btn) btn.disabled = true;
+    if (progressWrap) progressWrap.classList.remove('hidden');
+
+    function updateRestoreProgress(percent, text) {
+        if (progressBar) progressBar.style.width = `${percent}%`;
+        if (percentText) percentText.textContent = `${percent}%`;
+        if (statusText) statusText.textContent = text;
+    }
+
+    try {
+        const zip = currentLoadedBackupZip;
+
+        // 1. Extract Database Tables from ZIP
+        updateRestoreProgress(10, 'Extracting database tables from archive...');
+        const tables = {};
+        const expectedTables = [
+            'users',
+            'products',
+            'app_availability',
+            'blacklisted_users',
+            'orders',
+            'order_items',
+            'cart_items',
+            'audit_logs'
+        ];
+
+        for (const tableName of expectedTables) {
+            const tableFile = zip.file(`database/${tableName}.json`);
+            if (tableFile) {
+                tables[tableName] = JSON.parse(await tableFile.async('string'));
+            } else {
+                tables[tableName] = [];
+            }
+        }
+
+        // 2. Extract Configs from ZIP
+        updateRestoreProgress(20, 'Extracting server configuration settings...');
+        const configs = {};
+        const configFiles = ['banners', 'delivery_settings', 'rider_availability', 'push_subscriptions'];
+        for (const cfg of configFiles) {
+            const cfgFile = zip.file(`config/${cfg}.json`);
+            if (cfgFile) {
+                configs[cfg] = JSON.parse(await cfgFile.async('string'));
+            }
+        }
+
+        // 3. Send Database + Configs to Server
+        updateRestoreProgress(30, `Restoring database in [${mode.toUpperCase()}] mode...`);
+        const dbRestoreRes = await fetchWithTimeout('/api/admin/backup/restore-data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ tables, configs, mode })
+        }, 60000);
+        const dbData = await dbRestoreRes.json();
+        if (!dbData.success) {
+            throw new Error(dbData.error || 'Database restoration failed on server');
+        }
+
+        // 4. Extract and Batch Upload Images (Vercel-Safe Chunks of 6 images)
+        updateRestoreProgress(50, 'Extracting image assets from archive...');
+        const imageEntries = [];
+        for (const relPath of Object.keys(zip.files)) {
+            if (relPath.startsWith('uploads/') && !relPath.endsWith('/')) {
+                const filename = relPath.replace('uploads/', '');
+                const base64Data = await zip.file(relPath).async('base64');
+                imageEntries.push({ filename, data: base64Data });
+            }
+        }
+
+        const totalImgs = imageEntries.length;
+        const imgBatchSize = 6;
+        let uploadedImgs = 0;
+
+        for (let i = 0; i < totalImgs; i += imgBatchSize) {
+            const batch = imageEntries.slice(i, i + imgBatchSize);
+            const pct = Math.min(85, 50 + Math.round((uploadedImgs / Math.max(1, totalImgs)) * 35));
+            updateRestoreProgress(pct, `Restoring images (${uploadedImgs}/${totalImgs})...`);
+
+            const imgRes = await fetchWithTimeout('/api/admin/backup/restore-images', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ files: batch })
+            }, 60000);
+            const imgData = await imgRes.json();
+            if (!imgData.success) {
+                console.warn('[Restore Image Batch Warning]:', imgData.error);
+            }
+            uploadedImgs += batch.length;
+        }
+
+        // 5. Run Post-Restoration Integrity Verification
+        updateRestoreProgress(90, 'Verifying system integrity against manifest...');
+        const verifyRes = await fetchWithTimeout('/api/admin/backup/verify', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ manifest: currentLoadedBackupManifest })
+        }, 60000);
+        const verifyData = await verifyRes.json();
+
+        updateRestoreProgress(100, 'Restoration complete!');
+
+        const isFullyVerified = verifyData.report?.verified;
+        if (isFullyVerified) {
+            showToast('🎉 100% COMPLETE SYSTEM RESTORE SUCCESSFUL & VERIFIED!', 'success');
+        } else {
+            showToast('System restored with minor count variations (check audit logs).', 'warning');
+        }
+
+        // Refresh live dashboard metrics
+        await loadBackupDashboard();
+
+        // Hide pre-restore inspection card
+        const card = document.getElementById('backup-inspection-card');
+        if (card) card.classList.add('hidden');
+        currentLoadedBackupZip = null;
+        currentLoadedBackupManifest = null;
+    } catch (err) {
+        console.error('[Full Restore Error]:', err);
+        showToast('Restore failed: ' + err.message, 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+        setTimeout(() => {
+            if (progressWrap) progressWrap.classList.add('hidden');
+            updateRestoreProgress(0, '');
+        }, 3500);
+    }
+}
+
+
+
+
+
+
+// Toggle Employee / Staff Duty Status (On Duty / Off Duty) across Admin Console
+window.toggleEmployeeDuty = async function (empId, setOnDuty) {
+    if (!empId) return;
+    try {
+        const res = await fetch(`/api/admin/employees/${empId}/duty-status`, {
+            method: 'PUT',
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ is_on_duty: setOnDuty, duty_status: setOnDuty ? 'ON_DUTY' : 'OFF_DUTY', status: setOnDuty ? 'Active' : 'Offline' })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(`Duty status updated: ${setOnDuty ? '🟢 ON DUTY (Online)' : '⚪ OFF DUTY (Offline)'}`, 'success');
+
+            // 1. Update in-memory employeesCache
+            if (typeof employeesCache !== 'undefined' && Array.isArray(employeesCache)) {
+                const found = employeesCache.find(e => e.id === empId);
+                if (found) {
+                    found.is_on_duty = setOnDuty;
+                    found.duty_status = setOnDuty ? 'ON_DUTY' : 'OFF_DUTY';
+                    if (found.delivery_data) {
+                        found.delivery_data.duty_status = setOnDuty ? 'ON_DUTY' : 'OFF_DUTY';
+                    }
+                }
+                const onDutyCount = employeesCache.filter(e => e.duty_status === 'ON_DUTY' || e.is_on_duty).length;
+                const statOnDuty = document.getElementById('stat-emp-onduty');
+                if (statOnDuty) statOnDuty.textContent = onDutyCount;
+                filterEmployeesList();
+            } else if (typeof loadEmployeesList === 'function') {
+                loadEmployeesList();
+            }
+
+            // 2. Update in-memory staffCache
+            if (typeof staffCache !== 'undefined' && Array.isArray(staffCache)) {
+                const foundStaff = staffCache.find(s => s.id === empId);
+                if (foundStaff) {
+                    foundStaff.is_on_duty = setOnDuty;
+                    foundStaff.duty_status = setOnDuty ? 'ON_DUTY' : 'OFF_DUTY';
+                }
+                renderStaffTable(staffCache);
+            }
+
+            // 3. If current logged-in user changed their own duty status, keep local state in sync
+            if (currentAdminProfile && currentAdminProfile.id === empId) {
+                partnerIsOnDuty = setOnDuty;
+                if (typeof updatePartnerDutyUI === 'function') {
+                    updatePartnerDutyUI(partnerIsOnDuty);
+                }
+            }
+        } else {
+            showToast(data.error || 'Failed to update duty status', 'error');
+        }
+    } catch (err) {
+        console.error('[toggleEmployeeDuty Error]:', err);
+        showToast('Network error updating duty status: ' + err.message, 'error');
+    }
+};
+
+// =========================================================================
+// OWNER-ONLY: OFFERS & CHARGES CONTROLLER
+// =========================================================================
+
+let currentOffersSettings = null;
+
+/**
+ * Loads the active Offers & Charges configuration from backend API
+ */
+async function loadOffersChargesView() {
+    // 1. Role-check guard: Owner only
+    if (currentAdminProfile && !currentAdminProfile.is_owner) {
+        showToast('Access restricted: Owner/Super Admin only.', 'error');
+        switchView('dashboard');
+        return;
+    }
+
+    const alertEl = document.getElementById('offers-charges-alert');
+    if (alertEl) alertEl.classList.add('hidden');
+
+    const statusPill = document.getElementById('offers-status-pill');
+    if (statusPill) {
+        statusPill.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-spin"></span> Syncing...';
+    }
+
+    try {
+        const res = await fetchWithTimeout('/api/admin/offers-charges', {
+            headers: getAuthHeaders()
+        }, 5000);
+
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || `HTTP ${res.status} Error`);
+        }
+
+        const data = await res.json();
+        if (data.success && data.settings) {
+            currentOffersSettings = data.settings;
+            populateOffersChargesForm(data.settings);
+            updateOffersChargesLivePreview();
+
+            if (statusPill) {
+                statusPill.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Cloud Synced';
+            }
+        } else {
+            throw new Error(data.error || 'Failed to load offers configuration');
+        }
+    } catch (err) {
+        console.error('[loadOffersChargesView Error]:', err);
+        showOffersChargesAlert('Could not load configuration: ' + err.message, 'error');
+        if (statusPill) {
+            statusPill.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Sync Failed';
+        }
+    }
+}
+
+/**
+ * Populates all form fields with settings received from the server
+ */
+function populateOffersChargesForm(settings) {
+    if (!settings) return;
+
+    // Master Switch
+    const offersActive = Boolean(settings.offers_enabled);
+    updateMasterSwitchUI('offers-master-switch', 'offers-master-switch-knob', 'offers-master-switch-label', offersActive, 'ON', 'OFF');
+    const fieldsContainer = document.getElementById('offers-config-fields');
+    if (fieldsContainer) {
+        fieldsContainer.style.opacity = offersActive ? '1' : '0.55';
+    }
+
+    // Offer Type
+    const offerType = settings.offer_type || 'percentage';
+    const radio = document.querySelector(`input[name="offer_type"][value="${offerType}"]`);
+    if (radio) radio.checked = true;
+
+    // Discount Value & Unit
+    const discInput = document.getElementById('input-discount-val');
+    if (discInput) discInput.value = settings.offer_value ?? 10;
+    updateOfferUnitLabel(offerType);
+
+    // Min Order & Max Discount
+    const minOrderInput = document.getElementById('input-offer-min-order');
+    if (minOrderInput) minOrderInput.value = settings.minimum_order_value ?? 199;
+
+    const maxDiscInput = document.getElementById('input-offer-max-discount');
+    if (maxDiscInput) maxDiscInput.value = settings.maximum_discount ?? 50;
+
+    // Dates
+    const startInput = document.getElementById('input-offer-start-date');
+    if (startInput) {
+        startInput.value = settings.start_date ? formatForDatetimeLocal(settings.start_date) : '';
+    }
+    const endInput = document.getElementById('input-offer-end-date');
+    if (endInput) {
+        endInput.value = settings.end_date ? formatForDatetimeLocal(settings.end_date) : '';
+    }
+
+    // Delivery Fee
+    const delFeeInput = document.getElementById('input-delivery-fee');
+    if (delFeeInput) delFeeInput.value = settings.delivery_fee ?? 0;
+
+    const freeDelActive = Boolean(settings.free_delivery_enabled);
+    updateMasterSwitchUI('free-delivery-switch', 'free-delivery-switch-knob', 'free-delivery-switch-label', freeDelActive, 'Free: ON', 'Free: OFF');
+
+    const freeThreshInput = document.getElementById('input-free-delivery-threshold');
+    if (freeThreshInput) freeThreshInput.value = settings.free_delivery_threshold ?? 199;
+
+    // Handling Fee
+    const handlingActive = Boolean(settings.handling_fee_enabled);
+    updateMasterSwitchUI('handling-fee-switch', 'handling-fee-switch-knob', 'handling-fee-switch-label', handlingActive, 'ON', 'OFF');
+
+    const handlingFeeInput = document.getElementById('input-handling-fee');
+    if (handlingFeeInput) handlingFeeInput.value = settings.handling_fee ?? 3;
+
+    const minCartInput = document.getElementById('input-min-cart-val');
+    if (minCartInput) minCartInput.value = settings.min_cart_value ?? 35;
+
+    // Audit Info
+    const updatedByEl = document.getElementById('offers-last-updated-by');
+    if (updatedByEl) updatedByEl.textContent = settings.updated_by || 'Owner';
+
+    const updatedAtEl = document.getElementById('offers-last-updated-at');
+    if (updatedAtEl) {
+        if (settings.updated_at) {
+            const dt = new Date(settings.updated_at);
+            updatedAtEl.textContent = dt.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+        } else {
+            updatedAtEl.textContent = 'Never';
+        }
+    }
+}
+
+function updateMasterSwitchUI(btnId, knobId, labelId, isActive, activeText, inactiveText) {
+    const btn = document.getElementById(btnId);
+    const knob = document.getElementById(knobId);
+    const label = document.getElementById(labelId);
+
+    if (btn) {
+        btn.dataset.active = isActive ? 'true' : 'false';
+        btn.className = `relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isActive ? 'bg-emerald-600' : 'bg-slate-300'}`;
+    }
+    if (knob) {
+        knob.className = `pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isActive ? 'translate-x-5' : 'translate-x-0'}`;
+    }
+    if (label) {
+        label.textContent = isActive ? activeText : inactiveText;
+        label.className = `text-xs font-bold ${isActive ? 'text-emerald-700' : 'text-slate-500'}`;
+    }
+}
+
+function toggleOffersMasterSwitch() {
+    const btn = document.getElementById('offers-master-switch');
+    if (!btn) return;
+    const current = btn.dataset.active === 'true';
+    const next = !current;
+    updateMasterSwitchUI('offers-master-switch', 'offers-master-switch-knob', 'offers-master-switch-label', next, 'ON', 'OFF');
+
+    const fieldsContainer = document.getElementById('offers-config-fields');
+    if (fieldsContainer) {
+        fieldsContainer.style.opacity = next ? '1' : '0.55';
+    }
+    updateOffersChargesLivePreview();
+}
+
+function toggleFreeDeliverySwitch() {
+    const btn = document.getElementById('free-delivery-switch');
+    if (!btn) return;
+    const current = btn.dataset.active === 'true';
+    const next = !current;
+    updateMasterSwitchUI('free-delivery-switch', 'free-delivery-switch-knob', 'free-delivery-switch-label', next, 'Free: ON', 'Free: OFF');
+    updateOffersChargesLivePreview();
+}
+
+function toggleHandlingFeeSwitch() {
+    const btn = document.getElementById('handling-fee-switch');
+    if (!btn) return;
+    const current = btn.dataset.active === 'true';
+    const next = !current;
+    updateMasterSwitchUI('handling-fee-switch', 'handling-fee-switch-knob', 'handling-fee-switch-label', next, 'ON', 'OFF');
+    updateOffersChargesLivePreview();
+}
+
+function updateOfferUnitLabel(offerType) {
+    const lbl = document.getElementById('lbl-discount-val');
+    const unit = document.getElementById('unit-discount-val');
+    const discInput = document.getElementById('input-discount-val');
+
+    if (offerType === 'percentage') {
+        if (lbl) lbl.textContent = 'Discount Value (%)';
+        if (unit) unit.textContent = '%';
+        if (discInput) {
+            discInput.max = '100';
+            discInput.step = '1';
+        }
+    } else if (offerType === 'fixed') {
+        if (lbl) lbl.textContent = 'Discount Amount (₹)';
+        if (unit) unit.textContent = '₹';
+        if (discInput) {
+            discInput.removeAttribute('max');
+            discInput.step = '1';
+        }
+    } else {
+        if (lbl) lbl.textContent = 'Discount (N/A for Free Delivery)';
+        if (unit) unit.textContent = '—';
+    }
+}
+
+function handleOfferFieldChange() {
+    const offerType = document.querySelector('input[name="offer_type"]:checked')?.value || 'percentage';
+    updateOfferUnitLabel(offerType);
+    updateOffersChargesLivePreview();
+}
+
+function setPreviewSubtotal(amount) {
+    const input = document.getElementById('preview-sample-subtotal');
+    if (input) {
+        input.value = amount;
+        updateOffersChargesLivePreview();
+    }
+}
+
+/**
+ * Live Interactive Preview Calculation (Section 16 Specification)
+ */
+function updateOffersChargesLivePreview() {
+    const sampleSubtotal = Math.max(0, Number(document.getElementById('preview-sample-subtotal')?.value) || 0);
+    const offersEnabled = document.getElementById('offers-master-switch')?.dataset.active === 'true';
+    const offerType = document.querySelector('input[name="offer_type"]:checked')?.value || 'percentage';
+    const offerValue = Math.max(0, Number(document.getElementById('input-discount-val')?.value) || 0);
+    const minOrderValue = Math.max(0, Number(document.getElementById('input-offer-min-order')?.value) || 0);
+    const maxDiscount = Math.max(0, Number(document.getElementById('input-offer-max-discount')?.value) || 0);
+
+    const deliveryFeeBase = Math.max(0, Number(document.getElementById('input-delivery-fee')?.value) || 0);
+    const freeDeliveryEnabled = document.getElementById('free-delivery-switch')?.dataset.active === 'true';
+    const freeDeliveryThreshold = Math.max(0, Number(document.getElementById('input-free-delivery-threshold')?.value) || 0);
+
+    const handlingFeeEnabled = document.getElementById('handling-fee-switch')?.dataset.active === 'true';
+    const handlingFeeVal = Math.max(0, Number(document.getElementById('input-handling-fee')?.value) || 0);
+
+    // 1. Subtotal
+    const subtotal = sampleSubtotal;
+
+    // 2. Global Offer Calculation
+    let discount = 0;
+    let offerNote = 'None';
+    const meetsOfferMin = subtotal >= minOrderValue;
+
+    if (offersEnabled && meetsOfferMin && subtotal > 0) {
+        if (offerType === 'percentage') {
+            const rawDisc = Math.round(subtotal * (offerValue / 100));
+            discount = maxDiscount > 0 ? Math.min(rawDisc, maxDiscount) : rawDisc;
+            offerNote = `${offerValue}% OFF`;
+        } else if (offerType === 'fixed') {
+            discount = Math.min(subtotal, offerValue);
+            offerNote = `₹${offerValue} OFF`;
+        } else if (offerType === 'free_delivery') {
+            discount = 0;
+            offerNote = 'Free Delivery';
+        }
+    }
+
+    // 3. Delivery Fee
+    let calculatedDelivery = deliveryFeeBase;
+    let isFreeDelivery = false;
+
+    if (subtotal === 0) {
+        calculatedDelivery = 0;
+        isFreeDelivery = true;
+    } else if (deliveryFeeBase <= 0) {
+        calculatedDelivery = 0;
+        isFreeDelivery = true;
+    } else {
+        const meetsThreshold = freeDeliveryEnabled && subtotal >= freeDeliveryThreshold;
+        const meetsFreeOffer = offersEnabled && offerType === 'free_delivery' && meetsOfferMin;
+        if (meetsThreshold || meetsFreeOffer) {
+            calculatedDelivery = 0;
+            isFreeDelivery = true;
+        } else {
+            calculatedDelivery = deliveryFeeBase;
+            isFreeDelivery = false;
+        }
+    }
+
+    // 4. Handling Fee
+    let calculatedHandling = 0;
+    if (subtotal > 0 && handlingFeeEnabled) {
+        calculatedHandling = handlingFeeVal;
+    }
+
+    // 5. Final Total
+    const finalTotal = Math.max(0, subtotal - discount + calculatedDelivery + calculatedHandling);
+
+    // Update DOM
+    const simLabel = document.getElementById('preview-simulated-label');
+    if (simLabel) simLabel.textContent = `₹${subtotal}`;
+
+    const lineSubtotal = document.getElementById('preview-line-subtotal');
+    if (lineSubtotal) lineSubtotal.textContent = `₹${subtotal}`;
+
+    const offerRow = document.getElementById('preview-line-offer-row');
+    const lineOffer = document.getElementById('preview-line-offer');
+    const lineOfferName = document.getElementById('preview-line-offer-name');
+    if (lineOffer && lineOfferName) {
+        if (discount > 0) {
+            lineOffer.textContent = `-₹${discount}`;
+            lineOfferName.textContent = offerNote;
+            if (offerRow) offerRow.style.display = 'flex';
+        } else {
+            lineOffer.textContent = '₹0';
+            lineOfferName.textContent = offersEnabled ? (meetsOfferMin ? '₹0' : `Min ₹${minOrderValue}`) : 'OFF';
+            if (offerRow) offerRow.style.display = offersEnabled ? 'flex' : 'none';
+        }
+    }
+
+    const lineDelivery = document.getElementById('preview-line-delivery');
+    const lineDeliveryWrap = document.getElementById('preview-line-delivery-wrap');
+    if (lineDelivery) {
+        if (isFreeDelivery) {
+            lineDelivery.textContent = 'FREE';
+            lineDelivery.className = 'text-emerald-600 font-black';
+            if (deliveryFeeBase > 0 && lineDeliveryWrap) {
+                lineDeliveryWrap.innerHTML = `<span class="line-through text-[11px] text-slate-400">₹${deliveryFeeBase}</span> <span class="text-emerald-600 font-black">FREE</span>`;
+            } else if (lineDeliveryWrap) {
+                lineDeliveryWrap.innerHTML = `<span class="text-emerald-600 font-black">FREE</span>`;
+            }
+        } else {
+            if (lineDeliveryWrap) {
+                lineDeliveryWrap.innerHTML = `<span class="text-slate-900 font-bold">₹${calculatedDelivery}</span>`;
+            }
+        }
+    }
+
+    const lineHandling = document.getElementById('preview-line-handling');
+    if (lineHandling) {
+        lineHandling.textContent = calculatedHandling > 0 ? `₹${calculatedHandling}` : '₹0';
+    }
+
+    const lineTotal = document.getElementById('preview-line-total');
+    if (lineTotal) lineTotal.textContent = `₹${finalTotal}`;
+
+    // Explanation banner
+    const expText = document.getElementById('preview-explanation-text');
+    if (expText) {
+        let msg = `Subtotal ₹${subtotal}: `;
+        if (offersEnabled) {
+            if (meetsOfferMin) {
+                msg += `Qualifies for ${offerNote}${discount > 0 ? ` (-₹${discount})` : ''}. `;
+            } else {
+                msg += `Order below offer min (₹${minOrderValue}) — no discount applied. `;
+            }
+        } else {
+            msg += 'Global offers are turned OFF. ';
+        }
+
+        if (isFreeDelivery) {
+            msg += 'Delivery is FREE. ';
+        } else {
+            msg += `Delivery fee is ₹${calculatedDelivery}. `;
+        }
+
+        if (calculatedHandling > 0) {
+            msg += `Handling fee is ₹${calculatedHandling}.`;
+        }
+        expText.textContent = msg;
+    }
+}
+
+/**
+ * Saves all Offers & Charges settings to Supabase
+ */
+async function saveOffersCharges() {
+    if (currentAdminProfile && !currentAdminProfile.is_owner) {
+        showToast('Access restricted: Owner only.', 'error');
+        return;
+    }
+
+    // 1. Gather & Validate Inputs
+    const offersEnabled = document.getElementById('offers-master-switch')?.dataset.active === 'true';
+    const offerType = document.querySelector('input[name="offer_type"]:checked')?.value || 'percentage';
+    const offerValue = Number(document.getElementById('input-discount-val')?.value);
+    const minOrderValue = Number(document.getElementById('input-offer-min-order')?.value);
+    const maxDiscount = Number(document.getElementById('input-offer-max-discount')?.value);
+
+    const startDateVal = document.getElementById('input-offer-start-date')?.value;
+    const endDateVal = document.getElementById('input-offer-end-date')?.value;
+
+    const deliveryFee = Number(document.getElementById('input-delivery-fee')?.value);
+    const freeDeliveryEnabled = document.getElementById('free-delivery-switch')?.dataset.active === 'true';
+    const freeDeliveryThreshold = Number(document.getElementById('input-free-delivery-threshold')?.value);
+
+    const handlingFeeEnabled = document.getElementById('handling-fee-switch')?.dataset.active === 'true';
+    const handlingFee = Number(document.getElementById('input-handling-fee')?.value);
+    const minCartVal = Number(document.getElementById('input-min-cart-val')?.value);
+
+    // Validation (Section 18)
+    const errors = [];
+    if (!Number.isFinite(deliveryFee) || deliveryFee < 0) {
+        errors.push('Delivery Fee must be a valid number >= 0.');
+    }
+    if (!Number.isFinite(handlingFee) || handlingFee < 0) {
+        errors.push('Handling Fee must be a valid number >= 0.');
+    }
+    if (!Number.isFinite(offerValue) || offerValue < 0) {
+        errors.push('Discount Value must be a valid number >= 0.');
+    } else if (offerType === 'percentage' && (offerValue < 0 || offerValue > 100)) {
+        errors.push('Percentage discount must be between 0% and 100%.');
+    }
+    if (!Number.isFinite(minOrderValue) || minOrderValue < 0) {
+        errors.push('Minimum Order Value must be a valid number >= 0.');
+    }
+    if (!Number.isFinite(maxDiscount) || maxDiscount < 0) {
+        errors.push('Maximum Discount must be a valid number >= 0.');
+    }
+    if (!Number.isFinite(freeDeliveryThreshold) || freeDeliveryThreshold < 0) {
+        errors.push('Free Delivery Threshold must be a valid number >= 0.');
+    }
+    if (!Number.isFinite(minCartVal) || minCartVal < 0) {
+        errors.push('Minimum Cart Order must be a valid number >= 0.');
+    }
+
+    let startDateIso = null;
+    if (startDateVal) {
+        const d = new Date(startDateVal);
+        if (isNaN(d.getTime())) errors.push('Start Date is invalid.');
+        else startDateIso = d.toISOString();
+    }
+
+    let endDateIso = null;
+    if (endDateVal) {
+        const d = new Date(endDateVal);
+        if (isNaN(d.getTime())) errors.push('End Date is invalid.');
+        else endDateIso = d.toISOString();
+    }
+
+    if (startDateIso && endDateIso && new Date(startDateIso) > new Date(endDateIso)) {
+        errors.push('End Date cannot be earlier than Start Date.');
+    }
+
+    if (errors.length > 0) {
+        showOffersChargesAlert(errors.join('<br>'), 'error');
+        showToast('Please fix validation errors before saving.', 'error');
+        return;
+    }
+
+    // 2. Prepare payload
+    const payload = {
+        offers_enabled: offersEnabled,
+        offer_type: offerType,
+        offer_value: offerValue,
+        minimum_order_value: minOrderValue,
+        maximum_discount: maxDiscount,
+        free_delivery_enabled: freeDeliveryEnabled,
+        free_delivery_threshold: freeDeliveryThreshold,
+        delivery_fee: deliveryFee,
+        handling_fee: handlingFee,
+        handling_fee_enabled: handlingFeeEnabled,
+        min_cart_value: minCartVal,
+        start_date: startDateIso,
+        end_date: endDateIso,
+        expected_updated_at: currentOffersSettings?.updated_at || null
+    };
+
+    // 3. UI Loading State (Prevent duplicate Save requests - Section 17)
+    const btnSave = document.getElementById('btn-save-offers');
+    const btnSaveTop = document.getElementById('btn-save-offers-top');
+    const btnText = document.getElementById('btn-save-offers-text');
+
+    if (btnSave) btnSave.disabled = true;
+    if (btnSaveTop) btnSaveTop.disabled = true;
+    if (btnText) btnText.textContent = 'Saving to Supabase Cloud...';
+
+    try {
+        const res = await fetchWithTimeout('/api/admin/offers-charges', {
+            method: 'POST',
+            headers: {
+                ...getAuthHeaders(),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        }, 8000);
+
+        const data = await res.json();
+        if (res.ok && data.success && data.settings) {
+            currentOffersSettings = data.settings;
+            populateOffersChargesForm(data.settings);
+            updateOffersChargesLivePreview();
+
+            showOffersChargesAlert('✓ Saved successfully! The new offers, delivery fees, and handling charges are now live for all customer checkouts.', 'success');
+            showToast('✓ Offers & charges saved successfully!', 'success');
+        } else {
+            throw new Error(data.error || 'Failed to save settings.');
+        }
+    } catch (err) {
+        console.error('[saveOffersCharges Error]:', err);
+        showOffersChargesAlert('Database update failed: ' + err.message + '. Last confirmed configuration was kept.', 'error');
+        showToast('Failed to save settings: ' + err.message, 'error');
+    } finally {
+        if (btnSave) btnSave.disabled = false;
+        if (btnSaveTop) btnSaveTop.disabled = false;
+        if (btnText) btnText.textContent = 'Save All Offers & Charges';
+    }
+}
+
+function showOffersChargesAlert(htmlMessage, type = 'success') {
+    const alertEl = document.getElementById('offers-charges-alert');
+    if (!alertEl) return;
+
+    alertEl.innerHTML = htmlMessage;
+    alertEl.classList.remove('hidden', 'bg-emerald-50', 'border-emerald-300', 'text-emerald-900', 'bg-rose-50', 'border-rose-300', 'text-rose-900');
+
+    if (type === 'success') {
+        alertEl.classList.add('bg-emerald-50', 'border-emerald-300', 'text-emerald-900');
+    } else {
+        alertEl.classList.add('bg-rose-50', 'border-rose-300', 'text-rose-900');
+    }
+    alertEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function formatForDatetimeLocal(isoString) {
+    if (!isoString) return '';
+    try {
+        const d = new Date(isoString);
+        const pad = n => String(n).padStart(2, '0');
+        const YYYY = d.getFullYear();
+        const MM = pad(d.getMonth() + 1);
+        const DD = pad(d.getDate());
+        const hh = pad(d.getHours());
+        const mm = pad(d.getMinutes());
+        return `${YYYY}-${MM}-${DD}T${hh}:${mm}`;
+    } catch (e) {
+        return '';
+    }
+}
+
+// ============================================================
+// SUPER ADMIN PAYMENT & REFUND MANAGEMENT JAVASCRIPT CONTROLLERS
+// ============================================================
+let currentPaymentsPage = 1;
+let currentPaymentsLimit = 25;
+let activePaymentTxns = [];
+let activePaymentSummary = null;
+
+// 1. Load Payment Management View
+async function loadPaymentManagementView(page = 1) {
+    currentPaymentsPage = page;
+    const tbody = document.getElementById('payment-transactions-tbody');
+    if (!tbody) return;
+
+    const statusFilter = document.getElementById('pay-filter-status')?.value || 'ALL';
+    const searchVal = document.getElementById('pay-search-input')?.value?.trim() || '';
+
+    try {
+        const queryParams = new URLSearchParams({
+            page: String(page),
+            limit: String(currentPaymentsLimit)
+        });
+        if (statusFilter !== 'ALL') queryParams.append('status', statusFilter);
+        if (searchVal) queryParams.append('search', searchVal);
+
+        const res = await fetchWithTimeout(`/api/admin/payments?${queryParams.toString()}`, {
+            headers: getAuthHeaders()
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        if (!data.success) throw new Error(data.error || 'Failed to fetch payment records');
+
+        activePaymentTxns = data.transactions || [];
+        activePaymentSummary = data.summary || {};
+
+        // Update 4 Summary KPI Cards
+        updatePaymentSummaryCards(activePaymentSummary);
+
+        // Render table rows
+        renderPaymentTransactionsTable(activePaymentTxns);
+
+        // Update pagination
+        updatePaymentPagination(data.totalCount || 0, page, currentPaymentsLimit);
+    } catch (err) {
+        console.error('[loadPaymentManagementView Error]:', err);
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="p-8 text-center text-rose-500 font-bold">
+                    <div class="flex flex-col items-center gap-2">
+                        <span class="material-symbols-outlined text-2xl">error</span>
+                        <span>Failed to load payment transactions: ${escapeHtml(err.message)}</span>
+                        <button onclick="loadPaymentManagementView()" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-800">Retry</button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }
+}
+
+function updatePaymentSummaryCards(summary = {}) {
+    const elNet = document.getElementById('pay-stat-net');
+    const elGross = document.getElementById('pay-stat-gross');
+    const elRefunded = document.getElementById('pay-stat-refunded');
+    const elPending = document.getElementById('pay-stat-pending');
+    const elSuccessCount = document.getElementById('pay-stat-success-count');
+    const elRefundCount = document.getElementById('pay-stat-refund-count');
+
+    const net = Number(summary.netCollections || 0).toFixed(2);
+    const gross = Number(summary.grossCollected || 0).toFixed(2);
+    const refunded = Number(summary.totalRefunded || 0).toFixed(2);
+    const pendingTotal = (summary.pendingCount || 0) + (summary.failedCount || 0);
+
+    if (elNet) elNet.textContent = `₹${net}`;
+    if (elGross) elGross.textContent = `₹${gross}`;
+    if (elRefunded) elRefunded.textContent = `₹${refunded}`;
+    if (elPending) elPending.textContent = `${pendingTotal} Orders`;
+    if (elSuccessCount) elSuccessCount.textContent = summary.successfulCount || 0;
+    if (elRefundCount) elRefundCount.textContent = summary.refundedCount || 0;
+}
+
+// 10 Status Badge Renderer
+function getPaymentStatusBadge(status = '') {
+    const s = String(status).trim();
+    const map = {
+        'Successful': { bg: 'bg-emerald-100 text-emerald-800 border-emerald-300', icon: 'check_circle', label: 'Successful' },
+        'PAID': { bg: 'bg-emerald-100 text-emerald-800 border-emerald-300', icon: 'check_circle', label: 'Successful' },
+        'Pending': { bg: 'bg-amber-100 text-amber-800 border-amber-300', icon: 'hourglass_top', label: 'Pending' },
+        'Processing': { bg: 'bg-blue-100 text-blue-800 border-blue-300', icon: 'sync', label: 'Processing' },
+        'Failed': { bg: 'bg-rose-100 text-rose-800 border-rose-300', icon: 'cancel', label: 'Failed' },
+        'Cancelled': { bg: 'bg-slate-100 text-slate-800 border-slate-300', icon: 'block', label: 'Cancelled' },
+        'Partially Refunded': { bg: 'bg-cyan-100 text-cyan-800 border-cyan-300', icon: 'call_split', label: 'Partially Refunded' },
+        'Refund Successful': { bg: 'bg-teal-100 text-teal-800 border-teal-300', icon: 'replay', label: 'Refund Successful' },
+        'Refund Pending': { bg: 'bg-purple-100 text-purple-800 border-purple-300', icon: 'hourglass_empty', label: 'Refund Pending' },
+        'Refund Processing': { bg: 'bg-indigo-100 text-indigo-800 border-indigo-300', icon: 'cached', label: 'Refund Processing' },
+        'Refund Failed': { bg: 'bg-red-100 text-red-900 border-red-300', icon: 'error', label: 'Refund Failed' }
+    };
+
+    const cfg = map[s] || { bg: 'bg-slate-100 text-slate-800 border-slate-300', icon: 'info', label: s || 'Unknown' };
+    return `<span class="inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-0.5 rounded-full border ${cfg.bg}">
+        <span class="material-symbols-outlined text-[11px]">${cfg.icon}</span> ${cfg.label}
+    </span>`;
+}
+
+function renderPaymentTransactionsTable(transactions = []) {
+    const tbody = document.getElementById('payment-transactions-tbody');
+    if (!tbody) return;
+
+    if (!transactions.length) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="p-8 text-center text-slate-400">
+                    <div class="flex flex-col items-center gap-1.5">
+                        <span class="material-symbols-outlined text-3xl text-slate-300">payments</span>
+                        <p class="font-bold text-slate-600">No payment transactions found</p>
+                        <p class="text-[11px] text-slate-400">Transactions will automatically stream in real-time as campus orders are initiated.</p>
+                    </div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = transactions.map(t => {
+        const orderId = escapeHtml(t.order_id || '--');
+        const txnId = escapeHtml(t.id || '--');
+        const timeStr = t.created_at ? new Date(t.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }) : '--';
+        const custName = escapeHtml(t.customer_name || 'Campus Student');
+        const custPhone = escapeHtml(t.customer_phone || '--');
+        const method = escapeHtml(t.payment_method || 'UPI');
+        const amount = Number(t.amount || 0).toFixed(2);
+        const utr = t.upi_ref_utr ? escapeHtml(t.upi_ref_utr) : null;
+        const status = t.status || 'Pending';
+        const isRefundable = status === 'Successful' || status === 'PAID' || status === 'Partially Refunded';
+
+        return `
+            <tr class="hover:bg-slate-50 transition-colors">
+                <td class="p-4 font-bold text-[#181c1f]">
+                    <div class="flex items-center gap-1.5">
+                        <span class="font-mono text-emerald-700 text-[11px]">${orderId}</span>
+                        <button type="button" onclick="copyToClipboard('${orderId}', 'Order ID')" class="text-slate-400 hover:text-slate-600 cursor-pointer" title="Copy Order ID">
+                            <span class="material-symbols-outlined text-[12px]">content_copy</span>
+                        </button>
+                    </div>
+                    <span class="text-[10px] text-slate-400 block font-normal font-mono truncate max-w-[120px]">${txnId}</span>
+                </td>
+                <td class="p-4 text-slate-600 text-[11px] whitespace-nowrap">
+                    ${timeStr}
+                </td>
+                <td class="p-4">
+                    <span class="font-bold text-[#181c1f] block">${custName}</span>
+                    <span class="text-[11px] text-slate-500 font-mono">${custPhone}</span>
+                </td>
+                <td class="p-4">
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-100 text-slate-800 font-bold text-[10px]">
+                        <span class="material-symbols-outlined text-xs text-purple-600">qr_code</span> ${method}
+                    </span>
+                </td>
+                <td class="p-4 font-black text-sm text-[#181c1f] whitespace-nowrap">
+                    ₹${amount}
+                </td>
+                <td class="p-4">
+                    ${utr ? `
+                        <div class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono text-[11px] font-bold">
+                            <span>${utr}</span>
+                            <button type="button" onclick="copyToClipboard('${utr}', 'Bank UTR')" class="text-emerald-600 hover:text-emerald-900 cursor-pointer" title="Copy UTR">
+                                <span class="material-symbols-outlined text-[11px]">content_copy</span>
+                            </button>
+                        </div>
+                    ` : `
+                        <span class="text-slate-400 text-[11px] italic">Awaiting Bank</span>
+                    `}
+                </td>
+                <td class="p-4 whitespace-nowrap">
+                    ${getPaymentStatusBadge(status)}
+                </td>
+                <td class="p-4 text-right whitespace-nowrap">
+                    ${isRefundable ? `
+                        <button onclick="openRefundModal('${t.id}')"
+                            class="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg font-bold text-[11px] transition-all cursor-pointer flex items-center gap-1 ml-auto">
+                            <span class="material-symbols-outlined text-xs">replay</span>
+                            <span>Refund</span>
+                        </button>
+                    ` : `
+                        <span class="text-slate-400 text-[10px]">—</span>
+                    `}
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function updatePaymentPagination(totalCount, page, limit) {
+    const info = document.getElementById('pay-pagination-info');
+    const controls = document.getElementById('pay-pagination-controls');
+    if (!info || !controls) return;
+
+    const totalPages = Math.ceil(totalCount / limit) || 1;
+    info.textContent = `Showing ${Math.min(totalCount, (page - 1) * limit + 1)}-${Math.min(totalCount, page * limit)} of ${totalCount} transactions`;
+
+    controls.innerHTML = `
+        <button onclick="loadPaymentManagementView(${page - 1})" ${page <= 1 ? 'disabled class="opacity-40 cursor-not-allowed"' : 'class="hover:bg-slate-200 cursor-pointer"'} class="px-2 py-1 rounded bg-slate-100 text-xs font-bold text-slate-700">Prev</button>
+        <span class="px-2 text-xs font-bold text-slate-600">Page ${page} of ${totalPages}</span>
+        <button onclick="loadPaymentManagementView(${page + 1})" ${page >= totalPages ? 'disabled class="opacity-40 cursor-not-allowed"' : 'class="hover:bg-slate-200 cursor-pointer"'} class="px-2 py-1 rounded bg-slate-100 text-xs font-bold text-slate-700">Next</button>
+    `;
+}
+
+function filterPaymentsList() {
+    loadPaymentManagementView(1);
+}
+
+function clearPaymentFilters() {
+    const search = document.getElementById('pay-search-input');
+    const status = document.getElementById('pay-filter-status');
+    if (search) search.value = '';
+    if (status) status.value = 'ALL';
+    loadPaymentManagementView(1);
+}
+
+// 2. Refund Modal Handling
+let targetRefundTxn = null;
+
+function openRefundModal(txnId) {
+    const txn = activePaymentTxns.find(t => t.id === txnId);
+    if (!txn) return;
+    targetRefundTxn = txn;
+
+    const modal = document.getElementById('refund-modal');
+    if (!modal) return;
+
+    document.getElementById('refund-target-txn-id').value = txn.id;
+    document.getElementById('refund-modal-order-label').textContent = `Order: ${txn.order_id || '--'}`;
+    document.getElementById('refund-customer-name').textContent = txn.customer_name || 'Campus Student';
+    document.getElementById('refund-original-amount').textContent = `₹${Number(txn.amount || 0).toFixed(2)}`;
+
+    // Calculate max refundable
+    const originalAmt = Number(txn.amount || 0);
+    const alreadyRefunded = Number(txn.metadata?.total_refunded || 0);
+    const maxRefundable = Math.max(0, originalAmt - alreadyRefunded);
+
+    document.getElementById('refund-already-refunded').textContent = `₹${alreadyRefunded.toFixed(2)}`;
+    document.getElementById('refund-max-refundable').textContent = `₹${maxRefundable.toFixed(2)}`;
+
+    const amtInput = document.getElementById('refund-amount-input');
+    amtInput.value = maxRefundable.toFixed(2);
+    amtInput.max = maxRefundable;
+
+    modal.classList.remove('hidden');
+}
+
+function closeRefundModal() {
+    const modal = document.getElementById('refund-modal');
+    if (modal) modal.classList.add('hidden');
+    targetRefundTxn = null;
+}
+
+function setFullRefundAmount() {
+    if (!targetRefundTxn) return;
+    const originalAmt = Number(targetRefundTxn.amount || 0);
+    const alreadyRefunded = Number(targetRefundTxn.metadata?.total_refunded || 0);
+    const maxRefundable = Math.max(0, originalAmt - alreadyRefunded);
+    const input = document.getElementById('refund-amount-input');
+    if (input) input.value = maxRefundable.toFixed(2);
+}
+
+function setPartialRefundPercent(percent = 50) {
+    if (!targetRefundTxn) return;
+    const originalAmt = Number(targetRefundTxn.amount || 0);
+    const alreadyRefunded = Number(targetRefundTxn.metadata?.total_refunded || 0);
+    const maxRefundable = Math.max(0, originalAmt - alreadyRefunded);
+    const val = (maxRefundable * (percent / 100)).toFixed(2);
+    const input = document.getElementById('refund-amount-input');
+    if (input) input.value = val;
+}
+
+async function submitRefundModal() {
+    const txnId = document.getElementById('refund-target-txn-id')?.value;
+    const amountVal = parseFloat(document.getElementById('refund-amount-input')?.value);
+    const reasonVal = document.getElementById('refund-reason-select')?.value;
+    const btnSubmit = document.getElementById('btn-submit-refund');
+
+    if (!txnId || isNaN(amountVal) || amountVal <= 0) {
+        showToast('Please enter a valid refund amount greater than ₹0', 'warning');
+        return;
+    }
+
+    if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin">refresh</span> Processing...`;
+    }
+
+    try {
+        const res = await fetchWithTimeout(`/api/admin/payments/${txnId}/refund`, {
+            method: 'POST',
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({
+                amount: amountVal,
+                reason: reasonVal,
+                refund_ref_id: `rfnd_${Date.now()}_${Math.floor(Math.random() * 1000)}`
+            })
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            throw new Error(data.error || 'Refund execution failed');
+        }
+
+        showToast(`✓ Refund of ₹${amountVal.toFixed(2)} processed successfully`, 'success');
+        closeRefundModal();
+        loadPaymentManagementView(currentPaymentsPage);
+    } catch (err) {
+        console.error('[submitRefundModal Error]:', err);
+        showToast('Refund failed: ' + err.message, 'warning');
+    } finally {
+        if (btnSubmit) {
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = `<span class="material-symbols-outlined text-sm">check</span> Confirm &amp; Process Refund`;
+        }
+    }
+}
+
+// 3. Super Admin UPI Configuration Controller
+async function loadUpiConfigView() {
+    try {
+        const res = await fetchWithTimeout('/api/admin/payments/config', {
+            headers: getAuthHeaders()
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        if (data.success && data.config) {
+            const c = data.config;
+            const elVpa = document.getElementById('upi-config-vpa');
+            const elName = document.getElementById('upi-config-name');
+            const elProv = document.getElementById('upi-config-provider');
+            const elEnv = document.getElementById('upi-config-env');
+
+            if (elVpa) elVpa.value = c.merchantVpa || 'lpuquick@upi';
+            if (elName) elName.value = c.merchantPayeeName || 'LPUQuick Campus Services';
+            if (elProv) elProv.value = c.provider || 'YOUPI_V2';
+            if (elEnv) elEnv.value = c.environment || 'SANDBOX';
+
+            const methods = c.enabledPaymentMethods || {};
+            const chkQr = document.getElementById('method-qr');
+            const chkPhonepe = document.getElementById('method-phonepe');
+            const chkGpay = document.getElementById('method-gpay');
+            const chkPaytm = document.getElementById('method-paytm');
+
+            if (chkQr) chkQr.checked = methods.upiQr !== false;
+            if (chkPhonepe) chkPhonepe.checked = methods.phonepe !== false;
+            if (chkGpay) chkGpay.checked = methods.gpay !== false;
+            if (chkPaytm) chkPaytm.checked = methods.paytm !== false;
+        }
+    } catch (err) {
+        console.warn('[loadUpiConfigView Warning]:', err.message);
+    }
+}
+
+async function saveUpiConfig() {
+    const elVpa = document.getElementById('upi-config-vpa');
+    const elName = document.getElementById('upi-config-name');
+    const elProv = document.getElementById('upi-config-provider');
+    const elEnv = document.getElementById('upi-config-env');
+
+    const vpa = elVpa?.value?.trim();
+    const name = elName?.value?.trim();
+
+    if (!vpa || !vpa.includes('@')) {
+        showToast('Please enter a valid Merchant VPA (e.g. merchant@upi)', 'warning');
+        return;
+    }
+    if (!name) {
+        showToast('Please enter a Payee Display Name', 'warning');
+        return;
+    }
+
+    const payload = {
+        merchantVpa: vpa,
+        merchantPayeeName: name,
+        provider: elProv?.value || 'YOUPI_V2',
+        environment: elEnv?.value || 'SANDBOX',
+        enabledPaymentMethods: {
+            upiQr: document.getElementById('method-qr')?.checked !== false,
+            phonepe: document.getElementById('method-phonepe')?.checked !== false,
+            gpay: document.getElementById('method-gpay')?.checked !== false,
+            paytm: document.getElementById('method-paytm')?.checked !== false,
+            anyUpiApp: true
+        }
+    };
+
+    try {
+        const res = await fetchWithTimeout('/api/admin/payments/config', {
+            method: 'POST',
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || 'Failed to save configuration');
+
+        showToast('✓ UPI & Merchant Configuration saved successfully', 'success');
+    } catch (err) {
+        console.error('[saveUpiConfig Error]:', err);
+        showToast('Save failed: ' + err.message, 'warning');
+    }
+}
+
+window.loadPaymentManagementView = loadPaymentManagementView;
+window.filterPaymentsList = filterPaymentsList;
+window.clearPaymentFilters = clearPaymentFilters;
+window.openRefundModal = openRefundModal;
+window.closeRefundModal = closeRefundModal;
+window.setFullRefundAmount = setFullRefundAmount;
+window.setPartialRefundPercent = setPartialRefundPercent;
+window.submitRefundModal = submitRefundModal;
+window.loadUpiConfigView = loadUpiConfigView;
+window.saveUpiConfig = saveUpiConfig;
+
+
+
+// =========================================================================
+// FOOD DEPARTMENT & KITCHEN OPERATIONS CONTROLLER (ADMIN)
+// =========================================================================
+
+let foodConfigCache = null;
+let foodCooksCache = [];
+let foodOrdersCache = [];
+
+function openStaffModalWithCookRole() {
+    openStaffModal();
+    setTimeout(() => {
+        const cookCb = document.getElementById('role-cook');
+        if (cookCb) cookCb.checked = true;
+        const storeCb = document.getElementById('role-store-manager');
+        if (storeCb) storeCb.checked = false;
+    }, 50);
+}
+window.openStaffModalWithCookRole = openStaffModalWithCookRole;
+
+async function loadFoodDeptAdmin() {
+    try {
+        const targetHostel = (typeof getActiveLockHostel === 'function' ? getActiveLockHostel() : null) || 'BH-13';
+        const headers = getAuthHeaders();
+
+        const fetchSafe = async (url) => {
+            try {
+                const res = await fetch(url, { headers });
+                if (res.ok) return await res.json();
+            } catch (e) {
+                console.warn('[Admin Food Safe Fetch]: ' + url, e.message);
+            }
+            return null;
+        };
+
+        const [configData, cooksData, ordersData, metricsData, productsData] = await Promise.all([
+            fetchSafe('/api/food/config'),
+            fetchSafe('/api/food/cooks'),
+            fetchSafe('/api/food/orders'),
+            fetchSafe('/api/food/metrics'),
+            fetchSafe('/api/food/products?hostel_id=' + encodeURIComponent(targetHostel))
+        ]);
+
+        if (configData && configData.success && configData.config) {
+            foodConfigCache = configData.config;
+            renderFoodConfig(configData.config);
+        }
+
+        if (cooksData && cooksData.success && Array.isArray(cooksData.cooks)) {
+            foodCooksCache = cooksData.cooks;
+            renderFoodCooks(cooksData.cooks);
+            populateSpecificCookDropdown(cooksData.cooks);
+        }
+
+        if (ordersData && ordersData.success && Array.isArray(ordersData.orders)) {
+            foodOrdersCache = ordersData.orders;
+            renderFoodOrdersAdmin(ordersData.orders);
+        }
+
+        if (metricsData && metricsData.success && metricsData.metrics) {
+            renderFoodDeptMetrics(metricsData.metrics);
+        }
+
+        if (productsData && productsData.success && Array.isArray(productsData.products) && productsData.products.length > 0) {
+            foodProductsCache = productsData.products;
+            renderFoodDeptProducts(foodProductsCache);
+        } else if (typeof fetchFoodDeptProducts === 'function') {
+            await fetchFoodDeptProducts();
+        }
+    } catch (err) {
+        console.error('[Admin Food Dept Load Error]:', err);
+        if (typeof fetchFoodDeptProducts === 'function') {
+            fetchFoodDeptProducts();
+        }
+    }
+}
+window.loadFoodDeptAdmin = loadFoodDeptAdmin;
+
+function renderFoodDeptMetrics(m) {
+    const onDutyCooks = foodCooksCache.filter(c => c.duty_status === 'ON_DUTY' || c.is_on_duty !== false).length;
+    const statDuty = document.getElementById('stat-food-cooks-duty');
+    if (statDuty) statDuty.textContent = onDutyCooks;
+
+    const statTotal = document.getElementById('stat-food-total-orders');
+    if (statTotal) statTotal.textContent = m.total_food_orders || foodOrdersCache.length;
+
+    const statPrep = document.getElementById('stat-food-active-prep');
+    if (statPrep) statPrep.textContent = m.preparing_count || 0;
+
+    const statReady = document.getElementById('stat-food-ready-comp');
+    if (statReady) statReady.textContent = (m.ready_count || 0) + (m.completed_count || 0);
+}
+
+function renderFoodConfig(cfg) {
+    const methodSelect = document.getElementById('food-config-method');
+    const prepInput = document.getElementById('food-config-prep-time');
+    const specificSelect = document.getElementById('food-config-specific-cook');
+
+    if (methodSelect && cfg.assignment_method) {
+        methodSelect.value = cfg.assignment_method;
+    }
+    if (prepInput && cfg.prep_time_minutes) {
+        prepInput.value = cfg.prep_time_minutes;
+    }
+    if (specificSelect && cfg.specific_cook_id) {
+        specificSelect.value = cfg.specific_cook_id;
+    }
+
+    toggleSpecificCookSelect();
+}
+
+window.toggleSpecificCookSelect = function () {
+    const methodSelect = document.getElementById('food-config-method');
+    const wrapper = document.getElementById('food-specific-cook-wrapper');
+    if (!methodSelect || !wrapper) return;
+
+    if (methodSelect.value === 'specific_cook') {
+        wrapper.classList.remove('hidden');
+    } else {
+        wrapper.classList.add('hidden');
+    }
+};
+
+function populateSpecificCookDropdown(cooks) {
+    const select = document.getElementById('food-config-specific-cook');
+    if (!select) return;
+
+    const currentVal = foodConfigCache?.specific_cook_id || select.value;
+    select.innerHTML = '<option value="">Select a designated cook...</option>';
+
+    cooks.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = `👨‍🍳 ${c.name} (${c.duty_status === 'ON_DUTY' ? 'On Duty' : 'Off Duty'})`;
+        select.appendChild(opt);
+    });
+
+    if (currentVal) select.value = currentVal;
+}
+
+window.saveFoodConfig = async function (e) {
+    if (e) e.preventDefault();
+    const method = document.getElementById('food-config-method')?.value || 'least_loaded';
+    const specificCookId = document.getElementById('food-config-specific-cook')?.value || null;
+    const prepTime = Number(document.getElementById('food-config-prep-time')?.value) || 15;
+    const btn = document.getElementById('btn-save-food-config');
+
+    if (method === 'specific_cook' && !specificCookId) {
+        showToast('Please select a specific designated cook.', 'warning');
+        return;
+    }
+
+    try {
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">sync</span> Saving...';
+        }
+
+        const res = await fetch('/api/food/config', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                assignment_method: method,
+                specific_cook_id: specificCookId,
+                prep_time_minutes: prepTime
+            })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+            foodConfigCache = data.config;
+            showToast('Food assignment rules saved successfully!', 'success');
+        } else {
+            throw new Error(data.error || 'Failed to save configuration');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<span class="material-symbols-outlined text-sm">save</span> <span>Save Rules</span>';
+        }
+    }
+};
+
+function renderFoodCooks(cooks) {
+    const tbody = document.getElementById('food-cooks-tbody');
+    if (!tbody) return;
+
+    if (cooks.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="p-8 text-center text-[#5c5f60]">
+                    No kitchen staff found. Click "Add New Cook" above to designate employees to the Food Department.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = cooks.map(cook => {
+        const isOnDuty = cook.duty_status === 'ON_DUTY' || cook.is_on_duty !== false;
+        const canGrocery = Boolean(cook.permissions && cook.permissions.can_manage_grocery_inventory);
+
+        return `
+            <tr class="hover:bg-slate-50/70 transition-colors">
+                <td class="p-3.5">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-full bg-amber-100 text-amber-800 font-bold flex items-center justify-center text-xs">
+                            👨‍🍳
+                        </div>
+                        <div>
+                            <p class="font-bold text-[#181c1f]">${escapeHtml(cook.name)}</p>
+                            <p class="text-[11px] text-[#5c5f60]">${escapeHtml(cook.phone || cook.email)}</p>
+                        </div>
+                    </div>
+                </td>
+                <td class="p-3.5 font-medium text-[#181c1f]">
+                    ${cook.assigned_hostel_id ? `🏢 ${cook.assigned_hostel_id}` : '<span class="text-gray-400">All Hostels</span>'}
+                </td>
+                <td class="p-3.5">
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${isOnDuty ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-gray-100 text-gray-600 border border-gray-300'}">
+                        <span class="w-2 h-2 rounded-full ${isOnDuty ? 'bg-emerald-500' : 'bg-gray-400'}"></span>
+                        ${isOnDuty ? 'ON DUTY' : 'OFF DUTY'}
+                    </span>
+                </td>
+                <td class="p-3.5 font-bold text-sm text-[#181c1f]">
+                    ${cook.active_orders_count || 0} active
+                </td>
+                <td class="p-3.5">
+                    <button type="button" onclick="toggleCookGroceryPermission('${cook.id}', ${canGrocery})" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${canGrocery ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100' : 'bg-slate-50 text-slate-600 border-slate-300 hover:bg-slate-100'}" title="Click to toggle grocery inventory management">
+                        <span class="material-symbols-outlined text-xs">${canGrocery ? 'check_circle' : 'remove_circle_outline'}</span>
+                        <span>${canGrocery ? 'Authorized' : 'Restricted'}</span>
+                    </button>
+                </td>
+                <td class="p-3.5 text-right">
+                    <div class="inline-flex items-center gap-2">
+                        <button type="button" onclick="toggleCookDutyStatus('${cook.id}', ${isOnDuty})" class="px-2.5 py-1 border border-[#DADCE0] hover:bg-gray-100 rounded-lg text-xs font-semibold text-[#5c5f60] transition-colors cursor-pointer">
+                            ${isOnDuty ? 'Set Off Duty' : 'Set On Duty'}
+                        </button>
+                        <button type="button" onclick="openStaffModal('${cook.id}')" class="p-1 text-[#1a73e8] hover:bg-blue-50 rounded-lg transition-colors cursor-pointer" title="Edit Staff Profile">
+                            <span class="material-symbols-outlined text-base">edit</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+window.toggleCookDutyStatus = async function (cookId, currentDuty) {
+    try {
+        const nextDuty = !currentDuty;
+        const res = await fetch(`/api/admin/staff/${cookId}`, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                is_on_duty: nextDuty,
+                duty_status: nextDuty ? 'ON_DUTY' : 'OFF_DUTY'
+            })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast(nextDuty ? 'Cook marked ON DUTY' : 'Cook marked OFF DUTY', 'info');
+            loadFoodDeptAdmin();
+        } else {
+            throw new Error(data.error || 'Failed to update duty status');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+};
+
+window.toggleCookGroceryPermission = async function (cookId, currentPerm) {
+    try {
+        const nextPerm = !currentPerm;
+        const res = await fetch(`/api/admin/staff/${cookId}`, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                permissions: { can_manage_grocery_inventory: nextPerm }
+            })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast(nextPerm ? 'Authorized cook for grocery inventory!' : 'Restricted cook from grocery inventory', 'info');
+            loadFoodDeptAdmin();
+        } else {
+            throw new Error(data.error || 'Failed to update grocery permission');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+};
+
+function renderFoodOrdersAdmin(orders) {
+    const tbody = document.getElementById('food-orders-admin-tbody');
+    if (!tbody) return;
+
+    const totalOrders = orders.length;
+    const placedOrders = orders.filter(o => ['order placed', 'placed', 'pending'].includes((o.status || '').toLowerCase())).length;
+    const preparingOrders = orders.filter(o => ['preparing', 'cooking', 'in progress'].includes((o.status || '').toLowerCase())).length;
+    const readyOrders = orders.filter(o => ['ready', 'ready in kitchen', 'cooked'].includes((o.status || '').toLowerCase())).length;
+    const completedOrders = orders.filter(o => ['completed', 'delivered', 'done'].includes((o.status || '').toLowerCase())).length;
+
+    const cAll = document.getElementById('count-food-all'); if (cAll) cAll.textContent = totalOrders;
+    const cPlaced = document.getElementById('count-food-placed'); if (cPlaced) cPlaced.textContent = placedOrders;
+    const cPrep = document.getElementById('count-food-preparing'); if (cPrep) cPrep.textContent = preparingOrders;
+    const cReady = document.getElementById('count-food-ready'); if (cReady) cReady.textContent = readyOrders;
+    const cComp = document.getElementById('count-food-completed'); if (cComp) cComp.textContent = completedOrders;
+    const badgeQueue = document.getElementById('food-orders-count-badge'); if (badgeQueue) badgeQueue.textContent = `${totalOrders} Total`;
+
+    let filtered = orders;
+    if (foodOrdersFilterActive === 'placed') {
+        filtered = orders.filter(o => ['order placed', 'placed', 'pending'].includes((o.status || '').toLowerCase()));
+    } else if (foodOrdersFilterActive === 'preparing') {
+        filtered = orders.filter(o => ['preparing', 'cooking', 'in progress'].includes((o.status || '').toLowerCase()));
+    } else if (foodOrdersFilterActive === 'ready') {
+        filtered = orders.filter(o => ['ready', 'ready in kitchen', 'cooked'].includes((o.status || '').toLowerCase()));
+    } else if (foodOrdersFilterActive === 'completed') {
+        filtered = orders.filter(o => ['completed', 'delivered', 'done'].includes((o.status || '').toLowerCase()));
+    }
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="p-8 text-center text-[#5c5f60]">
+                    <div class="max-w-xs mx-auto space-y-1">
+                        <span class="material-symbols-outlined text-3xl text-gray-300">receipt_long</span>
+                        <p class="font-bold text-[#181c1f]">No food orders in this filter</p>
+                        <p class="text-xs text-gray-500">Incoming Quick's Instant Food orders will appear here automatically.</p>
+                    </div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(order => {
+        const shortId = order.order_id.replace(/^order_/, '').slice(0, 8);
+        const s = (order.status || 'Order Placed').toLowerCase();
+
+        let statusPill = '';
+        let quickActionBtn = '';
+
+        if (s === 'completed' || s === 'delivered') {
+            statusPill = '<span class="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">✓ Completed</span>';
+            quickActionBtn = '<span class="text-xs text-emerald-700 font-bold flex items-center justify-end gap-1"><span class="material-symbols-outlined text-sm">check_circle</span> Delivered</span>';
+        } else if (s === 'ready' || s === 'ready in kitchen') {
+            statusPill = '<span class="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300">🍲 Ready in Kitchen</span>';
+            quickActionBtn = `<button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Completed')" class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer flex items-center gap-1 ml-auto"><span>✓ Mark Completed</span></button>`;
+        } else if (s === 'preparing' || s === 'cooking') {
+            statusPill = '<span class="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300">🍳 Cooking / Preparing</span>';
+            quickActionBtn = `<button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Ready')" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer flex items-center gap-1 ml-auto"><span>🍲 Mark Ready</span></button>`;
+        } else {
+            statusPill = '<span class="px-2.5 py-1 rounded-full text-[10px] font-black bg-orange-100 text-orange-900 border border-orange-300 animate-pulse">⚡ Order Placed</span>';
+            quickActionBtn = `<button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Preparing')" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer flex items-center gap-1 ml-auto"><span>🍳 Start Cooking</span></button>`;
+        }
+
+        const itemsHtml = (order.food_items || []).map(i => `
+            <div class="inline-flex items-center gap-1 bg-amber-50 text-amber-950 border border-amber-200 px-2 py-0.5 rounded text-[11px] font-bold mr-1 mb-1">
+                <span>${escapeHtml(i.name)}</span>
+                <span class="text-amber-800">×${i.quantity}</span>
+                ${i.price ? `<span class="text-amber-600 font-semibold">(₹${i.price})</span>` : ''}
+            </div>
+        `).join('');
+
+        return `
+            <tr class="hover:bg-amber-50/40 transition-colors">
+                <td class="p-3.5">
+                    <p class="font-mono font-bold text-xs text-[#181c1f]">#${shortId.toUpperCase()}</p>
+                    <p class="text-[10px] text-[#5c5f60]">${escapeHtml(order.order_time_formatted || '')}</p>
+                    <span class="inline-block mt-0.5 text-[9px] font-black px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300">11m Food Delivery</span>
+                </td>
+                <td class="p-3.5">
+                    <p class="font-bold text-xs text-[#181c1f]">${escapeHtml(order.customer_name)}</p>
+                    <p class="text-[11px] font-semibold text-amber-900">${escapeHtml(order.delivery_address || order.hostel_id || 'Hostel')}</p>
+                    ${order.customer_phone ? `<p class="text-[10px] text-[#5c5f60]">📞 ${escapeHtml(order.customer_phone)}</p>` : ''}
+                </td>
+                <td class="p-3.5 max-w-xs">
+                    <div class="flex flex-wrap">${itemsHtml || '<span class="text-gray-400">Food Item</span>'}</div>
+                    ${order.special_instructions && order.special_instructions !== 'None' ? `<p class="text-[10px] text-amber-800 italic mt-0.5">Note: ${escapeHtml(order.special_instructions)}</p>` : ''}
+                </td>
+                <td class="p-3.5">
+                    <p class="font-bold text-xs text-[#181c1f]">₹${Number(order.total_amount || order.total || 0).toFixed(2)}</p>
+                    <span class="inline-block text-[9px] font-bold px-1.5 py-0.2 rounded bg-gray-100 text-gray-700 uppercase">${escapeHtml(order.payment_method || 'COD')}</span>
+                </td>
+                <td class="p-3.5 font-medium text-[#181c1f]">
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-sm">👨‍🍳</span>
+                        <div>
+                            <p class="font-bold text-xs text-[#181c1f]">${escapeHtml(order.cook_name || 'Chef Assigned')}</p>
+                            <button type="button" onclick="openReassignFoodModal('${order.order_id}')" class="text-[10px] text-amber-700 hover:underline font-semibold flex items-center gap-0.5 cursor-pointer">
+                                <span>Reassign</span> <span class="material-symbols-outlined text-[11px]">swap_horiz</span>
+                            </button>
+                        </div>
+                    </div>
+                </td>
+                <td class="p-3.5">${statusPill}</td>
+                <td class="p-3.5 text-right">
+                    <div class="flex items-center justify-end gap-1.5">
+                        ${quickActionBtn}
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+window.openReassignFoodModal = function (orderId) {
+    const modal = document.getElementById('modal-reassign-food-order');
+    const orderIdInput = document.getElementById('reassign-order-id');
+    const orderLabel = document.getElementById('reassign-order-label');
+    const cookSelect = document.getElementById('reassign-cook-select');
+
+    if (!modal || !orderIdInput || !orderLabel || !cookSelect) return;
+
+    orderIdInput.value = orderId;
+    orderLabel.textContent = '#' + orderId.replace(/^order_/, '').slice(0, 8);
+
+    cookSelect.innerHTML = '<option value="">Select an active cook...</option>';
+    foodCooksCache.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = `👨‍🍳 ${c.name} (${c.duty_status === 'ON_DUTY' ? 'On Duty' : 'Off Duty'}) - ${c.active_orders_count || 0} active`;
+        cookSelect.appendChild(opt);
+    });
+
+    modal.classList.remove('hidden');
+};
+
+window.closeReassignFoodModal = function () {
+    const modal = document.getElementById('modal-reassign-food-order');
+    if (modal) modal.classList.add('hidden');
+};
+
+window.submitReassignFoodOrder = async function (e) {
+    if (e) e.preventDefault();
+    const orderId = document.getElementById('reassign-order-id')?.value;
+    const cookId = document.getElementById('reassign-cook-select')?.value;
+    const reason = document.getElementById('reassign-reason-input')?.value || 'Reassigned by Admin';
+    const btn = document.getElementById('btn-submit-reassign');
+
+    if (!orderId || !cookId) {
+        showToast('Please select a target cook.', 'warning');
+        return;
+    }
+
+    try {
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Reassigning...';
+        }
+
+        const res = await fetch(`/api/food/orders/${orderId}/reassign`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ cook_id: cookId, reason: reason })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+            closeReassignFoodModal();
+            showToast('Order successfully reassigned to new cook!', 'success');
+            loadFoodDeptAdmin();
+        } else {
+            throw new Error(data.error || 'Failed to reassign order');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Reassign Now';
+        }
+    }
+};
+
+
+function openProductModalForFood() {
+    openProductModal();
+    const catSelect = document.getElementById('form-product-category');
+    if (catSelect) {
+        catSelect.value = "Quick's Instant Food"; if (!catSelect.value) catSelect.value = 'Instant Food';
+        if (typeof onModalCategoryChange === 'function') {
+            onModalCategoryChange();
+        }
+    }
+}
+window.openProductModalForFood = openProductModalForFood;
+
+
+// ============================================================
+// HOSTEL GROUP MANAGEMENT & SHARED INVENTORY (SUPER ADMIN)
+// ============================================================
+function authFetch(url, options = {}) {
+    const headers = {
+        ...getAuthHeaders(),
+        ...(options.headers || {})
+    };
+    return fetch(url, { ...options, headers });
+}
+window.authFetch = authFetch;
+
+let hostelGroupsCache = [];
+let hostelGroupsStaffCache = [];
+let hostelModalFullList = [];
+let hostelModalFilterActive = 'all';
+
+async function loadHostelGroups() {
+    const tbody = document.getElementById('hostel-groups-tbody');
+    if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-[#5c5f60]"><span class="material-symbols-outlined animate-spin text-lg inline-block align-middle mr-1 text-[#0066cc]">progress_activity</span> Loading hostel groups...</td></tr>';
+    }
+
+    try {
+        const fetchFn = typeof window.authFetch === 'function' ? window.authFetch : (typeof authFetch === 'function' ? authFetch : (u, o = {}) => fetch(u, { ...o, headers: { ...(typeof getAuthHeaders === 'function' ? getAuthHeaders() : {}), ...(o.headers || {}) } }));
+        const res = await fetchFn('/api/admin/hostel-groups');
+        const data = await res.json();
+
+        if (data.success && Array.isArray(data.groups)) {
+            hostelGroupsCache = data.groups;
+            updateHostelGroupsStats();
+            renderHostelGroups(hostelGroupsCache);
+        } else {
+            throw new Error(data.error || 'Failed to fetch hostel groups');
+        }
+    } catch (err) {
+        console.error('[Load Hostel Groups Error]:', err.message);
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-[#ba1a1a]">Failed to load hostel groups: ${escapeHtml(err.message)} <br><button onclick="loadHostelGroups()" class="mt-2 px-3 py-1 bg-white border border-[#ba1a1a] rounded-lg text-xs font-bold text-[#ba1a1a] hover:bg-rose-50">Retry</button></td></tr>`;
+        }
+    }
+}
+
+function updateHostelGroupsStats() {
+    const total = hostelGroupsCache.length;
+    const shared = hostelGroupsCache.filter(g => g.inventory_mode === 'shared').length;
+    const independent = hostelGroupsCache.filter(g => g.inventory_mode === 'independent').length;
+
+    const allHostelIds = new Set();
+    hostelGroupsCache.forEach(g => {
+        (g.hostel_ids || []).forEach(h => allHostelIds.add(h));
+    });
+
+    const elTotal = document.getElementById('stat-groups-total');
+    if (elTotal) elTotal.textContent = total;
+
+    const elShared = document.getElementById('stat-groups-shared');
+    if (elShared) elShared.textContent = shared;
+
+    const elInd = document.getElementById('stat-groups-independent');
+    if (elInd) elInd.textContent = independent;
+
+    const elHostels = document.getElementById('stat-groups-hostels');
+    if (elHostels) elHostels.textContent = allHostelIds.size;
+
+    const badge = document.getElementById('nav-hostel-groups-badge');
+    if (badge) badge.textContent = total;
+}
+
+function renderHostelGroups(groups) {
+    const tbody = document.getElementById('hostel-groups-tbody');
+    if (!tbody) return;
+
+    if (!groups || groups.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="p-8 text-center text-[#5c5f60]">
+                    <div class="max-w-xs mx-auto space-y-2">
+                        <span class="material-symbols-outlined text-4xl text-gray-300">hub</span>
+                        <p class="font-bold text-[#181c1f]">No Hostel Groups Found</p>
+                        <p class="text-xs text-gray-500">Combine multiple hostels into operational groups with real-time shared inventory and assigned store managers.</p>
+                        <button onclick="openHostelGroupModal()" class="mt-2 px-4 py-2 bg-[#0066cc] text-white rounded-xl text-xs font-bold shadow-sm hover:bg-[#0052a3]">
+                            + Create First Hostel Group
+                        </button>
+                    </div>
+                </td>
+            </tr>`;
+        return;
+    }
+
+    tbody.innerHTML = groups.map(g => {
+        const isShared = g.inventory_mode === 'shared';
+        const isActive = g.status === 'active' || g.is_active === true;
+
+        // Member Hostels chips
+        const memberChips = (g.member_hostels && g.member_hostels.length > 0)
+            ? g.member_hostels.map(m => {
+                const isLive = m.status === 'ACTIVE' || m.status === 'active';
+                return `
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold ${isLive ? 'bg-emerald-50 text-emerald-800 border border-emerald-300' : 'bg-slate-50 text-slate-600 border border-slate-200'}" title="${escapeHtml(m.name)} (${isLive ? 'Live Store' : 'OFF'})">
+                    <span class="w-1.5 h-1.5 rounded-full ${isLive ? 'bg-emerald-500' : 'bg-gray-400'}"></span>
+                    ${escapeHtml(m.id)}
+                </span>`;
+            }).join(' ')
+            : '<span class="text-gray-400 italic text-[11px]">No hostels assigned</span>';
+
+        // Assigned Admins chips
+        const adminChips = (g.assigned_admins && g.assigned_admins.length > 0)
+            ? g.assigned_admins.map(a => `
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200" title="${escapeHtml(a.email)}">
+                    <span class="material-symbols-outlined text-[11px]">person</span>
+                    ${escapeHtml(a.name || a.id)}
+                </span>`).join(' ')
+            : '<span class="text-gray-400 italic text-[11px]">No managers assigned</span>';
+
+        return `
+            <tr class="hover:bg-[#f7fafd] transition-colors text-xs">
+                <td class="p-4">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-xl ${isShared ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-700'} flex items-center justify-center font-bold shrink-0">
+                            <span class="material-symbols-outlined text-base">${isShared ? 'sync_alt' : 'hub'}</span>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-1.5">
+                                <span class="font-bold text-[#181c1f] text-[13px]">${escapeHtml(g.name)}</span>
+                                <span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[9px] font-bold border border-slate-200">${escapeHtml(g.code)}</span>
+                            </div>
+                            <p class="text-[11px] text-[#5c5f60] line-clamp-1">${escapeHtml(g.description || 'No description')}</p>
+                        </div>
+                    </div>
+                </td>
+                <td class="p-4">
+                    <div class="flex items-center gap-2">
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${isShared ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-indigo-100 text-indigo-700 border border-indigo-300'}">
+                            <span class="material-symbols-outlined text-xs">${isShared ? 'sync_alt' : 'domain_disabled'}</span>
+                            ${isShared ? 'Shared Inventory' : 'Independent'}
+                        </span>
+                        <button onclick="toggleHostelGroupMode('${g.id}')"
+                            title="Switch to ${isShared ? 'Independent' : 'Shared'} Inventory Mode"
+                            class="p-1 text-gray-400 hover:text-[#0066cc] rounded-lg hover:bg-slate-100 transition-colors">
+                            <span class="material-symbols-outlined text-sm">swap_horiz</span>
+                        </button>
+                    </div>
+                </td>
+                <td class="p-4">
+                    <div class="flex flex-wrap gap-1 max-w-xs">
+                        ${memberChips}
+                    </div>
+                </td>
+                <td class="p-4">
+                    <div class="flex flex-wrap gap-1 max-w-xs">
+                        ${adminChips}
+                    </div>
+                </td>
+                <td class="p-4">
+                    <button onclick="toggleHostelGroupStatus('${g.id}')"
+                        class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-all active:scale-95 ${isActive ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200' : 'bg-rose-100 text-[#ba1a1a] border border-rose-300 hover:bg-rose-200'}">
+                        <span class="w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-rose-500'}"></span>
+                        ${isActive ? 'Active' : 'Inactive'}
+                    </button>
+                </td>
+                <td class="p-4 text-right">
+                    <div class="flex items-center justify-end gap-1">
+                        <button onclick="openHostelGroupModal('${g.id}')"
+                            class="p-1.5 text-[#5c5f60] hover:text-[#0066cc] hover:bg-[#ebeef2] rounded-lg transition-colors"
+                            title="Edit Group">
+                            <span class="material-symbols-outlined text-base">edit</span>
+                        </button>
+                        <button onclick="deleteHostelGroup('${g.id}', '${escapeHtml(g.name)}')"
+                            class="p-1.5 text-[#5c5f60] hover:text-[#ba1a1a] hover:bg-rose-50 rounded-lg transition-colors"
+                            title="Delete Group">
+                            <span class="material-symbols-outlined text-base">delete</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>`;
+    }).join('');
+}
+
+function filterHostelGroupsTable() {
+    const q = (document.getElementById('filter-hostel-groups-search')?.value || '').toLowerCase().trim();
+    const mode = document.getElementById('filter-hostel-groups-mode')?.value || 'all';
+    const status = document.getElementById('filter-hostel-groups-status')?.value || 'all';
+
+    let filtered = hostelGroupsCache.filter(g => {
+        if (mode !== 'all' && g.inventory_mode !== mode) return false;
+        if (status === 'active' && !(g.status === 'active' || g.is_active === true)) return false;
+        if (status === 'inactive' && (g.status === 'active' || g.is_active === true)) return false;
+
+        if (q) {
+            const matchName = (g.name || '').toLowerCase().includes(q);
+            const matchCode = (g.code || '').toLowerCase().includes(q);
+            const matchHostel = (g.hostel_ids || []).some(h => String(h).toLowerCase().includes(q));
+            if (!matchName && !matchCode && !matchHostel) return false;
+        }
+        return true;
+    });
+
+    renderHostelGroups(filtered);
+}
+
+function updateGroupModeCardStyles() {
+    const sharedRadio = document.querySelector('input[name="group-inventory-mode"][value="shared"]');
+    const sharedCard = document.getElementById('card-mode-shared');
+    const indCard = document.getElementById('card-mode-independent');
+
+    if (sharedRadio && sharedRadio.checked) {
+        if (sharedCard) {
+            sharedCard.className = 'border-2 border-emerald-500 bg-emerald-50/50 p-3 rounded-xl cursor-pointer flex items-start gap-2.5 transition-all group-mode-card';
+        }
+        if (indCard) {
+            indCard.className = 'border border-[#DADCE0] bg-white p-3 rounded-xl cursor-pointer flex items-start gap-2.5 transition-all group-mode-card';
+        }
+    } else {
+        if (sharedCard) {
+            sharedCard.className = 'border border-[#DADCE0] bg-white p-3 rounded-xl cursor-pointer flex items-start gap-2.5 transition-all group-mode-card';
+        }
+        if (indCard) {
+            indCard.className = 'border-2 border-indigo-500 bg-indigo-50/50 p-3 rounded-xl cursor-pointer flex items-start gap-2.5 transition-all group-mode-card';
+        }
+    }
+}
+
+function toggleAllGroupHostels(checked) {
+    document.querySelectorAll('#group-hostels-checklist input[type="checkbox"]').forEach(cb => {
+        cb.checked = Boolean(checked);
+    });
+    updateSelectedHostelsCount();
+}
+
+function toggleLiveGroupHostelsOnly() {
+    document.querySelectorAll('#group-hostels-checklist input[type="checkbox"]').forEach(cb => {
+        const isLive = cb.dataset.isLive === 'true';
+        cb.checked = isLive;
+    });
+    updateSelectedHostelsCount();
+}
+
+function toggleAllGroupAdmins(checked) {
+    document.querySelectorAll('#group-admins-checklist input[type="checkbox"]').forEach(cb => {
+        cb.checked = Boolean(checked);
+    });
+}
+
+function updateSelectedHostelsCount() {
+    const count = document.querySelectorAll('#group-hostels-checklist input[type="checkbox"]:checked').length;
+    const badge = document.getElementById('group-hostel-count-badge');
+    if (badge) {
+        badge.textContent = `${count} selected`;
+        badge.className = count > 0 ? 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800' : 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-[#0066cc]';
+    }
+}
+
+function filterModalHostelsList(filterType) {
+    hostelModalFilterActive = filterType;
+    ['all', 'live', 'bh', 'gh'].forEach(t => {
+        const btn = document.getElementById(`btn-modal-filter-${t}`);
+        if (btn) {
+            if (t === filterType) {
+                btn.className = 'px-2.5 py-1 rounded-lg font-bold bg-[#0066cc] text-white';
+            } else {
+                btn.className = 'px-2.5 py-1 rounded-lg font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50';
+            }
+        }
+    });
+
+    renderModalHostelChecklist();
+}
+
+function renderModalHostelChecklist(preSelected = null) {
+    const checklist = document.getElementById('group-hostels-checklist');
+    if (!checklist) return;
+
+    // Retain checked state before re-render
+    const currentlyChecked = preSelected || new Set(Array.from(document.querySelectorAll('#group-hostels-checklist input[type="checkbox"]:checked')).map(cb => cb.value));
+
+    let list = [...hostelModalFullList];
+
+    if (hostelModalFilterActive === 'live') {
+        list = list.filter(h => h.is_live);
+    } else if (hostelModalFilterActive === 'bh') {
+        list = list.filter(h => h.id.toUpperCase().startsWith('BH'));
+    } else if (hostelModalFilterActive === 'gh') {
+        list = list.filter(h => h.id.toUpperCase().startsWith('GH'));
+    }
+
+    if (list.length === 0) {
+        checklist.innerHTML = '<div class="col-span-full p-4 text-center text-gray-400 text-xs">No hostels found matching filter.</div>';
+        return;
+    }
+
+    checklist.innerHTML = list.map(h => {
+        const isChecked = currentlyChecked.has(h.id);
+        const isLive = h.is_live;
+
+        let managerHtml = '';
+        if (h.manager_name && h.manager_name !== 'Unassigned') {
+            managerHtml = `<span class="text-[10px] text-purple-700 font-semibold truncate block">👤 ${escapeHtml(h.manager_name)}</span>`;
+        } else {
+            managerHtml = `<span class="text-[10px] text-gray-400 truncate block">No Store Manager</span>`;
+        }
+
+        let groupTag = '';
+        if (h.existing_group_name) {
+            groupTag = `<span class="text-[9px] font-bold text-amber-700 bg-amber-50 px-1 py-0.2 rounded border border-amber-200 truncate block">In: ${escapeHtml(h.existing_group_name)}</span>`;
+        }
+
+        return `
+            <label class="flex items-center justify-between p-2.5 bg-white border ${isChecked ? 'border-[#0066cc] bg-blue-50/30' : (isLive ? 'border-emerald-200' : 'border-[#DADCE0]')} rounded-xl cursor-pointer hover:border-[#0066cc] hover:bg-blue-50/40 transition-all text-xs shadow-2xs">
+                <div class="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
+                    <input type="checkbox" name="group-member-hostel" value="${escapeHtml(h.id)}" data-is-live="${isLive}" ${isChecked ? 'checked' : ''} onchange="updateSelectedHostelsCount()" class="rounded text-[#0066cc] focus:ring-[#0066cc] w-4 h-4 shrink-0">
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <span class="font-bold text-slate-900 leading-tight truncate">${escapeHtml(h.name || h.id)}</span>
+                            <span class="px-1.5 py-0.2 rounded font-mono text-[9px] font-bold bg-slate-100 text-slate-700 border border-slate-200 shrink-0">${escapeHtml(h.id)}</span>
+                        </div>
+                        <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+                            ${managerHtml}
+                            ${groupTag}
+                        </div>
+                    </div>
+                </div>
+                <span class="px-2 py-0.5 rounded-full text-[9px] font-bold ${isLive ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-slate-100 text-slate-500'} shrink-0">
+                    ${isLive ? '🟢 LIVE STORE' : 'OFF'}
+                </span>
+            </label>`;
+    }).join('');
+
+    updateSelectedHostelsCount();
+}
+
+async function openHostelGroupModal(groupId = null) {
+    const modal = document.getElementById('modal-hostel-group');
+    if (!modal) return;
+
+    const title = document.getElementById('modal-hostel-group-title');
+    const errEl = document.getElementById('group-form-error');
+    if (errEl) errEl.classList.add('hidden');
+
+    document.getElementById('group-form-id').value = groupId || '';
+    document.getElementById('group-form-name').value = '';
+    document.getElementById('group-form-code').value = '';
+    document.getElementById('group-form-desc').value = '';
+    document.getElementById('group-form-status').value = 'active';
+
+    const sharedRadio = document.querySelector('input[name="group-inventory-mode"][value="shared"]');
+    if (sharedRadio) sharedRadio.checked = true;
+    updateGroupModeCardStyles();
+
+    title.textContent = groupId ? 'Edit Hostel Group' : 'Create Hostel Group';
+
+    const hostelChecklist = document.getElementById('group-hostels-checklist');
+    const adminChecklist = document.getElementById('group-admins-checklist');
+
+    modal.classList.remove('hidden');
+
+    function populateLists(hostelsList, staffList) {
+        const hostelToGroupMap = new Map();
+        (hostelGroupsCache || []).forEach(g => {
+            if (g.id !== groupId) {
+                (g.hostel_ids || []).forEach(hId => {
+                    const clean = String(hId).toUpperCase().replace(/[^A-Z0-9]/g, '');
+                    hostelToGroupMap.set(clean, g.name);
+                });
+            }
+        });
+
+        const fullList = (hostelsList || []).map(h => {
+            const clean = String(h.id).toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const isLive = h.status === 'ACTIVE' || h.status === 'active';
+            return {
+                id: h.id,
+                name: h.name || h.id,
+                status: h.status || 'ACTIVE',
+                is_live: isLive,
+                manager_name: h.manager_name || (h.manager_user_id ? 'Store Manager' : 'Unassigned'),
+                existing_group_name: hostelToGroupMap.get(clean) || null
+            };
+        });
+
+        fullList.sort((a, b) => {
+            if (a.is_live && !b.is_live) return -1;
+            if (!a.is_live && b.is_live) return 1;
+            return a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' });
+        });
+
+        hostelModalFullList = fullList;
+        hostelModalFilterActive = 'all';
+
+        let preSelectedHostels = new Set();
+        let preSelectedAdmins = new Set();
+
+        if (groupId) {
+            const group = (hostelGroupsCache || []).find(g => g.id === groupId);
+            if (group) {
+                document.getElementById('group-form-name').value = group.name || '';
+                document.getElementById('group-form-code').value = group.code || '';
+                document.getElementById('group-form-desc').value = group.description || '';
+                document.getElementById('group-form-status').value = group.status || (group.is_active ? 'active' : 'inactive');
+
+                const modeRadio = document.querySelector(`input[name="group-inventory-mode"][value="${group.inventory_mode || 'shared'}"]`);
+                if (modeRadio) modeRadio.checked = true;
+                updateGroupModeCardStyles();
+
+                (group.hostel_ids || []).forEach(h => {
+                    preSelectedHostels.add(h);
+                    const matched = fullList.find(x => x.id.toUpperCase().replace(/[^A-Z0-9]/g, '') === String(h).toUpperCase().replace(/[^A-Z0-9]/g, ''));
+                    if (matched) preSelectedHostels.add(matched.id);
+                });
+
+                (group.admin_ids || []).forEach(a => preSelectedAdmins.add(String(a)));
+            }
+        }
+
+        renderModalHostelChecklist(preSelectedHostels);
+
+        if (adminChecklist && staffList && staffList.length > 0) {
+            hostelGroupsStaffCache = staffList;
+            adminChecklist.innerHTML = staffList.map(s => {
+                const isChecked = preSelectedAdmins.has(String(s.id));
+                const rolesText = Array.isArray(s.roles) ? s.roles.join(', ') : (s.role || 'Staff');
+                const isDuty = s.duty_status === 'ON_DUTY' || s.is_on_duty;
+                const assignedH = s.assigned_hostel_id ? `🏢 Current: ${s.assigned_hostel_name || s.assigned_hostel_id}` : '🌐 General Admin';
+
+                return `
+                    <label class="flex items-center justify-between p-2.5 bg-white border ${isChecked ? 'border-purple-500 bg-purple-50/30' : 'border-[#DADCE0]'} rounded-xl cursor-pointer hover:border-purple-400 hover:bg-purple-50/40 transition-all text-xs shadow-2xs">
+                        <div class="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
+                            <input type="checkbox" name="group-assigned-admin" value="${escapeHtml(s.id)}" ${isChecked ? 'checked' : ''} class="rounded text-purple-600 focus:ring-purple-500 w-4 h-4 shrink-0">
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-1.5 flex-wrap">
+                                    <span class="font-bold text-slate-900 truncate leading-tight">${escapeHtml(s.name || s.id)}</span>
+                                    <span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-100 text-purple-800 uppercase shrink-0">${escapeHtml(rolesText)}</span>
+                                </div>
+                                <div class="text-[10px] text-gray-500 flex items-center gap-2 mt-0.5 flex-wrap">
+                                    <span class="truncate">📧 ${escapeHtml(s.email || '')}</span>
+                                    <span class="font-medium text-slate-700 truncate">${escapeHtml(assignedH)}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <span class="px-2 py-0.5 rounded-full text-[9px] font-bold ${isDuty ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-slate-100 text-slate-500'} shrink-0">
+                            ${isDuty ? '🟢 On Duty' : '⚪ Off'}
+                        </span>
+                    </label>`;
+            }).join('');
+        }
+    }
+
+    // Immediate fast render if hostelsCache is already available
+    if (hostelsCache && hostelsCache.length > 0) {
+        populateLists(hostelsCache, hostelGroupsStaffCache || []);
+    } else {
+        if (hostelChecklist) {
+            hostelChecklist.innerHTML = '<div class="col-span-full p-4 text-center text-gray-400 text-xs"><span class="material-symbols-outlined animate-spin text-sm inline-block mr-1">progress_activity</span> Loading campus hostels...</div>';
+        }
+        if (adminChecklist) {
+            adminChecklist.innerHTML = '<div class="p-4 text-center text-gray-400 text-xs"><span class="material-symbols-outlined animate-spin text-sm inline-block mr-1">progress_activity</span> Loading store manager roster...</div>';
+        }
+    }
+
+    try {
+        const fetchFn = typeof window.authFetch === 'function' ? window.authFetch : (typeof authFetch === 'function' ? authFetch : (u, o = {}) => fetch(u, { ...o, headers: { ...(typeof getAuthHeaders === 'function' ? getAuthHeaders() : {}), ...(o.headers || {}) } }));
+
+        const [hostelsRes, staffRes] = await Promise.allSettled([
+            fetchFn('/api/admin/hostels'),
+            fetchFn('/api/admin/staff')
+        ]);
+
+        let freshHostels = (hostelsCache && hostelsCache.length > 0) ? hostelsCache : [];
+        if (hostelsRes.status === 'fulfilled' && hostelsRes.value.ok) {
+            try {
+                const hData = await hostelsRes.value.json();
+                if (hData && Array.isArray(hData.hostels) && hData.hostels.length > 0) {
+                    freshHostels = hData.hostels;
+                    hostelsCache = hData.hostels;
+                }
+            } catch (e) { }
+        }
+
+        let freshStaff = hostelGroupsStaffCache || [];
+        if (staffRes.status === 'fulfilled' && staffRes.value.ok) {
+            try {
+                const sData = await staffRes.value.json();
+                if (sData && Array.isArray(sData.staff)) {
+                    freshStaff = sData.staff;
+                    hostelGroupsStaffCache = sData.staff;
+                }
+            } catch (e) { }
+        }
+
+        populateLists(freshHostels, freshStaff);
+
+    } catch (err) {
+        console.error('[Open Hostel Group Modal Error]:', err.message);
+        if (!hostelsCache || hostelsCache.length === 0) {
+            if (hostelChecklist) hostelChecklist.innerHTML = `<div class="col-span-full p-4 text-center text-rose-500 text-xs">Failed to load campus hostels: ${escapeHtml(err.message)}</div>`;
+        }
+    }
+}
+
+function closeHostelGroupModal() {
+    const modal = document.getElementById('modal-hostel-group');
+    if (modal) modal.classList.add('hidden');
+}
+
+async function submitHostelGroupForm(event) {
+    if (event) event.preventDefault();
+
+    const id = document.getElementById('group-form-id').value;
+    const name = document.getElementById('group-form-name').value.trim();
+    const code = document.getElementById('group-form-code').value.trim().toUpperCase();
+    const description = document.getElementById('group-form-desc').value.trim();
+    const status = document.getElementById('group-form-status').value;
+    const inventory_mode = document.querySelector('input[name="group-inventory-mode"]:checked')?.value || 'shared';
+
+    const selectedHostels = Array.from(document.querySelectorAll('#group-hostels-checklist input[type="checkbox"]:checked')).map(cb => cb.value);
+    const selectedAdmins = Array.from(document.querySelectorAll('#group-admins-checklist input[type="checkbox"]:checked')).map(cb => cb.value);
+
+    const errEl = document.getElementById('group-form-error');
+    if (errEl) errEl.classList.add('hidden');
+
+    if (!name) {
+        showToast('Group name is required', 'warning');
+        return;
+    }
+    if (selectedHostels.length === 0) {
+        if (errEl) {
+            errEl.textContent = 'Please select at least one hostel for this group.';
+            errEl.classList.remove('hidden');
+        }
+        showToast('Please select at least one member hostel', 'warning');
+        return;
+    }
+
+    const saveBtn = document.getElementById('btn-save-hostel-group');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="material-symbols-outlined animate-spin text-sm mr-1">progress_activity</span> Saving...';
+    }
+
+    try {
+        const payload = {
+            name,
+            code,
+            description,
+            inventory_mode,
+            status,
+            hostel_ids: selectedHostels,
+            admin_ids: selectedAdmins
+        };
+
+        const url = id ? `/api/admin/hostel-groups/${id}` : '/api/admin/hostel-groups';
+        const method = id ? 'PUT' : 'POST';
+
+        const res = await authFetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message || 'Hostel group saved successfully', 'success');
+            closeHostelGroupModal();
+            await loadHostelGroups();
+            if (typeof populateHostelDropdowns === 'function') populateHostelDropdowns();
+        } else {
+            throw new Error(data.error || 'Failed to save group');
+        }
+    } catch (err) {
+        console.error('[Submit Hostel Group Error]:', err.message);
+        if (errEl) {
+            errEl.textContent = err.message;
+            errEl.classList.remove('hidden');
+        }
+        showToast(err.message, 'error');
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<span class="material-symbols-outlined text-base">check</span><span>Save Hostel Group</span>';
+        }
+    }
+}
+
+async function toggleHostelGroupMode(groupId) {
+    try {
+        const res = await authFetch(`/api/admin/hostel-groups/${groupId}/toggle-mode`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message, 'success');
+            await loadHostelGroups();
+        } else {
+            throw new Error(data.error || 'Failed to toggle inventory mode');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function toggleHostelGroupStatus(groupId) {
+    try {
+        const res = await authFetch(`/api/admin/hostel-groups/${groupId}/toggle-status`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message, 'success');
+            await loadHostelGroups();
+        } else {
+            throw new Error(data.error || 'Failed to toggle status');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function deleteHostelGroup(groupId, groupName) {
+    if (!confirm(`Are you sure you want to delete hostel group "${groupName}"?\n\nMember hostels will immediately revert to independent inventory mode.`)) {
+        return;
+    }
+
+    try {
+        const res = await authFetch(`/api/admin/hostel-groups/${groupId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message || 'Group deleted successfully', 'success');
+            await loadHostelGroups();
+            if (typeof populateHostelDropdowns === 'function') populateHostelDropdowns();
+        } else {
+            throw new Error(data.error || 'Failed to delete group');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+window.loadHostelGroups = loadHostelGroups;
+window.renderHostelGroups = renderHostelGroups;
+window.filterHostelGroupsTable = filterHostelGroupsTable;
+window.openHostelGroupModal = openHostelGroupModal;
+window.closeHostelGroupModal = closeHostelGroupModal;
+window.updateGroupModeCardStyles = updateGroupModeCardStyles;
+window.toggleAllGroupHostels = toggleAllGroupHostels;
+window.toggleLiveGroupHostelsOnly = toggleLiveGroupHostelsOnly;
+window.toggleAllGroupAdmins = toggleAllGroupAdmins;
+window.updateSelectedHostelsCount = updateSelectedHostelsCount;
+window.filterModalHostelsList = filterModalHostelsList;
+window.submitHostelGroupForm = submitHostelGroupForm;
+window.toggleHostelGroupMode = toggleHostelGroupMode;
+window.toggleHostelGroupStatus = toggleHostelGroupStatus;
+window.deleteHostelGroup = deleteHostelGroup;
+
+
+// ================= HOSTEL DELIVERY BLOCKS MANAGEMENT MODAL =================
+let currentManagingBlocksHostelId = null;
+
+function openManageBlocksModal(hostelId = null) {
+    const modal = document.getElementById('modal-hostel-blocks');
+    if (!modal) return;
+
+    const select = document.getElementById('manage-blocks-hostel-select');
+    if (select && Array.isArray(hostelsCache) && hostelsCache.length > 0) {
+        select.innerHTML = hostelsCache.map(h => `
+            <option value="${escapeHtml(h.id)}">${escapeHtml(h.id)} - ${escapeHtml(h.name)} (${h.status === 'ACTIVE' ? 'LIVE' : 'OFF'})</option>
+        `).join('');
+    }
+
+    currentManagingBlocksHostelId = hostelId || (hostelsCache && hostelsCache[0]?.id) || 'BH-13';
+    if (select) {
+        select.value = currentManagingBlocksHostelId;
+    }
+
+    const titleEl = document.getElementById('modal-blocks-title');
+    if (titleEl) {
+        const found = (hostelsCache || []).find(h => h.id === currentManagingBlocksHostelId);
+        titleEl.textContent = `Manage Delivery Blocks: ${currentManagingBlocksHostelId} (${found?.name || ''})`;
+    }
+
+    renderHostelBlocksChecklist();
+    modal.classList.remove('hidden');
+}
+
+function closeHostelBlocksModal() {
+    const modal = document.getElementById('modal-hostel-blocks');
+    if (modal) modal.classList.add('hidden');
+}
+
+function onManageBlocksHostelChange(hostelId) {
+    currentManagingBlocksHostelId = hostelId;
+    const titleEl = document.getElementById('modal-blocks-title');
+    if (titleEl) {
+        const found = (hostelsCache || []).find(h => h.id === currentManagingBlocksHostelId);
+        titleEl.textContent = `Manage Delivery Blocks: ${currentManagingBlocksHostelId} (${found?.name || ''})`;
+    }
+    renderHostelBlocksChecklist();
+}
+
+function renderHostelBlocksChecklist() {
+    const container = document.getElementById('blocks-checkboxes-container');
+    if (!container) return;
+
+    const hostel = (hostelsCache || []).find(h => h.id === currentManagingBlocksHostelId);
+    const activeBlocks = Array.isArray(hostel?.blocks) && hostel.blocks.length > 0 ? hostel.blocks : ['Block A', 'Block B'];
+
+    // Standard base blocks
+    const standardBlocks = ['Block A', 'Block B', 'Block C', 'Block D', 'Hostel Main Gate'];
+    const allKnownBlocks = [...standardBlocks];
+    activeBlocks.forEach(b => {
+        if (!allKnownBlocks.includes(b)) allKnownBlocks.push(b);
+    });
+
+    container.innerHTML = allKnownBlocks.map(b => {
+        const isActive = activeBlocks.includes(b);
+        const isGate = b.toLowerCase().includes('gate');
+        return `
+            <label class="flex items-center gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer ${isActive ? 'border-[#0066cc] bg-blue-50/40 text-[#0066cc]' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'}" id="label-block-${escapeHtml(b).replace(/[^a-zA-Z0-9]/g, '_')}">
+                <input type="checkbox" value="${escapeHtml(b)}" ${isActive ? 'checked' : ''} onchange="onBlockCheckboxToggled(this)" class="rounded text-[#0066cc] focus:ring-[#0066cc] w-4 h-4 shrink-0">
+                <span class="material-symbols-outlined text-base shrink-0 ${isActive ? 'text-[#0066cc]' : 'text-slate-400'}">${isGate ? 'sensor_door' : 'apartment'}</span>
+                <span class="font-bold text-xs truncate flex-1">${escapeHtml(b)}</span>
+            </label>
+        `;
+    }).join('');
+
+    updateBlocksModalLivePreview();
+}
+
+function onBlockCheckboxToggled(cb) {
+    const label = cb.closest('label');
+    const isChecked = cb.checked;
+    const icon = label ? label.querySelector('.material-symbols-outlined') : null;
+
+    if (label) {
+        if (isChecked) {
+            label.className = 'flex items-center gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer border-[#0066cc] bg-blue-50/40 text-[#0066cc]';
+            if (icon) icon.className = 'material-symbols-outlined text-base shrink-0 text-[#0066cc]';
+        } else {
+            label.className = 'flex items-center gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer border-slate-200 bg-white text-slate-700 hover:border-slate-300';
+            if (icon) icon.className = 'material-symbols-outlined text-base shrink-0 text-slate-400';
+        }
+    }
+    updateBlocksModalLivePreview();
+}
+
+function applyBlocksPreset(presetList) {
+    const container = document.getElementById('blocks-checkboxes-container');
+    if (!container) return;
+
+    const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(cb => {
+        cb.checked = presetList.includes(cb.value);
+        onBlockCheckboxToggled(cb);
+    });
+}
+
+function toggleMainGateBlock() {
+    const container = document.getElementById('blocks-checkboxes-container');
+    if (!container) return;
+
+    let gateCheckbox = Array.from(container.querySelectorAll('input[type="checkbox"]')).find(cb => cb.value.toLowerCase().includes('gate'));
+    if (gateCheckbox) {
+        gateCheckbox.checked = !gateCheckbox.checked;
+        onBlockCheckboxToggled(gateCheckbox);
+    } else {
+        addNewCustomBlock('Hostel Main Gate');
+    }
+}
+
+function addNewCustomBlock(predefinedName = null) {
+    const input = document.getElementById('input-new-block-name');
+    const rawVal = predefinedName || (input ? input.value : '');
+    const blockName = (rawVal || '').trim();
+    if (!blockName) return;
+
+    const container = document.getElementById('blocks-checkboxes-container');
+    if (!container) return;
+
+    // Check if already exists
+    const existing = Array.from(container.querySelectorAll('input[type="checkbox"]')).find(cb => cb.value.toLowerCase() === blockName.toLowerCase());
+    if (existing) {
+        existing.checked = true;
+        onBlockCheckboxToggled(existing);
+        if (input) input.value = '';
+        return;
+    }
+
+    const isGate = blockName.toLowerCase().includes('gate');
+    const newHtml = `
+        <label class="flex items-center gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer border-[#0066cc] bg-blue-50/40 text-[#0066cc]" id="label-block-${escapeHtml(blockName).replace(/[^a-zA-Z0-9]/g, '_')}">
+            <input type="checkbox" value="${escapeHtml(blockName)}" checked onchange="onBlockCheckboxToggled(this)" class="rounded text-[#0066cc] focus:ring-[#0066cc] w-4 h-4 shrink-0">
+            <span class="material-symbols-outlined text-base shrink-0 text-[#0066cc]">${isGate ? 'sensor_door' : 'apartment'}</span>
+            <span class="font-bold text-xs truncate flex-1">${escapeHtml(blockName)}</span>
+        </label>
+    `;
+    container.insertAdjacentHTML('beforeend', newHtml);
+    if (input) input.value = '';
+    updateBlocksModalLivePreview();
+}
+
+function updateBlocksModalLivePreview() {
+    const modal = document.getElementById('modal-hostel-blocks');
+    if (!modal) return;
+
+    const checkedBoxes = Array.from(modal.querySelectorAll('#blocks-checkboxes-container input[type="checkbox"]:checked'));
+    const checkedBlocks = checkedBoxes.map(cb => cb.value);
+
+    const countLabel = document.getElementById('blocks-active-count-label');
+    if (countLabel) {
+        countLabel.textContent = `${checkedBlocks.length} Block${checkedBlocks.length === 1 ? '' : 's'} Active on Storefront`;
+    }
+
+    const previewContainer = document.getElementById('blocks-live-preview-pills');
+    if (previewContainer) {
+        if (checkedBlocks.length === 0) {
+            previewContainer.innerHTML = '<span class="text-rose-500 font-bold text-xs">⚠️ No blocks selected! At least one block must be active.</span>';
+        } else {
+            previewContainer.innerHTML = checkedBlocks.map(b => {
+                const isGate = b.toLowerCase().includes('gate');
+                return `
+                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-600 text-white shadow-2xs">
+                        <span class="material-symbols-outlined text-xs">${isGate ? 'sensor_door' : 'apartment'}</span>
+                        <span>${escapeHtml(b)}</span>
+                    </span>
+                `;
+            }).join('');
+        }
+    }
+}
+
+async function saveHostelBlocks() {
+    if (!currentManagingBlocksHostelId) return;
+
+    const modal = document.getElementById('modal-hostel-blocks');
+    const checkedBoxes = Array.from(modal.querySelectorAll('#blocks-checkboxes-container input[type="checkbox"]:checked'));
+    const checkedBlocks = checkedBoxes.map(cb => cb.value.trim()).filter(Boolean);
+
+    const errBox = document.getElementById('blocks-modal-error');
+    if (errBox) errBox.classList.add('hidden');
+
+    if (checkedBlocks.length === 0) {
+        if (errBox) {
+            errBox.textContent = 'Please select at least one active block (e.g. Block A).';
+            errBox.classList.remove('hidden');
+        }
+        return;
+    }
+
+    const saveBtn = document.getElementById('btn-save-hostel-blocks');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin mr-1">sync</span> Saving...';
+    }
+
+    try {
+        const res = await fetch(`/api/admin/hostels/${encodeURIComponent(currentManagingBlocksHostelId)}`, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ blocks: checkedBlocks })
+        });
+        const data = await res.json();
+        if (data && data.success) {
+            // Update cache
+            const targetHostel = (hostelsCache || []).find(h => h.id === currentManagingBlocksHostelId);
+            if (targetHostel) {
+                targetHostel.blocks = checkedBlocks;
+            }
+            renderHostelsTable();
+            closeHostelBlocksModal();
+            showToast(`✓ ${currentManagingBlocksHostelId} active blocks saved: ${checkedBlocks.join(', ')}`, 'success');
+        } else {
+            if (errBox) {
+                errBox.textContent = data.error || 'Failed to update blocks';
+                errBox.classList.remove('hidden');
+            }
+        }
+    } catch (err) {
+        if (errBox) {
+            errBox.textContent = 'Network error: ' + err.message;
+            errBox.classList.remove('hidden');
+        }
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<span class="material-symbols-outlined text-sm">check</span><span>Save Active Blocks</span>';
+        }
+    }
+}
+
+window.openManageBlocksModal = openManageBlocksModal;
+window.closeHostelBlocksModal = closeHostelBlocksModal;
+window.onManageBlocksHostelChange = onManageBlocksHostelChange;
+window.applyBlocksPreset = applyBlocksPreset;
+window.toggleMainGateBlock = toggleMainGateBlock;
+window.addNewCustomBlock = addNewCustomBlock;
+window.onBlockCheckboxToggled = onBlockCheckboxToggled;
+window.saveHostelBlocks = saveHostelBlocks;
+
+
+// ============================================================
+// FOOD DEPARTMENT & LIVE KITCHEN QUEUE FOR ADMIN DASHBOARD
+// ============================================================
+function isFoodDeptAdmin(profile = currentAdminProfile) {
+    if (!profile) return false;
+    if (typeof isPlatformOwner === 'function' && isPlatformOwner(profile)) return true;
+    if (profile.is_owner) return true;
+    const roles = Array.isArray(profile.roles) ? profile.roles : [];
+    return roles.includes('cook') || roles.includes('food_department') || roles.includes('food') || profile.department === 'food';
+}
+window.isFoodDeptAdmin = isFoodDeptAdmin;
+
+async function loadDashboardFoodQueue() {
+    const card = document.getElementById('dash-food-dept-card');
+    if (!card) return;
+    card.classList.remove('hidden');
+
+    const tbody = document.getElementById('dash-food-orders-tbody');
+    try {
+        const [ordersRes, metricsRes] = await Promise.all([
+            fetch('/api/food/orders', { headers: getAuthHeaders() }),
+            fetch('/api/food/metrics', { headers: getAuthHeaders() })
+        ]);
+
+        let orders = [];
+        if (ordersRes.ok) {
+            const oData = await ordersRes.json();
+            if (oData.success && Array.isArray(oData.orders)) {
+                orders = oData.orders;
+            }
+        }
+
+        let metrics = {};
+        if (metricsRes.ok) {
+            const mData = await metricsRes.json();
+            if (mData.success && mData.metrics) {
+                metrics = mData.metrics;
+            }
+        }
+
+        // Update Stats
+        const statActive = document.getElementById('dash-food-stat-active');
+        const statCooking = document.getElementById('dash-food-stat-cooking');
+        const statReady = document.getElementById('dash-food-stat-ready');
+        const statTotal = document.getElementById('dash-food-stat-total');
+
+        const activeOrders = orders.filter(o => o.status !== 'Delivered' && o.status !== 'Cancelled');
+        const cookingOrders = orders.filter(o => o.status === 'Cooking' || o.status === 'Preparing');
+        const readyOrders = orders.filter(o => o.status === 'Ready' || o.status === 'Ready for Pickup');
+
+        if (statActive) statActive.textContent = activeOrders.length;
+        if (statCooking) statCooking.textContent = metrics.preparing_count !== undefined ? metrics.preparing_count : cookingOrders.length;
+        if (statReady) statReady.textContent = metrics.ready_count !== undefined ? metrics.ready_count : readyOrders.length;
+        if (statTotal) statTotal.textContent = metrics.total_food_orders || orders.length;
+
+        if (!tbody) return;
+
+        if (orders.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="p-8 text-center text-[#5c5f60]">
+                        <span class="text-2xl block mb-1">🍳</span>
+                        <p class="font-bold text-xs text-[#181c1f]">No active kitchen orders</p>
+                        <p class="text-[11px] text-[#5c5f60]">All Quick's Instant Food orders are prepped & delivered!</p>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = orders.slice(0, 10).map(order => {
+            const shortId = (order.order_id || '').replace(/^order_/, '').slice(0, 8);
+            const itemsSummary = (order.food_items || []).map(i => `${i.name} (×${i.quantity})`).join(', ') || "Quick's Instant Food";
+            const isCooking = order.status === 'Cooking' || order.status === 'Preparing';
+            const isReady = order.status === 'Ready' || order.status === 'Ready for Pickup';
+
+            let statusBadge = '';
+            if (isReady) {
+                statusBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">READY</span>';
+            } else if (isCooking) {
+                statusBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-orange-100 text-orange-800 border border-orange-300 animate-pulse">COOKING</span>';
+            } else {
+                statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">${escapeHtml(order.status)}</span>`;
+            }
+
+            return `
+                <tr class="hover:bg-amber-50/50 transition-colors">
+                    <td class="p-3 font-mono font-bold text-[#181c1f]">#${shortId}</td>
+                    <td class="p-3">
+                        <p class="font-bold text-[#181c1f]">${escapeHtml(order.customer_name)}</p>
+                        <p class="text-[10px] text-[#5c5f60]">${escapeHtml(order.delivery_address)}</p>
+                    </td>
+                    <td class="p-3 text-xs text-[#181c1f] max-w-xs truncate" title="${escapeHtml(itemsSummary)}">
+                        🍜 ${escapeHtml(itemsSummary)}
+                    </td>
+                    <td class="p-3 font-medium text-xs text-amber-900">
+                        👨‍🍳 ${escapeHtml(order.cook_name || 'Assigned Chef')}
+                    </td>
+                    <td class="p-3">${statusBadge}</td>
+                    <td class="p-3 text-right">
+                        <div class="inline-flex items-center gap-1.5 justify-end">
+                            ${!isReady ? `
+                                <button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Ready')" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer" title="Mark order prepared & ready for delivery">
+                                    <span>Mark Ready</span>
+                                    <span class="material-symbols-outlined text-[13px]">check</span>
+                                </button>
+                            ` : `
+                                <span class="text-[11px] font-bold text-emerald-700 flex items-center gap-0.5">
+                                    <span class="material-symbols-outlined text-xs">done_all</span> Handed Over
+                                </span>
+                            `}
+                            <button type="button" onclick="openReassignFoodModal('${order.order_id}')" class="p-1 rounded-lg border border-[#DADCE0] hover:bg-white text-[#5c5f60]" title="Reassign Cook">
+                                <span class="material-symbols-outlined text-sm">swap_horiz</span>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    } catch (err) {
+        console.warn('[Dash Food Queue Load Note]:', err.message);
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-xs text-amber-800">Kitchen queue updated.</td></tr>';
+        }
+    }
+}
+window.loadDashboardFoodQueue = loadDashboardFoodQueue;
+
+async function updateFoodOrderStatus(orderId, status) {
+    try {
+        showToast(`Updating kitchen order status to ${status}...`, 'info');
+        const res = await fetch(`/api/food/orders/${orderId}/status`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ status })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast(`Order marked ${status}!`, 'success');
+            loadDashboardFoodQueue();
+            if (typeof loadFoodDeptAdmin === 'function') loadFoodDeptAdmin();
+        } else {
+            throw new Error(data.error || 'Failed to update order status');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+window.updateFoodOrderStatus = updateFoodOrderStatus;
+
+
+// ============================================================
+// COMPLETE FOOD DEPARTMENT ORDER DETAILS & MODAL (LPQ FOOD)
+// ============================================================
+let currentFoodOrdersCache = [];
+
+function openFoodOrderDetailModal(orderId) {
+    const modal = document.getElementById('modal-food-order-details');
+    if (!modal) return;
+
+    const order = currentFoodOrdersCache.find(o => o.order_id === orderId) ||
+        (foodOrdersCache || []).find(o => o.order_id === orderId);
+    if (!order) {
+        showToast('Order details not found.', 'warning');
+        return;
+    }
+
+    const shortId = (order.order_id || '').replace(/^order_/, '').slice(0, 8);
+    document.getElementById('modal-fod-order-id').textContent = '#' + shortId.toUpperCase() + ' (' + order.order_id + ')';
+    document.getElementById('modal-fod-customer-name').textContent = order.customer_name || 'Hostel Student';
+    document.getElementById('modal-fod-customer-contact').textContent = '📱 ' + (order.customer_phone || 'No phone') + (order.customer_email ? ' • ' + order.customer_email : '');
+    document.getElementById('modal-fod-hostel-room').textContent = '🏢 ' + (order.delivery_address || 'Hostel');
+    document.getElementById('modal-fod-datetime').textContent = order.order_time_formatted || new Date(order.created_at || Date.now()).toLocaleString('en-IN');
+
+    const payBadge = document.getElementById('modal-fod-payment-badge');
+    if (payBadge) {
+        const isPaid = (order.payment_status || '').toLowerCase() === 'paid';
+        payBadge.textContent = formatAdminPaymentDisplay(order.payment_method) + (isPaid ? ' (PAID)' : ' (Pending)');
+        payBadge.className = isPaid ? 'font-black text-emerald-700' : 'font-bold text-amber-700';
+    }
+
+    const instrEl = document.getElementById('modal-fod-instructions');
+    if (instrEl) {
+        instrEl.textContent = (order.special_instructions && order.special_instructions !== 'None')
+            ? '"' + order.special_instructions + '"'
+            : 'None (Standard Preparation)';
+    }
+
+    const statusBadge = document.getElementById('modal-fod-status-badge');
+    if (statusBadge) {
+        statusBadge.textContent = order.status || 'Order Placed';
+    }
+
+    const cookEl = document.getElementById('modal-fod-assigned-cook');
+    if (cookEl) {
+        cookEl.textContent = '👨‍🍳 ' + (order.cook_name || 'Unassigned Chef');
+    }
+
+    // Render Items Table
+    const tbody = document.getElementById('modal-fod-items-tbody');
+    if (tbody) {
+        const items = Array.isArray(order.food_items) ? order.food_items : [];
+        if (items.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="p-3 text-center text-gray-400">Fresh Food Item</td></tr>';
+        } else {
+            tbody.innerHTML = items.map(item => {
+                const qty = Number(item.quantity) || 1;
+                const price = Number(item.price || 0);
+                const lineTotal = item.line_total !== undefined ? item.line_total : (qty * price);
+                return `
+                    <tr class="hover:bg-gray-50/80">
+                        <td class="p-2.5 font-bold text-[#181c1f]">${escapeHtml(item.name || "Quick's Instant Food")}</td>
+                        <td class="p-2.5 text-center font-bold text-gray-700">×${qty}</td>
+                        <td class="p-2.5 text-right font-medium text-gray-600">₹${price}</td>
+                        <td class="p-2.5 text-right font-black text-[#181c1f]">₹${lineTotal}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    }
+
+    const totalEl = document.getElementById('modal-fod-total-amount');
+    if (totalEl) totalEl.textContent = '₹' + (order.total_amount || order.total || 0);
+
+    // Actions Bar
+    const actionsBar = document.getElementById('modal-fod-actions-bar');
+    if (actionsBar) {
+        const st = (order.status || '').toLowerCase();
+        let btns = '';
+
+        if (st === 'order placed' || st === 'new') {
+            btns += `
+                <button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Accepted'); closeFoodOrderDetailModal();" class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer">
+                    <span class="material-symbols-outlined text-sm">check</span> Accept
+                </button>
+                <button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Rejected'); closeFoodOrderDetailModal();" class="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-300 hover:bg-rose-100 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer">
+                    <span class="material-symbols-outlined text-sm">close</span> Reject
+                </button>
+            `;
+        } else if (st === 'accepted') {
+            btns += `
+                <button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Preparing'); closeFoodOrderDetailModal();" class="px-3 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer">
+                    <span class="material-symbols-outlined text-sm">cooking</span> Start Cooking
+                </button>
+            `;
+        } else if (st.includes('prep') || st.includes('cook')) {
+            btns += `
+                <button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Ready'); closeFoodOrderDetailModal();" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer">
+                    <span class="material-symbols-outlined text-sm">done_all</span> Mark Ready
+                </button>
+            `;
+        } else if (st.includes('ready')) {
+            btns += `
+                <button type="button" onclick="updateFoodOrderStatus('${order.order_id}', 'Completed'); closeFoodOrderDetailModal();" class="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer">
+                    <span class="material-symbols-outlined text-sm">verified</span> Mark Completed
+                </button>
+            `;
+        }
+
+        btns += `
+            <button type="button" onclick="closeFoodOrderDetailModal(); openReassignFoodModal('${order.order_id}');" class="px-2.5 py-1.5 rounded-xl border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer">
+                <span class="material-symbols-outlined text-sm">swap_horiz</span> Reassign Cook
+            </button>
+        `;
+        actionsBar.innerHTML = btns;
+    }
+
+    modal.classList.remove('hidden');
+}
+window.openFoodOrderDetailModal = openFoodOrderDetailModal;
+
+function closeFoodOrderDetailModal() {
+    const modal = document.getElementById('modal-food-order-details');
+    if (modal) modal.classList.add('hidden');
+}
+window.closeFoodOrderDetailModal = closeFoodOrderDetailModal;
+
+// Override renderFoodOrdersAdmin to show all 10 required items with receipt links
+function renderFoodOrdersAdmin(orders) {
+    const tbody = document.getElementById('food-orders-admin-tbody');
+    if (!tbody) return;
+
+    currentFoodOrdersCache = orders || [];
+
+    if (!orders || orders.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="p-8 text-center text-[#5c5f60]">
+                    <span class="text-2xl block mb-1">🍳</span>
+                    <p class="font-bold text-xs text-[#181c1f]">No food orders in the queue</p>
+                    <p class="text-[11px] text-[#5c5f60]">Orders for Quick's Instant Food will automatically appear here with real-time assignment.</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = orders.map(order => {
+        const shortId = (order.order_id || '').replace(/^order_/, '').slice(0, 8);
+        const items = Array.isArray(order.food_items) ? order.food_items : [];
+        const itemsDetail = items.map(i => `${i.name || "Quick's Instant Food"} (×${i.quantity || 1} @ ₹${i.price || 0})`).join(', ') || "Quick's Instant Food";
+        const hasInstructions = order.special_instructions && order.special_instructions !== 'None';
+        const formattedDate = order.order_time_formatted || (order.created_at ? new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--');
+
+        let statusClass = 'bg-amber-100 text-amber-800 border-amber-300';
+        const st = (order.status || '').toLowerCase();
+        if (st.includes('prep') || st.includes('cook')) statusClass = 'bg-orange-100 text-orange-800 border-orange-300 animate-pulse';
+        else if (st.includes('ready')) statusClass = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+        else if (st.includes('complete') || st.includes('deliver')) statusClass = 'bg-blue-100 text-blue-800 border-blue-300';
+        else if (st.includes('reject') || st.includes('cancel')) statusClass = 'bg-rose-100 text-rose-800 border-rose-300';
+
+        return `
+            <tr class="hover:bg-slate-50/80 transition-colors">
+                <td class="p-3 font-mono font-bold text-[#181c1f]">
+                    <button type="button" onclick="openFoodOrderDetailModal('${order.order_id}')" class="text-blue-600 hover:underline flex items-center gap-1 font-mono cursor-pointer" title="Click to view full receipt details">
+                        #${shortId}
+                        <span class="material-symbols-outlined text-[13px]">receipt_long</span>
+                    </button>
+                    <span class="text-[10px] text-gray-500 block">${formattedDate}</span>
+                </td>
+                <td class="p-3">
+                    <p class="font-bold text-[#181c1f] text-xs">${escapeHtml(order.customer_name || 'Student')}</p>
+                    <p class="text-[11px] text-[#5c5f60] font-mono">${escapeHtml(order.customer_phone || '')}</p>
+                </td>
+                <td class="p-3 text-xs">
+                    <span class="inline-flex items-center gap-1 font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200">
+                        🏢 ${escapeHtml(order.delivery_address || 'Hostel')}
+                    </span>
+                    ${order.room_number ? `<span class="text-[10px] text-gray-500 block mt-0.5">Room ${escapeHtml(order.room_number)}</span>` : ''}
+                </td>
+                <td class="p-3 text-xs max-w-xs">
+                    <p class="font-bold text-[#181c1f] truncate" title="${escapeHtml(itemsDetail)}">🍲 ${escapeHtml(itemsDetail)}</p>
+                    ${hasInstructions ? `<p class="text-[10px] text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 mt-1 truncate" title="Special Instructions: ${escapeHtml(order.special_instructions)}">📝 ${escapeHtml(order.special_instructions)}</p>` : ''}
+                </td>
+                <td class="p-3 font-mono text-xs">
+                    <span class="font-black text-[#181c1f]">₹${order.total_amount || order.total || 0}</span>
+                    <span class="text-[9px] block text-gray-500">${escapeHtml(order.payment_method || 'COD')}</span>
+                </td>
+                <td class="p-3 font-semibold text-xs text-amber-900">
+                    👨‍🍳 ${escapeHtml(order.cook_name || 'Unassigned')}
+                </td>
+                <td class="p-3">
+                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black border ${statusClass}">
+                        ${escapeHtml(order.status || 'Order Placed')}
+                    </span>
+                </td>
+                <td class="p-3 text-right">
+                    <div class="flex items-center gap-1 justify-end">
+                        <button type="button" onclick="openFoodOrderDetailModal('${order.order_id}')" class="px-2.5 py-1 rounded-lg border border-gray-300 hover:bg-gray-100 text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1" title="View complete details">
+                            <span>Details</span>
+                        </button>
+                        <button type="button" onclick="openReassignFoodModal('${order.order_id}')" class="p-1 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 cursor-pointer" title="Reassign Cook">
+                            <span class="material-symbols-outlined text-sm">swap_horiz</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+window.renderFoodOrdersAdmin = renderFoodOrdersAdmin;
+
+
+// ============================================================
+// FOOD DEPARTMENT & QUICK'S INSTANT FOOD ORDER DIFFERENTIATION
+// ============================================================
+function isOrderFoodDept(o) {
+    if (!o) return false;
+    const items = o.items || o.order_items || o.food_items || [];
+    
+    // Check if order consists exclusively of standard packaged snacks/groceries
+    const hasOnlyPackagedItems = Array.isArray(items) && items.length > 0 && items.every(it => {
+        const c = (it.category || '').toLowerCase();
+        const n = (it.name || it.product_name || '').toLowerCase();
+        if (c === 'snacks & beverages' || c === 'grocery' || c.includes('instant snacks') || c.includes('snacks & munchies')) return true;
+        return /top ramen|yippee|cup noodles|crax|hide & seek|parle|britannia|lays|lay's|chips|biscuit|namkeen|wafer|kurkure/i.test(n);
+    });
+    if (hasOnlyPackagedItems) return false;
+
+    // Direct check: Any item from Quick's Instant Food category?
+    if (Array.isArray(items) && items.some(it => {
+        const c = (it.category || '').toLowerCase();
+        const sc = (it.subcategory || '').toLowerCase();
+        return c === "quick's instant food" || c === "quicks instant food" || sc === "quick's instant food" || sc === "quicks instant food";
+    })) return true;
+
+    // Backend flagged as food order with verified kitchen address or food items
+    if (o.is_food_order === true || o.is_food_order === 'true') {
+        const rawAddr = (o.delivery_address || '').toLowerCase();
+        if (rawAddr.includes('kitchen') || rawAddr.includes("quick's instant food")) return true;
+        if (Array.isArray(o.food_items) && o.food_items.length > 0) return true;
+    }
+
+    if (typeof foodOrdersCache !== 'undefined' && Array.isArray(foodOrdersCache)) {
+        if (foodOrdersCache.some(fo => (fo.order_id === o.id || fo.order_id === o.id?.replace(/^order_/, '')) && Array.isArray(fo.food_items) && fo.food_items.length > 0)) return true;
+    }
+    return false;
+}
+window.isOrderFoodDept = isOrderFoodDept;
+
+
+let foodProductsCache = [];
+let foodOrdersFilterActive = 'all';
+
+async function fetchFoodDeptProducts() {
+    try {
+        const targetHostel = (typeof getActiveLockHostel === 'function' ? getActiveLockHostel() : null) || 'BH-13';
+        const res = await fetch('/api/food/products?hostel_id=' + encodeURIComponent(targetHostel), { headers: getAuthHeaders() });
+        if (res.ok) {
+            const data = await res.json();
+            if (data.success && Array.isArray(data.products) && data.products.length > 0) {
+                foodProductsCache = data.products;
+                renderFoodDeptProducts(foodProductsCache);
+                return;
+            }
+        }
+    } catch (e) {
+        console.warn('[Fetch Food Products API Notice]:', e.message);
+    }
+
+    // Fallback: Filter from existing productsCache or fetch /api/products
+    let list = Array.isArray(productsCache) ? productsCache : [];
+    if (list.length === 0) {
+        try {
+            const pRes = await fetch('/api/products?includeInactive=true', { headers: getAuthHeaders() });
+            if (pRes.ok) {
+                const pData = await pRes.json();
+                list = pData.products || [];
+            }
+        } catch (e) { }
+    }
+
+    if (list.length > 0) {
+        foodProductsCache = list.filter(p => {
+            if (p.deleted) return false;
+            const c = (p.category || '').toLowerCase();
+            const sc = (p.subcategory || '').toLowerCase();
+            const n = (p.name || '').toLowerCase();
+            if (c === 'snacks & beverages' || c === 'grocery' || c.includes('instant snacks') || c.includes('snacks & munchies')) return false;
+            if (/bhelpuri|namkeen|bhujia|chips|wafer|biscuit|cookie|kurkure|crisp|sev|mixture|top ramen|yippee|cup noodles|crax|parle|britannia|oreo|lays|lay's/i.test(n)) return false;
+            return c === "quick's instant food" || c === "quicks instant food" || sc === "quick's instant food" || sc === "quicks instant food" || (c.includes('food') && !c.includes('snacks') && !c.includes('grocery'));
+        });
+        renderFoodDeptProducts(foodProductsCache);
+    } else {
+        renderFoodDeptProducts([]);
+    }
+}
+
+function renderFoodDeptProducts(products) {
+    const tbody = document.getElementById('food-products-tbody');
+    const badge = document.getElementById('food-stock-total-badge');
+    if (badge) badge.textContent = `${products.length} Products`;
+    if (!tbody) return;
+
+    if (!products || products.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="p-8 text-center text-[#5c5f60]">
+                    <div class="max-w-xs mx-auto space-y-2">
+                        <span class="material-symbols-outlined text-4xl text-amber-300">ramen_dining</span>
+                        <p class="font-bold text-[#181c1f]">No Quick's Instant Food items found</p>
+                        <p class="text-xs text-gray-500">Add freshly prepared meals, noodles, or hot snacks to this category.</p>
+                        <button type="button" onclick="openProductModalForFood()" class="mt-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl text-xs font-bold shadow-xs hover:opacity-90">
+                            + Add First Food Item
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = products.map(p => {
+        const stock = p.stock_left !== undefined ? Math.max(0, Number(p.stock_left)) : (p.in_stock ? (p.stock_left || 0) : 0);
+        const isOutOfStock = !p.in_stock || stock <= 0;
+        const isLowStock = stock > 0 && stock <= 4;
+
+        let statusBadge = '';
+        if (isOutOfStock) {
+            statusBadge = `<button type="button" onclick="toggleFoodItemStock('${p.id}', true)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-300 hover:bg-rose-200 cursor-pointer" title="Click to make In Stock">Out of Stock</button>`;
+        } else if (isLowStock) {
+            statusBadge = `<button type="button" onclick="toggleFoodItemStock('${p.id}', false)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200 cursor-pointer" title="Click to mark Out of Stock">Low Stock (${stock} left)</button>`;
+        } else {
+            statusBadge = `<button type="button" onclick="toggleFoodItemStock('${p.id}', false)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200 cursor-pointer" title="Click to mark Out of Stock">In Stock (${stock} left)</button>`;
+        }
+
+        const sellingPrice = Number(p.price) || 0;
+        const mrp = Number(p.mrp || p.price) || sellingPrice;
+
+        return `
+            <tr class="hover:bg-amber-50/40 transition-colors">
+                <td class="p-3.5">
+                    <div class="flex items-center gap-3">
+                        <img src="${p.image_url}" class="w-10 h-10 rounded-xl object-cover border border-[#DADCE0] bg-[#f1f4f7]" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'">
+                        <div>
+                            <p class="font-bold text-xs text-[#181c1f]">${escapeHtml(p.name)}</p>
+                            <p class="text-[10px] text-[#5c5f60] flex items-center gap-1.5 flex-wrap">
+                                <span>${escapeHtml(p.unit || 'piece')} ${p.size ? '• ' + escapeHtml(p.size) : ''}</span>
+                                <span class="text-[9px] font-black px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300">${escapeHtml(p.hostel_id || 'BH-13')}</span>
+                            </p>
+                        </div>
+                    </div>
+                </td>
+                <td class="p-3.5">
+                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                        ${escapeHtml(p.subcategory || "Quick's Instant Food")}
+                    </span>
+                </td>
+                <td class="p-3.5 font-bold text-[#181c1f]">₹${sellingPrice.toFixed(2)}</td>
+                <td class="p-3.5 text-[#74777a] line-through">₹${mrp.toFixed(2)}</td>
+                <td class="p-3.5">
+                    <div class="inline-flex items-center gap-1.5 bg-white border border-[#DADCE0] rounded-xl px-2 py-1 shadow-2xs">
+                        <button type="button" onclick="updateFoodItemStock('${p.id}', ${stock - 1})" class="w-6 h-6 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-black text-xs cursor-pointer active:scale-95">−</button>
+                        <button type="button" onclick="promptCustomStock('${p.id}', '${p.name.replace(/'/g, "\\'")}', ${stock})" class="font-bold text-xs text-[#181c1f] px-1 hover:text-amber-700 cursor-pointer" title="Click to enter exact stock">${stock}</button>
+                        <button type="button" onclick="updateFoodItemStock('${p.id}', ${stock + 1})" class="w-6 h-6 flex items-center justify-center rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-black text-xs cursor-pointer active:scale-95">+</button>
+                    </div>
+                </td>
+                <td class="p-3.5">${statusBadge}</td>
+                <td class="p-3.5 text-right">
+                    <div class="flex items-center justify-end gap-1.5">
+                        <button type="button" onclick="editProduct('${p.id}')" class="p-1.5 text-amber-800 hover:bg-amber-100 rounded-lg transition-all cursor-pointer" title="Edit Food Item">
+                            <span class="material-symbols-outlined text-[18px]">edit</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+window.renderFoodDeptProducts = renderFoodDeptProducts;
+
+function filterFoodDeptProducts() {
+    const q = (document.getElementById('food-products-search-input')?.value || '').toLowerCase().trim();
+    const status = document.getElementById('food-products-filter-status')?.value || 'all';
+
+    let filtered = foodProductsCache.filter(p => {
+        const matchName = (p.name || '').toLowerCase().includes(q);
+        const matchSub = (p.subcategory || '').toLowerCase().includes(q);
+        if (q && !matchName && !matchSub) return false;
+
+        const stock = p.stock_left !== undefined ? Math.max(0, Number(p.stock_left)) : (p.in_stock ? (p.stock_left || 0) : 0);
+        if (status === 'in_stock') return p.in_stock && stock > 0;
+        if (status === 'low_stock') return stock > 0 && stock <= 4;
+        if (status === 'out_of_stock') return !p.in_stock || stock === 0;
+        return true;
+    });
+
+    renderFoodDeptProducts(filtered);
+}
+window.filterFoodDeptProducts = filterFoodDeptProducts;
+
+async function updateFoodItemStock(productId, newStock) {
+    const safeStock = Math.max(0, Number(newStock) || 0);
+    try {
+        const res = await fetch(`/api/food/products/${productId}/stock`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ stock_left: safeStock, in_stock: safeStock > 0 })
+        });
+        const data = await res.json();
+        if (data.success) {
+            const p = foodProductsCache.find(x => x.id === productId);
+            if (p) {
+                p.stock_left = safeStock;
+                p.in_stock = safeStock > 0;
+            }
+            const pGlob = (typeof productsCache !== 'undefined') ? productsCache.find(x => x.id === productId) : null;
+            if (pGlob) {
+                pGlob.stock_left = safeStock;
+                pGlob.in_stock = safeStock > 0;
+            }
+            renderFoodDeptProducts(foodProductsCache);
+            showToast(`Stock updated to ${safeStock}`, 'success');
+        } else {
+            throw new Error(data.error || 'Failed to update stock');
+        }
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+window.updateFoodItemStock = updateFoodItemStock;
+
+async function toggleFoodItemStock(productId, setInStock) {
+    const targetStock = setInStock ? 5 : 0;
+    await updateFoodItemStock(productId, targetStock);
+}
+window.toggleFoodItemStock = toggleFoodItemStock;
+
+function filterFoodOrdersByStatus(status) {
+    foodOrdersFilterActive = status;
+    document.querySelectorAll('.food-order-filter-btn').forEach(btn => {
+        const active = btn.dataset.status === status;
+        if (active) {
+            btn.className = 'food-order-filter-btn px-3 py-1 rounded-full text-xs font-bold bg-[#3c4043] text-white cursor-pointer';
+        } else {
+            btn.className = 'food-order-filter-btn px-3 py-1 rounded-full text-xs font-semibold border border-[#DADCE0] text-[#5c5f60] hover:bg-amber-50 hover:text-amber-900 cursor-pointer';
+        }
+    });
+    renderFoodOrdersAdmin(foodOrdersCache);
+}
+window.filterFoodOrdersByStatus = filterFoodOrdersByStatus;
+
+async function updateFoodOrderStatus(orderId, newStatus) {
+    try {
+        const res = await fetch(`/api/food/orders/${orderId}/status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ status: newStatus })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(`Order #${orderId.slice(0, 8)} status: ${newStatus}`, 'success');
+            await loadFoodDeptAdmin();
+            if (typeof filterOrders === 'function') filterOrders();
+        } else {
+            throw new Error(data.error || 'Failed to update status');
+        }
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+window.updateFoodOrderStatus = updateFoodOrderStatus;
+
+
+async function terminateAllAdminSessions() {
+    if (!confirm('⚠️ FORCE LOGOUT: Are you sure you want to terminate ALL active admin sessions across all devices?\n\nAll logged-in staff members and managers will be immediately signed out and required to re-enter their passwords.')) {
+        return;
+    }
+
+    try {
+        const res = await fetchWithTimeout('/api/admin/terminate-all-sessions', {
+            method: 'POST',
+            headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        if (data.success) {
+            if (data.new_token) {
+                adminToken = data.new_token;
+                localStorage.setItem('lpuquick_admin_token', adminToken);
+                sessionStorage.setItem('lpuquick_admin_token', adminToken);
+            }
+            showToast('✅ All administrator sessions have been successfully terminated!', 'success');
+        } else {
+            alert('Failed to terminate sessions: ' + (data.error || 'Unknown error'));
+        }
+    } catch (err) {
+        alert('Network error terminating sessions: ' + err.message);
+    }
+}
+window.terminateAllAdminSessions = terminateAllAdminSessions;
+
+
+// ============================================================
+// AUDIT LOGS & IP SECURITY LOGIC
+// ============================================================
+let _cachedAuditLogs = [];
+let _cachedBlockedIps = [];
+
+async function loadAuditLogs() {
+    const tbody = document.getElementById('audit-logs-table-body');
+    const totalStat = document.getElementById('audit-stat-total');
+    if (!tbody) return;
+
+    try {
+        const res = await fetchWithTimeout('/api/admin/audit-logs?limit=250', {
+            headers: getAuthHeaders()
+        }, 12000);
+
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        if (data.success && Array.isArray(data.logs)) {
+            _cachedAuditLogs = data.logs;
+            if (totalStat) totalStat.textContent = String(data.count || data.logs.length);
+            renderAuditLogsTable(_cachedAuditLogs);
+        }
+    } catch (err) {
+        console.warn('[loadAuditLogs Error]:', err);
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-rose-500 font-bold">Failed to load live audit trail. ' + (err.message || '') + '</td></tr>';
+        }
+    }
+}
+window.loadAuditLogs = loadAuditLogs;
+
+function renderAuditLogsTable(logs) {
+    const tbody = document.getElementById('audit-logs-table-body');
+    if (!tbody) return;
+
+    if (!logs || logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="py-10 text-center text-slate-400 font-medium">No audit events found matching criteria.</td></tr>';
+        return;
+    }
+
+    const actionColors = {
+        'HOSTEL_CLOSED': 'bg-rose-100 text-rose-800 border-rose-300',
+        'HOSTEL_OPENED': 'bg-emerald-100 text-emerald-800 border-emerald-300',
+        'HOSTEL': 'bg-amber-100 text-amber-800 border-amber-300',
+        'PRODUCT': 'bg-emerald-100 text-emerald-800 border-emerald-300',
+        'STOCK': 'bg-amber-100 text-amber-800 border-amber-300',
+        'ORDER': 'bg-blue-100 text-blue-800 border-blue-300',
+        'LOGIN': 'bg-purple-100 text-purple-800 border-purple-300',
+        'IP': 'bg-rose-100 text-rose-800 border-rose-300',
+        'TERMINATE': 'bg-red-100 text-red-800 border-red-300',
+        'LOCK': 'bg-orange-100 text-orange-800 border-orange-300',
+        'STAFF': 'bg-indigo-100 text-indigo-800 border-indigo-300',
+        'PAGE_VIEW': 'bg-slate-100 text-slate-700 border-slate-300'
+    };
+
+    function getActionClass(action) {
+        const act = (action || '').toUpperCase();
+        for (const [key, cls] of Object.entries(actionColors)) {
+            if (act.includes(key)) return cls;
+        }
+        return 'bg-slate-100 text-slate-700 border-slate-300';
+    }
+
+    tbody.innerHTML = logs.map(l => {
+        const timeStr = l.created_at ? new Date(l.created_at).toLocaleString('en-IN', {
+            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'
+        }) : 'Recent';
+
+        const meta = l.metadata || {};
+        const ip = meta.ip || 'N/A';
+        const adminName = meta.admin_name || l.admin_id || 'Admin';
+        const adminEmail = meta.admin_email ? '(' + meta.admin_email + ')' : '';
+        const badgeClass = getActionClass(l.action);
+        const reason = l.reason || l.action || 'Administrative action';
+
+        const targetHostel = meta.target_hostel || meta.hostel_id || (l.action && l.action.includes('HOSTEL') ? (reason.match(/hostel[:\s]+([A-Za-z0-9\-_]+)/i)?.[1] || null) : null);
+        const isClosedHostel = l.action === 'HOSTEL_CLOSED' || reason.toLowerCase().includes('closed hostel');
+        const isOpenedHostel = l.action === 'HOSTEL_OPENED' || reason.toLowerCase().includes('opened hostel');
+
+        const hostelBadge = targetHostel ? `
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black ${isClosedHostel ? 'bg-rose-50 text-rose-700 border border-rose-200' : (isOpenedHostel ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200')} shrink-0">
+                <span class="material-symbols-outlined text-[11px]">${isClosedHostel ? 'lock' : (isOpenedHostel ? 'lock_open' : 'domain')}</span>
+                <span>Hostel: ${escapeHtml(targetHostel)}</span>
+            </span>
+        ` : '';
+
+        const blockButton = (ip && ip !== 'N/A' && ip !== '127.0.0.1' && ip !== 'localhost') ? `
+            <button onclick="openIpBlockModal('${ip}')" class="px-2.5 py-1 text-[10px] font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg flex items-center gap-1 transition-all cursor-pointer ml-auto" title="Block IP ${ip}">
+                <span class="material-symbols-outlined text-[13px]">block</span>
+                <span>Block IP</span>
+            </button>
+        ` : `
+            <span class="text-[10px] text-slate-400 font-bold ml-auto">Local / Direct</span>
+        `;
+
+        return `
+            <tr class="hover:bg-slate-50/70 transition-colors">
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 whitespace-nowrap">${timeStr}</td>
+                <td class="py-3 px-4">
+                    <div class="flex items-center gap-2">
+                        <div class="w-6 h-6 rounded-full bg-slate-200 text-slate-700 text-[10px] font-black flex items-center justify-center shrink-0">
+                            ${adminName.charAt(0).toUpperCase()}
+                        </div>
+                        <div class="min-w-0">
+                            <span class="font-bold text-[#181c1f] block truncate">${escapeHtml(adminName)}</span>
+                            <span class="text-[10px] text-slate-400 block truncate">${escapeHtml(adminEmail)}</span>
+                        </div>
+                    </div>
+                </td>
+                <td class="py-3 px-4">
+                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${badgeClass} whitespace-nowrap inline-flex items-center gap-1">
+                        ${isClosedHostel ? '<span class="material-symbols-outlined text-[12px]">lock</span>' : (isOpenedHostel ? '<span class="material-symbols-outlined text-[12px]">lock_open</span>' : '')}
+                        ${escapeHtml(l.action || 'ACTION')}
+                    </span>
+                </td>
+                <td class="py-3 px-4 text-[#181c1f] max-w-sm">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        ${hostelBadge}
+                        <span class="font-semibold text-xs text-[#181c1f] break-all">${escapeHtml(reason)}</span>
+                    </div>
+                </td>
+                <td class="py-3 px-4 font-mono font-bold text-slate-700 whitespace-nowrap">
+                    ${escapeHtml(ip)}
+                </td>
+                <td class="py-3 px-4 text-right whitespace-nowrap">
+                    ${blockButton}
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function filterAuditLogs() {
+    const search = (document.getElementById('audit-log-search')?.value || '').toLowerCase().trim();
+    const filter = (document.getElementById('audit-action-filter')?.value || 'ALL').toUpperCase();
+
+    let filtered = _cachedAuditLogs;
+    if (filter !== 'ALL') {
+        filtered = filtered.filter(l => (l.action || '').toUpperCase().includes(filter));
+    }
+    if (search) {
+        filtered = filtered.filter(l => {
+            const act = (l.action || '').toLowerCase();
+            const reason = (l.reason || '').toLowerCase();
+            const admin = (l.admin_id || '').toLowerCase();
+            const metaStr = l.metadata ? JSON.stringify(l.metadata).toLowerCase() : '';
+            return act.includes(search) || reason.includes(search) || admin.includes(search) || metaStr.includes(search);
+        });
+    }
+    renderAuditLogsTable(filtered);
+}
+window.filterAuditLogs = filterAuditLogs;
+
+async function loadBlockedIps() {
+    const tbody = document.getElementById('blocked-ips-table-body');
+    const badge = document.getElementById('blocked-ips-badge');
+    const statBlocked = document.getElementById('audit-stat-blocked-ips');
+    if (!tbody) return;
+
+    try {
+        const res = await fetchWithTimeout('/api/admin/ip-blocks', {
+            headers: getAuthHeaders()
+        }, 8000);
+
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        if (data.success && Array.isArray(data.blocked_ips)) {
+            _cachedBlockedIps = data.blocked_ips;
+            const count = data.count || data.blocked_ips.length;
+            if (badge) badge.textContent = count + ' IPs';
+            if (statBlocked) statStatBlocked(count);
+            renderBlockedIpsTable(_cachedBlockedIps);
+        }
+    } catch (err) {
+        console.warn('[loadBlockedIps Error]:', err);
+    }
+}
+window.loadBlockedIps = loadBlockedIps;
+
+function statStatBlocked(count) {
+    const el = document.getElementById('audit-stat-blocked-ips');
+    if (el) el.textContent = String(count);
+}
+
+function renderBlockedIpsTable(ips) {
+    const tbody = document.getElementById('blocked-ips-table-body');
+    if (!tbody) return;
+
+    if (!ips || ips.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-slate-400 font-medium">No IPs currently blocked. All campus network access open.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = ips.map(entry => {
+        const dateStr = entry.blocked_at ? new Date(entry.blocked_at).toLocaleString('en-IN', {
+            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+        }) : 'Recent';
+
+        const customMsg = entry.message ? `"${escapeHtml(entry.message)}"` : '<span class="italic text-slate-400">(Blank empty screen)</span>';
+
+        return `
+            <tr class="hover:bg-slate-50 transition-colors">
+                <td class="py-3 px-4 font-mono font-bold text-rose-600">${escapeHtml(entry.ip)}</td>
+                <td class="py-3 px-4 text-slate-500 whitespace-nowrap text-[11px]">${dateStr}</td>
+                <td class="py-3 px-4 font-medium text-slate-700">${escapeHtml(entry.reason || 'Manual block')}</td>
+                <td class="py-3 px-4 text-slate-600 font-mono text-[11px]">${customMsg}</td>
+                <td class="py-3 px-4 text-slate-500">${escapeHtml(entry.blocked_by || 'Admin')}</td>
+                <td class="py-3 px-4 text-right">
+                    <button onclick="unblockIpAddress('${entry.ip}')" class="px-3 py-1 text-xs font-black bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-lg transition-all cursor-pointer">
+                        Unblock
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function openIpBlockModal(targetIp = '') {
+    const modal = document.getElementById('modal-block-ip');
+    const input = document.getElementById('block-ip-input');
+    const reason = document.getElementById('block-ip-reason');
+    const message = document.getElementById('block-ip-message');
+    if (!modal) return;
+
+    if (input) input.value = targetIp || '';
+    if (reason) reason.value = '';
+    if (message) message.value = '';
+
+    modal.classList.remove('hidden');
+    if (input) input.focus();
+}
+window.openIpBlockModal = openIpBlockModal;
+
+function closeIpBlockModal() {
+    const modal = document.getElementById('modal-block-ip');
+    if (modal) modal.classList.add('hidden');
+}
+window.closeIpBlockModal = closeIpBlockModal;
+
+async function handleBlockIpSubmit(event) {
+    if (event) event.preventDefault();
+    const input = document.getElementById('block-ip-input');
+    const reason = document.getElementById('block-ip-reason');
+    const message = document.getElementById('block-ip-message');
+    const submitBtn = document.getElementById('block-ip-submit-btn');
+
+    const ip = (input?.value || '').trim();
+    if (!ip) {
+        showToast('Please enter a valid IP address to block', 'warning');
+        return;
+    }
+
+    try {
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Blocking...';
+        }
+
+        const res = await fetchWithTimeout('/api/admin/ip-block', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                ip,
+                reason: (reason?.value || '').trim() || 'Blocked by administrator',
+                message: (message?.value || '').trim()
+            })
+        }, 10000);
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            throw new Error(data.error || 'Failed to block IP');
+        }
+
+        showToast(`IP ${ip} has been blocked successfully!`, 'success');
+        closeIpBlockModal();
+        await loadBlockedIps();
+        await loadAuditLogs();
+    } catch (err) {
+        showToast('IP Block Error: ' + err.message, 'error');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<span class="material-symbols-outlined text-sm">block</span><span>Confirm Block IP</span>';
+        }
+    }
+}
+window.handleBlockIpSubmit = handleBlockIpSubmit;
+
+async function unblockIpAddress(ip) {
+    if (!ip) return;
+    if (!confirm(`Are you sure you want to UNBLOCK IP ${ip}?`)) return;
+
+    try {
+        const res = await fetchWithTimeout(`/api/admin/ip-block/${encodeURIComponent(ip)}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+        }, 8000);
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            throw new Error(data.error || 'Failed to unblock IP');
+        }
+
+        showToast(`IP ${ip} unblocked successfully!`, 'success');
+        await loadBlockedIps();
+        await loadAuditLogs();
+    } catch (err) {
+        showToast('Unblock Error: ' + err.message, 'error');
+    }
+}
+window.unblockIpAddress = unblockIpAddress;
+
+
+// ============================================================
+// SELECTED HOSTEL OVERVIEW CONTROLLER (360° INTELLIGENCE)
+// ============================================================
+let _selectedHostelIds = ['ALL'];
+let _hostelOverviewRange = 'all';
+let _isMultiHostelMode = false;
+let _cachedHostelOverview = null;
+
+function populateHostelOverviewSelectors() {
+    const select = document.getElementById('ho-hostel-select');
+    const multiContainer = document.getElementById('ho-multi-checkboxes-container');
+    const hostels = (typeof hostelsCache !== 'undefined' && Array.isArray(hostelsCache) && hostelsCache.length > 0)
+        ? hostelsCache
+        : [];
+
+    if (select && select.children.length <= 1 && hostels.length > 0) {
+        select.innerHTML = '<option value="ALL">🏢 All Hostels (All-Campus Aggregate)</option>' +
+            hostels.map(h => `<option value="${h.id}">${escapeHtml(h.name || h.id)} (${h.id})</option>`).join('');
+        if (_selectedHostelIds.length === 1 && _selectedHostelIds[0] !== 'ALL') {
+            select.value = _selectedHostelIds[0];
+        }
+    }
+
+    if (multiContainer && multiContainer.children.length === 0 && hostels.length > 0) {
+        multiContainer.innerHTML = hostels.map(h => {
+            const isChecked = _selectedHostelIds.includes(h.id);
+            return `
+                <label class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer ${isChecked ? 'bg-blue-50 text-[#0066cc] border-blue-300' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'}">
+                    <input type="checkbox" value="${h.id}" ${isChecked ? 'checked' : ''} onchange="onMultiHostelCheckboxChange(this)" class="rounded text-[#0066cc] focus:ring-0 cursor-pointer">
+                    <span>${escapeHtml(h.id)}</span>
+                </label>
+            `;
+        }).join('');
+    }
+}
+window.populateHostelOverviewSelectors = populateHostelOverviewSelectors;
+
+async function loadHostelOverview(forceRefresh = false) {
+    if (!isPlatformOwner()) {
+        showToast('Access restricted: Selected Hostel Overview is restricted to Platform Owner', 'error');
+        switchView('dashboard');
+        return;
+    }
+
+    const lockedCard = document.getElementById('ho-locked-card');
+    const contentContainer = document.getElementById('ho-content-container');
+    const pinBtn = document.getElementById('ho-btn-pin-toggle');
+    const pinIcon = document.getElementById('ho-pin-icon');
+    const pinText = document.getElementById('ho-pin-text');
+    const refreshIcon = document.getElementById('ho-refresh-icon');
+
+    // Update PIN status button display
+    if (financialToken) {
+        if (pinBtn) pinBtn.className = 'bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-full px-3.5 py-1.5 text-xs font-bold text-emerald-800 flex items-center gap-1.5 transition-all shadow-xs cursor-pointer';
+        if (pinIcon) pinIcon.textContent = 'lock_open';
+        if (pinText) pinText.textContent = 'PIN Unlocked';
+    } else {
+        if (pinBtn) pinBtn.className = 'bg-[#f1f4f7] hover:bg-[#e0e3e6] border border-[#DADCE0] rounded-full px-3.5 py-1.5 text-xs font-bold text-[#3c4043] flex items-center gap-1.5 transition-all shadow-xs cursor-pointer';
+        if (pinIcon) pinIcon.textContent = 'lock';
+        if (pinText) pinText.textContent = 'PIN Locked';
+        if (lockedCard) lockedCard.classList.remove('hidden');
+        if (contentContainer) contentContainer.classList.add('hidden');
+        const input = document.getElementById('input-ho-pin');
+        if (input) setTimeout(() => input.focus(), 150);
+        return;
+    }
+
+    if (refreshIcon) refreshIcon.classList.add('animate-spin');
+
+    try {
+        if (typeof loadHostels === 'function' && (!hostelsCache || hostelsCache.length === 0)) {
+            await loadHostels();
+        }
+        populateHostelOverviewSelectors();
+
+        const hostelParam = _isMultiHostelMode 
+            ? (_selectedHostelIds.length > 0 ? _selectedHostelIds.join(',') : 'ALL') 
+            : (_selectedHostelIds[0] || 'ALL');
+
+        const params = new URLSearchParams({
+            hostel_id: hostelParam,
+            range: _hostelOverviewRange
+        });
+
+        if (_hostelOverviewRange === 'custom') {
+            const start = document.getElementById('ho-start-date')?.value;
+            const end = document.getElementById('ho-end-date')?.value;
+            if (start) params.append('start_date', start);
+            if (end) params.append('end_date', end);
+        }
+        if (forceRefresh) params.append('_t', Date.now());
+
+        const res = await fetchWithTimeout(`/api/admin/hostel-overview?${params.toString()}`, {
+            headers: {
+                ...getAuthHeaders(),
+                ...(financialToken ? { 'X-Financial-Token': financialToken } : {})
+            }
+        });
+        const data = await res.json();
+
+        if (data.locked) {
+            // Token expired or invalid
+            financialToken = null;
+            try { sessionStorage.removeItem('lpuquick_financial_token'); } catch (e) {}
+            if (lockedCard) lockedCard.classList.remove('hidden');
+            if (contentContainer) contentContainer.classList.add('hidden');
+            if (pinIcon) pinIcon.textContent = 'lock';
+            if (pinText) pinText.textContent = 'PIN Locked';
+            showToast(data.message || 'Hostel Overview is locked. Please enter your Financial PIN.', 'warning');
+            return;
+        }
+
+        if (data.success && data.summary) {
+            _cachedHostelOverview = data;
+            if (lockedCard) lockedCard.classList.add('hidden');
+            if (contentContainer) contentContainer.classList.remove('hidden');
+            renderHostelOverviewUI(data);
+        } else {
+            showToast(data.error || 'Failed to load hostel overview', 'error');
+        }
+    } catch (err) {
+        console.error('[loadHostelOverview Error]:', err);
+        showToast('Error loading hostel overview: ' + err.message, 'error');
+    } finally {
+        if (refreshIcon) refreshIcon.classList.remove('animate-spin');
+    }
+}
+window.loadHostelOverview = loadHostelOverview;
+
+function renderHostelOverviewUI(data) {
+    if (!data || !data.summary) return;
+    const s = data.summary;
+    const isAll = data.is_all_hostels;
+    const selectedHostels = data.selected_hostels || [];
+
+    // 1. Update Header & Summary Banner
+    const labelEl = document.getElementById('ho-active-hostel-label');
+    const bannerTitle = document.getElementById('ho-banner-title');
+    const bannerSubtitle = document.getElementById('ho-banner-subtitle');
+    const bannerLockBadge = document.getElementById('ho-banner-lock-badge');
+
+    if (isAll) {
+        if (labelEl) labelEl.textContent = 'All Campus Hostels';
+        if (bannerTitle) bannerTitle.textContent = 'All Campus Hostels (Consolidated Dark Stores)';
+        if (bannerSubtitle) bannerSubtitle.textContent = `Aggregating operational intelligence across all ${data.summary.hostels_breakdown?.length || 14} campus dark stores`;
+        if (bannerLockBadge) {
+            bannerLockBadge.className = 'px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-100 text-[#0066cc] border border-blue-300';
+            bannerLockBadge.textContent = 'MULTI-STORE ACTIVE';
+        }
+    } else if (selectedHostels.length === 1) {
+        const hId = selectedHostels[0];
+        const hDetail = s.hostel_details?.find(h => h.id === hId);
+        const name = hDetail?.name || hId;
+        if (labelEl) labelEl.textContent = hId;
+        if (bannerTitle) bannerTitle.textContent = `${name} (${hId})`;
+        if (bannerSubtitle) bannerSubtitle.textContent = `Dedicated 360° analytics and kitchen management for ${name}`;
+        if (bannerLockBadge) {
+            const isLocked = hDetail?.is_locked;
+            bannerLockBadge.className = isLocked 
+                ? 'px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-300'
+                : 'px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300';
+            bannerLockBadge.textContent = isLocked ? 'STORE LOCKED / CLOSED' : 'STORE OPEN (ACCEPTING ORDERS)';
+        }
+    } else {
+        if (labelEl) labelEl.textContent = `${selectedHostels.length} Hostels`;
+        if (bannerTitle) bannerTitle.textContent = `Combined Overview (${selectedHostels.join(', ')})`;
+        if (bannerSubtitle) bannerSubtitle.textContent = `Multi-hostel aggregate for: ${selectedHostels.join(', ')}`;
+        if (bannerLockBadge) {
+            bannerLockBadge.className = 'px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-100 text-purple-800 border border-purple-300';
+            bannerLockBadge.textContent = `${selectedHostels.length} STORES COMBINED`;
+        }
+    }
+
+    // 2. Executive KPI Cards
+    const revEl = document.getElementById('ho-kpi-revenue');
+    if (revEl) revEl.textContent = s.formatted_revenue || '₹0';
+    const subtotalEl = document.getElementById('ho-kpi-subtotal');
+    if (subtotalEl) subtotalEl.textContent = `₹${Math.round(s.subtotal || 0).toLocaleString('en-IN')}`;
+
+    const profitEl = document.getElementById('ho-kpi-profit');
+    if (profitEl) profitEl.textContent = s.formatted_profit || '₹0';
+    const marginEl = document.getElementById('ho-kpi-margin');
+    if (marginEl) marginEl.textContent = `${s.profit_margin_pct || 0}%`;
+
+    const ordersEl = document.getElementById('ho-kpi-orders');
+    if (ordersEl) ordersEl.textContent = String(s.total_orders || 0);
+    const deliveredEl = document.getElementById('ho-kpi-delivered');
+    if (deliveredEl) deliveredEl.textContent = `${s.delivered_orders || 0} Delivered`;
+    const successRateEl = document.getElementById('ho-kpi-success-rate');
+    if (successRateEl) successRateEl.textContent = `${s.delivery_success_rate || 0}%`;
+    const activeCancelledEl = document.getElementById('ho-kpi-active-cancelled');
+    if (activeCancelledEl) activeCancelledEl.textContent = `${s.active_orders || 0} active • ${s.cancelled_orders || 0} cancelled`;
+
+    const aovEl = document.getElementById('ho-kpi-aov');
+    if (aovEl) aovEl.textContent = s.formatted_aov || '₹0';
+    const repeatRateEl = document.getElementById('ho-kpi-repeat-rate');
+    if (repeatRateEl) repeatRateEl.textContent = `${s.customers?.repeat_rate_pct || 0}%`;
+    const uniqueCustEl = document.getElementById('ho-kpi-unique-customers');
+    if (uniqueCustEl) uniqueCustEl.textContent = `${s.customers?.unique_customers_count || 0} unique students`;
+
+    const foodRevEl = document.getElementById('ho-kpi-food-revenue');
+    if (foodRevEl) foodRevEl.textContent = s.food?.formatted_revenue || '₹0';
+    const foodOrdersEl = document.getElementById('ho-kpi-food-orders');
+    if (foodOrdersEl) foodOrdersEl.textContent = `${s.food?.orders_count || 0} Orders`;
+    const foodShareEl = document.getElementById('ho-kpi-food-share');
+    if (foodShareEl) foodShareEl.textContent = `${s.food?.pct_of_total_revenue || 0}% sales`;
+
+    const instockEl = document.getElementById('ho-kpi-instock');
+    if (instockEl) instockEl.textContent = `${s.inventory?.in_stock_count || 0} In Stock`;
+    const lowstockEl = document.getElementById('ho-kpi-lowstock');
+    if (lowstockEl) lowstockEl.textContent = `${s.inventory?.low_stock_count || 0} Low`;
+    const outstockEl = document.getElementById('ho-kpi-outstock');
+    if (outstockEl) outstockEl.textContent = `${s.inventory?.out_of_stock_count || 0} Out`;
+    const totalSkusEl = document.getElementById('ho-kpi-total-skus');
+    if (totalSkusEl) totalSkusEl.textContent = `${s.inventory?.total_products || 0} Total Dark Store SKUs`;
+
+    // 3. Food Department & Kitchen Breakdown
+    const foodPct = s.food?.pct_of_total_revenue || 0;
+    const groceryPct = Math.max(0, 100 - foodPct);
+    const splitLabel = document.getElementById('ho-food-split-label');
+    if (splitLabel) splitLabel.textContent = `${foodPct}% Cooked Food (₹${Math.round(s.food?.revenue || 0).toLocaleString('en-IN')}) • ${groceryPct}% Supermarket`;
+    const foodBar = document.getElementById('ho-food-split-bar');
+    if (foodBar) foodBar.style.width = `${foodPct}%`;
+    const groceryBar = document.getElementById('ho-grocery-split-bar');
+    if (groceryBar) groceryBar.style.width = `${groceryPct}%`;
+
+    // Top Food Table
+    const topFoodBody = document.getElementById('ho-top-food-table-body');
+    if (topFoodBody) {
+        const topFood = s.food?.top_items || [];
+        if (topFood.length === 0) {
+            topFoodBody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-slate-400">No cooked food orders recorded for this period.</td></tr>';
+        } else {
+            topFoodBody.innerHTML = topFood.map(item => `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="py-2.5 flex items-center gap-2">
+                        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300">Cooked</span>
+                        <span class="font-bold text-[#181c1f] truncate">${escapeHtml(item.name)}</span>
+                    </td>
+                    <td class="py-2.5 text-center font-bold text-[#181c1f]">${item.quantity}</td>
+                    <td class="py-2.5 text-right font-mono text-slate-500">₹${item.price}</td>
+                    <td class="py-2.5 text-right font-bold text-amber-700">₹${Math.round(item.revenue).toLocaleString('en-IN')}</td>
+                </tr>
+            `).join('');
+        }
+    }
+
+    // Cooks List
+    const cooksList = document.getElementById('ho-cooks-list');
+    if (cooksList) {
+        const cooks = s.food?.assigned_cooks || [];
+        if (cooks.length === 0) {
+            cooksList.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">No cooks currently assigned to this hostel.</p>';
+        } else {
+            cooksList.innerHTML = cooks.map(c => `
+                <div class="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <div class="w-6 h-6 rounded-full bg-amber-500 text-white text-[10px] font-black flex items-center justify-center shrink-0">
+                            🍳
+                        </div>
+                        <div class="min-w-0">
+                            <span class="font-bold text-xs text-[#181c1f] block truncate">${escapeHtml(c.name)}</span>
+                            <span class="text-[10px] text-slate-400 block truncate">${escapeHtml(c.phone || c.email)}</span>
+                        </div>
+                    </div>
+                    <span class="text-[10px] font-black px-2 py-0.5 rounded-full ${c.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}">
+                        ${c.status}
+                    </span>
+                </div>
+            `).join('');
+        }
+    }
+
+    // 4. Critical Stock Alerts Table
+    const critStockBody = document.getElementById('ho-critical-stock-table-body');
+    if (critStockBody) {
+        const critItems = s.inventory?.critical_items || [];
+        if (critItems.length === 0) {
+            critStockBody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-emerald-600 font-bold">✓ All dark store items have healthy stock levels!</td></tr>';
+        } else {
+            critStockBody.innerHTML = critItems.map(item => `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="py-2 flex items-center gap-1.5">
+                        ${item.is_food ? '<span class="text-xs">🍳</span>' : '<span class="text-xs text-slate-400">📦</span>'}
+                        <span class="font-semibold text-xs text-[#181c1f] truncate">${escapeHtml(item.name)}</span>
+                    </td>
+                    <td class="py-2 text-center text-[10px] font-bold text-slate-500">${escapeHtml(item.hostel_id)}</td>
+                    <td class="py-2 text-center">
+                        <span class="px-2 py-0.5 rounded-md text-[10px] font-black ${item.stock === 0 ? 'bg-rose-100 text-rose-800 border border-rose-200' : 'bg-amber-100 text-amber-800 border border-amber-200'}">
+                            ${item.stock === 0 ? 'OUT OF STOCK' : `Only ${item.stock} left`}
+                        </span>
+                    </td>
+                    <td class="py-2 text-right font-bold text-[#181c1f]">₹${item.price}</td>
+                </tr>
+            `).join('');
+        }
+    }
+
+    // 5. Top Ordering Rooms
+    const roomsList = document.getElementById('ho-top-rooms-list');
+    if (roomsList) {
+        const topRooms = s.customers?.top_rooms || [];
+        if (topRooms.length === 0) {
+            roomsList.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">No room orders recorded yet.</p>';
+        } else {
+            const maxCount = topRooms[0]?.count || 1;
+            roomsList.innerHTML = topRooms.map((r, idx) => {
+                const pct = Math.round((r.count / maxCount) * 100);
+                return `
+                    <div class="flex items-center gap-2 text-xs">
+                        <span class="w-6 text-[11px] font-bold text-slate-400">#${idx + 1}</span>
+                        <span class="w-24 font-bold text-[#181c1f] truncate">Room ${escapeHtml(r.room)}</span>
+                        <div class="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden">
+                            <div class="bg-purple-600 h-full rounded-full" style="width: ${pct}%"></div>
+                        </div>
+                        <span class="font-black text-purple-700 w-12 text-right">${r.count} ord</span>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+
+    // 6. Multi-Hostel Comparison Table
+    const compBody = document.getElementById('ho-comparison-table-body');
+    if (compBody) {
+        const breakdown = s.hostels_breakdown || [];
+        if (breakdown.length === 0) {
+            compBody.innerHTML = '<tr><td colspan="9" class="py-6 text-center text-slate-400">No hostel comparison data available.</td></tr>';
+        } else {
+            compBody.innerHTML = breakdown.map(h => {
+                const isSelected = selectedHostels.includes(h.id);
+                return `
+                    <tr class="hover:bg-slate-50 transition-colors ${isSelected ? 'bg-blue-50/40 font-semibold' : ''}">
+                        <td class="py-2.5 px-3">
+                            <div class="flex items-center gap-1.5">
+                                <span class="font-bold text-xs text-[#181c1f]">${escapeHtml(h.name || h.id)}</span>
+                                <span class="text-[10px] text-slate-400 font-mono">(${escapeHtml(h.id)})</span>
+                            </div>
+                        </td>
+                        <td class="py-2.5 px-3 text-center">
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${h.is_locked ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'}">
+                                ${h.is_locked ? 'Locked' : 'Open'}
+                            </span>
+                        </td>
+                        <td class="py-2.5 px-3 text-center font-bold text-[#181c1f]">${h.total_orders}</td>
+                        <td class="py-2.5 px-3 text-center text-emerald-700 font-bold">${h.delivered_orders}</td>
+                        <td class="py-2.5 px-3 text-right font-black text-[#181c1f]">${h.formatted_revenue}</td>
+                        <td class="py-2.5 px-3 text-right font-bold text-emerald-700">${h.formatted_profit}</td>
+                        <td class="py-2.5 px-3 text-center font-bold text-amber-600">${h.food_orders}</td>
+                        <td class="py-2.5 px-3 text-right font-bold text-amber-700">${h.formatted_food_revenue}</td>
+                        <td class="py-2.5 px-3 text-center">
+                            <button onclick="drillDownToSingleHostel('${h.id}')" class="px-2 py-0.5 text-[10px] font-bold text-[#0066cc] bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-md transition-all cursor-pointer">
+                                View
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    }
+}
+window.renderHostelOverviewUI = renderHostelOverviewUI;
+
+function onHostelOverviewSelectorChange(val) {
+    _selectedHostelIds = [val];
+    loadHostelOverview();
+}
+window.onHostelOverviewSelectorChange = onHostelOverviewSelectorChange;
+
+function setHostelOverviewRange(range) {
+    _hostelOverviewRange = range;
+    document.querySelectorAll('.ho-pill-btn').forEach(btn => {
+        const isCurrent = btn.dataset.hoRange === range;
+        btn.classList.toggle('active', isCurrent);
+        btn.classList.toggle('bg-[#0066cc]', isCurrent);
+        btn.classList.toggle('text-white', isCurrent);
+        btn.classList.toggle('border-[#0066cc]', isCurrent);
+        btn.classList.toggle('bg-[#f1f4f7]', !isCurrent);
+        btn.classList.toggle('text-[#5c5f60]', !isCurrent);
+        btn.classList.toggle('border-transparent', !isCurrent);
+    });
+    loadHostelOverview();
+}
+window.setHostelOverviewRange = setHostelOverviewRange;
+
+function applyCustomHostelOverviewFilter() {
+    _hostelOverviewRange = 'custom';
+    loadHostelOverview();
+}
+window.applyCustomHostelOverviewFilter = applyCustomHostelOverviewFilter;
+
+function toggleMultiHostelMode() {
+    _isMultiHostelMode = !_isMultiHostelMode;
+    const panel = document.getElementById('ho-multi-hostel-panel');
+    const singleWrap = document.getElementById('ho-single-select-wrap');
+    const toggleText = document.getElementById('ho-multi-toggle-text');
+    if (panel) panel.classList.toggle('hidden', !_isMultiHostelMode);
+    if (singleWrap) singleWrap.classList.toggle('hidden', _isMultiHostelMode);
+    if (toggleText) toggleText.textContent = _isMultiHostelMode ? 'Single Hostel Mode' : 'Multi-Hostel Mode';
+
+    if (_isMultiHostelMode) {
+        populateHostelOverviewSelectors();
+    } else {
+        _selectedHostelIds = [document.getElementById('ho-hostel-select')?.value || 'ALL'];
+    }
+    loadHostelOverview();
+}
+window.toggleMultiHostelMode = toggleMultiHostelMode;
+
+function onMultiHostelCheckboxChange(cb) {
+    const checked = Array.from(document.querySelectorAll('#ho-multi-checkboxes-container input[type="checkbox"]:checked')).map(c => c.value);
+    _selectedHostelIds = checked.length > 0 ? checked : ['ALL'];
+    loadHostelOverview();
+}
+window.onMultiHostelCheckboxChange = onMultiHostelCheckboxChange;
+
+function selectMultiHostelsPreset(preset) {
+    const checkboxes = document.querySelectorAll('#ho-multi-checkboxes-container input[type="checkbox"]');
+    checkboxes.forEach(cb => {
+        const val = cb.value.toUpperCase();
+        if (preset === 'ALL') {
+            cb.checked = true;
+        } else if (preset === 'BH') {
+            cb.checked = val.includes('BH') || val.startsWith('B');
+        } else if (preset === 'GH') {
+            cb.checked = val.includes('GH') || val.startsWith('G');
+        } else if (preset === 'CLEAR') {
+            cb.checked = false;
+        }
+    });
+    const checked = Array.from(document.querySelectorAll('#ho-multi-checkboxes-container input[type="checkbox"]:checked')).map(c => c.value);
+    _selectedHostelIds = checked.length > 0 ? checked : ['ALL'];
+    loadHostelOverview();
+}
+window.selectMultiHostelsPreset = selectMultiHostelsPreset;
+
+function drillDownToSingleHostel(hostelId) {
+    if (_isMultiHostelMode) {
+        toggleMultiHostelMode();
+    }
+    const sel = document.getElementById('ho-hostel-select');
+    if (sel) sel.value = hostelId;
+    _selectedHostelIds = [hostelId];
+    loadHostelOverview();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+window.drillDownToSingleHostel = drillDownToSingleHostel;
+
+
+// PIN Security Handlers for Selected Hostel Overview
+async function submitHostelOverviewPinUnlock(e) {
+    if (e) e.preventDefault();
+    const pinInput = document.getElementById('input-ho-pin');
+    const pin = pinInput?.value?.trim();
+    const err = document.getElementById('ho-pin-error');
+    const btn = document.getElementById('btn-ho-unlock');
+
+    if (!pin) {
+        if (err) {
+            err.textContent = 'Please enter your 4-6 digit Owner PIN';
+            err.classList.remove('hidden');
+        }
+        return;
+    }
+
+    if (btn) btn.disabled = true;
+    try {
+        const res = await fetch('/api/admin/financial/unlock', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${adminToken}`,
+                'x-admin-token': adminToken
+            },
+            body: JSON.stringify({ pin })
+        });
+        const data = await res.json();
+        if (data.success && data.financial_token) {
+            financialToken = data.financial_token;
+            try { sessionStorage.setItem('lpuquick_financial_token', financialToken); } catch (e) {}
+            if (err) err.classList.add('hidden');
+            if (pinInput) pinInput.value = '';
+            showToast('✓ Selected Hostel Overview unlocked successfully', 'success');
+            checkFinancialStatus();
+            loadHostelOverview(true);
+        } else {
+            if (err) {
+                err.textContent = data.error || 'Incorrect PIN. Please try again.';
+                err.classList.remove('hidden');
+            }
+        }
+    } catch (err2) {
+        if (err) {
+            err.textContent = 'Connection error. Please try again.';
+            err.classList.remove('hidden');
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+window.submitHostelOverviewPinUnlock = submitHostelOverviewPinUnlock;
+
+function toggleHostelOverviewPinLock() {
+    if (financialToken) {
+        lockFinancialData();
+        loadHostelOverview();
+    } else {
+        const input = document.getElementById('input-ho-pin');
+        if (input) input.focus();
+        else openFinancialUnlockModal();
+    }
+}
+window.toggleHostelOverviewPinLock = toggleHostelOverviewPinLock;
+
+
+// ============================================================
+// CUSTOMER BROADCAST NOTIFICATION SYSTEM (SUPER ADMIN ONLY)
+// ============================================================
+window.broadcastState = {
+    campaigns: [],
+    stats: {},
+    activeFilter: 'all',
+    isLoading: false
+};
+
+const BROADCAST_TEMPLATES = {
+    store_open: {
+        title: "🟢 LPUQuick Store is Now Open! 🛒",
+        body: "Your campus dark store is open for fast delivery. Order late-night snacks, chilled drinks & Maggi directly to your hostel room in 10 minutes!",
+        category: "store_status",
+        imageUrl: "/img/notif_store_open.gif",
+        actionText: "ORDER NOW 🛒",
+        actionUrl: "/#/"
+    },
+    store_close: {
+        title: "🌙 Store Restocking · Reopening Soon",
+        body: "LPUQuick dark store is currently restocking fresh snacks and daily essentials. You can still browse and add your favourites to cart!",
+        category: "store_status",
+        imageUrl: "/img/notif_store_open.gif",
+        actionText: "BROWSE MENU",
+        actionUrl: "/#/"
+    },
+    special_offer: {
+        title: "⚡ Flash Sale: Flat 20% Off Tonight!",
+        body: "Late night study hunger? Grab chips, beverages, chocolates & noodles at flat 20% off. Use promo code QUICK20 at checkout!",
+        category: "special_offer",
+        imageUrl: "/img/notif_near_room.gif",
+        actionText: "CLAIM OFFER ⚡",
+        actionUrl: "/#/"
+    },
+    festival: {
+        title: "🪔 Happy Diwali! Special Festive Combos 🎉",
+        body: "Wishing all campus hostellers joy, prosperity and good vibes! Special Diwali gift snack packs & festive treats now delivering in 10 mins.",
+        category: "festival",
+        imageUrl: "/img/notif_store_open.gif",
+        actionText: "VIEW FESTIVE DROP",
+        actionUrl: "/#/categories"
+    },
+    campus_notice: {
+        title: "📢 Campus Hub Operational Update",
+        body: "All delivery runner routes across campus hostels are running at peak speed today. Average delivery time: 8-10 minutes.",
+        category: "announcement",
+        imageUrl: "",
+        actionText: "TRACK LIVE 📍",
+        actionUrl: "/#/orders"
+    }
+};
+
+async function loadBroadcastNotificationsData() {
+    if (window.broadcastState.isLoading) return;
+    window.broadcastState.isLoading = true;
+
+    try {
+        const token = getAdminAuthToken();
+        const res = await fetch('/api/admin/broadcast-notifications', {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'x-admin-token': token
+            }
+        });
+
+        if (res.status === 403) {
+            showToast('Access Denied: Super Admin authorization required for broadcasts', 'error');
+            switchView('dashboard');
+            return;
+        }
+
+        const data = await res.json();
+        if (!data.success) {
+            showToast(data.error || 'Failed to fetch broadcast data', 'error');
+            return;
+        }
+
+        window.broadcastState.campaigns = data.campaigns || [];
+        window.broadcastState.stats = data.stats || {};
+
+        renderBroadcastStats(data.stats);
+        renderBroadcastHistoryTable();
+        updateBroadcastLivePreview();
+
+    } catch (err) {
+        console.error('[Broadcast Load Error]:', err);
+        showToast('Failed to connect to broadcast notification service', 'error');
+    } finally {
+        window.broadcastState.isLoading = false;
+    }
+}
+
+function renderBroadcastStats(stats) {
+    if (!stats) return;
+
+    const subEl = document.getElementById('broadcast-stat-subscribers');
+    const campEl = document.getElementById('broadcast-stat-total-campaigns');
+    const delivEl = document.getElementById('broadcast-stat-delivered');
+    const ctrEl = document.getElementById('broadcast-stat-ctr');
+    const clicksEl = document.getElementById('broadcast-stat-clicks');
+
+    if (subEl) subEl.textContent = Number(stats.totalSubscribers || 0).toLocaleString();
+    if (campEl) campEl.textContent = Number(stats.totalCampaigns || 0).toLocaleString();
+    if (delivEl) delivEl.textContent = Number(stats.totalDelivered || 0).toLocaleString();
+    if (ctrEl) ctrEl.textContent = stats.clickThroughRate || '0.0%';
+    if (clicksEl) clicksEl.textContent = Number(stats.totalClicks || 0).toLocaleString();
+
+    // Update target count badge
+    const hostelSelect = document.getElementById('broadcast-target-hostel');
+    if (hostelSelect) onTargetHostelChange(hostelSelect);
+}
+
+function renderBroadcastHistoryTable() {
+    const tbody = document.getElementById('broadcast-history-table-body');
+    if (!tbody) return;
+
+    const filter = window.broadcastState.activeFilter || 'all';
+    let list = window.broadcastState.campaigns || [];
+
+    if (filter !== 'all') {
+        list = list.filter(c => c.category === filter);
+    }
+
+    if (list.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center py-8 text-slate-400">
+                    <span class="material-symbols-outlined text-3xl mb-1 text-slate-300">notifications_off</span>
+                    <p class="text-xs">No broadcast campaigns found for this filter.</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    const categoryBadges = {
+        store_status: '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">🏪 Store Status</span>',
+        special_offer: '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">🏷️ Offer</span>',
+        festival: '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-300">🪔 Festive</span>',
+        announcement: '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-300">📣 Notice</span>',
+        general: '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300">✨ General</span>'
+    };
+
+    const statusBadges = {
+        sent: '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">✓ Delivered</span>',
+        scheduled: '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">🕒 Scheduled</span>',
+        pending: '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">⏳ Sending</span>'
+    };
+
+    tbody.innerHTML = list.map(c => {
+        const catBadge = categoryBadges[c.category] || categoryBadges.general;
+        const statBadge = statusBadges[c.status] || statusBadges.sent;
+        const targetLabel = c.targetHostelName || (c.targetHostel === 'all' ? 'All Hostels' : c.targetHostel);
+        const timingStr = c.sentAt ? new Date(c.sentAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : (c.scheduledAt ? `Scheduled: ${new Date(c.scheduledAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}` : 'Recent');
+
+        const delivered = c.stats?.deliveredCount || 0;
+        const total = c.stats?.sentCount || delivered;
+        const clicks = c.stats?.clickedCount || 0;
+        const ctr = delivered > 0 ? ((clicks / delivered) * 100).toFixed(1) + '%' : '0.0%';
+
+        return `
+            <tr class="hover:bg-slate-50 transition-colors">
+                <td class="py-3 px-3">
+                    <div class="font-bold text-slate-900 line-clamp-1 max-w-[260px]">${escapeHtml(c.title)}</div>
+                    <div class="text-[11px] text-slate-500 line-clamp-1 max-w-[280px]">${escapeHtml(c.body)}</div>
+                </td>
+                <td class="py-3 px-3 whitespace-nowrap">${catBadge}</td>
+                <td class="py-3 px-3 whitespace-nowrap">
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-slate-100 text-slate-800">
+                        📍 ${escapeHtml(targetLabel)}
+                    </span>
+                </td>
+                <td class="py-3 px-3 whitespace-nowrap text-slate-500 text-[11px]">${timingStr}</td>
+                <td class="py-3 px-3 whitespace-nowrap">${statBadge}</td>
+                <td class="py-3 px-3 whitespace-nowrap">
+                    <div class="font-bold text-slate-800">${delivered} / ${total}</div>
+                    <div class="text-[10px] text-emerald-600 font-semibold">devices</div>
+                </td>
+                <td class="py-3 px-3 whitespace-nowrap">
+                    <div class="font-bold text-amber-700">${clicks} clicks</div>
+                    <div class="text-[10px] text-slate-400 font-medium">${ctr} CTR</div>
+                </td>
+                <td class="py-3 px-3 whitespace-nowrap text-right">
+                    <div class="flex items-center justify-end gap-1.5">
+                        <button type="button" onclick="resendBroadcastCampaign('${c.id}')"
+                            class="p-1.5 hover:bg-emerald-50 text-emerald-700 rounded-lg transition-all" title="Reuse / Resend Campaign">
+                            <span class="material-symbols-outlined text-base">replay</span>
+                        </button>
+                        <button type="button" onclick="deleteBroadcastCampaign('${c.id}')"
+                            class="p-1.5 hover:bg-rose-50 text-rose-600 rounded-lg transition-all" title="Delete Campaign">
+                            <span class="material-symbols-outlined text-base">delete</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function applyBroadcastTemplate(key) {
+    const tmpl = BROADCAST_TEMPLATES[key];
+    if (!tmpl) return;
+
+    const titleEl = document.getElementById('broadcast-title');
+    const bodyEl = document.getElementById('broadcast-body');
+    const catEl = document.getElementById('broadcast-category');
+    const imgEl = document.getElementById('broadcast-image-url');
+    const actTextEl = document.getElementById('broadcast-action-text');
+    const actUrlEl = document.getElementById('broadcast-action-url');
+
+    if (titleEl) titleEl.value = tmpl.title;
+    if (bodyEl) bodyEl.value = tmpl.body;
+    if (catEl) catEl.value = tmpl.category;
+    if (imgEl) imgEl.value = tmpl.imageUrl;
+    if (actTextEl) actTextEl.value = tmpl.actionText;
+    if (actUrlEl) actUrlEl.value = tmpl.actionUrl;
+
+    updateBroadcastLivePreview();
+    showToast(`✓ Applied ${key.replace('_', ' ')} template`, 'success');
+}
+
+function setBroadcastImage(url) {
+    const imgEl = document.getElementById('broadcast-image-url');
+    if (imgEl) {
+        imgEl.value = url;
+        updateBroadcastLivePreview();
+    }
+}
+
+async function handleBroadcastBannerUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        showToast('Please select a valid image (PNG, JPG, WEBP, or GIF)', 'error');
+        return;
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+        showToast('Image size must be less than 8MB', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('btn-upload-broadcast-banner');
+    const originalContent = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="inline-block animate-spin mr-1">⟳</span><span>Uploading...</span>';
+    }
+
+    try {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const base64Data = e.target.result;
+                const token = getAdminAuthToken();
+
+                const res = await fetch('/api/admin/broadcast-notifications/upload-banner', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                        'x-admin-token': token
+                    },
+                    body: JSON.stringify({
+                        image_data: base64Data,
+                        fileName: file.name
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success && data.url) {
+                    const urlInput = document.getElementById('broadcast-image-url');
+                    if (urlInput) {
+                        urlInput.value = data.url;
+                    }
+                    updateBroadcastLivePreview();
+                    showToast('✓ Banner uploaded successfully!', 'success');
+                } else {
+                    throw new Error(data.error || 'Failed to upload image');
+                }
+            } catch (postErr) {
+                console.error('[Banner Upload Error]:', postErr);
+                showToast(postErr.message || 'Error uploading banner image', 'error');
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalContent;
+                }
+            }
+        };
+        reader.readAsDataURL(file);
+    } catch (err) {
+        console.error('[Upload Reader Error]:', err);
+        showToast(err.message || 'Error reading banner image', 'error');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        }
+    }
+}
+window.handleBroadcastBannerUpload = handleBroadcastBannerUpload;
+
+function updateBroadcastLivePreview() {
+    const title = (document.getElementById('broadcast-title')?.value || '').trim();
+    const body = (document.getElementById('broadcast-body')?.value || '').trim();
+    const category = document.getElementById('broadcast-category')?.value || 'store_status';
+    const imageUrl = (document.getElementById('broadcast-image-url')?.value || '').trim();
+    const actionText = (document.getElementById('broadcast-action-text')?.value || '').trim();
+    const targetHostel = document.getElementById('broadcast-target-hostel')?.value || 'all';
+
+    // Character counters
+    const titleCountEl = document.getElementById('title-char-count');
+    const bodyCountEl = document.getElementById('body-char-count');
+    if (titleCountEl) titleCountEl.textContent = `${title.length}/60`;
+    if (bodyCountEl) bodyCountEl.textContent = `${body.length}/240`;
+
+    // Preview elements
+    const pTitle = document.getElementById('preview-title-display');
+    const pBody = document.getElementById('preview-body-display');
+    const pBannerBox = document.getElementById('preview-banner-container');
+    const pBannerImg = document.getElementById('preview-banner-img');
+    const pActionBtn = document.getElementById('preview-action-btn');
+    const pCatBadge = document.getElementById('preview-category-badge');
+    const pAudience = document.getElementById('preview-audience-tag');
+
+    if (pTitle) {
+        pTitle.textContent = title || '🟢 LPUQuick Store is Now Open! 🛒';
+    }
+    if (pBody) {
+        pBody.textContent = body || 'Order late-night snacks, chilled drinks & Maggi to your room in 10 mins!';
+    }
+
+    if (pCatBadge) {
+        const catMap = {
+            store_status: 'STORE',
+            special_offer: 'OFFER',
+            festival: 'FESTIVE',
+            announcement: 'NOTICE',
+            general: 'LIVE'
+        };
+        pCatBadge.textContent = catMap[category] || 'LIVE';
+    }
+
+    if (pBannerBox && pBannerImg) {
+        if (imageUrl) {
+            pBannerImg.src = imageUrl;
+            pBannerBox.classList.remove('hidden');
+        } else {
+            pBannerBox.classList.add('hidden');
+        }
+    }
+
+    if (pActionBtn) {
+        if (actionText) {
+            pActionBtn.innerHTML = `<span>${escapeHtml(actionText)}</span>`;
+            pActionBtn.classList.remove('hidden');
+        } else {
+            pActionBtn.classList.add('hidden');
+        }
+    }
+
+    if (pAudience) {
+        const targetName = targetHostel === 'all' ? 'All Hostels' : targetHostel;
+        pAudience.textContent = `📍 Target: ${targetName}`;
+    }
+
+    // Update simulator clock
+    const clockEl = document.getElementById('preview-clock-display');
+    if (clockEl) {
+        const d = new Date();
+        const hrs = String(d.getHours() % 12 || 12);
+        const mins = String(d.getMinutes()).padStart(2, '0');
+        clockEl.textContent = `${hrs}:${mins}`;
+    }
+}
+
+function onTargetHostelChange(selectEl) {
+    const val = selectEl.value;
+    const badge = document.getElementById('composer-target-count-badge');
+    const counts = window.broadcastState.stats?.hostelCounts || {};
+
+    if (badge) {
+        if (val === 'all') {
+            const total = window.broadcastState.stats?.totalSubscribers || 0;
+            badge.textContent = `👥 ${total} Devices (All Hostels)`;
+        } else {
+            const hClean = val.toUpperCase().replace('-', '');
+            const count = counts[hClean] || 0;
+            badge.textContent = `📍 ${count} Devices in ${val}`;
+        }
+    }
+    updateBroadcastLivePreview();
+}
+
+function toggleBroadcastSchedulePicker(show) {
+    const container = document.getElementById('schedule-picker-container');
+    if (container) {
+        container.classList.toggle('hidden', !show);
+        if (show) {
+            const dtInput = document.getElementById('broadcast-schedule-datetime');
+            if (dtInput && !dtInput.value) {
+                // Default to 1 hour from now
+                const d = new Date(Date.now() + 3600000);
+                const isoStr = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+                dtInput.value = isoStr;
+            }
+        }
+    }
+}
+
+function clearBroadcastForm() {
+    const titleEl = document.getElementById('broadcast-title');
+    const bodyEl = document.getElementById('broadcast-body');
+    const imgEl = document.getElementById('broadcast-image-url');
+    const actTextEl = document.getElementById('broadcast-action-text');
+    const actUrlEl = document.getElementById('broadcast-action-url');
+    const catEl = document.getElementById('broadcast-category');
+
+    if (titleEl) titleEl.value = '';
+    if (bodyEl) bodyEl.value = '';
+    if (imgEl) imgEl.value = '';
+    if (actTextEl) actTextEl.value = '';
+    if (actUrlEl) actUrlEl.value = '/#/';
+    if (catEl) catEl.value = 'store_status';
+
+    toggleBroadcastSchedulePicker(false);
+    const radioNow = document.querySelector('input[name="broadcast_timing"][value="now"]');
+    if (radioNow) radioNow.checked = true;
+
+    updateBroadcastLivePreview();
+}
+
+function openBroadcastConfirmModal() {
+    const title = (document.getElementById('broadcast-title')?.value || '').trim();
+    const body = (document.getElementById('broadcast-body')?.value || '').trim();
+    const targetHostel = document.getElementById('broadcast-target-hostel')?.value || 'all';
+    const category = document.getElementById('broadcast-category')?.value || 'store_status';
+    const isScheduled = document.querySelector('input[name="broadcast_timing"]:checked')?.value === 'schedule';
+
+    if (!title || title.length < 3) {
+        showToast('Please enter a notification title (minimum 3 characters)', 'warning');
+        document.getElementById('broadcast-title')?.focus();
+        return;
+    }
+    if (!body || body.length < 3) {
+        showToast('Please enter a notification description', 'warning');
+        document.getElementById('broadcast-body')?.focus();
+        return;
+    }
+
+    if (isScheduled) {
+        const dtVal = document.getElementById('broadcast-schedule-datetime')?.value;
+        if (!dtVal || new Date(dtVal) <= new Date()) {
+            showToast('Please select a valid future time for scheduling', 'warning');
+            return;
+        }
+    }
+
+    const modal = document.getElementById('modal-broadcast-confirm');
+    const targetName = targetHostel === 'all' ? 'All Campus Hostels (Universal)' : targetHostel;
+
+    document.getElementById('confirm-modal-target').textContent = targetName;
+    document.getElementById('confirm-modal-category').textContent = category.replace('_', ' ').toUpperCase();
+    document.getElementById('confirm-modal-title').textContent = title;
+    document.getElementById('confirm-modal-body').textContent = body;
+
+    const timingEl = document.getElementById('confirm-modal-timing');
+    if (timingEl) {
+        if (isScheduled) {
+            const dtVal = document.getElementById('broadcast-schedule-datetime')?.value;
+            timingEl.textContent = `🕒 Scheduled for ${new Date(dtVal).toLocaleString()}`;
+        } else {
+            timingEl.textContent = '⚡ Immediately (Real-Time)';
+        }
+    }
+
+    if (modal) modal.classList.remove('hidden');
+}
+
+function closeBroadcastConfirmModal() {
+    const modal = document.getElementById('modal-broadcast-confirm');
+    if (modal) modal.classList.add('hidden');
+}
+
+async function confirmAndDispatchBroadcast() {
+    const submitBtn = document.getElementById('btn-confirm-broadcast-submit');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span><span>Dispatching...</span>';
+    }
+
+    try {
+        const title = (document.getElementById('broadcast-title')?.value || '').trim();
+        const body = (document.getElementById('broadcast-body')?.value || '').trim();
+        const targetHostel = document.getElementById('broadcast-target-hostel')?.value || 'all';
+        const targetHostelName = targetHostel === 'all' ? 'All Hostels' : targetHostel;
+        const category = document.getElementById('broadcast-category')?.value || 'store_status';
+        const imageUrl = (document.getElementById('broadcast-image-url')?.value || '').trim();
+        const actionText = (document.getElementById('broadcast-action-text')?.value || '').trim();
+        const actionUrl = (document.getElementById('broadcast-action-url')?.value || '/#/').trim();
+        const isScheduled = document.querySelector('input[name="broadcast_timing"]:checked')?.value === 'schedule';
+
+        const token = getAdminAuthToken();
+        const endpoint = isScheduled ? '/api/admin/broadcast-notifications/schedule' : '/api/admin/broadcast-notifications/send';
+
+        const payload = {
+            title,
+            body,
+            targetHostel,
+            targetHostelName,
+            category,
+            imageUrl,
+            actionText,
+            actionUrl
+        };
+
+        if (isScheduled) {
+            payload.scheduledAt = document.getElementById('broadcast-schedule-datetime')?.value;
+        }
+
+        const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'x-admin-token': token
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to dispatch broadcast');
+        }
+
+        closeBroadcastConfirmModal();
+        clearBroadcastForm();
+
+        const successMsg = isScheduled
+            ? `🕒 Broadcast scheduled successfully!`
+            : `🚀 Broadcast dispatched to ${data.campaign?.stats?.deliveredCount || 0} student device(s)!`;
+
+        showToast(successMsg, 'success');
+        await loadBroadcastNotificationsData();
+
+    } catch (err) {
+        console.error('[Dispatch Broadcast Error]:', err);
+        showToast(err.message || 'Error broadcasting notification', 'error');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<span class="material-symbols-outlined text-sm">send</span><span>Confirm & Broadcast</span>';
+        }
+    }
+}
+
+async function sendBroadcastTestPush() {
+    try {
+        const title = (document.getElementById('broadcast-title')?.value || '').trim() || '🟢 LPUQuick Store is Now Open! 🛒';
+        const body = (document.getElementById('broadcast-body')?.value || '').trim() || 'Your campus dark store is open for fast delivery. Order late-night snacks directly to your hostel room in 10 minutes!';
+        const imageUrl = (document.getElementById('broadcast-image-url')?.value || '').trim() || '/img/notif_store_open.gif';
+        const actionText = (document.getElementById('broadcast-action-text')?.value || '').trim() || 'ORDER NOW 🛒';
+        const actionUrl = (document.getElementById('broadcast-action-url')?.value || '/#/').trim();
+
+        const token = getAdminAuthToken();
+        showToast('📡 Sending test push to your phone...', 'info');
+
+        const res = await fetch('/api/admin/broadcast-notifications/test', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'x-admin-token': token
+            },
+            body: JSON.stringify({
+                title,
+                body,
+                imageUrl,
+                actionText,
+                actionUrl
+            })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+            showToast(`🔔 Test push received on your device (${data.result?.delivered || 1} delivered)!`, 'success');
+        } else {
+            showToast(data.error || 'Please ensure your browser has granted notification permission in admin portal', 'warning');
+        }
+    } catch (e) {
+        console.error(e);
+        showToast('Failed to dispatch test notification', 'error');
+    }
+}
+
+async function deleteBroadcastCampaign(campaignId) {
+    if (!confirm('Are you sure you want to remove this campaign record from history?')) return;
+
+    try {
+        const token = getAdminAuthToken();
+        const res = await fetch(`/api/admin/broadcast-notifications/${campaignId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'x-admin-token': token
+            }
+        });
+
+        const data = await res.json();
+        if (data.success) {
+            showToast('✓ Campaign removed from history', 'success');
+            await loadBroadcastNotificationsData();
+        } else {
+            showToast(data.error || 'Failed to remove campaign', 'error');
+        }
+    } catch (err) {
+        showToast('Error removing campaign', 'error');
+    }
+}
+
+function resendBroadcastCampaign(campaignId) {
+    const camp = window.broadcastState.campaigns.find(c => c.id === campaignId);
+    if (!camp) return;
+
+    const titleEl = document.getElementById('broadcast-title');
+    const bodyEl = document.getElementById('broadcast-body');
+    const catEl = document.getElementById('broadcast-category');
+    const imgEl = document.getElementById('broadcast-image-url');
+    const actTextEl = document.getElementById('broadcast-action-text');
+    const actUrlEl = document.getElementById('broadcast-action-url');
+    const targetEl = document.getElementById('broadcast-target-hostel');
+
+    if (titleEl) titleEl.value = camp.title;
+    if (bodyEl) bodyEl.value = camp.body;
+    if (catEl) catEl.value = camp.category || 'general';
+    if (imgEl) imgEl.value = camp.imageUrl || '';
+    if (actTextEl) actTextEl.value = camp.actionText || '';
+    if (actUrlEl) actUrlEl.value = camp.actionUrl || '/#/';
+    if (targetEl && camp.targetHostel) targetEl.value = camp.targetHostel;
+
+    updateBroadcastLivePreview();
+
+    const composerSec = document.getElementById('broadcast-title');
+    if (composerSec) {
+        composerSec.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        composerSec.focus();
+    }
+    showToast('✓ Loaded campaign into composer. Review and tap Broadcast to send.', 'info');
+}
+
+function filterCampaignHistory(filterKey) {
+    window.broadcastState.activeFilter = filterKey;
+    document.querySelectorAll('.camp-filter-btn').forEach(btn => {
+        const isActive = btn.dataset.filter === filterKey;
+        btn.classList.toggle('active', isActive);
+        btn.classList.toggle('bg-slate-900', isActive);
+        btn.classList.toggle('text-white', isActive);
+        btn.classList.toggle('bg-slate-100', !isActive);
+        btn.classList.toggle('text-slate-700', !isActive);
+    });
+    renderBroadcastHistoryTable();
+}
+
+window.loadBroadcastNotificationsData = loadBroadcastNotificationsData;
+window.applyBroadcastTemplate = applyBroadcastTemplate;
+window.setBroadcastImage = setBroadcastImage;
+window.updateBroadcastLivePreview = updateBroadcastLivePreview;
+window.onTargetHostelChange = onTargetHostelChange;
+window.toggleBroadcastSchedulePicker = toggleBroadcastSchedulePicker;
+window.clearBroadcastForm = clearBroadcastForm;
+window.openBroadcastConfirmModal = openBroadcastConfirmModal;
+window.closeBroadcastConfirmModal = closeBroadcastConfirmModal;
+window.confirmAndDispatchBroadcast = confirmAndDispatchBroadcast;
+window.sendBroadcastTestPush = sendBroadcastTestPush;
+window.deleteBroadcastCampaign = deleteBroadcastCampaign;
+window.resendBroadcastCampaign = resendBroadcastCampaign;
+window.filterCampaignHistory = filterCampaignHistory;
+
+
+// =========================================================================
+// PARTNERSHIP MANAGEMENT SYSTEM & FINANCIAL CONTROLLER
+// Partner Controller Alias
+// Partner Controller Alias (already defined globally)
+if (typeof window.adminFetch === 'undefined') window.adminFetch = window.authFetch || fetch;
+
+// =========================================================================
+
+const PARTNER_CAMPUS_HOSTELS = [
+    'BH-1', 'BH-4', 'BH-5', 'BH-6', 'BH-11', 'BH-12', 'BH-13',
+    'GH-1', 'GH-2', 'GH-3', 'GH-4', 'GH-6', 'GH-11', 'GH-12'
+];
+
+let activeProfitPeriod = 'today';
+
+function formatPartnerCurrency(val) {
+    const num = Number(val) || 0;
+    return '₹' + num.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+}
+
+/**
+ * 1. Load Partnership Overview (10 KPIs)
+ */
+async function loadPartnerOverview() {
+    try {
+        const res = await authFetch('/api/admin/partners/overview');
+        const json = await res.json();
+        if (!json.success || !json.data) throw new Error(json.error || 'Failed to load overview');
+
+        const d = json.data;
+        const setEl = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val;
+        };
+
+        setEl('po-kpi-total-partners', d.total_partners || 0);
+        setEl('po-kpi-active-partners', d.active_partners || 0);
+        setEl('po-kpi-assigned-hostels', d.total_assigned_hostels || 0);
+        setEl('po-kpi-investments', formatPartnerCurrency(d.total_partner_investments));
+        setEl('po-kpi-revenue', formatPartnerCurrency(d.combined_revenue));
+        setEl('po-kpi-expenses', formatPartnerCurrency(d.combined_business_expenses));
+        setEl('po-kpi-net-profit', formatPartnerCurrency(d.combined_net_profit));
+        setEl('po-kpi-partner-share', formatPartnerCurrency(d.total_partner_profit_share));
+        setEl('po-kpi-paid', formatPartnerCurrency(d.total_paid_to_partners));
+        setEl('po-kpi-pending', formatPartnerCurrency(d.pending_partner_payments));
+    } catch (err) {
+        console.error('loadPartnerOverview error:', err);
+        showToast(err.message, 'error');
+    }
+}
+
+/**
+ * 2. Add New Partner View Initializer
+ */
+function initAddPartnerView() {
+    const grid = document.getElementById('add-partner-hostels-grid');
+    if (grid) {
+        const hostels = (typeof PARTNER_CAMPUS_HOSTELS !== 'undefined' && Array.isArray(PARTNER_CAMPUS_HOSTELS) && PARTNER_CAMPUS_HOSTELS.length > 0)
+            ? PARTNER_CAMPUS_HOSTELS
+            : ['BH-1', 'BH-4', 'BH-5', 'BH-6', 'BH-11', 'BH-12', 'BH-13', 'GH-1', 'GH-2', 'GH-3', 'GH-4', 'GH-6', 'GH-11', 'GH-12'];
+        grid.innerHTML = hostels.map(h => `
+            <label class="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-[#DADCE0] hover:border-[#0066cc] hover:shadow-xs cursor-pointer text-xs font-bold text-slate-800 transition-all">
+                <input type="checkbox" name="add_partner_hostels" value="${h}" class="rounded text-[#0066cc] focus:ring-blue-500 w-4 h-4 cursor-pointer">
+                <span>${h}</span>
+            </label>
+        `).join('');
+    }
+
+    const dateInput = document.getElementById('add-partner-start-date');
+    if (dateInput && !dateInput.value) {
+        dateInput.value = new Date().toISOString().split('T')[0];
+    }
+}
+
+function selectAllAddPartnerHostels(select) {
+    document.querySelectorAll('input[name="add_partner_hostels"]').forEach(cb => {
+        cb.checked = select;
+    });
+}
+
+async function submitAddNewPartner(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btn-submit-add-partner');
+    btn.disabled = true;
+    btn.innerHTML = `<span class="inline-block animate-spin mr-1">◌</span> Creating...`;
+
+    try {
+        const name = document.getElementById('add-partner-name').value.trim();
+        const email = document.getElementById('add-partner-email').value.trim();
+        const phone = document.getElementById('add-partner-phone').value.trim();
+        const partner_id = document.getElementById('add-partner-id').value.trim();
+        const password = document.getElementById('add-partner-password').value;
+        const investment_amount = document.getElementById('add-partner-investment').value;
+        const transaction_reference = document.getElementById('add-partner-inv-ref').value.trim();
+        const profit_sharing_percentage = document.getElementById('add-partner-profit-pct').value;
+        const partnership_start_date = document.getElementById('add-partner-start-date').value;
+        const status = document.getElementById('add-partner-status').value;
+
+        const assignedHostels = Array.from(document.querySelectorAll('input[name="add_partner_hostels"]:checked'))
+            .map(cb => cb.value);
+
+        if (assignedHostels.length === 0) {
+            throw new Error('Please assign at least one campus hostel to this partner');
+        }
+
+        const res = await authFetch('/api/admin/partners', {
+            method: 'POST',
+            body: JSON.stringify({
+                name,
+                email,
+                phone,
+                partner_id: partner_id || undefined,
+                password,
+                investment_amount,
+                transaction_reference,
+                profit_sharing_percentage,
+                partnership_start_date,
+                status,
+                assigned_hostels: assignedHostels
+            })
+        });
+
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to create partner');
+
+        showToast(`Partner ${name} created successfully!`, 'success');
+        document.getElementById('form-add-partner').reset();
+        switchView('partners-manage');
+    } catch (err) {
+        showToast(err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span class="material-symbols-outlined text-sm">check</span><span>Create Partner Account</span>`;
+    }
+}
+
+/**
+ * 3. Manage Partners List
+ */
+async function loadPartnersList() {
+    const tbody = document.getElementById('partners-manage-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-400">Loading partners...</td></tr>`;
+
+    try {
+        const res = await authFetch('/api/admin/partners');
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to load partners');
+
+        const partners = json.data || [];
+        if (partners.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-400">No partners registered yet. Click "Add Partner" to create one.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = partners.map(p => {
+            const hostelsBadges = (p.assigned_hostels || []).map(h => `
+                <span class="inline-block px-1.5 py-0.5 rounded bg-blue-50 text-[#0066cc] border border-blue-200 text-[10px] font-bold mr-1 mb-1">${h}</span>
+            `).join('') || '<span class="text-slate-400 italic">None</span>';
+
+            const summary = p.summary || {};
+            const isAct = p.status === 'ACTIVE';
+
+            return `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="p-3.5">
+                        <p class="font-bold text-slate-900">${p.name}</p>
+                        <p class="text-[11px] text-slate-500">${p.email} • ${p.phone || ''}</p>
+                    </td>
+                    <td class="p-3.5 font-mono text-[11px] font-bold text-slate-700">${p.partner_id || p.id}</td>
+                    <td class="p-3.5">${hostelsBadges}</td>
+                    <td class="p-3.5 text-right font-black text-purple-700">${formatPartnerCurrency(p.investment_amount || 0)}</td>
+                    <td class="p-3.5 text-center"><span class="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-bold text-[10px]">${p.profit_sharing_percentage || 50}%</span></td>
+                    <td class="p-3.5 text-right font-bold text-slate-900">${formatPartnerCurrency(summary.revenue || 0)}</td>
+                    <td class="p-3.5 text-right font-black text-rose-700">${formatPartnerCurrency(summary.pending_payment || 0)}</td>
+                    <td class="p-3.5 text-center">
+                        <button onclick="togglePartnerStatus('${p.id}', '${isAct ? 'INACTIVE' : 'ACTIVE'}')" class="px-2.5 py-1 rounded-full text-[10px] font-bold ${isAct ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'} cursor-pointer">
+                            ${p.status}
+                        </button>
+                    </td>
+                    <td class="p-3.5 text-right">
+                        <div class="flex items-center justify-end gap-1.5">
+                            <button onclick="openEditPartnerModal('${p.id}')" class="p-1.5 text-slate-600 hover:text-blue-600 rounded-lg hover:bg-slate-100 transition-colors" title="Edit Partner">
+                                <span class="material-symbols-outlined text-base">edit</span>
+                            </button>
+                            <button onclick="openResetPartnerPasswordModal('${p.id}', '${p.name}')" class="p-1.5 text-slate-600 hover:text-indigo-600 rounded-lg hover:bg-slate-100 transition-colors" title="Reset Password">
+                                <span class="material-symbols-outlined text-base">lock_reset</span>
+                            </button>
+                            <button onclick="deletePartner('${p.id}', '${p.name}')" class="p-1.5 text-slate-600 hover:text-rose-600 rounded-lg hover:bg-slate-100 transition-colors" title="Delete Partner">
+                                <span class="material-symbols-outlined text-base">delete</span>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-rose-500 font-bold">${err.message}</td></tr>`;
+    }
+}
+
+async function togglePartnerStatus(id, newStatus) {
+    try {
+        const res = await authFetch(`/api/admin/partners/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: newStatus })
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to update status');
+        showToast(`Partner status updated to ${newStatus}`, 'success');
+        loadPartnersList();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+async function openEditPartnerModal(id) {
+    try {
+        const res = await authFetch(`/api/admin/partners/${id}`);
+        const json = await res.json();
+        if (!json.success || !json.data) throw new Error('Partner not found');
+
+        const p = json.data.partner;
+        document.getElementById('edit-partner-id').value = p.id;
+        document.getElementById('edit-partner-name').value = p.name;
+        document.getElementById('edit-partner-phone').value = p.phone || '';
+        document.getElementById('edit-partner-profit-pct').value = p.profit_sharing_percentage || 50;
+        document.getElementById('edit-partner-status').value = p.status || 'ACTIVE';
+
+        const assigned = p.assigned_hostels || [];
+        const grid = document.getElementById('edit-partner-hostels-grid');
+        grid.innerHTML = PARTNER_CAMPUS_HOSTELS.map(h => `
+            <label class="flex items-center gap-1.5 p-1.5 rounded-lg bg-white border border-[#DADCE0] text-[11px] font-bold text-slate-800">
+                <input type="checkbox" name="edit_partner_hostels" value="${h}" ${assigned.includes(h) ? 'checked' : ''} class="rounded text-[#0066cc]">
+                <span>${h}</span>
+            </label>
+        `).join('');
+
+        document.getElementById('modal-edit-partner').classList.remove('hidden');
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+function closeEditPartnerModal() {
+    document.getElementById('modal-edit-partner').classList.add('hidden');
+}
+
+async function submitEditPartner(e) {
+    e.preventDefault();
+    const id = document.getElementById('edit-partner-id').value;
+    const name = document.getElementById('edit-partner-name').value.trim();
+    const phone = document.getElementById('edit-partner-phone').value.trim();
+    const profit_sharing_percentage = document.getElementById('edit-partner-profit-pct').value;
+    const status = document.getElementById('edit-partner-status').value;
+
+    const assigned_hostels = Array.from(document.querySelectorAll('input[name="edit_partner_hostels"]:checked'))
+        .map(cb => cb.value);
+
+    try {
+        const res = await authFetch(`/api/admin/partners/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                name,
+                phone,
+                profit_sharing_percentage,
+                status,
+                assigned_hostels
+            })
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to update partner');
+
+        showToast('Partner details updated successfully', 'success');
+        closeEditPartnerModal();
+        loadPartnersList();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+function openResetPartnerPasswordModal(id, name) {
+    document.getElementById('reset-partner-id').value = id;
+    document.getElementById('reset-partner-name').textContent = name;
+    document.getElementById('reset-partner-new-pass').value = '';
+    document.getElementById('modal-reset-partner-password').classList.remove('hidden');
+}
+
+function closeResetPasswordModal() {
+    document.getElementById('modal-reset-partner-password').classList.add('hidden');
+}
+
+async function submitResetPartnerPassword(e) {
+    e.preventDefault();
+    const id = document.getElementById('reset-partner-id').value;
+    const newPassword = document.getElementById('reset-partner-new-pass').value;
+
+    try {
+        const res = await authFetch(`/api/admin/partners/${id}/reset-password`, {
+            method: 'POST',
+            body: JSON.stringify({ newPassword })
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to reset password');
+
+        showToast('Password reset successfully', 'success');
+        closeResetPasswordModal();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function deletePartner(id, name) {
+    if (!confirm(`Are you sure you want to delete partner "${name}"? This action removes login access and archives their profile.`)) {
+        return;
+    }
+
+    try {
+        const res = await authFetch(`/api/admin/partners/${id}`, { method: 'DELETE' });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to delete partner');
+
+        showToast('Partner removed successfully', 'success');
+        loadPartnersList();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+/**
+ * 4. Hostel Assignment Matrix
+ */
+async function loadHostelsMatrix() {
+    const grid = document.getElementById('hostels-matrix-grid');
+    if (!grid) return;
+    grid.innerHTML = `<div class="col-span-full py-12 text-center text-slate-400 text-xs font-semibold">Loading hostel assignment matrix...</div>`;
+
+    try {
+        const res = await authFetch('/api/admin/partners/meta/hostels-matrix');
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to load matrix');
+
+        const matrix = json.data || [];
+        grid.innerHTML = matrix.map(h => {
+            const isAssigned = h.is_assigned;
+            const partners = h.assigned_partners || [];
+
+            return `
+                <div class="p-4 rounded-2xl bg-white border border-[#DADCE0] shadow-xs flex flex-col justify-between hover:border-[#0066cc] transition-all">
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-black text-slate-900">${h.id}</span>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${isAssigned ? 'bg-blue-50 text-[#0066cc] border border-blue-200' : 'bg-slate-100 text-slate-500'}">
+                                ${isAssigned ? 'Assigned' : 'Unassigned'}
+                            </span>
+                        </div>
+                        <p class="text-xs font-medium text-slate-600">${h.name}</p>
+
+                        <div class="mt-3 pt-2 border-t border-slate-100 space-y-1">
+                            ${isAssigned ? partners.map(p => `
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="font-bold text-slate-800 flex items-center gap-1">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                                        <span>${p.name}</span>
+                                    </span>
+                                    <span class="text-[11px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">${p.profit_share}%</span>
+                                </div>
+                            `).join('') : '<p class="text-[11px] text-slate-400 italic">No partner assigned</p>'}
+                        </div>
+                    </div>
+
+                    <div class="mt-4 pt-3 border-t border-slate-100">
+                        <button onclick="switchView('partners-manage')" class="w-full py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-[11px] font-bold text-slate-700 transition-colors cursor-pointer">
+                            Manage Assignment
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (err) {
+        grid.innerHTML = `<div class="col-span-full py-6 text-center text-rose-500 font-bold">${err.message}</div>`;
+    }
+}
+
+/**
+ * 5. Investment Management
+ */
+async function loadPartnerInvestments() {
+    const tbody = document.getElementById('investments-table-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Loading investments...</td></tr>`;
+
+    try {
+        const res = await authFetch('/api/admin/partners/meta/investments');
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to load investments');
+
+        const s = json.summary || {};
+        document.getElementById('inv-summary-initial').textContent = formatPartnerCurrency(s.total_initial || 0);
+        document.getElementById('inv-summary-additional').textContent = formatPartnerCurrency(s.total_additional || 0);
+        document.getElementById('inv-summary-total').textContent = formatPartnerCurrency(s.total_investment || 0);
+
+        const investments = json.data || [];
+        if (investments.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">No investment records found.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = investments.map(i => `
+            <tr class="hover:bg-slate-50 transition-colors">
+                <td class="p-3.5 font-bold text-slate-800">${i.investment_date || '--'}</td>
+                <td class="p-3.5 font-black text-slate-900">${i.partner_name || 'Partner'}</td>
+                <td class="p-3.5 font-bold text-slate-700">${i.hostel_id || 'GENERAL'}</td>
+                <td class="p-3.5 text-right font-black text-purple-700">${formatPartnerCurrency(i.amount)}</td>
+                <td class="p-3.5 text-center">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${i.investment_type === 'INITIAL' ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}">
+                        ${i.investment_type}
+                    </span>
+                </td>
+                <td class="p-3.5 font-mono text-[11px] text-slate-600">${i.transaction_reference || 'N/A'}</td>
+                <td class="p-3.5 text-slate-500 text-xs">${i.description || 'Capital contribution'}</td>
+            </tr>
+        `).join('');
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-rose-500 font-bold">${e.message}</td></tr>`;
+    }
+}
+
+async function openRecordInvestmentModal() {
+    try {
+        const res = await authFetch('/api/admin/partners');
+        const json = await res.json();
+        const partners = json.data || [];
+
+        const sel = document.getElementById('modal-inv-partner-id');
+        sel.innerHTML = partners.map(p => `<option value="${p.id}">${p.name} (${p.partner_id || p.id})</option>`).join('');
+
+        const hostelSel = document.getElementById('modal-inv-hostel');
+        hostelSel.innerHTML = '<option value="GENERAL">General / Platform Capital</option>' +
+            PARTNER_CAMPUS_HOSTELS.map(h => `<option value="${h}">Hostel ${h}</option>`).join('');
+
+        document.getElementById('modal-inv-amount').value = '';
+        document.getElementById('modal-inv-ref').value = '';
+        document.getElementById('modal-inv-desc').value = '';
+        document.getElementById('modal-record-investment').classList.remove('hidden');
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+function closeRecordInvestmentModal() {
+    document.getElementById('modal-record-investment').classList.add('hidden');
+}
+
+async function submitRecordInvestment(e) {
+    e.preventDefault();
+    const partner_id = document.getElementById('modal-inv-partner-id').value;
+    const amount = document.getElementById('modal-inv-amount').value;
+    const investment_type = document.getElementById('modal-inv-type').value;
+    const hostel_id = document.getElementById('modal-inv-hostel').value;
+    const transaction_reference = document.getElementById('modal-inv-ref').value.trim();
+    const description = document.getElementById('modal-inv-desc').value.trim();
+
+    try {
+        const res = await authFetch('/api/admin/partners/meta/investments', {
+            method: 'POST',
+            body: JSON.stringify({
+                partner_id,
+                amount,
+                investment_type,
+                hostel_id,
+                transaction_reference,
+                description
+            })
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to record investment');
+
+        showToast('Investment recorded successfully', 'success');
+        closeRecordInvestmentModal();
+        loadPartnerInvestments();
+        loadPartnerOverview();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+/**
+ * 6. Profit Management
+ */
+function setProfitPeriod(p) {
+    activeProfitPeriod = p;
+    document.querySelectorAll('.profit-period-btn').forEach(btn => {
+        if (btn.getAttribute('data-period') === p) {
+            btn.className = 'profit-period-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-600 text-white';
+        } else {
+            btn.className = 'profit-period-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200';
+        }
+    });
+    loadPartnerProfits();
+}
+
+async function loadPartnerProfits() {
+    const tbody = document.getElementById('profit-hostel-breakdown-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">Loading profit data...</td></tr>`;
+
+    try {
+        let startDate = null;
+        let endDate = null;
+        const now = new Date();
+        const todayStr = now.toISOString().split('T')[0];
+
+        if (activeProfitPeriod === 'today') {
+            startDate = todayStr;
+            endDate = todayStr;
+        } else if (activeProfitPeriod === 'yesterday') {
+            const yDate = new Date();
+            yDate.setDate(yDate.getDate() - 1);
+            startDate = yDate.toISOString().split('T')[0];
+            endDate = startDate;
+        } else if (activeProfitPeriod === 'last_7_days') {
+            const d7 = new Date();
+            d7.setDate(d7.getDate() - 7);
+            startDate = d7.toISOString().split('T')[0];
+            endDate = todayStr;
+        } else if (activeProfitPeriod === 'last_30_days') {
+            const d30 = new Date();
+            d30.setDate(d30.getDate() - 30);
+            startDate = d30.toISOString().split('T')[0];
+            endDate = todayStr;
+        } else if (activeProfitPeriod === 'this_month') {
+            startDate = todayStr.substring(0, 7) + '-01';
+            endDate = todayStr;
+        }
+
+        let url = '/api/admin/partners/meta/profits';
+        const params = [];
+        if (startDate) params.push(`start_date=${startDate}`);
+        if (endDate) params.push(`end_date=${endDate}`);
+        if (params.length > 0) url += '?' + params.join('&');
+
+        const res = await authFetch(url);
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to calculate profits');
+
+        const f = json.financials || {};
+        document.getElementById('profit-kpi-revenue').textContent = formatPartnerCurrency(f.gross_revenue || 0);
+        document.getElementById('profit-kpi-product-costs').textContent = formatPartnerCurrency(f.product_costs || 0);
+        document.getElementById('profit-kpi-expenses').textContent = formatPartnerCurrency(f.total_expenses - (f.product_costs || 0));
+        document.getElementById('profit-kpi-net').textContent = formatPartnerCurrency(f.net_profit || 0);
+        document.getElementById('profit-kpi-partner-share').textContent = formatPartnerCurrency(json.total_partner_profit_share || 0);
+        document.getElementById('profit-kpi-owner-share').textContent = formatPartnerCurrency(json.owner_profit_share || 0);
+
+        const breakdown = f.hostel_breakdown || {};
+        const keys = Object.keys(breakdown);
+        if (keys.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">No delivered orders for this period</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = keys.map(k => {
+            const h = breakdown[k];
+            const operating = (h.total_expenses || 0) - (h.product_costs || 0);
+            return `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="p-3.5 font-bold text-slate-900">${h.hostel_id}</td>
+                    <td class="p-3.5">${h.completed_orders} / ${h.total_orders}</td>
+                    <td class="p-3.5 text-right font-black text-[#0066cc]">${formatPartnerCurrency(h.revenue)}</td>
+                    <td class="p-3.5 text-right text-slate-700 font-medium">${formatPartnerCurrency(h.product_costs)}</td>
+                    <td class="p-3.5 text-right text-rose-700 font-medium">${formatPartnerCurrency(operating)}</td>
+                    <td class="p-3.5 text-right font-black text-emerald-800">${formatPartnerCurrency(h.net_profit)}</td>
+                </tr>
+            `;
+        }).join('');
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-rose-500 font-bold">${err.message}</td></tr>`;
+    }
+}
+
+function openRecordExpenseModal() {
+    const sel = document.getElementById('modal-exp-hostel-id');
+    sel.innerHTML = '<option value="ALL">All Hostels (Shared Operating Expense)</option>' +
+        PARTNER_CAMPUS_HOSTELS.map(h => `<option value="${h}">Hostel ${h}</option>`).join('');
+
+    document.getElementById('modal-exp-amount').value = '';
+    document.getElementById('modal-exp-desc').value = '';
+    document.getElementById('modal-exp-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('modal-record-expense').classList.remove('hidden');
+}
+
+function closeRecordExpenseModal() {
+    document.getElementById('modal-record-expense').classList.add('hidden');
+}
+
+async function submitRecordExpense(e) {
+    e.preventDefault();
+    const hostel_id = document.getElementById('modal-exp-hostel-id').value;
+    const category = document.getElementById('modal-exp-category').value;
+    const amount = document.getElementById('modal-exp-amount').value;
+    const date = document.getElementById('modal-exp-date').value;
+    const description = document.getElementById('modal-exp-desc').value.trim();
+
+    try {
+        const res = await authFetch('/api/admin/partners/meta/expenses', {
+            method: 'POST',
+            body: JSON.stringify({ hostel_id, category, amount, date, description })
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to record expense');
+
+        showToast('Operating expense recorded successfully', 'success');
+        closeRecordExpenseModal();
+        loadPartnerProfits();
+        loadPartnerOverview();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+/**
+ * 7. Partner Payments
+ */
+async function loadPartnerPayments() {
+    const tbody = document.getElementById('payments-table-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Loading payments...</td></tr>`;
+
+    try {
+        const res = await authFetch('/api/admin/partners/meta/payments');
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to load payments');
+
+        const payments = json.data || [];
+        if (payments.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">No payment settlements recorded yet</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = payments.map(p => `
+            <tr class="hover:bg-slate-50 transition-colors">
+                <td class="p-3.5 font-bold text-slate-800">${p.payment_date || '--'}</td>
+                <td class="p-3.5 font-black text-slate-900">${p.partner_name || 'Partner'}</td>
+                <td class="p-3.5 text-right font-black text-emerald-700">${formatPartnerCurrency(p.amount)}</td>
+                <td class="p-3.5 text-center"><span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 font-bold text-[10px]">${p.payment_method}</span></td>
+                <td class="p-3.5 font-mono text-[11px] text-slate-600 font-semibold">${p.transaction_id || 'N/A'}</td>
+                <td class="p-3.5 text-slate-600 text-xs">${p.remarks || 'Settlement'}</td>
+                <td class="p-3.5 text-center"><span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-[10px]">CONFIRMED</span></td>
+            </tr>
+        `).join('');
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-rose-500 font-bold">${e.message}</td></tr>`;
+    }
+}
+
+async function openRecordPaymentModal() {
+    try {
+        const res = await authFetch('/api/admin/partners');
+        const json = await res.json();
+        const partners = json.data || [];
+
+        const sel = document.getElementById('modal-pay-partner-id');
+        sel.innerHTML = partners.map(p => `<option value="${p.id}">${p.name} (${p.partner_id || p.id})</option>`).join('');
+
+        document.getElementById('modal-pay-amount').value = '';
+        document.getElementById('modal-pay-ref').value = '';
+        document.getElementById('modal-pay-remarks').value = '';
+        document.getElementById('modal-pay-date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('modal-record-payment').classList.remove('hidden');
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+function closeRecordPaymentModal() {
+    document.getElementById('modal-record-payment').classList.add('hidden');
+}
+
+async function submitRecordPayment(e) {
+    e.preventDefault();
+    const partner_id = document.getElementById('modal-pay-partner-id').value;
+    const amount = document.getElementById('modal-pay-amount').value;
+    const payment_method = document.getElementById('modal-pay-method').value;
+    const transaction_id = document.getElementById('modal-pay-ref').value.trim();
+    const payment_date = document.getElementById('modal-pay-date').value;
+    const remarks = document.getElementById('modal-pay-remarks').value.trim();
+
+    try {
+        const res = await authFetch('/api/admin/partners/meta/payments', {
+            method: 'POST',
+            body: JSON.stringify({
+                partner_id,
+                amount,
+                payment_method,
+                transaction_id,
+                payment_date,
+                remarks
+            })
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to record payout');
+
+        showToast('Partner payment recorded successfully', 'success');
+        closeRecordPaymentModal();
+        loadPartnerPayments();
+        loadPartnerOverview();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+/**
+ * 8. Financial Reports
+ */
+async function loadPartnerReports() {
+    const tbody = document.getElementById('reports-summary-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">Loading reports...</td></tr>`;
+
+    try {
+        const res = await authFetch('/api/admin/partners');
+        const json = await res.json();
+        if (!json.success) throw new Error('Failed to load partners');
+
+        const partners = json.data || [];
+        if (partners.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">No partner records found.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = partners.map(p => {
+            const s = p.summary || {};
+            return `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="p-3 font-bold text-slate-900">${p.name} <span class="text-[10px] text-slate-400 font-mono">(${p.partner_id || p.id})</span></td>
+                    <td class="p-3 text-[11px] font-bold text-slate-700">${(p.assigned_hostels || []).join(', ') || 'None'}</td>
+                    <td class="p-3 text-right font-medium text-purple-700">${formatPartnerCurrency(p.investment_amount || 0)}</td>
+                    <td class="p-3 text-right font-black text-[#0066cc]">${formatPartnerCurrency(s.revenue || 0)}</td>
+                    <td class="p-3 text-right font-bold text-emerald-800">${formatPartnerCurrency(s.net_profit || 0)}</td>
+                    <td class="p-3 text-right font-black text-amber-900">${formatPartnerCurrency(s.partner_profit_share || 0)}</td>
+                    <td class="p-3 text-right font-medium text-emerald-700">${formatPartnerCurrency(s.total_paid || 0)}</td>
+                    <td class="p-3 text-right font-black text-rose-700">${formatPartnerCurrency(s.pending_payment || 0)}</td>
+                </tr>
+            `;
+        }).join('');
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-rose-500 font-bold">${e.message}</td></tr>`;
+    }
+}
+
+function exportOwnerReportsCSV() {
+    authFetch('/api/admin/partners')
+        .then(r => r.json())
+        .then(json => {
+            const partners = json.data || [];
+            const rows = [
+                ['LPUQuick Partnership Management Report'],
+                ['Export Date', new Date().toISOString()],
+                [],
+                ['Partner Name', 'Partner ID', 'Email', 'Phone', 'Assigned Hostels', 'Investment', 'Delivered Revenue', 'Net Profit', 'Partner Profit Share', 'Total Paid', 'Pending Balance', 'Status']
+            ];
+
+            partners.forEach(p => {
+                const s = p.summary || {};
+                rows.push([
+                    p.name,
+                    p.partner_id || p.id,
+                    p.email,
+                    p.phone || '',
+                    (p.assigned_hostels || []).join('; '),
+                    p.investment_amount || 0,
+                    s.revenue || 0,
+                    s.net_profit || 0,
+                    s.partner_profit_share || 0,
+                    s.total_paid || 0,
+                    s.pending_payment || 0,
+                    p.status || 'ACTIVE'
+                ]);
+            });
+
+            const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.map(cell => `"${cell}"`).join(',')).join('\n');
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement('a');
+            link.setAttribute('href', encodedUri);
+            link.setAttribute('download', `LPUQuick_Partnership_Report_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            showToast('Partnership report CSV exported', 'success');
+        })
+        .catch(err => showToast(err.message, 'error'));
+}
+
+// Auto-initialize partner hostel checklist on ready
+function initAddPartnerViewOnLoad() {
+    try {
+        if (typeof initAddPartnerView === 'function') initAddPartnerView();
+    } catch (e) {}
+}
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAddPartnerViewOnLoad);
+} else {
+    initAddPartnerViewOnLoad();
+}
+
+// =========================================================================
+// ORDER MODE MANAGEMENT & TAKEAWAY FEE CONTROLLER
+// =========================================================================
+
+let activeOrderModeSettings = null;
+
+/**
+ * 1. Load Order Mode Management view data
+ */
+async function loadOrderModeManagement() {
+    try {
+        const res = await (typeof authFetch === 'function' ? authFetch : fetch)('/api/order-mode/admin');
+        const json = await res.json();
+        if (!json.success || !json.data) throw new Error(json.error || 'Failed to load order mode settings');
+
+        activeOrderModeSettings = json.data;
+        const g = activeOrderModeSettings.global || {};
+
+        // Update Global Toggles & Status Pills
+        const delToggle = document.getElementById('global-delivery-toggle');
+        if (delToggle) delToggle.checked = Boolean(g.delivery_enabled);
+
+        const delPill = document.getElementById('global-delivery-status-pill');
+        if (delPill) {
+            if (g.delivery_enabled) {
+                delPill.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300';
+                delPill.textContent = 'Active Across Campus';
+            } else {
+                delPill.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-300';
+                delPill.textContent = 'Delivery Disabled Globally';
+            }
+        }
+
+        const takToggle = document.getElementById('global-takeaway-toggle');
+        if (takToggle) takToggle.checked = Boolean(g.takeaway_enabled);
+
+        const takPill = document.getElementById('global-takeaway-status-pill');
+        if (takPill) {
+            if (g.takeaway_enabled) {
+                takPill.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300';
+                takPill.textContent = 'Active Across Campus';
+            } else {
+                takPill.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-300';
+                takPill.textContent = 'Takeaway Disabled Globally';
+            }
+        }
+
+        // Render 14 Campus Store Cards Grid
+        renderStoreModesTable();
+
+        // Load Real-time Analytics
+        loadOrderModeAnalytics();
+    } catch (err) {
+        console.error('[OrderMode Load Error]:', err);
+        showToast(err.message, 'error');
+    }
+}
+
+/**
+ * 2. Render Store-Level Settings Cards Grid & Table
+ */
+function renderStoreModesTable() {
+    if (!activeOrderModeSettings) return;
+
+    const grid = document.getElementById('store-order-mode-grid');
+    const tbody = document.getElementById('store-modes-tbody');
+    const stores = activeOrderModeSettings.stores || {};
+    const hostelKeys = Object.keys(stores);
+
+    if (hostelKeys.length === 0) {
+        if (grid) grid.innerHTML = '<div class="col-span-full py-12 text-center text-slate-400 text-xs font-semibold">No campus stores found.</div>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">No stores found.</td></tr>';
+        return;
+    }
+
+    // Render Grid Cards if container exists
+    if (grid) {
+        grid.innerHTML = hostelKeys.map(hId => {
+            const s = stores[hId] || {};
+            const isDel = s.delivery_enabled !== false;
+            const isTak = s.takeaway_enabled !== false;
+            const hasCustomFee = (s.maintenance_fee_amount !== null && s.maintenance_fee_amount !== undefined && s.maintenance_fee_amount !== '');
+            const feeInfo = hasCustomFee
+                ? (s.maintenance_fee_type === 'percentage' ? s.maintenance_fee_amount + '%' : '₹' + s.maintenance_fee_amount)
+                : 'Global (₹' + (activeOrderModeSettings.global?.maintenance_fee_amount ?? 2) + ')';
+
+            const storeName = s.store_name || s.name || ('LPUQuick ' + hId + ' Store');
+            const pickupAddr = s.pickup_address || s.address || ('Ground Floor Lift Lobby, ' + hId + ', LPU Campus');
+            const contactPhone = s.pickup_contact || s.phone || '+91 98765 43210';
+            const hours = s.pickup_hours || s.hours || '8:00 PM - 3:30 AM';
+            const mapsUrl = s.pickup_maps_url || s.maps_url || `https://maps.google.com/?q=${encodeURIComponent(hId + ' LPU Phagwara')}`;
+
+            return `
+                <div class="store-mode-card p-5 rounded-3xl bg-white border border-[#DADCE0] shadow-xs flex flex-col justify-between hover:border-[#0066cc] transition-all" data-hostel="${hId}" data-search="${hId} ${storeName} ${pickupAddr}">
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="px-2.5 py-1 rounded-xl bg-slate-900 text-white font-black text-xs font-mono shadow-2xs">${hId}</span>
+                            <span class="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${isDel && isTak ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : (!isDel && !isTak ? 'bg-rose-100 text-rose-800 border border-rose-300' : 'bg-blue-100 text-blue-800 border border-blue-300')}">
+                                ${isDel && isTak ? 'Both Active' : (isDel ? 'Delivery Only' : (isTak ? 'Takeaway Only' : 'Closed'))}
+                            </span>
+                        </div>
+
+                        <h3 class="font-black text-slate-900 text-sm">${storeName}</h3>
+                        <p class="text-xs text-slate-600 mt-1 line-clamp-2 leading-relaxed" title="${pickupAddr}">📍 ${pickupAddr}</p>
+
+                        <div class="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                            <a href="tel:${contactPhone}" class="text-emerald-700 hover:underline">📞 ${contactPhone}</a>
+                            <span>⏰ ${hours}</span>
+                        </div>
+
+                        <!-- Availability Switches -->
+                        <div class="mt-4 pt-3 border-t border-slate-100 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                    <span>🛵</span>
+                                    <span>Home Delivery</span>
+                                </span>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" ${isDel ? 'checked' : ''} onchange="toggleStoreOrderMode('${hId}', 'delivery', this.checked)" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                </label>
+                            </div>
+
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                    <span>🛍️</span>
+                                    <span>Takeaway Pickup</span>
+                                </span>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" ${isTak ? 'checked' : ''} onchange="toggleStoreOrderMode('${hId}', 'takeaway', this.checked)" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions & Fee -->
+                    <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                        <span class="text-[10px] font-black text-amber-900 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
+                            Fee: ${feeInfo}
+                        </span>
+                        <div class="flex items-center gap-1.5">
+                            ${mapsUrl ? `
+                                <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" class="p-1.5 text-slate-500 hover:text-blue-600 rounded-lg hover:bg-slate-100 transition-colors" title="Google Maps Directions">
+                                    <span class="material-symbols-outlined text-base">near_me</span>
+                                </a>
+                            ` : ''}
+                            <button onclick="openEditStoreModal('${hId}')" class="px-3 py-1.5 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 font-bold rounded-xl text-xs flex items-center gap-1 transition-all cursor-pointer">
+                                <span class="material-symbols-outlined text-sm">edit</span>
+                                <span>Configure</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Render Table if container exists
+    if (tbody) {
+        tbody.innerHTML = hostelKeys.map(hId => {
+            const s = stores[hId] || {};
+            const isDel = s.delivery_enabled !== false;
+            const isTak = s.takeaway_enabled !== false;
+            const feeInfo = (s.maintenance_fee_amount !== null && s.maintenance_fee_amount !== undefined)
+                ? (s.maintenance_fee_type === 'percentage' ? s.maintenance_fee_amount + '%' : '₹' + s.maintenance_fee_amount)
+                : '<span class="text-slate-400 text-[11px] italic">Global (₹' + (activeOrderModeSettings.global?.maintenance_fee_amount ?? 2) + ')</span>';
+
+            return `
+                <tr class="hover:bg-slate-50 transition-colors border-b border-slate-100">
+                    <td class="p-3.5 font-mono font-black">${hId}</td>
+                    <td class="p-3.5 font-bold">${s.store_name || s.name || ('LPUQuick ' + hId)}</td>
+                    <td class="p-3.5 text-center">
+                        <input type="checkbox" ${isDel ? 'checked' : ''} onchange="toggleStoreOrderMode('${hId}', 'delivery', this.checked)">
+                    </td>
+                    <td class="p-3.5 text-center">
+                        <input type="checkbox" ${isTak ? 'checked' : ''} onchange="toggleStoreOrderMode('${hId}', 'takeaway', this.checked)">
+                    </td>
+                    <td class="p-3.5 text-center">${feeInfo}</td>
+                    <td class="p-3.5 text-right">
+                        <button onclick="openEditStoreModal('${hId}')" class="px-2.5 py-1 bg-slate-100 rounded-lg text-xs font-bold">Edit</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+}
+
+/**
+ * Filter Store Cards via Search input
+ */
+function filterStoreModeCards(query) {
+    const q = (query || '').toLowerCase().trim();
+    document.querySelectorAll('.store-mode-card').forEach(card => {
+        const text = (card.dataset.search || card.textContent || '').toLowerCase();
+        card.classList.toggle('hidden', !text.includes(q));
+    });
+}
+window.filterStoreModeCards = filterStoreModeCards;
+
+/**
+ * 3. Toggle Global Delivery or Takeaway
+ */
+async function toggleGlobalOrderMode(mode, enabled) {
+    try {
+        const payload = {};
+        if (mode === 'delivery') payload.delivery_enabled = Boolean(enabled);
+        if (mode === 'takeaway') payload.takeaway_enabled = Boolean(enabled);
+
+        const res = await (typeof authFetch === 'function' ? authFetch : fetch)('/api/order-mode/admin/global', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to update global mode');
+
+        showToast(`Campus ${mode === 'delivery' ? 'Home Delivery' : 'Takeaway Pickup'} ${enabled ? 'ENABLED' : 'DISABLED'} successfully!`, 'success');
+        loadOrderModeManagement();
+    } catch (err) {
+        showToast(err.message, 'error');
+        loadOrderModeManagement();
+    }
+}
+
+/**
+ * 4. Toggle Store-Level Delivery or Takeaway
+ */
+async function toggleStoreOrderMode(hostelId, mode, enabled) {
+    try {
+        const payload = {};
+        if (mode === 'delivery') payload.delivery_enabled = Boolean(enabled);
+        if (mode === 'takeaway') payload.takeaway_enabled = Boolean(enabled);
+
+        const res = await (typeof authFetch === 'function' ? authFetch : fetch)(`/api/order-mode/admin/store/${encodeURIComponent(hostelId)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to update store mode');
+
+        showToast(`${hostelId} ${mode === 'delivery' ? 'Delivery' : 'Takeaway'} updated!`, 'success');
+        if (activeOrderModeSettings && activeOrderModeSettings.stores && activeOrderModeSettings.stores[hostelId]) {
+            if (mode === 'delivery') activeOrderModeSettings.stores[hostelId].delivery_enabled = Boolean(enabled);
+            if (mode === 'takeaway') activeOrderModeSettings.stores[hostelId].takeaway_enabled = Boolean(enabled);
+        }
+        renderStoreModesTable();
+    } catch (err) {
+        showToast(err.message, 'error');
+        loadOrderModeManagement();
+    }
+}
+
+/**
+ * 5. Open Modal to Edit Store Pickup Address, Contact, & Fee Overrides
+ */
+function openEditStoreModal(hostelId) {
+    if (!activeOrderModeSettings || !activeOrderModeSettings.stores) return;
+    const s = activeOrderModeSettings.stores[hostelId];
+    if (!s) return;
+
+    document.getElementById('edit-store-hostel-id').value = hostelId;
+    
+    const titleEl = document.getElementById('modal-store-title');
+    if (titleEl) titleEl.textContent = `Configure ${hostelId} Store Settings`;
+
+    const subEl = document.getElementById('modal-store-subtitle');
+    if (subEl) subEl.textContent = `Hostel Dark Store & Counter Pickup Details for ${hostelId}`;
+
+    const nameEl = document.getElementById('edit-store-name');
+    if (nameEl) nameEl.value = s.store_name || s.name || ('LPUQuick ' + hostelId + ' Dark Store');
+
+    const phoneEl = document.getElementById('edit-store-phone') || document.getElementById('edit-store-contact');
+    if (phoneEl) phoneEl.value = s.pickup_contact || s.phone || '+91 98765 43210';
+
+    const addrEl = document.getElementById('edit-store-address');
+    if (addrEl) addrEl.value = s.pickup_address || s.address || '';
+
+    const hoursEl = document.getElementById('edit-store-hours');
+    if (hoursEl) hoursEl.value = s.pickup_hours || s.hours || '8:00 PM - 3:30 AM';
+
+    const mapsEl = document.getElementById('edit-store-maps-url');
+    if (mapsEl) mapsEl.value = s.pickup_maps_url || s.maps_url || '';
+
+    const delEl = document.getElementById('edit-store-delivery-enabled');
+    if (delEl) delEl.checked = s.delivery_enabled !== false;
+
+    const takEl = document.getElementById('edit-store-takeaway-enabled');
+    if (takEl) takEl.checked = s.takeaway_enabled !== false;
+
+    const feeAmtEl = document.getElementById('edit-store-fee-amount');
+    const feeTypeEl = document.getElementById('edit-store-fee-type');
+    if (feeAmtEl) feeAmtEl.value = (s.maintenance_fee_amount !== null && s.maintenance_fee_amount !== undefined) ? s.maintenance_fee_amount : '';
+    if (feeTypeEl) feeTypeEl.value = s.maintenance_fee_type || '';
+
+    document.getElementById('modal-edit-store-settings').classList.remove('hidden');
+}
+
+function closeEditStoreModal() {
+    const m = document.getElementById('modal-edit-store-settings');
+    if (m) m.classList.add('hidden');
+}
+
+/**
+ * 6. Submit Store Pickup Settings
+ */
+async function submitEditStoreSettings(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const hostelId = document.getElementById('edit-store-hostel-id').value;
+    if (!hostelId) return;
+
+    const store_name = document.getElementById('edit-store-name')?.value?.trim();
+    const phoneEl = document.getElementById('edit-store-phone') || document.getElementById('edit-store-contact');
+    const pickup_contact = phoneEl?.value?.trim() || '';
+    const pickup_address = document.getElementById('edit-store-address')?.value?.trim() || '';
+    const pickup_hours = document.getElementById('edit-store-hours')?.value?.trim() || '';
+    const pickup_maps_url = document.getElementById('edit-store-maps-url')?.value?.trim() || '';
+    const delivery_enabled = document.getElementById('edit-store-delivery-enabled')?.checked ?? true;
+    const takeaway_enabled = document.getElementById('edit-store-takeaway-enabled')?.checked ?? true;
+
+    const feeAmtRaw = document.getElementById('edit-store-fee-amount')?.value?.trim() || '';
+    const feeTypeRaw = document.getElementById('edit-store-fee-type')?.value?.trim() || '';
+
+    const payload = {
+        store_name,
+        name: store_name,
+        pickup_address,
+        address: pickup_address,
+        pickup_contact,
+        phone: pickup_contact,
+        pickup_hours,
+        hours: pickup_hours,
+        pickup_maps_url,
+        maps_url: pickup_maps_url,
+        delivery_enabled,
+        takeaway_enabled,
+        maintenance_fee_amount: feeAmtRaw !== '' ? Number(feeAmtRaw) : null,
+        maintenance_fee_type: feeTypeRaw !== '' ? feeTypeRaw : null
+    };
+
+    try {
+        const res = await (typeof authFetch === 'function' ? authFetch : fetch)(`/api/order-mode/admin/store/${encodeURIComponent(hostelId)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to save store settings');
+
+        showToast(`Settings for ${hostelId} saved successfully!`, 'success');
+        closeEditStoreModal();
+        loadOrderModeManagement();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+/**
+ * 7. Test Google Maps Link in Modal
+ */
+function testStoreMapsUrl() {
+    const url = document.getElementById('edit-store-maps-url')?.value?.trim();
+    if (!url) {
+        showToast('Please enter a Google Maps URL first', 'warning');
+        return;
+    }
+    window.open(url, '_blank');
+}
+
+/**
+ * 8. Load Takeaway Fee Settings View
+ */
+async function loadTakeawayFeeSettings() {
+    try {
+        const res = await (typeof authFetch === 'function' ? authFetch : fetch)('/api/order-mode/admin');
+        const json = await res.json();
+        if (!json.success || !json.data) throw new Error(json.error || 'Failed to load fee settings');
+
+        activeOrderModeSettings = json.data;
+        const g = activeOrderModeSettings.global || {};
+
+        const feeEnabledEl = document.getElementById('fee-config-enabled') || document.getElementById('global-fee-enabled');
+        if (feeEnabledEl) feeEnabledEl.checked = g.maintenance_fee_enabled !== false;
+
+        const feeAmtEl = document.getElementById('fee-config-amount') || document.getElementById('global-fee-amount');
+        if (feeAmtEl) feeAmtEl.value = (g.maintenance_fee_amount !== undefined && g.maintenance_fee_amount !== null) ? g.maintenance_fee_amount : 2;
+
+        const feeType = g.maintenance_fee_type || 'fixed';
+        const radio = document.querySelector(`input[name="fee_type"][value="${feeType}"]`);
+        if (radio) radio.checked = true;
+
+        onFeeTypeChange(feeType);
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+/**
+ * 9. Handle Fee Type selection change (Fixed vs Percentage)
+ */
+function onFeeTypeChange(type) {
+    const feeType = type || document.querySelector('input[name="fee_type"]:checked')?.value || document.getElementById('global-fee-type')?.value || 'fixed';
+    
+    const fixedLabel = document.getElementById('label-fee-type-fixed');
+    const pctLabel = document.getElementById('label-fee-type-percentage');
+    if (fixedLabel && pctLabel) {
+        if (feeType === 'fixed') {
+            fixedLabel.className = 'p-3 rounded-2xl border-2 border-amber-500 bg-amber-50/40 cursor-pointer flex items-center gap-2.5 transition-all';
+            pctLabel.className = 'p-3 rounded-2xl border border-slate-200 bg-white cursor-pointer flex items-center gap-2.5 transition-all';
+        } else {
+            pctLabel.className = 'p-3 rounded-2xl border-2 border-amber-500 bg-amber-50/40 cursor-pointer flex items-center gap-2.5 transition-all';
+            fixedLabel.className = 'p-3 rounded-2xl border border-slate-200 bg-white cursor-pointer flex items-center gap-2.5 transition-all';
+        }
+    }
+
+    const badge = document.getElementById('fee-amount-unit-badge');
+    if (badge) badge.textContent = feeType === 'percentage' ? '%' : '₹';
+
+    const labelText = document.getElementById('label-fee-amount-text');
+    if (labelText) labelText.textContent = `Maintenance Fee Amount (${feeType === 'percentage' ? '%' : '₹'}) *`;
+
+    updateFeePreview();
+}
+
+/**
+ * 10. Update Live Bill Calculation Simulator Preview
+ */
+function updateFeePreview() {
+    const enabledEl = document.getElementById('fee-config-enabled') || document.getElementById('global-fee-enabled');
+    const enabled = enabledEl ? enabledEl.checked : true;
+
+    const feeType = document.querySelector('input[name="fee_type"]:checked')?.value || document.getElementById('global-fee-type')?.value || 'fixed';
+    const amountEl = document.getElementById('fee-config-amount') || document.getElementById('global-fee-amount');
+    const feeAmt = parseFloat(amountEl?.value) || 0;
+
+    const subtotal = 150;
+    let fee = 0;
+    if (enabled) {
+        if (feeType === 'percentage') {
+            fee = Math.round(subtotal * (feeAmt / 100));
+        } else {
+            fee = feeAmt;
+        }
+    }
+    const total = subtotal + fee;
+
+    const simFee = document.getElementById('preview-sim-fee') || document.getElementById('preview-fee-amount');
+    if (simFee) simFee.textContent = (fee > 0 ? '+₹' : '₹') + fee.toFixed(2);
+
+    const simTotal = document.getElementById('preview-sim-total') || document.getElementById('preview-total-amount');
+    if (simTotal) simTotal.textContent = '₹' + total.toFixed(2);
+}
+
+/**
+ * 11. Save Global Fee Settings
+ */
+async function saveGlobalFeeSettings(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const enabledEl = document.getElementById('fee-config-enabled') || document.getElementById('global-fee-enabled');
+    const maintenance_fee_enabled = enabledEl ? enabledEl.checked : true;
+
+    const amountEl = document.getElementById('fee-config-amount') || document.getElementById('global-fee-amount');
+    const maintenance_fee_amount = parseFloat(amountEl?.value) || 0;
+
+    const feeType = document.querySelector('input[name="fee_type"]:checked')?.value || document.getElementById('global-fee-type')?.value || 'fixed';
+
+    try {
+        const res = await (typeof authFetch === 'function' ? authFetch : fetch)('/api/order-mode/admin/global', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                maintenance_fee_enabled,
+                maintenance_fee_amount,
+                maintenance_fee_type: feeType
+            })
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to save fee settings');
+
+        showToast('Takeaway fee settings updated successfully!', 'success');
+        loadTakeawayFeeSettings();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+/**
+ * 12. Load Delivery vs Takeaway Real-time Analytics
+ */
+async function loadOrderModeAnalytics() {
+    try {
+        const res = await (typeof authFetch === 'function' ? authFetch : fetch)('/api/order-mode/analytics');
+        const json = await res.json();
+        if (!json.success || !json.data) return;
+
+        const d = json.data;
+        const setVal = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val;
+        };
+
+        const totalOrders = (d.total_orders || 0).toLocaleString();
+        const delOrders = (d.delivery_orders || 0).toLocaleString();
+        const takOrders = (d.takeaway_orders || 0).toLocaleString();
+        const delRev = '₹' + (d.delivery_revenue || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        const takRev = '₹' + (d.takeaway_revenue || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        const combRev = '₹' + (d.combined_revenue || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        const takFees = '₹' + (d.takeaway_fees_collected || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+
+        setVal('an-total-orders', totalOrders);
+        setVal('an-delivery-orders', delOrders);
+        setVal('an-takeaway-orders', takOrders);
+        setVal('an-delivery-revenue', delRev);
+        setVal('an-takeaway-revenue', takRev);
+        setVal('an-takeaway-fees', takFees);
+
+        setVal('om-kpi-total-orders', totalOrders);
+        setVal('om-kpi-delivery-orders', delOrders);
+        setVal('om-kpi-takeaway-orders', takOrders);
+        setVal('om-kpi-delivery-revenue', delRev);
+        setVal('om-kpi-takeaway-revenue', takRev);
+        setVal('om-kpi-combined-revenue', combRev);
+        setVal('om-kpi-takeaway-fees', takFees);
+    } catch (e) {
+        console.warn('[OrderMode Analytics]:', e);
+    }
+}
+
+// Bind Order Mode functions to window
+window.loadOrderModeManagement = loadOrderModeManagement;
+window.renderStoreModesTable = renderStoreModesTable;
+window.filterStoreModeCards = filterStoreModeCards;
+window.toggleGlobalOrderMode = toggleGlobalOrderMode;
+window.toggleStoreOrderMode = toggleStoreOrderMode;
+window.openEditStoreModal = openEditStoreModal;
+window.closeEditStoreModal = closeEditStoreModal;
+window.submitEditStoreSettings = submitEditStoreSettings;
+window.testStoreMapsUrl = testStoreMapsUrl;
+window.loadTakeawayFeeSettings = loadTakeawayFeeSettings;
+window.onFeeTypeChange = onFeeTypeChange;
+window.updateFeePreview = updateFeePreview;
+window.saveGlobalFeeSettings = saveGlobalFeeSettings;
+window.loadOrderModeAnalytics = loadOrderModeAnalytics;

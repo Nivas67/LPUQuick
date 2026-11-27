@@ -207,7 +207,14 @@ async function runTests() {
         assert.ok(sql.includes(`public.${tbl}`), `Migration must include public.${tbl}`);
         assert.ok(sql.includes(`'${tbl}'`), `Migration RLS block must cover public.${tbl}`);
     }
+    assert.ok(sql.includes('AS RESTRICTIVE'), 'Migration RLS policies must use AS RESTRICTIVE');
+    assert.ok(sql.includes('REVOKE ALL ON TABLE public.%I FROM PUBLIC, anon, authenticated'), 'Migration must revoke direct anon/authenticated table grants');
+    assert.ok(sql.includes('GRANT ALL ON TABLE public.%I TO service_role'), 'Migration must preserve service_role backend access');
     assert.ok(sql.includes('CREATE OR REPLACE FUNCTION public.check_and_increment_rate_limit'));
+    assert.ok(sql.includes('REVOKE ALL ON FUNCTION public.check_and_increment_rate_limit(TEXT, INTEGER, INTEGER, INTEGER) FROM PUBLIC, anon, authenticated'));
+    assert.ok(sql.includes('GRANT EXECUTE ON FUNCTION public.check_and_increment_rate_limit(TEXT, INTEGER, INTEGER, INTEGER) TO service_role'));
+    const rollbackSql = fs.readFileSync(path.join(__dirname, '..', 'db', 'migrations', '20261127_vltnqvktdlpcltndmmwl_rollback.sql'), 'utf8');
+    assert.ok(rollbackSql.includes('AS RESTRICTIVE') && rollbackSql.includes('REVOKE ALL ON TABLE public.%I FROM PUBLIC, anon, authenticated'), 'Rollback must NOT reopen private customer tables');
 
     const rateStore = new Map();
     const otpDbStore = new Map();

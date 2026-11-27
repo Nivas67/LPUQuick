@@ -2,11 +2,13 @@
 -- LPUQuick Original Production Database Security & RLS Hardening
 -- Authorized Target Supabase Project: vltnqvktdlpcltndmmwl
 -- Project URL: https://vltnqvktdlpcltndmmwl.supabase.co
--- Status: NON-DESTRUCTIVE & IDEMPOTENT. Preserves ALL existing records.
+-- Status: NON-DESTRUCTIVE & IDEMPOTENT. Preserves ALL existing records & admins.
 -- Review and apply directly in Supabase SQL Editor by authorized DB owner.
 -- ============================================================================
 
 BEGIN;
+
+GRANT USAGE ON SCHEMA public TO service_role;
 
 -- 1. Non-Destructive Schema Additions (Preserves all existing rows & columns)
 CREATE TABLE IF NOT EXISTS public.security_rate_limits (
@@ -27,7 +29,7 @@ CREATE TABLE IF NOT EXISTS public.auth_otp_challenges (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Ensure security/role columns exist without altering existing user rows
+-- Ensure security/role columns exist without altering existing customer/admin rows or dob metadata
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS roles JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS assigned_hostels JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_owner BOOLEAN NOT NULL DEFAULT FALSE;
@@ -50,9 +52,9 @@ CREATE INDEX IF NOT EXISTS idx_supabase_orders_created_at ON public.orders(creat
 CREATE INDEX IF NOT EXISTS idx_security_rate_limits_blocked_until ON public.security_rate_limits(blocked_until);
 CREATE INDEX IF NOT EXISTS idx_auth_otp_challenges_expires_at ON public.auth_otp_challenges(expires_at);
 
--- 3. Strict Row-Level Security (Close Direct Anon/Authenticated PostgREST Exposure)
--- Note: Express server routes connect with SUPABASE_SERVICE_ROLE_KEY (which bypasses RLS safely).
--- Existing Supabase Broadcast realtime channels remain unaffected without direct table reads.
+-- 3. Strict Privilege Revocation + AS RESTRICTIVE Row-Level Security
+-- Blocks ALL direct anon/authenticated PostgREST access even if legacy permissive policies exist.
+-- Preserves full backend Express API access via SUPABASE_SERVICE_ROLE_KEY (service_role / BYPASSRLS).
 DO $$
 DECLARE
     tbl TEXT;
@@ -72,10 +74,12 @@ BEGIN
     ]
     LOOP
         IF to_regclass(format('public.%I', tbl)) IS NOT NULL THEN
+            EXECUTE format('REVOKE ALL ON TABLE public.%I FROM PUBLIC, anon, authenticated', tbl);
+            EXECUTE format('GRANT ALL ON TABLE public.%I TO service_role', tbl);
             EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tbl);
             EXECUTE format('DROP POLICY IF EXISTS deny_direct_client_access ON public.%I', tbl);
             EXECUTE format(
-                'CREATE POLICY deny_direct_client_access ON public.%I FOR ALL TO anon, authenticated USING (false) WITH CHECK (false)',
+                'CREATE POLICY deny_direct_client_access ON public.%I AS RESTRICTIVE FOR ALL TO anon, authenticated USING (false) WITH CHECK (false)',
                 tbl
             );
         END IF;
