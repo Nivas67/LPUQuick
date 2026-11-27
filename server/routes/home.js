@@ -100,7 +100,8 @@ router.get('/', async (req, res) => {
         const hostelId = req.query.hostel_id || req.query.hostel || 'BH-13';
 
         // 1. Fetch or retrieve global catalog & section data from shared micro-cache (< 0.1ms)
-        const baseFeed = await cache.wrap(`home:base:${hostelId}:${tzOffset}`, async () => {
+        const homeCacheKey = `home:base:${hostelId}:${tzOffset}`;
+        const baseFeed = await cache.wrap(homeCacheKey, async () => {
             let hour;
             if (tzOffset !== 'default') {
                 const now = new Date();
@@ -116,33 +117,20 @@ router.get('/', async (req, res) => {
 
             const section = getTimeSection(hour);
             let rawProducts = [];
+            let dbUnavailable = false;
             try {
                 const fetchWithTimeout = Promise.race([
                     supabaseDb.products.getAll({ hostel_id: hostelId, includeInactive: false }),
                     new Promise((_, reject) => setTimeout(() => reject(new Error('DATABASE_FETCH_TIMEOUT')), 10000))
                 ]);
                 rawProducts = await fetchWithTimeout;
+                if (!Array.isArray(rawProducts)) {
+                    dbUnavailable = true;
+                    rawProducts = [];
+                }
             } catch (prodErr) {
+                dbUnavailable = true;
                 console.warn('[Home Feed Products Notice]:', prodErr.message);
-            }
-
-            if (!rawProducts || rawProducts.length === 0) {
-                try {
-                    const pSnapPath = path.join(__dirname, '..', 'data', 'products_snapshot.json');
-                    if (fs.existsSync(pSnapPath)) {
-                        const snap = JSON.parse(fs.readFileSync(pSnapPath, 'utf8'));
-                        let hostelInventory = {};
-                        if (supabaseDb.inventory) {
-                            try {
-                                hostelInventory = await supabaseDb.inventory.getHostelInventory(hostelId);
-                            } catch (e) {}
-                        }
-                        rawProducts = snap.map(p => {
-                            const formatted = supabaseDb.products._formatProduct(p);
-                            return supabaseDb.products._applyHostelStockOverlay(formatted, hostelId, hostelInventory);
-                        });
-                    }
-                } catch (snapErr) {}
             }
 
             const allProducts = (rawProducts || []).filter(p => !p.deleted).map(p => {
@@ -172,6 +160,7 @@ router.get('/', async (req, res) => {
             ];
 
             return {
+                dbUnavailable,
                 greeting: section.greeting,
                 section_title: section.title,
                 section_icon: section.icon,
@@ -188,6 +177,10 @@ router.get('/', async (req, res) => {
                 }
             };
         }, 300000);
+
+        if (baseFeed.dbUnavailable) {
+            cache.delete(homeCacheKey);
+        }
 
         // 2. Compute personalized buy again ONLY for verified matching actor
         let buyAgain = baseFeed.default_buy_again;
@@ -207,15 +200,17 @@ router.get('/', async (req, res) => {
         const bannerData = await getActiveBannersData();
 
         // 3. Fast shallow merge and send
-        // Cache on Vercel Edge CDN for 60s for public catalog feed
-        if (!isPersonalizedBuyAgain) {
+        // Cache on Vercel Edge CDN for 60s when live public catalog loaded without user personalization
+        if (!isPersonalizedBuyAgain && !baseFeed.dbUnavailable && Array.isArray(baseFeed.all_products) && baseFeed.all_products.length > 0) {
             res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
         } else {
             res.setHeader('Cache-Control', 'private, no-store');
         }
 
+        const { dbUnavailable: _omitDbFlag, ...publicBaseFeed } = baseFeed;
         res.json({
-            ...baseFeed,
+            ...publicBaseFeed,
+            database_unavailable: Boolean(baseFeed.dbUnavailable),
             buy_again: buyAgain,
             is_personalized_buy_again: isPersonalizedBuyAgain,
             banners: bannerData.posters,
@@ -300,11 +295,15 @@ router.get('/buy-again', (req, res) => res.redirect(307, `/api/home/user-buy-aga
 // GET /api/home/banners - Public endpoint for active promotional posters & carousel settings
 router.get('/banners', async (req, res) => {
     try {
-        // Guarantee instant real-time synchronization with zero edge staleness
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        res.setHeader('Pragma', 'no-cache');
-        res.setHeader('Expires', '0');
-        const bannerData = await getActiveBannersData(true);
+        const forceRefresh = req.query.force === 'true' || Boolean(req.query._t);
+        if (forceRefresh) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+        } else {
+            res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+        }
+        const bannerData = await getActiveBannersData(forceRefresh);
         res.json({
             success: true,
             posters: bannerData.posters,

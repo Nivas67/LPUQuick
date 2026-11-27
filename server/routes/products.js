@@ -193,18 +193,7 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-// Persistent Snapshot Fallback for Catalog Resilience
-let fallbackProductsCache = [];
-try {
-    const pSnapPath = path.join(__dirname, '..', 'data', 'products_snapshot.json');
-    if (fs.existsSync(pSnapPath)) {
-        fallbackProductsCache = JSON.parse(fs.readFileSync(pSnapPath, 'utf8'));
-    }
-} catch (e) {
-    console.warn('[Products Snapshot Load Note]:', e.message);
-}
-
-// GET /api/products (Fetch all products with resilient cloud fallback)
+// Do not serve static fallback catalog data; live catalog must come strictly from original Supabase DB
 router.get('/', async (req, res) => {
     try {
         const adminToken = req.headers['x-admin-token'] || (req.headers.authorization && req.headers.authorization.startsWith('Bearer ') ? req.headers.authorization.slice(7) : null);
@@ -285,45 +274,39 @@ router.get('/', async (req, res) => {
 
         const payload = await cache.wrap(cacheKey, async () => {
             let products = null;
+            let dbUnavailable = false;
             try {
                 const queryPromise = supabaseDb.products.getAll({ hostel_id: hostelId, includeInactive, category, subcategory, sort, force: forceFresh });
                 products = await Promise.race([
                     queryPromise,
-                    new Promise(resolve => setTimeout(() => resolve(null), 10000))
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('DATABASE_TIMEOUT')), 10000))
                 ]);
             } catch (queryErr) {
+                dbUnavailable = true;
                 console.warn('[Products Query Notice]:', queryErr.message);
             }
 
-            if (products && Array.isArray(products) && products.length > 0) {
-                fallbackProductsCache = products;
-                return { products };
+            if (!dbUnavailable && Array.isArray(products)) {
+                return { products, isFallback: false };
             }
 
-            // Return snapshot fallback if Supabase is sleeping, timing out, or offline
-            let list = Array.isArray(fallbackProductsCache) && fallbackProductsCache.length > 0 ? [...fallbackProductsCache] : [];
-            if (list.length === 0) {
-                try {
-                    const pSnapPath = path.join(__dirname, '..', 'data', 'products_snapshot.json');
-                    if (fs.existsSync(pSnapPath)) {
-                        list = JSON.parse(fs.readFileSync(pSnapPath, 'utf8'));
-                        fallbackProductsCache = list;
-                    }
-                } catch (snapErr) {}
-            }
-            if (hostelId && hostelId !== 'all') {
-                list = list.map(p => ({ ...p, hostel_id: hostelId }));
-            }
-            if (category && category !== 'All') {
-                list = list.filter(p => (p.category || '').toLowerCase().includes(category.toLowerCase()));
-            }
-            if (subcategory && subcategory !== 'all') {
-                list = list.filter(p => (p.subcategory || '').toLowerCase() === subcategory.toLowerCase());
-            }
-            return { products: list, isFallback: true };
+            return { products: null, dbUnavailable: true, isFallback: false };
         }, forceFresh ? 0 : 300000);
 
-        const rawList = payload?.products || fallbackProductsCache || [];
+        if (!payload || payload.dbUnavailable || !Array.isArray(payload.products)) {
+            cache.delete(cacheKey);
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+            return res.status(503).json({
+                success: false,
+                code: 'DATABASE_UNAVAILABLE',
+                error: 'Live product catalog unavailable until original Supabase database connection is active.',
+                products: [],
+                isFallback: false,
+                hostel_id: hostelId || 'all'
+            });
+        }
+
+        const rawList = payload.products;
         
         // Security: Verified Admins (Owner & Store Managers) can view cost to estimate profits.
         // Public storefront customers MUST NOT see admin cost or profit margins
@@ -358,10 +341,11 @@ router.get('/', async (req, res) => {
                 return copy;
             });
 
-        res.json({ products: filteredList, isFallback: Boolean(payload?.isFallback), hostel_id: hostelId || 'all' });
+        res.json({ products: filteredList, isFallback: false, hostel_id: hostelId || 'all' });
     } catch (err) {
         console.warn('[Products Route Note]:', err.message);
-        res.json({ products: fallbackProductsCache, isFallback: true });
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+        res.status(503).json({ success: false, code: 'DATABASE_UNAVAILABLE', error: 'Live product catalog unavailable.', products: [], isFallback: false });
     }
 });
 

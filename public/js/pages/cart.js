@@ -252,7 +252,7 @@ window.pages.cart = async function () {
         <div class="glass-panel card-pedestal rounded-2xl p-3.5 sm:p-4 flex items-center justify-between gap-3.5 shadow-md mb-3 border border-[var(--glass-border)] cart-row transition-all hover:translate-y-[-1px] ${isOutOfStock ? 'border-rose-500/30 bg-rose-500/5' : ''}" data-cart-id="${item.cart_id}" data-product-id="${item.product_id}" data-price="${itemPrice}" data-mrp="${itemMrp}" data-stock-left="${stockLeft}" data-in-stock="${!isOutOfStock}">
             <div class="flex items-center gap-3.5 min-w-0">
                 <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-white/90 to-slate-100/90 dark:from-slate-800/90 dark:to-slate-900/90 p-2 shrink-0 flex items-center justify-center border border-[var(--glass-border)] shadow-[inset_1px_1px_3px_rgba(255,255,255,0.8),inset_-1px_-1px_3px_rgba(0,0,0,0.05)] relative overflow-hidden group">
-                    <img class="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110" src="${item.image_url}" alt="${item.name}" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200'">
+                    <img class="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110" src="${item.image_url}" alt="${item.name}" loading="lazy" decoding="async" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200'">
                 </div>
                 <div class="min-w-0">
                     <h4 class="font-black text-xs sm:text-sm text-slate-900 dark:text-white truncate tracking-tight">${item.name}</h4>

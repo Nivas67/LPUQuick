@@ -2172,10 +2172,10 @@ window.__isUserBlocked = false;
 window.__userBlockReason = null;
 window.__clientLockTicker = null;
 
-window.syncStoreAvailability = async function (hostelId) {
+window.syncStoreAvailability = async function (hostelId, force = false) {
     try {
         const targetHostel = hostelId || window.currentHostelId || localStorage.getItem('lpuquick_hostel_id') || 'BH-13';
-        const data = await window.api.getClientStatus(targetHostel);
+        const data = await window.api.getClientStatus(targetHostel, force);
         const wasLocked = window.__storeAvailability ? Boolean(window.__storeAvailability.is_locked) : (localStorage.getItem('lpuquick_was_store_locked') === 'true');
         const nowLocked = Boolean(data && data.is_locked);
 
@@ -2519,7 +2519,7 @@ function updateCheckoutButtonsForLock(isLocked, reopenText = 'Soon') {
 }
 
 // Blocked Account Page Route & Real-Time Client Synchronization
-window.syncUserBlockStatus = async function () {
+window.syncUserBlockStatus = async function (force = false) {
     const uid = window.isUserLoggedIn() ? window.CURRENT_USER_ID : (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : null);
     if (!uid) {
         window.__isUserBlocked = false;
@@ -2529,7 +2529,7 @@ window.syncUserBlockStatus = async function () {
     }
 
     try {
-        const res = await window.api.checkUserStatus(uid);
+        const res = await window.api.checkUserStatus(uid, force);
         if (res && (res.isBlocked || res.account_status === 'BLOCKED')) {
             window.__isUserBlocked = true;
             window.__userBlockReason = res.reason || 'Fake Orders';
@@ -3106,7 +3106,7 @@ function dispatchClientRealtimeEvent(data) {
                 showClientToast('🚀 Storefront is now OPEN for orders!', 'success', 'bolt');
             }
             if (typeof window.syncStoreAvailability === 'function') {
-                window.syncStoreAvailability(clientHostel);
+                window.syncStoreAvailability(clientHostel, true);
             }
         }
     }
@@ -3114,6 +3114,7 @@ function dispatchClientRealtimeEvent(data) {
     else if (data.type === 'USER_BLOCKED') {
         const myUid = window.CURRENT_USER_ID || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : null);
         if (data.userId && (data.userId === myUid || data.userId === window.CURRENT_USER_ID)) {
+            if (window.api?.clearUserStatusCache) window.api.clearUserStatusCache(myUid || data.userId);
             window.__isUserBlocked = true;
             window.__userBlockReason = data.reason || 'Fake Orders';
             if (typeof updateBlockedUI === 'function') updateBlockedUI(true, window.__userBlockReason);
@@ -3125,6 +3126,7 @@ function dispatchClientRealtimeEvent(data) {
     else if (data.type === 'USER_UNBLOCKED') {
         const myUid = window.CURRENT_USER_ID || (typeof window.getEffectiveUserId === 'function' ? window.getEffectiveUserId() : null);
         if (data.userId && (data.userId === myUid || data.userId === window.CURRENT_USER_ID)) {
+            if (window.api?.clearUserStatusCache) window.api.clearUserStatusCache(myUid || data.userId);
             window.__isUserBlocked = false;
             window.__userBlockReason = null;
             if (typeof updateBlockedUI === 'function') updateBlockedUI(false);
@@ -3595,39 +3597,58 @@ function handleLiveOrderStatusChange(data) {
     }
 }
 
-async function checkAndConnectGlobalOrderTracking() {
-    try {
-        const bar = document.getElementById('global-live-delivery-bar');
-        if (!window.isUserLoggedIn()) {
-            if (bar) bar.classList.add('hidden');
-            return;
-        }
-        const userId = window.CURRENT_USER_ID;
-        const activeRes = await window.api.getActiveOrder(userId);
-        const active = activeRes?.active;
+let __globalOrderTrackingInFlight = null;
+let __lastGlobalOrderTrackingAt = 0;
 
-        if (!active || ['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(active.status)) {
-            currentTrackedOrderId = null;
-            if (bar) bar.classList.add('hidden');
-            return;
-        }
-
-        currentTrackedOrderId = active.id;
-        updateGlobalDeliveryBar(active.status, active.rider_name || 'Nivas Naidu', active.delivery_address);
-
-        // Only show floating bar when not already on dedicated tracking pages
-        const currentPath = getCurrentRoute();
-        if (bar) {
-            if (currentPath === '/orders' || currentPath === '/checkout') {
-                bar.classList.add('hidden');
-            } else {
-                bar.classList.remove('hidden');
-            }
-        }
-
-    } catch (e) {
-        console.warn('[Global Tracking Sync]:', e);
+async function checkAndConnectGlobalOrderTracking(force = false) {
+    const now = Date.now();
+    if (!force && __globalOrderTrackingInFlight) {
+        return __globalOrderTrackingInFlight;
     }
+    if (!force && (now - __lastGlobalOrderTrackingAt) < 3000) {
+        return;
+    }
+
+    const runner = (async () => {
+        try {
+            const bar = document.getElementById('global-live-delivery-bar');
+            if (!window.isUserLoggedIn()) {
+                if (bar) bar.classList.add('hidden');
+                return;
+            }
+            const userId = window.CURRENT_USER_ID;
+            const activeRes = await window.api.getActiveOrder(userId);
+            __lastGlobalOrderTrackingAt = Date.now();
+            const active = activeRes?.active;
+
+            if (!active || ['Delivered', 'delivered', 'cancelled', 'Cancelled'].includes(active.status)) {
+                currentTrackedOrderId = null;
+                if (bar) bar.classList.add('hidden');
+                return;
+            }
+
+            currentTrackedOrderId = active.id;
+            updateGlobalDeliveryBar(active.status, active.rider_name || 'Nivas Naidu', active.delivery_address);
+
+            // Only show floating bar when not already on dedicated tracking pages
+            const currentPath = getCurrentRoute();
+            if (bar) {
+                if (currentPath === '/orders' || currentPath === '/checkout') {
+                    bar.classList.add('hidden');
+                } else {
+                    bar.classList.remove('hidden');
+                }
+            }
+
+        } catch (e) {
+            console.warn('[Global Tracking Sync]:', e);
+        } finally {
+            __globalOrderTrackingInFlight = null;
+        }
+    })();
+
+    __globalOrderTrackingInFlight = runner;
+    return runner;
 }
 
 function getNotificationStageDetails(status, riderName, addressStr) {
@@ -4114,9 +4135,9 @@ function bootstrapApp() {
     initPullToRefresh();
     handlePostReloadToast();
 
-    // Instant proactive sync of live hostels & admin-configured blocks
+    // Sync live hostels & admin-configured blocks via deduplicated cache
     if (window.api && typeof window.api.getActiveHostels === 'function') {
-        window.api.getActiveHostels(true).catch(() => {});
+        window.api.getActiveHostels(false).catch(() => {});
     }
 
     // Mandatory Initial Address Selection on App Bootstrap
@@ -4129,7 +4150,7 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
     window.addEventListener('DOMContentLoaded', bootstrapApp);
 }
 
-// Smart Background Sync (20s when active order is tracked with Realtime [8s fallback]; 180s idle)
+// Smart Background Sync (45s when active order is tracked with Realtime [15s fallback]; 300s/240s idle)
 let backgroundOrderSyncTimer = null;
 function scheduleBackgroundOrderSync(immediate = false) {
     if (backgroundOrderSyncTimer) clearTimeout(backgroundOrderSyncTimer);
@@ -4139,15 +4160,16 @@ function scheduleBackgroundOrderSync(immediate = false) {
     }
     const hasRealtime = Boolean(window.__clientSupabaseSubscribed || (globalClientWs && globalClientWs.readyState === WebSocket.OPEN));
     const delay = currentTrackedOrderId
-        ? (hasRealtime ? 20000 : 8000)
-        : (hasRealtime ? 180000 : 90000);
+        ? (hasRealtime ? 45000 : 15000)
+        : (hasRealtime ? 300000 : 240000);
     backgroundOrderSyncTimer = setTimeout(_runBackgroundOrderSync, delay);
 }
 
 async function _runBackgroundOrderSync() {
-    if (!document.hidden && window.isUserLoggedIn && window.isUserLoggedIn()) {
+    const onOrdersPage = typeof getCurrentRoute === 'function' && getCurrentRoute() === '/orders';
+    if (!document.hidden && window.isUserLoggedIn && window.isUserLoggedIn() && !(onOrdersPage && window.__clientPollActive)) {
         if (currentTrackedOrderId || !window.__clientSupabaseSubscribed) {
-            await checkAndConnectGlobalOrderTracking();
+            await checkAndConnectGlobalOrderTracking(Boolean(currentTrackedOrderId));
         }
     }
     scheduleBackgroundOrderSync();
@@ -4340,7 +4362,7 @@ window.openCustomerNotificationsModal = async function () {
             const timeAgo = formatTimeAgo(item.sentAt || item.createdAt);
             const imageHtml = item.imageUrl ? `
                 <div class="mt-2 rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 aspect-[2.4/1]">
-                    <img src="${item.imageUrl}" class="w-full h-full object-cover" alt="Announcement" />
+                    <img src="${item.imageUrl}" loading="lazy" decoding="async" class="w-full h-full object-cover" alt="Announcement" />
                 </div>
             ` : '';
             const actionHtml = item.actionText ? `

@@ -627,7 +627,7 @@ function renderHomeBannerSlideHTML(poster, index) {
                 style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; overflow: hidden; border-radius: inherit; padding: 0 !important; display: block !important;">
                 
                 <!-- 100% Full Edge-to-Edge Poster Graphic (Full poster, completely fills slide) -->
-                <img src="${imageUrl}" alt="${(poster.title || 'Store Announcement').replace(/"/g, '&quot;')}" class="announce-img w-full h-full object-cover object-center transition-transform duration-500 hover:scale-[1.01]" style="width: 100%; height: 100%; object-fit: cover; object-position: center; display: block;" onerror="this.style.display='none'">
+                <img src="${imageUrl}" alt="${(poster.title || 'Store Announcement').replace(/"/g, '&quot;')}" ${index === 0 ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async" class="announce-img w-full h-full object-cover object-center transition-transform duration-500 hover:scale-[1.01]" style="width: 100%; height: 100%; object-fit: cover; object-position: center; display: block;" onerror="this.style.display='none'">
                 
                 <!-- One Action Button -->
                 ${showButton ? `
@@ -664,7 +664,7 @@ function renderHomeBannerSlideHTML(poster, index) {
             style="min-width: 100% !important; max-width: 100% !important; flex-shrink: 0 !important; width: 100% !important; box-sizing: border-box !important; position: relative !important; padding: 1.15rem 1.15rem 2rem 1.15rem; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff; overflow: hidden; background: ${theme.bg};">
             
             ${imageUrl ? `
-                <img src="${imageUrl}" alt="${title}" class="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 hover:scale-105" style="filter: brightness(0.72);" onerror="this.style.display='none'">
+                <img src="${imageUrl}" alt="${title}" ${index === 0 ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async" class="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 hover:scale-105" style="filter: brightness(0.72);" onerror="this.style.display='none'">
                 <div class="absolute inset-0 bg-gradient-to-r from-black/85 via-black/45 to-transparent z-[1]"></div>
             ` : ''}
 
@@ -793,6 +793,9 @@ window.pages.home = async function () {
     let bannerList = (data?.banners && Array.isArray(data.banners) && data.banners.length > 0)
         ? data.banners
         : null;
+    if (bannerList && typeof window !== 'undefined') {
+        window.__homeBannersLastSyncedAt = Date.now();
+    }
 
     try {
         const cached = localStorage.getItem('lpuquick_active_banners');
@@ -1341,7 +1344,7 @@ window.pages.home = async function () {
                             </div>
                         </div>
                         <div class="relative w-24 h-18 sm:w-32 sm:h-22 shrink-0 flex items-center justify-center">
-                                                        <img src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=320&auto=format&fit=crop&q=80" alt="Featured" class="max-h-full max-w-full object-contain drop-shadow-xl" id="promo-image">
+                                                        <img src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=320&auto=format&fit=crop&q=80" alt="Featured" loading="lazy" decoding="async" class="max-h-full max-w-full object-contain drop-shadow-xl" id="promo-image">
                             <!-- Glowing Diya on Rangoli Base (Exact Visual Match to Screen 2) -->
                             <div class="absolute -bottom-1 -left-2 sm:-left-3 z-20 pointer-events-none drop-shadow-[0_0_12px_rgba(245,158,11,0.95)]">
                                 <svg viewBox="0 0 36 36" class="w-8 h-8 sm:w-10 sm:h-10">
@@ -2032,7 +2035,7 @@ window.pageInits.home = function () {
             return `
                 <div class="flex items-center justify-between gap-2.5 p-2 rounded-xl hover:bg-emerald-500/10 dark:hover:bg-emerald-500/20 transition-colors cursor-pointer search-dropdown-item" data-id="${pid}">
                     <div class="flex items-center gap-2.5 min-w-0">
-                        <img src="${img}" alt="${title}" class="w-9 h-9 object-contain rounded-lg bg-white dark:bg-slate-900 p-0.5 border border-[var(--glass-border)] shrink-0" onerror="this.src='/logo.png'">
+                        <img src="${img}" alt="${title}" loading="lazy" decoding="async" class="w-9 h-9 object-contain rounded-lg bg-white dark:bg-slate-900 p-0.5 border border-[var(--glass-border)] shrink-0" onerror="this.src='/logo.png'">
                         <div class="min-w-0">
                             <p class="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">${title}</p>
                             <div class="flex items-center gap-2 text-[10px] text-slate-500 dark:text-slate-400">
@@ -2400,21 +2403,24 @@ window.pageInits.home = function () {
             }
         });
 
-        // Background fetch for fresh banners on page initialization
-        fetch('/api/home/banners?_t=' + Date.now(), { cache: 'no-store' })
-            .then(r => r.json())
-            .then(res => {
-                if (res && res.success && Array.isArray(res.posters)) {
-                    syncHomeCarousel(res.posters, res.settings);
-                    try {
-                        localStorage.setItem('lpuquick_active_banners', JSON.stringify(res.posters));
-                        if (res.settings) {
-                            localStorage.setItem('lpuquick_carousel_settings', JSON.stringify(res.settings));
-                        }
-                    } catch (e) { }
-                }
-            })
-            .catch(() => { });
+        // Fetch Edge-cached banners only when stale (> 120s since /api/home hydrated banners)
+        if (!window.__homeBannersLastSyncedAt || (Date.now() - window.__homeBannersLastSyncedAt > 120000)) {
+            window.__homeBannersLastSyncedAt = Date.now();
+            fetch('/api/home/banners')
+                .then(r => r.json())
+                .then(res => {
+                    if (res && res.success && Array.isArray(res.posters)) {
+                        syncHomeCarousel(res.posters, res.settings);
+                        try {
+                            localStorage.setItem('lpuquick_active_banners', JSON.stringify(res.posters));
+                            if (res.settings) {
+                                localStorage.setItem('lpuquick_carousel_settings', JSON.stringify(res.settings));
+                            }
+                        } catch (e) { }
+                    }
+                })
+                .catch(() => { });
+        }
 
         // Listen for Realtime Events
         window.addEventListener('advertisementsUpdated', (e) => {

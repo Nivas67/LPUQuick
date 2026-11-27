@@ -312,7 +312,7 @@ window.pages.categories = async function () {
                     </div>
                     <div class="relative shrink-0 w-20 h-20 sm:w-24 sm:h-24 flex items-center justify-center">
                         <div class="absolute inset-0 bg-purple-500/20 rounded-full blur-xl"></div>
-                        <img src="https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=160" alt="Cadbury Brownie" class="relative z-10 w-full h-full object-contain rounded-xl drop-shadow-md">
+                        <img src="https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=160" alt="Cadbury Brownie" loading="lazy" decoding="async" class="relative z-10 w-full h-full object-contain rounded-xl drop-shadow-md">
                     </div>
                 </div>
 

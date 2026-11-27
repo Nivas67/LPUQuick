@@ -576,7 +576,7 @@ window.pages.orders = async function () {
                     ${orderItems.map(it => `
                         <div class="flex items-center justify-between p-2 rounded-xl bg-slate-50/60 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800/50">
                             <div class="flex items-center gap-2 min-w-0">
-                                <img src="${escapeHtml(it.image_url || it.products?.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60')}" class="w-8 h-8 rounded-lg object-cover bg-white shrink-0 border border-slate-200 dark:border-slate-700" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'">
+                                <img src="${escapeHtml(it.image_url || it.products?.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60')}" loading="lazy" decoding="async" class="w-8 h-8 rounded-lg object-cover bg-white shrink-0 border border-slate-200 dark:border-slate-700" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'">
                                 <div class="min-w-0">
                                     <p class="font-bold text-xs text-slate-900 dark:text-white truncate">${escapeHtml(it.name || 'Campus Item')}</p>
                                     <p class="text-[10px] text-slate-500 dark:text-slate-400 font-medium">₹${it.unit_price || it.price || 0} × ${it.quantity || 1}</p>
@@ -803,6 +803,7 @@ window.pages.orders = async function () {
                                 <div class="flex items-center justify-between p-2 rounded-xl bg-slate-50/70 dark:bg-slate-900/60 border border-[var(--glass-border)]">
                                     <div class="flex items-center gap-2.5 min-w-0">
                                         <img src="${escapeHtml(it.image_url || it.products?.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60')}" 
+                                             loading="lazy" decoding="async"
                                              class="w-9 h-9 rounded-lg object-cover bg-white shrink-0 border border-slate-200 dark:border-slate-800" 
                                              onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=60'" 
                                              alt="${escapeHtml(it.name || 'Campus Item')}">
@@ -990,7 +991,7 @@ window.pageInits.orders = function () {
                 }
 
                 // Poll active order from database as a lightweight failsafe to Realtime Broadcast
-                const pollInterval = window.__clientSupabaseSubscribed ? 20000 : 10000;
+                const pollInterval = window.__clientSupabaseSubscribed ? 45000 : 15000;
                 const now = Date.now();
                 if (now - lastFailsafePollAt < pollInterval) return;
                 lastFailsafePollAt = now;

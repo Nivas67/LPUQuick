@@ -1,7 +1,8 @@
-// LPUQuick High-Performance Ultra-Fast Service Worker (V2026.11.27-V33)
-const CACHE_NAME = 'lpuquick-pwa-v33-direct';
+// LPUQuick High-Performance Ultra-Fast Service Worker (V2026.11.27-V34)
+const CACHE_NAME = 'lpuquick-pwa-v34-direct';
 const API_CACHE_NAME = 'lpuquick-api-cache-v2';
 
+// Core shell assets only; notification GIFs are cached on demand when shown to avoid wasting bandwidth on install
 const STATIC_ASSETS = [
     '/',
     '/index.html',
@@ -10,15 +11,6 @@ const STATIC_ASSETS = [
     '/logo.png',
     '/logo.svg',
     '/runner.svg',
-    '/img/notif_confirmed.gif',
-    '/img/notif_preparing.gif',
-    '/img/notif_out_for_delivery.gif',
-    '/img/notif_near_room.gif',
-    '/img/notif_arrived.gif',
-    '/img/notif_store_open.gif',
-    '/img/notif_running.gif',
-    '/img/notif_placed.gif',
-    '/img/notif_delivered.gif',
     '/icon-192.png',
     '/icon-512.png',
     '/apple-touch-icon.png',

@@ -350,19 +350,22 @@ const api = {
         return res.json();
     },
 
-    // Active Hostels with Intelligent SWR Memory Cache (0ms Instant Lookups + Live Sync)
+    // Active Hostels with Intelligent SWR Memory Cache (0ms Instant Lookups + Edge CDN Friendly)
     async getActiveHostels(forceRefresh = false) {
         const now = Date.now();
         const cacheAge = now - (window.__activeHostelsCacheTime || 0);
 
-        // 1. Instant Cache Hit (Fresh within 10s)
-        if (!forceRefresh && window.__activeHostelsCache && Array.isArray(window.__activeHostelsCache) && window.__activeHostelsCache.length > 0 && cacheAge < 10000) {
+        // 1. Instant Cache Hit (Fresh within 60s to match Vercel Edge CDN)
+        if (!forceRefresh && window.__activeHostelsCache && Array.isArray(window.__activeHostelsCache) && window.__activeHostelsCache.length > 0 && cacheAge < 60000) {
             return window.__activeHostelsCache;
         }
 
-        // 2. SWR: If we have cache older than 10s, return immediately but revalidate in background
-        if (!forceRefresh && window.__activeHostelsCache && Array.isArray(window.__activeHostelsCache) && window.__activeHostelsCache.length > 0) {
-            fetch(`${API_BASE}/hostels/active?_t=${now}`)
+        const fetchHostelsList = () => {
+            if (!forceRefresh && window.__activeHostelsInFlightPromise) {
+                return window.__activeHostelsInFlightPromise;
+            }
+            const endpointUrl = forceRefresh ? `${API_BASE}/hostels/active?_t=${Date.now()}` : `${API_BASE}/hostels/active`;
+            const reqPromise = fetch(endpointUrl)
                 .then(r => r.json())
                 .then(data => {
                     const list = (data && Array.isArray(data.hostels)) ? data.hostels : [];
@@ -372,23 +375,30 @@ const api = {
                         try { localStorage.setItem('lpuquick_active_hostels', JSON.stringify(list)); } catch (e) { }
                         window.dispatchEvent(new CustomEvent('lpuquick:hostels_updated', { detail: list }));
                     }
-                }).catch(() => {});
+                    return list;
+                })
+                .finally(() => {
+                    if (window.__activeHostelsInFlightPromise === reqPromise) {
+                        window.__activeHostelsInFlightPromise = null;
+                    }
+                });
+            if (!forceRefresh) {
+                window.__activeHostelsInFlightPromise = reqPromise;
+            }
+            return reqPromise;
+        };
+
+        // 2. SWR: If we have cache older than 60s, return immediately and revalidate via Edge CDN in background
+        if (!forceRefresh && window.__activeHostelsCache && Array.isArray(window.__activeHostelsCache) && window.__activeHostelsCache.length > 0) {
+            fetchHostelsList().catch(() => {});
             return window.__activeHostelsCache;
         }
 
         // 3. Fresh Network Fetch (cold start or explicit forceRefresh)
         try {
-            const res = await fetch(`${API_BASE}/hostels/active?_t=${now}`);
-            const data = await res.json();
-            const list = (data && Array.isArray(data.hostels)) ? data.hostels : [];
-            if (list.length > 0) {
-                window.__activeHostelsCache = list;
-                window.__activeHostelsCacheTime = Date.now();
-                try { localStorage.setItem('lpuquick_active_hostels', JSON.stringify(list)); } catch (e) { }
-                window.dispatchEvent(new CustomEvent('lpuquick:hostels_updated', { detail: list }));
-                return list;
-            }
-            return window.__activeHostelsCache || list;
+            const list = await fetchHostelsList();
+            if (list && list.length > 0) return list;
+            return window.__activeHostelsCache || list || [];
         } catch (e) {
             return window.__activeHostelsCache || [
                 { id: 'BH-13', name: 'Boys Hostel 13', status: 'ACTIVE', blocks: ['Block A', 'Block B', 'Hostel Main Gate'] },
@@ -1243,26 +1253,71 @@ const api = {
         return res.json();
     },
 
-    // Store Availability Status (Edge CDN cached with SWR)
-    async getClientStatus(hostelId) {
-        try {
-            const targetHostel = hostelId || (typeof window !== 'undefined' && (window.currentHostelId || localStorage.getItem('lpuquick_hostel_id'))) || 'BH-13';
-            const res = await fetch(`${API_BASE}/client/status?hostel_id=${encodeURIComponent(targetHostel)}`);
-            return await res.json();
-        } catch (e) {
-            return { is_locked: false, lock_status: 'AVAILABLE' };
+    // Store Availability Status (Edge CDN cached with 15s client dedup TTL)
+    async getClientStatus(hostelId, force = false) {
+        const targetHostel = hostelId || (typeof window !== 'undefined' && (window.currentHostelId || localStorage.getItem('lpuquick_hostel_id'))) || 'BH-13';
+        const cache = (typeof window !== 'undefined') ? (window.__clientStatusCache = window.__clientStatusCache || new Map()) : null;
+        const inFlight = (typeof window !== 'undefined') ? (window.__clientStatusInFlight = window.__clientStatusInFlight || new Map()) : null;
+        const now = Date.now();
+
+        if (!force && cache && cache.has(targetHostel)) {
+            const entry = cache.get(targetHostel);
+            if (now - entry.ts < 15000) return entry.data;
         }
+        if (!force && inFlight && inFlight.has(targetHostel)) {
+            return inFlight.get(targetHostel);
+        }
+
+        const p = (async () => {
+            try {
+                const res = await fetch(`${API_BASE}/client/status?hostel_id=${encodeURIComponent(targetHostel)}`);
+                const data = await res.json();
+                if (cache && data) cache.set(targetHostel, { ts: Date.now(), data });
+                return data;
+            } catch (e) {
+                return (cache && cache.get(targetHostel)?.data) || { is_locked: false, lock_status: 'AVAILABLE' };
+            } finally {
+                if (inFlight) inFlight.delete(targetHostel);
+            }
+        })();
+        if (inFlight) inFlight.set(targetHostel, p);
+        return p;
     },
 
-    // User Blacklist & Account Block Check
-    async checkUserStatus(userId) {
+    // User Blacklist & Account Block Check (60s client dedup TTL + realtime invalidation)
+    clearUserStatusCache(userId = null) {
+        if (typeof window === 'undefined' || !window.__userBlockStatusCache) return;
+        if (userId) window.__userBlockStatusCache.delete(userId);
+        else window.__userBlockStatusCache.clear();
+    },
+    async checkUserStatus(userId, force = false) {
         if (!userId) return { isBlocked: false };
-        try {
-            const res = await fetch(`${API_BASE}/auth/check-status/${userId}`);
-            return await res.json();
-        } catch (e) {
-            return { isBlocked: false };
+        const cache = (typeof window !== 'undefined') ? (window.__userBlockStatusCache = window.__userBlockStatusCache || new Map()) : null;
+        const inFlight = (typeof window !== 'undefined') ? (window.__userBlockStatusInFlight = window.__userBlockStatusInFlight || new Map()) : null;
+        const now = Date.now();
+
+        if (!force && cache && cache.has(userId)) {
+            const entry = cache.get(userId);
+            if (now - entry.ts < 60000) return entry.data;
         }
+        if (!force && inFlight && inFlight.has(userId)) {
+            return inFlight.get(userId);
+        }
+
+        const p = (async () => {
+            try {
+                const res = await fetch(`${API_BASE}/auth/check-status/${userId}`);
+                const data = await res.json();
+                if (cache && data) cache.set(userId, { ts: Date.now(), data });
+                return data;
+            } catch (e) {
+                return (cache && cache.get(userId)?.data) || { isBlocked: false };
+            } finally {
+                if (inFlight) inFlight.delete(userId);
+            }
+        })();
+        if (inFlight) inFlight.set(userId, p);
+        return p;
     },
 
     // User Address
