@@ -1,5 +1,5 @@
-// LPUQuick High-Performance Ultra-Fast Service Worker (V2026.11.28-V35)
-const CACHE_NAME = 'lpuquick-pwa-v35-direct';
+// LPUQuick High-Performance Ultra-Fast Service Worker (V2026.11.28-V36)
+const CACHE_NAME = 'lpuquick-pwa-v36-direct';
 const API_CACHE_NAME = 'lpuquick-api-cache-v2';
 
 // Core shell assets only; notification GIFs are cached on demand when shown to avoid wasting bandwidth on install

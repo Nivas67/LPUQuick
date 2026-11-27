@@ -1079,6 +1079,7 @@ html.dark .slider-text {
 
 .modal-overlay > .glass-panel,
 .modal-overlay > .modal-content {
+    max-height: 94% !important;
     background: rgba(255, 255, 255, 0.97) !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
@@ -1088,6 +1089,7 @@ body.dark .modal-overlay > .glass-panel,
 html.dark .modal-overlay > .glass-panel,
 body.dark .modal-overlay > .modal-content,
 html.dark .modal-overlay > .modal-content {
+    max-height: 94% !important;
     background: rgba(17, 24, 39, 0.97) !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
@@ -1105,7 +1107,7 @@ html.dark .modal-overlay > .modal-content {
 .modal-content {
     width: 100%;
     max-width: 520px;
-    max-height: min(88vh, calc(100dvh - 3rem));
+    max-height: calc(100% - 2rem);
     overflow-y: auto;
     border-radius: 1.75rem 1.75rem 0 0;
     background: var(--glass-bg) !important;

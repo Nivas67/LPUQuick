@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.view.KeyEvent;
+import android.view.ViewGroup;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
@@ -29,7 +30,7 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public String getAppVersion() {
-            return "1.0.2";
+            return "1.0.3";
         }
     }
 
@@ -40,8 +41,19 @@ public class MainActivity extends AppCompatActivity {
         WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
 
         mSwipeRefresh = new SwipeRefreshLayout(this);
+        mSwipeRefresh.setLayoutParams(new ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ));
         mWebView = new WebView(this);
-        mSwipeRefresh.addView(mWebView);
+        mWebView.setLayoutParams(new ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ));
+        mSwipeRefresh.addView(mWebView, new ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ));
         setContentView(mSwipeRefresh);
 
         // Configure WebView settings for maximum performance
@@ -61,7 +73,7 @@ public class MainActivity extends AppCompatActivity {
         // Identify this WebView to the web app so all install options are removed
         String defaultUa = settings.getUserAgentString();
         if (defaultUa != null && !defaultUa.contains("LPUQuickAndroidApp")) {
-            settings.setUserAgentString(defaultUa + " LPUQuickAndroidApp/1.0.2 (Android Native)");
+            settings.setUserAgentString(defaultUa + " LPUQuickAndroidApp/1.0.3 (Android Native)");
         }
 
         // Bridge for native detection

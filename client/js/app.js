@@ -730,7 +730,7 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
     modal.id = 'address-modal';
     modal.className = 'modal-overlay fixed inset-0 z-[99999] flex items-start justify-center p-4 bg-black/80';
     modal.innerHTML = `
-        <div class="glass-panel p-6 space-y-4 max-w-sm w-full rounded-3xl max-h-[88vh] overflow-y-auto border border-[var(--glass-border)] shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200" onclick="event.stopPropagation()">
+        <div class="glass-panel p-6 space-y-4 max-w-sm w-full rounded-3xl max-h-[92%] overflow-y-auto border border-[var(--glass-border)] shadow-2xl animate-in fade-in zoom-in-95 duration-200" onclick="event.stopPropagation()">
             <!-- Screen 1: Address Details Form -->
             <div id="address-form-screen" class="space-y-4">
                 <!-- Header -->
@@ -1417,7 +1417,7 @@ window.openCampusHelpModal = function (orderId = null) {
     modal.id = 'campus-help-modal';
     modal.className = 'modal-overlay fixed inset-0 z-[99999] flex items-start justify-center p-4 bg-black/80';
     modal.innerHTML = `
-        <div class="glass-panel p-5 sm:p-6 space-y-4 max-w-md w-full rounded-3xl max-h-[90vh] overflow-y-auto border border-[var(--glass-border)] shadow-2xl backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-200 text-slate-900 dark:text-white mx-3 sm:mx-auto" onclick="event.stopPropagation()">
+        <div class="glass-panel p-5 sm:p-6 space-y-4 max-w-md w-full rounded-3xl max-h-[92%] overflow-y-auto border border-[var(--glass-border)] shadow-2xl animate-in fade-in zoom-in-95 duration-200 text-slate-900 dark:text-white mx-3 sm:mx-auto" onclick="event.stopPropagation()">
             <!-- Modal Header -->
             <div class="flex justify-between items-center pb-3 border-b border-[var(--glass-border)]">
                 <div class="flex items-center gap-3">
@@ -1573,7 +1573,7 @@ window.openCouponsModal = function () {
     modal.id = 'coupons-modal';
     modal.className = 'modal-overlay fixed inset-0 z-[99999] flex items-start justify-center p-4 bg-black/80';
     modal.innerHTML = `
-        <div class="glass-panel p-5 sm:p-6 space-y-4 max-w-md w-full rounded-3xl max-h-[90vh] overflow-y-auto border border-[var(--glass-border)] shadow-2xl backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-200 text-slate-900 dark:text-white mx-3 sm:mx-auto" onclick="event.stopPropagation()">
+        <div class="glass-panel p-5 sm:p-6 space-y-4 max-w-md w-full rounded-3xl max-h-[92%] overflow-y-auto border border-[var(--glass-border)] shadow-2xl animate-in fade-in zoom-in-95 duration-200 text-slate-900 dark:text-white mx-3 sm:mx-auto" onclick="event.stopPropagation()">
             <!-- Header -->
             <div class="flex justify-between items-center pb-3 border-b border-[var(--glass-border)]">
                 <div class="flex items-center gap-3">

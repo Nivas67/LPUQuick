@@ -1077,7 +1077,7 @@ window.openClientPartnerShiftModal = function () {
 
     container.innerHTML = `
         <div class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-            <div class="bg-white rounded-3xl p-5 max-w-sm w-full shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
+            <div class="bg-white rounded-3xl p-5 max-w-sm w-full shadow-2xl space-y-4 max-h-[90%] overflow-y-auto">
                 <div class="flex items-center justify-between border-b pb-3">
                     <h3 class="font-black text-base text-[#181c1f] flex items-center gap-2">
                         <span class="material-symbols-outlined text-[#0066cc]">schedule</span>

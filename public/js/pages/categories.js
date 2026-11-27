@@ -171,7 +171,7 @@ window.pages.categories = async function () {
     const address = window.currentAddressDetail?.label || `${window.currentAddress || (window.currentHostelId ? window.currentHostelId.replace('-', '') : 'Campus')} (Block A), Room 304`;
 
     return `
-<div class="bg-background text-on-background min-h-screen flex flex-col selection:bg-emerald/20 selection:text-primary relative overflow-hidden" style="height: 100dvh; max-height: 100dvh;">
+<div class="bg-background text-on-background fixed inset-0 z-10 flex flex-col selection:bg-emerald/20 selection:text-primary overflow-hidden">
     <!-- Top Header Bar (Full-Width Clean Instamart/Blinkit app style) -->
     <header class="categories-app-bar w-full flex items-center justify-between gap-2.5 sm:gap-4 px-3.5 sm:px-6 py-2.5 shrink-0 z-30 select-none border-b border-[var(--glass-border)] bg-white/80 dark:bg-slate-950/85 backdrop-blur-2xl">
         <div class="flex items-center gap-2 sm:gap-3 min-w-0">
@@ -238,7 +238,7 @@ window.pages.categories = async function () {
     </header>
 
     <!-- Main 2-Column Split Area (Category Rail on Left stretching to the bottom) -->
-    <div class="flex flex-1 overflow-hidden w-full relative" style="height: calc(100dvh - 58px);">
+    <div class="flex flex-1 min-h-0 overflow-hidden w-full relative">
         
         <!-- LEFT VERTICAL CATEGORY RAIL (Long until end, exactly like Blinkit/Instamart) -->
         <aside id="category-sidebar-rail" class="w-[78px] sm:w-[86px] md:w-[96px] shrink-0 h-full overflow-y-auto no-scrollbar flex flex-col py-1.5 border-r border-[var(--glass-border)] bg-slate-50/80 dark:bg-slate-950/85 backdrop-blur-2xl z-20 select-none pb-36 sm:pb-16">
