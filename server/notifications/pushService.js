@@ -116,7 +116,7 @@ hydrateSubscriptionsFromCloud().catch(() => {});
 
 function persistSubscriptions() {
     syncSubscriptionsToCloud();
-    if (process.env.VERCEL || process.env.CLOUDFLARE_WORKERS) {
+    if (process.env.VERCEL) {
         try {
             const tmpFile = path.join(require('os').tmpdir(), 'push_subscriptions.json');
             fs.writeFileSync(tmpFile, JSON.stringify(subscriptions, null, 2));

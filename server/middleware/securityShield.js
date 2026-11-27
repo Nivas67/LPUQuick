@@ -30,44 +30,25 @@ const LIMITS = {
 
 /**
  * Extracts the real client IP behind Vercel / Nginx edge proxies.
- * Under direct Vercel hosting, prioritizes x-vercel-forwarded-for / x-real-ip and ignores spoofable cf-connecting-ip headers.
  */
 function getClientIp(req) {
     if (!req) return '127.0.0.1';
     const headers = req.headers || {};
 
-    if (process.env.VERCEL && process.env.TRUST_CLOUDFLARE_HEADERS !== '1') {
-        const vercelIp = headers['x-vercel-forwarded-for'];
-        if (vercelIp && typeof vercelIp === 'string' && vercelIp.trim()) {
-            const first = vercelIp.split(',')[0].trim();
-            if (first) return first;
-        }
-        const realIp = headers['x-real-ip'];
-        if (realIp && typeof realIp === 'string' && realIp.trim()) {
-            return realIp.trim();
-        }
-    }
-
-    // 1. Trusted Cloudflare / proxy Real IP
-    const cfIp = headers['cf-connecting-ip'] || headers['true-client-ip'];
-    if (cfIp && typeof cfIp === 'string' && cfIp.trim()) {
-        return cfIp.trim();
-    }
-
-    // 2. Vercel Edge Forwarded IP
+    // 1. Vercel Edge Forwarded IP
     const vercelIp = headers['x-vercel-forwarded-for'];
     if (vercelIp && typeof vercelIp === 'string' && vercelIp.trim()) {
         const first = vercelIp.split(',')[0].trim();
         if (first) return first;
     }
 
-    // 3. X-Real-IP set by trusted upstream Nginx load balancer
+    // 2. X-Real-IP set by Vercel / Nginx proxy
     const realIp = headers['x-real-ip'];
     if (realIp && typeof realIp === 'string' && realIp.trim()) {
         return realIp.trim();
     }
 
-    // 4. Fallback: X-Forwarded-For
+    // 3. Fallback: X-Forwarded-For
     const xForwardedFor = headers['x-forwarded-for'];
     if (xForwardedFor && typeof xForwardedFor === 'string') {
         const first = xForwardedFor.split(',')[0].trim();

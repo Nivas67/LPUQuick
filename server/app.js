@@ -1,6 +1,4 @@
-if (!process.env.CLOUDFLARE_WORKERS && typeof globalThis.WebSocketPair === 'undefined') {
-    try { require('dotenv').config(); } catch (e) {}
-}
+try { require('dotenv').config(); } catch (e) {}
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -13,7 +11,7 @@ app.set('trust proxy', 1);
 const supabase = getSupabaseClient();
 console.log('[Database] 100% Supabase Cloud PostgreSQL Active (Single Database Mode)');
 
-// Initialize Hostel Groups & Shared Inventory Registry (skip top-level async I/O in Cloudflare Workers / serverless global scope)
+// Initialize Hostel Groups & Shared Inventory Registry (skip top-level async I/O in serverless global scope)
 if (!isServerlessRuntime()) {
     try {
         const hostelGroupService = require('./services/hostelGroupService');
@@ -76,12 +74,12 @@ app.use((req, res, next) => {
     res.setHeader(
         'Content-Security-Policy',
         "default-src 'self'; " +
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://accounts.google.com https://apis.google.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://challenges.cloudflare.com; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://accounts.google.com https://apis.google.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; " +
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.tailwindcss.com; " +
         "font-src 'self' https://fonts.gstatic.com data:; " +
         "img-src 'self' data: blob: https:; " +
         "connect-src 'self' https: wss:; " +
-        "frame-src 'self' https://accounts.google.com https://challenges.cloudflare.com; " +
+        "frame-src 'self' https://accounts.google.com; " +
         "frame-ancestors 'self'; " +
         "base-uri 'self'; " +
         "form-action 'self';"
@@ -104,7 +102,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// Middleware: Compression (Skip on Vercel / Cloudflare Workers — Edge Network compresses responses at 0 CPU cost)
+// Middleware: Compression (Skip on Vercel — Edge Network compresses responses at 0 CPU cost)
 if (!isServerlessRuntime()) {
     const compression = require('compression');
     app.use(compression({
@@ -146,7 +144,7 @@ app.use(cors({
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-token', 'x-admin-key', 'x-partner-token', 'x-customer-token', 'x-user-id', 'x-user-phone', 'x-hostel-id', 'x-gateway-signature', 'x-gateway-event', 'x-signature', 'x-event', 'x-event-id', 'x-idempotency-key', 'x-sandbox-token', 'x-financial-token', 'x-turnstile-token']
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-token', 'x-admin-key', 'x-partner-token', 'x-customer-token', 'x-user-id', 'x-user-phone', 'x-hostel-id', 'x-gateway-signature', 'x-gateway-event', 'x-signature', 'x-event', 'x-event-id', 'x-idempotency-key', 'x-sandbox-token', 'x-financial-token']
 }));
 
 // CSRF Protection Middleware for state-changing requests (Req 11)
@@ -324,12 +322,6 @@ app.get('/api/realtime/config', (req, res) => {
         supabaseUrl: process.env.SUPABASE_URL || '',
         supabaseAnonKey: safeAnonKey
     });
-});
-
-app.get(['/api/security/turnstile-config', '/api/auth/turnstile-config'], (req, res) => {
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-    const { getPublicTurnstileConfig } = require('./services/turnstileService');
-    res.json(getPublicTurnstileConfig(req));
 });
 
 app.use(['/api/auth', '/api/cart', '/api/checkout', '/api/orders', '/api/payments', '/api/admin', '/api/partner', '/api/notifications', '/api/backup', '/api/financial', '/api/security'], (req, res, next) => {

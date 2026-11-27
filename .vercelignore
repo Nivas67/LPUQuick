@@ -1,4 +1,4 @@
-# Exclude non-runtime files and Cloudflare Workers artifacts from Vercel bundles
+# Exclude non-runtime files from Vercel bundles
 .git
 node_modules
 .env

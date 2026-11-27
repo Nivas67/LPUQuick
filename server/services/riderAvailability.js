@@ -65,7 +65,7 @@ function loadCache() {
 
 function saveCache() {
     syncCacheToCloud();
-    if (process.env.VERCEL || process.env.CLOUDFLARE_WORKERS) {
+    if (process.env.VERCEL) {
         try {
             fs.writeFileSync(TMP_AVAILABILITY_FILE, JSON.stringify(availabilityCache || {}, null, 2), 'utf8');
         } catch (tmpErr) {}

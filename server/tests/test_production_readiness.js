@@ -36,8 +36,6 @@ async function runFailClosedUnitChecks() {
         CUSTOMER_SESSION_SECRET: '',
         SANDBOX_SUPABASE_URL: '',
         SANDBOX_SUPABASE_SERVICE_ROLE_KEY: '',
-        TURNSTILE_SITE_KEY: '',
-        TURNSTILE_SECRET_KEY: '',
         VAPID_PUBLIC_KEY: '',
         VAPID_PRIVATE_KEY: ''
     };
@@ -322,8 +320,6 @@ async function runTests() {
     process.env.ONLINE_PAYMENTS_ENABLED = 'false';
     process.env.PUBLIC_APP_URL = 'https://lpuquick.vercel.app';
     process.env.APP_URL = 'https://lpuquick.vercel.app';
-    process.env.TURNSTILE_SITE_KEY = '';
-    process.env.TURNSTILE_SECRET_KEY = '';
     process.env.SUPABASE_URL = '';
     process.env.SUPABASE_ANON_KEY = '';
     process.env.SUPABASE_SERVICE_ROLE_KEY = '';
@@ -691,13 +687,13 @@ async function runTests() {
         assert.strictEqual(partnerWithCustomer.status, 401, 'Customer token must NEVER grant partner access');
         console.log('   [PASS] Admin & partner authorization boundaries verified');
 
-        console.log('7. Testing direct Vercel deployment manifests, dzygsmgdzvroxepwyjyz RLS SQL, and portal JS sync...');
+        console.log('7. Testing direct Vercel deployment manifests, vltnqvktdlpcltndmmwl non-destructive RLS SQL, and portal JS sync...');
         const vercelCfg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'vercel.json'), 'utf8'));
         assert.strictEqual(vercelCfg.functions?.['api/index.js']?.memory, undefined, 'vercel.json must not hardcode deprecated memory under Fluid Compute');
         assert.strictEqual(vercelCfg.functions?.['api/index.js']?.maxDuration, 30);
         const rawVercelJson = JSON.stringify(vercelCfg);
         assert.strictEqual(rawVercelJson.includes('workers.dev'), false, 'Active Vercel config must never reference workers.dev');
-        assert.ok(rawVercelJson.includes('https://challenges.cloudflare.com'), 'CSP in vercel.json must allow Cloudflare Turnstile scripts/frames');
+        assert.strictEqual(rawVercelJson.includes('challenges.cloudflare.com'), false, 'CSP in vercel.json must not include Cloudflare Turnstile');
         const apiRewrite = (vercelCfg.rewrites || []).find((r) => r.source === '/api/(.*)');
         assert.ok(apiRewrite && apiRewrite.destination === '/api/index.js');
         assert.ok((vercelCfg.rewrites || []).some((r) => r.source === '/admin/(.*)' && r.destination === '/admin/index.html'));
@@ -708,25 +704,16 @@ async function runTests() {
             assert.ok(vercelIgnore.includes(ignored), `.vercelignore must exclude ${ignored}`);
         }
 
-        const rlsSql = fs.readFileSync(path.join(__dirname, '..', 'db', 'migrations', '20261127_dzygsmgdzvroxepwyjyz_full_schema_and_rls.sql'), 'utf8');
-        for (const table of ['users', 'hostels', 'products', 'cart_items', 'orders', 'order_items', 'app_availability', 'blacklisted_users', 'audit_logs', 'turnstile_used_tokens']) {
-            assert.ok(rlsSql.includes(`public.${table}`), `Migration must include public.${table}`);
+        const rlsSql = fs.readFileSync(path.join(__dirname, '..', 'db', 'migrations', '20261127_vltnqvktdlpcltndmmwl_rls_and_security_hardening.sql'), 'utf8');
+        for (const table of ['users', 'hostels', 'products', 'cart_items', 'orders', 'order_items', 'app_availability', 'blacklisted_users', 'audit_logs', 'security_rate_limits', 'auth_otp_challenges']) {
             assert.ok(rlsSql.includes(`'${table}'`), `Migration RLS block must cover public.${table}`);
         }
-        assert.strictEqual(rlsSql.includes('vltnqvktdlpcltndmmwl'), false);
-        assert.strictEqual(rlsSql.includes('mgsxeguulxumfgehpphb'), false);
-        assert.ok(fs.existsSync(path.join(__dirname, '..', 'db', 'migrations', '20261127_dzygsmgdzvroxepwyjyz_rollback.sql')));
+        assert.strictEqual(rlsSql.includes('dzygsmgdzvroxepwyjyz'), false, 'Migration must never reference alternate DB dzygsmgdzvroxepwyjyz');
+        assert.strictEqual(rlsSql.includes('mgsxeguulxumfgehpphb'), false, 'Migration must never reference sandbox DB');
+        assert.strictEqual(/TRUNCATE|DROP TABLE\s+IF\s+EXISTS\s+public\.(users|hostels|products|orders)/i.test(rlsSql), false, 'Migration must preserve all existing DB records');
+        assert.ok(fs.existsSync(path.join(__dirname, '..', 'db', 'migrations', '20261127_vltnqvktdlpcltndmmwl_rollback.sql')));
 
-        const seedSqlPath = path.join(__dirname, '..', 'db', 'migrations', '20261127_dzygsmgdzvroxepwyjyz_seed_catalog_and_config.sql');
-        assert.ok(fs.existsSync(seedSqlPath), 'Non-PII catalog & config seed SQL must exist');
-        const seedSql = fs.readFileSync(seedSqlPath, 'utf8');
-        const hostelInsertCount = (seedSql.match(/INSERT INTO public\.hostels /g) || []).length;
-        const productInsertCount = (seedSql.match(/INSERT INTO public\.products /g) || []).length;
-        assert.strictEqual(hostelInsertCount, 14, 'Seed SQL must preserve all 14 hostels');
-        assert.strictEqual(productInsertCount, 73, 'Seed SQL must preserve all 73 products');
-        assert.strictEqual(/7671836211|sathwik@lpuquick\.com|yojndzstlilzlkxonmvd|vltnqvktdlpcltndmmwl|mgsxeguulxumfgehpphb|workers\.dev|pages\.dev|password_hash/i.test(seedSql), false, 'Seed SQL must contain zero PII, legacy DB refs, or Cloudflare domains');
-
-        for (const rel of ['js/turnstile-client.js', 'js/api.js', 'js/app.js', 'js/pages/signin.js', 'js/pages/checkout.js']) {
+        for (const rel of ['index.html', 'sw.js', 'js/api.js', 'js/app.js', 'js/pages/home.js', 'js/pages/categories.js', 'js/pages/signin.js', 'js/pages/checkout.js', 'partner/index.html', 'partner/js/partner.js']) {
             const clientContent = fs.readFileSync(path.join(__dirname, '..', '..', 'client', rel), 'utf8').replace(/\r\n/g, '\n');
             const publicContent = fs.readFileSync(path.join(__dirname, '..', '..', 'public', rel), 'utf8').replace(/\r\n/g, '\n');
             assert.strictEqual(clientContent, publicContent, `public/${rel} must stay identical to client/${rel}`);
@@ -737,7 +724,7 @@ async function runTests() {
             assert.strictEqual(rootAdmin, pubAdmin, `public/admin/${rel} must stay identical to admin/${rel}`);
         }
         assert.strictEqual(fs.existsSync(path.join(__dirname, '..', 'config', 'vapid.json')), false, 'Committed VAPID private key file must be removed');
-        console.log('   [PASS] Direct Vercel manifest, dzygsmgdzvroxepwyjyz SQL migration & mirror sync verified');
+        console.log('   [PASS] Direct Vercel manifest, vltnqvktdlpcltndmmwl RLS SQL & mirror sync verified');
 
         console.log('\n====================================================');
         console.log('ALL PRODUCTION READINESS TESTS PASSED');

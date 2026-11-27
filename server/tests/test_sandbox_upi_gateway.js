@@ -762,8 +762,8 @@ async function runTests() {
             assert.strictEqual(j.status, item.expect);
         }
 
-        // 13. Gateway unavailable (Cloudflare 522) & Provider HTTP timeout
-        console.log('[13/18] Testing Cloudflare 522 & provider timeout resilience...');
+        // 13. Gateway unavailable (HTTP 522) & Provider HTTP timeout
+        console.log('[13/18] Testing Gateway 522 & provider timeout resilience...');
         gatewayMode = '522';
         const res522 = await fetch(`${appBase}/api/payments/sandbox/create-order`, {
             method: 'POST',
@@ -776,7 +776,7 @@ async function runTests() {
         });
         const j522 = await res522.json();
         assert.strictEqual(res522.status, 503);
-        assert.strictEqual(j522.code, 'GATEWAY_CLOUDFLARE_522');
+        assert.strictEqual(j522.code, 'GATEWAY_TIMEOUT_522');
         assert.strictEqual(j522.retryable, true);
 
         const fallbackStatusRes = await fetch(`${appBase}/api/payments/sandbox/status/${clientOrderId1}`, {

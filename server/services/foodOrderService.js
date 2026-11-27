@@ -22,7 +22,7 @@ function loadFoodConfig() {
 }
 
 function saveFoodConfig(cfg) {
-    if (process.env.VERCEL || process.env.CLOUDFLARE_WORKERS) return;
+    if (process.env.VERCEL) return;
     try {
         const dir = path.dirname(CONFIG_FILE);
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -59,7 +59,7 @@ async function syncFoodMetaFromCloud() {
             const parsed = JSON.parse(data.message);
             if (parsed && typeof parsed === 'object') {
                 _cachedFoodMeta = { ...loadFoodMeta(), ...parsed };
-                if (!process.env.VERCEL && !process.env.CLOUDFLARE_WORKERS) {
+                if (!process.env.VERCEL) {
                     try {
                         const dir = path.dirname(FOOD_META_FILE);
                         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -76,7 +76,7 @@ syncFoodMetaFromCloud().catch(() => {});
 
 function saveFoodMeta(meta) {
     _cachedFoodMeta = meta;
-    if (!process.env.VERCEL && !process.env.CLOUDFLARE_WORKERS) {
+    if (!process.env.VERCEL) {
         try {
             const dir = path.dirname(FOOD_META_FILE);
             if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });

@@ -1190,7 +1190,7 @@ async function savePosterImageIfBase64(imageUrl, posterId = 'poster') {
         const fileName = `banner_${cleanPosterId}_${Date.now()}.${ext}`;
 
         // Save locally to public/uploads & client/uploads only outside serverless platforms
-        if (!process.env.VERCEL && !process.env.CLOUDFLARE_WORKERS) {
+        if (!process.env.VERCEL) {
             try {
                 const pubUploads = path.join(__dirname, '..', '..', 'public', 'uploads');
                 if (!fs.existsSync(pubUploads)) fs.mkdirSync(pubUploads, { recursive: true });
@@ -1312,7 +1312,7 @@ async function saveAdminBannersData(data) {
         }
 
         // 2. Local disk file persistence on non-serverless hosts
-        if (!process.env.VERCEL && !process.env.CLOUDFLARE_WORKERS) {
+        if (!process.env.VERCEL) {
             try {
                 const dir = path.dirname(BANNERS_DATA_FILE);
                 if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });

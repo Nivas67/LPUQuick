@@ -9,13 +9,12 @@ const {
     recordSuccessfulLoginPersistent
 } = require('../services/securityService');
 const ipBlockService = require('../services/ipBlockService');
-const { verifyTurnstileMiddleware } = require('../services/turnstileService');
 const financialEngine = require('../utils/financialEngine');
 
 /**
  * 1. PARTNER LOGIN
  */
-router.post('/login', verifyTurnstileMiddleware({ action: 'partner_login' }), async (req, res) => {
+router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
         if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {

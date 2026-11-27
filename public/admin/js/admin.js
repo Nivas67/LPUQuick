@@ -7116,9 +7116,6 @@ window.checkAutoOpenOrderFromUrl = checkAutoOpenOrderFromUrl;
 function showLoginModal() {
     const authScreen = document.getElementById('admin-auth-screen');
     if (authScreen) authScreen.classList.remove('hidden');
-    if (window.LpuQuickTurnstile) {
-        window.LpuQuickTurnstile.mount('admin-turnstile-container', { action: 'admin_login', theme: 'light' }).catch(() => {});
-    }
 }
 
 function hideLoginModal() {
@@ -7164,19 +7161,10 @@ async function handleAdminLogin(e) {
     }
 
     try {
-        let turnstileToken = null;
-        if (window.LpuQuickTurnstile) {
-            const tsCheck = await window.LpuQuickTurnstile.ensureToken('admin-turnstile-container', { action: 'admin_login', theme: 'light' });
-            turnstileToken = tsCheck.token;
-        }
-
-        const headers = { 'Content-Type': 'application/json' };
-        if (turnstileToken) headers['x-turnstile-token'] = turnstileToken;
-
         const res = await fetch('/api/auth/admin-login', {
             method: 'POST',
-            headers,
-            body: JSON.stringify({ email, password, turnstileToken: turnstileToken || undefined })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
         });
         let data;
         try {
@@ -7217,9 +7205,6 @@ async function handleAdminLogin(e) {
         if (errorText) errorText.textContent = 'Network/Server connection error: ' + err.message;
         if (errorBox) errorBox.classList.remove('hidden');
     } finally {
-        if (window.LpuQuickTurnstile) {
-            window.LpuQuickTurnstile.reset('admin-turnstile-container');
-        }
         if (submitBtn) {
             submitBtn.disabled = false;
             submitBtn.innerHTML = `

@@ -289,49 +289,32 @@ function getCustomerAuthHeaders(extra = {}) {
     return headers;
 }
 
-function resolveTurnstileToken(explicitToken, containerId) {
-    if (explicitToken && typeof explicitToken === 'string') return explicitToken;
-    if (typeof window !== 'undefined' && window.LpuQuickTurnstile) {
-        return (containerId ? window.LpuQuickTurnstile.getToken(containerId) : null) || window.LpuQuickTurnstile.getToken() || null;
-    }
-    return null;
-}
-
 const api = {
     // Auth
-    async signin(email, password, turnstileToken = null) {
-        const tsToken = resolveTurnstileToken(turnstileToken, 'signin-turnstile-container');
-        const headers = { 'Content-Type': 'application/json' };
-        if (tsToken) headers['x-turnstile-token'] = tsToken;
+    async signin(email, password) {
         const res = await fetch(`${API_BASE}/auth/signin`, {
             method: 'POST',
-            headers,
+            headers: { 'Content-Type': 'application/json' },
             credentials: 'same-origin',
-            body: JSON.stringify({ email, password, turnstileToken: tsToken || undefined })
+            body: JSON.stringify({ email, password })
         });
         return res.json();
     },
     async signup(data) {
-        const tsToken = resolveTurnstileToken(data?.turnstileToken, 'signup-turnstile-container');
-        const headers = { 'Content-Type': 'application/json' };
-        if (tsToken) headers['x-turnstile-token'] = tsToken;
         const res = await fetch(`${API_BASE}/auth/signup`, {
             method: 'POST',
-            headers,
+            headers: { 'Content-Type': 'application/json' },
             credentials: 'same-origin',
-            body: JSON.stringify({ ...(data || {}), turnstileToken: tsToken || undefined })
+            body: JSON.stringify(data || {})
         });
         return res.json();
     },
     async googleAuth(payload = {}) {
-        const tsToken = resolveTurnstileToken(payload?.turnstileToken, 'signin-turnstile-container');
-        const headers = { 'Content-Type': 'application/json' };
-        if (tsToken) headers['x-turnstile-token'] = tsToken;
         const res = await fetch(`${API_BASE}/auth/google`, {
             method: 'POST',
-            headers,
+            headers: { 'Content-Type': 'application/json' },
             credentials: 'same-origin',
-            body: JSON.stringify({ ...(payload || {}), turnstileToken: tsToken || undefined })
+            body: JSON.stringify(payload || {})
         });
         return res.json();
     },
@@ -351,14 +334,11 @@ const api = {
         });
         return res.json();
     },
-    async sendOtp(phone, userId = null, turnstileToken = null) {
-        const tsToken = resolveTurnstileToken(turnstileToken, 'address-turnstile-container');
-        const headers = { 'Content-Type': 'application/json' };
-        if (tsToken) headers['x-turnstile-token'] = tsToken;
+    async sendOtp(phone, userId = null) {
         const res = await fetch(`${API_BASE}/auth/send-otp`, {
             method: 'POST',
-            headers,
-            body: JSON.stringify({ phone, userId, turnstileToken: tsToken || undefined })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone, userId })
         });
         return res.json();
     },
@@ -867,9 +847,7 @@ const api = {
             const timeoutId = setTimeout(() => controller.abort(), 10000); // 10-second per attempt
 
             try {
-                const tsToken = resolveTurnstileToken(extraData.turnstileToken, 'checkout-turnstile-container');
                 const checkoutHeaders = getCustomerAuthHeaders({ 'Content-Type': 'application/json' });
-                if (tsToken) checkoutHeaders['x-turnstile-token'] = tsToken;
                 const res = await fetch(`${API_BASE}/checkout`, {
                     method: 'POST',
                     headers: checkoutHeaders,
@@ -889,8 +867,7 @@ const api = {
                         order_mode: extraData.order_mode || 'DELIVERY',
                         instructions: extraData.instructions || extraData.special_instructions || '',
                         special_instructions: extraData.instructions || extraData.special_instructions || '',
-                        items,
-                        turnstileToken: tsToken || undefined
+                        items
                     })
                 });
                 clearTimeout(timeoutId);
@@ -1307,14 +1284,11 @@ const api = {
     // Authentication & Verification Endpoints
     async googleAuth(userData = {}) {
         try {
-            const tsToken = resolveTurnstileToken(userData?.turnstileToken, 'signin-turnstile-container');
-            const headers = { 'Content-Type': 'application/json' };
-            if (tsToken) headers['x-turnstile-token'] = tsToken;
             const res = await fetch(`${API_BASE}/auth/google`, {
                 method: 'POST',
-                headers,
+                headers: { 'Content-Type': 'application/json' },
                 credentials: 'same-origin',
-                body: JSON.stringify({ ...(userData || {}), turnstileToken: tsToken || undefined })
+                body: JSON.stringify(userData || {})
             });
             return await res.json();
         } catch (err) {
@@ -1323,16 +1297,13 @@ const api = {
         }
     },
 
-    async signIn(email, password, turnstileToken = null) {
+    async signIn(email, password) {
         try {
-            const tsToken = resolveTurnstileToken(turnstileToken, 'signin-turnstile-container');
-            const headers = { 'Content-Type': 'application/json' };
-            if (tsToken) headers['x-turnstile-token'] = tsToken;
             const res = await fetch(`${API_BASE}/auth/signin`, {
                 method: 'POST',
-                headers,
+                headers: { 'Content-Type': 'application/json' },
                 credentials: 'same-origin',
-                body: JSON.stringify({ email, password, turnstileToken: tsToken || undefined })
+                body: JSON.stringify({ email, password })
             });
             return await res.json();
         } catch (err) {
@@ -1341,16 +1312,13 @@ const api = {
         }
     },
 
-    async sendOtp(phone, userId, turnstileToken = null) {
+    async sendOtp(phone, userId) {
         try {
-            const tsToken = resolveTurnstileToken(turnstileToken, 'address-turnstile-container');
-            const extraHeaders = { 'Content-Type': 'application/json' };
-            if (tsToken) extraHeaders['x-turnstile-token'] = tsToken;
             const res = await fetch(`${API_BASE}/auth/send-otp`, {
                 method: 'POST',
-                headers: getCustomerAuthHeaders(extraHeaders),
+                headers: getCustomerAuthHeaders({ 'Content-Type': 'application/json' }),
                 credentials: 'same-origin',
-                body: JSON.stringify({ phone, userId, turnstileToken: tsToken || undefined })
+                body: JSON.stringify({ phone, userId })
             });
             return await res.json();
         } catch (err) {

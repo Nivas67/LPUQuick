@@ -233,15 +233,13 @@ window.getEffectiveUserId = function () {
 // Global Google Auth Verification Helper (Used for First-Time Order Checkout Verification)
 window.promptGoogleAuth = async function (onSuccess, onError) {
     const clientId = window.GOOGLE_CLIENT_ID || '632433440395-4ph6ghe311niied8h423ki98slbse8d2.apps.googleusercontent.com';
-    let preSolvedTurnstile = null;
 
     async function finishAuth(userData) {
         try {
             let res = null;
             try {
                 if (window.api && typeof window.api.googleAuth === 'function') {
-                    const tok = userData?.turnstileToken || preSolvedTurnstile || (window.LpuQuickTurnstile ? window.LpuQuickTurnstile.consumeLastToken() : null);
-                    res = await window.api.googleAuth({ ...(userData || {}), turnstileToken: tok || undefined });
+                    res = await window.api.googleAuth(userData || {});
                 }
             } catch (networkErr) {
                 console.warn('[Google Auth Network Recovery]:', networkErr.message);
@@ -284,22 +282,6 @@ window.promptGoogleAuth = async function (onSuccess, onError) {
         } catch (err) {
             console.error('[Google Auth Error]:', err);
             if (typeof onError === 'function') onError(err);
-        }
-    }
-
-    if (window.LpuQuickTurnstile) {
-        try {
-            const tsCfg = await window.LpuQuickTurnstile.getConfig();
-            if (tsCfg && tsCfg.enabled) {
-                preSolvedTurnstile = await window.LpuQuickTurnstile.promptChallenge({
-                    action: 'google_signin',
-                    title: 'Human Verification',
-                    subtitle: 'Complete this quick check before signing in with Google.'
-                });
-            }
-        } catch (tsErr) {
-            if (typeof onError === 'function') onError(tsErr);
-            return;
         }
     }
 
@@ -842,9 +824,6 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
                     <span id="blocked-hostel-msg">This hostel is opening soon. Delivering to ${liveDisplayNames} right now.</span>
                 </div>
 
-                <!-- Cloudflare Turnstile Container (OTP Protection if enabled) -->
-                <div id="address-turnstile-container" class="hidden flex justify-center min-h-[65px] py-1"></div>
-
                 <!-- Save / Verify Button -->
                 <button type="button" id="save-address-btn" class="clay-btn clay-btn-primary w-full py-3 rounded-2xl text-xs font-black shadow-md active:scale-95 transition-transform cursor-pointer">
                     Confirm Address & Deliver to ${selectedHostel} (<span id="btn-block-label">${selectedBlock}</span>)
@@ -923,9 +902,6 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
         closeBtn.onclick = closeModal;
     }
     document.body.appendChild(modal);
-    if (window.LpuQuickTurnstile) {
-        window.LpuQuickTurnstile.mount('address-turnstile-container', { action: 'otp_request' }).catch(() => {});
-    }
 
     // Enforce strictly numeric input in real-time
     const roomInput = modal.querySelector('#room-input');
@@ -1247,12 +1223,7 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
         }
 
         try {
-            let otpTurnstileToken = null;
-            if (window.LpuQuickTurnstile) {
-                const tsCheck = await window.LpuQuickTurnstile.ensureToken('address-turnstile-container', { action: 'otp_request' });
-                otpTurnstileToken = tsCheck.token;
-            }
-            const sendRes = await window.api.sendOtp(phoneToVerify, userId, otpTurnstileToken);
+            const sendRes = await window.api.sendOtp(phoneToVerify, userId);
             if (btnSave) {
                 btnSave.disabled = false;
                 btnSave.innerHTML = `Confirm Address & Deliver to ${selectedHostel} (<span id="btn-block-label">${selectedBlock}</span>)`;
@@ -1288,10 +1259,6 @@ window.openAddressModal = function (isMandatorySetup = false, onComplete = null)
                 alertMsg.textContent = err.message || 'Could not send WhatsApp verification code.';
             } else if (typeof window.showClientToast === 'function') {
                 window.showClientToast(err.message || 'Could not send WhatsApp OTP', 'error', 'error');
-            }
-        } finally {
-            if (window.LpuQuickTurnstile) {
-                window.LpuQuickTurnstile.reset('address-turnstile-container');
             }
         }
     }
@@ -4300,19 +4267,6 @@ async function registerCustomerPushSubscription(opts = {}) {
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
         if (!('Notification' in window) || Notification.permission !== 'granted') return false;
 
-        let tsToken = opts.turnstileToken || null;
-        if (window.LpuQuickTurnstile) {
-            const tsCfg = await window.LpuQuickTurnstile.getConfig();
-            if (tsCfg && tsCfg.enabled && !tsToken) {
-                if (!opts.interactive) return false;
-                tsToken = await window.LpuQuickTurnstile.promptChallenge({
-                    action: 'customer_subscribe',
-                    title: 'Enable Push Alerts',
-                    subtitle: 'Quick verification to activate order status notifications.'
-                });
-            }
-        }
-
         const reg = await navigator.serviceWorker.ready;
         let sub = await reg.pushManager.getSubscription();
 
@@ -4338,7 +4292,6 @@ async function registerCustomerPushSubscription(opts = {}) {
                 const tok = localStorage.getItem('lpuquick_token') || sessionStorage.getItem('lpuquick_token') || '';
                 if (tok) headers['x-customer-token'] = tok;
             } catch (e) {}
-            if (tsToken) headers['x-turnstile-token'] = tsToken;
 
             const subRes = await fetch('/api/notifications/customer-subscribe', {
                 method: 'POST',
@@ -4348,8 +4301,7 @@ async function registerCustomerPushSubscription(opts = {}) {
                     subscription: sub,
                     userId,
                     userName,
-                    hostelId,
-                    turnstileToken: tsToken || undefined
+                    hostelId
                 })
             });
             return subRes.ok;

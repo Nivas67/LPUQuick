@@ -59,7 +59,7 @@ async function uploadBase64ToSupabaseStorage(base64Data, preferredName = null) {
     const cleanFileName = cleanPrefix ? `${cleanPrefix}_${Date.now()}.${ext}` : `prod_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
 
     // 1. Mirror directly to local uploads directory in non-serverless environments
-    if (!process.env.VERCEL && !process.env.CLOUDFLARE_WORKERS) {
+    if (!process.env.VERCEL) {
         try {
             const publicUploads = path.join(__dirname, '..', '..', 'public', 'uploads');
             if (!fs.existsSync(publicUploads)) fs.mkdirSync(publicUploads, { recursive: true });

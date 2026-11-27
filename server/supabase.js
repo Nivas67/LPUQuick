@@ -1,27 +1,19 @@
 const { createClient } = require('@supabase/supabase-js');
 
-const PRODUCTION_PROJECT_REF = 'dzygsmgdzvroxepwyjyz';
+const PRODUCTION_PROJECT_REF = 'vltnqvktdlpcltndmmwl';
 const REJECTED_LEGACY_REFS = [
-    'vltnqvktdlpcltndmmwl',
+    'dzygsmgdzvroxepwyjyz',
     'yojndzstlilzlkxonmvd'
 ];
 const FORBIDDEN_PRODUCTION_REFS = [
-    'dzygsmgdzvroxepwyjyz',
     'vltnqvktdlpcltndmmwl',
+    'dzygsmgdzvroxepwyjyz',
     'yojndzstlilzlkxonmvd'
 ];
 const DEFAULT_SANDBOX_PROJECT_REF = 'mgsxeguulxumfgehpphb';
 
-function isCloudflareWorker() {
-    return (
-        Boolean(process.env.CLOUDFLARE_WORKERS) ||
-        (typeof globalThis.navigator !== 'undefined' && globalThis.navigator.userAgent === 'Cloudflare-Workers') ||
-        typeof globalThis.WebSocketPair !== 'undefined'
-    );
-}
-
 function isServerlessRuntime() {
-    return Boolean(process.env.VERCEL) || isCloudflareWorker();
+    return Boolean(process.env.VERCEL);
 }
 
 function isSandboxRuntime() {
@@ -193,7 +185,6 @@ module.exports = {
     FORBIDDEN_PRODUCTION_REFS,
     DEFAULT_SANDBOX_PROJECT_REF,
     getAllowedSandboxRefs,
-    isCloudflareWorker,
     isServerlessRuntime,
     isSandboxRuntime,
     isProductionSupabaseUrl,

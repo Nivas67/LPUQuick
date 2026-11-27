@@ -11,16 +11,11 @@ let globalSupabaseChannel = null;
 let statelessSupabaseChannel = null;
 
 function isStatelessServerless() {
-    return Boolean(
-        process.env.VERCEL ||
-        process.env.CLOUDFLARE_WORKERS ||
-        typeof globalThis.WebSocketPair !== 'undefined' ||
-        (typeof globalThis.navigator !== 'undefined' && globalThis.navigator.userAgent === 'Cloudflare-Workers')
-    );
+    return Boolean(process.env.VERCEL);
 }
 
 function getSupabaseRealtimeChannel() {
-    if (isStatelessServerless()) return null; // Serverless / Workers: avoid persistent WS connections at global/request scope
+    if (isStatelessServerless()) return null; // Serverless: avoid persistent WS connections at global/request scope
     if (globalSupabaseChannel) return globalSupabaseChannel;
     try {
         const supabase = getSupabaseClient();
@@ -36,7 +31,7 @@ function getSupabaseRealtimeChannel() {
     return globalSupabaseChannel;
 }
 
-// Proactively initialize Supabase Cloud persistent channel ONLY on persistent servers (never on Vercel Serverless or Cloudflare Workers)
+// Proactively initialize Supabase Cloud persistent channel ONLY on persistent servers (never on Vercel Serverless)
 if (!isStatelessServerless()) {
     getSupabaseRealtimeChannel();
 }

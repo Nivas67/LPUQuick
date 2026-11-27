@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const supabaseDb = require('../db/supabaseDb');
 
 /**
- * Resolve HMAC signing secret lazily so Cloudflare Worker env bindings work seamlessly.
+ * Resolve HMAC signing secret lazily so serverless env bindings work seamlessly.
  * Fails closed without any hardcoded secret fallback.
  */
 function getAdminSigningSecret() {

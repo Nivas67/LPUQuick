@@ -55,9 +55,6 @@ window.pages.signin = async function() {
             <!-- Status Banner -->
             <div id="auth-status-msg" class="hidden p-3 rounded-xl text-xs font-bold border text-left"></div>
 
-            <!-- Cloudflare Turnstile Widget Container -->
-            <div id="signin-turnstile-container" class="hidden flex justify-center min-h-[65px] py-1"></div>
-
             <!-- Google Sign-In Button (Tactile Clay Action) -->
             <div class="space-y-3 pt-1" id="custom-google-btn-wrapper">
                 <button class="clay-btn w-full h-12 rounded-2xl flex items-center justify-center gap-3 text-slate-900 dark:text-white font-black text-xs active:scale-95 transition-transform shadow-lg cursor-pointer group" type="button" id="btn-google">
@@ -101,10 +98,6 @@ window.pageInits.signin = function() {
         return;
     }
 
-    if (window.LpuQuickTurnstile) {
-        window.LpuQuickTurnstile.mount('signin-turnstile-container', { action: 'customer_signin' }).catch(() => {});
-    }
-
     const clientId = window.GOOGLE_CLIENT_ID || '632433440395-4ph6ghe311niied8h423ki98slbse8d2.apps.googleusercontent.com';
 
     function resetGoogleButton() {
@@ -143,21 +136,11 @@ window.pageInits.signin = function() {
         }
 
         try {
-            let turnstileToken = userData.turnstileToken || null;
-            if (!turnstileToken && window.LpuQuickTurnstile) {
-                const tsCheck = await window.LpuQuickTurnstile.ensureToken('signin-turnstile-container', { action: 'google_signin' });
-                turnstileToken = tsCheck.token;
-            }
-
             let res = null;
             try {
-                res = await window.api.googleAuth({ ...userData, turnstileToken });
+                res = await window.api.googleAuth(userData);
             } catch (networkErr) {
                 console.warn('[Google Auth Network Recovery]:', networkErr.message);
-            } finally {
-                if (window.LpuQuickTurnstile) {
-                    window.LpuQuickTurnstile.reset('signin-turnstile-container');
-                }
             }
 
             if (res && res.user && res.user.id) {
@@ -245,14 +228,6 @@ window.pageInits.signin = function() {
     // Google Sign-In Button Click Handler
     document.getElementById('btn-google')?.addEventListener('click', async () => {
         const btn = document.getElementById('btn-google');
-        if (window.LpuQuickTurnstile) {
-            try {
-                await window.LpuQuickTurnstile.ensureToken('signin-turnstile-container', { action: 'google_signin' });
-            } catch (tsErr) {
-                showStatusMessage(tsErr.message || 'Please complete the security check above first.', true);
-                return;
-            }
-        }
         if (btn) {
             btn.disabled = true;
             btn.innerHTML = `<span class="w-5 h-5 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin mr-2"></span> Connecting to Google...`;

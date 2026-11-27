@@ -37,7 +37,7 @@ function loadLocalBackup() {
 }
 
 function saveLocalBackup() {
-    if (process.env.VERCEL || process.env.CLOUDFLARE_WORKERS) return;
+    if (process.env.VERCEL) return;
     try {
         ensureDataDir();
         const obj = {};
@@ -68,48 +68,26 @@ function normalizeIp(ip) {
 }
 
 /**
- * Extract client IP reliably across Cloudflare, Vercel, Nginx, proxies, and local Express.
- * Prioritizes tamper-proof Cloudflare edge headers (CF-Connecting-IP, True-Client-IP) to prevent
- * X-Forwarded-For spoofing attacks.
+ * Extract client IP reliably across Vercel, Nginx, proxies, and local Express.
  */
 function extractClientIp(req) {
     if (!req) return '';
     const headers = req.headers || {};
 
-    // Under direct Vercel hosting, prioritize Vercel Edge forwarded headers; ignore client-spoofable CF headers unless explicitly behind CF proxy
-    if (process.env.VERCEL && process.env.TRUST_CLOUDFLARE_HEADERS !== '1') {
-        const vercelIp = headers['x-vercel-forwarded-for'];
-        if (vercelIp && typeof vercelIp === 'string' && vercelIp.trim()) {
-            const first = vercelIp.split(',')[0].trim();
-            if (first) return normalizeIp(first);
-        }
-
-        const realIp = headers['x-real-ip'];
-        if (realIp && typeof realIp === 'string' && realIp.trim()) {
-            return normalizeIp(realIp.trim());
-        }
-    }
-
-    // 1. Trusted Cloudflare Edge Real IP (when fronted by Cloudflare or in local proxy checks)
-    const cfIp = headers['cf-connecting-ip'] || headers['true-client-ip'];
-    if (cfIp && typeof cfIp === 'string' && cfIp.trim()) {
-        return normalizeIp(cfIp.trim());
-    }
-
-    // 2. Vercel Edge Forwarded IP
+    // 1. Vercel Edge Forwarded IP
     const vercelIp = headers['x-vercel-forwarded-for'];
     if (vercelIp && typeof vercelIp === 'string' && vercelIp.trim()) {
         const first = vercelIp.split(',')[0].trim();
         if (first) return normalizeIp(first);
     }
 
-    // 3. X-Real-IP set by trusted upstream Nginx load balancer
+    // 2. X-Real-IP set by trusted upstream Vercel / Nginx proxy
     const realIp = headers['x-real-ip'];
     if (realIp && typeof realIp === 'string' && realIp.trim()) {
         return normalizeIp(realIp.trim());
     }
 
-    // 4. Fallback: X-Forwarded-For
+    // 3. Fallback: X-Forwarded-For
     const forwarded = headers['x-forwarded-for'];
     if (forwarded && typeof forwarded === 'string') {
         const client = forwarded.split(',')[0].trim();

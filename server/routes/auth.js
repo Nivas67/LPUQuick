@@ -17,7 +17,6 @@ const {
     verifyPassword
 } = require('../services/securityService');
 const ipBlockService = require('../services/ipBlockService');
-const { verifyTurnstileMiddleware } = require('../services/turnstileService');
 const {
     issueCustomerSessionToken,
     setCustomerSessionCookie,
@@ -69,7 +68,7 @@ function sendAuthenticatedCustomerSession(res, req, user, opts = {}) {
 }
 
 // POST /api/auth/signup (Explicit student account registration)
-router.post('/signup', verifyTurnstileMiddleware({ action: 'customer_signup' }), async (req, res) => {
+router.post('/signup', async (req, res) => {
     const { name, email, password, phone } = req.body;
     if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
         return res.status(400).json({ error: 'Valid email and password are required' });
@@ -119,7 +118,7 @@ router.post('/signup', verifyTurnstileMiddleware({ action: 'customer_signup' }),
 });
 
 // POST /api/auth/signin (Strict verified email/password login — no auto-create on typo)
-router.post('/signin', verifyTurnstileMiddleware({ action: 'customer_signin' }), async (req, res) => {
+router.post('/signin', async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -186,7 +185,7 @@ router.post('/signin', verifyTurnstileMiddleware({ action: 'customer_signin' }),
 });
 
 // POST /api/auth/google
-router.post('/google', verifyTurnstileMiddleware({ action: 'google_signin' }), async (req, res) => {
+router.post('/google', async (req, res) => {
     try {
         let email = '';
         let name = '';
@@ -433,7 +432,7 @@ router.post('/update-address', async (req, res) => {
 });
 
 // POST /api/auth/admin-login (Secure administrator authentication)
-router.post('/admin-login', verifyTurnstileMiddleware({ action: 'admin_login' }), async (req, res) => {
+router.post('/admin-login', async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
@@ -733,7 +732,7 @@ async function sendRealSms(phone, otp) {
 }
 
 // POST /api/auth/send-otp (Secure WhatsApp OTP generation & delivery)
-router.post('/send-otp', verifyTurnstileMiddleware({ action: 'otp_request' }), async (req, res) => {
+router.post('/send-otp', async (req, res) => {
     const rawPhone = req.body.phone || req.body.mobile;
     const userId = req.body.userId || req.body.user_id;
 

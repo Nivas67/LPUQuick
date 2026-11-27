@@ -1,16 +1,14 @@
 -- ============================================================================
--- Non-Destructive Security Policy Rollback for Project: dzygsmgdzvroxepwyjyz
--- Preserves all application tables and rows while rolling back Turnstile
--- replay helper artifacts and strict PostgREST deny policies if ever required.
+-- Non-Destructive Security Policy Rollback for Project: vltnqvktdlpcltndmmwl
+-- Preserves all application tables and rows while rolling back added
+-- helper tables/functions and strict PostgREST deny policies if required.
 -- ============================================================================
 
 BEGIN;
 
 DROP FUNCTION IF EXISTS public.check_and_increment_rate_limit(TEXT, INTEGER, INTEGER, INTEGER);
-DROP FUNCTION IF EXISTS public.cleanup_expired_turnstile_tokens();
 DROP TABLE IF EXISTS public.auth_otp_challenges;
 DROP TABLE IF EXISTS public.security_rate_limits;
-DROP TABLE IF EXISTS public.turnstile_used_tokens;
 
 DO $$
 DECLARE

@@ -7,7 +7,6 @@ const cache = require('../cache');
 const checkoutSettingsService = require('../services/checkoutSettingsService');
 const orderModeService = require('../services/orderModeService');
 const { resolveRequestActor, isOwnerMatch } = require('../services/customerAuth');
-const { verifyTurnstileMiddleware } = require('../services/turnstileService');
 
 // In-Process Concurrency Mutex for Checkout Idempotency & Duplicate Order Prevention
 const checkoutLocks = new Map();
@@ -578,9 +577,7 @@ router.get('/settings', async (req, res) => {
     }
 });
 
-const checkoutTurnstileGuard = verifyTurnstileMiddleware({ action: 'checkout' });
-
-router.post('/', checkoutTurnstileGuard, handlePlaceOrder);
-router.post('/place', checkoutTurnstileGuard, handlePlaceOrder);
+router.post('/', handlePlaceOrder);
+router.post('/place', handlePlaceOrder);
 
 module.exports = router;

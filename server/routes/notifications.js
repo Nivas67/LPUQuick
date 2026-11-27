@@ -3,7 +3,6 @@ const router = express.Router();
 const pushService = require('../notifications/pushService');
 const { requireAdmin } = require('../middleware/adminAuth');
 const { resolveRequestActor, isOwnerMatch } = require('../services/customerAuth');
-const { verifyTurnstileMiddleware } = require('../services/turnstileService');
 
 // GET /api/notifications/vapid-public-key
 router.get('/vapid-public-key', (req, res) => {
@@ -43,7 +42,7 @@ router.post('/subscribe', requireAdmin, (req, res) => {
 });
 
 // POST /api/notifications/customer-subscribe
-router.post('/customer-subscribe', verifyTurnstileMiddleware({ action: 'customer_subscribe' }), async (req, res) => {
+router.post('/customer-subscribe', async (req, res) => {
     const { subscription, userId, userName, hostelId } = req.body;
     if (!subscription || !subscription.endpoint) {
         return res.status(400).json({ success: false, error: 'Valid push subscription object required' });

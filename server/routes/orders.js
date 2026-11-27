@@ -294,7 +294,7 @@ function resolveOrderCustomerName(order, user) {
     return 'Student';
 }
 
-// Memory fallback caches to protect against Cloudflare 522 / Supabase sleep stalls
+// Memory fallback caches to protect against transient gateway or Supabase sleep stalls
 let fallbackOrdersCache = [];
 let fallbackAnalyticsCache = null;
 

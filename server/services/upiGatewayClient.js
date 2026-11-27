@@ -272,10 +272,10 @@ function createUpiGatewayClient(defaultOverrides = {}) {
             if (response.status === 522 || response.status === 502 || response.status === 503 || response.status === 504) {
                 throw new GatewayError(
                     response.status === 522
-                        ? 'Payment gateway connection timed out (Cloudflare 522). Please try again shortly.'
+                        ? 'Payment gateway connection timed out (HTTP 522). Please try again shortly.'
                         : `Payment gateway temporarily unavailable (HTTP ${response.status}).`,
                     {
-                        code: response.status === 522 ? 'GATEWAY_CLOUDFLARE_522' : 'GATEWAY_UNAVAILABLE',
+                        code: response.status === 522 ? 'GATEWAY_TIMEOUT_522' : 'GATEWAY_UNAVAILABLE',
                         statusCode: 503,
                         retryable: true
                     }

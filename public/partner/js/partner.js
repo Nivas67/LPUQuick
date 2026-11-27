@@ -23,9 +23,6 @@ document.addEventListener('DOMContentLoaded', () => {
 function showAuthView() {
     document.getElementById('partner-auth-view').classList.remove('hidden');
     document.getElementById('partner-dashboard-view').classList.add('hidden');
-    if (window.LpuQuickTurnstile) {
-        window.LpuQuickTurnstile.mount('partner-turnstile-container', { action: 'partner_login', theme: 'light' }).catch(() => {});
-    }
 }
 
 function showDashboardView() {
@@ -90,19 +87,10 @@ async function handlePartnerLogin(e) {
     btn.innerHTML = `<span class="inline-block animate-spin mr-2">◌</span> Verifying credentials...`;
 
     try {
-        let turnstileToken = null;
-        if (window.LpuQuickTurnstile) {
-            const tsCheck = await window.LpuQuickTurnstile.ensureToken('partner-turnstile-container', { action: 'partner_login', theme: 'light' });
-            turnstileToken = tsCheck.token;
-        }
-
-        const headers = { 'Content-Type': 'application/json' };
-        if (turnstileToken) headers['x-turnstile-token'] = turnstileToken;
-
         const res = await fetch('/api/partner/login', {
             method: 'POST',
-            headers,
-            body: JSON.stringify({ email, password, turnstileToken: turnstileToken || undefined })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
         });
         const data = await res.json();
 
@@ -118,9 +106,6 @@ async function handlePartnerLogin(e) {
         errText.textContent = err.message;
         errBox.classList.remove('hidden');
     } finally {
-        if (window.LpuQuickTurnstile) {
-            window.LpuQuickTurnstile.reset('partner-turnstile-container');
-        }
         btn.disabled = false;
         btn.innerHTML = `<span>Sign In to Dashboard</span><span class="material-symbols-outlined text-sm">arrow_forward</span>`;
     }

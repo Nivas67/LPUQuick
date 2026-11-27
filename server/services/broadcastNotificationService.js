@@ -114,7 +114,7 @@ function persistCampaigns() {
             }]).then(() => {}).catch(() => {});
         }
     } catch (e) {}
-    if (process.env.VERCEL || process.env.CLOUDFLARE_WORKERS) {
+    if (process.env.VERCEL) {
         try {
             const tmpFile = path.join(require('os').tmpdir(), 'broadcast_campaigns.json');
             fs.writeFileSync(tmpFile, JSON.stringify(campaigns, null, 2));
@@ -350,7 +350,7 @@ class BroadcastNotificationService {
     }
 
     initScheduler() {
-        // Skip perpetual background timer on Vercel / Cloudflare Workers (lazy check runs on API reads instead)
+        // Skip perpetual background timer on Vercel serverless (lazy check runs on API reads instead)
         if (isServerlessRuntime()) return;
         // Check for scheduled campaigns every 30 seconds
         const timer = setInterval(() => {
