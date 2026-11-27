@@ -19,7 +19,7 @@ public class MainActivity extends AppCompatActivity {
 
     private WebView mWebView;
     private SwipeRefreshLayout mSwipeRefresh;
-    private static final String APP_URL = "https://lpu-quick.vercel.app/?app=android";
+    private static final String APP_URL = "https://lpuquick.in/?app=android";
 
     public static class WebAppInterface {
         @JavascriptInterface
@@ -29,7 +29,7 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public String getAppVersion() {
-            return "1.0.0";
+            return "1.0.1";
         }
     }
 
@@ -60,7 +60,7 @@ public class MainActivity extends AppCompatActivity {
         // Identify this WebView to the web app so all install options are removed
         String defaultUa = settings.getUserAgentString();
         if (defaultUa != null && !defaultUa.contains("LPUQuickAndroidApp")) {
-            settings.setUserAgentString(defaultUa + " LPUQuickAndroidApp/1.0.0 (Android Native)");
+            settings.setUserAgentString(defaultUa + " LPUQuickAndroidApp/1.0.1 (Android Native)");
         }
 
         // Bridge for native detection
